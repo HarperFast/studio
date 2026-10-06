@@ -40,6 +40,23 @@ function overageDetail(topUps: number, since: string | null, renewsAt: string | 
 	].join(' · ');
 }
 
+/** The cluster's cost this cycle so far as the page's headline figure, the plan and overage beneath it. */
+export function ClusterCycleCost(
+	{ usage }: { usage: { planUsd?: number; overageUsd?: number; cycleUsd?: number } },
+) {
+	if (!((usage.cycleUsd ?? 0) > 0)) { return null; }
+	const overage = usage.overageUsd ?? 0;
+	return (
+		<section aria-label="This cycle so far" className="mt-4 rounded-xl border border-border bg-muted/30 px-5 py-4">
+			<p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">This cycle so far</p>
+			<p className="mt-1 text-3xl font-light text-foreground tabular-nums">{toUSD(usage.cycleUsd ?? 0)}</p>
+			<p className="mt-1 text-sm text-muted-foreground">
+				{toUSD(usage.planUsd ?? 0)} plan{overage > 0 ? ` + ${toUSD(overage)} overage, billed at renewal` : ''}
+			</p>
+		</section>
+	);
+}
+
 export function cycleCostSummary(
 	{ cycleUsd, overageUsd }: { cycleUsd?: number; overageUsd?: number },
 ): string | null {
