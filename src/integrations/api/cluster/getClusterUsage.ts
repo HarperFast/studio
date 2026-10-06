@@ -91,6 +91,19 @@ export interface ClusterUsageRegion {
 	nonBillableBlockCount?: number;
 	/** Blocks with no invoice id and no stamp: billable, invoicing simply has not run yet. */
 	uninvoicedBlockCount?: number;
+	/**
+	 * What the region costs for the period in force, in USD (HarperFast/central-manager#895): the plan's
+	 * blocks, the overage its top-ups have drawn so far, and the two together. A block that is never
+	 * billed (comped, contracted, trial) counts nothing, so 0 means there is nothing to charge. Absent
+	 * from a server that predates them.
+	 */
+	planUsd?: number;
+	overageUsd?: number;
+	cycleUsd?: number;
+	/** This cycle's top-ups: blocks minted after the plan's own ran out, billed at renewal. */
+	topUpCount?: number;
+	/** When the first of them was minted. */
+	overageSince?: string | null;
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
@@ -114,6 +127,10 @@ export interface ClusterUsage {
 	totals: UsageTotals | null;
 	mostConstrained: MostConstrained | null;
 	regions: ClusterUsageRegion[];
+	/** The regions' amounts summed; see ClusterUsageRegion. */
+	planUsd?: number;
+	overageUsd?: number;
+	cycleUsd?: number;
 }
 
 export function getClusterUsageQueryOptions(clusterId?: string) {
