@@ -4,6 +4,7 @@ import { ConfirmSetupIntent } from './confirm/ConfirmSetupIntent';
 import { OrgBillingIndex } from './index';
 import { Invoices } from './invoices/Invoices';
 import { PaymentMethodsDisplay } from './paymentMethod/PaymentMethodsDisplay';
+import { PromoCodes } from './promoCodes/PromoCodes';
 
 export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 	const rootRoute = createRoute({
@@ -24,6 +25,12 @@ export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 		head: () => ({ meta: [{ title: 'Invoices — Harper Fabric' }] }),
 		component: Invoices,
 	});
+	const promoCodesRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: 'promo-codes',
+		head: () => ({ meta: [{ title: 'Promo Codes — Harper Fabric' }] }),
+		component: PromoCodes,
+	});
 	const confirmRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: 'confirm',
@@ -34,6 +41,7 @@ export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 	return rootRoute.addChildren([
 		paymentMethodsRoute,
 		invoicesRoute,
+		promoCodesRoute,
 		confirmRoute,
 	]);
 }
