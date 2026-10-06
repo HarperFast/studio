@@ -39,7 +39,6 @@ function renderStep(clusterId?: string) {
 	);
 }
 
-// In an unrestricted organization only the cluster staff moved onto paid terms goes through the card.
 describe('ClusterBilling in an unrestricted organization', () => {
 	it('reminds a contracted cluster of its contract', async () => {
 		renderStep('clu-contract');
