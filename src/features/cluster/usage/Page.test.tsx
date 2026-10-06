@@ -419,3 +419,64 @@ describe('UsagePage — what the cycle costs so far', () => {
 		expect(total.getByText('$500.00 plan + $85.00 overage, billed at renewal')).toBeTruthy();
 	});
 });
+
+describe('UsagePage — what the overage is and what caused it', () => {
+	const explained = (over: Partial<ClusterUsageRegion> = {}) =>
+		region({
+			planUsd: 500,
+			overageUsd: 127.5,
+			cycleUsd: 627.5,
+			topUpCount: 3,
+			overageSince: '2026-07-10T12:00:00.000Z',
+			overageCause: { metric: 'reads', ranOutAt: '2026-07-10T12:00:00.000Z' },
+			topUps: [
+				{ createdAt: '2026-07-10T12:00:00.000Z', usedShare: 1, chargeUsd: 85 },
+				{ createdAt: '2026-07-20T12:00:00.000Z', usedShare: 0.5, chargeUsd: 42.5 },
+				{ createdAt: '2026-07-25T12:00:00.000Z', usedShare: 0, chargeUsd: 0 },
+			],
+			...over,
+		});
+	const lines = () =>
+		within(screen.getByRole('list', { name: 'Extra capacity' })).getAllByRole('listitem').map((item) =>
+			item.textContent
+		);
+
+	it('says which allowance ran out and when, and how the extra capacity is charged', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [explained()] }), isLoading: false });
+		render(<UsagePage />);
+		// Dates render in the viewer's timezone, so the day is not pinned.
+		expect(
+			screen.getByText(
+				/^Your plan.s Reads allowance ran out on Jul \d{1,2}\. Your cluster kept running on extra capacity, charged at your plan.s rate for the share of it you use, and billed at renewal on Aug \d{1,2}\.$/,
+			),
+		).toBeTruthy();
+	});
+
+	it('lists each block of extra capacity with how much of it was used and what it cost', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [explained()] }), isLoading: false });
+		render(<UsagePage />);
+		const listed = lines();
+		expect(listed).toHaveLength(3);
+		expect(listed[0]).toMatch(/^Jul \d{1,2} · extra capacity, fully used\$85\.00$/);
+		expect(listed[1]).toMatch(/^Jul \d{1,2} · extra capacity, 50% used\$42\.50$/);
+		expect(listed[2]).toMatch(/^Jul \d{1,2} · extra capacity, not used\$0\.00$/);
+	});
+
+	it('flags the meter that ran out', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [explained()] }), isLoading: false });
+		render(<UsagePage />);
+		const flag = screen.getByText(/^ran out Jul \d{1,2}$/);
+		expect(flag.parentElement?.textContent).toMatch(/^Reads/);
+		expect(screen.getAllByText(/^ran out /)).toHaveLength(1);
+	});
+
+	it('still explains the overage when the meter is not known', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [explained({ overageCause: { metric: null, ranOutAt: '2026-07-10T12:00:00.000Z' } })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.getByText(/^Your plan.s allowance ran out on Jul \d{1,2}\./)).toBeTruthy();
+		expect(screen.queryByText(/^ran out /)).toBeNull();
+	});
+});
