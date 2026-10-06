@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { PromoRedemptionView } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
@@ -38,6 +39,8 @@ function describeValue(redemption: PromoRedemptionView) {
 }
 
 function describeBalance(redemption: PromoRedemptionView) {
+	if (redemption.status === 'CLAIMED') { return 'Being added…'; }
+	if (redemption.status === 'FAILED') { return 'Didn’t go through — redeem the code again'; }
 	if (redemption.kind === 'credit') {
 		if (redemption.status === 'EXPIRED') { return 'Expired'; }
 		if (redemption.remainingCents == null) { return '—'; }
@@ -52,16 +55,13 @@ function useByDate(redemption: PromoRedemptionView) {
 	return iso ? formatDay(iso) : '—';
 }
 
-/**
- * Billing → Promo codes: redeem a code, and see what each redeemed code still gives. Credit comes off
- * the org's invoices automatically, top-ups included; a voucher waits in the create-cluster form.
- */
+/** Billing → Promo codes: redeem a code, and see what each redeemed code still gives. */
 export function PromoCodes() {
 	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const queryClient = useQueryClient();
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const unrestricted = isUnrestrictedOrgType(organization?.type);
-	const { data: redemptions, isLoading } = useQuery({
+	const { data: redemptions, isLoading, isError } = useQuery({
 		...getPromoRedemptionsQueryOptions(organizationId),
 		enabled: !!organizationId && !!organization && !unrestricted,
 	});
@@ -81,13 +81,17 @@ export function PromoCodes() {
 							return;
 						}
 						form.reset({ code: '' });
-						// The org query carries unboundGrants, which is where a voucher shows up on create.
 						void queryClient.invalidateQueries({ queryKey: [organizationId] });
 						toast.success('Code redeemed', {
 							description: result.kind === 'credit'
 								? 'The credit comes off your next invoices automatically.'
 								: 'Your free cluster is ready. Choose it when you create a cluster.',
 						});
+					},
+					// A timeout or 5xx may still have redeemed the code, so the list is refreshed either way.
+					onError: (error) => {
+						form.setError('code', { message: describeError(error).message });
+						void queryClient.invalidateQueries({ queryKey: [organizationId] });
 					},
 				},
 			);
@@ -135,6 +139,8 @@ export function PromoCodes() {
 				<h2 className="text-lg">Your codes</h2>
 				{isLoading
 					? <Loading />
+					: isError
+					? <p className="text-sm text-destructive">Your codes couldn&rsquo;t be loaded. Try again shortly.</p>
 					: !redemptions?.length
 					? <p className="text-sm text-muted-foreground">You haven&rsquo;t redeemed a code yet.</p>
 					: (
