@@ -171,6 +171,6 @@ export function usageSubtitle(data: ClusterUsage, { trial = false }: { trial?: b
 	].filter(Boolean).join(' · ');
 }
 
-function formatCycleDate(iso: string): string {
+export function formatCycleDate(iso: string): string {
 	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
 }

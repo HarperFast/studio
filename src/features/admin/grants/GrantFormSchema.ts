@@ -118,7 +118,7 @@ export const CreateGrantSchema = z
 		startsAt: z.string(),
 		endsAt: z.string(),
 		expiryPolicy: z.string(),
-		/** The one cluster a comp is for. Required on comped; the server refuses it on anything else. */
+		/** The one cluster a comp is for: required on an unbound comp, read from the cluster on a bound one, refused on any other source. */
 		shape: z.array(ShapeRowSchema),
 		// Trial scoping. Empty is unrestricted, which is what the server stores as null. No length
 		// rule here: the server refuses an empty array, and the form never sends one.
