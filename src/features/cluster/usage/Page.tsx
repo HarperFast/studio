@@ -1,4 +1,5 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
+import { cycleCostSummary, RegionCycleCost } from '@/features/cluster/components/CycleCost';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import { useClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
@@ -34,10 +35,13 @@ export function UsagePage() {
 	// Rate limits + per-instance resources are usually identical across a cluster's regions (same plan),
 	// so when they're uniform we show them once in a shared card instead of repeating them per region.
 	const shared = data && !data.selfManaged ? uniformPlanInfo(data.regions) : null;
+	// One region already shows its own total; the cluster's adds something only across several.
+	const clusterCost = data && !data.selfManaged && data.regions.length > 1 ? cycleCostSummary(data) : null;
 
 	return (
 		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
 			<h1 className="text-2xl font-light text-foreground">Usage</h1>
+			{clusterCost && <p className="mt-1 text-sm text-muted-foreground">{clusterCost}</p>}
 			{!data
 				? <LoadError />
 				: data.selfManaged
@@ -105,6 +109,7 @@ function RegionSection(
 			<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
 				{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
 			</div>
+			<RegionCycleCost region={region} />
 			{showPlanInfo && <PlanInfo rateLimits={region.rateLimits} resourcesPerInstance={region.resourcesPerInstance} />}
 		</CollapsibleCard>
 	);
