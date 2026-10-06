@@ -23,23 +23,36 @@ vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 
 let redemptions: PromoRedemptionView[] = [];
 const redeem = vi.fn();
+let listFails = false;
 vi.mock('./promoCodeApi', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./promoCodeApi')>()),
 	getPromoRedemptionsQueryOptions: (orgId: string) => ({
 		queryKey: [orgId, 'promoRedemptions', JSON.stringify(redemptions)],
-		queryFn: async () => redemptions,
+		queryFn: async () => {
+			if (listFails) { throw new Error('down'); }
+			return redemptions;
+		},
 		retry: false,
 	}),
 	useRedeemPromoCode: () => ({
 		isPending: false,
-		mutate: (variables: unknown, options: { onSuccess: (result: unknown) => void }) =>
-			options.onSuccess(redeem(variables)),
+		mutate: (
+			variables: unknown,
+			options: { onSuccess: (result: unknown) => void; onError: (error: unknown) => void },
+		) => {
+			try {
+				options.onSuccess(redeem(variables));
+			} catch (error) {
+				options.onError(error);
+			}
+		},
 	}),
 }));
 
 afterEach(() => {
 	cleanup();
 	redemptions = [];
+	listFails = false;
 	orgType = 'SELF_SERVICE';
 	redeem.mockReset();
 });
@@ -105,6 +118,47 @@ describe('PromoCodes', () => {
 		fireEvent.change(input, { target: { value: 'WELCOME100' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Redeem' }));
 		await waitFor(() => expect((input as HTMLInputElement).value).toBe(''));
+	});
+
+	it('says a redemption is still being added, or did not go through, instead of calling it ready', async () => {
+		redemptions = [
+			{
+				code: 'LAUNCH-30DAYS',
+				kind: 'voucher',
+				status: 'CLAIMED',
+				redeemedAt: '2026-10-02T00:00:00Z',
+				shape: [{ planId: 'hobbyist', regionId: 'us-east' }],
+			},
+			{
+				code: 'WELCOME100',
+				kind: 'credit',
+				status: 'FAILED',
+				redeemedAt: '2026-10-01T00:00:00Z',
+				creditCents: 10_000,
+				creditExpiresAt: '2026-12-30T00:00:00Z',
+			},
+		];
+		renderPage();
+		expect(await screen.findByText('Being added…')).toBeTruthy();
+		expect(screen.getByText(/redeem the code again/)).toBeTruthy();
+		expect(screen.queryByText('Ready to use')).toBeNull();
+	});
+
+	it('shows a failure the server never answered under the field', async () => {
+		redeem.mockImplementation(() => {
+			throw new Error('timeout of 60000ms exceeded');
+		});
+		renderPage();
+		fireEvent.change(await screen.findByPlaceholderText('e.g. WELCOME100'), { target: { value: 'WELCOME100' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Redeem' }));
+		expect(await screen.findByText(/timeout/)).toBeTruthy();
+	});
+
+	it('says the list failed rather than that nothing was redeemed', async () => {
+		listFails = true;
+		renderPage();
+		expect(await screen.findByText(/couldn’t be loaded/)).toBeTruthy();
+		expect(screen.queryByText(/haven’t redeemed/)).toBeNull();
 	});
 
 	it('tells an organization billed by contract that codes do not apply', async () => {

@@ -7,9 +7,8 @@ import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query
 const PROMO_CODES_PATH = '/Admin/PromoCode/' as unknown as keyof paths;
 const promoCodePath = (id: string) => `/Admin/PromoCode/${encodeURIComponent(id)}` as unknown as keyof paths;
 
-export const promoCodesQueryKey = ['fabric-admin', 'promoCodes'];
+const promoCodesQueryKey = ['fabric-admin', 'promoCodes'];
 
-/** GET /Admin/PromoCode → every code the account may read (billing:read for credit, grant:read for vouchers), with totals. */
 export function getPromoCodesQueryOptions() {
 	return queryOptions({
 		queryKey: promoCodesQueryKey,
@@ -54,6 +53,8 @@ export function useSetPromoCodeDisabled() {
 			const { data } = await apiClient.patch(promoCodePath(id), { disabled } as never);
 			return data as unknown as AdminPromoCode;
 		},
+		// The page toasts the failure itself.
+		meta: { skipGlobalErrorToast: true },
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: promoCodesQueryKey }),
 	});
 }
