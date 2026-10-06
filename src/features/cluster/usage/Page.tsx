@@ -85,7 +85,11 @@ export function UsagePage() {
 function RegionSection(
 	{ region, showPlanInfo, trial }: { region: ClusterUsageRegion; showPlanInfo: boolean; trial: boolean },
 ) {
-	const meters = METERED_ORDER.map((key) => toMeter(key, region.metrics[key]));
+	const cause = region.overageCause;
+	const meters = METERED_ORDER.map((key) => ({
+		...toMeter(key, region.metrics[key]),
+		note: cause?.metric === key && cause.ranOutAt ? `ran out ${fmtDate(cause.ranOutAt)}` : undefined,
+	}));
 	const meta = [
 		region.planName ? `${region.planName} plan` : null,
 		region.status === 'exhausted'
