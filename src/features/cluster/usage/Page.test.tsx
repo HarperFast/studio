@@ -319,3 +319,74 @@ describe('UsagePage', () => {
 		expect(container.querySelector('.animate-spin')).toBeTruthy();
 	});
 });
+
+describe('UsagePage — what the cycle costs so far', () => {
+	const billed = (over: Partial<ClusterUsageRegion> = {}) =>
+		region({
+			planUsd: 500,
+			overageUsd: 85,
+			cycleUsd: 585,
+			topUpCount: 2,
+			overageSince: '2026-07-10T12:00:00.000Z',
+			...over,
+		});
+	// The breakdown is a <dl>: the amount sits in the <dd> beside its label.
+	const amountBeside = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
+
+	it('shows the total with the plan and the overage broken out, and when the overage is billed', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [billed()] }), isLoading: false });
+		render(<UsagePage />);
+		expect(amountBeside('This cycle so far')).toBe('$585.00');
+		expect(amountBeside('Plan')).toBe('$500.00');
+		expect(amountBeside('Overage')).toBe('$85.00');
+		// Dates render in the viewer's timezone, so the day is not pinned.
+		expect(screen.getByText(/^2 top-ups since Jul \d{1,2} · billed at renewal on Aug \d{1,2}$/)).toBeTruthy();
+	});
+
+	it('shows no overage line before the block runs out', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [billed({ overageUsd: 0, cycleUsd: 500, topUpCount: 0, overageSince: null })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(amountBeside('This cycle so far')).toBe('$500.00');
+		expect(screen.queryByText('Overage')).toBeNull();
+	});
+
+	it.each([
+		['a region that is never billed (comped, contracted, trial)', {
+			planUsd: 0,
+			overageUsd: 0,
+			cycleUsd: 0,
+			topUpCount: 1,
+		}],
+		['a server that predates the amounts', {}],
+	])('shows no dollars for %s', (_why, over) => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [region(over)] }), isLoading: false });
+		render(<UsagePage />);
+		expect(screen.queryByText('This cycle so far')).toBeNull();
+		expect(screen.queryByText(/\$/)).toBeNull();
+	});
+
+	it("adds the cluster's total under the heading only across several regions", () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [billed()], planUsd: 500, overageUsd: 85, cycleUsd: 585 }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.queryByText(/this cycle so far,/)).toBeNull();
+		cleanup();
+
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [billed(), billed({ region: 'Europe', regionIds: ['eu-1'] })],
+				planUsd: 1000,
+				overageUsd: 170,
+				cycleUsd: 1170,
+			}),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.getByText('$1,170.00 this cycle so far, $170.00 of it overage')).toBeTruthy();
+	});
+});
