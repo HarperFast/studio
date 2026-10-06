@@ -1,3 +1,4 @@
+import { METRIC_LABEL } from '@/features/cluster/components/UsageMeter';
 import { type ClusterUsageRegion, formatCycleDate } from '@/integrations/api/cluster/getClusterUsage';
 import { toUSD } from '@/lib/toUSD';
 
@@ -24,13 +25,52 @@ export function RegionCycleCost({ region }: { region: ClusterUsageRegion }) {
 						<dt>Overage</dt>
 						<dd className="tabular-nums">{toUSD(region.overageUsd ?? 0)}</dd>
 					</div>
-					<p className="mt-1.5 text-xs text-muted-foreground">
-						{overageDetail(topUps, region.overageSince ?? null, region.expiresAt)}
-					</p>
+					{region.topUps
+						? <OverageExplained region={region} />
+						: (
+							<p className="mt-1.5 text-xs text-muted-foreground">
+								{overageDetail(topUps, region.overageSince ?? null, region.expiresAt)}
+							</p>
+						)}
 				</>
 			)}
 		</dl>
 	);
+}
+
+/** What the overage is, what ran out, and what each block of extra capacity has cost so far. */
+function OverageExplained({ region }: { region: ClusterUsageRegion }) {
+	const cause = region.overageCause;
+	const meter = cause?.metric ? `${METRIC_LABEL[cause.metric]} ` : '';
+	const ranOutAt = cause?.ranOutAt ?? region.overageSince ?? null;
+	return (
+		<div className="mt-2 text-xs text-muted-foreground">
+			<p>
+				Your plan&rsquo;s{' '}
+				{meter}allowance ran out{ranOutAt ? ` on ${formatCycleDate(ranOutAt)}` : ''}. Your cluster kept running on extra
+				capacity, charged at your plan&rsquo;s rate for the share of it you use, and billed at renewal{region.expiresAt
+					? ` on ${formatCycleDate(region.expiresAt)}`
+					: ''}.
+			</p>
+			<ul aria-label="Extra capacity" className="mt-1.5 space-y-0.5">
+				{(region.topUps ?? []).map((topUp, index) => (
+					<li key={`${topUp.createdAt}-${index}`} className="flex items-baseline justify-between gap-3">
+						<span>
+							{topUp.createdAt ? `${formatCycleDate(topUp.createdAt)} · ` : ''}extra capacity,{' '}
+							{shareUsed(topUp.usedShare)}
+						</span>
+						<span className="tabular-nums">{toUSD(topUp.chargeUsd)}</span>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
+function shareUsed(share: number): string {
+	if (share >= 1) { return 'fully used'; }
+	if (!(share > 0)) { return 'not used'; }
+	return `${Math.max(1, Math.round(share * 100))}% used`;
 }
 
 function overageDetail(topUps: number, since: string | null, renewsAt: string | null): string {
