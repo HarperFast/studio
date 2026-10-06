@@ -19,7 +19,11 @@ export function isUnrestrictedOrgType(type: string | null | undefined): boolean 
 
 interface TermsOrganization {
 	type?: string | null;
-	clusters?: ReadonlyArray<{ id?: string | null; commercialSource?: string | null }> | null;
+	clusters?:
+		| ReadonlyArray<
+			{ id?: string | null; commercialSource?: string | null; grant?: { source?: string | null } | null }
+		>
+		| null;
 }
 
 /**
@@ -33,8 +37,13 @@ export function onContractedTerms(organization: TermsOrganization | null | undef
 	return cluster?.commercialSource !== 'purchased';
 }
 
-/** Whether Stripe bills the organization for anything, now or before: whenever a cluster of it is or was on paid terms. */
+/**
+ * Whether Stripe bills the organization for anything, now or before: a cluster moved onto paid terms, or
+ * one paid for before the organization became unrestricted.
+ */
 export function billedThroughStripe(organization: TermsOrganization | null | undefined): boolean {
 	if (!isUnrestrictedOrgType(organization?.type)) { return true; }
-	return (organization?.clusters ?? []).some((cluster) => cluster.commercialSource === 'purchased');
+	return (organization?.clusters ?? []).some((cluster) =>
+		cluster.commercialSource === 'purchased' || cluster.grant?.source === 'purchased'
+	);
 }
