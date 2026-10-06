@@ -55,25 +55,11 @@ const grantsRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/grants/index'), 'GrantsAdminIndex'),
 });
 
-const usersRoute = createRoute({
+const promoCodesRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
-	path: 'users',
-	head: () => ({ meta: [{ title: 'Users — Harper Fabric' }] }),
-	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersAdminLayout'),
-});
-
-const usersIndexRoute = createRoute({
-	getParentRoute: () => usersRoute,
-	path: '/',
-	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersSearchPrompt'),
-});
-
-// Keyed by id, never by email: page URLs reach RUM and third-party pixels.
-const userDetailsRoute = createRoute({
-	getParentRoute: () => usersRoute,
-	path: '$userId',
-	head: () => ({ meta: [{ title: 'User — Harper Fabric' }] }),
-	component: lazyRouteComponent(async () => import('@/features/admin/users/UserDetails'), 'UserDetailsPage'),
+	path: 'promo-codes',
+	head: () => ({ meta: [{ title: 'Promo Codes — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/promoCodes/index'), 'PromoCodesAdminIndex'),
 });
 
 const configurationRoute = createRoute({
@@ -112,6 +98,7 @@ export const adminRoutes = [
 	regionsRoute,
 	plansRoute,
 	grantsRoute,
+	promoCodesRoute,
 	billingRoute,
 	apiTokenRoute,
 ];
