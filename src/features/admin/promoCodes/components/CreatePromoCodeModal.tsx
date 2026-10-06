@@ -13,6 +13,7 @@ import { CreatePromoCodeBody, useCreatePromoCode } from '@/features/admin/promoC
 import {
 	CreatePromoCodeSchema,
 	CreatePromoCodeValues,
+	endOfDay,
 	MAX_CREDIT_DOLLARS,
 } from '@/features/admin/promoCodes/PromoCodeFormSchema';
 import { AdminPromoCode, PromoKind } from '@/integrations/api/api.patch';
@@ -22,14 +23,11 @@ import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-/** A date input names a day; the code stays redeemable to the end of it, in the creator's time zone. */
-const endOfDay = (day: string) => new Date(`${day}T23:59:59.999`).toISOString();
-
 export function toCreateBody(values: CreatePromoCodeValues): CreatePromoCodeBody {
 	return {
 		...(values.code ? { code: values.code.toUpperCase() } : {}),
 		kind: values.kind,
-		redeemBy: endOfDay(values.redeemBy),
+		redeemBy: endOfDay(values.redeemBy).toISOString(),
 		...(values.maxRedemptions ? { maxRedemptions: Number(values.maxRedemptions) } : {}),
 		...(values.kind === 'credit'
 			? { creditCents: Math.round(Number(values.creditDollars) * 100), creditValidDays: Number(values.creditValidDays) }
@@ -42,8 +40,9 @@ export function toCreateBody(values: CreatePromoCodeValues): CreatePromoCodeBody
 }
 
 /**
- * Create a promo code. Rendered only while open (with a fresh key), so a re-open starts clean. A staff
- * account only sees the kinds its permissions let it create: billing:write for credit, grant:write for vouchers.
+ * Create a promo code. Only the kinds the account may write are offered: billing:write for credit,
+ * grant:write for vouchers. The dialog cannot close while a create is in flight: closing would drop the
+ * response, which is the only place a generated code is shown.
  */
 export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 	kinds: PromoKind[];
@@ -85,7 +84,7 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !isPending && onClose()}>
 			<DialogContent className="max-w-lg">
 				<DialogTitle>Create promo code</DialogTitle>
 				<DialogDescription>
