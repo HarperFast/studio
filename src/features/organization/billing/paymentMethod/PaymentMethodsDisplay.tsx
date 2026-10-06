@@ -42,7 +42,10 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		}
 	}, [onReplacingPaymentMethod, refetch]);
 
-	if (isUnrestrictedOrgType(organization?.type)) {
+	// A contract bills an unrestricted organization's clusters, but one moved onto paid terms is charged to
+	// the card, and the card has to be on file before staff can move it.
+	const contracted = isUnrestrictedOrgType(organization?.type);
+	if (contracted && !paymentMethod && !update) {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this page.
@@ -51,9 +54,17 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		);
 	}
 
+	const contractNote = contracted && (
+		<p className="mt-2 text-sm text-muted-foreground">
+			Your clusters are billed by your contract. A card here is charged only for a cluster your account team moves onto
+			paid terms.
+		</p>
+	);
+
 	if (paymentMethod && !replacingPaymentMethod) {
 		return (
 			<>
+				{contractNote}
 				<div className="mt-2">
 					{paymentMethod.brand?.toUpperCase() ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
 					{(paymentMethod.expMonth && paymentMethod.expYear)
@@ -90,9 +101,12 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	}
 
 	return (
-		<AddNewPaymentMethod
-			onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-			onPaymentAdded={onPaymentAdded}
-		/>
+		<>
+			{contractNote}
+			<AddNewPaymentMethod
+				onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+				onPaymentAdded={onPaymentAdded}
+			/>
+		</>
 	);
 }
