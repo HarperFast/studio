@@ -50,5 +50,8 @@ describe('billedThroughStripe', () => {
 		expect(billedThroughStripe({ type: ENTERPRISE, clusters: [{ commercialSource: null }] })).toBe(false);
 		expect(billedThroughStripe({ type: ENTERPRISE, clusters: [{ commercialSource: 'purchased' }] })).toBe(true);
 		expect(billedThroughStripe({ type: UNRESTRICTED })).toBe(false);
+		// Paid for before the organization signed a contract.
+		expect(billedThroughStripe({ type: UNRESTRICTED, clusters: [{ grant: { source: 'purchased' } }] })).toBe(true);
+		expect(billedThroughStripe({ type: UNRESTRICTED, clusters: [{ grant: { source: 'contracted' } }] })).toBe(false);
 	});
 });
