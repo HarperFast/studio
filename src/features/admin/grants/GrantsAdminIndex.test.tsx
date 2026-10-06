@@ -42,7 +42,6 @@ vi.mock('./queries/getGrants', () => ({
 		retry: false,
 	}),
 }));
-// The org's type decides whether its clusters can be switched to paid; unset is a CM that omits it.
 let orgType: string | undefined;
 vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOriginal) => ({
 	...(await importOriginal<object>()),
