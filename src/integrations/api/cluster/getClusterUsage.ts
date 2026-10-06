@@ -104,6 +104,10 @@ export interface ClusterUsageRegion {
 	topUpCount?: number;
 	/** When the first of them was minted. */
 	overageSince?: string | null;
+	/** The meter that ran the plan's allowance out, and when; null without overage. */
+	overageCause?: { metric: UsageMetricKey | null; ranOutAt: string | null } | null;
+	/** Each top-up in mint order: the share of it used and its charge, which sum to `overageUsd`. */
+	topUps?: Array<{ createdAt: string | null; usedShare: number; chargeUsd: number }>;
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
