@@ -302,8 +302,11 @@ export type PromoKind = 'credit' | 'voucher';
 export interface PromoRedemptionView {
 	code: string;
 	kind: PromoKind;
-	/** CLAIMED only while a redemption is still landing; EXPIRED is a credit whose use-by date passed. */
-	status: 'CLAIMED' | 'APPLIED' | 'EXPIRED';
+	/**
+	 * CLAIMED while a redemption is still landing; FAILED when it never did (redeeming the code again resumes
+	 * it); EXPIRED is a credit whose use-by date passed.
+	 */
+	status: 'CLAIMED' | 'APPLIED' | 'EXPIRED' | 'FAILED';
 	redeemedAt: string;
 	creditCents?: number;
 	creditExpiresAt?: string;
