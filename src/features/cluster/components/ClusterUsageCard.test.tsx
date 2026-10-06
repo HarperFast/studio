@@ -199,4 +199,16 @@ describe('ClusterUsageCard', () => {
 			cleanup();
 		}
 	});
+
+	it("states the cluster's cost this cycle so far, overage included", () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ planUsd: 500, overageUsd: 85, cycleUsd: 585 }) });
+		renderCard();
+		expect(screen.getByText('$585.00 this cycle so far, $85.00 of it overage')).toBeTruthy();
+	});
+
+	it('states no cost for a cluster that is never billed', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage({ planUsd: 0, overageUsd: 0, cycleUsd: 0 }) });
+		renderCard();
+		expect(screen.queryByText(/this cycle so far/)).toBeNull();
+	});
 });
