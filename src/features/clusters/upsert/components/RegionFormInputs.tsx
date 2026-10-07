@@ -20,7 +20,7 @@ import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integratio
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { pluralize } from '@/lib/pluralize';
 import { MapPinIcon, TrashIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { Ref, useCallback, useMemo, useState } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { PremiumOnlyRegions } from '../lib/calculatePremiumOnlyRegions';
 import { UsageScale } from '../lib/calculateUsageScale';
@@ -51,6 +51,44 @@ type RegionFormInputsProps = {
 	/** Every row's region id, this row's included; a custom region already on another row cannot be picked twice. */
 	selectedRegionIds: string[];
 };
+
+// The box may sit empty while the number is being retyped: the form only learns a value the box can
+// hold, and an empty box on blur falls back to the last one, so no error flashes mid-edit.
+function UnitsInput({ value, onChange, onBlur, name, inputRef, disabled }: {
+	value: number | undefined;
+	onChange: (value: number) => void;
+	onBlur: () => void;
+	name: string;
+	inputRef: Ref<HTMLInputElement>;
+	disabled: boolean;
+}) {
+	const [draft, setDraft] = useState<string | null>(null);
+	return (
+		<Input
+			type="number"
+			inputMode="numeric"
+			min={1}
+			max={MAX_REGION_PLAN_QUANTITY}
+			step={1}
+			value={draft ?? value ?? ''}
+			onChange={event => {
+				const raw = event.target.value;
+				setDraft(raw);
+				const parsed = Number(raw);
+				if (raw !== '' && Number.isInteger(parsed) && parsed >= 1) {
+					onChange(parsed);
+				}
+			}}
+			onBlur={() => {
+				setDraft(null);
+				onBlur();
+			}}
+			name={name}
+			ref={inputRef}
+			disabled={disabled}
+		/>
+	);
+}
 
 function pickLatencyDescription(options: readonly string[], preferred: string | undefined): string | undefined {
 	const tier = preferred?.split(' ')[0].toLowerCase();
@@ -244,21 +282,15 @@ export function RegionFormInputs({
 								<FormItem className="w-28">
 									<FormLabel>Units</FormLabel>
 									<FormControl>
-										<Input
-											type="number"
-											inputMode="numeric"
-											min={1}
-											max={MAX_REGION_PLAN_QUANTITY}
-											step={1}
-											value={field.value ?? ''}
-											onChange={event => {
-												const raw = event.target.value;
-												field.onChange(raw === '' ? undefined : Number(raw));
+										<UnitsInput
+											value={field.value}
+											onChange={value => {
+												field.onChange(value);
 												void form.trigger();
 											}}
 											onBlur={field.onBlur}
 											name={field.name}
-											ref={field.ref}
+											inputRef={field.ref}
 											disabled={!canUseCustomRegions}
 										/>
 									</FormControl>
