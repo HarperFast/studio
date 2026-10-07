@@ -29,6 +29,7 @@ import {
 import { DatacenterCountSummary } from '@/features/admin/regions/components/DatacenterCountSummary';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,6 +68,11 @@ export function OrganizationRegionFormModal(
 	const queryClient = useQueryClient();
 
 	const { data: locations = [] } = useQuery({ ...getLocationsQueryOptions(), enabled: open });
+	// The organization's channel decides which provider list places instances; the other is inert.
+	const { data: organization } = useQuery({ ...getOrganizationQueryOptions(organizationId), enabled: open });
+	const provider: 'linode' | 'gcp' = organization?.channel === 'Akamai' ? 'linode' : 'gcp';
+	const providerLabel = provider === 'linode' ? 'Linode' : 'GCP';
+	const providerField = provider === 'linode' ? 'linodeDatacenters' : 'gcpDatacenters';
 	// The list row carries no `clusters`; the by-id read does, and it decides which fields are frozen.
 	const { data: regionWithClusters } = useQuery({
 		...getOrganizationRegionQueryOptions(region?.id),
@@ -119,6 +125,13 @@ export function OrganizationRegionFormModal(
 		// not being written, so neither a pending catalog nor an `active` toggle gets refused here.
 		const patch = region ? toPatch(region, values) : null;
 		const placementWritten = !patch || patch.placement !== undefined || patch.fallbackGroup !== undefined;
+		if (placementWritten && organization && values[providerField].length === 0) {
+			form.setError(providerField, {
+				message:
+					`${organization.name} deploys on ${providerLabel}; a region with no ${providerLabel} datacenters places nothing.`,
+			});
+			return;
+		}
 		if (placementWritten && locations.length && values.fallbackGroup !== NO_FALLBACK) {
 			const outside = [...values.linodeDatacenters, ...values.gcpDatacenters].find((dc) =>
 				!regionsByDatacenter.get(dc)?.includes(values.fallbackGroup)
@@ -197,8 +210,10 @@ export function OrganizationRegionFormModal(
 								control={form.control}
 								name="linodeDatacenters"
 								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Linode datacenters</FormLabel>
+									<FormItem className={provider === 'linode' ? 'order-first' : undefined}>
+										<FormLabel className="pb-1">
+											Linode datacenters{provider === 'linode' && ' — this organization deploys here'}
+										</FormLabel>
 										<FormControl>
 											<MultiSelect
 												options={linodeOptions}
@@ -220,8 +235,10 @@ export function OrganizationRegionFormModal(
 								control={form.control}
 								name="gcpDatacenters"
 								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">GCP datacenters</FormLabel>
+									<FormItem className={provider === 'gcp' ? 'order-first' : undefined}>
+										<FormLabel className="pb-1">
+											GCP datacenters{provider === 'gcp' && ' — this organization deploys here'}
+										</FormLabel>
 										<FormControl>
 											<MultiSelect
 												options={gcpOptions}
@@ -241,8 +258,9 @@ export function OrganizationRegionFormModal(
 							/>
 						</div>
 						<p className="text-xs text-muted-foreground -mt-2">
-							Pick a datacenter again to place another instance there. The organization's cloud provider decides which
-							list is used.
+							Pick a datacenter again to place another instance there. {organization
+								? `${organization.name} deploys on ${providerLabel}, so only that list places instances; the other is kept for a provider change.`
+								: "The organization's cloud provider decides which list is used."}
 						</p>
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-start">
 							<FormField
