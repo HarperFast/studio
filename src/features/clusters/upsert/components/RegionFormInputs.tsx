@@ -92,8 +92,7 @@ export function RegionFormInputs({
 	const organizationRegions = useMemo(
 		() =>
 			[...regionLookup.values()].filter(region =>
-				region.kind === 'organization'
-				&& ((region.active && region.instanceCount > 0) || region.id === entryRegionId)
+				region.kind === 'organization' && (region.active || region.id === entryRegionId)
 			),
 		[entryRegionId, regionLookup],
 	);
@@ -194,12 +193,20 @@ export function RegionFormInputs({
 											<SelectLabel>Custom regions</SelectLabel>
 											{organizationRegions.map((region) => {
 												const onAnotherRow = region.id !== entryRegionId && selectedRegionIds.includes(region.id);
+												// Listed rather than hidden, so a region placed on the other provider is explained, not lost.
+												const noDatacenters = region.instanceCount === 0;
 												return (
-													<SelectItem key={region.id} value={region.id} disabled={onAnotherRow}>
+													<SelectItem key={region.id} value={region.id} disabled={onAnotherRow || noDatacenters}>
 														<span className="flex items-center gap-2">
 															{region.name}
 															<Badge variant="secondary">Custom</Badge>
 															{!region.active && <Badge variant="secondary">Inactive</Badge>}
+															{noDatacenters && (
+																<span className="text-xs text-muted-foreground">
+																	no {cloudProvider === 'linode' ? 'Linode' : 'GCP'}{' '}
+																	datacenters — edit it under Admin › Custom regions
+																</span>
+															)}
 															{onAnotherRow && (
 																<span className="text-xs text-muted-foreground">
 																	already on this cluster — change its units
