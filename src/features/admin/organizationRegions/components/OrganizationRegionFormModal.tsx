@@ -191,7 +191,17 @@ export function OrganizationRegionFormModal(
 					</p>
 				)}
 				<Form {...form}>
-					<form className="my-4 flex flex-col gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+					{
+						/* The dialog is portaled out of the DOM but not out of the React tree: without stopPropagation the
+					   submit also reaches the cluster form this modal opens from, which then submits the cluster. */
+					}
+					<form
+						className="my-4 flex flex-col gap-4"
+						onSubmit={(event) => {
+							event.stopPropagation();
+							void form.handleSubmit(onSubmit)(event);
+						}}
+					>
 						<FormField
 							control={form.control}
 							name="name"
