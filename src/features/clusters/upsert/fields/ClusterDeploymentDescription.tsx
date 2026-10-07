@@ -55,7 +55,7 @@ export function ClusterDeploymentDescription({
 											>
 												<dt className="text-left font-bold text-sm/6">{deploymentDescription}</dt>
 												{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] && (
-													<dd className="font-light">{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription]}</dd>
+													<dd className="truncate font-light">{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription]}</dd>
 												)}
 											</SelectItem>
 										))}
