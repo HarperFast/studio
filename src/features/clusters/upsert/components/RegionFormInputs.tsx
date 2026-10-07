@@ -241,8 +241,7 @@ export function RegionFormInputs({
 															{!region.active && <Badge variant="secondary">Inactive</Badge>}
 															{noDatacenters && (
 																<span className="text-xs text-muted-foreground">
-																	no {cloudProvider === 'linode' ? 'Linode' : 'GCP'}{' '}
-																	datacenters — edit it under Admin › Custom regions
+																	lists no {cloudProvider === 'linode' ? 'Linode' : 'GCP'} datacenters
 																</span>
 															)}
 															{onAnotherRow && (
