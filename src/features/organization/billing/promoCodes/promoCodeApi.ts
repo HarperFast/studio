@@ -18,6 +18,8 @@ export function getPromoRedemptionsQueryOptions(organizationId: string | undefin
 		},
 		enabled: !!organizationId,
 		retry: false,
+		// central manager's hourly expiry pass settles a redemption left CLAIMED by a failed request.
+		refetchInterval: (query) => (query.state.data?.some((row) => row.status === 'CLAIMED') ? 30_000 : false),
 	});
 }
 
