@@ -15,7 +15,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	useRouter: () => ({ invalidate: invalidateRoute }),
 }));
 
-const fetchOrganization = vi.fn(async () => ({ id: 'org-1' }));
+let unboundGrants = [{ id: 'cgr-p1' }];
+const fetchOrganization = vi.fn(async () => ({ id: 'org-1', unboundGrants }));
 vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 	getOrganizationQueryOptions: (orgId: string) => ({
 		queryKey: [orgId, 'promo-field-test'],
@@ -25,6 +26,8 @@ vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 }));
 
 const redeem = vi.fn();
+// Hold the server's answer until a test releases it, to see what the field does in between.
+let gate: Promise<void> | null = null;
 vi.mock('@/features/organization/billing/promoCodes/promoCodeApi', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/organization/billing/promoCodes/promoCodeApi')>()),
 	useRedeemPromoCode: () => ({
@@ -40,7 +43,7 @@ vi.mock('@/features/organization/billing/promoCodes/promoCodeApi', async (import
 				options.onError(error);
 				return;
 			}
-			void options.onSuccess(result);
+			void (gate ?? Promise.resolve()).then(() => options.onSuccess(result));
 		},
 	}),
 }));
@@ -50,16 +53,20 @@ afterEach(() => {
 	redeem.mockReset();
 	invalidateRoute.mockClear();
 	fetchOrganization.mockClear();
+	onBusyChange.mockClear();
+	unboundGrants = [{ id: 'cgr-p1' }];
+	gate = null;
 });
 
 let form: UseFormReturn<UpsertClusterSchemaType>;
 const submitCluster = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+const onBusyChange = vi.fn();
 
 function Harness() {
 	form = useForm<UpsertClusterSchemaType>({ defaultValues: { grantId: '' } as UpsertClusterSchemaType });
 	return (
 		<form onSubmit={submitCluster}>
-			<ClusterPromoCode className="" form={form as never} organizationId="org-1" />
+			<ClusterPromoCode className="" form={form as never} organizationId="org-1" onBusyChange={onBusyChange} />
 		</form>
 	);
 }
@@ -89,6 +96,37 @@ describe('ClusterPromoCode', () => {
 		expect(form.getValues('grantId')).toBe('cgr-p1');
 		expect(submitCluster).not.toHaveBeenCalled();
 		expect((input as HTMLInputElement).value).toBe('');
+	});
+
+	it('holds the cluster submit and ignores a second Enter until the voucher is selected', async () => {
+		let release = () => {};
+		gate = new Promise((resolve) => {
+			release = resolve;
+		});
+		redeem.mockReturnValue({ ok: true, kind: 'voucher', grantId: 'cgr-p1' });
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'DEMO-HOBBYIST-30' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		fireEvent.keyDown(input, { key: 'Enter' });
+
+		expect(redeem).toHaveBeenCalledTimes(1);
+		expect(onBusyChange).toHaveBeenLastCalledWith(true);
+		release();
+		await screen.findByText('Free cluster added and selected under Available grants.');
+		expect(onBusyChange).toHaveBeenLastCalledWith(false);
+	});
+
+	it('does not select a grant the reloaded organization does not hold', async () => {
+		unboundGrants = [];
+		redeem.mockReturnValue({ ok: true, kind: 'voucher', grantId: 'cgr-p1' });
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'DEMO-HOBBYIST-30' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+
+		expect((await screen.findByRole('status')).textContent).toMatch(
+			/Reload the page if it isn’t under Available grants/,
+		);
+		expect(form.getValues('grantId')).toBe('');
 	});
 
 	it('sends an org with no card to Billing for a credit code, since the payment step comes later', async () => {

@@ -26,6 +26,16 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 	useStaffPermission: () => staff,
 }));
 
+// Stands in for the promo field: the editor only needs its busy signal.
+vi.mock('@/features/clusters/upsert/fields/ClusterPromoCode', () => ({
+	ClusterPromoCode: ({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) => (
+		<>
+			<button type="button" onClick={() => onBusyChange(true)}>start redeeming</button>
+			<button type="button" onClick={() => onBusyChange(false)}>finish redeeming</button>
+		</>
+	),
+}));
+
 afterEach(() => {
 	cleanup();
 	staff = true;
@@ -239,6 +249,16 @@ describe('ClusterDetails — arriving from the upgrade CTA', () => {
 		it('sends a paid plan to billing when no grant is entered', async () => {
 			await mountEditor();
 			expect(screen.getByRole('button', { name: /Confirm Payment Details/ })).toBeTruthy();
+		});
+
+		it('holds submit while a promo code is being redeemed, so the cluster cannot go out without its voucher', async () => {
+			await mountEditor({ promoCodeOrganizationId: 'org-1' });
+			const submit = () => screen.getByRole('button', { name: /Confirm Payment Details/ });
+			expect(submit().hasAttribute('disabled')).toBe(false);
+			fireEvent.click(screen.getByRole('button', { name: 'start redeeming' }));
+			expect(submit().hasAttribute('disabled')).toBe(true);
+			fireEvent.click(screen.getByRole('button', { name: 'finish redeeming' }));
+			expect(submit().hasAttribute('disabled')).toBe(false);
 		});
 
 		it('has no grant field when editing an existing cluster', async () => {

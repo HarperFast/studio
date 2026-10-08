@@ -21,6 +21,12 @@ vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 	}),
 }));
 
+let admin = true;
+vi.mock('@/hooks/usePermissions', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/hooks/usePermissions')>()),
+	useIsOrganizationAdmin: () => admin,
+}));
+
 let redemptions: PromoRedemptionView[] = [];
 const redeem = vi.fn();
 let listFails = false;
@@ -54,6 +60,7 @@ afterEach(() => {
 	redemptions = [];
 	listFails = false;
 	orgType = 'SELF_SERVICE';
+	admin = true;
 	redeem.mockReset();
 });
 
@@ -176,6 +183,14 @@ describe('PromoCodes', () => {
 		renderPage();
 		expect(await screen.findByText(/couldn’t be loaded/)).toBeTruthy();
 		expect(screen.queryByText(/haven’t redeemed/)).toBeNull();
+	});
+
+	it('lists codes for a member who is not an admin but offers no redeem, which central manager would refuse', async () => {
+		admin = false;
+		renderPage();
+		expect(await screen.findByText(/Only an organization admin can redeem a code/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Redeem' })).toBeNull();
+		expect(await screen.findByText(/haven’t redeemed/)).toBeTruthy();
 	});
 
 	it('tells an organization billed by contract that codes do not apply', async () => {
