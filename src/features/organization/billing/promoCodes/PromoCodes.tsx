@@ -11,6 +11,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { useIsOrganizationAdmin } from '@/hooks/usePermissions';
 import { PromoRedemptionView } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,6 +68,7 @@ export function PromoCodes() {
 	const queryClient = useQueryClient();
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const unrestricted = isUnrestrictedOrgType(organization?.type);
+	const isAdmin = useIsOrganizationAdmin(organizationId ?? '');
 	const { data: redemptions, isLoading, isError } = useQuery({
 		...getPromoRedemptionsQueryOptions(organizationId),
 		enabled: !!organizationId && !!organization && !unrestricted,
@@ -119,24 +121,32 @@ export function PromoCodes() {
 		<div className="flex flex-col gap-8">
 			<section className="flex flex-col gap-2 max-w-xl">
 				<h2 className="text-lg">Redeem a code</h2>
-				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-3">
-						<FormField
-							control={form.control}
-							name="code"
-							render={({ field }) => (
-								<FormItem className="min-w-0 flex-1">
-									<FormLabel className="sr-only">Promo code</FormLabel>
-									<FormControl>
-										<Input {...field} placeholder="e.g. WELCOME100" autoComplete="off" disabled={isPending} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<Button type="submit" disabled={isPending}>{isPending ? 'Redeeming…' : 'Redeem'}</Button>
-					</form>
-				</Form>
+				{isAdmin
+					? (
+						<Form {...form}>
+							<form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-3">
+								<FormField
+									control={form.control}
+									name="code"
+									render={({ field }) => (
+										<FormItem className="min-w-0 flex-1">
+											<FormLabel className="sr-only">Promo code</FormLabel>
+											<FormControl>
+												<Input {...field} placeholder="e.g. WELCOME100" autoComplete="off" disabled={isPending} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<Button type="submit" disabled={isPending}>{isPending ? 'Redeeming…' : 'Redeem'}</Button>
+							</form>
+						</Form>
+					)
+					: (
+						<p className="text-sm text-muted-foreground">
+							Only an organization admin can redeem a code. Codes already redeemed are listed below.
+						</p>
+					)}
 				<p className="text-xs text-muted-foreground">
 					A credit code needs a payment method on file. Promo credit has no cash value, can&rsquo;t be refunded or
 					transferred, and expires on its use-by date.
