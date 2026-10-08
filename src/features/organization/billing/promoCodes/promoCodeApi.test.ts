@@ -11,8 +11,8 @@ beforeEach(() => mockedPost.mockReset());
 
 describe('redeemPromoCode', () => {
 	it('reports what the code gave', async () => {
-		mockedPost.mockResolvedValue({ status: 200, data: { kind: 'voucher', status: 'APPLIED' } });
-		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: true, kind: 'voucher' });
+		mockedPost.mockResolvedValue({ status: 200, data: { kind: 'voucher', status: 'APPLIED', grantId: 'cgr-p1' } });
+		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: true, kind: 'voucher', grantId: 'cgr-p1' });
 		expect(mockedPost).toHaveBeenCalledWith('/PromoRedemption/', params, expect.anything());
 	});
 
@@ -23,7 +23,7 @@ describe('redeemPromoCode', () => {
 		[429, 'Too many attempts to redeem a code. Try again in an hour.'],
 	])('resolves a %i refusal with central manager’s reason, for the form to show', async (status, title) => {
 		mockedPost.mockResolvedValue({ status, data: { type: 'error:ClientError', title, status } });
-		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: false, message: title });
+		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: false, status, message: title });
 	});
 });
 

@@ -22,8 +22,8 @@ export function getPromoRedemptionsQueryOptions(organizationId: string | undefin
 }
 
 type RedeemResult =
-	| { ok: true; kind: PromoRedemptionView['kind'] }
-	| { ok: false; message: string };
+	| { ok: true; kind: PromoRedemptionView['kind']; grantId?: string }
+	| { ok: false; status: number; message: string };
 
 /**
  * POST /PromoRedemption/. A refusal (expired, already redeemed, card needed, too many tries) is an
@@ -38,9 +38,10 @@ export async function redeemPromoCode(
 		{ validateStatus: (status) => status >= 200 && status < 500 },
 	);
 	if (response.status >= 400) {
-		return { ok: false, message: describeError({ response }).message };
+		return { ok: false, status: response.status, message: describeError({ response }).message };
 	}
-	return { ok: true, kind: (response.data as unknown as { kind: PromoRedemptionView['kind'] }).kind };
+	const { kind, grantId } = response.data as unknown as { kind: PromoRedemptionView['kind']; grantId?: string };
+	return { ok: true, kind, ...(grantId ? { grantId } : {}) };
 }
 
 export function useRedeemPromoCode() {

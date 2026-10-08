@@ -150,6 +150,12 @@ export function useContainerOpsPermission(orgId?: string): boolean {
 	return getContainerOpsPermission(user, orgId ?? orgIdFromRoute);
 }
 
+/** Central manager's `POST /PromoRedemption` requires `isSuperUser || isOrgAdmin()`; no staff permission opens it. */
+export function useIsOrganizationAdmin(orgId: string): boolean {
+	const { user } = useCloudAuth();
+	return memberIsOrganizationAdmin(user, orgId);
+}
+
 export function getContainerOpsPermission(user: User | null, orgId: string): boolean {
 	// `/User/current` reports every staff permission for the core super user, so this covers it too.
 	return hasStaffPermission(user, 'instance:update') || memberIsOrganizationAdmin(user, orgId);
