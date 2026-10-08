@@ -3,6 +3,7 @@
  */
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { TestProvider } from '@/lib/test/TestProvider';
+import { queryClient } from '@/react-query/queryClient';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { useForm, UseFormReturn } from 'react-hook-form';
@@ -56,6 +57,7 @@ afterEach(() => {
 	onBusyChange.mockClear();
 	unboundGrants = [{ id: 'cgr-p1' }];
 	gate = null;
+	queryClient.clear();
 });
 
 let form: UseFormReturn<UpsertClusterSchemaType>;
@@ -164,6 +166,7 @@ describe('ClusterPromoCode', () => {
 	});
 
 	it('asks for a check before a retry when the redemption could not be confirmed', async () => {
+		unboundGrants = [];
 		redeem.mockImplementation(() => {
 			throw new Error('timeout');
 		});
@@ -193,6 +196,32 @@ describe('ClusterPromoCode', () => {
 		expect(onBusyChange).toHaveBeenLastCalledWith(true);
 		release();
 		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+	});
+
+	it('selects a voucher that landed although its answer was lost', async () => {
+		redeem.mockImplementation(() => {
+			throw new Error('timeout');
+		});
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'DEMO-HOBBYIST-30' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		expect((await screen.findByRole('status')).textContent).toMatch(/arrived after a delay/);
+		expect(form.getValues('grantId')).toBe('cgr-p1');
+	});
+
+	it('leaves the grant alone when the lost answer added nothing', async () => {
+		queryClient.setQueryData(['org-1', 'promo-field-test'], { id: 'org-1', unboundGrants: [{ id: 'cgr-p1' }] });
+		redeem.mockImplementation(() => {
+			throw new Error('timeout');
+		});
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'WELCOME100' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+		expect(screen.getByRole('alert').textContent).toMatch(/couldn’t confirm the redemption/);
+		expect(form.getValues('grantId')).toBe('');
 	});
 
 	it('asks for a code before calling central manager', async () => {
