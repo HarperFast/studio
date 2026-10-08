@@ -77,6 +77,28 @@ export function ClusterPromoCode({
 		setOutcome({ tone: 'success', message: 'Free cluster added and selected under Available grants.' });
 	};
 
+	// A grant that appeared while the answer was lost is the voucher, unless something else also landed.
+	const recoverUnconfirmed = async (grantsBefore: Set<string>) => {
+		setOutcome({
+			tone: 'error',
+			message: <>We couldn&rsquo;t confirm the redemption. Check {promoCodesPage} before trying again.</>,
+		});
+		let organization;
+		try {
+			organization = await refreshOrganization();
+		} catch {
+			return;
+		}
+		const landed = (organization.unboundGrants ?? []).filter((grant) => !grantsBefore.has(grant.id));
+		if (landed.length !== 1) { return; }
+		form.setValue('grantId', landed[0].id, { shouldDirty: true });
+		void form.trigger();
+		setOutcome({
+			tone: 'success',
+			message: 'Your free cluster arrived after a delay and is selected under Available grants.',
+		});
+	};
+
 	const apply = () => {
 		if (busyRef.current) { return; }
 		const normalized = code.trim().toUpperCase();
@@ -86,6 +108,11 @@ export function ClusterPromoCode({
 		}
 		setOutcome(null);
 		setBusy(true);
+		const grantsBefore = new Set(
+			queryClient.getQueryData(getOrganizationQueryOptions(organizationId).queryKey)?.unboundGrants?.map((grant) =>
+				grant.id
+			),
+		);
 		mutate({ organizationId, code: normalized }, {
 			onSuccess: async (result) => {
 				try {
@@ -94,14 +121,9 @@ export function ClusterPromoCode({
 					setBusy(false);
 				}
 			},
-			// A timeout or 5xx may still have redeemed the code.
-			// The refresh picks up a voucher that did land, under Available grants, before submit reopens.
+			// A timeout or 5xx may still have redeemed the code, so submit stays held until the reload settles.
 			onError: () => {
-				setOutcome({
-					tone: 'error',
-					message: <>We couldn&rsquo;t confirm the redemption. Check {promoCodesPage} before trying again.</>,
-				});
-				void refreshOrganization().catch(() => {}).finally(() => setBusy(false));
+				void recoverUnconfirmed(grantsBefore).finally(() => setBusy(false));
 			},
 		});
 	};
