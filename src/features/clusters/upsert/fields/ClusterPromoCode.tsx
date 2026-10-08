@@ -83,16 +83,14 @@ export function ClusterPromoCode({
 			tone: 'error',
 			message: <>We couldn&rsquo;t confirm the redemption. Check {promoCodesPage} before trying again.</>,
 		});
-		let organization;
-		let redemptions;
-		try {
-			[organization, redemptions] = await Promise.all([
-				refreshOrganization(),
-				queryClient.fetchQuery({ ...getPromoRedemptionsQueryOptions(organizationId), staleTime: 0 }),
-			]);
-		} catch {
-			return;
-		}
+		// Both settle before submit reopens; Promise.all would release it on the first failure.
+		const [reloaded, history] = await Promise.allSettled([
+			refreshOrganization(),
+			queryClient.fetchQuery({ ...getPromoRedemptionsQueryOptions(organizationId), staleTime: 0 }),
+		]);
+		if (reloaded.status === 'rejected' || history.status === 'rejected') { return; }
+		const organization = reloaded.value;
+		const redemptions = history.value;
 		const grantId = redemptions.find((redemption) =>
 			redemption.code === code && redemption.kind === 'voucher' && redemption.status === 'APPLIED'
 		)?.grantId;
