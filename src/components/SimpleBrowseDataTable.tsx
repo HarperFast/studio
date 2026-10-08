@@ -5,23 +5,16 @@ import { Loading } from '@/components/Loading';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
 import { ColumnDef, Row, studioTableFeatures } from '@/lib/table';
-import { flexRender, PaginationState, RowData, SortingState, useTable } from '@tanstack/react-table';
-import React, { Dispatch, SetStateAction } from 'react';
+import { flexRender, RowData, SortingState, useTable } from '@tanstack/react-table';
+import React from 'react';
 
 interface BrowseDataTableProps<TData extends RowData> {
 	columns: ColumnDef<TData>[];
 	data: TData[];
 	isFetching?: boolean;
-	totalPages?: number;
-	totalRecords?: number;
 	onRowClick?: (row: Row<TData>) => void;
 	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
-	paginationState?: {
-		pageIndex: number;
-		pageSize: number;
-	};
 	sortingState?: SortingState;
-	setPagination?: Dispatch<SetStateAction<PaginationState>>;
 	children?: React.ReactNode;
 }
 
