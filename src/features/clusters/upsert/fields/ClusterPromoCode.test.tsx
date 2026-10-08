@@ -27,6 +27,7 @@ vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 }));
 
 let redemptions: { code: string; kind: string; status: string; grantId?: string }[] = [];
+let historyFails = false;
 const redeem = vi.fn();
 // Hold the server's answer until a test releases it, to see what the field does in between.
 let gate: Promise<void> | null = null;
@@ -34,7 +35,10 @@ vi.mock('@/features/organization/billing/promoCodes/promoCodeApi', async (import
 	...(await importOriginal<typeof import('@/features/organization/billing/promoCodes/promoCodeApi')>()),
 	getPromoRedemptionsQueryOptions: (orgId: string) => ({
 		queryKey: [orgId, 'promoRedemptions'],
-		queryFn: async () => redemptions,
+		queryFn: async () => {
+			if (historyFails) { throw new Error('down'); }
+			return redemptions;
+		},
 		retry: false,
 	}),
 	useRedeemPromoCode: () => ({
@@ -64,6 +68,7 @@ afterEach(() => {
 	unboundGrants = [{ id: 'cgr-p1' }];
 	gate = null;
 	redemptions = [];
+	historyFails = false;
 	queryClient.clear();
 });
 
@@ -230,6 +235,28 @@ describe('ClusterPromoCode', () => {
 		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
 		expect(screen.getByRole('alert').textContent).toMatch(/couldn’t confirm the redemption/);
 		expect(form.getValues('grantId')).toBe('');
+	});
+
+	it('keeps submit held until the organization reload ends, even when the history fetch fails first', async () => {
+		historyFails = true;
+		let release = () => {};
+		fetchOrganization.mockImplementationOnce(() =>
+			new Promise((resolve) => {
+				release = () => resolve({ id: 'org-1', unboundGrants });
+			})
+		);
+		redeem.mockImplementation(() => {
+			throw new Error('timeout');
+		});
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'DEMO-HOBBYIST-30' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		await screen.findByRole('alert');
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(onBusyChange).toHaveBeenLastCalledWith(true);
+		release();
+		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
 	});
 
 	it('asks for a code before calling central manager', async () => {
