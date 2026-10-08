@@ -3,7 +3,7 @@
  */
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GrantsAdminIndex } from './index';
@@ -42,11 +42,12 @@ vi.mock('./queries/getGrants', () => ({
 		retry: false,
 	}),
 }));
+let orgType: string | undefined;
 vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	getOrganizationsQueryOptions: () => ({
 		queryKey: ['test-orgs'],
-		queryFn: async () => ({ organizations: [{ id: 'org-1', name: 'Acme' }], truncated: false }),
+		queryFn: async () => ({ organizations: [{ id: 'org-1', name: 'Acme', type: orgType }], truncated: false }),
 		retry: false,
 	}),
 }));
@@ -54,6 +55,7 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 afterEach(() => {
 	cleanup();
 	canWriteGrants = false;
+	orgType = undefined;
 	truncated = false;
 	matchedTotal = undefined;
 	requestedFilters.mockClear();
@@ -320,5 +322,35 @@ describe('GrantsAdminIndex', () => {
 		});
 		expect(screen.getByText('cgr-one')).toBeTruthy();
 		expect(screen.queryByText('cgr-two')).toBeNull();
+	});
+});
+
+describe('GrantsAdminIndex — switchover', () => {
+	const contract = () => grant({ source: 'contracted', expiryPolicy: 'none', endsAt: null });
+	const openEdit = async () => {
+		fireEvent.click(screen.getByRole('button', { name: 'Edit cgr-a' }));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+	};
+
+	it('Replace with comp closes the edit dialog and opens the comp form on that grant, reason carried over', async () => {
+		canWriteGrants = true;
+		await mount([contract()]);
+		await openEdit();
+		fireEvent.change(screen.getByPlaceholderText(/Why these terms/), { target: { value: 'sales agreed a comp' } });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('button', { name: 'Replace with comp' }));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+		expect(screen.queryByRole('heading', { name: 'Edit grant' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'Replace with comp' })).toBeTruthy();
+		expect(screen.getByPlaceholderText(/Why this grant exists/)).toHaveProperty('value', 'sales agreed a comp');
+	});
+
+	it('a cluster of an unrestricted organization is offered a switch to paid like any other', async () => {
+		canWriteGrants = true;
+		orgType = 'UNRESTRICTED';
+		await mount([contract()]);
+		await openEdit();
+		expect(screen.getByRole('button', { name: 'Switch to paid' })).toBeTruthy();
 	});
 });

@@ -46,6 +46,21 @@ const DEFAULTS: CreateGrantValues = {
 	reason: '',
 };
 
+function replacementDefaults(replacing: GrantReplacement): CreateGrantValues {
+	return {
+		...DEFAULTS,
+		bindTo: 'cluster',
+		clusterId: replacing.grant.clusterId ?? '',
+		source: 'comped',
+		reason: replacing.reason,
+	};
+}
+
+export interface GrantReplacement {
+	grant: AdminClusterGrant;
+	reason: string;
+}
+
 /**
  * Mint a grant. Only the two sources an admin may create — central-manager derives `purchased`,
  * `contracted` and `free` from the flows that own them, so offering them here would promise something
@@ -54,12 +69,16 @@ const DEFAULTS: CreateGrantValues = {
  * A grant binds to a cluster now, or to an organization as an unbound voucher that a later cluster
  * creation claims. The server takes exactly one of the two, so the form asks which rather than
  * offering both fields and letting the xor fail server-side.
+ *
+ * With `replacing`, it mints a comp that takes over from that cluster's live grant in one step
+ * (`replaceGrantId`), so the cluster is never left without one. The server refuses a start date there.
  */
-export function CreateGrantModal({ open, onOpenChange, onCreated }: {
+export function CreateGrantModal({ open, onOpenChange, onCreated, replacing = null }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** Handed the created grants — one, or an unbound batch — so the caller can show their server-generated ids. */
 	onCreated: (grants: AdminClusterGrant[]) => void;
+	replacing?: GrantReplacement | null;
 }) {
 	const queryClient = useQueryClient();
 	const { mutate: create, isPending } = useCreateGrantMutation();
@@ -75,16 +94,18 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 
 	// The modal stays mounted, so a previous draft would otherwise persist into the next open.
 	useEffect(() => {
-		if (open) { form.reset(DEFAULTS); }
-	}, [open, form]);
+		if (open) { form.reset(replacing ? replacementDefaults(replacing) : DEFAULTS); }
+	}, [open, replacing, form]);
 
-	const policies = useMemo(
-		() => [
+	// The policy the form holds stays listed even when the server's list omits it, or the select reads blank.
+	const expiryPolicy = form.watch('expiryPolicy');
+	const policies = useMemo(() => {
+		const offered = [
 			NO_EXPIRY_POLICY,
 			...Object.keys(policyData?.policies ?? {}).filter((policy) => !INTERNAL_EXPIRY_POLICIES.includes(policy)),
-		],
-		[policyData],
-	);
+		];
+		return expiryPolicy && !offered.includes(expiryPolicy) ? [...offered, expiryPolicy] : offered;
+	}, [policyData, expiryPolicy]);
 
 	const bindTo = form.watch('bindTo');
 	const source = form.watch('source');
@@ -132,14 +153,18 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 					...(Number(values.quantity) > 1 ? { quantity: Number(values.quantity) } : {}),
 				}),
 			source: values.source,
-			...(values.startsAt ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
+			...(replacing ? { replaceGrantId: replacing.grant.id } : {}),
+			...(values.startsAt && !replacing ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
 			// Omitted means forever, which only a comped grant may be.
 			endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
 			expiryPolicy: values.expiryPolicy,
-			// A comp carries its shape and nothing else; the server refuses the allow-lists on it. For
-			// a trial an empty list is refused too; null — omitted here — is "any".
+			// A comp carries its shape and nothing else; the server refuses the allow-lists on it, and reads
+			// a bound comp's shape off its cluster. For a trial an empty list is refused too; null — omitted
+			// here — is "any".
 			...(values.source === 'comped'
-				? { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }
+				? values.bindTo === 'organization'
+					? { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }
+					: {}
 				: {
 					...(values.allowedPlanIds.length ? { allowedPlanIds: values.allowedPlanIds } : {}),
 					...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
@@ -164,7 +189,10 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			},
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
-			onError: (error) => toast.error('Could not create the grant', { description: describeError(error).message }),
+			onError: (error) =>
+				toast.error(replacing ? 'Could not replace the grant' : 'Could not create the grant', {
+					description: describeError(error).message,
+				}),
 			onSettled: () => {
 				inFlight.current = false;
 			},
@@ -174,133 +202,144 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-lg">
-				<DialogTitle>Create grant</DialogTitle>
+				<DialogTitle>{replacing ? 'Replace with comp' : 'Create grant'}</DialogTitle>
 				<DialogDescription>
-					Authorize a cluster to run on terms other than a purchase — a trial, or a comp scoped to the plans and regions
-					it covers.
+					{replacing
+						? `A comp for ${replacing.grant.clusterId} that takes over from ${replacing.grant.source} grant ${replacing.grant.id} in one step. The cluster keeps running.`
+						: 'Authorize a cluster to run on terms other than a purchase — a trial, or a comp scoped to the plans and regions it covers.'}
 				</DialogDescription>
 
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-						<FormField
-							control={form.control}
-							name="bindTo"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Applies to</FormLabel>
-									<FormControl>
-										<Select value={field.value} onValueChange={field.onChange}>
-											<SelectTrigger className="w-full" aria-label="Applies to">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="organization">An organization (unbound voucher)</SelectItem>
-												<SelectItem value="cluster">An existing cluster</SelectItem>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<p className="text-xs text-muted-foreground">
-										{field.value === 'organization'
-											? 'Held unbound until the organization creates a cluster, which claims it.'
-											: 'Applies immediately. The cluster must not already have a live grant.'}
+						{
+							/* A replacement is a comp for the replaced grant's own cluster, so where it applies and what it
+						    is are already decided. */
+						}
+						{!replacing && (
+							<>
+								<FormField
+									control={form.control}
+									name="bindTo"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Applies to</FormLabel>
+											<FormControl>
+												<Select value={field.value} onValueChange={field.onChange}>
+													<SelectTrigger className="w-full" aria-label="Applies to">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="organization">An organization (unbound voucher)</SelectItem>
+														<SelectItem value="cluster">An existing cluster</SelectItem>
+													</SelectContent>
+												</Select>
+											</FormControl>
+											<p className="text-xs text-muted-foreground">
+												{field.value === 'organization'
+													? 'Held unbound until the organization creates a cluster, which claims it.'
+													: 'Applies immediately. The cluster must not already have a live grant.'}
+											</p>
+										</FormItem>
+									)}
+								/>
+
+								{bindTo === 'organization'
+									? (
+										<FormField
+											control={form.control}
+											name="organizationId"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Organization</FormLabel>
+													<FormControl>
+														<OrganizationPicker value={field.value} onChange={field.onChange} />
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									)
+									: (
+										<FormField
+											control={form.control}
+											name="clusterId"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Cluster</FormLabel>
+													<FormControl>
+														<Input placeholder="clu-…" {...field} />
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									)}
+
+								<div className="flex items-start gap-3">
+									{bindTo === 'organization' && (
+										<FormField
+											control={form.control}
+											name="quantity"
+											render={({ field }) => (
+												<FormItem className="w-24 shrink-0">
+													<FormLabel>Quantity</FormLabel>
+													<FormControl>
+														<Input type="number" inputMode="numeric" min={1} max={MAX_GRANT_QUANTITY} {...field} />
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									)}
+									<FormField
+										control={form.control}
+										name="source"
+										render={({ field }) => (
+											<FormItem className="min-w-0 flex-1">
+												<FormLabel>Source</FormLabel>
+												<FormControl>
+													<Select value={field.value} onValueChange={field.onChange}>
+														<SelectTrigger className="w-full" aria-label="Source">
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="comped">comped</SelectItem>
+															<SelectItem value="trial">trial</SelectItem>
+														</SelectContent>
+													</Select>
+												</FormControl>
+												<p className="text-xs text-muted-foreground">
+													Purchased, contracted and free grants are derived by the flows that own them.
+												</p>
+											</FormItem>
+										)}
+									/>
+								</div>
+								{bindTo === 'organization' && (
+									<p className="-mt-2 text-xs text-muted-foreground">
+										Quantity mints identical vouchers, claimed one each as this organization creates clusters.
 									</p>
-								</FormItem>
-							)}
-						/>
-
-						{bindTo === 'organization'
-							? (
-								<FormField
-									control={form.control}
-									name="organizationId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Organization</FormLabel>
-											<FormControl>
-												<OrganizationPicker value={field.value} onChange={field.onChange} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							)
-							: (
-								<FormField
-									control={form.control}
-									name="clusterId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Cluster</FormLabel>
-											<FormControl>
-												<Input placeholder="clu-…" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							)}
-
-						<div className="flex items-start gap-3">
-							{bindTo === 'organization' && (
-								<FormField
-									control={form.control}
-									name="quantity"
-									render={({ field }) => (
-										<FormItem className="w-24 shrink-0">
-											<FormLabel>Quantity</FormLabel>
-											<FormControl>
-												<Input type="number" inputMode="numeric" min={1} max={MAX_GRANT_QUANTITY} {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							)}
-							<FormField
-								control={form.control}
-								name="source"
-								render={({ field }) => (
-									<FormItem className="min-w-0 flex-1">
-										<FormLabel>Source</FormLabel>
-										<FormControl>
-											<Select value={field.value} onValueChange={field.onChange}>
-												<SelectTrigger className="w-full" aria-label="Source">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="comped">comped</SelectItem>
-													<SelectItem value="trial">trial</SelectItem>
-												</SelectContent>
-											</Select>
-										</FormControl>
-										<p className="text-xs text-muted-foreground">
-											Purchased, contracted and free grants are derived by the flows that own them.
-										</p>
-									</FormItem>
 								)}
-							/>
-						</div>
-						{bindTo === 'organization' && (
-							<p className="-mt-2 text-xs text-muted-foreground">
-								Quantity mints identical vouchers, claimed one each as this organization creates clusters.
-							</p>
+							</>
 						)}
 
-						<div className="grid grid-cols-2 gap-3">
-							<FormField
-								control={form.control}
-								name="startsAt"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Starts</FormLabel>
-										<FormControl>
-											<Input type="datetime-local" {...field} />
-										</FormControl>
-										<p className="text-xs text-muted-foreground">Empty starts now.</p>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
+						<div className={replacing ? 'grid gap-3' : 'grid grid-cols-2 gap-3'}>
+							{!replacing && (
+								<FormField
+									control={form.control}
+									name="startsAt"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Starts</FormLabel>
+											<FormControl>
+												<Input type="datetime-local" {...field} />
+											</FormControl>
+											<p className="text-xs text-muted-foreground">Empty starts now.</p>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							)}
 							<FormField
 								control={form.control}
 								name="endsAt"
@@ -354,7 +393,15 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 							)}
 						/>
 
-						{isComped ? <GrantShapeFields enabled={open} /> : <GrantScopeFields enabled={open} />}
+						{isComped
+							? bindTo === 'organization'
+								? <GrantShapeFields enabled={open} />
+								: (
+									<p className="text-xs text-muted-foreground">
+										Covers exactly what the cluster runs today; any later change to it converts the cluster to paid.
+									</p>
+								)
+							: <GrantScopeFields enabled={open} />}
 
 						<FormField
 							control={form.control}
@@ -374,7 +421,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 						<DialogFooter className="gap-2">
 							<Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
 							<Button type="submit" variant="submit" disabled={isPending || !form.formState.isValid}>
-								Create grant
+								{replacing ? 'Replace grant' : 'Create grant'}
 							</Button>
 						</DialogFooter>
 					</form>

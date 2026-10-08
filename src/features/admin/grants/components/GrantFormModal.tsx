@@ -1,3 +1,13 @@
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alertDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
@@ -19,6 +29,7 @@ import {
 	ShapeRow,
 } from '@/features/admin/grants/GrantFormSchema';
 import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
+import { useSwitchToPaidMutation } from '@/features/admin/grants/mutations/useSwitchToPaid';
 import { useUpdateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
@@ -26,7 +37,7 @@ import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -34,6 +45,9 @@ interface GrantFormModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	grant: AdminClusterGrant | null;
+	/** Whether the viewer holds billing:write, which switching to paid needs because it charges the card. */
+	canBill?: boolean;
+	onReplaceWithComp?: (grant: AdminClusterGrant, reason: string) => void;
 }
 
 /** `<input type="datetime-local">` wants `YYYY-MM-DDTHH:mm` in local time, not an ISO instant. */
@@ -50,6 +64,13 @@ function toLocalInput(iso: string | null | undefined): string {
 /** Order is not meaningful in a scope, so a reordered pick is not a change worth sending. */
 function sameIds(next: string[], before: string[]): boolean {
 	return next.length === before.length && [...next].sort().join() === [...before].sort().join();
+}
+
+/** A 402 means the organization has no usable card; that comes before the server's wording. */
+function switchToPaidError(error: Error): string {
+	const { message } = describeError(error);
+	const status = (error as { response?: { status?: number } }).response?.status;
+	return status === 402 ? `The organization has no valid card on file. ${message}` : message;
 }
 
 /** The server compares shapes as multisets of (plan, region), so order is not a change either. */
@@ -78,9 +99,14 @@ function toFormValues(grant: AdminClusterGrant | null): GrantFormValues {
  * value you set: it ends the grant, is exempt from the guards that protect the others, and cannot
  * be undone.
  */
-export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProps) {
+export function GrantFormModal(
+	{ open, onOpenChange, grant, canBill = false, onReplaceWithComp }: GrantFormModalProps,
+) {
 	const queryClient = useQueryClient();
-	const { mutate: update, isPending } = useUpdateGrantMutation();
+	const { mutate: update, isPending: updating } = useUpdateGrantMutation();
+	const { mutate: switchToPaid, isPending: switching } = useSwitchToPaidMutation();
+	const isPending = updating || switching;
+	const [confirmingPaid, setConfirmingPaid] = useState(false);
 	// isPending disables the buttons a tick after the click; revoke is irreversible, so the guard
 	// has to hold from the click itself.
 	const inFlight = useRef(false);
@@ -98,7 +124,10 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// The modal stays mounted between openings, so its state has to be reset to the grant being
 	// edited — otherwise the previous grant's terms (and its reason) persist into the next edit.
 	useEffect(() => {
-		if (open) { form.reset(toFormValues(grant)); }
+		if (open) {
+			form.reset(toFormValues(grant));
+			setConfirmingPaid(false);
+		}
 	}, [open, grant, form]);
 
 	// Offered policies come from the server's own tables, so a new policy needs no studio change.
@@ -131,6 +160,12 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	}, [isComped, endsAt, grant, form]);
 	// Only a contract moves a renewal to the 1st; the server refuses a cadence on any other source.
 	const isContracted = grant?.source === 'contracted';
+	// A switchover replaces the cluster's live grant without stopping it: never an unbound voucher, nor a
+	// lapsed or not-yet-started grant, which the server refuses as not the live one.
+	const bound = grant?.clusterId != null;
+	const switchable = bound && grant?.isActive !== false;
+	// It charges a card, so it is offered only with billing:write.
+	const canSwitchToPaid = switchable && canBill && grant?.source !== 'purchased';
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and
 	// why; the button is held so the save can't be attempted from here either.
@@ -180,6 +215,42 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 		if (inFlight.current) { return; }
 		inFlight.current = true;
 		update({ id: grant.id, changes }, { onSuccess: onSuccess('Grant updated'), onError, onSettled: release });
+	};
+
+	const onReplace = () => {
+		if (inFlight.current) { return; }
+		if (grant && onReplaceWithComp) { onReplaceWithComp(grant, form.getValues('reason').trim()); }
+	};
+
+	const onSwitchToPaid = async () => {
+		if (!form.getValues('reason').trim()) {
+			form.setError('reason', { message: 'A reason is required to switch to paid' });
+			return;
+		}
+		if (!(await form.trigger('reason'))) { return; }
+		setConfirmingPaid(true);
+	};
+
+	const confirmSwitchToPaid = () => {
+		if (!grant?.clusterId) { return; }
+		if (inFlight.current) { return; }
+		inFlight.current = true;
+		switchToPaid(
+			{ clusterId: grant.clusterId, replaceGrantId: grant.id, reason: form.getValues('reason').trim() },
+			{
+				onSuccess: (result) => {
+					toast.success('Switched to paid', { description: `New grant ${result.id}` });
+					void queryClient.invalidateQueries({ queryKey: grantsQueryKey });
+					setConfirmingPaid(false);
+					onOpenChange(false);
+				},
+				onError: (error) => {
+					setConfirmingPaid(false);
+					toast.error('Could not switch to paid', { description: switchToPaidError(error) });
+				},
+				onSettled: release,
+			},
+		);
 	};
 
 	const onRevoke = () => {
@@ -299,7 +370,7 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 									enabled={open}
 									disabled={boundComp}
 									disabledNote={boundComp
-										? `This comp is bound to ${grant?.clusterId}, and its shape is that cluster. Revoke it and mint a replacement to change it.`
+										? `This comp is bound to ${grant?.clusterId}, and its shape is that cluster. Replace it with a new comp to change it.`
 										: undefined}
 								/>
 							)
@@ -322,13 +393,40 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 							)}
 						/>
 
+						{switchable && (onReplaceWithComp || canSwitchToPaid) && (
+							<div className="flex flex-col gap-2 rounded-md border border-border/60 p-3">
+								<p className="text-sm font-medium">Change terms without stopping the cluster</p>
+								<p className="text-xs text-muted-foreground">
+									A replacement takes over from this grant in one step. Revoking instead ends it and stops the cluster
+									at the next expiry pass.
+								</p>
+								<div className="flex flex-wrap gap-2">
+									{onReplaceWithComp && (
+										<Button type="button" variant="outline" disabled={isPending} onClick={onReplace}>
+											Replace with comp
+										</Button>
+									)}
+									{canSwitchToPaid && (
+										<Button
+											type="button"
+											variant="outline"
+											disabled={isPending}
+											onClick={() => void onSwitchToPaid()}
+										>
+											Switch to paid
+										</Button>
+									)}
+								</div>
+							</div>
+						)}
+
 						<DialogFooter className="gap-2 sm:justify-between">
 							{
 								/* Revoke is not a value you set — it ends the grant, is exempt from the guards
 							    protecting the other fields, and cannot be undone, so it is its own action. */
 							}
 							<Button type="button" variant="destructive" disabled={isPending} onClick={onRevoke}>
-								Revoke grant
+								{bound ? 'Revoke and stop cluster' : 'Revoke grant'}
 							</Button>
 							<div className="flex gap-2">
 								<Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -343,6 +441,34 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 						</DialogFooter>
 					</form>
 				</Form>
+
+				{/* Held open while the charge is in flight, so it cannot be dismissed with the request still running. */}
+				<AlertDialog
+					open={confirmingPaid}
+					onOpenChange={(next) => !next && !inFlight.current && setConfirmingPaid(false)}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Switch {grant?.clusterId} to paid?</AlertDialogTitle>
+							<AlertDialogDescription>
+								The organization's card on file is charged now for the cluster's current plan, and its billing period
+								starts today. The {grant?.source} grant {grant?.id} is retired, and the cluster keeps running.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel disabled={switching}>Cancel</AlertDialogCancel>
+							<AlertDialogAction
+								disabled={switching}
+								onClick={(event) => {
+									event.preventDefault();
+									confirmSwitchToPaid();
+								}}
+							>
+								{switching ? 'Switching…' : 'Switch to paid'}
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
 			</DialogContent>
 		</Dialog>
 	);

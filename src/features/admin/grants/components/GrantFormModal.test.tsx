@@ -245,7 +245,7 @@ describe('GrantFormModal', () => {
 			expect(screen.getByLabelText('Plan 1').hasAttribute('disabled')).toBe(true);
 			expect(screen.getByLabelText('Region 1').hasAttribute('disabled')).toBe(true);
 			expect(screen.queryByRole('button', { name: /Add region/ })).toBeNull();
-			expect(screen.getByText(/Revoke it and mint a replacement/)).toBeTruthy();
+			expect(screen.getByText(/Replace it with a new comp to change it/)).toBeTruthy();
 			// An untouched shape is not a change: only the reason goes.
 			fireEvent.change(reasonBox(), { target: { value: 'note only' } });
 			await act(() => null);
@@ -344,7 +344,7 @@ describe('GrantFormModal', () => {
 		await mount(grant());
 		fireEvent.change(reasonBox(), { target: { value: 'customer cancelled' } });
 		await act(() => null);
-		fireEvent.click(screen.getByRole('button', { name: 'Revoke grant' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Revoke and stop cluster' }));
 		await act(() => null);
 
 		const [{ changes }] = updateGrant.mock.calls[0];
@@ -353,7 +353,7 @@ describe('GrantFormModal', () => {
 
 	it('refuses to revoke without a reason', async () => {
 		await mount(grant());
-		fireEvent.click(screen.getByRole('button', { name: 'Revoke grant' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Revoke and stop cluster' }));
 		await act(() => null);
 		expect(updateGrant).not.toHaveBeenCalled();
 		expect(screen.getByText('A reason is required to revoke')).toBeTruthy();

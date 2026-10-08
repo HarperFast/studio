@@ -1,4 +1,5 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
+import { ClusterCycleCost, cycleCostSummary, RegionCycleCost } from '@/features/cluster/components/CycleCost';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import { useClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
@@ -34,16 +35,28 @@ export function UsagePage() {
 	// Rate limits + per-instance resources are usually identical across a cluster's regions (same plan),
 	// so when they're uniform we show them once in a shared card instead of repeating them per region.
 	const shared = data && !data.selfManaged ? uniformPlanInfo(data.regions) : null;
+	// One region already shows its own total; the cluster's adds something across several, or when a
+	// removed region still owes overage the regions listed do not show.
+	const clusterCost = data && !data.selfManaged ? cycleCostSummary(data) : null;
+	const showClusterCost = data != null && data.regions.length > 0
+		&& (data.regions.length > 1 || (data.cycleUsd ?? 0) !== (data.regions[0].cycleUsd ?? 0));
 
 	return (
 		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
 			<h1 className="text-2xl font-light text-foreground">Usage</h1>
+			{showClusterCost && data && <ClusterCycleCost usage={data} />}
 			{!data
 				? <LoadError />
 				: data.selfManaged
 				? <Empty>Usage isn't tracked for self-hosted clusters — they run under their own license.</Empty>
 				: data.regions.length === 0
-				? <Empty>No usage has been recorded for the current cycle yet.</Empty>
+				? (
+					<Empty>
+						{clusterCost
+							? `No region is running now; ${clusterCost}.`
+							: 'No usage has been recorded for the current cycle yet.'}
+					</Empty>
+				)
 				: (
 					// Quota is enforced per region — each region is its own collapsible group of meters.
 					<div className="mt-5 space-y-3">
@@ -72,7 +85,11 @@ export function UsagePage() {
 function RegionSection(
 	{ region, showPlanInfo, trial }: { region: ClusterUsageRegion; showPlanInfo: boolean; trial: boolean },
 ) {
-	const meters = METERED_ORDER.map((key) => toMeter(key, region.metrics[key]));
+	const cause = region.overageCause;
+	const meters = METERED_ORDER.map((key) => ({
+		...toMeter(key, region.metrics[key]),
+		note: cause?.metric === key && cause.ranOutAt ? `ran out ${fmtDate(cause.ranOutAt)}` : undefined,
+	}));
 	const meta = [
 		region.planName ? `${region.planName} plan` : null,
 		region.status === 'exhausted'
@@ -105,6 +122,7 @@ function RegionSection(
 			<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
 				{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
 			</div>
+			<RegionCycleCost region={region} />
 			{showPlanInfo && <PlanInfo rateLimits={region.rateLimits} resourcesPerInstance={region.resourcesPerInstance} />}
 		</CollapsibleCard>
 	);

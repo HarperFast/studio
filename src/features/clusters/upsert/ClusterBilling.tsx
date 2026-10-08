@@ -4,7 +4,7 @@ import { renewalTerms } from '@/features/clusters/upsert/lib/renewalTerms';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
-import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
+import { onContractedTerms } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { isPositive } from '@/lib/types/isPositive';
 import { useQuery } from '@tanstack/react-query';
@@ -33,7 +33,7 @@ export function ClusterBilling({
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const allowBypass = import.meta.env.DEV && !import.meta.env.VITE_PUBLIC_STRIPE_KEY;
-	const isEnterprise = isUnrestrictedOrgType(organization?.type);
+	const isEnterprise = onContractedTerms(organization, clusterId);
 	const hasValidPaymentMethod = allowBypass || isEnterprise
 		|| billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);

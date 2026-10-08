@@ -411,6 +411,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	instances?: Instance[];
 	/** The governing grant, or null for a cluster that never had one (self-hosted, or pre-grant). */
 	grant?: ClusterGrant | null;
+	/** `purchased` once staff move this cluster of an unrestricted organization onto paid terms (central-manager#890). */
+	commercialSource?: string | null;
 	/** Set when service was deliberately withdrawn. Distinguishes an expiry stop from a user stop. */
 	suspendedReason?: string | null;
 	/**

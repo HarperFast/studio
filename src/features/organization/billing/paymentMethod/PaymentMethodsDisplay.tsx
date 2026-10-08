@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
-import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
+import { billedThroughStripe, isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import {
 	translateStripePaymentMethodStatusToText,
 	translateStripePaymentMethodStatusToVariant,
@@ -42,7 +42,10 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		}
 	}, [onReplacingPaymentMethod, refetch]);
 
-	if (isUnrestrictedOrgType(organization?.type)) {
+	// A contract bills an unrestricted organization's clusters, and the page stays as it always was until
+	// one of them is on paid terms; from then on its card is managed here like anyone else's.
+	const contracted = isUnrestrictedOrgType(organization?.type);
+	if (contracted && (!billedThroughStripe(organization) || (!paymentMethod && !update))) {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this page.
@@ -51,9 +54,17 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		);
 	}
 
+	const contractNote = contracted && (
+		<p className="mt-2 text-sm text-muted-foreground">
+			Your clusters are billed by your contract. A card here is charged only for a cluster your account team moves onto
+			paid terms.
+		</p>
+	);
+
 	if (paymentMethod && !replacingPaymentMethod) {
 		return (
 			<>
+				{contractNote}
 				<div className="mt-2">
 					{paymentMethod.brand?.toUpperCase() ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
 					{(paymentMethod.expMonth && paymentMethod.expYear)
@@ -90,9 +101,12 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	}
 
 	return (
-		<AddNewPaymentMethod
-			onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-			onPaymentAdded={onPaymentAdded}
-		/>
+		<>
+			{contractNote}
+			<AddNewPaymentMethod
+				onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+				onPaymentAdded={onPaymentAdded}
+			/>
+		</>
 	);
 }
