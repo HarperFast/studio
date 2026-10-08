@@ -26,11 +26,17 @@ vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 	}),
 }));
 
+let redemptions: { code: string; kind: string; status: string; grantId?: string }[] = [];
 const redeem = vi.fn();
 // Hold the server's answer until a test releases it, to see what the field does in between.
 let gate: Promise<void> | null = null;
 vi.mock('@/features/organization/billing/promoCodes/promoCodeApi', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/organization/billing/promoCodes/promoCodeApi')>()),
+	getPromoRedemptionsQueryOptions: (orgId: string) => ({
+		queryKey: [orgId, 'promoRedemptions'],
+		queryFn: async () => redemptions,
+		retry: false,
+	}),
 	useRedeemPromoCode: () => ({
 		isPending: false,
 		mutate: (
@@ -57,6 +63,7 @@ afterEach(() => {
 	onBusyChange.mockClear();
 	unboundGrants = [{ id: 'cgr-p1' }];
 	gate = null;
+	redemptions = [];
 	queryClient.clear();
 });
 
@@ -166,7 +173,6 @@ describe('ClusterPromoCode', () => {
 	});
 
 	it('asks for a check before a retry when the redemption could not be confirmed', async () => {
-		unboundGrants = [];
 		redeem.mockImplementation(() => {
 			throw new Error('timeout');
 		});
@@ -198,7 +204,9 @@ describe('ClusterPromoCode', () => {
 		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
 	});
 
-	it('selects a voucher that landed although its answer was lost', async () => {
+	it('selects the voucher a lost request did land, found by its redemption of this code', async () => {
+		redemptions = [{ code: 'DEMO-HOBBYIST-30', kind: 'voucher', status: 'APPLIED', grantId: 'cgr-p1' }];
+		unboundGrants = [{ id: 'cgr-other' }, { id: 'cgr-p1' }];
 		redeem.mockImplementation(() => {
 			throw new Error('timeout');
 		});
@@ -210,13 +218,13 @@ describe('ClusterPromoCode', () => {
 		expect(form.getValues('grantId')).toBe('cgr-p1');
 	});
 
-	it('leaves the grant alone when the lost answer added nothing', async () => {
-		queryClient.setQueryData(['org-1', 'promo-field-test'], { id: 'org-1', unboundGrants: [{ id: 'cgr-p1' }] });
+	it('selects nothing when no redemption of this code names a grant, even if another grant appeared', async () => {
+		redemptions = [{ code: 'OTHER-CODE-1', kind: 'voucher', status: 'APPLIED', grantId: 'cgr-p1' }];
 		redeem.mockImplementation(() => {
 			throw new Error('timeout');
 		});
 		const input = await mountOpen();
-		fireEvent.change(input, { target: { value: 'WELCOME100' } });
+		fireEvent.change(input, { target: { value: 'DEMO-HOBBYIST-30' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
 		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
