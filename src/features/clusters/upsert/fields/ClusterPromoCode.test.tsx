@@ -175,6 +175,26 @@ describe('ClusterPromoCode', () => {
 		await waitFor(() => expect(fetchOrganization).toHaveBeenCalled());
 	});
 
+	it('keeps submit held after an unconfirmed redemption until the organization has reloaded', async () => {
+		let release = () => {};
+		fetchOrganization.mockImplementationOnce(() =>
+			new Promise((resolve) => {
+				release = () => resolve({ id: 'org-1', unboundGrants });
+			})
+		);
+		redeem.mockImplementation(() => {
+			throw new Error('timeout');
+		});
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'WELCOME100' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		await screen.findByRole('alert');
+		expect(onBusyChange).toHaveBeenLastCalledWith(true);
+		release();
+		await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+	});
+
 	it('asks for a code before calling central manager', async () => {
 		await mountOpen();
 		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));

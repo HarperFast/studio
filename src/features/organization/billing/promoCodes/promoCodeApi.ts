@@ -30,6 +30,8 @@ type RedeemResult =
 /**
  * POST /PromoRedemption/. A refusal (expired, already redeemed, card needed, too many tries) is an
  * answer for the form, so every 4xx resolves with central manager's reason instead of throwing.
+ * Central manager answers 2xx only once the redemption is APPLIED; anything else throws, so the
+ * caller treats it like a timeout rather than as a code that worked.
  */
 export async function redeemPromoCode(
 	{ organizationId, code }: { organizationId: string; code: string },
@@ -42,7 +44,14 @@ export async function redeemPromoCode(
 	if (response.status >= 400) {
 		return { ok: false, status: response.status, message: describeError({ response }).message };
 	}
-	const { kind, grantId } = response.data as unknown as { kind: PromoRedemptionView['kind']; grantId?: string };
+	const { kind, status, grantId } = response.data as unknown as {
+		kind: PromoRedemptionView['kind'];
+		status: PromoRedemptionView['status'];
+		grantId?: string;
+	};
+	if (status !== 'APPLIED') {
+		throw new Error(`Promo redemption answered ${response.status} with status ${status}`);
+	}
 	return { ok: true, kind, ...(grantId ? { grantId } : {}) };
 }
 
