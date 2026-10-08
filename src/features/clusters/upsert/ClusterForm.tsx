@@ -12,9 +12,10 @@ import { plansFromShape, prefillFromGrant } from '@/features/clusters/upsert/lib
 import { allowedRegionIdsFor, shapeCoversRequest, trialScope } from '@/features/clusters/upsert/lib/grantScope';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
+import { useIsOrganizationAdmin } from '@/hooks/usePermissions';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
 import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
-import { onContractedTerms } from '@/integrations/api/orgType';
+import { isUnrestrictedOrgType, onContractedTerms } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { pluralize } from '@/lib/pluralize';
@@ -88,6 +89,8 @@ export function ClusterForm({
 	const navigate = useNavigate();
 	const router = useRouter();
 	const isEnterprise = onContractedTerms(organization, clusterId);
+	const mayRedeemPromoCode = useIsOrganizationAdmin(organizationId) && !clusterId
+		&& !isUnrestrictedOrgType(organization?.type);
 	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
 
 	const queryClient = useQueryClient();
@@ -688,6 +691,7 @@ export function ClusterForm({
 									currentPlanId={currentPlanId}
 									planLevelFloor={planLevelFloor}
 									unboundGrants={organization?.unboundGrants}
+									promoCodeOrganizationId={mayRedeemPromoCode ? organizationId : undefined}
 									lockedByGrant={lockedByGrant}
 									deploymentLockedByGrant={deploymentLockedByGrant}
 									grantPlanIds={scope?.planIds ?? null}
