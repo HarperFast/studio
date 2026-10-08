@@ -17,7 +17,7 @@ import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingSte
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ClusterGrant } from '@/integrations/api/api.patch';
 import { ArrowRight, Layers3, Server } from 'lucide-react';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
@@ -101,6 +101,7 @@ export function ClusterDetails({
 	totalPrice,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
+	const [redeemingPromoCode, setRedeemingPromoCode] = useState(false);
 	// Hobbyist is colocated-only, so the deployment picker has nothing to offer while it is selected.
 	// Only when editing: on the create page Hobbyist can be the default selection for an org that
 	// already holds a free cluster, and locking deployment there would strand someone who wanted a
@@ -225,6 +226,7 @@ export function ClusterDetails({
 				type="submit"
 				variant="submit"
 				disabled={isPending
+					|| redeemingPromoCode
 					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
 					|| !isValid}
 			>
@@ -332,6 +334,7 @@ export function ClusterDetails({
 									className="col-span-3 md:col-span-6"
 									form={form}
 									organizationId={promoCodeOrganizationId}
+									onBusyChange={setRedeemingPromoCode}
 								/>
 							)}
 							<ClusterDeploymentDescription

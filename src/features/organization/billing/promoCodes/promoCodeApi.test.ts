@@ -1,6 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatCents, redeemPromoCode } from './promoCodeApi';
+import { formatCents, getPromoRedemptionsQueryOptions, redeemPromoCode } from './promoCodeApi';
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { post: vi.fn(), get: vi.fn() } }));
 
@@ -24,6 +24,16 @@ describe('redeemPromoCode', () => {
 	])('resolves a %i refusal with central manager’s reason, for the form to show', async (status, title) => {
 		mockedPost.mockResolvedValue({ status, data: { type: 'error:ClientError', title, status } });
 		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: false, status, message: title });
+	});
+});
+
+describe('getPromoRedemptionsQueryOptions', () => {
+	it('polls only while a redemption is still being added', () => {
+		const { refetchInterval } = getPromoRedemptionsQueryOptions('org-1');
+		const poll = (status: string) =>
+			(refetchInterval as (query: unknown) => number | false)({ state: { data: [{ status: 'APPLIED' }, { status }] } });
+		expect(poll('CLAIMED')).toBe(30_000);
+		expect(poll('EXPIRED')).toBe(false);
 	});
 });
 
