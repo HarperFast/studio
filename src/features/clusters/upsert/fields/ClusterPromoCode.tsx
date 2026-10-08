@@ -77,21 +77,27 @@ export function ClusterPromoCode({
 		setOutcome({ tone: 'success', message: 'Free cluster added and selected under Available grants.' });
 	};
 
-	// A grant that appeared while the answer was lost is the voucher, unless something else also landed.
-	const recoverUnconfirmed = async (grantsBefore: Set<string>) => {
+	// The org's redemption of this code names the voucher's grant, if the lost request did land it.
+	const recoverUnconfirmed = async (code: string) => {
 		setOutcome({
 			tone: 'error',
 			message: <>We couldn&rsquo;t confirm the redemption. Check {promoCodesPage} before trying again.</>,
 		});
 		let organization;
+		let redemptions;
 		try {
-			organization = await refreshOrganization();
+			[organization, redemptions] = await Promise.all([
+				refreshOrganization(),
+				queryClient.fetchQuery({ ...getPromoRedemptionsQueryOptions(organizationId), staleTime: 0 }),
+			]);
 		} catch {
 			return;
 		}
-		const landed = (organization.unboundGrants ?? []).filter((grant) => !grantsBefore.has(grant.id));
-		if (landed.length !== 1) { return; }
-		form.setValue('grantId', landed[0].id, { shouldDirty: true });
+		const grantId = redemptions.find((redemption) =>
+			redemption.code === code && redemption.kind === 'voucher' && redemption.status === 'APPLIED'
+		)?.grantId;
+		if (!grantId || !organization.unboundGrants?.some((grant) => grant.id === grantId)) { return; }
+		form.setValue('grantId', grantId, { shouldDirty: true });
 		void form.trigger();
 		setOutcome({
 			tone: 'success',
@@ -108,11 +114,6 @@ export function ClusterPromoCode({
 		}
 		setOutcome(null);
 		setBusy(true);
-		const grantsBefore = new Set(
-			queryClient.getQueryData(getOrganizationQueryOptions(organizationId).queryKey)?.unboundGrants?.map((grant) =>
-				grant.id
-			),
-		);
 		mutate({ organizationId, code: normalized }, {
 			onSuccess: async (result) => {
 				try {
@@ -123,7 +124,7 @@ export function ClusterPromoCode({
 			},
 			// A timeout or 5xx may still have redeemed the code, so submit stays held until the reload settles.
 			onError: () => {
-				void recoverUnconfirmed(grantsBefore).finally(() => setBusy(false));
+				void recoverUnconfirmed(normalized).finally(() => setBusy(false));
 			},
 		});
 	};
