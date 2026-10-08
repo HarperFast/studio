@@ -233,7 +233,9 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 						/>
 
 						<DialogFooter>
-							<Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>Cancel</Button>
+							<Button type="button" variant="ghost" onClick={() => !inFlight.current && onClose()} disabled={isPending}>
+								Cancel
+							</Button>
 							<Button type="submit" variant="submit" disabled={isPending}>
 								{isPending ? 'Creating…' : 'Create code'}
 							</Button>
