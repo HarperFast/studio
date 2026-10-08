@@ -77,6 +77,12 @@ export function PromoCodes() {
 
 	const form = useForm<RedeemValues>({ resolver: zodResolver(RedeemSchema), defaultValues: { code: '' } });
 
+	// A voucher adds one of the organization's unbound grants, so the organization reloads with the list.
+	const refresh = useCallback(() => {
+		void queryClient.invalidateQueries({ queryKey: getOrganizationQueryOptions(organizationId).queryKey, exact: true });
+		void queryClient.invalidateQueries({ queryKey: getPromoRedemptionsQueryOptions(organizationId).queryKey });
+	}, [organizationId, queryClient]);
+
 	const onSubmit = useCallback(
 		(values: RedeemValues) => {
 			if (!organizationId) { return; }
@@ -89,7 +95,7 @@ export function PromoCodes() {
 							return;
 						}
 						form.reset({ code: '' });
-						void queryClient.invalidateQueries({ queryKey: [organizationId] });
+						refresh();
 						toast.success('Code redeemed', {
 							description: result.kind === 'credit'
 								? 'The credit comes off your next invoices automatically.'
@@ -101,12 +107,12 @@ export function PromoCodes() {
 						form.setError('code', {
 							message: 'We couldn’t confirm the redemption. Check Your codes below before trying again.',
 						});
-						void queryClient.invalidateQueries({ queryKey: [organizationId] });
+						refresh();
 					},
 				},
 			);
 		},
-		[form, mutate, organizationId, queryClient],
+		[form, mutate, organizationId, refresh],
 	);
 
 	if (unrestricted) {

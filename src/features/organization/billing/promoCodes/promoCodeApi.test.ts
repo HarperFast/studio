@@ -16,6 +16,11 @@ describe('redeemPromoCode', () => {
 		expect(mockedPost).toHaveBeenCalledWith('/PromoRedemption/', params, expect.anything());
 	});
 
+	it('throws when a success answer is not an applied redemption, so it is not shown as one', async () => {
+		mockedPost.mockResolvedValue({ status: 200, data: { kind: 'voucher', status: 'CLAIMED' } });
+		await expect(redeemPromoCode(params)).rejects.toThrow(/status CLAIMED/);
+	});
+
 	it.each([
 		[410, 'That code has expired'],
 		[409, 'Your organization has already redeemed this code'],

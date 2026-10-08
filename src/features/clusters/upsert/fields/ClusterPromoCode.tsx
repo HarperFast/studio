@@ -16,9 +16,8 @@ import { z } from 'zod';
 type Outcome = { tone: 'error' | 'success'; message: ReactNode };
 
 /**
- * Redeem a promo code without leaving the create form; a redeemed voucher is selected as the grant.
- * This sits inside the cluster `<form>`, so it has no `<form>` of its own and Enter must not submit
- * the cluster. `onBusyChange` lets the form hold its submit until the voucher is selected.
+ * Sits inside the cluster `<form>`, so it has no `<form>` of its own and Enter must not submit the
+ * cluster. `onBusyChange` holds the cluster submit until a redeemed voucher is selected.
  */
 export function ClusterPromoCode({
 	className,
@@ -96,13 +95,13 @@ export function ClusterPromoCode({
 				}
 			},
 			// A timeout or 5xx may still have redeemed the code.
+			// The refresh picks up a voucher that did land, under Available grants, before submit reopens.
 			onError: () => {
-				setBusy(false);
 				setOutcome({
 					tone: 'error',
 					message: <>We couldn&rsquo;t confirm the redemption. Check {promoCodesPage} before trying again.</>,
 				});
-				void refreshOrganization().catch(() => {});
+				void refreshOrganization().catch(() => {}).finally(() => setBusy(false));
 			},
 		});
 	};
