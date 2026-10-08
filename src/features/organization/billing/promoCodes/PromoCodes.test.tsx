@@ -98,7 +98,7 @@ describe('PromoCodes', () => {
 				status: 'APPLIED',
 				redeemedAt: '2026-10-02T00:00:00Z',
 				shape: [{ planId: 'hobbyist', regionId: 'us-east' }],
-				voucherEndsAt: '2026-11-01T00:00:00Z',
+				voucherEndsAt: '2099-11-01T00:00:00Z',
 				voucherClaimed: false,
 			},
 		];
