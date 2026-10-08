@@ -9,8 +9,8 @@ import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateClust
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
-import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
-import { Organization } from '@/integrations/api/api.patch';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { ClusterUpsertRegionPlan, Organization, OrganizationRegion } from '@/integrations/api/api.patch';
 import { ENTERPRISE } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -33,6 +33,7 @@ import { ClusterDetails } from './ClusterDetails';
 import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
 import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
+import { buildRegionLookup, isOrganizationRegionId, MIN_CLUSTER_INSTANCES, regionCohortKey } from './lib/regionLookup';
 import { PriceDisplay } from './PriceDisplay';
 import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -45,6 +46,12 @@ interface ClusterFormProps {
 	mode: 'version' | undefined;
 	organization: Organization;
 	organizationId: string;
+	organizationRegions: OrganizationRegion[];
+	/** Staff may place the organization's custom regions and set their quantity. */
+	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
+	/** Custom regions the server already has on this cluster; a member keeps these but adds none. */
+	lockedOrganizationRegionIds: string[];
 	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
 	regionLocationsColocated: SchemaRegion[];
@@ -62,6 +69,10 @@ export function ClusterForm({
 	mode,
 	organization,
 	organizationId,
+	organizationRegions,
+	canUseCustomRegions,
+	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	partialUpgrade,
 	planTypes,
 	regionLocationsColocated,
@@ -98,11 +109,26 @@ export function ClusterForm({
 			),
 		[regionLocationsDedicated],
 	);
+	const colocatedRegionLookup = useMemo(
+		() => buildRegionLookup(regionLocationsColocated, organizationRegions, cloudProvider),
+		[cloudProvider, organizationRegions, regionLocationsColocated],
+	);
+	const dedicatedRegionLookup = useMemo(
+		() => buildRegionLookup(regionLocationsDedicated, organizationRegions, cloudProvider),
+		[cloudProvider, organizationRegions, regionLocationsDedicated],
+	);
+	const preexistingOrganizationRegionIds = useMemo(() => new Set(lockedOrganizationRegionIds), [
+		lockedOrganizationRegionIds,
+	]);
 
 	const refineZod = useCallback((data: UpsertClusterSchemaType, ctx: z.RefinementCtx) => {
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
 		const isSelfManaged = data.deploymentDescription === 'Self-Hosted';
+		// A version edit submits neither regions nor instances, so a stale draft cannot block it.
+		if (mode === 'version') {
+			return;
+		}
 		if (isSelfManaged) {
 			for (let i = 0; i < data.instances.length; i++) {
 				const fqdn = calculateInstanceFQDN(data.instances[i]);
@@ -124,53 +150,99 @@ export function ClusterForm({
 					message: 'Only one free cluster is allowed per organization.',
 				});
 			}
-			const regionNameToLatencyToRegion = selectedPlan?.deploymentDescription !== 'Dedicated'
-				? colocatedRegionNameToLatencyToRegion
-				: dedicatedRegionNameToLatencyToRegion;
-
+			const regionLookup = selectedPlan?.deploymentDescription !== 'Dedicated'
+				? colocatedRegionLookup
+				: dedicatedRegionLookup;
+			let totalInstances = 0;
+			let firstOrganizationRegionIndex = -1;
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
-				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
-				if (!names.has(regionPlan.regionName)) {
-					names.add(regionPlan.regionName);
+				const region = regionLookup.get(regionPlan.regionId);
+				if (!region) {
+					if (regionPlan.regionId) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: 'This region is no longer available.',
+						});
+					}
+					continue;
+				}
+				const cohort = regionCohortKey(region);
+				if (!names.has(cohort)) {
+					names.add(cohort);
 				} else {
 					ctx.addIssue({
 						code: 'custom',
-						path: [`regionPlans.${i}.regionName`],
+						path: [`regionPlans.${i}.regionId`],
 						message: 'You can only select a region once!',
 					});
 				}
-				if (selectedPlan?.allowedRegionIds?.length && region?.id) {
+				if (region.kind === 'organization') {
+					if (firstOrganizationRegionIndex < 0) {
+						firstOrganizationRegionIndex = i;
+					}
+					if (region.instanceCount === 0) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: "This custom region has no datacenters on the organization's cloud provider.",
+						});
+					}
+					if (!canUseCustomRegions && !preexistingOrganizationRegionIds.has(region.id)) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: 'Custom regions can only be placed by Harper staff.',
+						});
+					}
+					if (!regionPlan.quantity) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.quantity`],
+							message: 'Please choose how many units to deploy.',
+						});
+					}
+					totalInstances += region.instanceCount * (regionPlan.quantity ?? 1);
+					// Plan region restrictions describe the catalog; central-manager decides custom regions.
+					continue;
+				}
+				totalInstances += region.instanceCount;
+				if (selectedPlan?.allowedRegionIds?.length) {
 					if (!selectedPlan.allowedRegionIds.includes(region.id)) {
 						const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
-						if (!prefixMatches) {
-							ctx.addIssue({
-								code: 'custom',
-								path: [`regionPlans.${i}.regionName`],
-								message: `This region is not available with the selected performance tier!`,
-							});
-						} else {
-							ctx.addIssue({
-								code: 'custom',
-								path: [`regionPlans.${i}.latencyDescription`],
-								message: `This latency is not available with the selected performance tier!`,
-							});
-						}
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: prefixMatches
+								? `This latency is not available with the selected performance tier!`
+								: `This region is not available with the selected performance tier!`,
+						});
 					} else if (i >= 1) {
 						ctx.addIssue({
 							code: 'custom',
-							path: [`regionPlans.${i}.regionName`],
+							path: [`regionPlans.${i}.regionId`],
 							message: `You can only select one region with this performance tier!`,
 						});
 					}
 				}
 			}
+			if (firstOrganizationRegionIndex >= 0 && totalInstances < MIN_CLUSTER_INSTANCES) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [`regionPlans.${firstOrganizationRegionIndex}.quantity`],
+					message: `A cluster needs at least ${MIN_CLUSTER_INSTANCES} instances in total.`,
+				});
+			}
 		}
 	}, [
 		alreadyUsingFree,
-		colocatedRegionNameToLatencyToRegion,
-		dedicatedRegionNameToLatencyToRegion,
+		canUseCustomRegions,
+		colocatedRegionLookup,
+		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
+		mode,
+		preexistingOrganizationRegionIds,
 	]);
 
 	const form = useForm({
@@ -200,6 +272,9 @@ export function ClusterForm({
 	const regionLocations = selectedDeployment !== 'Dedicated'
 		? regionLocationsColocated
 		: regionLocationsDedicated;
+	const regionLookup = selectedDeployment !== 'Dedicated'
+		? colocatedRegionLookup
+		: dedicatedRegionLookup;
 
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
@@ -257,42 +332,71 @@ export function ClusterForm({
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
-			const firstRegion = selectedRegionPlans[0];
-			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]
-				?.[firstRegion.latencyDescription];
-			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
+			const firstRegionId = selectedRegionPlans[0].regionId;
+			if (!isOrganizationRegionId(firstRegionId) && !allowedRegionIds.includes(firstRegionId)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
 				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
 				if (regionToSelect) {
-					form.setValue('regionPlans.0.regionName', regionToSelect.region);
-					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);
+					form.setValue('regionPlans.0.regionId', regionToSelect.id);
 					void form.trigger();
 				}
 			}
 		}
-	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations]);
+	}, [selectedPlan, selectedRegionPlans, form, regionLookup, regionLocations]);
 
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
 		const isSelfManaged = selectedDeployment === 'Self-Hosted';
-		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
-			for (let i = 0; i < selectedRegionPlans.length; i++) {
-				const regionPlan = selectedRegionPlans[i];
-				if (!regionNameToLatencyToRegion[regionPlan.regionName]) {
-					form.setValue(`regionPlans.${i}.regionName`, '');
-				}
-			}
+		if (isSelfManaged || !regionLookup.size || !selectedRegionPlans.length) {
+			return;
 		}
-	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans]);
+		for (let i = 0; i < selectedRegionPlans.length; i++) {
+			const { regionId } = selectedRegionPlans[i];
+			// A custom region is deployment-agnostic; one the lookup lacks is pending a refetch (or gone),
+			// which validation reports without discarding the selection.
+			if (!regionId || regionLookup.has(regionId) || isOrganizationRegionId(regionId)) {
+				continue;
+			}
+			// Switching deployment swaps the catalog: carry the choice over by name and latency tier
+			// where the new catalog has a match, otherwise clear it.
+			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
+			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
+			const replacement = previous
+				&& (regionLocations?.find(r =>
+					r.region === previous.name && r.latencyDescription.split(' ')[0].toLowerCase() === previousTier
+				)
+					?? regionLocations?.find(r => r.region === previous.name));
+			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
+		}
+	}, [
+		colocatedRegionLookup,
+		dedicatedRegionLookup,
+		form,
+		regionLocations,
+		regionLookup,
+		selectedDeployment,
+		selectedRegionPlans,
+	]);
+
+	useEffect(function revalidateCustomRegionsWhenLookupChanges() {
+		// A custom region defined inline only resolves once its refetch lands.
+		if (form.getValues('regionPlans').some(entry => isOrganizationRegionId(entry.regionId))) {
+			void form.trigger('regionPlans');
+		}
+	}, [form, regionLookup]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
 		: selectedDeployment === 'Self-Hosted'
 		? selectedInstances.length * selectedPlan.priceUsd
-		: selectedRegionPlans.reduce((total, region) => {
-			const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
-			return total + (!regionPlan
-				? 0
-				: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
+		: selectedRegionPlans.reduce((total, entry) => {
+			const region = regionLookup.get(entry.regionId);
+			if (!region) {
+				return total;
+			}
+			// Central-manager mints a block per instance pair (rounded up) × quantity for a custom region.
+			return total + (region.kind === 'organization'
+				? selectedPlan.priceUsd * region.blocksPerUnit * (entry.quantity ?? 1)
+				: selectedPlan.priceUsd * region.instanceCount / 2);
 		}, 0);
 
 	const expirationMonths = selectedPlan?.planLimits?.expirationMonths;
@@ -372,7 +476,7 @@ export function ClusterForm({
 
 	const executeChangesToCluster = useCallback(async () => {
 		const formData = form.getValues();
-		const plans: SchemaRegionPlan[] = [];
+		const plans: ClusterUpsertRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
 
 		const isSelfManaged = formData.deploymentDescription === 'Self-Hosted';
@@ -386,13 +490,28 @@ export function ClusterForm({
 					planId: plan.id,
 				});
 			}
-		} else {
+		} else if (mode !== 'version') {
 			for (const regionPlan of formData.regionPlans) {
-				const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
+				// Re-resolve at submit: the catalog or the custom-region list may have changed since validation.
+				const region = regionLookup.get(regionPlan.regionId);
+				if (!region) {
+					toast.error('A selected region is no longer available. Please review your regions.');
+					void form.trigger();
+					return;
+				}
+				// Payment review submits without re-validating, and the shape can change while the user is away.
+				if (region.kind === 'organization' && region.instanceCount === 0) {
+					toast.error(
+						`${region.name} has no datacenters on the organization's cloud provider. Please review your regions.`,
+					);
+					void form.trigger();
+					return;
+				}
 				plans.push({
 					autoRenew: true,
 					planId: plan.id,
 					regionId: region.id,
+					...(region.kind === 'organization' ? { quantity: regionPlan.quantity ?? 1 } : {}),
 				});
 			}
 		}
@@ -448,7 +567,7 @@ export function ClusterForm({
 		onClusterSavedCallback,
 		onStartSaving,
 		organizationId,
-		regionNameToLatencyToRegion,
+		regionLookup,
 		setSavedClusterState,
 		submitEditClusterData,
 		submitNewClusterData,
@@ -550,7 +669,12 @@ export function ClusterForm({
 									mode={mode}
 									partialUpgrade={partialUpgrade}
 									regionLocations={regionLocations}
+									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+									organizationId={organizationId}
+									canUseCustomRegions={canUseCustomRegions}
+									canDefineCustomRegions={canDefineCustomRegions}
+									lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

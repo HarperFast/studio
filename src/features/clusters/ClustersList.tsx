@@ -2,6 +2,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { isLocalStudio } from '@/config/constants';
+import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import {
 	buildClusterList,
@@ -46,7 +47,19 @@ export function ClustersList() {
 		enabled: !isLocalStudio,
 		staleTime: 60_000,
 	});
-	const regionNames = useMemo(() => new Map(regionCatalog?.map(region => [region.id, region.region])), [regionCatalog]);
+	const { data: organizationRegions } = useQuery({
+		...getOrganizationRegionsQueryOptions(organizationId),
+		enabled: !isLocalStudio,
+		staleTime: 60_000,
+	});
+	const regionNames = useMemo(
+		() =>
+			new Map([
+				...(regionCatalog?.map(region => [region.id, region.region] as const) ?? []),
+				...(organizationRegions?.map(region => [region.id, region.name] as const) ?? []),
+			]),
+		[organizationRegions, regionCatalog],
+	);
 	const model = useMemo(
 		() => buildClusterList(orgInfo?.clusters ?? [], regionNames, orgInfo?.clusterSyncSummaries),
 		[orgInfo?.clusters, regionNames, orgInfo?.clusterSyncSummaries],

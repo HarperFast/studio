@@ -22,12 +22,7 @@ export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 			return {
 				deploymentDescription: planToSelect.deploymentDescription,
 				performanceDescription: planToSelect.performanceDescription,
-				regionPlans: [
-					{
-						regionName: regionToSelect.region,
-						latencyDescription: regionToSelect.latencyDescription,
-					},
-				],
+				regionPlans: [{ regionId: regionToSelect.id }],
 			};
 		}
 	}
