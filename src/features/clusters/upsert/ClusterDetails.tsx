@@ -10,6 +10,7 @@ import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterGrantId } from '@/features/clusters/upsert/fields/ClusterGrantId';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
+import { ClusterPromoCode } from '@/features/clusters/upsert/fields/ClusterPromoCode';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
@@ -46,6 +47,8 @@ interface ClusterDetailsProps {
 	planLevelFloor?: number;
 	/** The organization's unclaimed vouchers, offered on create. */
 	unboundGrants?: ClusterGrant[];
+	/** Set when this user may redeem a promo code for the organization from the create form. */
+	promoCodeOrganizationId?: string;
 	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
 	lockedByGrant?: boolean;
 	/** A trial voucher's allowed plans all share one deployment, so that picker has nothing to offer. */
@@ -84,6 +87,7 @@ export function ClusterDetails({
 	currentPlanId,
 	planLevelFloor,
 	unboundGrants,
+	promoCodeOrganizationId,
 	lockedByGrant,
 	deploymentLockedByGrant,
 	grantPlanIds,
@@ -321,6 +325,13 @@ export function ClusterDetails({
 									unboundGrants={unboundGrants}
 									planNameById={planNameById}
 									regionNameById={regionNameById}
+								/>
+							)}
+							{!clusterId && promoCodeOrganizationId && (
+								<ClusterPromoCode
+									className="col-span-3 md:col-span-6"
+									form={form}
+									organizationId={promoCodeOrganizationId}
 								/>
 							)}
 							<ClusterDeploymentDescription
