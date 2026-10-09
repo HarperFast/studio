@@ -139,7 +139,7 @@ Please see .github/CONTRIBUTING.MD for detailed guidelines, including how to run
 
 ## Troubleshooting
 
-- Dev server won’t start: ensure Node 20+ and pnpm installed; remove `node_modules` and reinstall.
+- Dev server won’t start: ensure Node matches `.nvmrc` and pnpm is installed; remove `node_modules` and reinstall.
 - API calls failing in dev: verify `VITE_CENTRAL_MANAGER_API_URL` and any required auth are correct for your environment/mode.
 - Local Studio not showing: ensure your Harper process has `localStudio: { enabled: true }` and is listening on the port you expect (default 9925).
 

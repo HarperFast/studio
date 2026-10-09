@@ -3,6 +3,9 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
+	"engines": {
+		"node": ">=24 <25"
+	},
 	"scripts": {
 		"dev": "npm run dev:fabric",
 		"dev:fabric": "dotenv -e .env.local -- npm run vite-host",

@@ -9,6 +9,8 @@ export default defineConfig({
 		// per-file startup overhead. Isolation stays on (the default) because
 		// several suites rely on vi.mock, which is unreliable without it.
 		pool: 'threads',
+		// jsdom-based suites fail wholesale, with no hint why, above the Node major .nvmrc pins.
+		globalSetup: ['./scripts/check-node-version.mjs'],
 		include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
 		exclude: [
 			'**/node_modules/**',
