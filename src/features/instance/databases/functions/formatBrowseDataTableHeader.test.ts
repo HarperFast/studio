@@ -52,6 +52,33 @@ describe('formatBrowseDataTableHeader', () => {
 		expect(product?.enableColumnFilter).toBe(false);
 	});
 
+	it('renders an elements-less array named like a sibling table as plain JSON', () => {
+		const albums = {
+			schema: 'data',
+			name: 'Albums',
+			primary_key: 'id',
+			attributes: [
+				{ attribute: 'id', type: 'ID', is_primary_key: true },
+				{ attribute: 'tracks', type: 'array' },
+			],
+		} as InstanceTable;
+		const albumTables: InstanceDatabaseTableMap = {
+			Albums: albums,
+			Tracks: {
+				schema: 'data',
+				name: 'Tracks',
+				primary_key: 'id',
+				attributes: [{ attribute: 'id', type: 'ID', is_primary_key: true }],
+			} as InstanceTable,
+		};
+		const { dataTableColumns } = formatBrowseDataTableHeader(albums, getRelationshipInfoMap(albums, albumTables));
+		const tracks = dataTableColumns.find((column) => column.header === 'tracks')!;
+
+		expect(tracks.meta).toBeUndefined();
+		const render = tracks.cell as (context: { getValue: () => unknown }) => unknown;
+		expect(render({ getValue: () => [{ title: 'Intro' }] })).toBe('[{"title":"Intro"}]');
+	});
+
 	it('synthesizes columns for schema-declared relationships missing from describe', () => {
 		// Harper 5.1 regime: describe carries only the stored attributes.
 		const described = { ...relReview, attributes: relReview.attributes.slice(0, 3) };

@@ -1,4 +1,5 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
@@ -7,7 +8,7 @@ import { ImportDataModal } from '@/features/instance/databases/modals/ImportData
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -39,6 +40,13 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	const { value: createTarget } = useWatchedValue('ShowCreateTable', false);
 	const { value: addTarget } = useWatchedValue('ShowAddTableRecords', false);
 	const { value: importTarget } = useWatchedValue('ShowImportData', false);
+
+	// A schema-declared relationship can be reported by describe as a plain attribute, and a record
+	// that assigns it is refused. Fetched only while a modal that writes records is open: the crawl
+	// reads every component schema file, and the open table view has usually cached it already.
+	const { data: schemaRelationshipMap } = useQuery(
+		getSchemaRelationshipsQueryOptions({ ...instanceParams, enabled: !!addTarget || !!importTarget }),
+	);
 
 	const addInstanceTable = addTarget
 		? instanceDatabaseMap?.[addTarget.databaseName]?.[addTarget.tableName]
@@ -90,6 +98,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
 					databaseTables={instanceDatabaseMap?.[addTarget.databaseName]}
+					schemaRelationships={schemaRelationshipMap?.[addTarget.databaseName]?.[addTarget.tableName]}
 					isModalOpen
 					setIsModalOpen={open => {
 						if (!open) {
@@ -111,6 +120,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				isModalOpen={!!importTarget}
 				setIsModalOpen={open => setWatchedValue('ShowImportData', open ? (importTarget || {}) : false)}
 				instanceDatabaseMap={instanceDatabaseMap}
+				schemaRelationshipMap={schemaRelationshipMap}
 				databaseName={importTarget ? importTarget.databaseName : undefined}
 				tableName={importTarget ? importTarget.tableName : undefined}
 				initialMethod={importTarget ? importTarget.method : undefined}

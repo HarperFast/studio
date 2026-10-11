@@ -139,16 +139,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const canImportFile = canImportData && importCapabilities.methods.file;
 	const canImportUrl = canImportData && importCapabilities.methods.url;
 	const canSeedSample = canImportData && importCapabilities.allowsSource('csv-data');
-	// Read the attributes from the same map the modal's Random Data option reads (NOT the
-	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
-	// dead end this gate exists to close.
-	const fillableAttributes = useMemo(
-		() => randomizableAttributes(tableFromMap?.attributes, databaseTables),
-		[tableFromMap, databaseTables],
-	);
-	const canSeedRandom = canImportData
-		&& importCapabilities.allowsSource('json-records')
-		&& fillableAttributes.length > 0;
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
 	// Newer Harper servers omit relationship attributes from describe entirely; the component
 	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
@@ -163,6 +153,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
 	const canReplaceRecords = replaceBlockedReason === undefined;
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
+	// Read the attributes from the same map the modal's Random Data option reads (NOT the
+	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
+	// dead end this gate exists to close.
+	const fillableAttributes = useMemo(
+		() => randomizableAttributes(tableFromMap?.attributes, databaseTables, schemaRelationships),
+		[tableFromMap, databaseTables, schemaRelationships],
+	);
+	const canSeedRandom = canImportData
+		&& importCapabilities.allowsSource('json-records')
+		&& fillableAttributes.length > 0;
 	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
 	// they are also excluded from record add/edit JSON since the server rejects writes that
 	// assign them.
@@ -175,8 +175,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		[instanceTable, databaseTables],
 	);
 	const syntheticAttributes = useMemo(
-		() => syntheticAttributeNames(instanceTable?.attributes, databaseTables),
-		[instanceTable, databaseTables],
+		() => syntheticAttributeNames(instanceTable?.attributes, databaseTables, schemaRelationships),
+		[instanceTable, databaseTables, schemaRelationships],
 	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);

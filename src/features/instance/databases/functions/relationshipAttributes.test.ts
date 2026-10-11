@@ -68,6 +68,15 @@ describe('getRelationshipInfo', () => {
 		expect(getRelationshipInfo({ attribute: 'x', type: 'RelProduct', computed: true }, tables)).toBeUndefined();
 	});
 
+	it('does not mistake an inherited property of the table map for a table', () => {
+		const withOddType = {
+			...relProduct,
+			attributes: [...relProduct.attributes, { attribute: 'shape', type: 'constructor' }],
+		};
+		const info = getRelationshipInfo(relReview.attributes[3], { ...tables, RelProduct: withOddType });
+		expect(info?.relatedAttributes.map((a) => a.attribute)).toContain('shape');
+	});
+
 	it('returns undefined without the database table map', () => {
 		expect(getRelationshipInfo(relReview.attributes[3], undefined)).toBeUndefined();
 	});
@@ -240,9 +249,10 @@ describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
 	});
 });
 
-describe('legacy elements-less relationships and reverse foreign keys', () => {
+describe('elements-less arrays and reverse foreign keys', () => {
 	// Shapes copied from a live 5.1.18 cluster whose Albums/Tracks tables were created under an
-	// older Harper: the legacy attribute registry kept `tracks` but without its element type.
+	// older Harper: the legacy attribute registry kept `tracks` but without its element type, and
+	// the schema doesn't declare it a relationship.
 	const albums = {
 		schema: 'data',
 		name: 'Albums',
@@ -265,14 +275,28 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 	} as InstanceTable;
 	const albumTables: InstanceDatabaseTableMap = { Albums: albums, Tracks: tracksTable };
 
-	it('detects an elements-less array by matching its name against sibling tables', () => {
-		const info = getRelationshipInfo(albums.attributes[2], albumTables, albums);
-		expect(info).toMatchObject({
+	it('treats an elements-less array named like a sibling table as plain data', () => {
+		const tracks = albums.attributes[2];
+		expect(getRelationshipInfo(tracks, albumTables, albums)).toBeUndefined();
+		expect(getRelationshipInfoMap(albums, albumTables)).toEqual({});
+		expect(isSyntheticAttribute(tracks, albumTables)).toBe(false);
+		expect(buildSyntheticGetAttributes(albums, albumTables)).toBeUndefined();
+		for (const attribute of ['track', 'Tracks', 'trackss']) {
+			expect(getRelationshipInfo({ attribute, type: 'array' }, albumTables)).toBeUndefined();
+		}
+	});
+
+	it('still treats it as a relationship when the schema declares one', () => {
+		const declared = [{ attribute: 'tracks', relatedTableName: 'Tracks', isToMany: true, to: 'albumId' }];
+		const map = getRelationshipInfoMap(albums, albumTables, declared);
+		expect(map.tracks).toMatchObject({
 			relatedTableName: 'Tracks',
 			isToMany: true,
 			resolvable: false,
 			reverseForeignKey: 'albumId',
 		});
+		expect(isSyntheticAttribute(albums.attributes[2], albumTables, declared)).toBe(true);
+		expect(syntheticAttributeNames(albums.attributes, albumTables, declared)).toEqual(['tracks']);
 	});
 
 	it('does not treat scalar arrays as relationships even if a table shares their name', () => {
@@ -284,12 +308,8 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 			.toBeUndefined();
 	});
 
-	it('omits unresolvable relationships from get_attributes', () => {
-		expect(buildSyntheticGetAttributes(albums, albumTables)).toBeUndefined();
-	});
-
 	it('only infers the reverse key when the owner table is known', () => {
-		expect(getRelationshipInfo(albums.attributes[2], albumTables)?.reverseForeignKey).toBeUndefined();
+		expect(getRelationshipInfo(relProduct.attributes[4], tables)?.reverseForeignKey).toBeUndefined();
 	});
 
 	it('finds the reverse key through the related table back-reference relationship', () => {

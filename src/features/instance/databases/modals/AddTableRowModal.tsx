@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isSyntheticAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
+import { SchemaRelationship } from '@/features/instance/databases/functions/schemaRelationships';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { useInsertTableRecords } from '@/integrations/api/instance/database/insertTableRecords';
@@ -20,11 +21,13 @@ export function AddTableRowModal({
 	isModalOpen,
 	instanceTable,
 	databaseTables,
+	schemaRelationships,
 	setIsModalOpen,
 	refreshTable,
 }: {
 	instanceTable: InstanceTable;
 	databaseTables?: InstanceDatabaseTableMap;
+	schemaRelationships?: SchemaRelationship[];
 	isModalOpen: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	refreshTable: () => void;
@@ -46,14 +49,14 @@ export function AddTableRowModal({
 				|| attribute.attribute === '__updatedtime__'
 				// Relationship/computed attributes are read-only: the server rejects records that
 				// assign them, even with null.
-				|| isSyntheticAttribute(attribute, databaseTables)
+				|| isSyntheticAttribute(attribute, databaseTables, schemaRelationships)
 			) {
 				continue;
 			}
 			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
 		}
 		return JSON.stringify(sample, null, 4);
-	}, [instanceTable, databaseTables]);
+	}, [instanceTable, databaseTables, schemaRelationships]);
 
 	const onSubmitClick = useCallback(() => {
 		if (addTableRecordData === undefined) {
