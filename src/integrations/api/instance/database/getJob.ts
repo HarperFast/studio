@@ -38,16 +38,19 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Polls get_job until the job leaves IN_PROGRESS. Resolves with the finished job,
  * or rejects with the job's error message (ERROR status) or on timeout.
+ * `onUpdate` sees every job record a poll returns, the finished one included.
  */
 export async function waitForJob({
 	jobId,
 	instanceClient,
 	pollIntervalMs = 1500,
 	timeoutMs = 10 * 60 * 1000,
+	onUpdate,
 }: {
 	jobId: string;
 	pollIntervalMs?: number;
 	timeoutMs?: number;
+	onUpdate?: (job: HarperJob) => void;
 } & InstanceClientConfig): Promise<HarperJob> {
 	const deadline = Date.now() + timeoutMs;
 	// A dropped poll shouldn't kill an import that is still running server-side, so
@@ -63,6 +66,15 @@ export async function waitForJob({
 			consecutiveFailures += 1;
 			if (consecutiveFailures >= 5) {
 				throw err;
+			}
+		}
+		if (job && onUpdate) {
+			// An observer failure must not turn a load Harper completed into a reported failure, which
+			// invites a duplicating retry.
+			try {
+				onUpdate(job);
+			} catch (err) {
+				console.debug('waitForJob onUpdate failed', err);
 			}
 		}
 		// Only COMPLETE and ERROR are terminal: a freshly submitted job can still be

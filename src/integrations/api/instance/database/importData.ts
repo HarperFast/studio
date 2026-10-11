@@ -3,7 +3,7 @@ import { errorText } from '@/lib/errorText';
 import { useMutation } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { onAddCSVDataSubmit } from './addCSVData';
-import { waitForJob } from './getJob';
+import { type HarperJob, waitForJob } from './getJob';
 import { insertTableRecords } from './insertTableRecords';
 
 export type ImportSource =
@@ -18,10 +18,22 @@ export interface ImportDataParams extends InstanceClientConfig {
 	tableExists: boolean;
 	replicated: boolean;
 	source: ImportSource;
+	progress?: ImportProgressListener;
 }
 
 export interface ImportDataResult {
 	message: string;
+}
+
+/**
+ * Follows one import. The mutation's own callbacks settle it, not the caller's `mutate` options, which
+ * React Query skips once the component that started the import has unmounted.
+ */
+export interface ImportProgressListener {
+	/** Every poll of a CSV load's job. A JSON-records import runs no job, so it never calls this. */
+	onJobUpdate(job: HarperJob): void;
+	onSuccess(result: ImportDataResult): void;
+	onError(): void;
 }
 
 function extractErrorMessage(err: unknown): string {
@@ -43,7 +55,9 @@ export async function importData({
 	replicated,
 	source,
 	instanceClient,
+	progress,
 }: ImportDataParams): Promise<ImportDataResult> {
+	const onUpdate = (job: HarperJob) => progress?.onJobUpdate(job);
 	if (!tableExists) {
 		try {
 			await instanceClient.post('/', {
@@ -67,7 +81,7 @@ export async function importData({
 	switch (source.kind) {
 		case 'csv-data': {
 			const { job_id } = await onAddCSVDataSubmit({ database, table, fileData: source.data, instanceClient });
-			const job = await waitForJob({ jobId: job_id, instanceClient });
+			const job = await waitForJob({ jobId: job_id, instanceClient, onUpdate });
 			return { message: errorText(job.message) ?? 'CSV data imported successfully' };
 		}
 		case 'csv-url': {
@@ -78,7 +92,7 @@ export async function importData({
 				table,
 				action: 'insert',
 			});
-			const job = await waitForJob({ jobId: data.job_id, instanceClient });
+			const job = await waitForJob({ jobId: data.job_id, instanceClient, onUpdate });
 			return { message: errorText(job.message) ?? 'CSV data imported successfully' };
 		}
 		case 'json-records': {
@@ -99,8 +113,20 @@ export async function importData({
 	}
 }
 
+/** A throw from a mutation callback becomes the mutation's error, so a progress listener that fails
+ *  would report an import Harper completed as failed and invite a duplicating retry. */
+function settleQuietly(settle: () => void) {
+	try {
+		settle();
+	} catch (err) {
+		console.debug('Import progress listener failed', err);
+	}
+}
+
 export function useImportDataMutation() {
 	return useMutation<ImportDataResult, Error, ImportDataParams>({
 		mutationFn: importData,
+		onSuccess: (result, { progress }) => settleQuietly(() => progress?.onSuccess(result)),
+		onError: (_error, { progress }) => settleQuietly(() => progress?.onError()),
 	});
 }
