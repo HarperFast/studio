@@ -10,9 +10,9 @@ export const clusterLayoutRoute = createRoute({
 	path: '$clusterId',
 	component: ClusterLayout,
 	errorComponent: ClusterRouteError,
-	beforeLoad: async ({ context, params }) => {
+	beforeLoad: async (opts) => {
 		return {
-			cluster: await ensureRouteQueryData(context.queryClient, getClusterInfoQueryOptions(params.clusterId)),
+			cluster: await ensureRouteQueryData(opts, getClusterInfoQueryOptions(opts.params.clusterId)),
 		};
 	},
 });
