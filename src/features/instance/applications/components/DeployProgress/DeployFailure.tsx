@@ -3,12 +3,9 @@ import { Link, useParams } from '@tanstack/react-router';
 import { CircleIcon } from 'lucide-react';
 
 /**
- * A deploy that failed because the *instance* couldn't reach a private repository over SSH is
- * fixed in Config > SSH Keys (install a key, grant it access to the repo, add the git host to
- * `known_hosts`), so link the user there instead of leaving them to find it. Harper's message
- * already spells out the remediation, and only the deploy UI reports the failure: it's an
- * instance configuration state, not a Studio bug, so `shouldKeepEvent` drops the RUM event
- * (which also kept the customer's private repo URL out of Error Tracking).
+ * The instance failing to reach a private repository over SSH is fixed in its Config > SSH Keys.
+ * Nothing else reports it: it is instance configuration, not a Studio bug, so `shouldKeepEvent`
+ * drops the RUM event (keeping the private repository URL out of Error Tracking too).
  */
 const SSH_ACCESS_FAILURE = /Failed to deploy private repository\b|SSH access failed/i;
 
