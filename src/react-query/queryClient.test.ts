@@ -4,6 +4,7 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { errorHandler, queryClient, queryErrorHandler } from './queryClient';
+import { claimForRoute } from './routeQueryClaims';
 
 // Mock the toast module
 vi.mock('sonner', () => ({
@@ -342,6 +343,20 @@ describe('queryErrorHandler', () => {
 		expect(calls).toBe(1);
 		unsubscribe();
 		queryClient.removeQueries({ queryKey: ['ins-9'] });
+	});
+
+	it('leaves a failure a route load is awaiting to the route: no toast, nothing for RUM', () => {
+		const query = queryFor(['org-1']);
+		const release = claimForRoute(query, new AbortController().signal);
+
+		queryErrorHandler(networkError, query);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(console.error).not.toHaveBeenCalled();
+
+		release();
+		queryErrorHandler(networkError, query);
+		expect(toast.error).toHaveBeenCalledTimes(1);
+		expect(console.error).toHaveBeenCalledWith(networkError);
 	});
 
 	it('still toasts a real answer from a restarting entity', () => {
