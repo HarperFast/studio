@@ -38,8 +38,18 @@ export function ConfigDeploymentsIndex() {
 	const versionUnavailable = !versionKnown && registrationFailed;
 	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
 	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version));
-	// A saved `?status=staged` opened against an instance without staging asks for nothing it can answer.
 	const status = requestedStatus && statuses.includes(requestedStatus) ? requestedStatus : undefined;
+	const unsupportedStatus = versionKnown && !!requestedStatus && !status;
+	useEffect(() => {
+		// Otherwise the URL would keep claiming a filter the list is not applying.
+		if (unsupportedStatus) {
+			void navigate({
+				to: '.',
+				search: (previous: DeploymentsSearch) => ({ ...previous, status: undefined }),
+				replace: true,
+			});
+		}
+	}, [unsupportedStatus, navigate]);
 
 	const { data, isFetching, isRefetching, refetch, error } = useQuery(
 		getDeploymentsQueryOptions({
