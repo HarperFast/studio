@@ -33,30 +33,38 @@ export function isDeterministicRejection(err: unknown): boolean {
 	return status === 400 || status === 403;
 }
 
-const MAX_REJECTED_POLL_INTERVAL_MS = 5 * 60_000;
+const MAX_FAILING_POLL_INTERVAL_MS = 5 * 60_000;
 
-const rejectedSince = new WeakMap<QueryErrorState, number>();
+/** How long a run of 5xx keeps the configured interval before it backs off like a 400,
+ *  measured from the run's first *settled* error — after the query's own retries. */
+const SERVER_ERROR_GRACE_MS = 60_000;
+
+const failingSince = new WeakMap<QueryErrorState, number>();
+
+function isServerError(status: number | undefined): boolean {
+	return status !== undefined && status >= 500 && status < 600;
+}
 
 /** Only a success (`dataUpdatedAt` passing the recorded start) ends a run. A null `error`
  *  must not: on a query that has never loaded, React Query resets `error` to null at the
  *  start of every fetch, so the run would restart on every tick. */
-function rejectedPollInterval(query: QueryErrorState, interval: number): number {
+function failingPollInterval(query: QueryErrorState, interval: number, graceMs: number): number {
 	const { errorUpdatedAt, dataUpdatedAt = 0 } = query.state;
 	if (!Number.isFinite(errorUpdatedAt)) {
 		return interval;
 	}
-	let since = rejectedSince.get(query);
+	let since = failingSince.get(query);
 	if (since === undefined || since < dataUpdatedAt) {
 		since = errorUpdatedAt!;
-		rejectedSince.set(query, since);
+		failingSince.set(query, since);
 	}
-	const streak = errorUpdatedAt! - since;
-	return Math.min(Math.max(interval, streak), Math.max(interval, MAX_REJECTED_POLL_INTERVAL_MS));
+	const streak = errorUpdatedAt! - since - graceMs;
+	return Math.min(Math.max(interval, streak), Math.max(interval, MAX_FAILING_POLL_INTERVAL_MS));
 }
 
 /**
  * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403, and
- * BACKS OFF while it keeps answering 400.
+ * BACKS OFF while it keeps answering 400 or 5xx.
  *
  * `refetchInterval` fires on a timer regardless of the query's error state, so a
  * poll against a resource the user may not touch retries forever. On 2026-07-27 a
@@ -73,16 +81,17 @@ function rejectedPollInterval(query: QueryErrorState, interval: number): number 
  * true), so if the user is granted access the UI recovers on their next interaction
  * without a reload — it just no longer hammers the endpoint in the background.
  *
- * Only 403 stops the timer. 5xx, network failures, and timeouts are transient
- * (instance restarting, unreachable) and should keep polling so the UI self-heals.
+ * Only 403 stops the timer. A 400 does NOT, even though it is just as deterministic
+ * (`isDeterministicRejection`): halting would freeze a poll whose 400 came from state
+ * that is still settling — a certificate challenge mid-provision, an argument derived
+ * from a not-yet-loaded resource — until the user remounts or refocuses the tab. A 5xx
+ * must not stop it either, so the row shows the instance coming back on its own.
  *
- * A 400 does NOT stop the timer, even though it is just as deterministic
- * (`isDeterministicRejection`). Halting on it would freeze a poll whose 400 came from
- * state that is still settling — a certificate challenge mid-provision, an argument
- * derived from a not-yet-loaded resource — until the user remounts or refocuses the tab.
- *
- * Instead the next tick waits as long as the run of 400s has lasted, clamped to
- * [`interval`, 5min]. This paces only the timer; remount and refocus still refetch.
+ * Instead the next tick waits as long as the run of failures has lasted, clamped to
+ * [`interval`, 5min]. A 5xx tick first subtracts a one-minute grace, so a restart or a
+ * brief outage is still picked up at the configured cadence. Any success ends the run;
+ * 400s and 5xx in between share one run. Network failures and timeouts keep the base
+ * interval. This paces only the timer; remount, refocus, and invalidation still refetch.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
 	return (query: QueryErrorState) => {
@@ -93,7 +102,10 @@ export function pollUnlessForbidden(interval: number | false | undefined) {
 		if (!interval) {
 			return interval ?? false;
 		}
-		return status === 400 ? rejectedPollInterval(query, interval) : interval;
+		if (status === 400) {
+			return failingPollInterval(query, interval, 0);
+		}
+		return isServerError(status) ? failingPollInterval(query, interval, SERVER_ERROR_GRACE_MS) : interval;
 	};
 }
 
