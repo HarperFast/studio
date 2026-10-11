@@ -177,20 +177,76 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		expect((await findByRole('alert')).textContent).toContain('Verification failed. Please try again.');
 	});
 
-	it('leaves a non-retryable failure to the normal error path (toast, no inline notice)', async () => {
+	it('renders a non-retryable 4xx inline in the server’s words, never as a toast', async () => {
 		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		// Deliberately not a 404 "no such account": this page promises not to reveal whether an
 		// address exists, so a fixture asserting that body would codify an enumeration oracle.
 		post.mockRejectedValue(
 			{ isAxiosError: true, response: { status: 400, data: 'That address is not valid' } } as AxiosError,
 		);
-		const { container, queryByRole } = renderForm();
+		const { container, findByRole } = renderForm();
 
 		await submitWith(container, 'user@example.com');
 
+		expect((await findByRole('alert')).textContent).toBe('That address is not valid');
+		expect(toast.error).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	it('does not report a CAPTCHA rejection, which the form states inline', async () => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(
+			{ isAxiosError: true, response: { status: 403, data: 'Verification failed' } } as AxiosError,
+		);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		await findByRole('alert');
+		expect(consoleError).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	it.each([
+		['a non-CAPTCHA 403', { status: 403, data: 'Forbidden' }],
+		['a non-retryable 4xx', { status: 400, data: 'That address is not valid' }],
+		['a 503', { status: 503 }],
+	])('reports %s to telemetry exactly once', async (_label, response) => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, response } as AxiosError);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		await findByRole('alert');
+		expect(consoleError).toHaveBeenCalledTimes(1);
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ isAxiosError: true }));
+		consoleError.mockRestore();
+	});
+
+	// The caller's `mutate` callbacks are skipped once the form unmounts, which is exactly when
+	// someone gave up on a slow request and navigated away.
+	it('still reports a failure that settles after the form unmounted', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let settle: (() => void) | undefined;
+		post.mockReturnValue(
+			new Promise((_resolve, reject) => {
+				settle = () => reject({ isAxiosError: true, response: { status: 503 } } as AxiosError);
+			}),
+		);
+		const { container, unmount } = renderForm();
+
+		await submitWith(container, 'user@example.com');
 		await waitFor(() => expect(post).toHaveBeenCalled());
-		expect(queryByRole('alert')).toBeNull();
-		await waitFor(() => expect(toast.error).toHaveBeenCalled());
+		unmount();
+		settle!();
+
+		await waitFor(() => expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ isAxiosError: true })));
+		consoleError.mockRestore();
 	});
 
 	// The state model moved out of react-hook-form for exactly this: a `root` error survives a

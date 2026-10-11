@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
+import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 
 export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 	email: string;
@@ -32,7 +33,12 @@ export function useSignUpMutation() {
 		meta: { skipGlobalErrorToast: true },
 		// At mutation level, not in the caller's `mutate` callback: React Query skips those when
 		// the component unmounts mid-flight, and this is the only thing reporting the rejection
-		// now that `skipGlobalErrorToast` keeps `errorHandler` out of the path.
-		onError: (error) => console.error(error),
+		// now that `skipGlobalErrorToast` keeps `errorHandler` out of the path. A CAPTCHA rejection
+		// is the check's expected verdict, which the form states inline.
+		onError: (error) => {
+			if (!isCaptchaVerificationError(error)) {
+				console.error(error);
+			}
+		},
 	});
 }
