@@ -592,10 +592,13 @@ and each of these cost a review round on #1628 — verify against the Harper sou
 - **`structure_user` is different and IS gated** — only `create_table`/`create_attribute`/
   `drop_table`/`drop_attribute` (plus create/drop database for the boolean form) short-circuit. The
   array form scopes that carve-out to its listed databases and never reaches create/drop database.
-- **~23 operations are inert when granted.** Their `requiredPermissions` entry omits `api_name`, so
-  the gate compares a camelCase handler name against a snake_case grant and never matches
-  (`deploy_component`, `get_status`, `registration_info`, …). Filed as HarperFast/harper#2175.
-  `sql` is worse: it routes to `verifyPermsAST`, which never consults the allowlist at all.
+- **Which names the gate matches depends on the version.** Before 5.3, 20 entries omit `api_name`,
+  so the gate compares a camelCase handler name against a snake_case grant and never matches
+  (`deploy_component`, `get_status`, `registration_info`, …; HarperFast/harper#2175). From
+  v5.3.0-beta.3 every entry names its grant, and `get_backup`, `read_transaction_log` and `catchup`
+  name `null` on purpose, so no allowlist reaches them. The catalog records this per entry (`gate`), and
+  callers resolve the instance version into a `GrantBand` once. `sql` is worse: it routes to
+  `verifyPermsAST`, which never consults the allowlist at all.
 - **Alias spellings are inert too** (`describe_database`, `search_by_id`, `create_schema`, …): both
   spellings dispatch to one handler whose entry carries only the canonical `api_name`.
 - **A non-iterable value takes the instance down.** `listUsers` expands every assigned role's

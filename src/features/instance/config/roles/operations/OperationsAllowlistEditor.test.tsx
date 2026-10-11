@@ -152,13 +152,56 @@ describe('OperationsAllowlistEditor', () => {
 		expect(screen.getByText(/except the DDL noted above/)).toBeTruthy();
 	});
 
-	it('marks a grant that the server cannot currently enforce', () => {
+	it('marks a grant this version cannot enforce, and says which version does', () => {
 		render(<Harness initial={[]} />);
 		openPicker();
 		filterPicker('deploy_component');
 		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
-		expect(within(item).getByText('not yet enforced')).toBeTruthy();
+		expect(within(item).getByText('needs Harper 5.3')).toBeTruthy();
 		expect(within(item).queryByText('super_user')).toBeNull();
+	});
+
+	it('treats the deploy operations as real super_user delegations on 5.3', () => {
+		render(<Harness initial={['deploy_component', 'get_job']} version="5.3.0" />);
+		expect(screen.getByText(/Effectively allows 2 operations, including some that normally require super_user/))
+			.toBeTruthy();
+		expect(screen.queryByText(/Every entry here is inert/)).toBeNull();
+
+		openPicker();
+		filterPicker('deploy_component');
+		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
+		expect(within(item).getByText('super_user')).toBeTruthy();
+		expect(within(item).queryByText('needs Harper 5.3')).toBeNull();
+	});
+
+	it('stops offering catchup on 5.3, where no allowlist can reach it, and says so on a saved one', () => {
+		render(<Harness initial={['catchup']} version="5.3.0" />);
+		expect(screen.getByText(/Every entry here is inert/)).toBeTruthy();
+		const chip = screen.getByRole('button', { name: 'Remove catchup' }).parentElement;
+		expect(chip?.getAttribute('title')).toMatch(/never lets an operations allowlist grant this operation/);
+
+		openPicker();
+		filterPicker('catchup');
+		expect(screen.queryByRole('menuitemcheckbox', { name: /catchup/ })).toBeNull();
+	});
+
+	it('does not offer a never-granted operation through the custom-grant path either', () => {
+		render(<Harness initial={[]} version="5.3.0" />);
+		openPicker();
+		for (const name of ['catchup', 'get_backup', 'read_transaction_log']) {
+			filterPicker(name);
+			expect(screen.queryAllByRole('menuitemcheckbox'), name).toHaveLength(0);
+		}
+	});
+
+	it('does not offer the trust-policy operations, whose handlers insist on a super_user', () => {
+		render(<Harness initial={[]} version="5.3.0" />);
+		openPicker();
+		for (const name of ['add_oidc_trust', 'list_oidc_trust', 'drop_oidc_trust']) {
+			filterPicker(name);
+			// Not even as a custom grant.
+			expect(screen.queryAllByRole('menuitemcheckbox'), name).toHaveLength(0);
+		}
 	});
 
 	it('does not offer a case variant of a known operation as a custom grant', () => {
