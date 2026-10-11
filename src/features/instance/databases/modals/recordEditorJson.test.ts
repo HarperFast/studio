@@ -34,6 +34,13 @@ describe('tryParseRecordJson', () => {
 		expect(parsed.ok === false && parsed.error.message).not.toMatch(/position|line \d+ column/i);
 	});
 
+	it('drops it from trailing-content errors too, which V8 words "after JSON at position"', () => {
+		const parsed = tryParseRecordJson('{"a": 1}}');
+
+		expect(parsed.ok === false && parsed.error.message).toBe('Unexpected non-whitespace character after JSON');
+		expect(parsed.ok === false && parsed.error.location).toEqual({ lineNumber: 1, column: 9 });
+	});
+
 	// These go to the ops API as `records`, so a primitive parses cleanly and then fails on the
 	// wire in the server's wording. Say it here, where the user can act on it.
 	it('rejects JSON that is well-formed but could never be a record', () => {

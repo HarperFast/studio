@@ -29,6 +29,13 @@ export async function execute(
 		};
 	}
 
+	if (url.endsWith('/operations')) {
+		return {
+			success: true,
+			description: 'sending raw requests from the operations API console',
+		};
+	}
+
 	if (url.endsWith('/status')) {
 		return {
 			success: true,

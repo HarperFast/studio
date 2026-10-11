@@ -85,6 +85,17 @@ describe('curryRetryGatewayErrors', () => {
 		expect(client.request).toHaveBeenCalledTimes(1);
 	});
 
+	it.each([502, 503, 504])('never replays a %i for a request that opted out', async (status) => {
+		const handler = curryRetryGatewayErrors(client);
+		const config: AxiosRequestConfig & { __retryCount?: number } = { skipGatewayRetry: true };
+		const err = { response: { status }, config };
+
+		await expect(handler(err)).rejects.toBe(err);
+		expect(sleepModule.sleep).not.toHaveBeenCalled();
+		expect(client.request).not.toHaveBeenCalled();
+		expect(config.__retryCount).toBeUndefined();
+	});
+
 	it('stops retrying when max retries reached (>= 3)', async () => {
 		const handler = curryRetryGatewayErrors(client);
 		const config: AxiosRequestConfig & { __retryCount?: number } = { __retryCount: 3 };

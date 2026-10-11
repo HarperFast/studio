@@ -1,12 +1,22 @@
 import { sleep } from '@/lib/sleep';
 import { AxiosInstance } from 'axios';
 
+declare module 'axios' {
+	interface AxiosRequestConfig {
+		/**
+		 * Send at most once. A 502/504 can arrive after Harper has applied the operation, so a request
+		 * whose idempotence is unknown (the operations console's freeform body) must not be replayed.
+		 */
+		skipGatewayRetry?: boolean;
+	}
+}
+
 export function curryRetryGatewayErrors(client: Pick<AxiosInstance, 'request'>) {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	return async (error: any) => {
 		const status = error?.response?.status as number | undefined;
 		const config = error?.config;
-		if (!config) {
+		if (!config || config.skipGatewayRetry) {
 			return Promise.reject(error);
 		}
 

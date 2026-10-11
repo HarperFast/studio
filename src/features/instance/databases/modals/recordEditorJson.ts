@@ -32,15 +32,24 @@ export function tryParseRecordJson(content: string): ParsedRecordJson {
 		// record rather than an editor the user emptied.
 		return { ok: false, error: { message: 'The editor is empty, so there is nothing to save.' } };
 	}
-	let value: unknown;
+	const parsed = tryParseJson(content);
+	if (!parsed.ok) {
+		return parsed;
+	}
+	const shapeError = recordShapeError(parsed.value);
+	return shapeError
+		? { ok: false, error: { message: shapeError } }
+		: { ok: true, value: parsed.value as RecordJsonValue };
+}
+
+/** Parse `content` as any JSON value; on failure, the parser's reason and (when the engine says) where. */
+export function tryParseJson(content: string): { ok: true; value: unknown } | { ok: false; error: RecordJsonError } {
 	try {
-		value = JSON.parse(content);
+		return { ok: true, value: JSON.parse(content) };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return { ok: false, error: { message: withoutEngineLocation(message), location: locate(message, content) } };
 	}
-	const shapeError = recordShapeError(value);
-	return shapeError ? { ok: false, error: { message: shapeError } } : { ok: true, value: value as RecordJsonValue };
 }
 
 /** One-line rendering of a {@link RecordJsonError}, for a toast description. */
@@ -99,7 +108,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function withoutEngineLocation(message: string): string {
 	return message
 		.replace(/^JSON\.parse:\s*/, '')
-		.replace(/\s*in JSON at position \d+.*$/i, '')
+		.replace(/\s*(?:in JSON )?at position \d+.*$/i, '')
 		.replace(/\s*at line \d+ column \d+ of the JSON data\.?$/i, '')
 		.trim();
 }
