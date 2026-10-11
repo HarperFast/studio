@@ -186,6 +186,17 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 		expect(instance.searches[0].allowFullScan).toBeUndefined();
 	});
 
+	it('asks once for a deep link’s filter, and runs it on yes', async () => {
+		route.search = { filters: { note: 'beta' } };
+		confirm.mockReturnValue(true);
+		renderView();
+
+		await findCell('t2');
+		expect(instance.searches).toHaveLength(1);
+		expect(instance.searches[0].allowFullScan).toBe(true);
+		expect(confirm).toHaveBeenCalledTimes(1);
+	});
+
 	it('asks before a deep link’s filter runs too', async () => {
 		route.search = { filters: { note: 'beta' } };
 		confirm.mockReturnValue(false);
