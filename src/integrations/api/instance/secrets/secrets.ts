@@ -69,7 +69,7 @@ export class SecretsOperationError extends Error {
  */
 function operationError(error: unknown): unknown {
 	const body = (error as { response?: { data?: { error?: unknown; message?: unknown } } })?.response?.data;
-	const message = body?.error ?? body?.message;
+	const message = typeof body?.error === 'string' ? body.error : body?.message;
 	return typeof message === 'string' ? new SecretsOperationError(message) : error;
 }
 
