@@ -89,6 +89,84 @@ describe('serializeSchema description (""") handling', () => {
 		expect(serializeSchema(twice)).toBe(source);
 	});
 
+	function editTwice(source: string): { once: string; twice: string } {
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		const once = serializeSchema(doc);
+		const reparsed = parse(once);
+		firstTable(reparsed).edited = true;
+		return { once, twice: serializeSchema(reparsed) };
+	}
+
+	it("keeps a field description's interior indentation relative to its own margin", () => {
+		const source = 'type Dog @table {\n'
+			+ '\t"""\n'
+			+ '\tThe display name.\n'
+			+ '\t  - shown in lists\n'
+			+ '\t    - truncated past 40 chars\n'
+			+ '\n'
+			+ '\t\tcode sample\n'
+			+ '\t"""\n'
+			+ '\tname: String\n'
+			+ '}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe(source);
+		expect(twice).toBe(source);
+	});
+
+	it("keeps a trailing description's interior indentation relative to its own margin", () => {
+		const source = 'type Dog @table {\n\tid: ID @primaryKey\n\t"""\n\tNotes:\n\t  - first\n\t    - nested\n\t"""\n}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe(source);
+		expect(twice).toBe(source);
+	});
+
+	it('keeps relative indentation in a CRLF document without leaking carriage returns', () => {
+		const source = [
+			'type Dog @table {',
+			'\t"""',
+			'\tThe display name.',
+			'\t  - shown in lists',
+			'\t\t',
+			'\t    - truncated past 40 chars',
+			'\t"""',
+			'\tname: String',
+			'}',
+			'',
+		].join('\r\n');
+		const { once, twice } = editTwice(source);
+		expect(once).toBe(source.replace('\t\t\r\n', '\r\n'));
+		expect(twice).toBe(once);
+	});
+
+	it('keeps relative indentation in a space-indented document', () => {
+		const source = 'type Dog @table {\n  """\n  Item:\n    - nested\n  """\n  name: String\n}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe(source);
+		expect(twice).toBe(source);
+	});
+
+	it('moves a description whose content sits off the margin onto the canonical indent, delimiters included', () => {
+		const source = 'type Dog @table {\n\t"""\nTop level.\n  - nested\n\t"""\n\tname: String\n}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe('type Dog @table {\n\t"""\n\tTop level.\n\t  - nested\n\t"""\n\tname: String\n}\n');
+		expect(twice).toBe(once);
+	});
+
+	it('pulls uniformly over-indented description content back to the canonical indent', () => {
+		const source = 'type Dog @table {\n\t"""\n\t\t\tTop level.\n\t\t\t  - nested\n\t"""\n\tname: String\n}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe('type Dog @table {\n\t"""\n\tTop level.\n\t  - nested\n\t"""\n\tname: String\n}\n');
+		expect(twice).toBe(once);
+	});
+
+	it('strips only the literal common prefix when tabs and spaces are mixed', () => {
+		const source = 'type Dog @table {\n\t"""\n\t  two spaces\n\t\ttab\n\t"""\n\tname: String\n}\n';
+		const { once, twice } = editTwice(source);
+		expect(once).toBe(source);
+		expect(twice).toBe(source);
+	});
+
 	it("keeps a table's leading description with it when tables are sorted", () => {
 		const doc = parse(
 			'"""\nZebra table.\n"""\ntype Zebra @table {\n\tid: ID\n}\n"""\nApple table.\n"""\ntype Apple @table {\n\tid: ID\n}\n',
