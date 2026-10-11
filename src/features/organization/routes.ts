@@ -24,10 +24,7 @@ export const orgLayoutRoute = createRoute({
 			throw redirect({ to: '/' });
 		}
 		return {
-			organization: await ensureRouteQueryData(
-				opts.context.queryClient,
-				getOrganizationQueryOptions(organizationId),
-			),
+			organization: await ensureRouteQueryData(opts, getOrganizationQueryOptions(organizationId)),
 		};
 	},
 });
