@@ -234,8 +234,10 @@ class AuthStore {
 		if (!this.broadListeners.includes(listener)) {
 			this.broadListeners.push(listener);
 		}
-		for (const id in this.potentiallyAuthenticated) {
-			void this.ensureUserIsLoaded(id);
+		// Only the app sign-in: the markers span every organization ever visited. An instance or cluster
+		// is checked once something subscribes to it, or the instance guard navigates into it.
+		if (this.potentiallyAuthenticated[OverallAppSignIn]) {
+			this.startSignInCheck(OverallAppSignIn);
 		}
 		return () => {
 			const index = this.broadListeners.indexOf(listener);
@@ -784,6 +786,16 @@ class AuthStore {
 
 	private updateListener(id: EntityIds, listener: (connection: AuthenticatedConnection, id: EntityIds) => void) {
 		listener(this.getConnectionById(id), id);
+	}
+
+	/**
+	 * Starts checking whether the remembered sign-in for `id` is still live. Does nothing once this page
+	 * load has started, or settled, that entity's check; the answer arrives through the listeners.
+	 */
+	public startSignInCheck(id: EntityIds): void {
+		if (!this.checkedAuthentication[id]) {
+			void this.ensureUserIsLoaded(id);
+		}
 	}
 
 	private async ensureUserIsLoaded(id: EntityIds): Promise<void> {
