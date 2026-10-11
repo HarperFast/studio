@@ -35,6 +35,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { DownloadLogsMenu } from './components/DownloadLogsMenu';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
 import { useInstanceLogs } from './hooks/useInstanceLogs';
 
@@ -214,6 +215,8 @@ export function Logs() {
 		[instanceLogs, isReversed],
 	);
 
+	const logName = logFilters.log_name ?? 'hdb.log';
+
 	const tableScrollRef = useRef<HTMLDivElement>(null);
 
 	// Keep the newest entries in view on first load and whenever the display order changes: the table
@@ -268,7 +271,7 @@ export function Logs() {
 		<div className="grid grid-cols-1 gap-3 pt-2 text-foreground md:grid-cols-12 md:gap-4">
 			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-0 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34)))] md:overflow-y-auto md:pb-4">
 				{/* Compact toolbar — mobile only */}
-				<div className="flex items-center gap-2 md:hidden">
+				<div className="flex flex-wrap items-center gap-2 md:hidden">
 					<Button
 						variant="defaultOutline"
 						onClick={() => setIsFiltersOpen((open) => !open)}
@@ -299,6 +302,7 @@ export function Logs() {
 						<ArrowUpDownIcon />
 						Reverse
 					</Button>
+					<DownloadLogsMenu logs={displayedLogs} logName={logName} iconOnly />
 				</div>
 
 				<LogsFiltersForm
@@ -322,6 +326,7 @@ export function Logs() {
 						<RefreshCwIcon />
 						Refresh
 					</Button>
+					<DownloadLogsMenu logs={displayedLogs} logName={logName} className="w-full" />
 					<div className="flex flex-col gap-2.5">
 						<div className="flex items-center gap-2 text-sm text-foreground">
 							<Switch
