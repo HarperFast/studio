@@ -2,18 +2,23 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import {
+	useStagedDeploymentsAvailable,
+	useSupportsDeploymentSSE,
+} from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
@@ -26,7 +31,7 @@ import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { deployNotes, reportDeployOutcome, reportDeployResult } from './reportDeployHealth';
+import { deployNotes, reportDeployOutcome, reportDeployResult, reportStaged } from './reportDeployHealth';
 
 export function RedeployApplicationModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRedeployApplicationModal', false);
@@ -34,6 +39,7 @@ export function RedeployApplicationModal() {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	const sseDeploy = useSupportsDeploymentSSE();
+	const canStage = useStagedDeploymentsAvailable();
 	const stream = useDeploymentStream();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
@@ -43,25 +49,29 @@ export function RedeployApplicationModal() {
 
 	const { mutate: reDeployApplication, isPending } = useDeployComponentMutation();
 	const [isStreaming, setIsStreaming] = useState(false);
+	const [isStaging, setIsStaging] = useState(false);
 
 	const methods = useForm({
 		defaultValues: {
 			applicationUrl: packageUrl,
 			installCommand: '',
+			stageOnly: false,
 		},
 	});
 
-	const { control, handleSubmit, reset } = methods;
+	const { control, handleSubmit, reset, watch } = methods;
+	const stageOnlyChecked = canStage && watch('stageOnly');
 
 	useEffect(() => {
-		reset({ applicationUrl: packageUrl });
+		reset({ applicationUrl: packageUrl, stageOnly: false });
 	}, [reset, packageUrl]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowRedeployApplicationModal', false);
 		attemptToRestoreFocus(trigger);
-		reset({ applicationUrl: packageUrl });
+		reset({ applicationUrl: packageUrl, stageOnly: false });
 		setIsStreaming(false);
+		setIsStaging(false);
 		stream.reset();
 	}, [reset, packageUrl, trigger, stream]);
 
@@ -73,7 +83,7 @@ export function RedeployApplicationModal() {
 	}, [queryClient, instanceParams.entityId]);
 
 	const redeployWithProgress = useCallback(
-		(applicationUrl: string, installCommand: string | undefined) => {
+		(applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
 			if (!openedEntry) {
 				return;
 			}
@@ -81,18 +91,25 @@ export function RedeployApplicationModal() {
 			stream.reset();
 			stream.markStarted();
 			setIsStreaming(true);
+			setIsStaging(stage);
 
 			reDeployApplication(
 				{
-					applicationName: project,
-					applicationUrl,
-					installCommand,
+					request: { kind: stage ? 'stage' : 'deploy', project, package: applicationUrl, installCommand },
 					useSSE: true,
 					onEvent: stream.onEvent,
 					...instanceParams,
 				},
 				{
 					onSuccess: async (result) => {
+						if (stage) {
+							stream.markSettled('success', undefined, { result });
+							reportStaged(project, result, { action: recordAction(result?.deployment_id) });
+							if (!deployNotes(result).warn) {
+								closeModal();
+							}
+							return;
+						}
 						const known = result?.rollout?.state !== 'unfollowable';
 						stream.markSettled(known ? 'success' : 'inconclusive', undefined, { result });
 						invalidateComponents();
@@ -109,6 +126,14 @@ export function RedeployApplicationModal() {
 						// instead of reporting a failure we don't actually know happened.
 						if (error instanceof SSEInconclusiveError) {
 							stream.markSettled('inconclusive');
+							if (stage) {
+								// A stage changes nothing that is running, so the component's health says nothing about it.
+								toast.warning(`${project} may not be staged`, {
+									description: 'Live updates ended before the stage finished. Check Deployments for its record.',
+								});
+								closeModal();
+								return;
+							}
 							invalidateComponents();
 							await reportDeployOutcome(project, undefined, runHealthCheck);
 							closeModal();
@@ -125,7 +150,7 @@ export function RedeployApplicationModal() {
 						stream.markSettled('error', error instanceof Error ? error.message : String(error), {
 							failure: error,
 						});
-						toast.error(`Failed to redeploy ${project}`, {
+						toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${project}`, {
 							description: error instanceof Error ? error.message : undefined,
 							action,
 						});
@@ -146,16 +171,28 @@ export function RedeployApplicationModal() {
 	);
 
 	const redeployBuffered = useCallback(
-		(applicationUrl: string, installCommand: string | undefined) => {
+		(applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
 			if (!openedEntry) {
 				return;
 			}
 			closeModal();
-			const toastId = toast.loading('Redeploying...');
+			const toastId = toast.loading(stage ? 'Staging...' : 'Redeploying...');
 			reDeployApplication(
-				{ applicationName: openedEntry.project, applicationUrl, installCommand, ...instanceParams },
+				{
+					request: {
+						kind: stage ? 'stage' : 'deploy',
+						project: openedEntry.project,
+						package: applicationUrl,
+						installCommand,
+					},
+					...instanceParams,
+				},
 				{
 					onSuccess: (result) => {
+						if (stage) {
+							reportStaged(openedEntry.project, result, { id: toastId, action: recordAction(result?.deployment_id) });
+							return;
+						}
 						reportDeployResult(
 							openedEntry.project,
 							result,
@@ -177,7 +214,7 @@ export function RedeployApplicationModal() {
 							return;
 						}
 						if (action) {
-							toast.error(`Failed to redeploy ${openedEntry.project}`, {
+							toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${openedEntry.project}`, {
 								id: toastId,
 								description: describeError(error).message,
 								action,
@@ -192,17 +229,19 @@ export function RedeployApplicationModal() {
 		[reDeployApplication, openedEntry, instanceParams, invalidateComponents, closeModal, recordAction],
 	);
 
-	const submitForm = ({ applicationUrl, installCommand }: {
+	const submitForm = ({ applicationUrl, installCommand, stageOnly }: {
 		applicationUrl: string | undefined;
 		installCommand: string | undefined;
+		stageOnly?: boolean;
 	}) => {
 		if (!applicationUrl) {
 			return;
 		}
+		const stage = canStage && !!stageOnly;
 		if (sseDeploy) {
-			redeployWithProgress(applicationUrl, installCommand);
+			redeployWithProgress(applicationUrl, installCommand, stage);
 		} else {
-			redeployBuffered(applicationUrl, installCommand);
+			redeployBuffered(applicationUrl, installCommand, stage);
 		}
 	};
 
@@ -215,14 +254,16 @@ export function RedeployApplicationModal() {
 				<DialogHeader>
 					<DialogTitle>Redeploy Package</DialogTitle>
 					<DialogDescription>
-						{isStreaming ? `Redeploying ${openedEntry?.project ?? 'package'}…` : 'Redeploy this package?'}
+						{isStreaming
+							? `${isStaging ? 'Staging' : 'Redeploying'} ${openedEntry?.project ?? 'package'}…`
+							: 'Redeploy this package?'}
 					</DialogDescription>
 				</DialogHeader>
 
 				{isStreaming
 					? (
 						<div className="flex flex-col gap-4">
-							<DeployProgress state={stream.state} onNavigateAway={closeModal} />
+							<DeployProgress state={stream.state} onNavigateAway={closeModal} staging={isStaging} />
 							<Button
 								type="button"
 								variant="ghostOutline"
@@ -277,13 +318,32 @@ export function RedeployApplicationModal() {
 											</FormItem>
 										)}
 									/>
+									{canStage && (
+										<FormField
+											control={control}
+											name="stageOnly"
+											render={({ field }) => (
+												<FormItem className="flex flex-row items-start gap-3">
+													<FormControl>
+														<Switch checked={field.value} onCheckedChange={field.onChange} />
+													</FormControl>
+													<div className="flex flex-col gap-1">
+														<FormLabel>Stage only</FormLabel>
+														<FormDescription>
+															Install it on every node without making it live. Activate it later from Deployments.
+														</FormDescription>
+													</div>
+												</FormItem>
+											)}
+										/>
+									)}
 									<Button
 										variant="positiveOutline"
 										type="submit"
 										className="w-full"
 										disabled={isPending}
 									>
-										<RefreshCwIcon /> Redeploy Application
+										<RefreshCwIcon /> {stageOnlyChecked ? 'Stage Application' : 'Redeploy Application'}
 									</Button>
 									<Button
 										type="button"

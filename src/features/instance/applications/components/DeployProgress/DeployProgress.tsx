@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Separator } from '@/components/ui/separator';
 import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
-import { DEPLOY_PHASE_ORDER } from '@/integrations/api/instance/applications/deployComponentStream';
+import { DEPLOY_PHASE_ORDER, STAGE_PHASE_ORDER } from '@/integrations/api/instance/applications/deployComponentStream';
 import { CertificationDecision } from '@/integrations/api/instance/applications/deployOutcome';
 import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
 import { cn } from '@/lib/cn';
@@ -33,6 +33,7 @@ const PHASE_LABELS: Record<string, string> = {
 	replicate: 'Replicate',
 	restart: 'Restart',
 	success: 'Finish',
+	staged: 'Staged',
 };
 
 /**
@@ -62,10 +63,12 @@ function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boo
 export function DeployProgress({
 	state,
 	onNavigateAway,
+	staging = false,
 }: {
 	state: DeploymentStreamState;
 	/** Called when a guidance link navigates away — lets a hosting modal close itself first. */
 	onNavigateAway?: () => void;
+	staging?: boolean;
 }) {
 	const logEndRef = useRef<HTMLDivElement>(null);
 	const params: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({ strict: false });
@@ -79,7 +82,7 @@ export function DeployProgress({
 	return (
 		<div className="flex flex-col gap-4">
 			<ol className="flex flex-col gap-2">
-				{DEPLOY_PHASE_ORDER.map((phase) => {
+				{(staging ? STAGE_PHASE_ORDER : DEPLOY_PHASE_ORDER).map((phase) => {
 					const status = state.phases[phase];
 					const isCurrent = state.currentPhase === phase && status !== 'done';
 					return (

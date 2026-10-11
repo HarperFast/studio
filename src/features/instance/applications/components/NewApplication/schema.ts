@@ -20,6 +20,8 @@ export const ImportSchema = z.object({
 	// The SSH key the import URL is expected to use. Form-only state used to verify the URL's host
 	// — it is not sent to deploy_component (the backend resolves the key from the URL host alias).
 	sshKeyName: z.string(),
+	// Build and install on every node without making it live (Harper 5.3.0+); offered only where that is known.
+	stageOnly: z.boolean(),
 });
 
 export const defaultImportOptions: z.infer<typeof ImportSchema> = {
@@ -29,6 +31,7 @@ export const defaultImportOptions: z.infer<typeof ImportSchema> = {
 	requiresAuth: false,
 	installCommand: '',
 	sshKeyName: '',
+	stageOnly: false,
 };
 
 export const CLISchema = z.object({

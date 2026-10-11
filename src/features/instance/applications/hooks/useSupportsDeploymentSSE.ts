@@ -26,6 +26,16 @@ export function supportsStagedDeployments(harperVersion: string | undefined): bo
 }
 
 /**
+ * Whether to offer staging and activation. Unlike a put, an unreadable version must not offer them: a node older
+ * than 5.3.0 accepts `activate: false` as an unknown field and deploys the release live.
+ */
+export function useStagedDeploymentsAvailable(): boolean {
+	const params = useInstanceClientIdParams();
+	const { data } = useQuery(getRegistrationInfoQueryOptions(params));
+	return supportsStagedDeployments(data?.version);
+}
+
+/**
  * True when the instance/cluster is Harper >= 5.1.0, so the deployment history/detail
  * feature (`list_deployments` / `get_deployment`) is available. This gates feature
  * visibility regardless of connection type — the list/detail work over plain polling.

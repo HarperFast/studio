@@ -16,7 +16,10 @@ import { useEditorFileContent } from '@/features/instance/applications/context/e
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
-import { useDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import {
+	useDeploymentsAvailable,
+	useStagedDeploymentsAvailable,
+} from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
@@ -38,6 +41,7 @@ import {
 	PanelRightOpenIcon,
 	PencilIcon,
 	PlusIcon,
+	RocketIcon,
 	RotateCcwIcon,
 	SaveIcon,
 	TrashIcon,
@@ -79,6 +83,7 @@ export function ContentActions({
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const canManageInstance = useInstanceManagePermission();
 	const deploymentsAvailable = useDeploymentsAvailable();
+	const stagingAvailable = useStagedDeploymentsAvailable();
 	const canViewDeployments = canManageInstance && deploymentsAvailable;
 	const navigate = useNavigate();
 	const routeParams: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({
@@ -411,6 +416,18 @@ export function ContentActions({
 									>
 										<HistoryIcon />
 										View Deployments
+									</DropdownMenuItem>
+								)}
+								{deploymentsProject && stagingAvailable && (
+									<DropdownMenuItem
+										onSelect={() =>
+											void navigate({
+												to: buildAbsoluteLinkToPage(routeParams, 'config/deployments'),
+												search: { project: deploymentsProject, status: 'staged' },
+											})}
+									>
+										<RocketIcon />
+										Staged Releases
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>

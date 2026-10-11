@@ -7,7 +7,8 @@ import { RolloutSnapshot } from './restartJob';
 
 /** Lifecycle phases Harper's `deploy_component` emits, in order. */
 export const DEPLOY_PHASE_ORDER = ['prepare', 'load', 'replicate', 'restart', 'success'] as const;
-export type DeployPhase = (typeof DEPLOY_PHASE_ORDER)[number];
+/** A stage (5.3.0+) restarts nothing, and ends `staged` where a deploy ends `success`. */
+export const STAGE_PHASE_ORDER = ['prepare', 'load', 'replicate', 'staged'] as const;
 
 export interface DeployPhaseEvent {
 	phase: string;
@@ -51,6 +52,8 @@ export interface DeployComponentResult extends ReplicatedResponse {
 	deployment_id?: string;
 	phase?: string;
 	certification?: DeployCertification;
+	/** Set by every node that staged the release rather than making it live (5.3.0+). */
+	staged?: boolean;
 	/** The `restart_service` job a rolling restart hands the other nodes to. */
 	restartJobId?: string;
 	/** The `warning` events the deploy streamed. */
@@ -80,11 +83,8 @@ export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | un
 
 export interface DeployComponentStreamParams {
 	connection: ResolveInstanceConnectionParams;
-	package: string;
-	project: string;
-	replicated: boolean;
-	install_command?: string;
-	restart?: string;
+	/** The `deploy_component` operation, as `deployRequestBody` builds it. */
+	body: Record<string, unknown>;
 	signal?: AbortSignal;
 	/** Called for each live deploy event so the UI can render progress. */
 	onEvent?: (event: DeployStreamEvent) => void;
@@ -101,25 +101,14 @@ export interface DeployComponentStreamParams {
  */
 export async function deployComponentStream({
 	connection,
-	package: packageRef,
-	project,
-	replicated,
-	install_command,
-	restart,
+	body,
 	signal,
 	onEvent,
 }: DeployComponentStreamParams): Promise<DeployComponentResult> {
 	const warnings: string[] = [];
 	const result = await streamOperation({
 		connection,
-		body: {
-			operation: 'deploy_component',
-			package: packageRef,
-			project,
-			replicated,
-			install_command: install_command || undefined,
-			restart,
-		},
+		body,
 		signal,
 		onMessage: (message) => {
 			const event = toDeployStreamEvent(message);
