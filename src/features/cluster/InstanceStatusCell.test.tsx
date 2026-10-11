@@ -75,6 +75,7 @@ describe('InstanceStatusCell get_status poll', () => {
 
 	it('does not poll an instance whose Harper version central manager has not reported', async () => {
 		expect(await pollEnabledFor('RUNNING', '')).toBe(false);
+		expect(screen.getByLabelText('Status unavailable')).toBeTruthy();
 	});
 
 	it('says why a pre-4.6 instance has no availability, instead of spinning or offering rotation', async () => {

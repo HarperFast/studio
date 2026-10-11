@@ -7,7 +7,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { InstanceActionsMenu } from './InstanceActionsMenu';
 
 const ORG = 'org-a';
-const state = vi.hoisted(() => ({ user: null as unknown, run: vi.fn(), statusEnabled: [] as (boolean | undefined)[] }));
+const state = vi.hoisted(() => ({
+	user: null as unknown,
+	run: vi.fn(),
+	statusEnabled: [] as (boolean | undefined)[],
+	availability: undefined as string | undefined,
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-a', clusterId: 'clu-b' }),
 	Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
@@ -31,7 +36,7 @@ vi.mock('@/integrations/api/instance/status/getStatus', async importOriginal => 
 		state.statusEnabled.push(enabled);
 		return { queryKey: ['status'], queryFn: () => null, enabled: false };
 	},
-	getSystemStatusById: () => undefined,
+	getSystemStatusById: () => state.availability,
 }));
 vi.mock('@/integrations/api/instance/status/setStatus', () => ({ useSetStatus: () => ({ mutate: vi.fn() }) }));
 vi.mock('@/hooks/useInstanceContainerOps', () => ({ useInstanceContainerOps: () => ({ run: state.run }) }));
@@ -51,6 +56,7 @@ afterEach(() => {
 	cleanup();
 	state.run.mockClear();
 	state.statusEnabled = [];
+	state.availability = undefined;
 });
 
 const instance = {
@@ -117,5 +123,19 @@ describe('InstanceActionsMenu availability status', () => {
 		state.user = member('admin');
 		openMenu({ ...instance, version: '4.5.12' });
 		expect(state.statusEnabled.at(-1)).toBe(false);
+	});
+
+	it('offers rotation from a known availability', () => {
+		state.user = member('admin');
+		state.availability = 'Available';
+		openMenu();
+		expect(screen.getByRole('menuitem', { name: 'Bring out of rotation' })).toBeTruthy();
+	});
+
+	it('never offers rotation on a Harper older than 4.6, even from a cached availability', () => {
+		state.user = member('admin');
+		state.availability = 'Available';
+		openMenu({ ...instance, version: '4.5.12' });
+		expect(screen.queryByRole('menuitem', { name: 'Bring out of rotation' })).toBeNull();
 	});
 });

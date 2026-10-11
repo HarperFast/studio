@@ -55,9 +55,12 @@ export function InstanceStatusCell(
 	// a Harper too old to have them. Show a muted dot rather than a stale green "Available" (cached
 	// from before) or an endless spinner.
 	if (notProxied || !statusSupported) {
-		const label = notProxied
-			? isStoppedOrTransitioning(instance.status) ? 'Not running' : 'Status unavailable'
-			: 'Status needs Harper 4.6 or later';
+		let label = 'Status unavailable';
+		if (notProxied && isStoppedOrTransitioning(instance.status)) {
+			label = 'Not running';
+		} else if (!notProxied && instance.version) {
+			label = 'Status needs Harper 4.6 or later';
+		}
 		return (
 			<div className="flex items-center gap-2">
 				<Tooltip>

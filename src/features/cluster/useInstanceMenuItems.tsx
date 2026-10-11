@@ -63,10 +63,11 @@ export function useInstanceMenuItems(
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
+	const statusSupported = supportsGetStatus(instance.version);
 	const { data: statusResponse } = useQuery(
 		getStatusQueryOptions(
 			statusParams,
-			enabled && canManage && !isOperationsProxyRefused(instance.status) && supportsGetStatus(instance.version),
+			enabled && canManage && !isOperationsProxyRefused(instance.status) && statusSupported,
 		),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
@@ -94,7 +95,7 @@ export function useInstanceMenuItems(
 	const isDirectlyLoggedIn = !!instanceUser && !isFabricConnect;
 	const hasAuth = isReady;
 	const hasCopy = !!fqdn;
-	const hasRotation = canManage && isReady && (isAvailable || isUnavailable);
+	const hasRotation = canManage && isReady && statusSupported && (isAvailable || isUnavailable);
 
 	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
 	// Hidden mid-transition (the instances poll reveals the resting state and the actions reappear).
