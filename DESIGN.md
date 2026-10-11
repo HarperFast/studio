@@ -76,6 +76,14 @@ The same rule decides what a failure says. [`isUnansweredWrite`](src/integration
 - **These toasts are never collapsed** onto a shared id: each warns about a different write, and a read timing out alongside one must not replace it through `request-timeout`.
 - **A read that is costly to repeat** stays a read here and opts out of the replay instead (`package_component`, `skipGatewayRetry`).
 
+## A restart Harper accepted never reads as failed
+
+Harper's answer to the restart request is its only verdict on the restart: `restart` answers before it tears down (harper `bin/restart.ts` schedules the teardown 50ms out so the reply can go first) and `restart_service` once its job has started (`executeJob`). So [`restartInstance`](src/integrations/api/instance/status/restartInstance.ts) rejects with the request's own error only when that request failed; after a 2xx, a target that never answers the `user_info` watch rejects with [`RestartUnconfirmedError`](src/integrations/api/instance/status/restartUnconfirmed.ts), which reads "Not back yet", never "Failed", and is never a reason to send the restart again.
+
+- **The watch outlasts the usual recovery time** (one settle, then two probe schedules), and `onSlowToReturn` fires once between them so a caller can say it is still waiting. Every restart mark uses `RESTART_MARK_TTL_MS`, derived from the same constants, so no mark lapses while its watch still runs; the probes skip the gateway replay for the same reason.
+- **A one-at-a-time loop stops at a member that is not back** (cluster restart, rolling config update): restarting the next one could leave no member serving. It reports the members it left alone.
+- **The chat tools return `success: true`** for it: their action was carried out, and `false` invites the agent to repeat it.
+
 ## Cluster upgrade picker — which versions an existing cluster is offered
 
 [`buildUpgradeVersionOptions`](src/features/clusters/upsert/lib/buildUpgradeVersionOptions.ts) is the one place that decides, and its test file is the spec. Two rules, and they differ on purpose:

@@ -1,7 +1,11 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
-import { useRestartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	useRestartInstance,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { markRestarting } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
@@ -43,7 +47,10 @@ export function useRestartInstanceClick({
 		// target restarts whichever member the load balancer picked, so the cluster stays reachable.
 		const entityId = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 		const releaseTarget = operation === 'restart' && entityId
-			? markRestarting([entityId], { reach: targetNoun === 'Instance' ? 'down' : 'rolling', ttlMs: 5 * 60_000 })
+			? markRestarting([entityId], {
+				reach: targetNoun === 'Instance' ? 'down' : 'rolling',
+				ttlMs: RESTART_MARK_TTL_MS,
+			})
 			: undefined;
 		// Await the mutation directly rather than using the mutate() callbacks. Those callbacks are
 		// dropped if the component unmounts before the restart finishes (e.g. the user navigates to
@@ -55,6 +62,12 @@ export function useRestartInstanceClick({
 				operation,
 				replicated: operation === 'restart_service' && targetNoun === 'Cluster',
 				instanceClient,
+				onSlowToReturn: () =>
+					toast.loading('Still restarting', {
+						id: toastId,
+						description: `Harper accepted the restart, but the ${targetNoun.toLowerCase()} hasn't answered yet. `
+							+ 'Still waiting for it to come back.',
+					}),
 			});
 			// Releasing a tracked target refetches its queries (`onRestartSettled`); invalidating it here
 			// too would cancel those refetches and resend them.
@@ -90,7 +103,8 @@ export function useRestartInstanceClick({
 			if (releaseTarget && holdUntilAnswering) {
 				void waitUntilAnsweringAfterRestart({ instanceClient }).then(releaseTarget, releaseTarget);
 			} else {
-				// Released on failure too: once the restart has failed, the errors that follow are real.
+				// Released on failure too: once the restart has failed, or the watch for its target has given up,
+				// the errors that follow are real.
 				releaseTarget?.();
 			}
 		}

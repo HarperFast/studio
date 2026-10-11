@@ -1,7 +1,16 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { ClusterRestartTargets, getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	restartInstance,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
+import {
+	describeUnconfirmedRestart,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
 import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
@@ -10,9 +19,6 @@ import { sleep } from '@/lib/sleep';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-
-/** Longest a single `restartInstance` can take: 10s settle + 12 probes of up to 3s + 15s apart. */
-const INSTANCE_RESTART_TTL_MS = 5 * 60_000;
 
 interface RestartClusterClickParams {
 	onRestartedSuccessfully?: () => void;
@@ -74,12 +80,14 @@ export function useRestartClusterClick(
 			const { allInstances, targets } = plan;
 			let instancesRestarted = 0;
 			let instancesUnanswered = 0;
+			/** Members left alone after one accepted the restart and never came back; undefined until then. */
+			let instancesUntouched: number | undefined;
 
 			// One instance at a time, so the cluster stays reachable through the others unless it has only
 			// one. The TTLs only matter if this loop dies without reaching `finally`.
 			const releaseCluster = markRestarting([clusterId], {
 				reach: targets.length === 1 ? 'down' : 'rolling',
-				ttlMs: (targets.length + 1) * INSTANCE_RESTART_TTL_MS,
+				ttlMs: (targets.length + 1) * RESTART_MARK_TTL_MS,
 			});
 
 			try {
@@ -109,16 +117,27 @@ export function useRestartClusterClick(
 							}
 							releaseInstance = markRestarting([instance.id], {
 								reach: 'down',
-								ttlMs: INSTANCE_RESTART_TTL_MS,
+								ttlMs: RESTART_MARK_TTL_MS,
 							});
 							// Then restart it.
 							await restartInstance({
 								operation: 'restart',
 								replicated: false,
 								instanceClient,
+								onSlowToReturn: () =>
+									toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
+										...toastConfig,
+										id: toastId,
+										description: "It accepted the restart but hasn't answered yet.",
+									}),
 							});
 							instancesRestarted += 1;
 						} catch (error) {
+							if (error instanceof RestartUnconfirmedError) {
+								// It may still be down: restarting the next one could leave no member serving.
+								instancesUntouched = targets.length - i - 1;
+								break;
+							}
 							const unanswered = isUnansweredWrite(error);
 							instancesUnanswered += unanswered ? 1 : 0;
 							if (unanswered) {
@@ -179,11 +198,19 @@ export function useRestartClusterClick(
 					'"RUNNING" instance was',
 					'"RUNNING" instances were',
 				);
-				toast.error(instancesUnanswered ? OUTCOME_UNKNOWN_TITLE : 'Error', {
+				const title = instancesUnanswered
+					? OUTCOME_UNKNOWN_TITLE
+					: instancesUntouched === undefined
+					? 'Error'
+					: RESTART_UNCONFIRMED_TITLE;
+				toast.error(title, {
 					id: toastId,
-					description: instancesUnanswered
-						? `Only ${someRunningInstancesWere} confirmed restarted of ${allTheInstances}. `
-							+ describeUnansweredWrites(instancesUnanswered)
+					description: instancesUnanswered || instancesUntouched !== undefined
+						? [
+							`Only ${someRunningInstancesWere} confirmed restarted of ${allTheInstances}.`,
+							instancesUnanswered && describeUnansweredWrites(instancesUnanswered),
+							instancesUntouched !== undefined && describeUnconfirmedRestart(instancesUntouched, 'restarted'),
+						].filter(excludeFalsy).join(' ')
 						: `Failed to fully restart cluster.\n`
 							+ ([
 								allInstances.length === 0 && 'No instances were found within the cluster to restart.',

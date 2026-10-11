@@ -1,6 +1,7 @@
 import { templates } from '@/features/instance/applications/components/NewApplication/templates';
 import { addComponent } from '@/integrations/api/instance/applications/addComponent';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { findBy } from '@/lib/arrays/findBy';
 import { emitToListeners } from '@/lib/events/listener';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -8,7 +9,7 @@ import { inputSchema } from '@harperfast/agent-tools/tools/createApp/inputSchema
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ExecuteParams } from '../../types/executeParams';
-import { describeToolError } from '../describeToolError';
+import { describeToolError, toastToolFailure } from '../describeToolError';
 import { Output } from './output';
 
 export async function execute(
@@ -38,6 +39,7 @@ export async function execute(
 			template: template.npm || template.githubUrl,
 		});
 	} catch (err) {
+		toastToolFailure(toastId, err);
 		return {
 			success: false,
 			message: `Error: ${describeToolError(err)}`,
@@ -59,6 +61,17 @@ export async function execute(
 			replicated: instanceClientParams.entityType === 'cluster',
 		});
 	} catch (err) {
+		toastToolFailure(toastId, err);
+		if (err instanceof RestartUnconfirmedError) {
+			// The app exists either way; `success: false` would invite creating it again.
+			return {
+				success: true,
+				message: `App "${name}" created. Harper accepted the restart that loads it, but the instance hasn't `
+					+ "answered since, so it may still be starting. Don't create the app or restart again until its "
+					+ 'status shows it is back.',
+				webURL: baseURL,
+			};
+		}
 		return {
 			success: false,
 			message: `Error: ${describeToolError(err)}`,

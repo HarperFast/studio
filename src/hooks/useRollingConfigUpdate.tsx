@@ -5,6 +5,11 @@ import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import {
+	describeUnconfirmedRestart,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
 import { setConfiguration, shouldFanOutSetConfiguration } from '@/integrations/api/instance/status/setConfiguration';
 import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
@@ -111,6 +116,8 @@ export function useRollingConfigUpdate(
 			let acknowledged = new Set<string>();
 			let instancesRestarted = 0;
 			let instancesUnanswered = 0;
+			/** Members left alone after one accepted the restart and never came back; undefined until then. */
+			let instancesUntouched: number | undefined;
 
 			for (let i = 0; i < targets.length; i++) {
 				const { instanceClient, replicationFqdn } = targets[i];
@@ -148,10 +155,22 @@ export function useRollingConfigUpdate(
 						operation: 'restart_service',
 						replicated: false,
 						instanceClient,
+						onSlowToReturn: () =>
+							toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
+								...toastConfig,
+								id: toastId,
+								description: "It accepted the restart but hasn't answered yet.",
+							}),
 					});
 					instancesRestarted += 1;
 					restarted = true;
 				} catch (error) {
+					if (error instanceof RestartUnconfirmedError) {
+						// It may still be down: updating the next one could leave no member serving. A canary that is
+						// not back never proved it can run the configuration, so it is not fanned out either.
+						instancesUntouched = targets.length - i - 1;
+						break;
+					}
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					if (i + 1 !== targets.length) {
@@ -216,11 +235,19 @@ export function useRollingConfigUpdate(
 					'"RUNNING" instance was',
 					'"RUNNING" instances were',
 				);
-				toast.error(instancesUnanswered ? OUTCOME_UNKNOWN_TITLE : 'Error', {
+				const title = instancesUnanswered
+					? OUTCOME_UNKNOWN_TITLE
+					: instancesUntouched === undefined
+					? 'Error'
+					: RESTART_UNCONFIRMED_TITLE;
+				toast.error(title, {
 					id: toastId,
-					description: (instancesUnanswered
-						? `Only ${someRunningInstancesWere} confirmed updated of ${allTheInstances}. `
-							+ describeUnansweredWrites(instancesUnanswered)
+					description: (instancesUnanswered || instancesUntouched !== undefined
+						? [
+							`Only ${someRunningInstancesWere} confirmed updated of ${allTheInstances}.`,
+							instancesUnanswered && describeUnansweredWrites(instancesUnanswered),
+							instancesUntouched !== undefined && describeUnconfirmedRestart(instancesUntouched, 'updated'),
+						].filter(excludeFalsy).join(' ')
 						: `Failed to fully update cluster.\n`
 							+ ([
 								allInstances.length === 0 && 'No instances were found within the cluster to restart.',

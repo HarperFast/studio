@@ -1,3 +1,8 @@
+import {
+	RESTART_UNCONFIRMED_MESSAGE,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
 import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { MutationObserver, QueryObserver } from '@tanstack/react-query';
@@ -424,5 +429,27 @@ describe('a write that got no verdict', () => {
 		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'restart' })))).toBe(false);
 		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'get_status' })))).toBe(true);
 		expect(shouldToastOwnFailure(new Error('Secret "x" not found'))).toBe(true);
+	});
+});
+
+describe('a restart Harper accepted whose target has not answered since', () => {
+	const unconfirmed = () =>
+		new RestartUnconfirmedError(
+			new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: { operation: 'user_info' },
+			} as InternalAxiosRequestConfig),
+		);
+
+	it('is described as not back yet, never by the probe’s own failure', () => {
+		expect(describeError(unconfirmed())).toEqual({
+			title: RESTART_UNCONFIRMED_TITLE,
+			description: RESTART_UNCONFIRMED_MESSAGE,
+			message: RESTART_UNCONFIRMED_MESSAGE,
+		});
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(unconfirmed())).toBe(false);
 	});
 });

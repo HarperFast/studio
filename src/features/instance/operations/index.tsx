@@ -22,7 +22,10 @@ import { MAX_RESPONSE_BYTES, OperationResult, sendOperation } from '@/features/i
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
@@ -38,7 +41,6 @@ import { useEffect, useRef, useState } from 'react';
 const OPERATIONS_API_DOCS = 'https://docs.harperdb.io/docs/developers/operations-api/';
 const INITIAL_REQUEST = '{\n\t"operation": "describe_all"\n}\n';
 const CONFIRM_PREVIEW_CHARS = 4_000;
-const RESTART_TTL_MS = 5 * 60_000;
 const LOGOUT_REFUSAL = 'Sign out from Studio instead: a logout sent from here would end the session the rest of '
 	+ 'Studio is still using, without Studio knowing.';
 
@@ -100,7 +102,7 @@ function OperationsConsole({ instanceClient, entityId, noun, username }: {
 		// Tracked like the Restart button's, so the page's polls ride out the outage instead of failing
 		// into the global error handlers.
 		const releaseRestart = request.operation === 'restart'
-			? markRestarting([entityId], { reach: noun === 'instance' ? 'down' : 'rolling', ttlMs: RESTART_TTL_MS })
+			? markRestarting([entityId], { reach: noun === 'instance' ? 'down' : 'rolling', ttlMs: RESTART_MARK_TTL_MS })
 			: undefined;
 		try {
 			const result = await sendOperation(instanceClient, request.text, {
