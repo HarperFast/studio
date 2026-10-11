@@ -1,10 +1,10 @@
 import { App } from '@/App';
 import { authStore } from '@/features/auth/store/authStore';
 import { scrubLegacySettings } from '@/features/instance/apis/explorer/settings';
+import { reactRootErrorHandlers } from '@/integrations/datadog/reportReactError';
 import { installApiUnauthorizedRedirect } from '@/lib/installApiUnauthorizedRedirect';
 import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
 import { installStaleDeployReload } from '@/lib/installStaleDeployReload';
-import { addReactError } from '@datadog/browser-rum-react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
@@ -25,26 +25,7 @@ scrubLegacySettings();
 // explorer is unmounted — so a tab that navigated away can't later restore a revoked token.
 authStore.installExplorerCrossTabCleanup();
 
-createRoot(
-	document.getElementById('root')!,
-	{
-		onUncaughtError: (error, errorInfo) => {
-			// Report uncaught errors to Datadog
-			addReactError(error as Error, errorInfo);
-			console.error('Uncaught error:', error, errorInfo);
-		},
-		onCaughtError: (error, errorInfo) => {
-			// Report caught errors to Datadog
-			addReactError(error as Error, errorInfo);
-			console.error('Caught error:', error, errorInfo);
-		},
-		onRecoverableError: (error, errorInfo) => {
-			// Report recoverable errors to Datadog
-			addReactError(error as Error, errorInfo);
-			console.warn('Recoverable error:', error, errorInfo);
-		},
-	},
-).render(
+createRoot(document.getElementById('root')!, reactRootErrorHandlers).render(
 	<StrictMode>
 		<App />
 	</StrictMode>,

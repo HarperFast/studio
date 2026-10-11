@@ -5,9 +5,10 @@ import { useOverallAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
 import { errorStatus } from '@/lib/errorStatus';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
-import { Link } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
-import { isValidElement, ReactNode } from 'react';
+import { Link, useRouter } from '@tanstack/react-router';
+import { AxiosError } from 'axios';
+import { ArrowLeft, RotateCw } from 'lucide-react';
+import { isValidElement, ReactNode, useState } from 'react';
 
 interface ErrorProps {
 	className?: string | undefined;
@@ -20,36 +21,85 @@ interface ErrorProps {
 	title?: string;
 	description?: ReactNode;
 	showReturnToHome?: boolean;
+	// TanStack Router passes this only to a route error component, so its presence is what says
+	// reloading the route can retry the failure. Retrying calls `router.invalidate()`, not `reset`:
+	// a reset alone re-renders the match, which re-throws the error it still holds.
+	reset?: () => void;
 	children?: ReactNode;
 }
 
 const FALLBACK_ERROR_MESSAGE = 'An unexpected error occurred.';
+const GENERIC_TITLE = 'Something Went Wrong';
 
-interface StatusCopy {
+interface FailureCopy {
 	title: string;
 	description: string;
+	retryable?: boolean;
 }
 
-const FORBIDDEN_COPY: StatusCopy = {
+const FORBIDDEN_COPY: FailureCopy = {
 	title: 'Access Denied',
 	description:
 		"Your account doesn't have permission to view this. If you think it should, ask an administrator for access.",
 };
 
-const NOT_FOUND_COPY: StatusCopy = {
+const NOT_FOUND_COPY: FailureCopy = {
 	title: 'Not Found',
 	description: "We couldn't find what you were looking for. It may have been deleted, or the link may be wrong.",
 };
 
-function describeStatus(error: unknown): StatusCopy | undefined {
-	switch (errorStatus(error)) {
-		case 403:
-			return FORBIDDEN_COPY;
-		case 404:
-			return NOT_FOUND_COPY;
-		default:
-			return undefined;
+const UNREACHABLE_COPY: FailureCopy = {
+	title: "Couldn't Reach the Server",
+	description: "The request didn't get an answer. Check your connection, then try again.",
+	retryable: true,
+};
+
+const NO_RESPONSE_CODES: ReadonlySet<unknown> = new Set([
+	AxiosError.ERR_NETWORK,
+	AxiosError.ECONNABORTED,
+	AxiosError.ETIMEDOUT,
+]);
+
+function errorCode(error: unknown): unknown {
+	try {
+		return (error as { code?: unknown } | null | undefined)?.code;
+	} catch {
+		return undefined;
 	}
+}
+
+function describeFailure(error: unknown): FailureCopy | undefined {
+	const status = errorStatus(error);
+	if (status === 403) { return FORBIDDEN_COPY; }
+	if (status === 404) { return NOT_FOUND_COPY; }
+	if (typeof status === 'number') {
+		return status >= 500 && status < 600
+			? {
+				title: GENERIC_TITLE,
+				description: `The server couldn't load this (error ${status}). Try again in a moment.`,
+				retryable: true,
+			}
+			: undefined;
+	}
+	return NO_RESPONSE_CODES.has(errorCode(error)) ? UNREACHABLE_COPY : undefined;
+}
+
+function RetryButton() {
+	const router = useRouter();
+	const [retrying, setRetrying] = useState(false);
+	return (
+		<Button
+			type="button"
+			variant="outline"
+			disabled={retrying}
+			onClick={() => {
+				setRetrying(true);
+				void router.invalidate().finally(() => setRetrying(false));
+			}}
+		>
+			<RotateCw /> {retrying ? 'Trying Again…' : 'Try Again'}
+		</Button>
+	);
 }
 
 /**
@@ -93,10 +143,13 @@ function getErrorMessage(error: unknown): ReactNode {
 	return FALLBACK_ERROR_MESSAGE;
 }
 
-export function ErrorComponent({ className, error, title, description, showReturnToHome, children }: ErrorProps) {
+export function ErrorComponent(
+	{ className, error, title, description, showReturnToHome, reset, children }: ErrorProps,
+) {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-	const statusCopy = describeStatus(error);
+	const failureCopy = describeFailure(error);
+	const canRetry = reset !== undefined && failureCopy?.retryable === true;
 
 	return (
 		<Card
@@ -105,29 +158,34 @@ export function ErrorComponent({ className, error, title, description, showRetur
 		>
 			<CardHeader>
 				<CardTitle className="text-2xl">
-					<h2>{title ?? statusCopy?.title ?? 'Component Error'}</h2>
+					<h2>{title ?? failureCopy?.title ?? GENERIC_TITLE}</h2>
 				</CardTitle>
-				<CardDescription>{description ?? statusCopy?.description ?? getErrorMessage(error)}</CardDescription>
+				<CardDescription>{description ?? failureCopy?.description ?? getErrorMessage(error)}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				{children}
-				{showReturnToHome !== false && (user && !isUserLoading
-					? (
-						<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-							<Button>
-								{' '}
-								<ArrowLeft /> Return to Home
-							</Button>
-						</Link>
-					)
-					: (
-						<Link to="/sign-in">
-							<Button>
-								{' '}
-								<ArrowLeft /> Go to Sign In Page
-							</Button>
-						</Link>
-					))}
+				{(canRetry || showReturnToHome !== false) && (
+					<div className="flex flex-wrap gap-2">
+						{canRetry && <RetryButton />}
+						{showReturnToHome !== false && (user && !isUserLoading
+							? (
+								<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
+									<Button>
+										{' '}
+										<ArrowLeft /> Return to Home
+									</Button>
+								</Link>
+							)
+							: (
+								<Link to="/sign-in">
+									<Button>
+										{' '}
+										<ArrowLeft /> Go to Sign In Page
+									</Button>
+								</Link>
+							))}
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);

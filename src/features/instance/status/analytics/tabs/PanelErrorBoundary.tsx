@@ -30,7 +30,8 @@ export class PanelErrorBoundary extends Component<Props, State> {
 	}
 
 	componentDidCatch(error: Error) {
-		console.error(`[panel:${this.props.metric}] render failed`, error);
+		// Not `console.error`: the root `onCaughtError` already reports this to RUM, which would count that as a second error.
+		console.warn(`[panel:${this.props.metric}] render failed`, error);
 	}
 
 	render() {

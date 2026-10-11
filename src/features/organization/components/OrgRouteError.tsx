@@ -6,7 +6,7 @@ import { errorStatus } from '@/lib/errorStatus';
  * missing organization and someone else's read the same — the copy must not confirm which. Only staff,
  * who skip that check, can get a 404.
  */
-export function OrgRouteError({ error }: { error: unknown }) {
+export function OrgRouteError({ error, reset }: { error: unknown; reset?: () => void }) {
 	switch (errorStatus(error)) {
 		case 403:
 			return (
@@ -25,6 +25,6 @@ export function OrgRouteError({ error }: { error: unknown }) {
 				/>
 			);
 		default:
-			return <ErrorComponent error={error} />;
+			return <ErrorComponent error={error} reset={reset} />;
 	}
 }

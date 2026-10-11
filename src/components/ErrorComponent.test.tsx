@@ -2,16 +2,29 @@
  * @vitest-environment jsdom
  */
 import { TestProvider } from '@/lib/test/TestProvider';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorComponent } from './ErrorComponent';
 
-afterEach(() => cleanup());
+const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(() => Promise.resolve()) }));
+// Only ErrorComponent's own import is replaced; the provider's router and its links stay real.
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+	const router = { invalidate };
+	return { ...await importOriginal<typeof import('@tanstack/react-router')>(), useRouter: () => router };
+});
+
+afterEach(() => {
+	cleanup();
+	invalidate.mockClear();
+});
 
 const FALLBACK = 'An unexpected error occurred.';
 
-async function renderError(error: unknown, props: { title?: string; description?: string } = {}) {
+async function renderError(
+	error: unknown,
+	props: { title?: string; description?: string; reset?: () => void } = {},
+) {
 	render(
 		<TestProvider>
 			<ErrorComponent error={error} showReturnToHome={false} {...props} />
@@ -46,7 +59,7 @@ describe(ErrorComponent, () => {
 			},
 		});
 		await renderError(hostile);
-		expect(screen.getByRole('heading', { name: 'Component Error' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Something Went Wrong' })).toBeTruthy();
 		expect(screen.getByText(FALLBACK)).toBeTruthy();
 	});
 
@@ -62,10 +75,59 @@ describe(ErrorComponent, () => {
 		expect(screen.queryByText(/doesn't have permission/)).toBeNull();
 	});
 
-	it('should keep the raw message for a status it has no copy for', async () => {
-		await renderError(httpError(500));
-		expect(screen.getByRole('heading', { name: 'Component Error' })).toBeTruthy();
-		expect(screen.getByText('Request failed with status code 500')).toBeTruthy();
+	it('should keep the raw message under a generic title for a status it has no copy for', async () => {
+		await renderError(httpError(409));
+		expect(screen.getByRole('heading', { name: 'Something Went Wrong' })).toBeTruthy();
+		expect(screen.getByText('Request failed with status code 409')).toBeTruthy();
+	});
+
+	const networkError = (code: string) => Object.assign(new Error('Network Error'), { code });
+	const reset = () => {};
+
+	it.each([
+		['a 500', httpError(500), 'Something Went Wrong', /couldn't load this \(error 500\)/],
+		['a 503', httpError(503), 'Something Went Wrong', /couldn't load this \(error 503\)/],
+		['ERR_NETWORK', networkError('ERR_NETWORK'), "Couldn't Reach the Server", /didn't get an answer/],
+		['ECONNABORTED', networkError('ECONNABORTED'), "Couldn't Reach the Server", /didn't get an answer/],
+		['ETIMEDOUT', networkError('ETIMEDOUT'), "Couldn't Reach the Server", /didn't get an answer/],
+	])('should offer Try Again on a route for %s', async (_label, error, title, description) => {
+		await renderError(error, { reset });
+		expect(screen.getByRole('heading', { name: title })).toBeTruthy();
+		expect(screen.getByText(description)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Try Again/ })).toBeTruthy();
+	});
+
+	it.each([
+		['a 400', httpError(400)],
+		['a 403', httpError(403)],
+		['a 404', httpError(404)],
+		['a cancellation', networkError('ERR_CANCELED')],
+		['a thrown TypeError', new TypeError('x is undefined')],
+		['a thrown string', 'boom'],
+	])('should not offer Try Again for %s, which a reload cannot fix', async (_label, error) => {
+		await renderError(error, { reset });
+		expect(screen.queryByRole('button', { name: /Try Again/ })).toBeNull();
+	});
+
+	it('should not offer Try Again outside a route error boundary', async () => {
+		await renderError(httpError(503));
+		expect(screen.getByText(/couldn't load this \(error 503\)/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Try Again/ })).toBeNull();
+	});
+
+	it('should reload the route once per Try Again, and not again while that reload is pending', async () => {
+		let finishReload!: () => void;
+		invalidate.mockImplementationOnce(() => new Promise<void>((resolve) => (finishReload = resolve)));
+		await renderError(httpError(503), { reset });
+		const button = screen.getByRole('button', { name: /Try Again/ });
+
+		fireEvent.click(button);
+		fireEvent.click(button);
+		expect(invalidate).toHaveBeenCalledTimes(1);
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Trying Again/ }).disabled).toBe(true);
+
+		await act(async () => finishReload());
+		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Try Again/ }).disabled).toBe(false);
 	});
 
 	it('should render the message of a thrown Error', async () => {
