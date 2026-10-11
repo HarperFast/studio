@@ -16,6 +16,7 @@ import {
 	browsePrimaryKey,
 	formatBrowseDataTableHeader,
 } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import { fullScanAttributes, fullScanWarning } from '@/features/instance/databases/functions/fullScanFilter';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
 import {
 	buildSyntheticGetAttributes,
@@ -230,6 +231,14 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		databaseName,
 		tableName,
 	]);
+	// Whether the user agreed that the applied filter may read every record. Only
+	// `applySearchConditions` sets the two, together.
+	const [fullScanAllowed, setFullScanAllowed] = useEffectedState(false, [
+		allParams.clusterId,
+		allParams.instanceId,
+		databaseName,
+		tableName,
+	]);
 
 	const translateFilterValues = useCallback((values: Record<string, string | undefined>) => {
 		const conditions: SearchCondition[] = [];
@@ -238,7 +247,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			if (value?.length) {
 				try {
 					conditions.push(
-						...translateColumnFilterToSearchConditions(key, value, attributesMap[key], relationshipInfoMap[key]),
+						...translateColumnFilterToSearchConditions(
+							key,
+							value,
+							attributesMap[key],
+							Object.hasOwn(relationshipInfoMap, key) ? relationshipInfoMap[key] : undefined,
+						),
 					);
 				} catch (err) {
 					toast.error(String(err));
@@ -248,18 +262,32 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return conditions;
 	}, [attributesMap, relationshipInfoMap]);
 
-	const applyFilters = useCallback(() => {
-		const conditions = translateFilterValues(columnFiltersValues);
+	// Every filter that runs comes through here, typed or deep-linked, so one that no index can answer
+	// never runs without the user agreeing to a scan of the whole table. False when they decline.
+	const applySearchConditions = useCallback((conditions: SearchCondition[]) => {
+		const scanned = fullScanAttributes(conditions, attributesMap);
+		if (scanned.length && !confirm(fullScanWarning(tableName, scanned))) {
+			return false;
+		}
+		setFullScanAllowed(scanned.length > 0);
 		setAppliedSearchConditions(conditions.length ? conditions : null);
-		resetFiltersForm({ ...columnFiltersValues });
-	}, [translateFilterValues, resetFiltersForm, columnFiltersValues]);
+		return true;
+	}, [attributesMap, tableName, setFullScanAllowed, setAppliedSearchConditions]);
+
+	const applyFilters = useCallback(() => {
+		// Declined, the inputs stay as typed and unapplied, so Apply Filters is still on offer.
+		if (applySearchConditions(translateFilterValues(columnFiltersValues))) {
+			resetFiltersForm({ ...columnFiltersValues });
+		}
+	}, [applySearchConditions, translateFilterValues, resetFiltersForm, columnFiltersValues]);
 	const clearFilters = useCallback(() => {
 		// Note sure why we need to resetFiltersForm twice here...
 		resetFiltersForm({}, { keepValues: false, keepDirtyValues: false, keepDefaultValues: false });
 		resetFiltersForm();
 		setAppliedSearchConditions(null);
+		setFullScanAllowed(false);
 		hideFilters();
-	}, [hideFilters, resetFiltersForm]);
+	}, [hideFilters, resetFiltersForm, setAppliedSearchConditions, setFullScanAllowed]);
 
 	useEffect(function clearFiltersWhenParamsChange() {
 		return clearFilters();
@@ -281,9 +309,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		const isInitialSync = appliedUrlFiltersKey.current === null;
 		appliedUrlFiltersKey.current = urlFiltersKey;
 		if (urlFilters) {
-			resetFiltersForm({ ...urlFilters });
-			const conditions = translateFilterValues(urlFilters);
-			setAppliedSearchConditions(conditions.length ? conditions : null);
+			if (applySearchConditions(translateFilterValues(urlFilters))) {
+				resetFiltersForm({ ...urlFilters });
+			} else {
+				// Declined: the link's filter stays in the inputs, unapplied (so still dirty), for the user to
+				// edit or apply.
+				resetFiltersForm({ ...urlFilters }, { keepDefaultValues: true });
+			}
 			showFilters();
 		} else if (!isInitialSync) {
 			// Skip the initial mount (nothing to clear yet); otherwise drop the stale inputs a
@@ -296,7 +328,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		instanceTable,
 		resetFiltersForm,
 		translateFilterValues,
-		setAppliedSearchConditions,
+		applySearchConditions,
 		showFilters,
 		clearFilters,
 	]);
@@ -451,6 +483,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageIndex,
 		onlyIfCached,
 		getAttributes: syntheticGetAttributes,
+		allowFullScan: fullScanAllowed,
 	};
 	const searchByConditionsOptions = getSearchByConditionsOptions(searchByConditionsParams);
 	const { data: filteredTableData, isFetching: tableConditionsDataFetching, isError: isFilteredTableError } = useQuery(
@@ -612,6 +645,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			primaryKey,
 			sort,
 			conditions: useFilteredList ? appliedSearchConditions : null,
+			allowFullScan: useFilteredList && fullScanAllowed,
 			instanceTable,
 			databaseTables,
 		});
@@ -623,6 +657,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		sort,
 		useFilteredList,
 		appliedSearchConditions,
+		fullScanAllowed,
 		instanceTable,
 		databaseTables,
 	]);

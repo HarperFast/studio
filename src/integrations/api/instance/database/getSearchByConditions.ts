@@ -19,6 +19,8 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	onlyIfCached: boolean;
 	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
 	getAttributes?: GetAttribute[];
+	/** Set only once the user has agreed to a filter no index can answer (see `fullScanAttributes`). */
+	allowFullScan?: boolean;
 	headers?: Record<string, any>;
 }
 
@@ -53,6 +55,7 @@ interface SearchByConditionsRequest {
 	offset: number;
 	limit: number;
 	get_attributes?: GetAttribute[];
+	allowFullScan?: boolean;
 	onlyIfCached: boolean;
 	noCacheStore: boolean;
 }
@@ -120,6 +123,7 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	limit = pageSize,
 	onlyIfCached,
 	getAttributes,
+	allowFullScan,
 	headers,
 }: Omit<GetSearchByConditionsParams, 'enabled'> & { limit?: number }) {
 	return instanceClient.post<T[]>(
@@ -133,6 +137,9 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 			sort: sort.attribute.length ? sort : undefined,
 			offset: pageIndex * pageSize,
 			limit,
+			// Harper's operations API scans without it (Harper 5's ResourceBridge passes
+			// `allowFullScan: true` itself); it carries the user's consent on the wire all the same.
+			allowFullScan: allowFullScan || undefined,
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByConditionsRequest,

@@ -17,8 +17,13 @@ declare module '@tanstack/react-table' {
 	> {
 		/** Set on relationship columns; drives the cell renderer and the sub-property filter UI. */
 		relationshipInfo?: RelationshipAttributeInfo;
+		/** Set on a filterable column no index covers, whose filter alone reads every record. */
+		unindexed?: boolean;
 	}
 }
+
+// A filter value is text; it can't describe binary content.
+const UNFILTERABLE_TYPES: ReadonlySet<string> = new Set(['Blob', 'Bytes']);
 
 export function formatBrowseDataTableHeader(
 	instanceTable?: InstanceTable,
@@ -54,17 +59,20 @@ export function formatBrowseDataTableHeader(
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
 		const relationshipInfo = Object.hasOwn(relationshipInfoMap, attribute) ? relationshipInfoMap[attribute] : undefined;
+		const isIndexed = Boolean(is_primary_key || indexed);
+		// Relationship columns are filterable via sub-properties (`.name value`), which the server
+		// executes as a join against the related table. Any other column takes a filter too, but one no
+		// index covers asks before it runs (`fullScanAttributes`).
+		const isUnindexedFilter = !relationshipInfo && !isIndexed && !UNFILTERABLE_TYPES.has(type ?? '');
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
 			accessorKey: attribute,
-			enableSorting: Boolean(is_primary_key || indexed),
-			// Relationship columns are filterable via sub-properties (`.name value`), which the
-			// server executes as a join against the related table.
-			enableColumnFilter: Boolean(is_primary_key || indexed || relationshipInfo),
+			enableSorting: isIndexed,
+			enableColumnFilter: isIndexed || !!relationshipInfo || isUnindexedFilter,
 			size: sizeByAttributeType(type),
 			cell: relationshipInfo ? relationshipCell(relationshipInfo) : renderPlainCell,
-			meta: relationshipInfo ? { relationshipInfo } : undefined,
+			meta: relationshipInfo ? { relationshipInfo } : isUnindexedFilter ? { unindexed: true } : undefined,
 		};
 		if (is_primary_key) {
 			primaryKeyColumns.push(dataTableColumn);

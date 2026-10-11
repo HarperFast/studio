@@ -39,17 +39,17 @@ describe('formatBrowseDataTableHeader', () => {
 			isToMany: false,
 		});
 
-		expect(byHeader.comments.enableColumnFilter).toBe(false);
-		expect(byHeader.comments.meta).toBeUndefined();
+		expect(byHeader.comments.enableColumnFilter).toBe(true);
+		expect(byHeader.comments.meta).toEqual({ unindexed: true });
 	});
 
 	it('does not attach relationship meta without relationship info', () => {
 		const { dataTableColumns } = formatBrowseDataTableHeader(relReview);
 		for (const column of dataTableColumns) {
-			expect(column.meta).toBeUndefined();
+			expect(column.meta?.relationshipInfo).toBeUndefined();
 		}
 		const product = dataTableColumns.find((column) => column.header === 'product');
-		expect(product?.enableColumnFilter).toBe(false);
+		expect(product?.meta).toEqual({ unindexed: true });
 	});
 
 	it('renders an elements-less array named like a sibling table as plain JSON', () => {
@@ -74,7 +74,7 @@ describe('formatBrowseDataTableHeader', () => {
 		const { dataTableColumns } = formatBrowseDataTableHeader(albums, getRelationshipInfoMap(albums, albumTables));
 		const tracks = dataTableColumns.find((column) => column.header === 'tracks')!;
 
-		expect(tracks.meta).toBeUndefined();
+		expect(tracks.meta?.relationshipInfo).toBeUndefined();
 		const render = tracks.cell as (context: { getValue: () => unknown }) => unknown;
 		expect(render({ getValue: () => [{ title: 'Intro' }] })).toBe('[{"title":"Intro"}]');
 	});
@@ -158,8 +158,44 @@ describe('formatBrowseDataTableHeader with properties describe does not list', (
 			type: 'String',
 		}]);
 		const constructorColumn = dataTableColumns.find((column) => column.header === 'constructor')!;
-		expect(constructorColumn.meta).toBeUndefined();
-		expect(constructorColumn.enableColumnFilter).toBe(false);
+		expect(constructorColumn.meta?.relationshipInfo).toBeUndefined();
+		expect(constructorColumn.meta).toEqual({ unindexed: true });
 		expect(dataTableColumns.some((column) => column.header === 'toString')).toBe(true);
+	});
+});
+
+describe('formatBrowseDataTableHeader filters on columns no index covers', () => {
+	const thing = {
+		schema: 'data',
+		name: 'Thing',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String', indexed: {} },
+			{ attribute: 'note', type: 'String' },
+			{ attribute: 'tags', type: 'array', elements: 'String' },
+			{ attribute: 'photo', type: 'Blob' },
+		],
+	} as InstanceTable;
+	const byHeader = () =>
+		Object.fromEntries(formatBrowseDataTableHeader(thing).dataTableColumns.map((column) => [column.header, column]));
+
+	it('offers a filter on an unindexed column and marks it, but keeps it unsortable', () => {
+		for (const name of ['note', 'tags']) {
+			expect(byHeader()[name].enableColumnFilter).toBe(true);
+			expect(byHeader()[name].enableSorting).toBe(false);
+			expect(byHeader()[name].meta).toEqual({ unindexed: true });
+		}
+	});
+
+	it('leaves indexed columns unmarked', () => {
+		expect(byHeader().id.meta).toBeUndefined();
+		expect(byHeader().name.meta).toBeUndefined();
+		expect(byHeader().name.enableColumnFilter).toBe(true);
+	});
+
+	it('offers no filter on binary content', () => {
+		expect(byHeader().photo.enableColumnFilter).toBe(false);
+		expect(byHeader().photo.meta).toBeUndefined();
 	});
 });
