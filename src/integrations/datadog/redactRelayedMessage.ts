@@ -26,7 +26,7 @@ const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError', 'Dep
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
 
-function isRelayed(type: string | undefined) {
+export function isRelayed(type: string | undefined) {
 	return type !== undefined && RELAYED_ERROR_TYPES.has(type);
 }
 

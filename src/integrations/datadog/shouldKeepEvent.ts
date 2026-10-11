@@ -13,6 +13,8 @@ export interface DatadogErrorEvent {
 		/** The thrown value's `name`; absent when a non-Error was thrown. */
 		type?: string;
 		resource?: { url?: string };
+		/** The `cause` chain, nearest first. Read-only to `beforeSend`, which can only drop it. */
+		causes?: { message?: string; stack?: string; type?: string }[];
 	};
 	view?: {
 		name?: string;

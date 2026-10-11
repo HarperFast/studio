@@ -1,5 +1,5 @@
 import { redactErrorText } from './redactErrorText';
-import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
+import { isRelayed, redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
 import { redactCredentialParams, redactSensitiveParams } from './redactSensitiveParams';
 import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
@@ -38,6 +38,9 @@ export function beforeSend(event: DatadogErrorEvent) {
 		}
 		const error = event.error;
 		if (error) {
+			if (error.causes !== undefined && !causesNeedNoRedaction(error.causes, error.type)) {
+				return false;
+			}
 			const relayedMessage = typeof error.message === 'string' ? error.message : '';
 			if (typeof error.message === 'string') {
 				error.message = redactErrorAndParams(redactRelayedMessage(error.type, error.message));
@@ -62,4 +65,39 @@ export function beforeSend(event: DatadogErrorEvent) {
  * would take the host out of the `git@github.com:<redacted>` it leaves. */
 function redactErrorAndParams(text: string) {
 	return redactCredentialParams(redactErrorText(text));
+}
+
+/**
+ * `error.causes` is off the SDK's modifiable-field allowlist (`MODIFIABLE_FIELD_PATHS_BY_EVENT`,
+ * browser-rum-core `domain/assembly.ts`): a rewrite here is silently undone and the cause ships as
+ * thrown. So a cause the rules above would change, or one in a shape they can't read, withholds its
+ * whole event instead. A relayed error's causes are the server's chain, so they are withheld too.
+ */
+function causesNeedNoRedaction(causes: unknown, type: string | undefined) {
+	if (!Array.isArray(causes)) {
+		return false;
+	}
+	let relayed = isRelayed(type);
+	for (const cause of causes) {
+		if (typeof cause !== 'object' || cause === null) {
+			return false;
+		}
+		const { message, stack, type: causeType } = cause as Record<string, unknown>;
+		if (typeof message !== 'string') {
+			return false;
+		}
+		if (stack !== undefined && typeof stack !== 'string') {
+			return false;
+		}
+		if (causeType !== undefined && typeof causeType !== 'string') {
+			return false;
+		}
+		relayed ||= isRelayed(causeType);
+		for (const text of [message, stack]) {
+			if (text && (relayed || redactErrorAndParams(text) !== text)) {
+				return false;
+			}
+		}
+	}
+	return true;
 }
