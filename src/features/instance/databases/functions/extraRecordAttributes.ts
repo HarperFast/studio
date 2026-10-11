@@ -33,10 +33,22 @@ export function extraRecordAttributes(
 			}
 		}
 	}
-	return [...seen]
-		.sort(([, a], [, b]) => b.count - a.count)
-		.slice(0, MAX_EXTRA_COLUMNS)
-		.map(([attribute, { sample }]) => ({ attribute, type: typeOfValue(sample) }));
+	// A count can't exceed the row count, so bucketing by it picks the most common without sorting
+	// every distinct key, and keeps first-seen order within a count.
+	const byCount: string[][] = [];
+	for (const [attribute, { count }] of seen) {
+		(byCount[count] ??= []).push(attribute);
+	}
+	const extras: ExtraRecordAttribute[] = [];
+	for (let count = byCount.length - 1; count > 0 && extras.length < MAX_EXTRA_COLUMNS; count--) {
+		for (const attribute of byCount[count] ?? []) {
+			if (extras.length === MAX_EXTRA_COLUMNS) {
+				break;
+			}
+			extras.push({ attribute, type: typeOfValue(seen.get(attribute)!.sample) });
+		}
+	}
+	return extras;
 }
 
 export function sameExtraRecordAttributes(a: readonly ExtraRecordAttribute[], b: readonly ExtraRecordAttribute[]) {
