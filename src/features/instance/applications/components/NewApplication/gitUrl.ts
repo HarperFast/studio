@@ -7,6 +7,10 @@
 
 const SCHEME_PREFIX = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const SCP_LIKE = /^(?:[^@/]+@)?([^/:]+):/;
+const NON_SSH_SCHEMES = new Set(['http:', 'https:', 'git+http:', 'git+https:', 'git:']);
+// Elsewhere the SSH path can differ from the HTTPS one (Azure DevOps prefixes `v3/` and drops
+// `_git/`) or live on another hostname, so a rewrite would name a repository that doesn't exist.
+const MIRRORED_SSH_PATH_HOSTS = new Set(['github.com', 'gitlab.com', 'bitbucket.org']);
 
 /**
  * Extract the host from a git remote URL, supporting the shapes the import flow accepts:
@@ -48,4 +52,34 @@ export function replaceGitUrlHost(ref: string, newHost: string): string {
 	const hostPattern = new RegExp(`(^|@|//)${escaped}(?=[:/]|$)`);
 	// Use a replacer fn so a `newHost` containing `$`/`$&` isn't treated as a replacement pattern.
 	return trimmed.replace(hostPattern, (_, prefix) => `${prefix}${newHost}`);
+}
+
+function parseNonSSHGitUrl(ref: string): URL | null {
+	const trimmed = ref.trim();
+	if (!SCHEME_PREFIX.test(trimmed)) {
+		return null;
+	}
+	try {
+		const url = new URL(trimmed);
+		return NON_SSH_SCHEMES.has(url.protocol) && url.hostname ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+export function usesNonSSHTransport(ref: string): boolean {
+	return parseNonSSHGitUrl(ref) !== null;
+}
+
+/**
+ * The scp-like SSH equivalent of a non-SSH `ref`, on `sshHost` (an SSH key's host alias), or `null`
+ * when no exact equivalent is known. Userinfo is never carried over, since it may hold a token.
+ */
+export function toSSHGitUrl(ref: string, sshHost: string): string | null {
+	const url = parseNonSSHGitUrl(ref);
+	const path = url?.pathname.replace(/^\/+|\/+$/g, '');
+	if (!url || !path || !MIRRORED_SSH_PATH_HOSTS.has(url.hostname.toLowerCase())) {
+		return null;
+	}
+	return `git@${sshHost}:${path}${url.hash}`;
 }
