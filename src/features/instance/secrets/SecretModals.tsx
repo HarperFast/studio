@@ -25,6 +25,7 @@ import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOn
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ENV_KEY_REGEX, ENV_VALUE_MASK } from '@/lib/env/envFile';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EyeIcon, Save, Trash2 } from 'lucide-react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
@@ -117,7 +118,7 @@ export function AddSecretModal({
 				toast.success(`Secret "${formData.key}" saved.`);
 				setIsModalOpen(false);
 			} catch (error) {
-				toast.error(String(error));
+				toast.error(describeError(error).message);
 			}
 		},
 		[onSubmit, form, setIsModalOpen, delivery, tier, grants, resetDelivery],
@@ -281,7 +282,7 @@ export function EditSecretModal({
 				toast.success(`Secret "${name}" updated.`);
 				closeModal();
 			} catch (error) {
-				toast.error(String(error));
+				toast.error(describeError(error).message);
 			}
 		},
 		[onSave, name, closeModal, delivery, tier],
@@ -300,7 +301,7 @@ export function EditSecretModal({
 			toast.success(`Secret "${name}" deleted.`);
 			closeModal();
 		} catch (error) {
-			toast.error(String(error));
+			toast.error(describeError(error).message);
 		} finally {
 			setIsDeleting(false);
 		}

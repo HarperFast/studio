@@ -54,6 +54,14 @@ export interface ListSecretsResponse {
 	custody_fingerprint: string | null;
 }
 
+/** A secrets operation Harper rejected. Datadog withholds its message by this `name`. */
+export class SecretsOperationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'SecretsOperationError';
+	}
+}
+
 /** Operations API errors carry the message in the response body; surface that, not the Axios noise. */
 function operationErrorMessage(error: unknown): string {
 	const body = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
@@ -171,7 +179,7 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 			queryClient.removeQueries({ queryKey: secretsPublicKeyQueryOptions(args).queryKey });
 			return encryptAndSetSecret(queryClient, args, true);
 		}
-		throw new Error(message);
+		throw new SecretsOperationError(message);
 	}
 }
 
@@ -191,7 +199,7 @@ async function deleteSecret({ instanceClient, name }: DeleteSecretArgs): Promise
 		const { data } = await instanceClient.post('/', { operation: 'delete_secret', name });
 		return data;
 	} catch (error) {
-		throw new Error(operationErrorMessage(error));
+		throw new SecretsOperationError(operationErrorMessage(error));
 	}
 }
 
@@ -218,7 +226,7 @@ async function mutateGrant(
 		const { data } = await instanceClient.post<GrantSecretResponse>('/', { operation, name, component });
 		return data;
 	} catch (error) {
-		throw new Error(operationErrorMessage(error));
+		throw new SecretsOperationError(operationErrorMessage(error));
 	}
 }
 

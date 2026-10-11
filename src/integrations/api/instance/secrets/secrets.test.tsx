@@ -8,7 +8,13 @@ import type { AxiosInstance } from 'axios';
 import { webcrypto } from 'node:crypto';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { secretsPublicKeyQueryOptions, useDeleteSecret, useSetSecret } from './secrets';
+import {
+	secretsPublicKeyQueryOptions,
+	useDeleteSecret,
+	useGrantSecret,
+	useRevokeSecret,
+	useSetSecret,
+} from './secrets';
 
 /*
  Exercises the hdb_secret client flow against a mocked operations client and a REAL RSA keypair:
@@ -134,9 +140,10 @@ describe('useSetSecret', () => {
 		});
 
 		const { result } = renderHook(() => useSetSecret(), { wrapper });
-		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' })).rejects.toThrow(
-			'secrets custody is not initialized on this node',
-		);
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' })).rejects.toMatchObject({
+			name: 'SecretsOperationError',
+			message: 'secrets custody is not initialized on this node',
+		});
 	});
 
 	it('fetches the key from central-manager for managed clusters (central-manager#409)', async () => {
@@ -196,8 +203,31 @@ describe('useDeleteSecret', () => {
 		expect(post).toHaveBeenCalledWith('/', { operation: 'delete_secret', name: 'API_KEY' });
 
 		post.mockRejectedValueOnce({ response: { data: { error: "No secret found with name 'NOPE'" } } });
-		await expect(result.current.mutateAsync({ ...params, name: 'NOPE' })).rejects.toThrow(
-			"No secret found with name 'NOPE'",
-		);
+		await expect(result.current.mutateAsync({ ...params, name: 'NOPE' })).rejects.toMatchObject({
+			name: 'SecretsOperationError',
+			message: "No secret found with name 'NOPE'",
+		});
+	});
+});
+
+describe.each(
+	[
+		['useGrantSecret', useGrantSecret, 'grant_secret'],
+		['useRevokeSecret', useRevokeSecret, 'revoke_secret'],
+	] as const,
+)('%s', (_hook, useHook, operation) => {
+	it(`posts ${operation} and surfaces the body error message on failure`, async () => {
+		const { post, wrapper, params } = harness();
+		post.mockResolvedValueOnce({ data: { name: 'API_KEY', grants: ['app'], changed: true } });
+
+		const { result } = renderHook(() => useHook(), { wrapper });
+		await result.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' });
+		expect(post).toHaveBeenCalledWith('/', { operation, name: 'API_KEY', component: 'app' });
+
+		post.mockRejectedValueOnce({ response: { data: { error: "No secret found with name 'NOPE'" } } });
+		await expect(result.current.mutateAsync({ ...params, name: 'NOPE', component: 'app' })).rejects.toMatchObject({
+			name: 'SecretsOperationError',
+			message: "No secret found with name 'NOPE'",
+		});
 	});
 });
