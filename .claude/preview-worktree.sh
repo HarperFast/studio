@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch helper for the "studio (worktree)" preview config.
+# Launch helper for the "studio (worktree)" and "studio local (worktree)" preview configs.
 #
 # Problem: `preview_start` reads .claude/launch.json from the *main* checkout (the session
 # cwd) and takes no arguments, so it always serves the main checkout. When you're working in
@@ -7,12 +7,15 @@
 # (5173) so the backend's auth/origin carries over.
 #
 # Solution: this script reads the target directory from `.claude/preview-cwd` (a path relative
-# to the repo root, gitignored — write it before starting the server), falls back to the main
-# checkout when that file is absent, and starts the dev server there. To keep a fresh worktree
-# zero-setup it symlinks node_modules and .env.local from the main checkout when missing.
+# to the repo root, gitignored — write it before starting the server), falls back to the
+# checkout it was launched from when that file is absent, and starts the dev server there. To
+# keep a fresh worktree zero-setup it symlinks node_modules and .env.local from the main
+# checkout when missing.
 #
-# Usage: echo .claude/worktrees/<name> > .claude/preview-cwd  # then preview_start "studio (worktree)"
+# Usage: echo .claude/worktrees/<name> > .claude/preview-cwd  # then preview_start "studio (worktree)",
+# or "studio local (worktree)" for Local Studio mode (needs Harper at VITE_LOCAL_STUDIO_DEV_URL).
 set -e
+dev_script="${1:-dev}"
 
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$root"
@@ -24,8 +27,8 @@ cd "$root"
 main_checkout="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
 # Read the target worktree from .claude/preview-cwd (repo-relative). `read` trims surrounding
-# whitespace and tolerates a missing trailing newline; fall back to the main checkout when the
-# file is absent or empty.
+# whitespace and tolerates a missing trailing newline; fall back to $root when the file is absent
+# or empty.
 target=""
 if [ -f .claude/preview-cwd ]; then
 	read -r target < .claude/preview-cwd || :
@@ -80,8 +83,8 @@ if [ -z "$current_major" ] || [ "$current_major" -lt 22 ]; then
 	fi
 fi
 
-echo "[preview] Serving $(pwd) on port 5173" >&2
+echo "[preview] Serving $(pwd) on port 5173 via 'pnpm run $dev_script'" >&2
 # node_modules is symlinked from the main checkout; skip pnpm's pre-run deps check so it can't
 # try to reinstall/purge it (the workspace state won't match, and a purge would mutate the
 # shared checkout). We just want to run the dev script against the already-installed modules.
-exec pnpm --config.verify-deps-before-run=false run dev
+exec pnpm --config.verify-deps-before-run=false run "$dev_script"
