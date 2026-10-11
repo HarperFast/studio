@@ -1,5 +1,6 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -83,6 +84,6 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 		] as const,
 		queryFn: () => getReadLog(params),
 		retry: false,
-		refetchInterval: params.isAutoRefreshEnabled ? 5000 : false,
+		refetchInterval: pollUnlessForbidden(params.isAutoRefreshEnabled ? 5000 : false),
 	});
 }

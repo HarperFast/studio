@@ -1,5 +1,7 @@
+import type { AxiosInstance } from 'axios';
+import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { buildReadLogBody, clampReadLogLimit, MAX_READ_LOG_LIMIT } from './getReadLog';
+import { buildReadLogBody, clampReadLogLimit, getReadLogQueryOptions, MAX_READ_LOG_LIMIT } from './getReadLog';
 
 describe('clampReadLogLimit', () => {
 	it('returns undefined for blank or invalid input', () => {
@@ -28,5 +30,31 @@ describe('buildReadLogBody', () => {
 
 	it('omits limit entirely when the field is blank', () => {
 		expect(buildReadLogBody({ limit: '' }, false).limit).toBeUndefined();
+	});
+});
+
+describe('read_log auto-refresh', () => {
+	function intervalFor(isAutoRefreshEnabled: boolean) {
+		const { refetchInterval } = getReadLogQueryOptions(
+			{
+				entityId: 'ins-test' as never,
+				instanceClient: {} as AxiosInstance,
+				logFilters: {},
+				replicated: false,
+				isAutoRefreshEnabled,
+			} as Parameters<typeof getReadLogQueryOptions>[0],
+		);
+		return refetchInterval as unknown as (query: { state: { error: unknown; errorUpdatedAt?: number } }) => unknown;
+	}
+
+	it('refreshes every 5s only while auto-refresh is on', () => {
+		expect(intervalFor(true)({ state: { error: null } })).toBe(5_000);
+		expect(intervalFor(false)({ state: { error: null } })).toBe(false);
+	});
+
+	it('stops auto-refreshing a log the user may not read', () => {
+		const forbidden = new AxiosError('Request failed with status code 403');
+		forbidden.response = { status: 403 } as AxiosError['response'];
+		expect(intervalFor(true)({ state: { error: forbidden, errorUpdatedAt: 0 } })).toBe(false);
 	});
 });
