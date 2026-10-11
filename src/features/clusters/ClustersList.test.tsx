@@ -25,7 +25,7 @@ vi.mock(
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-a' }),
 	Link: ({ children, to, ...props }: { children: ReactNode; to: string }) => <a href={to} {...props}>{children}</a>,
-	Navigate: ({ to }: { to: string }) => <p>Navigate {to}</p>,
+	Navigate: ({ to, replace }: { to: string; replace?: boolean }) => <p>{replace ? 'Replace' : 'Push'} {to}</p>,
 }));
 vi.mock('@/components/SubNavMenu', () => ({ SubNavMenu: () => null }));
 vi.mock(
@@ -118,10 +118,10 @@ describe('ClustersList', () => {
 		expect(screen.getByRole('link', { name: 'New Cluster' }).getAttribute('href')).toBe('/org-a/new-cluster');
 	});
 
-	it('preserves a saved cluster creation redirect', () => {
+	it('redirects a saved cluster draft in place, so Back skips the page that redirected (#1326)', () => {
 		state.clusters = [cluster('Production', 'RUNNING', 'US East')];
 		state.saved = { name: 'Draft' };
 		render(<ClustersList />);
-		expect(screen.getByText('Navigate /org-a/new-cluster')).toBeTruthy();
+		expect(screen.getByText('Replace /org-a/new-cluster')).toBeTruthy();
 	});
 });
