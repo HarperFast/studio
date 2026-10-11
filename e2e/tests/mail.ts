@@ -71,13 +71,30 @@ export async function waitForVerificationEmail(
 	return { subject: message.subject ?? '', link };
 }
 
-/** Best-effort cleanup so the server doesn't accumulate test mail. */
-export async function deleteAllMail(): Promise<void> {
+/**
+ * Best-effort cleanup of the mail sent to `address`, so the server doesn't accumulate test mail.
+ * Never the whole server: every lane and developer shares it, and a purge while another run is
+ * inside `waitForVerificationEmail` deletes that run's verification email before it is read.
+ */
+export async function deleteMailTo(address: string): Promise<void> {
 	if (!mailConfigured) { return; }
 	try {
 		const { client, serverId } = getClient();
-		await client.messages.deleteAll(serverId);
-	} catch {
-		// non-fatal
+		await deleteMessagesSentTo(client.messages, serverId, address);
+	} catch (err) {
+		console.warn(`[cleanup] could not delete mail sent to ${address} (non-fatal):`, err);
 	}
+}
+
+/** Deletes each message on `serverId` sent to `address`, and nothing else; resolves with how many. */
+export async function deleteMessagesSentTo(
+	messages: Pick<Mailosaur['messages'], 'search' | 'del'>,
+	serverId: string,
+	address: string,
+): Promise<number> {
+	const { items = [] } = await messages.search(serverId, { sentTo: address }, { itemsPerPage: 1000 });
+	for (const { id } of items) {
+		await messages.del(id);
+	}
+	return items.length;
 }
