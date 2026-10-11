@@ -21,8 +21,10 @@
  *
  * `ImportJobError` is the same relay for a failed load job, whose text quotes the rejected rows, and
  * `DeployRolloutError` for a rolling deploy's failed restart job, whose text quotes each node's error.
+ * `SecretsOperationError` for a failed secrets operation, whose text quotes the secret's and
+ * component's names (harper-pro `core/components/secretOperations.ts`).
  */
-const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError', 'DeployRolloutError']);
+const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError', 'DeployRolloutError', 'SecretsOperationError']);
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
 

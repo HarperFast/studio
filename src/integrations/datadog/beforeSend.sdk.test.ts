@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
+import { SecretsOperationError } from '../api/instance/secrets/secrets';
 import { beforeSend } from './beforeSend';
 import { DatadogErrorEvent } from './shouldKeepEvent';
 
@@ -37,11 +38,16 @@ function sent(error: Error, hook: (event: SentEvent) => boolean) {
 }
 
 /** A stack the SDK parses into Studio-hosted frames, so only the text under test can need redaction. */
+function withStudioStack<T extends Error>(error: T) {
+	error.stack =
+		`${error.name}: ${error.message}\n    at fb (https://fabric.harper.fast/assets/index-Dcf_w9Ns.js:26:1557)`;
+	return error;
+}
+
 function thrown(name: string, message: string, cause?: Error) {
 	const error = new Error(message, { cause });
 	error.name = name;
-	error.stack = `${name}: ${message}\n    at fb (https://fabric.harper.fast/assets/index-Dcf_w9Ns.js:26:1557)`;
-	return error;
+	return withStudioStack(error);
 }
 
 const idle = 'The stream went idle before completing.';
@@ -72,5 +78,14 @@ describe('beforeSend in the RUM SDK pipeline', () => {
 		});
 		expect(events[0].error.message).toBe('rewritten');
 		expect(events[0].error.causes?.[0].message).toBe('Failed to clone acme-corp/billing');
+	});
+
+	it('withholds a failed secrets operation by the type the SDK reads off the thrown class', () => {
+		const events = sent(
+			withStudioStack(new SecretsOperationError("No secret found with name 'ACME_STRIPE_KEY'")),
+			beforeSend,
+		);
+		expect(events).toHaveLength(1);
+		expect(events[0].error.message).toBe('Harper reported an operation failure (server message withheld).');
 	});
 });
