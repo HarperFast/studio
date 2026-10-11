@@ -2,6 +2,11 @@
 
 `lib/clusterListModel.ts` derives lifecycle categories, counts and filters from the same organization snapshot; its tests pin missing-data and self-hosted semantics. A running lifecycle is not a monitoring-health assertion. Regions combine resolved plan labels with available non-retired instance labels, deduplicating matches, because organization responses need not expand instances; the list resolves opaque ids through the existing organization-scoped region catalog once, without polling. Missing labels remain unreported without discarding other reported instance regions. Running classification uses the same activeClusterStatuses rule as card navigation; UPDATED remains attention until RUNNING is reported. The model still derives instance count and version when instance data is supplied, but the card no longer renders them: the organization response does not currently expand instances, so those two cells only ever showed a dash, and the Regions cell (real plan labels) went with the row. The list adds no per-card detail polling. Existing `ClusterProgress` retains its lifecycle polling behavior.
 
+A saved cluster draft makes the list redirect to the form, and that redirect replaces its history entry (#1326). The
+form clears the draft only once it mounts, so a pushed redirect left Back on the list, which pushed the form again for
+as long as the form was still loading. Billing's Stripe return page replaces itself on the way back to the form for the
+same reason: it strips the setup-intent secret from its own URL first, so going back to it would show a spinner forever.
+
 SystemStatus notices have no cluster association and remain in the cloud-wide notification banner/center. Per-cluster monitoring incidents and scheduled maintenance need a scoped backend contract before the list can attribute them. The UI preserves ClusterCard's permission checks and lifecycle actions.
 
 # Cluster configuration

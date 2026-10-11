@@ -71,7 +71,7 @@ export function ClustersList() {
 		return <UpsertCluster />;
 	}
 	if (savedClusterState) {
-		return <Navigate to={`/${organizationId}/new-cluster`} />;
+		return <Navigate to={`/${organizationId}/new-cluster`} replace={true} />;
 	}
 
 	return (
