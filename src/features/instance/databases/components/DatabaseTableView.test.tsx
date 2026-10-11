@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import type { SchemaRelationshipMap } from '@/features/instance/databases/functions/schemaRelationships';
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -108,7 +109,13 @@ vi.mock('@/integrations/api/instance/database/deleteTableRecords', async (import
 	useDeleteTableRecords: () => ({ mutate: deleteRecords.mutate, isPending: false }),
 }));
 vi.mock('./PickColumnsDropdown', () => ({ PickColumnsDropdown: () => null }));
-vi.mock('../modals/EditTableRowModal', () => ({ EditTableRowModal: () => null }));
+const editorProps = vi.hoisted(() => ({ syntheticAttributes: undefined as string[] | undefined }));
+vi.mock('../modals/EditTableRowModal', () => ({
+	EditTableRowModal: ({ syntheticAttributes }: { syntheticAttributes?: string[] }) => {
+		editorProps.syntheticAttributes = syntheticAttributes;
+		return null;
+	},
+}));
 
 // describe_table is the table's own schema fetch; every other query this component reads is
 // irrelevant to the menu and comes back empty. Matching by queryKey (rather than mocking each
@@ -118,6 +125,7 @@ const describeTableData = vi.hoisted(() => ({ current: undefined as InstanceTabl
 // The rows the grid is showing. Selection is DERIVED from these, so a test can move a checked row
 // off the page the way an invalidation or a focus refetch does.
 const pageRows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
+const schemaRelationshipMap = vi.hoisted(() => ({ current: undefined as SchemaRelationshipMap | undefined }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('@tanstack/react-query')>();
@@ -128,6 +136,8 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
 				? { data: describeTableData.current, isFetching: false, isError: false }
 				: options.queryKey.includes('search_by_value')
 				? { data: { data: pageRows.current }, isFetching: false, isError: false }
+				: options.queryKey.includes('schema-relationships')
+				? { data: schemaRelationshipMap.current, isFetching: false, isError: false }
 				: { data: undefined, isFetching: false, isError: false, refetch: vi.fn() },
 	};
 });
@@ -154,6 +164,8 @@ afterEach(() => {
 	tableViewResultSet.current = '';
 	instanceClientState.entityId = 'instance-1';
 	pageRows.current = [];
+	schemaRelationshipMap.current = undefined;
+	editorProps.syntheticAttributes = undefined;
 	watchedValues.calls = [];
 	deleteRecords.mutate.mockReset();
 	vi.restoreAllMocks();
@@ -549,5 +561,40 @@ describe('DatabaseTableView selection follows the rows on screen', () => {
 		act(() => tableViewSelection.current!.toggleRow(Object.prototype.constructor));
 
 		expect(deleteSelectedButton()).toBeNull();
+	});
+});
+
+describe('DatabaseTableView row editor write exclusions', () => {
+	// An untyped array a legacy attribute registry kept, beside a table it happens to be named after.
+	const albums = {
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'tracks', type: 'array' },
+		],
+		primary_key: 'id',
+	} as unknown as InstanceTable;
+	const albumTables = { data: { albums, Tracks: dogTable } } as unknown as InstanceDatabaseMap;
+
+	function renderAlbums() {
+		describeTableData.current = albums;
+		pageRows.current = [];
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<DatabaseTableView databaseName="data" tableName="albums" instanceDatabaseMap={albumTables} />
+			</QueryClientProvider>,
+		);
+	}
+
+	it('lets the editor write an untyped array the schema does not declare', () => {
+		renderAlbums();
+		expect(editorProps.syntheticAttributes).toEqual([]);
+	});
+
+	it('keeps it out of writes once the schema declares it a relationship', () => {
+		schemaRelationshipMap.current = {
+			data: { albums: [{ attribute: 'tracks', relatedTableName: 'Tracks', isToMany: true, to: 'albumId' }] },
+		};
+		renderAlbums();
+		expect(editorProps.syntheticAttributes).toEqual(['tracks']);
 	});
 });

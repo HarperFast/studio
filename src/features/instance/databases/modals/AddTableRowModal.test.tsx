@@ -9,7 +9,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
+const { mutate, isSyntheticAttribute } = vi.hoisted(() => ({
+	mutate: vi.fn(),
+	isSyntheticAttribute: vi.fn((..._args: unknown[]) => false),
+}));
 
 // Monaco can't load in jsdom; stub the editor with a <textarea> that exposes the language it was
 // given and forwards edits (including a pasted bulk array) through `onChange`.
@@ -39,7 +42,7 @@ vi.mock('@/integrations/api/instance/database/insertTableRecords', () => ({
 }));
 vi.mock(
 	'@/features/instance/databases/functions/relationshipAttributes',
-	() => ({ isSyntheticAttribute: () => false }),
+	() => ({ isSyntheticAttribute }),
 );
 
 beforeAll(() => {
@@ -102,6 +105,19 @@ function renderModal(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AddTableRowModal', () => {
+	it("leaves the schema's declared relationships out of the sample record", () => {
+		const declared = [{ attribute: 'name', relatedTableName: 'Owner', isToMany: false, from: 'ownerId' }];
+		isSyntheticAttribute.mockImplementation((...args: unknown[]) =>
+			(args[2] as typeof declared | undefined)?.some((relationship) =>
+				relationship.attribute === (args[0] as { attribute: string }).attribute
+			) ?? false
+		);
+		renderModal({ schemaRelationships: declared });
+
+		const sample = JSON.parse((screen.getByTestId('editor') as HTMLTextAreaElement).value);
+		expect(Object.keys(sample)).toEqual(['age']);
+	});
+
 	it('edits with the worker-free JSON language, so no language worker can OOM', () => {
 		renderModal();
 		expect(screen.getByTestId('editor').getAttribute('data-language')).toBe(WORKER_FREE_JSON_LANGUAGE_ID);

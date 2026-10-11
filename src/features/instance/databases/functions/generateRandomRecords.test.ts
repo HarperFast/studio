@@ -28,6 +28,31 @@ describe('randomizableAttributes', () => {
 	it('handles undefined', () => {
 		expect(randomizableAttributes(undefined)).toEqual([]);
 	});
+
+	it('fills a plain untyped array, but not one the schema declares a relationship', () => {
+		const withTracks: InstanceAttribute[] = [...attributes, { attribute: 'tracks', type: 'array' }];
+		expect(randomizableAttributes(withTracks).map((a) => a.attribute)).toContain('tracks');
+		expect(
+			randomizableAttributes(withTracks, undefined, [
+				{ attribute: 'tracks', relatedTableName: 'Tracks', isToMany: true, to: 'albumId' },
+			]).map((a) => a.attribute),
+		).not.toContain('tracks');
+	});
+});
+
+describe('generateRandomRecords for array attributes', () => {
+	it('fills a typed array with values of its element type, and leaves an untyped one empty', () => {
+		const records = generateRandomRecords([
+			{ attribute: 'scores', type: 'array', elements: 'Int' },
+			{ attribute: 'tracks', type: 'array' },
+		], 10);
+		for (const record of records) {
+			expect(Array.isArray(record.scores)).toBe(true);
+			expect((record.scores as unknown[]).length).toBeGreaterThan(0);
+			expect((record.scores as unknown[]).every(Number.isInteger)).toBe(true);
+			expect(record.tracks).toEqual([]);
+		}
+	});
 });
 
 describe('generateRandomRecords', () => {
