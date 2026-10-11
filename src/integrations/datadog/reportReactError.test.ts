@@ -5,10 +5,11 @@ vi.mock('@datadog/browser-rum-react', () => ({ addReactError }));
 
 let now = 0;
 let reportReactError: typeof import('./reportReactError').reportReactError;
+let reactRootErrorHandlers: typeof import('./reportReactError').reactRootErrorHandlers;
 
 beforeEach(async () => {
 	vi.resetModules();
-	({ reportReactError } = await import('./reportReactError'));
+	({ reportReactError, reactRootErrorHandlers } = await import('./reportReactError'));
 	now = 1_000;
 	vi.spyOn(performance, 'now').mockImplementation(() => now);
 });
@@ -91,14 +92,25 @@ describe('reportReactError', () => {
 		expect(addReactError).toHaveBeenCalledTimes(2);
 	});
 
-	it('does not remember a failure whose report threw', () => {
+	it('swallows a report that threw, and does not remember it', () => {
 		addReactError.mockImplementationOnce(() => {
 			throw new Error('sdk failure');
 		});
-		expect(() => reportReactError(axiosError('/Organization/org-x'), info)).toThrow('sdk failure');
+		expect(() => reportReactError(axiosError('/Organization/org-x'), info)).not.toThrow();
 		reportReactError(axiosError('/Organization/org-x'), info);
 
 		expect(addReactError).toHaveBeenCalledTimes(2);
+	});
+
+	it('still logs the original failure when the SDK throws while reporting it', () => {
+		addReactError.mockImplementation(() => {
+			throw new Error('sdk failure');
+		});
+		const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const error = axiosError('/Organization/org-x');
+
+		expect(() => reactRootErrorHandlers.onCaughtError(error, info)).not.toThrow();
+		expect(consoleWarn).toHaveBeenCalledWith('Caught error:', error, info);
 	});
 
 	it('forgets the oldest signature past its cap, so it is reported again', () => {
