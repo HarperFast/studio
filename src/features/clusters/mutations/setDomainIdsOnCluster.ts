@@ -1,10 +1,14 @@
 import { apiClient } from '@/config/apiClient';
-import { useMutation } from '@tanstack/react-query';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 interface Params {
 	clusterId: string;
 	domainIds: string[];
-	generateDomainCerts: boolean;
+	/** Omit to leave the cluster's cert intent as it is: central manager reads an absent flag as
+	 *  unchanged, where `false` revokes it. */
+	generateDomainCerts?: boolean;
 }
 
 async function setDomainIdsOnCluster({ clusterId, domainIds, generateDomainCerts }: Params) {
@@ -16,8 +20,32 @@ async function setDomainIdsOnCluster({ clusterId, domainIds, generateDomainCerts
 	return data;
 }
 
+const setDomainIdsMutationKey = ['setDomainIdsOnCluster'] as const;
+
 export function useSetDomainIdsOnCluster() {
-	return useMutation({
+	const queryClient = useQueryClient();
+	const mutation = useMutation({
+		mutationKey: setDomainIdsMutationKey,
 		mutationFn: (params: Params) => setDomainIdsOnCluster(params),
+		onSuccess: (_data, { clusterId, domainIds }) => {
+			// Every change sends the whole list, built from this cache, so it has to hold the list
+			// this one left even if the re-read below fails.
+			const { queryKey } = getClusterInfoQueryOptions(clusterId);
+			queryClient.setQueryData(queryKey, (cluster) => cluster && { ...cluster, domainIds });
+			void queryClient.invalidateQueries({ queryKey, exact: true });
+		},
 	});
+	const { mutate } = mutation;
+	// `useIsSettingDomainIds` disables the controls only once React re-renders, so a click already
+	// queued behind the first change would otherwise build its list from the same stale cache.
+	const mutateWhenIdle = useCallback<typeof mutate>((variables, options) => {
+		if (queryClient.isMutating({ mutationKey: setDomainIdsMutationKey }) === 0) {
+			mutate(variables, options);
+		}
+	}, [mutate, queryClient]);
+	return { ...mutation, mutate: mutateWhenIdle };
+}
+
+export function useIsSettingDomainIds(): boolean {
+	return useIsMutating({ mutationKey: setDomainIdsMutationKey }) > 0;
 }

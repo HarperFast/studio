@@ -22,7 +22,7 @@ import {
 } from '@/features/cluster/domains/addDomainsSequentially';
 import { useDataTableColumns } from '@/features/cluster/domains/constants/tableDefinition';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import { useIsSettingDomainIds, useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import {
 	AddOrganizationDomainSchema,
 	DOMAIN_REQUIRED_MESSAGE,
@@ -88,7 +88,8 @@ export function DomainsManagement() {
 		);
 	}, []);
 
-	const { mutate: setDomainIds, isPending: isBindPending } = useSetDomainIdsOnCluster();
+	const { mutate: setDomainIds } = useSetDomainIdsOnCluster();
+	const settingDomainIds = useIsSettingDomainIds();
 
 	const onBindClick = useCallback(() => {
 		if (!isRunning(cluster.status)) {
@@ -328,7 +329,7 @@ export function DomainsManagement() {
 						<Button
 							variant="submit"
 							onClick={onBindClick}
-							disabled={isBindPending}
+							disabled={settingDomainIds}
 						>
 							<Save /> Bind {pluralize(selectedDomainIds.length, 'Domain', 'Domains')}
 						</Button>
