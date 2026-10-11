@@ -85,30 +85,33 @@ export function useDataTableColumns(
 			cell: (props) => {
 				const domain = props.row.original;
 				return (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<>
-								<div>{domain.domain}</div>
-								<Button
-									type="button"
-									variant="destructiveGhost"
-									className="text-muted-foreground text-xs"
-									disabled={isPending || !!domain.clusterId}
-									onClick={() => deleteDomainById(domain.id)}
-								>
-									Remove Domain
-								</Button>
-							</>
-						</TooltipTrigger>
-						<TooltipContent
-							side="bottom"
-							align="center"
-						>
-							{domain.clusterId
-								? 'To delete this domain, please unbind it from all clusters first.'
-								: 'Remember to clean up your DNS records!'}
-						</TooltipContent>
-					</Tooltip>
+					<>
+						<div>{domain.domain}</div>
+						<Tooltip>
+							{/* A disabled button takes no pointer events, so the hover has to land on a wrapper. */}
+							<TooltipTrigger asChild>
+								<div className="w-fit">
+									<Button
+										type="button"
+										variant="destructiveGhost"
+										className="text-muted-foreground text-xs"
+										disabled={isPending || !!domain.clusterId}
+										onClick={() => deleteDomainById(domain.id)}
+									>
+										Remove Domain
+									</Button>
+								</div>
+							</TooltipTrigger>
+							<TooltipContent
+								side="bottom"
+								align="center"
+							>
+								{domain.clusterId
+									? 'To delete this domain, please unbind it from all clusters first.'
+									: 'Remember to clean up your DNS records!'}
+							</TooltipContent>
+						</Tooltip>
+					</>
 				);
 			},
 		}),
