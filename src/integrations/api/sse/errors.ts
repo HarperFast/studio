@@ -8,12 +8,17 @@
  * The server did not (or could not) speak SSE for this request: the response was not OK,
  * arrived without a `text/event-stream` content-type (e.g. an older Harper that ignores
  * the `Accept` header, or a proxy that rewrote it), or the connection failed before any
- * bytes streamed. The caller should fall back to the classic buffered operation.
+ * bytes streamed. A read can fall back to the classic buffered operation; a write only when
+ * `status` shows the server refused it (see `onDeployComponentSubmit`).
  */
 export class SSEUnsupportedError extends Error {
-	constructor(message: string, options?: { cause?: unknown }) {
+	/** The response's status, or undefined when no response arrived. */
+	readonly status?: number;
+
+	constructor(message: string, options?: { cause?: unknown; status?: number }) {
 		super(message, options);
 		this.name = 'SSEUnsupportedError';
+		this.status = options?.status;
 	}
 }
 

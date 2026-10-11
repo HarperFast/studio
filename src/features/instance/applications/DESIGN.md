@@ -43,3 +43,15 @@ All three kinds of request are built in one place, [`deployRequestBody`](../../.
 because Harper's validator refuses the wrong mix outright: a stage with `restart`, or an activation carrying `package`,
 install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
 nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.
+
+## A live deploy is sent once
+
+A live (SSE) deploy that gets no event stream goes out again as the buffered POST only when its status proves Harper
+never started it: a 4xx. Harper refuses a request before the operation starts (authentication, permissions,
+validation) with a 4xx, and answers one it started with a 200 event stream at once. Everything else can follow a deploy
+that is already running: a gateway's 5xx after forwarding, a 2xx that is not a stream, a dropped connection, the idle
+watchdog firing before headers. Harper's own request-queue 503 never started anything either, but status alone cannot
+tell it from a gateway's. So [`onDeployComponentSubmit`](../../../integrations/api/instance/applications/deployComponent.ts)
+turns those into `SSEInconclusiveError`, which every deploy caller already answers by checking rather than resending.
+`streamOperation` stays neutral: it puts the `status` on `SSEUnsupportedError` and leaves the decision to the caller,
+because a read (`get_deployment`) may fall back on anything.

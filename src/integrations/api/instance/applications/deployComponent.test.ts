@@ -4,7 +4,7 @@ vi.mock('./deployComponentStream', () => ({
 	deployComponentStream: vi.fn(),
 }));
 
-import { SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
+import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { deployAndFollowComponent, deployRequestBody, onDeployComponentSubmit } from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { DeployRolloutError } from './restartJob';
@@ -123,17 +123,44 @@ describe('onDeployComponentSubmit', () => {
 		expect(client.post).not.toHaveBeenCalled();
 	});
 
-	it('falls back to the buffered path when the stream is unsupported', async () => {
-		mockStream.mockRejectedValue(new SSEUnsupportedError('no stream'));
+	it.each([400, 401, 403, 404, 406, 413, 429])(
+		'falls back to the buffered path when the stream was refused with a %i',
+		async (status) => {
+			mockStream.mockRejectedValue(new SSEUnsupportedError('no stream', { status }));
+			const client = fakeClient({ message: 'buffered' });
+			const result = await onDeployComponentSubmit({
+				...baseArgs,
+				useSSE: true,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				instanceClient: client as any,
+			});
+			expect(result).toEqual({ message: 'buffered' });
+			expect(client.post).toHaveBeenCalledOnce();
+		},
+	);
+
+	it.each([
+		['a gateway 502', 502],
+		['a gateway 503', 503],
+		['a gateway 504', 504],
+		['a Harper 500', 500],
+		['a 2xx that is not a stream', 200],
+		['no response at all', undefined],
+	])('never sends the deploy again after %s, which can follow a deploy already running', async (_, status) => {
+		const unsupported = new SSEUnsupportedError('no stream', { status });
+		mockStream.mockRejectedValue(unsupported);
 		const client = fakeClient({ message: 'buffered' });
-		const result = await onDeployComponentSubmit({
+
+		const error = await onDeployComponentSubmit({
 			...baseArgs,
 			useSSE: true,
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			instanceClient: client as any,
-		});
-		expect(result).toEqual({ message: 'buffered' });
-		expect(client.post).toHaveBeenCalledOnce();
+		}).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(SSEInconclusiveError);
+		expect((error as Error).cause).toBe(unsupported);
+		expect(client.post).not.toHaveBeenCalled();
 	});
 
 	it('rethrows a deploy failure without re-POSTing (no double deploy)', async () => {

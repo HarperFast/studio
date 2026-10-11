@@ -1,7 +1,7 @@
 import { InstanceClientConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { EntityIds } from '@/features/auth/store/authStore';
 import { ReplicatedResponse } from '@/integrations/api/replication';
-import { SSEUnsupportedError } from '@/integrations/api/sse/errors';
+import { SSEInconclusiveError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { useMutation } from '@tanstack/react-query';
 import { DeployComponentResult, deployComponentStream, DeployStreamEvent } from './deployComponentStream';
 import { DeployRolloutError, followRestartJob } from './restartJob';
@@ -49,6 +49,17 @@ export interface DeployComponentArgs extends InstanceClientConfig, InstanceTypeC
 	signal?: AbortSignal;
 }
 
+/**
+ * Whether a live deploy that produced no stream provably never ran, so its body may go out again on the
+ * buffered path. Harper refuses a request before starting the operation (authentication, permissions,
+ * validation) with a 4xx, and answers one it started with a 200 event stream at once (harper
+ * `server/serverHelpers/serverHandlers.js`, `handlePostRequest`). A gateway's 5xx, a 2xx that is not a
+ * stream, or no response at all can each follow a deploy that is already running.
+ */
+function refusedBeforeRunning({ status }: SSEUnsupportedError): boolean {
+	return status !== undefined && status >= 400 && status < 500;
+}
+
 export async function onDeployComponentSubmit({
 	request,
 	entityType,
@@ -64,13 +75,17 @@ export async function onDeployComponentSubmit({
 		try {
 			return await deployComponentStream({ connection: { id: entityId }, body, signal, onEvent });
 		} catch (error) {
-			// Couldn't establish a stream (bad response/content-type/connection) and no deploy
-			// has started yet — safe to fall back to the proven buffered path below.
 			if (!(error instanceof SSEUnsupportedError)) {
 				// A terminal error, an inconclusive stream, or a deliberate abort. The deploy has
 				// already started server-side, so we must NOT re-POST it (that would deploy
 				// twice). Let the caller handle it (show the error, or poll on inconclusive).
 				throw error;
+			}
+			if (!refusedBeforeRunning(error)) {
+				throw new SSEInconclusiveError(
+					'The live deploy did not stream and may already have started, so it was not sent again.',
+					{ cause: error },
+				);
 			}
 		}
 	}
