@@ -31,3 +31,14 @@ records into a new table that has a primary key.
 - `update` is rejected.
 - A record written with a `$id` field keeps it as ordinary data, which shadows the real key in
   reads.
+
+## A filtered result set has no count
+
+`search_by_conditions` answers with a bare array -- nothing says how many records the filter matched
+-- and the table's own count (`describe_table`, or the exact count) describes the whole table. So
+the footer must never page a filtered list by that count: under a filter it read "Page 1 of 3" for
+15 matches and offered empty pages (#1253). Instead the filtered query asks for one record past the
+page ([`getSearchByConditionsPage`](../../../integrations/api/instance/database/getSearchByConditions.ts))
+and [`TablePagination`](components/TablePagination.tsx) pages by whether it came back. The total is
+stated only once the page that ends the result set is on screen (`uncountedTotal`). The unfiltered
+list keeps paging by the table count.

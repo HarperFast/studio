@@ -87,6 +87,7 @@ import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
 import { EmptyResultSet } from './EmptyResultSet';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
+import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 
 // Stable so `useEffectedState` can reset to it without rebuilding a set on every render.
@@ -310,9 +311,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName, appliedSearchConditions]);
 	const [pageSize, setPageSize] = useState(20);
 
-	// The index of a page a step has proven to be the last one. A full page can't say whether more
-	// records follow, so the step probes; an empty answer is the only proof, and remembering it
-	// keeps the Next button from offering that same dead probe again.
+	// The index of a page a step has proven to be the last one. A full unfiltered page can't say
+	// whether more records follow, so the step probes; an empty answer is the only proof, and
+	// remembering it keeps the Next button from offering that same dead probe again.
 	const [knownLastPage, setKnownLastPage] = useEffectedState<number | null>(null, [
 		databaseName,
 		tableName,
@@ -457,6 +458,15 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// the previous page's data -- which is what tells a pending record step that its page hasn't
 	// arrived yet.
 	const pageRows = tableData?.data;
+	// The table's count doesn't describe a filtered result set, and a search reports no count of its own.
+	const uncountedPage: UncountedPage | undefined = useFilteredList
+		? { rowCount: filteredTableData?.data.length, hasNextPage: filteredTableData?.hasNextPage }
+		: undefined;
+	// Unfiltered, a page shorter than `pageSize` is the last (both lists page by offset/limit), but a
+	// full one is only proven terminal by a step that found nothing past it.
+	const hasNextPage = uncountedPage
+		? !!uncountedPage.hasNextPage
+		: !!pageRows && pageRows.length === pageSize && knownLastPage !== pageIndex;
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -819,17 +829,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// the buttons wait for that page rather than describing the record the user stepped away from.
 	const recordNavigation: RecordNavigation | undefined = openRowIndex === null ? undefined : {
 		position: isStepPending ? undefined : pageIndex * pageSize + openRowIndex + 1,
-		// The count describes the whole table, so it only counts the result set when nothing filters it.
-		total: useFilteredList ? undefined : totalRecords,
-		isTotalEstimated: isEstimatedCount,
+		total: uncountedPage ? uncountedTotal(pageIndex, pageSize, uncountedPage) : totalRecords,
+		isTotalEstimated: !uncountedPage && isEstimatedCount,
 		hasPrevious: !isStepPending && (openRowIndex > 0 || pageIndex > 0),
-		// A page shorter than `pageSize` is the last page: both list queries page by offset/limit, so
-		// a short page means the server had no more rows. That is exact, where `totalRecords` is a
-		// whole-table estimate that says nothing about a filtered result set -- using it offered a
-		// next record that wasn't there and left the grid on an empty page.
-		hasNext: !isStepPending && !!pageRows
-			&& (openRowIndex + 1 < pageRows.length
-				|| (pageRows.length === pageSize && knownLastPage !== pageIndex)),
+		hasNext: !isStepPending && !!pageRows && (openRowIndex + 1 < pageRows.length || hasNextPage),
 		onPrevious: () => stepToRecord(-1),
 		onNext: () => stepToRecord(1),
 	};
@@ -1013,6 +1016,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				rowSelection={rowSelection}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
+				uncountedPage={uncountedPage}
 				isEstimatedCount={isEstimatedCount}
 				estimatedRange={estimatedRange}
 				isExactCountFetching={isExactCountFetching}

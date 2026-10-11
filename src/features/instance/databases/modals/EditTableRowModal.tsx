@@ -23,7 +23,8 @@ export interface RecordNavigation {
 	 * still loading, so the label has nothing truthful to show yet. */
 	position?: number;
 	/** How many records the position counts within. Undefined when that isn't known — a filtered
-	 * list is only ever counted by the whole table's count, and "of 40,000" under a filter is a lie. */
+	 * list is only counted once its last page is on screen, and the whole table's "of 40,000" under a
+	 * filter is a lie. */
 	total?: number;
 	/** The total is the server's estimate rather than a counted value, so it is shown as "~N". */
 	isTotalEstimated?: boolean;

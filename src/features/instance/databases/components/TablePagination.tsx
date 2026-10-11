@@ -10,11 +10,22 @@ import { ComponentProps, Dispatch, FormEvent, SetStateAction, useState } from 'r
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 250];
 
+/** The page on screen, for a result set with no count to page by. Both are `undefined` while it loads. */
+export interface UncountedPage {
+	rowCount?: number;
+	hasNextPage?: boolean;
+}
+
 interface TablePaginationProps {
 	pageIndex: number;
 	pageSize: number;
 	totalPages?: number;
 	totalRecords?: number;
+	/**
+	 * Set when the result set has no count -- a filtered search reports none -- so paging follows
+	 * whether another page exists, and `totalPages`/`totalRecords` (the whole table's) are ignored.
+	 */
+	uncountedPage?: UncountedPage;
 	/** When true the count is an approximation and an exact count can be requested. */
 	isEstimatedCount?: boolean;
 	/** Server-provided confidence interval [low, high] for an estimated count. */
@@ -33,6 +44,7 @@ export function TablePagination(
 		pageSize,
 		totalPages,
 		totalRecords,
+		uncountedPage,
 		isEstimatedCount,
 		estimatedRange,
 		isExactCountFetching,
@@ -42,9 +54,18 @@ export function TablePagination(
 		setPageSize,
 	}: TablePaginationProps,
 ) {
-	const isLoading = totalPages === undefined || totalRecords === undefined;
-	const pageCount = totalPages && totalPages > 0 ? totalPages : 1;
 	const currentPage = pageIndex + 1;
+	const isCountLoading = totalPages === undefined || totalRecords === undefined;
+	const isLoading = uncountedPage ? uncountedPage.rowCount === undefined : isCountLoading;
+	// Uncounted, only pages proven to exist are offered: this one, those before it, and a next one
+	// the server has shown.
+	const hasMorePages = !!uncountedPage?.hasNextPage;
+	const pageCount = uncountedPage
+		? currentPage + (hasMorePages ? 1 : 0)
+		: totalPages && totalPages > 0
+		? totalPages
+		: 1;
+	const isPageCountFinal = !uncountedPage || uncountedTotal(pageIndex, pageSize, uncountedPage) !== undefined;
 
 	const canPrevious = pageIndex > 0;
 	const canNext = !isLoading && currentPage < pageCount;
@@ -58,7 +79,10 @@ export function TablePagination(
 		setPageIndex(0);
 	};
 
-	const items = getPaginationItems(currentPage, pageCount);
+	const items: (number | 'ellipsis')[] = [
+		...getPaginationItems(currentPage, pageCount),
+		...(hasMorePages ? ['ellipsis' as const] : []),
+	];
 
 	return (
 		<div className="@container shrink-0 border-t border-border">
@@ -66,13 +90,18 @@ export function TablePagination(
 				{/* Summary — record count is the essential, kept at every width */}
 				<div className="flex items-center gap-2 whitespace-nowrap text-sm text-muted-foreground">
 					<span className="hidden @min-[400px]:inline">
-						Page {addCommasToNumbers(currentPage)} of {isLoading ? '…' : addCommasToNumbers(pageCount)}
+						Page {addCommasToNumbers(currentPage)}
+						{isLoading ? ' of …' : isPageCountFinal ? ` of ${addCommasToNumbers(pageCount)}` : null}
 					</span>
 					<span aria-hidden className="hidden text-border @min-[400px]:inline">
 						•
 					</span>
 					<span>
-						{isLoading
+						{uncountedPage
+							? (isLoading
+								? <TextLoadingSkeleton />
+								: <MatchingRecordCount pageIndex={pageIndex} pageSize={pageSize} page={uncountedPage} />)
+							: isCountLoading
 							? <TextLoadingSkeleton />
 							: isEstimatedCount
 							? (
@@ -144,6 +173,33 @@ export function TablePagination(
 			</div>
 		</div>
 	);
+}
+
+/**
+ * An uncounted result set's exact size, known once the page that ends it is on screen: the server
+ * skipped `pageIndex * pageSize` matches to reach that page. An empty page past the first is the
+ * exception -- it says only that the result set ends somewhere before it.
+ */
+export function uncountedTotal(pageIndex: number, pageSize: number, page: UncountedPage): number | undefined {
+	if (page.rowCount === undefined || page.hasNextPage || (page.rowCount === 0 && pageIndex > 0)) {
+		return undefined;
+	}
+	return pageIndex * pageSize + page.rowCount;
+}
+
+function MatchingRecordCount({ pageIndex, pageSize, page }: {
+	pageIndex: number;
+	pageSize: number;
+	page: UncountedPage;
+}) {
+	const total = uncountedTotal(pageIndex, pageSize, page);
+	if (total !== undefined) {
+		return <>{addCommasToNumbers(total)} matching {total === 1 ? 'record' : 'records'}</>;
+	}
+	if (page.hasNextPage) {
+		return <>More than {addCommasToNumbers(pageIndex * pageSize + (page.rowCount ?? 0))} matching records</>;
+	}
+	return <>No matching records on this page</>;
 }
 
 /**

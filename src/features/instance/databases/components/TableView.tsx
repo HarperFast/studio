@@ -36,7 +36,7 @@ import type { MouseEvent, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
-import { TablePagination } from './TablePagination';
+import { TablePagination, UncountedPage } from './TablePagination';
 
 // Width of the sticky selection gutter. Not a TanStack column (it isn't sortable, resizable,
 // hideable or filterable), so the width lives here and the resize guide adds it back below.
@@ -109,6 +109,8 @@ interface BrowseDataTableProps<TData extends RowData> {
 	setPageSize: Dispatch<SetStateAction<number>>;
 	totalPages?: number;
 	totalRecords?: number;
+	/** See `TablePagination`: set when the result set has no count to page by. */
+	uncountedPage?: UncountedPage;
 	isEstimatedCount?: boolean;
 	estimatedRange?: [number, number];
 	isExactCountFetching?: boolean;
@@ -139,6 +141,7 @@ export function TableView<TData extends RowData>({
 	filtersToggled,
 	totalPages,
 	totalRecords,
+	uncountedPage,
 	isEstimatedCount,
 	estimatedRange,
 	isExactCountFetching,
@@ -519,6 +522,7 @@ export function TableView<TData extends RowData>({
 				pageSize={pageSize}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
+				uncountedPage={uncountedPage}
 				isEstimatedCount={isEstimatedCount}
 				estimatedRange={estimatedRange}
 				isExactCountFetching={isExactCountFetching}
