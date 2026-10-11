@@ -89,6 +89,7 @@ export function ColumnFilters<TData extends RowData>({
 																	: unindexed
 																	? 'not indexed'
 																	: undefined}
+																aria-label={`Filter ${header.column.id}`}
 																title={header.column.columnDef.meta?.filterHint}
 															/>
 														</FormControl>
