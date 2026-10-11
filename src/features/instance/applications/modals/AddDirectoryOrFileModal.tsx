@@ -171,6 +171,7 @@ export function AddDirectoryOrFileModal() {
 											type="text"
 											autoComplete="off"
 											autoCapitalize="off"
+											maxLength={NewFileFolderSchema.shape.name.maxLength!}
 											{...field}
 										/>
 									</FormControl>

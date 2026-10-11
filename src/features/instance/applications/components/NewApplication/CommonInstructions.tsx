@@ -39,6 +39,7 @@ export function CommonInstructions({
 										autoComplete="off"
 										autoFocus={true}
 										placeholder={defaultApplicationName}
+										maxLength={NewApplicationSchema.shape.applicationName.maxLength!}
 										{...field}
 									/>
 								</FormControl>

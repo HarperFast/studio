@@ -39,6 +39,33 @@ function saveButton() {
 }
 
 describe('ProfileIndex', () => {
+	it('stops each name at its limit but lets a new password run long', () => {
+		render(<ProfileIndex />);
+		const maxLengthOf = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).maxLength;
+
+		expect(maxLengthOf('First Name')).toBe(40);
+		expect(maxLengthOf('Last Name')).toBe(80);
+		expect(maxLengthOf('New Password')).toBe(-1);
+		expect(maxLengthOf('Confirm New Password')).toBe(-1);
+	});
+
+	it('refuses a first name longer than central manager accepts once the field is left', async () => {
+		render(<ProfileIndex />);
+		await type('First Name', 'A'.repeat(41));
+		await leave('First Name');
+
+		expect(await screen.findByText('First name cannot be longer than 40 characters.')).toBeTruthy();
+		expect(saveButton().disabled).toBe(true);
+	});
+
+	it('accepts a last name as long as sign-up allows', async () => {
+		render(<ProfileIndex />);
+		await type('Last Name', 'L'.repeat(80));
+		await leave('Last Name');
+
+		await waitFor(() => expect(saveButton().disabled).toBe(false));
+	});
+
 	it('explains a short new password when Enter is pressed in it', async () => {
 		render(<ProfileIndex />);
 		await type('New Password', 'short');

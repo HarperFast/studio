@@ -98,6 +98,17 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
+	it('stops names and email at their limits but lets a password run long', () => {
+		renderSignUp();
+		const maxLengthOf = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).maxLength;
+
+		expect(maxLengthOf('First Name')).toBe(40);
+		expect(maxLengthOf('Last Name')).toBe(80);
+		expect(maxLengthOf('Email')).toBe(80);
+		expect(maxLengthOf('Password')).toBe(-1);
+		expect(maxLengthOf('Confirm Password')).toBe(-1);
+	});
+
 	it('reveals each password independently without submitting or losing field values', () => {
 		renderSignUp();
 		const password = screen.getByLabelText('Password') as HTMLInputElement;

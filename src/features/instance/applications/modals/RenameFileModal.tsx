@@ -186,6 +186,7 @@ export function RenameFileModal() {
 											type="text"
 											autoComplete="off"
 											autoCapitalize="off"
+											maxLength={RenameFileSchema.shape.name.maxLength!}
 											{...field}
 										/>
 									</FormControl>

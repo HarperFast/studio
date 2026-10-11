@@ -52,6 +52,12 @@ describe('AddOrganizationRoleModal', () => {
 		expect(await screen.findByText('Role must contain only letters and underscores.')).toBeTruthy();
 	});
 
+	it('stops the role name at the 30 characters the form accepts', () => {
+		render(<AddOrganizationRoleModal isModalOpen setIsModalOpen={() => {}} />);
+
+		expect((screen.getByLabelText('Role Name') as HTMLInputElement).maxLength).toBe(30);
+	});
+
 	it.each([
 		['a space', 'my role', 'Role must contain only letters and underscores.'],
 		['more than 30 characters', 'a'.repeat(31), 'Role name cannot be longer than 30 characters.'],

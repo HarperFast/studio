@@ -125,7 +125,12 @@ export function AddOrganizationRoleModal({
 									<FormItem className="col-span-2">
 										<FormLabel className="pb-1">Role Name</FormLabel>
 										<FormControl>
-											<Input type="text" className="" {...field} />
+											<Input
+												type="text"
+												className=""
+												maxLength={OrganizationRoleOverviewSchema.shape.name.maxLength!}
+												{...field}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>

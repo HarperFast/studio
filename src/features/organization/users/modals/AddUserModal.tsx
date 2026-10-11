@@ -120,7 +120,13 @@ export function AddUserModal({
 								<FormItem>
 									<FormLabel className="pb-1">Email</FormLabel>
 									<FormControl>
-										<Input type="email" enterKeyHint="next" autoComplete="email" {...field} />
+										<Input
+											type="email"
+											enterKeyHint="next"
+											autoComplete="email"
+											maxLength={AddOrganizationRoleSchema.shape.email.maxLength!}
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>

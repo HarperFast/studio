@@ -110,6 +110,7 @@ export function ProfileIndex() {
 													type="text"
 													className="bg-background/60"
 													autoCapitalize="words"
+													maxLength={UpdateUserSchema.shape.firstname.maxLength!}
 													{...field}
 												/>
 											</FormControl>
@@ -129,6 +130,7 @@ export function ProfileIndex() {
 													type="text"
 													className="bg-background/60"
 													autoCapitalize="words"
+													maxLength={UpdateUserSchema.shape.lastname.maxLength!}
 													{...field}
 												/>
 											</FormControl>
