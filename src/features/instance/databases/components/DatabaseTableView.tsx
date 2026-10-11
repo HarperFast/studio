@@ -563,8 +563,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);
 
 	// The toolbar exports what's on screen (active filters + sort); the tree/overview export the whole
-	// table. Both go through the shared hook, which fetches raw records (no relationship get_attributes)
-	// -- resolved relationship objects don't serialize usefully into CSV cells.
+	// table. Both go through the shared hook, which never names a relationship attribute -- resolved
+	// relationship objects don't serialize usefully into CSV cells.
 	const { exportCsv, isExporting: isExportingCSV } = useExportTableCsv();
 	const onExportCSVClicked = useCallback(() => {
 		void exportCsv({
@@ -573,8 +573,20 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			primaryKey,
 			sort,
 			conditions: useFilteredList ? appliedSearchConditions : null,
+			instanceTable,
+			databaseTables,
 		});
-	}, [exportCsv, databaseName, tableName, primaryKey, sort, useFilteredList, appliedSearchConditions]);
+	}, [
+		exportCsv,
+		databaseName,
+		tableName,
+		primaryKey,
+		sort,
+		useFilteredList,
+		appliedSearchConditions,
+		instanceTable,
+		databaseTables,
+	]);
 
 	// One policy for both write paths, deliberately shared: every asymmetry between them so far has
 	// come from changing one and not the other.

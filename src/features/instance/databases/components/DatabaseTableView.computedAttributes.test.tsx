@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
@@ -27,6 +27,8 @@ interface Body {
 	get_attributes?: GetAttribute[];
 }
 
+const csvRequests = vi.hoisted(() => [] as Body[]);
+
 const stored = [{ id: 'p1', price: 100, taxRate: 0.19 }];
 const computed: Record<string, (record: (typeof stored)[number]) => unknown> = {
 	totalPrice: (record) => record.price + record.price * record.taxRate,
@@ -37,7 +39,11 @@ const computed: Record<string, (record: (typeof stored)[number]) => unknown> = {
 // when `get_attributes` names it ahead of the '*'. A leading '*' returns what is stored.
 vi.mock('@/config/useInstanceClient', () => {
 	const instanceClient = {
-		post: async (_url: string, body: Body) => {
+		post: async (_url: string, body: Body, config?: { headers?: Record<string, string> }) => {
+			if (config?.headers?.Accept === 'text/csv') {
+				csvRequests.push(body);
+				return { data: '', status: 200 };
+			}
 			switch (body.operation) {
 				case 'describe_table':
 					return {
@@ -112,7 +118,10 @@ beforeAll(() => {
 	}
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	csvRequests.length = 0;
+});
 
 describe('DatabaseTableView on a table with a @computed attribute', { timeout: 30_000 }, () => {
 	it('shows the computed column with its computed value', async () => {
@@ -125,5 +134,26 @@ describe('DatabaseTableView on a table with a @computed attribute', { timeout: 3
 		await screen.findByRole('cell', { name: '100' }, { timeout: 10_000 });
 		expect(screen.getByRole('columnheader', { name: /totalPrice/ })).toBeTruthy();
 		expect(screen.getByRole('cell', { name: '119' })).toBeTruthy();
+	});
+
+	it('exports the computed attribute by name, with no * to duplicate it', async () => {
+		URL.createObjectURL ??= () => 'blob:export';
+		URL.revokeObjectURL ??= () => undefined;
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="data" tableName="Product2" />
+			</QueryClientProvider>,
+		);
+		await screen.findByRole('cell', { name: '119' }, { timeout: 10_000 });
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: /table options/i }), { button: 0, ctrlKey: false });
+		fireEvent.click(await screen.findByRole('menuitem', { name: 'Export CSV' }));
+
+		await waitFor(() => expect(click).toHaveBeenCalled());
+		expect(csvRequests.map((body) => [body.operation, body.get_attributes])).toEqual([
+			['search_by_value', ['id', 'price', 'taxRate', 'totalPrice']],
+		]);
+		click.mockRestore();
 	});
 });

@@ -42,3 +42,21 @@ page ([`getSearchByConditionsPage`](../../../integrations/api/instance/database/
 and [`TablePagination`](components/TablePagination.tsx) pages by whether it came back. The total is
 stated only once the page that ends the result set is on screen (`uncountedTotal`). The unfiltered
 list keeps paging by the table count.
+
+## A CSV export's `get_attributes` never contains `'*'` after a name
+
+The grid resolves `@computed` attributes by naming them ahead of a trailing `'*'`
+(`buildSyntheticGetAttributes`). The CSV export must not copy that. Harper builds a CSV's header
+from the select, with the `'*'` expanded to every attribute, so each name ahead of it shows up twice.
+On harperdb 4.7.40, `search_by_conditions` with `['totalPrice', '*']` answers with the header
+`"totalPrice","id","price","taxRate","totalPrice"`. Harper 5's `Table.search` `getColumns` expands
+it the same way for both search operations (`resources/Table.ts:5638-5650`, traced in source, not
+run). So a table with a computed attribute
+exports with an explicit list of what describe reports, relationships left out
+([`buildExportGetAttributes`](functions/relationshipAttributes.ts)), and any other table keeps
+`['*']` (#1820).
+
+The cost is limited to tables with a computed attribute. An undeclared property that the first
+exported record carries is no longer a column of an unfiltered 4.7 export. A filtered 4.7 export
+already left such properties out, because its `['*']` header lists only declared attributes, and so
+does a Harper 5 export of a schema-defined table (the same `getColumns`, with no select).
