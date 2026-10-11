@@ -93,8 +93,13 @@ export async function deleteMessagesSentTo(
 	address: string,
 ): Promise<number> {
 	const { items = [] } = await messages.search(serverId, { sentTo: address }, { itemsPerPage: 1000 });
-	for (const { id } of items) {
-		await messages.del(id);
+	const results = await Promise.allSettled(items.map(({ id }) => messages.del(id)));
+	const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+	if (failures.length > 0) {
+		throw new AggregateError(
+			failures.map(({ reason }) => reason),
+			`${failures.length} of ${items.length} messages sent to ${address} were not deleted`,
+		);
 	}
 	return items.length;
 }
