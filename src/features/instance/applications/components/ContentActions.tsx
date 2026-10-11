@@ -16,10 +16,13 @@ import { useEditorFileContent } from '@/features/instance/applications/context/e
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
@@ -28,6 +31,7 @@ import {
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
+	HistoryIcon,
 	LockIcon,
 	PackageIcon,
 	PanelRightCloseIcon,
@@ -73,6 +77,14 @@ export function ContentActions({
 	const { openedEntryContents, openedEntry, isSavingFile, restrictPackageModification } = useEditorView();
 	const { content: updatedFileContent } = useEditorFileContent(openedEntry?.path);
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	// The Deployments page itself needs super-user and Harper 5.1.
+	const canManageInstance = useInstanceManagePermission();
+	const deploymentsAvailable = useDeploymentsAvailable();
+	const canViewDeployments = canManageInstance && deploymentsAvailable;
+	const navigate = useNavigate();
+	const routeParams: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({
+		strict: false,
+	});
 	const { onRestartClick, isRestartPending } = useRestartInstanceClick({
 		operation: 'restart_service',
 		instanceClient: instanceParams.instanceClient,
@@ -133,7 +145,8 @@ export function ContentActions({
 		useEntryActions(openedEntry);
 
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
-	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy;
+	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
+	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.
 	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
 
@@ -387,6 +400,18 @@ export function ContentActions({
 									<DropdownMenuItem onSelect={onRedeployClick}>
 										<PackageIcon />
 										Redeploy Package
+									</DropdownMenuItem>
+								)}
+								{deploymentsProject && (
+									<DropdownMenuItem
+										onSelect={() =>
+											void navigate({
+												to: buildAbsoluteLinkToPage(routeParams, 'config/deployments'),
+												search: { project: deploymentsProject },
+											})}
+									>
+										<HistoryIcon />
+										View Deployments
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>

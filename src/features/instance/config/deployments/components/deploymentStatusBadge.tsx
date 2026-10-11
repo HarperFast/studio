@@ -13,9 +13,10 @@ const STATUS_VARIANT: Record<DeploymentStatus, BadgeVariant> = {
 	success: 'success',
 	failed: 'destructive',
 	rolled_back: 'destructive',
+	staged: 'secondary',
 };
 
-const STATUS_LABEL: Record<DeploymentStatus, string> = {
+export const DEPLOYMENT_STATUS_LABEL: Record<DeploymentStatus, string> = {
 	pending: 'Pending',
 	extracting: 'Extracting',
 	installing: 'Installing',
@@ -25,8 +26,9 @@ const STATUS_LABEL: Record<DeploymentStatus, string> = {
 	success: 'Success',
 	failed: 'Failed',
 	rolled_back: 'Rolled back',
+	staged: 'Staged',
 };
 
 export function DeploymentStatusBadge({ status }: { status: DeploymentStatus }) {
-	return <Badge variant={STATUS_VARIANT[status] ?? 'secondary'}>{STATUS_LABEL[status] ?? status}</Badge>;
+	return <Badge variant={STATUS_VARIANT[status] ?? 'secondary'}>{DEPLOYMENT_STATUS_LABEL[status] ?? status}</Badge>;
 }

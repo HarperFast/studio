@@ -36,6 +36,8 @@ describe('get_deployment polling', () => {
 		const poll = detailInterval();
 		expect(poll({ state: { error: null, data: deployment('installing') } })).toBe(2_000);
 		expect(poll({ state: { error: null, data: deployment('success') } })).toBe(false);
+		// A staged record never changes again; polling it every 2s would run for as long as the view is open.
+		expect(poll({ state: { error: null, data: deployment('staged') } })).toBe(false);
 	});
 
 	it('does not poll a detail view that never asked to', () => {
@@ -62,6 +64,7 @@ describe('list_deployments polling', () => {
 		const poll = listInterval() as IntervalFn<ListDeploymentsResponse>;
 		expect(poll({ state: { error: null, data: list('success', 'installing') } })).toBe(2_000);
 		expect(poll({ state: { error: null, data: list('success', 'failed') } })).toBe(10_000);
+		expect(poll({ state: { error: null, data: list('success', 'staged') } })).toBe(10_000);
 		expect(poll({ state: { error: null } })).toBe(10_000);
 	});
 

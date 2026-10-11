@@ -16,6 +16,16 @@ export function supportsDeployments(harperVersion: string | undefined): boolean 
 }
 
 /**
+ * Staging (`activate: false`), activation by `deployment_id`, and the `staged` status ship in 5.3.0 (harper
+ * `v5.3.0:components/operations.js:638`). A 5.3.0 prerelease is refused, as `supportsPutOperation` refuses one.
+ */
+export const MIN_STAGED_DEPLOYMENT_VERSION = '5.3.0';
+
+export function supportsStagedDeployments(harperVersion: string | undefined): boolean {
+	return !!harperVersion && wasAReleasedBeforeB(MIN_STAGED_DEPLOYMENT_VERSION, harperVersion);
+}
+
+/**
  * True when the instance/cluster is Harper >= 5.1.0, so the deployment history/detail
  * feature (`list_deployments` / `get_deployment`) is available. This gates feature
  * visibility regardless of connection type — the list/detail work over plain polling.
