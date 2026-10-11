@@ -284,9 +284,8 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 	});
 
-	// Each field is read twice, by the filter and by the redaction, so one case pins both guards. The
-	// 5xx message makes the filter coerce `resource.url`: under `?? ''` the array stringifies into an
-	// instance endpoint and the event is silently dropped rather than kept.
+	// The filter and the redaction both read `stack`, so that case pins both guards; the redaction alone
+	// reads the other two.
 	it.each([
 		'stack',
 		'handling_stack',

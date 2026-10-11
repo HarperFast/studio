@@ -160,27 +160,6 @@ describe('shouldKeepEvent', () => {
 		).toBe(false);
 	});
 
-	// The name gate above deliberately does not fire for a nameless timeout, so this is the only
-	// thing dropping the tracked *resource* errors, which need not carry `type: 'AxiosError'`.
-	it('discards timeout errors against instance/cluster resource URLs, in either spelling', () => {
-		expect(
-			shouldKeepEvent(
-				errorEvent({
-					message: 'timeout of 60000ms exceeded',
-					resource: { url: 'https://api.harper.fast/HDBInstance/ins-123/operation' },
-				}),
-			),
-		).toBe(false);
-		expect(
-			shouldKeepEvent(
-				errorEvent({
-					message: 'timeout exceeded',
-					resource: { url: 'https://api.harper.fast/Cluster/clu-123/operation' },
-				}),
-			),
-		).toBe(false);
-	});
-
 	// Pins that the name gate only ever adds drops: the numeric spelling is still dropped without
 	// a name, so a timeout Studio re-wraps into a plain `Error` (`secrets.ts`) behaves as before,
 	// while the bare spelling — indistinguishable from prose without a name — is reported.
@@ -189,22 +168,6 @@ describe('shouldKeepEvent', () => {
 		expect(shouldKeepEvent(errorEvent({ type: 'Error', message: 'AxiosError: timeout of 60000ms exceeded' })))
 			.toBe(false);
 		expect(shouldKeepEvent(errorEvent({ message: 'timeout exceeded' }))).toBe(true);
-	});
-
-	it('discards network failures against an instance/cluster operation endpoint', () => {
-		expect(
-			shouldKeepEvent(
-				errorEvent({
-					message: 'Network Error',
-					resource: { url: 'https://api.harper.fast/Cluster/clu-123/operation' },
-				}),
-			),
-		).toBe(false);
-		expect(
-			shouldKeepEvent(
-				errorEvent({ source: 'network', resource: { url: 'https://api.harper.fast/HDBInstance/ins-9/operation' } }),
-			),
-		).toBe(false);
 	});
 
 	// Regression test for issue #1386: a session expiring / signing out mid-poll leaves
@@ -243,28 +206,29 @@ describe('shouldKeepEvent', () => {
 		expect(shouldKeepEvent(errorEvent({ message: 'Failed to deploy component: invalid package' }))).toBe(true);
 	});
 
-	it('discards 5xx errors against an instance/cluster operation endpoint', () => {
-		expect(
-			shouldKeepEvent(
-				errorEvent({
-					message: 'AxiosError: Request failed with status code 500',
-					resource: { url: 'https://api.harper.fast/HDBInstance/ins-123/operation' },
-				}),
-			),
-		).toBe(false);
-	});
+	// #1669 owns whether these console-relayed request failures should be dropped. Until then they
+	// are kept, and nothing about the request can change that: the SDK never names one (#1690).
+	describe('request failures', () => {
+		const instanceOperationUrls = [
+			'https://api.harper.fast/HDBInstance/ins-123/operation',
+			'https://api.harper.fast/Cluster/clu-123/operation',
+		];
 
-	it('keeps 5xx errors that are not attributable to an instance/cluster operation endpoint', () => {
-		// An unattributed 5xx could be a genuine backend failure worth surfacing.
-		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 500' }))).toBe(true);
-		expect(
-			shouldKeepEvent(
-				errorEvent({
-					message: 'Request failed with status code 502',
-					resource: { url: 'https://api.harper.fast/Organization/org-1' },
-				}),
-			),
-		).toBe(true);
+		it.each([
+			'AxiosError: Request failed with status code 500',
+			'AxiosError: Request failed with status code 502',
+			'AxiosError: Network Error',
+		])('keeps a console-relayed %s', (message) => {
+			expect(shouldKeepEvent(errorEvent({ type: 'AxiosError', source: 'console', message }))).toBe(true);
+		});
+
+		it.each(instanceOperationUrls)('keeps them with an error.resource.url of %s', (url) => {
+			for (const message of ['Request failed with status code 500', 'Network Error', 'timeout exceeded']) {
+				expect(shouldKeepEvent(errorEvent({ message }))).toBe(true);
+				expect(shouldKeepEvent(errorEvent({ message, resource: { url } }))).toBe(true);
+			}
+			expect(shouldKeepEvent(errorEvent({ source: 'network', resource: { url } }))).toBe(true);
+		});
 	});
 
 	// Regression tests for the Reo.dev analytics errors that reached Error Tracking on
@@ -711,16 +675,5 @@ describe('shouldKeepEvent', () => {
 				),
 			).toBe(true);
 		});
-	});
-
-	it('keeps non-timeout network failures that are not attributable to an instance endpoint', () => {
-		// Without an instance/cluster URL we cannot tell a real backend failure from an
-		// expected one, so a bare "Network Error" stays visible (unlike timeouts).
-		expect(shouldKeepEvent(errorEvent({ message: 'Network Error' }))).toBe(true);
-		expect(
-			shouldKeepEvent(
-				errorEvent({ message: 'Network Error', resource: { url: 'https://api.harper.fast/Organization/org-1' } }),
-			),
-		).toBe(true);
 	});
 });
