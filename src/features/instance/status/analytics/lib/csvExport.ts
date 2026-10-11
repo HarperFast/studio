@@ -9,6 +9,7 @@
 // consumer can filter. No network calls: everything recomputes from the
 // records the panel already fetched.
 
+import { filenameTimestamp, slugifyForFilename, triggerBlobDownload } from '@/lib/download';
 import { targetBucketMs } from '../context/timePresets';
 import { preprocessConnectionRecords } from '../pipeline/connection';
 import { derivedRegistry } from '../pipeline/derived/index';
@@ -18,7 +19,6 @@ import { runPipeline } from '../pipeline/pipeline';
 import { aggregateReplicationMatrix, type ReplicationQuantileField } from '../pipeline/replication-latency';
 import { wantsClusterLineFold, wantsDimensionLineSplit, wantsStackedAreaNodeRemap } from '../primitives/MetricRenderer';
 import type { AnalyticsDataPoint, HeatmapData, MetricSpec, Series, SeriesData, TimeRange } from '../types/analytics';
-import { filenameTimestamp, slugifyForFilename, triggerBlobDownload } from './chartExport';
 
 /** Discriminated union the CSV button consumes — a panel supplies whichever
  *  shape its primitive renders. */

@@ -1,3 +1,4 @@
+import { filenameTimestamp, slugifyForFilename, triggerBlobDownload } from '@/lib/download';
 import { toBlob } from 'html-to-image';
 
 /** Resolves the on-screen background color of `el`, walking up the tree
@@ -39,19 +40,6 @@ export async function captureChartAsBlob(
 	return blob;
 }
 
-/** Trigger a browser download of `blob` as `filename` via a transient anchor.
- *  Shared by the PNG export and the CSV export so they can't drift. */
-export function triggerBlobDownload(blob: Blob, filename: string): void {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	a.click();
-	// Revoke on a later tick: some browsers (Firefox) start the download
-	// asynchronously, and a synchronous revoke can abort it.
-	window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
 export async function downloadChart(chartContainer: HTMLElement, filename: string): Promise<void> {
 	const blob = await captureChartAsBlob(chartContainer);
 	triggerBlobDownload(blob, filename);
@@ -74,16 +62,6 @@ export async function copyChartToClipboard(chartContainer: HTMLElement): Promise
 	} catch {
 		return false;
 	}
-}
-
-/** Slugify a metric/title for use in a download filename. */
-export function slugifyForFilename(prefix: string): string {
-	return prefix.replace(/[^a-z0-9-]+/gi, '-').replace(/(^-|-$)/g, '').toLowerCase();
-}
-
-/** ISO-8601 timestamp with filename-hostile characters (`:` `.`) dashed. */
-export function filenameTimestamp(ms: number): string {
-	return new Date(ms).toISOString().replace(/[:.]/g, '-');
 }
 
 /** Slugify a metric/title for use as a download filename. */
