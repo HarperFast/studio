@@ -2,11 +2,18 @@
  * @vitest-environment jsdom
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const importState = vi.hoisted(() => ({
+	importFailure: undefined as { project: string; message: string } | undefined,
+}));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
 	useRouteContext: () => ({ organization: { name: 'Acme' } }),
+	useParams: () => ({ organizationId: 'org-1', instanceId: 'ins-1' }),
+	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
 }));
 vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
 	useEditorView: () => ({ rootEntries: [{ name: 'taken-app', path: 'taken-app', project: 'taken-app', entries: [] }] }),
@@ -15,7 +22,11 @@ vi.mock('./useCreateFromTemplate', () => ({
 	useCreateFromTemplate: () => ({ isCreatingFromTemplate: false, createFromTemplate: vi.fn() }),
 }));
 vi.mock('./useImportApplication', () => ({
-	useImportApplication: () => ({ isImportingApplication: false, importApplication: vi.fn() }),
+	useImportApplication: () => ({
+		isImportingApplication: false,
+		importApplication: vi.fn(),
+		importFailure: importState.importFailure,
+	}),
 }));
 vi.mock('./useCheckCLI', () => ({ useCheckCLI: () => ({ checkCLI: vi.fn() }) }));
 // These read the instance's SSH keys and auth, which aren't what these tests exercise.
@@ -35,7 +46,10 @@ beforeAll(() => {
 	Element.prototype.scrollIntoView ??= () => undefined;
 });
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	importState.importFailure = undefined;
+});
 
 function button(name: RegExp) {
 	return screen.getByRole('button', { name }) as HTMLButtonElement;
@@ -112,5 +126,30 @@ describe('NewApplication', () => {
 
 		expect(await screen.findByText(message)).toBeTruthy();
 		expect((screen.getByRole('button', { name: /Create from Template/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("keeps a failed import's reason beside the Import button", async () => {
+		importState.importFailure = { project: 'acme', message: 'This repository has no package.json in its root folder.' };
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Failed to import acme');
+		expect(alert.textContent).toContain('This repository has no package.json in its root folder.');
+		expect(screen.queryByRole('link', { name: 'Manage SSH keys' })).toBeNull();
+	});
+
+	it('links a failed private-repository import to SSH keys', async () => {
+		importState.importFailure = {
+			project: 'acme',
+			message: 'Failed to deploy private repository ssh://github.com/acme/widgets.git: SSH access failed.',
+		};
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		expect((await screen.findByRole('link', { name: 'Manage SSH keys' })).getAttribute('href'))
+			.toBe('/org-1/instance/ins-1/config/ssh-keys');
 	});
 });

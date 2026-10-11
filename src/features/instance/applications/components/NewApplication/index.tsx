@@ -78,7 +78,7 @@ export function NewApplication() {
 	const [isReloading, setIsReloading] = useState(false);
 
 	const { isCreatingFromTemplate, createFromTemplate } = useCreateFromTemplate(setIsReloading);
-	const { isImportingApplication, importApplication } = useImportApplication(setIsReloading);
+	const { isImportingApplication, importApplication, importFailure } = useImportApplication(setIsReloading);
 	const { checkCLI } = useCheckCLI(setIsReloading);
 
 	const submitForm = useCallback((formData: z.infer<typeof NewApplicationSchema>) => {
@@ -162,6 +162,7 @@ export function NewApplication() {
 									<ImportInstructions
 										control={control}
 										formState={formState}
+										importFailure={importFailure}
 										isImportingApplication={isImportingApplication}
 										setValue={setValue}
 										watch={watch}

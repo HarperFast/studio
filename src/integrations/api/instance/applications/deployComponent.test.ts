@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 vi.mock('./deployComponentStream', () => ({
@@ -7,10 +10,17 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { mutationErrorHandler } from '@/react-query/queryClient';
-import { MutationCache, MutationObserver, QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import { createElement } from 'react';
 import { toast } from 'sonner';
-import { deployAndFollowComponent, deployRequestBody, onDeployComponentSubmit } from './deployComponent';
+import {
+	deployAndFollowComponent,
+	deployRequestBody,
+	onDeployComponentSubmit,
+	useDeployComponentMutation,
+} from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { DeployRolloutError } from './restartJob';
 
@@ -220,23 +230,32 @@ describe('onDeployComponentSubmit', () => {
 			).rejects.toThrow(GUIDANCE);
 		});
 
-		it('reaches the global mutation toast as guidance too', async () => {
+		it('reaches RUM as guidance, without the global toast, even once its caller has unmounted', async () => {
 			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 			onTestFinished(() => consoleError.mockRestore());
-			mockStream.mockRejectedValue(new SSEOperationError(raw));
+			let failStream!: (error: unknown) => void;
+			mockStream.mockReturnValue(
+				new Promise((_, reject) => {
+					failStream = reject;
+				}),
+			);
 			const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
-			// The function `useDeployComponentMutation` runs, so a failure reaches the toast the way it does in the app.
-			const observer = new MutationObserver(queryClient, { mutationFn: deployAndFollowComponent });
+			const { result, unmount } = renderHook(() => useDeployComponentMutation(), {
+				wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+			});
 
-			await observer
+			const settled = result.current
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				.mutate({ ...baseArgs, useSSE: true, instanceClient: fakeClient({}) as any })
-				.catch(() => undefined);
+				.mutateAsync({ ...baseArgs, useSSE: true, instanceClient: fakeClient({}) as any })
+				.catch((rejection: unknown) => rejection);
+			unmount();
+			failStream(new SSEOperationError(raw));
+			const error = await settled;
 
-			expect(vi.mocked(toast.error)).toHaveBeenCalledOnce();
-			const [title, options] = vi.mocked(toast.error).mock.calls[0];
-			expect(title).toBe('Error');
-			expect(options?.description).toMatch(GUIDANCE);
+			expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+			expect(consoleError).toHaveBeenCalledOnce();
+			expect(consoleError).toHaveBeenCalledWith(error);
+			expect((error as SSEOperationError).message).toMatch(GUIDANCE);
 		});
 	});
 });
@@ -319,6 +338,32 @@ describe('deployAndFollowComponent', () => {
 		await expect(pending).rejects.toMatchObject({ message: 'not activated on node-c', deploymentId: 'd1' });
 		// Following the job never deploys again.
 		expect(post.mock.calls.filter(([, body]) => body.operation === 'deploy_component')).toHaveLength(1);
+	});
+
+	it('reports a rollout that fails after its caller left once, to RUM, and not through the global toast', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		onTestFinished(() => consoleError.mockRestore());
+		const post = rolloutClient({ message: 'ok', deployment_id: 'd1', restartJobId: 'job-1' }, [
+			[{ id: 'job-1', status: 'IN_PROGRESS' }],
+			[{ id: 'job-1', status: 'ERROR', message: 'node-c did not restart' }],
+		]);
+		const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
+		const { result, unmount } = renderHook(() => useDeployComponentMutation(), {
+			wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+		});
+
+		const settled = result.current
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			.mutateAsync({ ...baseArgs, instanceClient: { post } as any })
+			.catch((rejection: unknown) => rejection);
+		unmount();
+		await vi.advanceTimersByTimeAsync(5_000);
+		const error = await settled;
+
+		expect(error).toBeInstanceOf(DeployRolloutError);
+		expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledOnce();
+		expect(consoleError).toHaveBeenCalledWith(error);
 	});
 
 	it('resolves an unfollowable rollout as unknown rather than as a success or a failure', async () => {

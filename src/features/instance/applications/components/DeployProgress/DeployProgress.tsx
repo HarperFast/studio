@@ -7,18 +7,10 @@ import { CertificationDecision } from '@/integrations/api/instance/applications/
 import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
-import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, useParams } from '@tanstack/react-router';
-import {
-	CheckIcon,
-	CircleDashedIcon,
-	CircleIcon,
-	Loader2Icon,
-	ShieldCheckIcon,
-	TriangleAlertIcon,
-	XIcon,
-} from 'lucide-react';
+import { CheckIcon, CircleDashedIcon, Loader2Icon, ShieldCheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { DeployFailure } from './DeployFailure';
 import {
 	describeCertification,
 	describeDecision,
@@ -35,16 +27,6 @@ const PHASE_LABELS: Record<string, string> = {
 	success: 'Finish',
 	staged: 'Staged',
 };
-
-/**
- * A deploy that failed because the *instance* couldn't reach a private repository over SSH is
- * fixed in Config > SSH Keys (install a key, grant it access to the repo, add the git host to
- * `known_hosts`), so link the user there instead of leaving them to find it. Harper's message
- * already spells out the remediation, and this UI is now the only place the failure surfaces:
- * it's an instance configuration state, not a Studio bug, so `shouldKeepEvent` drops the RUM
- * event (which also kept the customer's private repo URL out of Error Tracking).
- */
-const SSH_ACCESS_FAILURE = /Failed to deploy private repository\b|SSH access failed/i;
 
 function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boolean }) {
 	if (status === 'done') {
@@ -164,21 +146,7 @@ export function DeployProgress({
 			{phasesFailed && state.decision && <DecisionBlock decision={state.decision} />}
 
 			{phasesFailed && state.error && !state.decision && (
-				<div className="flex flex-col gap-2 text-sm text-destructive">
-					<div className="flex items-start gap-2">
-						<CircleIcon className="mt-0.5 size-4 shrink-0" />
-						<span>{state.error}</span>
-					</div>
-					{SSH_ACCESS_FAILURE.test(state.error) && (
-						<Link
-							to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
-							onClick={onNavigateAway}
-							className="self-start pl-6 underline"
-						>
-							Manage SSH keys
-						</Link>
-					)}
-				</div>
+				<DeployFailure message={state.error} onNavigateAway={onNavigateAway} />
 			)}
 
 			{state.lifecycle === 'inconclusive' && !state.rollout && (
