@@ -18,6 +18,7 @@ export const STATUS_TAB_IDS = [
 	'replication',
 	'storage',
 	'overview',
+	'jobs',
 ] as const;
 export type StatusTabId = (typeof STATUS_TAB_IDS)[number];
 

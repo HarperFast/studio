@@ -98,4 +98,34 @@ describe('waitForJob', () => {
 		await vi.advanceTimersByTimeAsync(2000);
 		await expect(pending).rejects.toThrow(/Timed out/);
 	});
+
+	it('reports every job record a poll returns, the finished one included, and skips a failed poll', async () => {
+		const instanceClient = makeClient([
+			{ status: 'CREATED' },
+			{ reject: true },
+			{ status: 'IN_PROGRESS' },
+			{ status: 'COMPLETE', message: 'done' },
+		]);
+		const onUpdate = vi.fn();
+		const pending = waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100, onUpdate });
+		await vi.advanceTimersByTimeAsync(1000);
+		await pending;
+		expect(onUpdate.mock.calls.map(([job]) => job.status)).toEqual(['CREATED', 'IN_PROGRESS', 'COMPLETE']);
+	});
+
+	it('still resolves when the observer throws, so a completed load is never reported as failed', async () => {
+		const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const instanceClient = makeClient([{ status: 'IN_PROGRESS' }, { status: 'COMPLETE', message: 'done' }]);
+		const pending = waitForJob({
+			jobId: 'job-1',
+			instanceClient,
+			pollIntervalMs: 100,
+			onUpdate: () => {
+				throw new Error('toast exploded');
+			},
+		});
+		await vi.advanceTimersByTimeAsync(500);
+		await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });
+		debug.mockRestore();
+	});
 });

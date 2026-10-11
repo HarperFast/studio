@@ -6,6 +6,7 @@ import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/g
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { JobsTab } from '../jobs/JobsTab';
 import { type StatusTabId, validateStatusSearch } from '../statusSearch';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint';
 import { TimeRangePicker } from './components/TimeRangePicker';
@@ -35,9 +36,13 @@ const TAB_DEFS = [
 	{ id: 'replication', label: 'Replication' },
 	{ id: 'storage', label: 'Storage' },
 	{ id: 'overview', label: 'Overview' },
+	{ id: 'jobs', label: 'Jobs' },
 ] as const satisfies readonly { id: StatusTabId; label: string }[];
 
 type TabId = StatusTabId;
+
+/** Tabs that read no `get_analytics` data, so the capability probe neither gates nor redirects them. */
+const ANALYTICS_FREE_TABS: ReadonlySet<TabId> = new Set(['overview', 'jobs']);
 
 export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 	// The capability probe only gates the analytics-backed chart tabs —
@@ -179,7 +184,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		}
 		if (landedOnOverviewRef.current) { return; }
 		landedOnOverviewRef.current = true;
-		if (tab !== 'overview') {
+		if (!ANALYTICS_FREE_TABS.has(tab)) {
 			void navigate({ to: '.', search: { tab: 'overview', range: presetId, refresh: refreshMs }, replace: true });
 		}
 	}, [capability.error, tab, navigate, presetId, refreshMs]);
@@ -209,7 +214,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		syncId: `${instanceParams.entityId}:${tab}`,
 	}), [timeRange, bucketMs, instanceParams, tab]);
 
-	const showTimePicker = tab !== 'overview';
+	const showTimePicker = !ANALYTICS_FREE_TABS.has(tab);
 	const picker = showTimePicker
 		? (
 			<TimeRangePicker
@@ -242,10 +247,10 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		<AnalyticsProvider value={ctxValue}>
 			<Tabs value={tab} onValueChange={(v) => updateTab(v as TabId)} className="px-4 py-2">
 				{
-					/* Hint applies to chart interactions; hide it on Overview which
-				    has none of those affordances. */
+					/* Hint applies to chart interactions; hide it on the tabs that
+				    have none of those affordances. */
 				}
-				{tab !== 'overview' && !capability.isLoading && !capability.error && <AnalyticsOnboardingHint />}
+				{!ANALYTICS_FREE_TABS.has(tab) && !capability.isLoading && !capability.error && <AnalyticsOnboardingHint />}
 				{
 					/*
 					 * Tab strip layout:
@@ -292,6 +297,9 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 				</TabsContent>
 				<TabsContent value="overview">
 					<OverviewTab instanceParams={instanceParams} isLocalStudio={isLocalStudio} />
+				</TabsContent>
+				<TabsContent value="jobs">
+					<JobsTab instanceParams={instanceParams} />
 				</TabsContent>
 			</Tabs>
 		</AnalyticsProvider>

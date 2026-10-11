@@ -4,9 +4,9 @@ The instance Status tab is a spec-driven analytics dashboard built on top of Har
 
 ## Tabs
 
-`Health → Traffic → Requests → Database → Replication → Storage → Overview` (Health is the default landing tab).
+`Health → Traffic → Requests → Database → Replication → Storage → Overview → Jobs` (Health is the default landing tab).
 
-Tab + time-range state is mirrored to `?tab=&range=&refresh=` so URLs are shareable. Below `md` the tab strip collapses to a `Select`. The time-range picker is a sticky sub-toolbar inside each tab (hidden on Overview).
+Tab + time-range state is mirrored to `?tab=&range=&refresh=` so URLs are shareable. Below `md` the tab strip collapses to a `Select`. The time-range picker is a sticky sub-toolbar inside each chart tab (hidden on Overview and Jobs, which has its own toolbar).
 
 ## Data Path
 
@@ -17,6 +17,17 @@ All analytics data flows through one query:
 - **Adapter:** `useAnalyticsRecords` in `src/features/instance/status/analytics/hooks/`. Passes rows through verbatim (each spec's `timestamp:` field decides which column drives the x-axis), surfaces a `missingFields` schema-drift signal, and applies per-spec startup jitter so concurrent specs don't refire in lockstep.
 - **Capability probe:** `useAnalyticsCapability` runs one cheap probe per instance on mount. While loading, the Status tab shows an inline message; on error, it surfaces an "analytics unavailable" message (no legacy fallback).
 - **Cap:** server responses larger than 50 000 rows are tail-truncated client-side with a console warning.
+
+## Jobs tab
+
+Jobs lists Harper's background jobs (CSV/S3 loads, exports, bulk deletes, backups) from `search_jobs_by_start_date` — `src/features/instance/status/jobs/` plus `src/integrations/api/instance/status/searchJobs.ts`. It reads no `get_analytics`, so like Overview it sits in `ANALYTICS_FREE_TABS` in `StatusTabs.tsx`: the capability probe neither gates its body nor redirects a `?tab=jobs` deep link.
+
+- **Its own poll, not the window tick.** The analytics tick bakes `[start, end]` into every key; Jobs keys on the window _width_ and computes the bounds in the query function, polling with `pollUnlessForbidden(refresh)` so a 403 stops the timer. It shares the `range`/`refresh` search params and their option lists, but not `TimeRangePicker`, whose resolution sub-label and freshness stamp describe analytics queries only. The StatusTabs tick keeps running on Jobs on purpose: stopping it would leave the charts on a stale window when the user switches back.
+- **Unbounded by the server.** The operation takes no limit or cursor, so every poll fetches the whole window. Jobs therefore offers windows up to 7 days (a `range=30d` link reads as 7 days there), and renders at most `MAX_RENDERED_JOBS` of the newest rows, saying how many it held back.
+- **Per node.** `hdb_job` is a non-replicating system table (harper `resources/databases.ts`), so a cluster route lists the jobs of whichever node its request reached, and says so.
+- **Super user only, by the role catalog's rule.** The operation is `requires_su`; `canListJobs` honours an allowlist grant only where `isGrantGateInert` says it is not inert, so the tab and the role editor never disagree.
+
+The import modal's CSV progress toast uses the same job records: `waitForJob` reports each poll through `onUpdate`, and the toast is settled from `useImportDataMutation`'s own callbacks, which still run after the modal unmounts. Harper writes nothing to a job between starting and finishing it, so the toast shows state and elapsed time, never a percentage.
 
 ## Pipeline + Primitives
 

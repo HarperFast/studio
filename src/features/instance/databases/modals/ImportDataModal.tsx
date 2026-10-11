@@ -31,6 +31,7 @@ import {
 	generateRandomRecords,
 	randomizableAttributes,
 } from '@/features/instance/databases/functions/generateRandomRecords';
+import { createImportProgressToast } from '@/features/instance/databases/functions/importProgressToast';
 import { parseJsonRecords } from '@/features/instance/databases/functions/parseJsonRecords';
 import { SchemaRelationshipMap } from '@/features/instance/databases/functions/schemaRelationships';
 import { sampleDatasets } from '@/features/instance/databases/sampleDatasets';
@@ -312,11 +313,11 @@ export function ImportDataModal({
 				tableExists,
 				replicated: instanceParams.entityType === 'cluster',
 				source,
+				progress: createImportProgressToast(),
 				...instanceParams,
 			},
 			{
-				onSuccess: ({ message }) => {
-					toast.success(message);
+				onSuccess: () => {
 					closeModal();
 					onImported(database, table);
 				},
