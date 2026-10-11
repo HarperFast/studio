@@ -13,10 +13,13 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-query')>()),
 	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
+const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('@/features/organization/mutations/addOrganizationRole', () => ({
-	useAddOrganizationRole: () => ({ mutate: vi.fn(), isPending: false }),
+	useAddOrganizationRole: () => ({ mutate, isPending: false }),
 }));
 
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'sonner';
 import { AddOrganizationRoleModal } from './AddOrganizationRoleModal';
 
 beforeAll(() => {
@@ -75,5 +78,28 @@ describe('AddOrganizationRoleModal', () => {
 
 		expect(await screen.findByText(message)).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Save Changes' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it.each([
+		['a refused one says it failed', new Error('Role already exists'), 1],
+		[
+			'one that got no answer leaves it to the global toast',
+			new AxiosError('Network Error', AxiosError.ERR_NETWORK, {
+				method: 'post',
+				data: '{"name":"readers"}',
+			} as InternalAxiosRequestConfig),
+			0,
+		],
+	])('of the failed adds, %s', async (_, error, ownToasts) => {
+		vi.mocked(toast.error).mockClear();
+		mutate.mockImplementation((_data, { onError }) => onError(error));
+		render(<AddOrganizationRoleModal isModalOpen setIsModalOpen={() => {}} />);
+		await typeRoleName('readers');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+		});
+
+		expect(mutate).toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledTimes(ownToasts);
 	});
 });

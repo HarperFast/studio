@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 import type { Cluster, Instance } from '@/integrations/api/api.patch';
+import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { getRestartState } from '@/lib/restart/restartTracker';
 import { act, renderHook } from '@testing-library/react';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -122,6 +123,33 @@ describe('useRestartClusterClick', () => {
 		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
 		expect(options?.description).toContain('Only 0 "RUNNING" instances were restarted of 2 instances.');
 		expect(options?.description).not.toContain('No instances were in a "RUNNING" state');
+	});
+
+	it('counts a member whose restart got no verdict apart from one that failed', async () => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b')] } as Cluster,
+		);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+					method: 'post',
+					data: '{"operation":"restart"}',
+				} as InternalAxiosRequestConfig);
+			}
+			restarted.push(targetOf(instanceClient));
+			return { message: 'ok' };
+		});
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-a']);
+		expect(toast.loading).toHaveBeenCalledWith('Could Not Confirm Instance 1 of 2', expect.anything());
+		const [title, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(title).toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(options?.description).toBe(
+			'Only 1 "RUNNING" instance was confirmed restarted of 2 instances. '
+				+ describeUnansweredWrites(1),
+		);
 	});
 
 	it('reports a cluster with no instances as a failure, not a success', async () => {

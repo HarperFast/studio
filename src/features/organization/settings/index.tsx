@@ -18,6 +18,7 @@ import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { SchemaOrganization } from '@/integrations/api/api.gen';
 import { OAuthConfig } from '@/integrations/api/api.patch';
 import { getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -80,7 +81,11 @@ export function OrgSettingsIndex() {
 	const { mutate: patch, isPending } = useMutation({
 		mutationFn: (payload: Partial<OAuthConfig> & { provider: string }) => patchOAuthConfig(organizationId, payload),
 		onSuccess: () => void queryClient.invalidateQueries({ queryKey: [organizationId] }),
-		onError: () => toast.error('Failed to update OAuth settings.'),
+		onError: (error) => {
+			if (shouldToastOwnFailure(error)) {
+				toast.error('Failed to update OAuth settings.');
+			}
+		},
 	});
 
 	// Add

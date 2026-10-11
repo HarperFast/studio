@@ -66,6 +66,15 @@ The wide hero artwork spans both columns beneath the form card in three independ
 
 Every `getInstanceClient` client replays a 502/503/504 up to three times (5s/10s/20s), but only for a request [`isReadRequest`](src/integrations/api/isReadOperation.ts) accepts: a GET, or a POST whose body's `operation` is a read by Harper's naming — the restart gate's rule, one predicate for both ([`retryGatewayErrors.ts`](src/integrations/api/retryGatewayErrors.ts)). A write is sent once and its first 5xx is final, because no gateway status proves the write was not applied: Harper itself answers 503 after handing an operation to a worker that exits or overruns. Do not add an exemption for a "usually safe" status or a write that looks idempotent; a caller whose write is safe to repeat retries it itself, where it can say why.
 
+## A write with no verdict never reads as failed
+
+The same rule decides what a failure says. [`isUnansweredWrite`](src/integrations/api/unansweredWrite.ts) is a request `isReadRequest` rejects, answered 502/503/504 or not at all (`ERR_NETWORK`, a timeout). [`describeError`](src/react-query/queryClient.ts) checks it before reading any body and returns "Outcome unknown … check whether it took effect before you try again", so the global mutation toast and every `describeError` caller say so with no copy of their own. Gate on status, never body (a gateway's body describes the gateway), and keep it to display: rewriting `error.message` would defeat `shouldKeepEvent`, which recognises timeouts and `Network Error` by message.
+
+- **A caller that adds its own failure toast to a mutation** asks [`shouldToastOwnFailure`](src/react-query/queryClient.ts) first, so "Failed to …" never sits beside the global warning. A caller with no mutation behind it (rename, the chat tools) shows `describeError`'s text itself, and a loop that tallies one write per target (cluster restart, rolling config, licenses) counts these apart from failures.
+- **Do not re-wrap an AxiosError into a plain `Error`** for a write: the predicate needs its `config`. `secrets.ts` passes an unanswered one through as is.
+- **These toasts are never collapsed** onto a shared id: each warns about a different write, and a read timing out alongside one must not replace it through `request-timeout`.
+- **A read that is costly to repeat** stays a read here and opts out of the replay instead (`package_component`, `skipGatewayRetry`).
+
 ## Cluster upgrade picker — which versions an existing cluster is offered
 
 [`buildUpgradeVersionOptions`](src/features/clusters/upsert/lib/buildUpgradeVersionOptions.ts) is the one place that decides, and its test file is the spec. Two rules, and they differ on purpose:

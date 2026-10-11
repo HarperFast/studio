@@ -28,6 +28,7 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
 import {
@@ -146,17 +147,19 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 				});
 				setIsTerminateClusterModalOpen(false);
 			},
-			onError: () => {
-				toast.error('Error', {
-					description: isSelfManaged
-						? `Failed to remove cluster: ${cluster.name}`
-						: `Failed to terminate cluster: ${cluster.name}.`,
-					duration: 5000,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
+			onError: (error) => {
+				if (shouldToastOwnFailure(error)) {
+					toast.error('Error', {
+						description: isSelfManaged
+							? `Failed to remove cluster: ${cluster.name}`
+							: `Failed to terminate cluster: ${cluster.name}.`,
+						duration: 5000,
+						action: {
+							label: 'Dismiss',
+							onClick: () => toast.dismiss(),
+						},
+					});
+				}
 				setIsTerminateClusterModalOpen(false);
 			},
 		});

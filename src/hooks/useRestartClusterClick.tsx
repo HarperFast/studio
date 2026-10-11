@@ -2,6 +2,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { ClusterRestartTargets, getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { markRestarting } from '@/lib/restart/restartTracker';
@@ -72,6 +73,7 @@ export function useRestartClusterClick(
 			}
 			const { allInstances, targets } = plan;
 			let instancesRestarted = 0;
+			let instancesUnanswered = 0;
 
 			// One instance at a time, so the cluster stays reachable through the others unless it has only
 			// one. The TTLs only matter if this loop dies without reaching `finally`.
@@ -116,10 +118,13 @@ export function useRestartClusterClick(
 								instanceClient,
 							});
 							instancesRestarted += 1;
-						} catch {
+						} catch (error) {
+							const unanswered = isUnansweredWrite(error);
+							instancesUnanswered += unanswered ? 1 : 0;
 							if (i + 1 !== targets.length) {
 								// If it fails to restart, or wasn't available, warn for a bit then move on.
-								toast.loading(`Failed Restarting Instance ${i + 1} of ${targets.length}`, {
+								const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
+								toast.loading(`${verdict} Instance ${i + 1} of ${targets.length}`, {
 									...toastConfig,
 									id: toastId,
 									description: 'We will carry on momentarily.',
@@ -164,15 +169,18 @@ export function useRestartClusterClick(
 					'"RUNNING" instance was',
 					'"RUNNING" instances were',
 				);
-				toast.error('Error', {
+				toast.error(instancesUnanswered ? OUTCOME_UNKNOWN_TITLE : 'Error', {
 					id: toastId,
-					description: `Failed to fully restart cluster.\n`
-						+ ([
-							allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-							targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
-							allInstances.length !== instancesRestarted
-							&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
-						].filter(excludeFalsy).shift() || ''),
+					description: instancesUnanswered
+						? `Only ${someRunningInstancesWere} confirmed restarted of ${allTheInstances}. `
+							+ describeUnansweredWrites(instancesUnanswered)
+						: `Failed to fully restart cluster.\n`
+							+ ([
+								allInstances.length === 0 && 'No instances were found within the cluster to restart.',
+								targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+								allInstances.length !== instancesRestarted
+								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
+							].filter(excludeFalsy).shift() || ''),
 					duration: 10_000,
 					action: {
 						label: 'Dismiss',

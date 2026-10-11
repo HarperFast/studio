@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 import type { Cluster, Instance } from '@/integrations/api/api.patch';
+import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -444,6 +445,29 @@ describe('useRollingConfigUpdate outcome reporting', () => {
 		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
 		expect(options?.description).toContain('Only 0 "RUNNING" instances were restarted of 2 instances.');
 		expect(options?.description).not.toContain('No instances were in a "RUNNING" state');
+	});
+
+	it('counts a member whose restart got no verdict apart from one that failed', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+					method: 'post',
+					data: '{"operation":"restart_service"}',
+				} as InternalAxiosRequestConfig);
+			}
+			return { message: 'ok' };
+		});
+
+		await save();
+
+		expect(toast.loading).toHaveBeenCalledWith('Could Not Confirm Instance 1 of 2', expect.anything());
+		const [title, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(title).toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(options?.description).toBe(
+			'Only 1 "RUNNING" instance was confirmed updated of 2 instances. '
+				+ describeUnansweredWrites(1),
+		);
 	});
 });
 

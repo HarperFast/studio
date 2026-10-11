@@ -2,8 +2,10 @@
  * @vitest-environment jsdom
  */
 import type { SchemaLicense } from '@/integrations/api/api.gen';
+import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,6 +30,7 @@ import { toast } from 'sonner';
 import { useApplyLicensesClick } from './useApplyLicensesClick';
 
 const LICENSES = [{ license: 'lic-1' }, { license: 'lic-2' }] as SchemaLicense[];
+const installSent = { method: 'post', data: '{"operation":"install_usage_license"}' } as InternalAxiosRequestConfig;
 
 function wrapper() {
 	const queryClient = new QueryClient();
@@ -69,6 +72,33 @@ describe('useApplyLicensesClick', () => {
 
 		expect(installUsageLicense).not.toHaveBeenCalled();
 		expect(toast.error).toHaveBeenCalledWith('Cancelled', expect.anything());
+	});
+
+	it('counts a license that got no answer apart from one that failed', async () => {
+		vi.mocked(installUsageLicense)
+			.mockResolvedValueOnce({} as never)
+			.mockRejectedValueOnce(new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, installSent));
+
+		await applyLicenses();
+
+		const [title, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(title).toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(options?.description).toBe(
+			"1 of 2 licenses confirmed applied. 1 request couldn't be confirmed, so it may have gone through. "
+				+ 'Check before you try again, or it may run twice.',
+		);
+	});
+
+	it('still says a refused license was not applied', async () => {
+		vi.mocked(installUsageLicense)
+			.mockResolvedValueOnce({} as never)
+			.mockRejectedValueOnce(new Error('License is expired'));
+
+		await applyLicenses();
+
+		const [title, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(title).toBe('Error');
+		expect(options?.description).toBe('Licenses not applied.\n1 of 2 licenses applied.');
 	});
 });
 

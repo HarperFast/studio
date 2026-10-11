@@ -23,6 +23,7 @@ import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Suspense, useCallback, useMemo, useState } from 'react';
@@ -107,6 +108,9 @@ function EditOrganizationRoleModalContent({
 					form.reset();
 				},
 				onError: (error: Error | unknown) => {
+					if (!shouldToastOwnFailure(error)) {
+						return;
+					}
 					toast.error('Error', {
 						description: `Failed to delete role: ${error instanceof Error ? error.message : String(error)}.`,
 						action: {
@@ -173,6 +177,9 @@ function EditOrganizationRoleModalContent({
 							form.reset();
 						},
 						onError: (error: Error | unknown) => {
+							if (!shouldToastOwnFailure(error)) {
+								return;
+							}
 							toast.error('Error', {
 								description: `Failed to update role: ${error instanceof Error ? error.message : String(error)}.`,
 								action: {

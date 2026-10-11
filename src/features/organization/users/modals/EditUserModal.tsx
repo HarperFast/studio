@@ -10,6 +10,7 @@ import { useCloudAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { keyBy } from '@/lib/keyBy';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
@@ -59,16 +60,16 @@ export function EditUserModal({
 		const results = await Promise.allSettled(
 			roles.map((role) => removeUserFromRole({ userId: data.id, roleId: role.id })),
 		);
-		const failed = results.some(
-			(result) => result.status === 'rejected' && (result.reason as AxiosError)?.response?.status !== 404,
+		const failures = results.flatMap((result) =>
+			result.status === 'rejected' && (result.reason as AxiosError)?.response?.status !== 404 ? [result.reason] : []
 		);
-		if (failed) {
+		if (failures.some(shouldToastOwnFailure)) {
 			toast.error(
 				isSelf
 					? 'Something went wrong leaving the organization. Please try again.'
 					: `Couldn’t remove ${data.email} from the organization. Please try again.`,
 			);
-		} else {
+		} else if (failures.length === 0) {
 			toast.success(
 				isSelf
 					? 'You’ve left the organization.'

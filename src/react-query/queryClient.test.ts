@@ -1,9 +1,10 @@
+import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { MutationObserver, QueryObserver } from '@tanstack/react-query';
-import { AxiosError } from 'axios';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
-import { errorHandler, queryClient, queryErrorHandler } from './queryClient';
+import { describeError, errorHandler, queryClient, queryErrorHandler, shouldToastOwnFailure } from './queryClient';
 import { claimForRoute } from './routeQueryClaims';
 
 // Mock the toast module
@@ -366,5 +367,62 @@ describe('queryErrorHandler', () => {
 			queryFor(['ins-1', 'databases']),
 		);
 		expect(toast.error).toHaveBeenCalled();
+	});
+});
+
+describe('a write that got no verdict', () => {
+	const sent = (data: unknown, method = 'post') => ({ method, data }) as InternalAxiosRequestConfig;
+	const gatewayTimeout = (config: InternalAxiosRequestConfig) =>
+		new AxiosError('Request failed with status code 504', AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+			status: 504,
+			statusText: '',
+			data: { type: 'about:blank', code: 'GATEWAY_TIMEOUT', title: 'Proxied operation timed out after 30s' },
+			headers: {},
+			config,
+		});
+	const timedOut = (config: InternalAxiosRequestConfig) =>
+		new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config);
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('is described by its status, not by whatever the gateway sent', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'insert' })))).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: UNANSWERED_WRITE_MESSAGE,
+			message: UNANSWERED_WRITE_MESSAGE,
+		});
+	});
+
+	it('leaves a read with the same failure to the usual extraction', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'get_job' })))).toEqual({
+			title: 'GATEWAY_TIMEOUT',
+			description: 'Proxied operation timed out after 30s',
+			message: 'Proxied operation timed out after 30s',
+		});
+	});
+
+	it('gets a toast of its own, never collapsed with another write or with read timeouts', () => {
+		errorHandler(timedOut(sent({ operation: 'delete', hash_values: [1] })));
+		errorHandler(timedOut(sent({ operation: 'insert', records: [{ id: 2 }] })));
+		errorHandler(timedOut(sent({ operation: 'describe_all' })));
+
+		const toasts = vi.mocked(toast.error).mock.calls.map(([title, options]) => [title, options?.id]);
+		expect(toasts).toEqual([
+			[OUTCOME_UNKNOWN_TITLE, undefined],
+			[OUTCOME_UNKNOWN_TITLE, undefined],
+			['Error', 'request-timeout'],
+		]);
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'restart' })))).toBe(false);
+		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'get_status' })))).toBe(true);
+		expect(shouldToastOwnFailure(new Error('Secret "x" not found'))).toBe(true);
 	});
 });

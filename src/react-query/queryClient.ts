@@ -1,3 +1,4 @@
+import { isUnansweredWrite, OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { errorText } from '@/lib/errorText';
 import { isRestartNoise } from '@/lib/restart/restartGate';
 import { onRestartSettled } from '@/lib/restart/restartTracker';
@@ -15,8 +16,14 @@ import { toast } from 'sonner';
  * inputs. They differ only for a legacy `"Conflict: user already exists"` body, where the split
  * below moves the first clause into `title`: a single line built from `description` alone would
  * lose it. Everything comes from this one extractor so the inline text and the toast can't drift.
+ *
+ * A write that got no verdict ({@link isUnansweredWrite}) gets our own copy instead, chosen by status
+ * and never by body: a gateway's body describes the gateway, and "failed" is exactly what it can't claim.
  */
 export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
+	if (isUnansweredWrite(rawErr)) {
+		return { title: OUTCOME_UNKNOWN_TITLE, description: UNANSWERED_WRITE_MESSAGE, message: UNANSWERED_WRITE_MESSAGE };
+	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
 	let splitTitleFromMsg = true;
@@ -62,6 +69,15 @@ export function describeError(rawErr: unknown): { title: string; description: st
 	return { title: errorTitle, description: errorMsg, message };
 }
 
+/**
+ * For a mutation's caller that toasts its own failure on top of the global toast: whether it should.
+ * Not for an unanswered write, whose global toast already says the outcome is unknown — a second one
+ * saying "failed" would contradict it and invite the retry it warns against.
+ */
+export function shouldToastOwnFailure(rawErr: unknown): boolean {
+	return !isUnansweredWrite(rawErr);
+}
+
 export function errorHandler(rawErr: unknown) {
 	console.error(rawErr);
 	const { title: errorTitle, description: errorMsg } = describeError(rawErr);
@@ -75,8 +91,17 @@ export function errorHandler(rawErr: unknown) {
 	// signed out, #1546), and a permission failure repeated N times is still one
 	// thing for the user to know.
 	const isForbidden = axiosWrappedErr?.response?.status === 403;
+	// Never collapsed: each warns about a different write, and a read timing out alongside one must
+	// not replace it through `request-timeout`.
+	const collapseId = isUnansweredWrite(rawErr)
+		? undefined
+		: isTimeout
+		? 'request-timeout'
+		: isForbidden
+		? 'request-forbidden'
+		: undefined;
 	toast.error(errorTitle, {
-		id: isTimeout ? 'request-timeout' : isForbidden ? 'request-forbidden' : undefined,
+		id: collapseId,
 		description: errorMsg,
 		action: {
 			label: 'Dismiss',

@@ -4,7 +4,9 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { pluralize } from '@/lib/pluralize';
+import { describeError } from '@/react-query/queryClient';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
 
@@ -98,9 +100,13 @@ export function useRenameFiles() {
 				stepForward();
 			}
 		} catch (error) {
-			toast.error('Rename Failed', {
-				id: toastConfig.id,
+			const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+				title: 'Rename Failed',
 				description: error instanceof Error ? error.message : 'An unexpected error occurred while renaming.',
+			};
+			toast.error(title, {
+				id: toastConfig.id,
+				description,
 				duration: 10000,
 				action: { label: 'OK', onClick: () => undefined },
 			});

@@ -12,6 +12,7 @@ import { DeployComponentResult } from '@/integrations/api/instance/applications/
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
@@ -149,7 +150,10 @@ export function useImportApplication(
 				});
 				return;
 			}
-			const title = `Failed to ${stage ? 'stage' : 'import'} ${project}`;
+			// No verdict: it may have gone through, so the title can't say it failed; the message says to check.
+			const title = isUnansweredWrite(error)
+				? `Couldn't confirm ${project} was ${stage ? 'staged' : 'imported'}`
+				: `Failed to ${stage ? 'stage' : 'import'} ${project}`;
 			const { message } = describeError(error);
 			if (formEntity.current === entityId) {
 				setImportFailure({ entityId, failure: { title, message, deploymentId } });

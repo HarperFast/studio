@@ -3,10 +3,11 @@
  * while the entity restarts), the gateway retry replays only these, and the operations console asks
  * before sending anything else. Token minting is deliberately not one — held, it would stall a route
  * guard's Fabric Connect attempt behind a notice that cannot mount yet; refused, the guard falls
- * through to sign-in at once.
+ * through to sign-in at once. `package_component` reads despite its name: it packs a project's files
+ * into an archive and changes nothing.
  */
 const READ_OPERATION =
-	/^(?:get_|search_|describe_|list_|read_|user_info$|system_information$|cluster_status$|registration_info$)/;
+	/^(?:get_|search_|describe_|list_|read_|user_info$|system_information$|cluster_status$|registration_info$|package_component$)/;
 
 export function isReadOperation(operation: unknown): boolean {
 	return typeof operation === 'string' && READ_OPERATION.test(operation);

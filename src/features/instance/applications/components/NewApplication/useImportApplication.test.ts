@@ -52,6 +52,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponentStream', () => 
 
 import { deployComponentStream } from '@/integrations/api/instance/applications/deployComponentStream';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -258,6 +259,25 @@ describe('useImportApplication', () => {
 			})
 		);
 		expect(mocks.post).toHaveBeenCalledWith('/', expect.objectContaining({ activate: false }), expect.anything());
+	});
+
+	it.each([
+		[false, "Couldn't confirm my-app was imported"],
+		[true, "Couldn't confirm my-app was staged"],
+	])('never calls a deploy that got no verdict failed (stage: %s)', async (stageOnly, title) => {
+		mocks.canStage.enabled = stageOnly;
+		const config = {
+			headers: new AxiosHeaders(),
+			method: 'post',
+			data: JSON.stringify({ operation: 'deploy_component' }),
+		} as InternalAxiosRequestConfig;
+		mocks.post.mockRejectedValue(new AxiosError('timeout of 300000ms exceeded', AxiosError.ECONNABORTED, config));
+		const { result } = renderImport();
+
+		act(() => result.current.importApplication({ contents: { ...contents, stageOnly }, project: 'my-app' }));
+
+		await waitFor(() => expect(result.current.importFailure).toEqual({ title, message: UNANSWERED_WRITE_MESSAGE }));
+		expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
 	});
 
 	describe('a rollout that settles after the form has gone', () => {

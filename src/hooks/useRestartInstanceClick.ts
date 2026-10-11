@@ -4,6 +4,7 @@ import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
 import { markRestarting } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -69,15 +70,17 @@ export function useRestartInstanceClick({
 				},
 			});
 			onRestartedSuccessfully?.();
-		} catch {
+		} catch (error) {
 			toast.dismiss(toastId);
-			toast.error('Error', {
-				description: `Failed to restart ${targetNoun.toLowerCase()}.`,
-				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
-				},
-			});
+			if (shouldToastOwnFailure(error)) {
+				toast.error('Error', {
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			}
 		} finally {
 			// Released on failure too: once the restart has failed, the errors that follow are real.
 			releaseTarget?.();

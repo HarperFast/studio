@@ -14,6 +14,7 @@ describe('isReadOperation', () => {
 		'system_information',
 		'cluster_status',
 		'registration_info',
+		'package_component',
 	])('reads %s as a read', (operation) => {
 		expect(isReadOperation(operation)).toBe(true);
 	});
@@ -32,6 +33,7 @@ describe('isReadOperation', () => {
 		'my_component_operation',
 		'user_info_reset',
 		'registration_information',
+		'package_component_project',
 	])('treats %s as able to change something', (operation) => {
 		expect(isReadOperation(operation)).toBe(false);
 	});
