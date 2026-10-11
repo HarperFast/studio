@@ -14,10 +14,11 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  *   array denies every operation.
  * - A listed operation that normally requires super_user is treated as a deliberate admin grant
  *   and allowed without super_user (`su` below marks those).
- * - super_user reaches operations without consulting the list, and cannot even hold one:
- *   validateNoSUPerms rejects a permission that sets super_user/cluster_user alongside other keys.
- *   structure_user roles DO go through the gate for everything except DDL.
- * - `sql` never reaches this gate at all; it is authorized against table permissions.
+ * - super_user cannot hold a list: validateNoSUPerms rejects a permission that sets
+ *   super_user/cluster_user alongside other keys.
+ * - Before 5.3 the gate runs after verifyPerms' super_user and structure_user returns, so a
+ *   structure user's DDL skips it, and `sql` never reaches it. From 5.3.0-alpha.1 it runs first and
+ *   on the SQL path too (see `GrantBand`).
  */
 export interface GrantableOperation {
 	name: string;
@@ -35,10 +36,10 @@ export interface GrantableOperation {
 	nonDelegable?: boolean;
 	/** Legacy wire alias; Harper's authorization entry is registered under the canonical name. */
 	aliasOf?: string;
-	/** Extra qualification shown wherever the operation is offered or listed. */
+	/** The band in which it is authorized on a path that never consults the list. */
+	outOfGate?: GrantBand;
+	/** Why the list does not govern it, shown on its chip wherever `outOfGate` applies. */
 	caveat?: string;
-	/** Authorized on its own path, so the allowlist neither grants nor restricts it. */
-	outOfGate?: boolean;
 	/** Where listing the name stops or starts matching the gate; absent = it matches on every 5.x. */
 	gate?: GateChange;
 }
@@ -53,14 +54,38 @@ export interface GrantableOperation {
  */
 export type GateChange = 'from-5.3' | 'until-5.3' | 'never';
 
-/** Which side of that change an instance is on; resolve it once per version, not per operation. */
-export type GrantBand = 'pre-5.3' | '5.3';
+/**
+ * Which allowlist rules an instance follows; resolve it once per version, not per operation. Harper
+ * changed gate 1 twice during 5.3, so the bands are named for those changes, not for releases:
+ * - `pre-5.3`: the gate runs after the super_user and structure_user returns, and the SQL path never
+ *   calls it.
+ * - `5.3-early` (5.3.0-alpha.1 to beta.2): it runs ahead of both and on the SQL path, but the
+ *   entries `from-5.3` marks are still unnamed.
+ * - `5.3` (5.3.0-beta.3 on): every entry names its grant as well.
+ */
+export type GrantBand = 'pre-5.3' | '5.3-early' | '5.3';
+
+/** The first tagged build that runs gate 1 first and on `sql` (harper f8a5aa90a). */
+export const ALLOWLIST_GATE_RUNS_FIRST_FROM = '5.3.0-alpha.1';
 
 /** The first tagged build that names every authorization entry, not 5.3.0's earliest prerelease. */
 export const GATE_NAMES_EVERY_ENTRY_FROM = '5.3.0-beta.3';
 
 export function resolveGrantBand(version: string): GrantBand {
-	return wasAReleasedBeforeB(GATE_NAMES_EVERY_ENTRY_FROM, version) ? '5.3' : 'pre-5.3';
+	if (wasAReleasedBeforeB(GATE_NAMES_EVERY_ENTRY_FROM, version)) {
+		return '5.3';
+	}
+	return wasAReleasedBeforeB(ALLOWLIST_GATE_RUNS_FIRST_FROM, version) ? '5.3-early' : 'pre-5.3';
+}
+
+/** Whether a structure user's DDL and `sql` have to be listed too, rather than skipping the list. */
+export function allowlistGatesEveryPath(band: GrantBand): boolean {
+	return band !== 'pre-5.3';
+}
+
+/** Whether this band authorizes the operation on its own path, so the list neither grants nor restricts it. */
+export function isOutOfGate(name: string, band: GrantBand): boolean {
+	return catalogByName.get(name)?.outOfGate === band;
 }
 
 export type GateVerdict = 'grants' | 'needs-5.3' | 'never';
@@ -81,13 +106,13 @@ export function gateVerdict(name: string, band: GrantBand): GateVerdict {
 
 /**
  * Whether listing this name changes nothing: an alias the gate resolves elsewhere, an operation
- * whose handler self-enforces super_user, one the gate cannot match, or `sql`, which is authorized
- * on its own path and so is neither granted nor restricted by the list. The chip and the effective
- * count must agree on this, or the same component credits access it also calls inert.
+ * whose handler self-enforces super_user, one the gate cannot match, or one this band authorizes
+ * on its own path. The chip and the effective count must agree on this, or the same component
+ * credits access it also calls inert.
  */
 export function isInertGrant(name: string, band: GrantBand): boolean {
 	const info = catalogByName.get(name);
-	return !!info?.aliasOf || !!info?.nonDelegable || !!info?.outOfGate || gateVerdict(name, band) !== 'grants';
+	return !!info?.aliasOf || !!info?.nonDelegable || isOutOfGate(name, band) || gateVerdict(name, band) !== 'grants';
 }
 
 export interface OperationGroup {
@@ -155,11 +180,11 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 		name: 'sql',
 		su: false,
 		category: DATA,
-		// serverUtilities routes `sql` to checkASTPermissions/verifyPermsAST, which never consults
-		// the allowlist — so this entry neither grants nor restricts SQL (HarperFast/harper#2175).
-		outOfGate: true,
-		caveat: 'SQL is authorized against table permissions, not this list — listing or omitting it '
-			+ 'does not restrict SQL statements.',
+		// Before 5.3 serverUtilities sends `sql` straight to checkASTPermissions, which never consults the
+		// allowlist. From 5.3.0-alpha.1 it runs gate 1 on `sql` first, so it is a grant like any other.
+		outOfGate: 'pre-5.3',
+		caveat: "This instance's Harper authorizes SQL against table permissions only, so listing or omitting "
+			+ 'sql here changes nothing. Harper 5.3 and later gate it by this list as well.',
 	},
 	{ name: 'insert', su: false, category: DATA },
 	{ name: 'update', su: false, category: DATA },
