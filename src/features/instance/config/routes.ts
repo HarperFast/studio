@@ -7,6 +7,7 @@ import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
+import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
@@ -102,6 +103,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigSecretsIndex,
 	});
 
+	const instanceConfigTrustPoliciesRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'trust-policies',
+		head: () => ({ meta: [{ title: 'Trust Policies — Harper Fabric' }] }),
+		component: ConfigTrustPoliciesIndex,
+	});
+
 	const instanceConfigCertificatesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'certificates',
@@ -134,6 +142,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,
+
+		instanceConfigTrustPoliciesRoute,
 
 		instanceConfigCertificatesRoute,
 		instanceConfigCertificateRoute,
