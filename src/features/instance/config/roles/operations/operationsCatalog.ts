@@ -45,9 +45,10 @@ export interface GrantableOperation {
 }
 
 /**
- * Gate 1 checks a listed name against the authorization entry's `api_name`. Before 5.3 that fell back
- * to the handler's own name when the entry had none, which no snake_case grant can equal
- * (HarperFast/harper#2175); 5.3 names every entry, deliberately naming a few `null`.
+ * Gate 1 checks a listed name against the authorization entry's `api_name`. Before 5.3.0-beta.3 that
+ * fell back to the handler's own name when the entry had none, which no snake_case grant can equal
+ * (HarperFast/harper#2175); beta.3 names every entry, deliberately naming a few `null`. "5.3" below
+ * means the `5.3` band:
  * - `from-5.3`: unnamed before 5.3, so listing it grants nothing there.
  * - `until-5.3`: registered under its wire name, so the fallback matched it; named `null` from 5.3.
  * - `never`: no version lets a listing reach it, so it is not offered.
@@ -66,7 +67,7 @@ export type GateChange = 'from-5.3' | 'until-5.3' | 'never';
 export type GrantBand = 'pre-5.3' | '5.3-early' | '5.3';
 
 /** The first tagged build that runs gate 1 first and on `sql` (harper f8a5aa90a). */
-export const ALLOWLIST_GATE_RUNS_FIRST_FROM = '5.3.0-alpha.1';
+const ALLOWLIST_GATE_RUNS_FIRST_FROM = '5.3.0-alpha.1';
 
 /** The first tagged build that names every authorization entry, not 5.3.0's earliest prerelease. */
 export const GATE_NAMES_EVERY_ENTRY_FROM = '5.3.0-beta.3';
@@ -83,7 +84,6 @@ export function allowlistGatesEveryPath(band: GrantBand): boolean {
 	return band !== 'pre-5.3';
 }
 
-/** Whether this band authorizes the operation on its own path, so the list neither grants nor restricts it. */
 export function isOutOfGate(name: string, band: GrantBand): boolean {
 	return catalogByName.get(name)?.outOfGate === band;
 }
