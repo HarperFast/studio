@@ -4,6 +4,7 @@ import { ReplicatedResponse } from '@/integrations/api/replication';
 import { SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { useMutation } from '@tanstack/react-query';
 import { DeployComponentResult, deployComponentStream, DeployStreamEvent } from './deployComponentStream';
+import { DeployRolloutError, followRestartJob } from './restartJob';
 
 export interface DeployComponentFormData {
 	applicationName: string;
@@ -74,8 +75,33 @@ export async function onDeployComponentSubmit({
 	return data as ReplicatedResponse;
 }
 
+/**
+ * Deploy, then — when the deploy handed its rolling restart to a job — follow that job, so the
+ * deploy is not done until every other node has taken the release, or said why it did not.
+ *
+ * A failed job rejects with {@link DeployRolloutError}. A job Studio could not follow resolves with
+ * `rollout.state === 'unfollowable'`, which no caller may report as success.
+ */
+export async function deployAndFollowComponent(args: DeployComponentArgs): Promise<DeployComponentResult> {
+	const result = await onDeployComponentSubmit(args);
+	const jobId = result?.restartJobId;
+	if (typeof jobId !== 'string' || !jobId) {
+		return result;
+	}
+	const rollout = await followRestartJob({
+		instanceClient: args.instanceClient,
+		jobId,
+		signal: args.signal,
+		onUpdate: (snapshot) => args.onEvent?.({ type: 'rollout', data: snapshot }),
+	});
+	if (rollout.state === 'failed') {
+		throw new DeployRolloutError(rollout, result.deployment_id);
+	}
+	return { ...result, rollout };
+}
+
 export function useDeployComponentMutation() {
 	return useMutation({
-		mutationFn: onDeployComponentSubmit,
+		mutationFn: deployAndFollowComponent,
 	});
 }

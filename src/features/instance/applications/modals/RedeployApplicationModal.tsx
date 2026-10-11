@@ -9,11 +9,13 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
+import { describeUnfollowable } from '@/features/instance/applications/components/DeployProgress/describeDeployOutcome';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
@@ -22,7 +24,7 @@ import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { reportDeployHealth } from './reportDeployHealth';
+import { deployNotes, reportDeployOutcome } from './reportDeployHealth';
 
 export function RedeployApplicationModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRedeployApplicationModal', false);
@@ -87,12 +89,14 @@ export function RedeployApplicationModal() {
 					...instanceParams,
 				},
 				{
-					onSuccess: async () => {
-						stream.markSettled('success');
+					onSuccess: async (result) => {
+						stream.markSettled('success', undefined, { result });
 						invalidateComponents();
-						const health = await runHealthCheck(project);
-						reportDeployHealth(project, health);
-						closeModal();
+						const known = await reportDeployOutcome(project, result, runHealthCheck);
+						// Left open when there is something to read in it: an outcome Studio couldn't confirm, or a warning.
+						if (known && !deployNotes(result).warn) {
+							closeModal();
+						}
 					},
 					onError: async (error) => {
 						// The deploy started but the live stream dropped — verify via health check
@@ -100,12 +104,20 @@ export function RedeployApplicationModal() {
 						if (error instanceof SSEInconclusiveError) {
 							stream.markSettled('inconclusive');
 							invalidateComponents();
-							const health = await runHealthCheck(project);
-							reportDeployHealth(project, health);
+							await reportDeployOutcome(project, undefined, runHealthCheck);
 							closeModal();
 							return;
 						}
-						stream.markSettled('error', error instanceof Error ? error.message : String(error));
+						if (error instanceof DeployRolloutError) {
+							// Live on the node that received it; the rollout section names the nodes that did not take it.
+							stream.markSettled('error', undefined, { failure: error });
+							invalidateComponents();
+							toast.error(`${project} did not reach every node`, { description: error.message });
+							return;
+						}
+						stream.markSettled('error', error instanceof Error ? error.message : String(error), {
+							failure: error,
+						});
 						toast.error(`Failed to redeploy ${project}`, {
 							description: error instanceof Error ? error.message : undefined,
 						});
@@ -126,11 +138,26 @@ export function RedeployApplicationModal() {
 			reDeployApplication(
 				{ applicationName: openedEntry.project, applicationUrl, installCommand, ...instanceParams },
 				{
-					onSuccess: () => {
-						toast.success(`Application ${openedEntry.project} redeployed successfully`, { id: toastId });
+					onSuccess: (result) => {
+						if (result?.rollout?.state === 'unfollowable') {
+							toast.warning(`${openedEntry.project} redeployed on the node that received it`, {
+								id: toastId,
+								description: describeUnfollowable(result.rollout),
+							});
+						} else {
+							toast.success(`Application ${openedEntry.project} redeployed successfully`, { id: toastId });
+						}
 						invalidateComponents();
 					},
-					onError: () => {
+					onError: (error) => {
+						if (error instanceof DeployRolloutError) {
+							toast.error(`${openedEntry.project} did not reach every node`, {
+								id: toastId,
+								description: error.message,
+							});
+							invalidateComponents();
+							return;
+						}
 						toast.dismiss(toastId);
 					},
 				},

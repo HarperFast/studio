@@ -38,12 +38,18 @@ export class SSEOperationError extends Error {
 	readonly code?: string | number;
 	readonly phase?: string;
 	readonly deploymentId?: string;
+	/** A deploy its canary refused carries the decision here, as sent (Harper 5.4.0+). */
+	readonly certification?: unknown;
 
-	constructor(message: string, details?: { code?: string | number; phase?: string; deploymentId?: string }) {
+	constructor(
+		message: string,
+		details?: { code?: string | number; phase?: string; deploymentId?: string; certification?: unknown },
+	) {
 		super(message);
 		this.name = 'SSEOperationError';
 		this.code = details?.code;
 		this.phase = details?.phase;
 		this.deploymentId = details?.deploymentId;
+		this.certification = details?.certification;
 	}
 }

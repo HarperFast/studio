@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DeployRolloutError } from '../api/instance/applications/restartJob';
 import { ImportJobError } from '../api/instance/database/getJob';
 import { SSEOperationError } from '../api/sse/errors';
 import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
@@ -62,6 +63,21 @@ describe('redactRelayedMessage', () => {
 		const frames = '\n  at waitForJob @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234';
 		expect(redactRelayedStack(error.name, error.message, `ImportJobError: ${error.message}${frames}`))
 			.toBe(WITHHELD + frames);
+	});
+
+	it("withholds a rolling deploy's failed restart job, whose message quotes each node's error", () => {
+		const error = new DeployRolloutError({
+			jobId: 'job-1',
+			state: 'failed',
+			nodes: [{ node: 'node-b', outcome: 'failed', detail: 'acme-billing.jsResource: Cannot find module' }],
+			message: 'Deployment d1 of acme-billing was not activated on 1 of 1 peer node(s): node-b (acme-billing...)',
+		});
+		expect(error.name).toBe('DeployRolloutError');
+		expect(redactRelayedMessage(error.name, error.message)).toBe(WITHHELD);
+		const frames = '\n  at deployAndFollowComponent @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234';
+		const redacted = redactRelayedStack(error.name, error.message, `DeployRolloutError: ${error.message}${frames}`);
+		expect(redacted).not.toContain('acme-billing');
+		expect(redacted).toBe(WITHHELD + frames);
 	});
 
 	it('removes exactly the message and keeps what follows', () => {

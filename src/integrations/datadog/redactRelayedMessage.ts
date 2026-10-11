@@ -19,9 +19,10 @@
  * `SSEOperationError`'s `code` and `phase`, which reach the browser but are not on the RUM event;
  * reporting them deliberately would restore that detail without the message.
  *
- * `ImportJobError` is the same relay for a failed load job, whose text quotes the rejected rows.
+ * `ImportJobError` is the same relay for a failed load job, whose text quotes the rejected rows, and
+ * `DeployRolloutError` for a rolling deploy's failed restart job, whose text quotes each node's error.
  */
-const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError']);
+const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError', 'DeployRolloutError']);
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
 

@@ -1,7 +1,9 @@
 import { ReplicatedResponse } from '@/integrations/api/replication';
-import { parseSSEData } from '@/integrations/api/sse/parseSSEStream';
+import { parseSSEData, SSEMessage } from '@/integrations/api/sse/parseSSEStream';
 import { ResolveInstanceConnectionParams } from '@/integrations/api/sse/resolveInstanceConnection';
 import { streamOperation } from '@/integrations/api/sse/streamOperation';
+import { DeployCertification } from './deployOutcome';
+import { RolloutSnapshot } from './restartJob';
 
 /** Lifecycle phases Harper's `deploy_component` emits, in order. */
 export const DEPLOY_PHASE_ORDER = ['prepare', 'load', 'replicate', 'restart', 'success'] as const;
@@ -29,15 +31,52 @@ export interface DeployPeerEvent {
 	[key: string]: unknown;
 }
 
-/** A live deploy event, discriminated by `type`, surfaced to the UI via `onEvent`. */
+/** Something the deploy wants a person to know without failing, e.g. a peer that installed different code (5.3.1+). */
+export interface DeployWarningEvent {
+	message?: string;
+}
+
+/**
+ * A live deploy event, discriminated by `type`, surfaced to the UI via `onEvent`. `rollout` is Studio's
+ * own: how the other nodes are taking the release, read from the restart job after the deploy answered.
+ */
 export type DeployStreamEvent =
 	| { type: 'phase'; data: DeployPhaseEvent }
 	| { type: 'install'; data: DeployInstallEvent }
-	| { type: 'peer'; data: DeployPeerEvent };
+	| { type: 'peer'; data: DeployPeerEvent }
+	| { type: 'warning'; data: DeployWarningEvent }
+	| { type: 'rollout'; data: RolloutSnapshot };
 
 export interface DeployComponentResult extends ReplicatedResponse {
 	deployment_id?: string;
 	phase?: string;
+	certification?: DeployCertification;
+	/** The `restart_service` job a rolling restart hands the other nodes to. */
+	restartJobId?: string;
+	/** The `warning` events the deploy streamed. */
+	warnings?: string[];
+	/** How the other nodes took the release, once Studio followed `restartJobId`. */
+	rollout?: RolloutSnapshot;
+}
+
+/** The deploy events a `deploy_component` or `get_deployment` stream carries; anything else is not one. */
+export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | undefined {
+	switch (message.event) {
+		case 'phase':
+			return { type: 'phase', data: parseSSEData(message) as DeployPhaseEvent };
+		case 'install':
+			return { type: 'install', data: parseSSEData(message) as DeployInstallEvent };
+		case 'peer':
+			return { type: 'peer', data: parseSSEData(message) as DeployPeerEvent };
+		case 'warning': {
+			const data = parseSSEData(message);
+			return {
+				type: 'warning',
+				data: typeof data === 'string' ? { message: data } : (data as DeployWarningEvent | undefined) ?? {},
+			};
+		}
+	}
+	return undefined;
 }
 
 export interface DeployComponentStreamParams {
@@ -53,7 +92,7 @@ export interface DeployComponentStreamParams {
 }
 
 /**
- * Run `deploy_component` over SSE, forwarding live phase/install/peer events to `onEvent`
+ * Run `deploy_component` over SSE, forwarding live phase/install/peer/warning events to `onEvent`
  * and resolving with the terminal `done` result.
  *
  * Throws the transport errors from `@/integrations/api/sse/errors`:
@@ -71,6 +110,7 @@ export async function deployComponentStream({
 	signal,
 	onEvent,
 }: DeployComponentStreamParams): Promise<DeployComponentResult> {
+	const warnings: string[] = [];
 	const result = await streamOperation({
 		connection,
 		body: {
@@ -83,22 +123,17 @@ export async function deployComponentStream({
 		},
 		signal,
 		onMessage: (message) => {
-			if (!onEvent) {
+			const event = toDeployStreamEvent(message);
+			if (!event) {
 				return;
 			}
-			switch (message.event) {
-				case 'phase':
-					onEvent({ type: 'phase', data: parseSSEData(message) as DeployPhaseEvent });
-					break;
-				case 'install':
-					onEvent({ type: 'install', data: parseSSEData(message) as DeployInstallEvent });
-					break;
-				case 'peer':
-					onEvent({ type: 'peer', data: parseSSEData(message) as DeployPeerEvent });
-					break;
+			if (event.type === 'warning' && typeof event.data.message === 'string' && event.data.message) {
+				warnings.push(event.data.message);
 			}
+			onEvent?.(event);
 		},
 	});
 
-	return (result ?? {}) as DeployComponentResult;
+	const deployed = (result ?? {}) as DeployComponentResult;
+	return warnings.length ? { ...deployed, warnings } : deployed;
 }

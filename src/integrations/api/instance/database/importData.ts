@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { errorText } from '@/lib/errorText';
 import { useMutation } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { onAddCSVDataSubmit } from './addCSVData';
@@ -67,7 +68,7 @@ export async function importData({
 		case 'csv-data': {
 			const { job_id } = await onAddCSVDataSubmit({ database, table, fileData: source.data, instanceClient });
 			const job = await waitForJob({ jobId: job_id, instanceClient });
-			return { message: job.message || 'CSV data imported successfully' };
+			return { message: errorText(job.message) ?? 'CSV data imported successfully' };
 		}
 		case 'csv-url': {
 			const { data } = await instanceClient.post<{ message: string; job_id: string }>('/', {
@@ -78,7 +79,7 @@ export async function importData({
 				action: 'insert',
 			});
 			const job = await waitForJob({ jobId: data.job_id, instanceClient });
-			return { message: job.message || 'CSV data imported successfully' };
+			return { message: errorText(job.message) ?? 'CSV data imported successfully' };
 		}
 		case 'json-records': {
 			const result = await insertTableRecords({

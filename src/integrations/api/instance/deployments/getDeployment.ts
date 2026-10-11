@@ -1,12 +1,6 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { EntityIds } from '@/features/auth/store/authStore';
-import {
-	DeployInstallEvent,
-	DeployPeerEvent,
-	DeployPhaseEvent,
-	DeployStreamEvent,
-} from '@/integrations/api/instance/applications/deployComponentStream';
-import { parseSSEData } from '@/integrations/api/sse/parseSSEStream';
+import { DeployStreamEvent, toDeployStreamEvent } from '@/integrations/api/instance/applications/deployComponentStream';
 import { ResolveInstanceConnectionParams } from '@/integrations/api/sse/resolveInstanceConnection';
 import { streamOperation } from '@/integrations/api/sse/streamOperation';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
@@ -70,19 +64,9 @@ export async function getDeploymentStream({
 		body: { operation: 'get_deployment', deployment_id: deploymentId },
 		signal,
 		onMessage: (message) => {
-			if (!onEvent) {
-				return;
-			}
-			switch (message.event) {
-				case 'phase':
-					onEvent({ type: 'phase', data: parseSSEData(message) as DeployPhaseEvent });
-					break;
-				case 'install':
-					onEvent({ type: 'install', data: parseSSEData(message) as DeployInstallEvent });
-					break;
-				case 'peer':
-					onEvent({ type: 'peer', data: parseSSEData(message) as DeployPeerEvent });
-					break;
+			const event = onEvent && toDeployStreamEvent(message);
+			if (event) {
+				onEvent(event);
 			}
 		},
 	});
