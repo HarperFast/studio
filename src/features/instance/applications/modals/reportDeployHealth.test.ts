@@ -4,7 +4,14 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.
 vi.mock('sonner', () => ({ toast }));
 
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
-import { deployNotes, reportDeployOutcome, reportDeployResult } from './reportDeployHealth';
+import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
+import {
+	deployNotes,
+	reportDeployFailure,
+	reportDeployOutcome,
+	reportDeployResult,
+	reportStaged,
+} from './reportDeployHealth';
 
 afterEach(() => {
 	vi.clearAllMocks();
@@ -79,6 +86,39 @@ describe('reportDeployResult', () => {
 		expect(toast.warning).toHaveBeenCalledWith('web deployed on the node that received it', {
 			description: expect.stringContaining("couldn't read this deploy's restart job"),
 		});
+	});
+});
+
+describe('reportStaged', () => {
+	it('names the staged release and says it is waiting, without a health check', () => {
+		reportStaged('web', { message: 'Staged: web', staged: true, deployment_id: 'd1' }, { id: 't1' });
+		expect(toast.success).toHaveBeenCalledWith('web staged', {
+			id: 't1',
+			description: 'Deployment d1 is installed on every node, waiting to be activated.',
+		});
+	});
+
+	it('keeps a staged install difference as a warning', () => {
+		reportStaged('web', { message: 'ok', deployment_id: 'd1', warnings: ['node-b installed npm:web@1.5.0'] });
+		expect(toast.warning).toHaveBeenCalledWith('web staged with warnings', {
+			description: 'Deployment d1 is installed on every node, waiting to be activated. node-b installed npm:web@1.5.0',
+		});
+	});
+});
+
+describe('reportDeployFailure', () => {
+	it('says a rollout failure did not reach every node, not that nothing landed', () => {
+		reportDeployFailure(
+			'web',
+			new DeployRolloutError({ jobId: 'j', state: 'failed', nodes: [], message: 'node-c rejected it' }),
+			'activate',
+		);
+		expect(toast.error).toHaveBeenCalledWith('web did not reach every node', { description: 'node-c rejected it' });
+	});
+
+	it('says any other failure failed', () => {
+		reportDeployFailure('web', new Error('404: no such deployment'), 'activate');
+		expect(toast.error).toHaveBeenCalledWith('Failed to activate web', { description: '404: no such deployment' });
 	});
 });
 

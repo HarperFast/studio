@@ -6,13 +6,39 @@ import { useMutation } from '@tanstack/react-query';
 import { DeployComponentResult, deployComponentStream, DeployStreamEvent } from './deployComponentStream';
 import { DeployRolloutError, followRestartJob } from './restartJob';
 
-export interface DeployComponentFormData {
-	applicationName: string;
-	applicationUrl: string;
-	installCommand?: string;
+/**
+ * What a `deploy_component` call does. `stage` builds and installs the release on every node without making it
+ * live, and takes no `restart` (Harper refuses one); `activate` makes a staged or kept release live by its id and
+ * installs nothing. Both need Harper 5.3.0 on every node — an older node reads a stage as an ordinary deploy and
+ * serves it — so a caller offers them only on a version it could read.
+ */
+export type DeployRequest =
+	| { kind: 'deploy'; project: string; package: string; installCommand?: string }
+	| { kind: 'stage'; project: string; package: string; installCommand?: string }
+	| { kind: 'activate'; project: string; deploymentId: string };
+
+export function deployRequestBody(request: DeployRequest, replicated: boolean): Record<string, unknown> {
+	if (request.kind === 'activate') {
+		return {
+			operation: 'deploy_component',
+			project: request.project,
+			deployment_id: request.deploymentId,
+			replicated,
+			restart: 'rolling',
+		};
+	}
+	return {
+		operation: 'deploy_component',
+		package: request.package,
+		project: request.project,
+		replicated,
+		install_command: request.installCommand || undefined,
+		...(request.kind === 'stage' ? { activate: false } : { restart: 'rolling' }),
+	};
 }
 
-export interface DeployComponentArgs extends DeployComponentFormData, InstanceClientConfig, InstanceTypeConfig {
+export interface DeployComponentArgs extends InstanceClientConfig, InstanceTypeConfig {
+	request: DeployRequest;
 	/** Entity id, used to resolve the SSE connection. Present on `useInstanceClientIdParams`. */
 	entityId?: EntityIds;
 	/** Opt into the live SSE deploy (only when the instance is Harper >= 5.1.0). */
@@ -24,9 +50,7 @@ export interface DeployComponentArgs extends DeployComponentFormData, InstanceCl
 }
 
 export async function onDeployComponentSubmit({
-	applicationName,
-	applicationUrl,
-	installCommand,
+	request,
 	entityType,
 	entityId,
 	instanceClient,
@@ -34,20 +58,11 @@ export async function onDeployComponentSubmit({
 	onEvent,
 	signal,
 }: DeployComponentArgs): Promise<DeployComponentResult> {
-	const replicated = entityType === 'cluster';
+	const body = deployRequestBody(request, entityType === 'cluster');
 
 	if (useSSE && entityId) {
 		try {
-			return await deployComponentStream({
-				connection: { id: entityId },
-				package: applicationUrl,
-				project: applicationName,
-				replicated,
-				install_command: installCommand,
-				restart: 'rolling',
-				signal,
-				onEvent,
-			});
+			return await deployComponentStream({ connection: { id: entityId }, body, signal, onEvent });
 		} catch (error) {
 			// Couldn't establish a stream (bad response/content-type/connection) and no deploy
 			// has started yet — safe to fall back to the proven buffered path below.
@@ -60,18 +75,7 @@ export async function onDeployComponentSubmit({
 		}
 	}
 
-	const { data } = await instanceClient.post(
-		'/',
-		{
-			operation: 'deploy_component',
-			package: applicationUrl,
-			project: applicationName,
-			replicated,
-			install_command: installCommand || undefined,
-			restart: 'rolling',
-		},
-		{ timeout: 300_000 },
-	);
+	const { data } = await instanceClient.post('/', body, { timeout: 300_000 });
 	return data as ReplicatedResponse;
 }
 

@@ -9,6 +9,7 @@ vi.mock('@/integrations/api/sse/resolveInstanceConnection', () => ({
 	}),
 }));
 
+import { deployRequestBody } from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { deployFailureDetails, readCertificationDecision } from './deployOutcome';
 import { DeployRolloutError } from './restartJob';
@@ -39,10 +40,7 @@ function sseResponse(body: string): Response {
 function streamDeploy() {
 	return deployComponentStream({
 		connection: { id: 'ins-1' },
-		package: 'npm:web',
-		project: 'web',
-		replicated: true,
-		restart: 'rolling',
+		body: deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web' }, true),
 	});
 }
 
@@ -130,9 +128,7 @@ describe('deployComponentStream', () => {
 		const events: unknown[] = [];
 		const result = await deployComponentStream({
 			connection: { id: 'ins-1' },
-			package: 'npm:web',
-			project: 'web',
-			replicated: true,
+			body: deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web' }, true),
 			onEvent: (event) => events.push(event),
 		});
 		expect(events).toEqual([{ type: 'warning', data: { message: drift } }]);

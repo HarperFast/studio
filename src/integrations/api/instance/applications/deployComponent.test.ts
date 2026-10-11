@@ -5,7 +5,7 @@ vi.mock('./deployComponentStream', () => ({
 }));
 
 import { SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
-import { deployAndFollowComponent, onDeployComponentSubmit } from './deployComponent';
+import { deployAndFollowComponent, deployRequestBody, onDeployComponentSubmit } from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { DeployRolloutError } from './restartJob';
 
@@ -16,8 +16,7 @@ function fakeClient(data: unknown) {
 }
 
 const baseArgs = {
-	applicationName: 'my-app',
-	applicationUrl: 'npm:my-app',
+	request: { kind: 'deploy' as const, project: 'my-app', package: 'npm:my-app' },
 	entityId: 'ins-1' as const,
 	entityType: 'instance' as const,
 };
@@ -26,7 +25,78 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+// Harper's validator decides these shapes: a stage refuses `restart` (harper `v5.3.0:components/operationsValidation.js:517-524`),
+// and an activation refuses `package`, install options and `activate` alongside `deployment_id` (`:613-616`).
+describe('deployRequestBody', () => {
+	it('deploys with a rolling restart', () => {
+		expect(deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web', installCommand: 'npm ci' }, true))
+			.toEqual({
+				operation: 'deploy_component',
+				package: 'npm:web',
+				project: 'web',
+				replicated: true,
+				install_command: 'npm ci',
+				restart: 'rolling',
+			});
+	});
+
+	it('stages with activate: false and no restart', () => {
+		const body = deployRequestBody({ kind: 'stage', project: 'web', package: 'npm:web' }, true);
+		expect(body).toEqual({
+			operation: 'deploy_component',
+			package: 'npm:web',
+			project: 'web',
+			replicated: true,
+			install_command: undefined,
+			activate: false,
+		});
+		expect(body).not.toHaveProperty('restart');
+	});
+
+	it('activates by id alone, with a rolling restart and nothing to install', () => {
+		const body = deployRequestBody({ kind: 'activate', project: 'web', deploymentId: 'a3f8c2d1' }, false);
+		expect(body).toEqual({
+			operation: 'deploy_component',
+			project: 'web',
+			deployment_id: 'a3f8c2d1',
+			replicated: false,
+			restart: 'rolling',
+		});
+		expect(JSON.parse(JSON.stringify(body))).not.toHaveProperty('package');
+	});
+});
+
 describe('onDeployComponentSubmit', () => {
+	it('stages through the buffered path exactly as built', async () => {
+		const client = fakeClient({ message: 'Staged: my-app', staged: true, deployment_id: 'd1' });
+		await onDeployComponentSubmit({
+			...baseArgs,
+			request: { kind: 'stage', project: 'my-app', package: 'npm:my-app' },
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			instanceClient: client as any,
+		});
+		expect(client.post).toHaveBeenCalledWith(
+			'/',
+			expect.objectContaining({ activate: false, project: 'my-app', replicated: false }),
+			{ timeout: 300_000 },
+		);
+		expect(client.post.mock.calls[0][1]).not.toHaveProperty('restart');
+	});
+
+	it('streams the same body it would post', async () => {
+		mockStream.mockResolvedValue({ message: 'ok' });
+		await onDeployComponentSubmit({
+			...baseArgs,
+			request: { kind: 'activate', project: 'my-app', deploymentId: 'd1' },
+			useSSE: true,
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			instanceClient: fakeClient({}) as any,
+		});
+		expect(mockStream).toHaveBeenCalledWith(expect.objectContaining({
+			body: deployRequestBody({ kind: 'activate', project: 'my-app', deploymentId: 'd1' }, false),
+		}));
+	});
+
 	it('uses the buffered axios path when SSE is not requested', async () => {
 		const client = fakeClient({ message: 'buffered' });
 		const result = await onDeployComponentSubmit({

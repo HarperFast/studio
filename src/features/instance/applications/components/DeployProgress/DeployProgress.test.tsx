@@ -119,6 +119,20 @@ describe('DeployProgress canary certification (Harper 5.4+)', () => {
 	});
 });
 
+describe('DeployProgress staging (Harper 5.3+)', () => {
+	it('ends a stage at Staged, with no restart', () => {
+		render(
+			<DeployProgress
+				staging
+				state={deployedState({ phases: { prepare: 'done', replicate: 'done', staged: 'done' } })}
+			/>,
+		);
+		expect(screen.getByText('Staged')).toBeTruthy();
+		expect(screen.queryByText('Restart')).toBeNull();
+		expect(screen.queryByText('Finish')).toBeNull();
+	});
+});
+
 describe('DeployProgress warnings and rollout', () => {
 	it('keeps the warnings the deploy streamed', () => {
 		render(<DeployProgress state={deployedState({ warnings: ['Install fingerprints differ on node-b'] })} />);

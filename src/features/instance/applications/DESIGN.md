@@ -31,3 +31,15 @@ node the job could not reach is listed with its error and the job still complete
 Canary certification is shown only when the response carries it, which only 5.4+ does. There is no version check on
 the deploy path: `registration_info` is denied to a role with an operations allowlist, which is exactly the kind of
 role that may be allowed to deploy, so a version gate there would hide the result from it.
+
+## Staging and activation are gated the other way
+
+Stage only (`activate: false`) and Activate (`deployment_id`) are offered only when `registration_info` reads 5.3.0 or
+later (`useStagedDeploymentsAvailable`), and an unreadable version offers neither. The difference from certification is
+what happens when the guess is wrong: a node older than 5.3.0 accepts `activate: false` as an unknown field and makes
+the release live, which is the opposite of what the person asked for. Certification only adds a field to a response.
+
+All three kinds of request are built in one place, [`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts),
+because Harper's validator refuses the wrong mix outright: a stage with `restart`, or an activation carrying `package`,
+install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
+nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.

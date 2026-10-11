@@ -4,6 +4,7 @@ import {
 } from '@/features/instance/applications/components/DeployProgress/describeDeployOutcome';
 import { ComponentHealthResult } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
+import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { toast } from 'sonner';
 
 interface DeployNotes {
@@ -12,7 +13,7 @@ interface DeployNotes {
 }
 
 /** A toast's link to the deployment's record, and the toast to replace, when a caller has them. */
-export interface DeployToastOptions {
+interface DeployToastOptions {
 	id?: string | number;
 	action?: { label: string; onClick: () => void };
 }
@@ -117,7 +118,7 @@ export async function reportDeployOutcome(
 export function reportDeployResult(
 	project: string,
 	result: DeployComponentResult | undefined,
-	success: { title: string; description?: string },
+	success: { title: string; description?: string; warningTitle?: string },
 	options: DeployToastOptions = {},
 ): void {
 	if (reportUnfollowable(project, result, options)) {
@@ -125,10 +126,44 @@ export function reportDeployResult(
 	}
 	const notes = deployNotes(result);
 	if (notes.warn) {
-		toast.warning(`${project} deployed with warnings`, { ...options, description: withNotes(undefined, notes) });
+		toast.warning(success.warningTitle ?? `${project} deployed with warnings`, {
+			...options,
+			description: withNotes(success.description, notes),
+		});
 		return;
 	}
 	toast.success(success.title, { ...options, description: withNotes(success.description, notes) });
+}
+
+/** A deploy that failed: a rollout failure says the release is live where it was received, not that nothing landed. */
+export function reportDeployFailure(
+	project: string,
+	error: unknown,
+	verb: string,
+	options: DeployToastOptions = {},
+): void {
+	if (error instanceof DeployRolloutError) {
+		toast.error(`${project} did not reach every node`, { ...options, description: error.message });
+		return;
+	}
+	toast.error(`Failed to ${verb} ${project}`, {
+		...options,
+		description: error instanceof Error ? error.message : undefined,
+	});
+}
+
+/** A stage (5.3.0+) succeeds only once every node confirmed it, and changes nothing that is running. */
+export function reportStaged(
+	project: string,
+	result: DeployComponentResult | undefined,
+	options: DeployToastOptions = {},
+): void {
+	const id = result?.deployment_id;
+	reportDeployResult(project, result, {
+		title: `${project} staged`,
+		warningTitle: `${project} staged with warnings`,
+		description: `${id ? `Deployment ${id}` : 'It'} is installed on every node, waiting to be activated.`,
+	}, options);
 }
 
 function reportUnfollowable(
