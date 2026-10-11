@@ -2,6 +2,7 @@ import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
+	forgetAllEntitySettings,
 	forgetEntitySettings,
 	pruneStaleEntitySettings,
 	scrubLegacySettings,
@@ -276,15 +277,13 @@ class AuthStore {
 	): void {
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
+			this.updateConnectionIfChanged(id, false, user);
 		} else {
-			this.flagKeyAsSignedOut(id);
 			// Every per-entity disconnect funnels through here (ClusterHome/ClusterCard call
-			// setUserForEntity(entity, null)), so clear the API explorer's stored credentials for the
-			// entity here too — otherwise the next user to sign into the same entity would inherit them.
-			forgetEntitySettings(id);
-			this.bumpExplorerAuthEpoch(id);
+			// setUserForEntity(entity, null)), so it clears the API explorer's stored credentials too —
+			// otherwise the next user to sign into the same entity would inherit them.
+			this.clearSignIn(id);
 		}
-		this.updateConnectionIfChanged(id, false, user);
 	}
 
 	public updateUserForEntity(entity: EntityTypes, changes: Partial<AuthenticatedConnection['user']>): void {
@@ -322,7 +321,7 @@ class AuthStore {
 		if (credentials !== null) {
 			localStorage.setItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
 		} else {
-			localStorage.removeItem(this.basicAuthKeyPrefix + id);
+			removeStoredItem(this.basicAuthKeyPrefix + id);
 		}
 	}
 
@@ -330,9 +329,9 @@ class AuthStore {
 		if (toggled) {
 			localStorage.setItem(this.fabricConnectKeyPrefix + id, 'true');
 		} else {
-			localStorage.removeItem(this.fabricConnectKeyPrefix + id);
 			this.fabricConnectAuth.delete(id);
 			this.bumpConnectionGeneration(id);
+			removeStoredItem(this.fabricConnectKeyPrefix + id);
 		}
 	}
 
@@ -554,6 +553,7 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
+		forgetAllEntitySettings();
 		const logouts: Array<Promise<void>> = [];
 		for (const entityId of Object.keys(this.potentiallyAuthenticated)) {
 			// The clears below drop the operations URL and token the client resolves from.
@@ -599,10 +599,14 @@ class AuthStore {
 	 * instance also signs Studio out of its cluster.
 	 */
 	public signOutLocally(id: EntityIds): void {
+		this.clearSignIn(id);
 		this.flagForBasicAuth(id, null);
 		this.flagForFabricConnect(id, false);
-		this.flagKeyAsSignedOut(id);
+	}
+
+	private clearSignIn(id: EntityIds): void {
 		this.updateConnectionIfChanged(id, false, null);
+		this.flagKeyAsSignedOut(id);
 		forgetEntitySettings(id);
 		this.bumpExplorerAuthEpoch(id);
 	}
@@ -617,6 +621,7 @@ class AuthStore {
 	 * per-instance logouts.
 	 */
 	public signOutAllLocally(): void {
+		forgetAllEntitySettings();
 		// Snapshot keys first — signOutLocally mutates the flags as it goes.
 		for (const id of Object.keys(this.potentiallyAuthenticated)) {
 			this.signOutLocally(id);
@@ -669,7 +674,14 @@ class AuthStore {
 	private flagKeyAsSignedOut(id: EntityIds) {
 		if (this.potentiallyAuthenticated[id]) {
 			delete this.potentiallyAuthenticated[id];
-			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
+			try {
+				localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
+			} catch {
+				// Fail closed. A marker left behind makes the next page load probe this entity with its
+				// cookies, and a session that outlived the sign-out would sign it back in; losing every
+				// marker only makes the other entities look signed out on that load.
+				removeStoredItem(this.potentiallyAuthenticatedKey);
+			}
 		}
 	}
 
@@ -742,6 +754,14 @@ class AuthStore {
 		}
 		this.updateConnectionIfChanged(id, false, user);
 		return user;
+	}
+}
+
+function removeStoredItem(key: string): void {
+	try {
+		localStorage.removeItem(key);
+	} catch {
+		// A sign-out must still reach its in-memory steps when storage refuses access.
 	}
 }
 

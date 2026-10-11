@@ -110,11 +110,20 @@ function readMap(): Record<string, ExplorerEntitySettings> {
 	return map;
 }
 
-function writeMap(map: Record<string, ExplorerEntitySettings>): void {
+function writeMap(map: Record<string, ExplorerEntitySettings>): boolean {
 	try {
 		setSessionStorage<Record<string, ExplorerEntitySettings>, typeof KEY>(KEY, map);
+		return true;
 	} catch {
 		// Storage disabled/full — the in-memory state still drives the current session's requests.
+		return false;
+	}
+}
+
+/** A rewrite that removes a credential and fails must not leave that credential readable. */
+function writeMapOrForgetAll(map: Record<string, ExplorerEntitySettings>): void {
+	if (!writeMap(map)) {
+		forgetAllEntitySettings();
 	}
 }
 
@@ -135,7 +144,7 @@ export function forgetEntitySettings(entityId: string): void {
 	const map = readMap();
 	if (Object.hasOwn(map, entityId)) {
 		delete map[entityId];
-		writeMap(map);
+		writeMapOrForgetAll(map);
 	}
 }
 
@@ -158,7 +167,7 @@ export function pruneStaleEntitySettings(currentGeneration: (entityId: string) =
 		}
 	}
 	if (changed) {
-		writeMap(map);
+		writeMapOrForgetAll(map);
 	}
 }
 
