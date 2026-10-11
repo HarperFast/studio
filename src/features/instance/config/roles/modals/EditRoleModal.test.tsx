@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 	alterRoleMutate: vi.fn(),
 	schema: {} as InstanceDatabaseMap,
 	describeAllFails: false,
+	registrationFails: false,
 	selfRoleId: 'someone-elses-role',
 }));
 
@@ -56,7 +57,13 @@ vi.mock('@/integrations/api/instance/database/getDescribeAll', () => ({
 vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 	getRegistrationInfoQueryOptions: () => ({
 		queryKey: ['test', 'registration_info'],
-		queryFn: () => ({ version: '5.2.2' }),
+		queryFn: () => {
+			if (mocks.registrationFails) {
+				throw new Error('registration_info failed');
+			}
+			return { version: '5.2.2' };
+		},
+		retry: false,
 	}),
 }));
 
@@ -85,6 +92,7 @@ beforeAll(() => {
 beforeEach(() => {
 	mocks.schema = dogSchema;
 	mocks.describeAllFails = false;
+	mocks.registrationFails = false;
 	mocks.selfRoleId = 'someone-elses-role';
 });
 
@@ -279,6 +287,20 @@ describe('EditRoleModal visual editor', () => {
 		expect(await screen.findByRole('button', { name: /Retry/ })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Visual editor/ })).toBeNull();
 		expect(save()).toEqual({ data: readOnlyDog([]) });
+	});
+
+	it('without the instance version, will not save a malformed operations value it might drop', async () => {
+		mocks.registrationFails = true;
+		renderModal({ structure_user: true, operations: 'read_only' });
+
+		expect(await screen.findByRole('button', { name: /Retry/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Save Changes' }).hasAttribute('disabled')).toBe(true);
+		cleanup();
+
+		// A list of names is still saveable: preparePermissionForSave keeps it either way.
+		renderModal({ structure_user: true, operations: ['read_only'] });
+		await screen.findByRole('button', { name: /Retry/ });
+		expect(save()).toEqual({ structure_user: true, operations: ['read_only'] });
 	});
 
 	it('warns when the role changes elsewhere while open, and can load that version', async () => {
