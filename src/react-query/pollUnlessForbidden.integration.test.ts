@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { getStatusQueryOptions } from '@/integrations/api/instance/status/getStatus';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 import { AxiosError } from 'axios';
@@ -154,6 +155,46 @@ describe('poll-stops-on-403, end to end', () => {
 
 		// Retries alone would cap at 3; anything beyond that is the poll timer still running.
 		expect(post.mock.calls.length).toBeGreaterThan(3);
+		unsubscribe();
+	});
+
+	it('backs off a sustained 5xx instead of polling every 10s for the life of the tab', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(500));
+		const { unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+		// Each fetch is 4 requests 10s apart (`retry: 3`, `retryDelay: 10_000`), so a fixed 10s
+		// cadence would make 361.
+		expect(post).toHaveBeenCalledTimes(60);
+		unsubscribe();
+	});
+
+	it('keeps the 10s cadence through the first minute of 5xx so a restart is noticed promptly', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(503));
+		const { unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(90_000);
+
+		expect(post).toHaveBeenCalledTimes(10);
+		unsubscribe();
+	});
+
+	it('refetches at once when the entity is invalidated mid back-off, then resumes the 10s cadence', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(502));
+		const { unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(30 * 60_000);
+		post.mockResolvedValue(okStatus);
+		const beforeInvalidation = post.mock.calls.length;
+		// The path a settled restart takes (`onRestartSettled` → `invalidateEntityQueries`).
+		void invalidateEntityQueries(queryClient, 'ins-test');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(post.mock.calls.length).toBe(beforeInvalidation + 1);
+
+		await vi.advanceTimersByTimeAsync(60_000);
+
+		expect(post.mock.calls.length - beforeInvalidation - 1).toBe(6);
 		unsubscribe();
 	});
 

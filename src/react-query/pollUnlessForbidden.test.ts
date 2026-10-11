@@ -58,6 +58,14 @@ describe('pollUnlessForbidden', () => {
 		expect(pollUnlessForbidden(10_000)(queryWithError(new Error('Network Error')))).toBe(10_000);
 	});
 
+	it('stops on a 403 even in the middle of a run of 5xx', () => {
+		const poll = pollUnlessForbidden(10_000);
+		const query = { state: { error: axiosErrorWithStatus(503) as unknown, errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		poll(query);
+		query.state = { error: axiosErrorWithStatus(403), errorUpdatedAt: 10 * 60_000, dataUpdatedAt: 0 };
+		expect(poll(query)).toBe(false);
+	});
+
 	it('normalizes a disabled interval to false', () => {
 		expect(pollUnlessForbidden(undefined)(queryWithError(null))).toBe(false);
 		expect(pollUnlessForbidden(false)(queryWithError(null))).toBe(false);
@@ -141,12 +149,14 @@ describe('pollUnlessForbidden on a sustained 400', () => {
 		expect(poll(query)).toBe(40_000);
 	});
 
-	it('does not back off other failures — 5xx and network errors keep the base interval', () => {
-		const poll = pollUnlessForbidden(10_000);
-		expect(poll({ state: { error: axiosErrorWithStatus(500), errorUpdatedAt: 60 * 60_000, dataUpdatedAt: 0 } }))
-			.toBe(10_000);
-		expect(poll({ state: { error: new Error('Network Error'), errorUpdatedAt: 60 * 60_000, dataUpdatedAt: 0 } }))
-			.toBe(10_000);
+	it('does not back off other failures — network errors, 401, 404 and 429 keep the base interval', () => {
+		for (const error of [new Error('Network Error'), ...[401, 404, 429].map(axiosErrorWithStatus)]) {
+			const poll = pollUnlessForbidden(10_000);
+			const query = { state: { error, errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+			poll(query);
+			query.state = { ...query.state, errorUpdatedAt: 60 * 60_000 };
+			expect(poll(query)).toBe(10_000);
+		}
 	});
 
 	it('keeps the run through a transient failure with no success in between', () => {
@@ -193,6 +203,101 @@ describe('pollUnlessForbidden on a sustained 400', () => {
 		poll(query);
 		query.state = { ...query.state, errorUpdatedAt: 60 * 60_000 };
 		expect(poll(query)).toBe(10 * 60_000);
+	});
+});
+
+describe('pollUnlessForbidden on a sustained 5xx', () => {
+	function pollingQuery(interval = 10_000) {
+		const query: { state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number } } = {
+			state: { error: null, dataUpdatedAt: 0 },
+		};
+		const poll = pollUnlessForbidden(interval);
+		return {
+			failAt(at: number, status = 503) {
+				query.state = { ...query.state, error: axiosErrorWithStatus(status), errorUpdatedAt: at };
+				return poll(query);
+			},
+			succeedAt(at: number) {
+				query.state = { ...query.state, error: null, dataUpdatedAt: at };
+				return poll(query);
+			},
+		};
+	}
+
+	it('keeps the base interval for the first minute after the run settles into an error', () => {
+		const q = pollingQuery();
+		expect(q.failAt(1_000_000)).toBe(10_000);
+		expect(q.failAt(1_030_000)).toBe(10_000);
+		expect(q.failAt(1_060_000)).toBe(10_000);
+		expect(q.failAt(1_070_000)).toBe(10_000);
+	});
+
+	it('then waits as long as the run has outlasted the grace', () => {
+		const q = pollingQuery();
+		q.failAt(1_000_000);
+		expect(q.failAt(1_080_000)).toBe(20_000);
+		expect(q.failAt(1_100_000)).toBe(40_000);
+		expect(q.failAt(1_140_000)).toBe(80_000);
+	});
+
+	it('caps the back-off at five minutes so a recovered cluster is still noticed', () => {
+		const q = pollingQuery();
+		q.failAt(0);
+		expect(q.failAt(2 * 60 * 60_000)).toBe(FIVE_MINUTES);
+	});
+
+	it('covers exactly 500–599', () => {
+		for (const status of [500, 502, 504, 599]) {
+			const q = pollingQuery();
+			q.failAt(0, status);
+			expect(q.failAt(60 * 60_000, status)).toBe(FIVE_MINUTES);
+		}
+		for (const status of [499, 600]) {
+			const q = pollingQuery();
+			q.failAt(0, status);
+			expect(q.failAt(60 * 60_000, status)).toBe(10_000);
+		}
+	});
+
+	it('returns to the base interval after a success, and a later 5xx starts a fresh grace', () => {
+		const q = pollingQuery();
+		q.failAt(1_000_000);
+		expect(q.failAt(1_600_000)).toBe(FIVE_MINUTES);
+		expect(q.succeedAt(1_610_000)).toBe(10_000);
+		expect(q.failAt(1_620_000)).toBe(10_000);
+		expect(q.failAt(1_680_000)).toBe(10_000);
+		expect(q.failAt(1_700_000)).toBe(20_000);
+	});
+
+	it('shares one run with 400s, and only the 5xx ticks get the grace', () => {
+		const q = pollingQuery();
+		q.failAt(0, 400);
+		expect(q.failAt(30_000, 503)).toBe(10_000);
+		expect(q.failAt(120_000, 503)).toBe(60_000);
+		expect(q.failAt(130_000, 400)).toBe(130_000);
+
+		const r = pollingQuery();
+		r.failAt(0, 503);
+		expect(r.failAt(40_000, 400)).toBe(40_000);
+	});
+
+	it('backs a 5s poll off from 5s once the grace is spent', () => {
+		const q = pollingQuery(5_000);
+		q.failAt(0);
+		expect(q.failAt(60_000)).toBe(5_000);
+		expect(q.failAt(70_000)).toBe(10_000);
+	});
+
+	it('never shortens an interval already longer than the cap', () => {
+		const q = pollingQuery(10 * 60_000);
+		q.failAt(0);
+		expect(q.failAt(60 * 60_000)).toBe(10 * 60_000);
+	});
+
+	it('falls back to the base interval when the error timestamp is missing or invalid', () => {
+		const poll = pollUnlessForbidden(10_000);
+		expect(poll({ state: { error: axiosErrorWithStatus(503) } })).toBe(10_000);
+		expect(poll({ state: { error: axiosErrorWithStatus(503), errorUpdatedAt: Number.NaN } })).toBe(10_000);
 	});
 });
 
