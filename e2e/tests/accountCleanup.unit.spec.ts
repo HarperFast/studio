@@ -40,6 +40,7 @@ test.describe('deleteSessionAccount', () => {
 		origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 	});
 	test.afterAll(async () => {
+		server.closeAllConnections();
 		await new Promise((resolve) => server.close(resolve));
 	});
 	test.beforeEach(() => {
