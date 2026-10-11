@@ -10,7 +10,7 @@ export const badgeVariants = cva(
 				warning: 'border-yellow bg-yellow/40 text-foreground [a&]:hover:bg-yellow/90',
 				success: 'border-green bg-green/40 text-foreground [a&]:hover:bg-green/90',
 				destructive:
-					'border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+					'border-transparent bg-red-600 text-white [a&]:hover:bg-red-700 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
 				outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
 			},
 		},

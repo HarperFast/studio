@@ -16,7 +16,7 @@ export function httpStatusColorClass(status: number): string {
 		return 'text-blue border-blue/40 bg-blue/10';
 	}
 	if (status < 500) {
-		return 'text-yellow border-yellow/40 bg-yellow/10';
+		return 'text-amber-800 dark:text-yellow border-yellow/40 bg-yellow/10';
 	}
 	return 'text-red border-red/40 bg-red/10';
 }
