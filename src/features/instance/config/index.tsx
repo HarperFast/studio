@@ -3,12 +3,14 @@ import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
+	BadgeCheckIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -37,6 +39,7 @@ export function ConfigIndex() {
 	// (harper#1554). Floor at the earliest 5.2 prerelease so alpha/beta dev builds pass too — a
 	// plain '5.2.0' gate would exclude every prerelease (SemVer ranks prereleases below the release).
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
+	const trustPoliciesSupported = supportsTrustPolicies(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -121,6 +124,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<KeyIcon className="hidden md:inline-block" /> <span className="ms-3">SSH Keys</span>
+					</Link>
+				</li>
+			)}
+			{trustPoliciesSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/trust-policies')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<BadgeCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Trust Policies</span>
 					</Link>
 				</li>
 			)}
