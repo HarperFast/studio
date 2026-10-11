@@ -12,7 +12,6 @@
  * `status` shows the server refused it (see `onDeployComponentSubmit`).
  */
 export class SSEUnsupportedError extends Error {
-	/** The response's status, or undefined when no response arrived. */
 	readonly status?: number;
 
 	constructor(message: string, options?: { cause?: unknown; status?: number }) {

@@ -92,7 +92,8 @@ export interface DeployComponentStreamParams {
  * and resolving with the terminal `done` result.
  *
  * Throws the transport errors from `@/integrations/api/sse/errors`:
- * - `SSEUnsupportedError` — the server/proxy didn't stream; caller should retry buffered.
+ * - `SSEUnsupportedError` — the server/proxy didn't stream. Resend buffered only when its `status` is a 4xx
+ *   refusal (`onDeployComponentSubmit` decides); anything else may follow a deploy already running.
  * - `SSEOperationError` — the deploy failed (terminal `error` event).
  * - `SSEInconclusiveError` — the stream ended without a verdict; caller must poll.
  */
