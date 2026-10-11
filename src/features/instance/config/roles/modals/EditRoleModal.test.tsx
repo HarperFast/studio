@@ -160,3 +160,47 @@ describe('EditRoleModal operations wiring', () => {
 		expect(alterRoleMutate).not.toHaveBeenCalled();
 	});
 });
+
+// A stored `attribute_permissions: null` makes every `['*']` read the role sends 500 (#1299,
+// HarperFast/harper#3143), so no save may send one.
+describe('EditRoleModal attribute_permissions', () => {
+	const readOnlyDog = (attributePermissions: unknown) => ({
+		tables: {
+			dog: { read: true, insert: false, update: false, delete: false, attribute_permissions: attributePermissions },
+		},
+	});
+
+	function grantDogReadAndSave(editor: HTMLTextAreaElement) {
+		const document = JSON.parse(editor.value) as { data: { tables: { dog: { read: boolean } } } };
+		document.data.tables.dog.read = true;
+		fireEvent.change(editor, { target: { value: JSON.stringify(document, null, 2) } });
+		fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+		expect(alterRoleMutate).toHaveBeenCalledTimes(1);
+		const [payload] = alterRoleMutate.mock.calls[0];
+		return payload.permission as Record<string, unknown>;
+	}
+
+	it('saves a new read-only role with an empty attribute_permissions array', async () => {
+		// The shape AddRoleModal creates before the author picks table permissions here.
+		renderModal({ super_user: false, structure_user: false });
+
+		const editor = await screen.findByRole('textbox', { name: 'Role permission JSON' }) as HTMLTextAreaElement;
+		await screen.findByDisplayValue(/"dog"/);
+		const permission = grantDogReadAndSave(editor);
+		expect(permission.data).toEqual(readOnlyDog([]));
+	});
+
+	it('repairs a role already stored with null when it is saved again', async () => {
+		renderModal({ super_user: false, data: readOnlyDog(null) } as unknown as LocalRole['permission']);
+
+		const editor = await screen.findByRole('textbox', { name: 'Role permission JSON' }) as HTMLTextAreaElement;
+		await screen.findByDisplayValue(/"dog"/);
+		// The editor already shows the repaired template; put `null` back to reach the save-side repair.
+		fireEvent.change(editor, {
+			target: { value: JSON.stringify({ super_user: false, data: readOnlyDog(null) }, null, 2) },
+		});
+		fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+		const [payload] = alterRoleMutate.mock.calls[0];
+		expect(payload.permission).toEqual({ super_user: false, data: readOnlyDog([]) });
+	});
+});
