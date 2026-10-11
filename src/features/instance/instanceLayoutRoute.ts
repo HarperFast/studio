@@ -62,6 +62,10 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 		}
 	}
 
+	// Nothing else checks a remembered sign-in before this route's loader runs. The answer reaches the
+	// root context, whose change re-runs this guard.
+	authStore.startSignInCheck(entityId);
+
 	// Are we already authenticated (direct sign-in, basic auth, or a resolved Fabric Connect)?
 	// Read LIVE auth state, not the context.authentication snapshot: a direct sign-in sets the
 	// connection synchronously but the router context lags (authStore notifies listeners
