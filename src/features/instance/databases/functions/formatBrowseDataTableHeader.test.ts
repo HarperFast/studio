@@ -40,7 +40,7 @@ describe('formatBrowseDataTableHeader', () => {
 		});
 
 		expect(byHeader.comments.enableColumnFilter).toBe(true);
-		expect(byHeader.comments.meta).toEqual({ unindexed: true });
+		expect(byHeader.comments.meta).toMatchObject({ unindexed: true });
 	});
 
 	it('does not attach relationship meta without relationship info', () => {
@@ -49,7 +49,7 @@ describe('formatBrowseDataTableHeader', () => {
 			expect(column.meta?.relationshipInfo).toBeUndefined();
 		}
 		const product = dataTableColumns.find((column) => column.header === 'product');
-		expect(product?.meta).toEqual({ unindexed: true });
+		expect(product?.meta).toMatchObject({ unindexed: true });
 	});
 
 	it('renders an elements-less array named like a sibling table as plain JSON', () => {
@@ -159,7 +159,7 @@ describe('formatBrowseDataTableHeader with properties describe does not list', (
 		}]);
 		const constructorColumn = dataTableColumns.find((column) => column.header === 'constructor')!;
 		expect(constructorColumn.meta?.relationshipInfo).toBeUndefined();
-		expect(constructorColumn.meta).toEqual({ unindexed: true });
+		expect(constructorColumn.meta).toMatchObject({ unindexed: true });
 		expect(dataTableColumns.some((column) => column.header === 'toString')).toBe(true);
 	});
 });
@@ -184,13 +184,13 @@ describe('formatBrowseDataTableHeader filters on columns no index covers', () =>
 		for (const name of ['note', 'tags']) {
 			expect(byHeader()[name].enableColumnFilter).toBe(true);
 			expect(byHeader()[name].enableSorting).toBe(false);
-			expect(byHeader()[name].meta).toEqual({ unindexed: true });
+			expect(byHeader()[name].meta).toMatchObject({ unindexed: true });
 		}
 	});
 
 	it('leaves indexed columns unmarked', () => {
-		expect(byHeader().id.meta).toBeUndefined();
-		expect(byHeader().name.meta).toBeUndefined();
+		expect(byHeader().id.meta?.unindexed).toBeUndefined();
+		expect(byHeader().name.meta?.unindexed).toBeUndefined();
 		expect(byHeader().name.enableColumnFilter).toBe(true);
 	});
 

@@ -89,9 +89,7 @@ export function ColumnFilters<TData extends RowData>({
 																	: unindexed
 																	? 'not indexed'
 																	: undefined}
-																title={unindexed
-																	? `${header.column.id} has no index: filtering on it alone reads every record, so Studio asks first.`
-																	: undefined}
+																title={header.column.columnDef.meta?.filterHint}
 															/>
 														</FormControl>
 													</div>

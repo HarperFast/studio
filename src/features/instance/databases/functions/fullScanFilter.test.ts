@@ -47,9 +47,12 @@ describe('fullScanAttributes', () => {
 		expect(scan([])).toEqual([]);
 	});
 
-	it('counts a not-equal as a scan even on an indexed attribute', () => {
+	it('counts a not-equal, ends-with or contains as a scan even on an indexed attribute', () => {
 		expect(scan([where('name', 'not_equal')])).toEqual(['name']);
 		expect(scan([where('id', 'ne')])).toEqual(['id']);
+		expect(scan([where('name', 'ends_with')])).toEqual(['name']);
+		expect(scan([where('name', 'contains')])).toEqual(['name']);
+		expect(scan([where('name', 'contains'), where('id', 'equals')])).toEqual([]);
 	});
 
 	// A join is answered by searching the related table, so it's that table's index that counts.

@@ -186,6 +186,35 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 		expect(instance.searches[0].allowFullScan).toBeUndefined();
 	});
 
+	it('reads *x as ends-with and *x* as contains, and asks before either', async () => {
+		confirm.mockReturnValue(true);
+		renderView();
+		await filterBy('name', '*hn');
+
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
+		expect(confirm.mock.calls[0][0]).toContain('"name"');
+		expect(instance.searches[0]).toMatchObject({
+			conditions: [{ search_attribute: 'name', search_type: 'ends_with', search_value: 'hn' }],
+			allowFullScan: true,
+		});
+
+		fireEvent.change(filterInput('name'), { target: { value: '*oh*' } });
+		fireEvent.keyDown(filterInput('name'), { key: 'Enter' });
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(2));
+		expect(confirm).toHaveBeenCalledTimes(2);
+		expect(instance.searches[1].conditions).toEqual([
+			{ search_attribute: 'name', search_type: 'contains', search_value: 'oh' },
+		]);
+	});
+
+	it('shows the filter syntax for the column’s type on its input', async () => {
+		renderView();
+		await findCell('t1');
+		fireEvent.click(screen.getByRole('button', { name: /show filters/i }));
+		expect(filterInput('name').title).toContain('*hn ends with');
+		expect(filterInput('note').title).toContain('Not indexed');
+	});
+
 	it('asks once for a deep link’s filter, and runs it on yes', async () => {
 		route.search = { filters: { note: 'beta' } };
 		confirm.mockReturnValue(true);
