@@ -12,7 +12,7 @@ interface ReplicatedResponseNarrowed extends ReplicatedResponse {
 
 export interface ReplicatedResponseSuccess {
 	node: string;
-	message: boolean;
+	message: boolean | string;
 	requestId: number;
 }
 
@@ -36,6 +36,28 @@ export function isReplicatedResponseFailure(
 	message: ReplicatedResponseSuccess | ReplicatedResponseFailure,
 ): message is ReplicatedResponseFailure {
 	return (message as ReplicatedResponseFailure).status === 'failed';
+}
+
+/**
+ * The lower-cased names of the peers a replicated operation reports as applied: entries carrying the
+ * peer's own answer (a `message` string) and the `node` Harper attached to it. Anything else is left
+ * out, so an unrecognized response reads as reaching no one.
+ */
+export function acknowledgedReplicationNodes(response: unknown): Set<string> {
+	const acknowledged = new Set<string>();
+	const replicated: unknown = (response as ReplicatedResponse | null | undefined)?.replicated;
+	if (!Array.isArray(replicated)) {
+		return acknowledged;
+	}
+	for (const entry of replicated) {
+		if (
+			entry && typeof entry === 'object' && isReplicatedResponseSuccess(entry)
+			&& typeof entry.message === 'string' && entry.message && typeof entry.node === 'string' && entry.node
+		) {
+			acknowledged.add(entry.node.toLowerCase());
+		}
+	}
+	return acknowledged;
 }
 
 export function rejectReplicationFailures(response: Pick<AxiosResponse<ReplicatedResponse>, 'data'>) {

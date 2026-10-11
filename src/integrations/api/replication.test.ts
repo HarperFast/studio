@@ -1,4 +1,5 @@
 import {
+	acknowledgedReplicationNodes,
 	isReplicatedResponseFailure,
 	isReplicatedResponseSuccess,
 	rejectReplicationFailures,
@@ -127,7 +128,52 @@ describe('rejectReplicationFailures', () => {
 	});
 });
 
-function success(node: string, requestId = 1, message = true): ReplicatedResponseSuccess {
+describe('acknowledgedReplicationNodes', () => {
+	it('names every peer that applied the operation, lower-cased', () => {
+		expect(
+			acknowledgedReplicationNodes({ message: 'ok', replicated: [answered('Node-A.example.com'), answered('node-b')] }),
+		)
+			.toEqual(new Set(['node-a.example.com', 'node-b']));
+	});
+
+	it('leaves out failed peers', () => {
+		expect(
+			acknowledgedReplicationNodes({ message: 'ok', replicated: [answered('node-a'), failure('node-b', 'timeout')] }),
+		)
+			.toEqual(new Set(['node-a']));
+	});
+
+	it.each([
+		['no replicated array', { message: 'ok' }],
+		['a non-array replicated', { message: 'ok', replicated: 'yes' }],
+		['a bare string', 'Configuration successfully set.'],
+		['undefined', undefined],
+		['null', null],
+		[
+			'entries with no usable node name',
+			{ message: 'ok', replicated: [null, 7, {}, { node: '', message: 'ok' }, { node: 42, message: 'ok' }] },
+		],
+		['entries with no answer from the peer', {
+			message: 'ok',
+			replicated: [{ node: 'node-a' }, { node: 'node-b', requestId: 1 }],
+		}],
+		['entries whose answer is not a message', {
+			message: 'ok',
+			replicated: [{ node: 'a', message: {} }, { node: 'b', message: 0 }, { node: 'c', message: true }, {
+				node: 'd',
+				message: '',
+			}],
+		}],
+	])('reads %s as reaching no one', (_label, response) => {
+		expect(acknowledgedReplicationNodes(response)).toEqual(new Set());
+	});
+});
+
+function answered(node: string): ReplicatedResponseSuccess {
+	return success(node, 1, 'Configuration successfully set.');
+}
+
+function success(node: string, requestId = 1, message: boolean | string = true): ReplicatedResponseSuccess {
 	return { node, requestId, message };
 }
 

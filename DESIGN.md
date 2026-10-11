@@ -44,6 +44,14 @@ The wide hero artwork spans both columns beneath the form card in three independ
 - **Only query errors are muted, and only connectivity-class ones.** Mutations still toast; a 403 or a Harper 500 during a restart still toasts.
 - **Detection is per tab.** A page learns of a container op started elsewhere only from a cluster-record fetch, and the in-cluster studio pages don't poll the cluster, so they don't notice one started in another tab.
 
+## Cluster config updates — when an instance may skip its own `set_configuration`
+
+[`useRollingConfigUpdate`](src/hooks/useRollingConfigUpdate.tsx) saves the config editor's change by restarting a cluster's RUNNING instances one at a time, and every instance it restarts must already have the new config on disk: `set_configuration` only writes the file, and nothing applies it until a restart.
+
+- **Pre-5.2, mixed-version, or unknown-version clusters write each instance before restarting it.** `replicated: true` on `set_configuration` exists from Harper 5.2.0 ([`shouldFanOutSetConfiguration`](src/integrations/api/instance/status/setConfiguration.ts)); 5.0 and 5.1 apply the change locally and report no peers.
+- **On 5.2+ the first instance is still written and restarted alone.** Only once it is back up on the new config is the write fanned out with `replicated: true` from that instance — even when it was the last instance to restart, because the fan-out also reaches live members Studio does not restart (not RUNNING, or failed earlier), which the per-instance path leaves on the old config. Fanning out first would leave an unproven config pending on every node, which a Cancel could no longer contain.
+- **A later instance skips its write only when the fan-out acknowledged that exact node** — its CM `replicationFqdn` (lower-cased) appears among the successful `replicated[]` entries. Fabric names each Harper node after that FQDN (host-manager sets `NODE_HOSTNAME` and `REPLICATION_HOSTNAME` to it). A count of acknowledgements is not proof: the origin's replication peers are not CM's restart targets, so a stale peer can stand in for a missing one. A target with no `replicationFqdn`, a rejected fan-out (the instance client rejects any response with a failed peer), or a response with no usable `replicated[]` all keep the per-instance write.
+
 ## Cluster upgrade picker — which versions an existing cluster is offered
 
 [`buildUpgradeVersionOptions`](src/features/clusters/upsert/lib/buildUpgradeVersionOptions.ts) is the one place that decides, and its test file is the spec. Two rules, and they differ on purpose:

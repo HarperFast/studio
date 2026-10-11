@@ -1,17 +1,20 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { getInstanceClient } from '@/config/getInstanceClient';
+import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
-import { setConfiguration } from '@/integrations/api/instance/status/setConfiguration';
+import { setConfiguration, shouldFanOutSetConfiguration } from '@/integrations/api/instance/status/setConfiguration';
+import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQueryClient } from '@tanstack/react-query';
+import type { AxiosInstance } from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -22,6 +25,51 @@ interface RollingConfigUpdateParams {
 interface RollingConfigUpdateResponse {
 	onConfigUpdate: (params: Record<string, unknown>) => void;
 	isPending: boolean;
+}
+
+const MAY_BE_PENDING =
+	'Instances that were not restarted may already have the new configuration saved, and will apply it the next time they restart.';
+
+interface RestartTarget {
+	instanceClient: AxiosInstance;
+	replicationFqdn?: string;
+}
+
+interface RollingConfigUpdatePlan {
+	allInstances: Instance[];
+	targets: RestartTarget[];
+	fanOutAfterCanary: boolean;
+}
+
+async function planRollingConfigUpdate(
+	operationsParams: InstanceClientIdConfig & InstanceTypeConfig,
+): Promise<RollingConfigUpdatePlan> {
+	if (operationsParams.entityType !== 'cluster') {
+		return {
+			allInstances: [{ id: operationsParams.entityId, status: 'RUNNING' } as Instance],
+			targets: [{ instanceClient: operationsParams.instanceClient }],
+			fanOutAfterCanary: false,
+		};
+	}
+	const cluster = await getClusterInfo(operationsParams.entityId);
+	const allInstances = cluster?.instances || [];
+	const clusterUsesFabricConnect = !!cluster && authStore.checkForFabricConnect(cluster.id);
+	const targets = allInstances
+		.filter(instance => instance.status === 'RUNNING')
+		.map(instance => ({
+			instanceClient: getInstanceClient({
+				id: instance.id,
+				forceFabricConnect: clusterUsesFabricConnect,
+				operationsUrl: getOperationsUrlForInstance(instance),
+			}),
+			replicationFqdn: instance.replicationFqdn,
+		}))
+		.reverse();
+	return {
+		allInstances,
+		targets,
+		fanOutAfterCanary: shouldFanOutSetConfiguration(allInstances),
+	};
 }
 
 export function useRollingConfigUpdate(
@@ -54,119 +102,145 @@ export function useRollingConfigUpdate(
 			),
 		});
 
-		const cluster = operationsParams.entityType === 'cluster'
-			? await getClusterInfo(operationsParams.entityId)
-			: null;
-		const allInstances = operationsParams.entityType === 'cluster'
-			? cluster?.instances || []
-			: [{ id: operationsParams.entityId, status: 'RUNNING' } as Instance];
-		const clusterUsesFabricConnect = !!cluster && authStore.checkForFabricConnect(cluster.id);
-		const instanceClients = operationsParams.entityType === 'cluster'
-			? allInstances
-				.filter(instance => instance.status === 'RUNNING')
-				.map(instance =>
-					getInstanceClient({
-						id: instance.id,
-						forceFabricConnect: clusterUsesFabricConnect,
-						operationsUrl: getOperationsUrlForInstance(instance),
-					})
-				)
-				.reverse()
-			: [operationsParams.instanceClient];
-		let instancesRestarted = 0;
+		try {
+			let plan: RollingConfigUpdatePlan;
+			try {
+				plan = await planRollingConfigUpdate(operationsParams);
+			} catch {
+				toast.error('Error', {
+					id: toastId,
+					description: "Could not load the cluster's instances, so no configuration was changed.",
+					duration: 10_000,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+				return;
+			}
+			const { allInstances, targets, fanOutAfterCanary } = plan;
+			let fanOutAttempted = false;
+			let acknowledged = new Set<string>();
+			let instancesRestarted = 0;
 
-		if (instanceClients.length) {
-			for (let i = 0; i < instanceClients.length; i++) {
-				const instanceClient = instanceClients[i];
-				if (!canceled) {
-					toast.loading(`Updating Instance ${i + 1} of ${instanceClients.length}`, {
+			for (let i = 0; i < targets.length; i++) {
+				const { instanceClient, replicationFqdn } = targets[i];
+				if (canceled) {
+					continue;
+				}
+				toast.loading(`Updating Instance ${i + 1} of ${targets.length}`, {
+					...toastConfig,
+					id: toastId,
+					description: (
+						<ProgressBar
+							animated={true}
+							width={(i === 0 ? 0 : (i / targets.length * 100)) + '%'}
+						/>
+					),
+				});
+				let restarted = false;
+				try {
+					// Make sure the instance is responding.
+					await getInstanceUserInfo({
+						instanceClient,
+					});
+
+					if (!replicationFqdn || !acknowledged.has(replicationFqdn.toLowerCase())) {
+						await setConfiguration({
+							...params,
+							instanceClient,
+						});
+					}
+					// Then restart it.
+					await restartInstance({
+						operation: 'restart_service',
+						replicated: false,
+						instanceClient,
+					});
+					instancesRestarted += 1;
+					restarted = true;
+				} catch {
+					if (i + 1 !== targets.length) {
+						// If it fails to restart, or wasn't available, warn for a bit then move on.
+						toast.loading(`Failed Restarting Instance ${i + 1} of ${targets.length}`, {
+							...toastConfig,
+							id: toastId,
+							description: 'We will carry on momentarily.',
+						});
+						await sleep(3000);
+					}
+				}
+
+				// The configuration spreads only once an instance has come back up running it, and a
+				// later target skips its own write only if replication acknowledged that exact node.
+				if (restarted && fanOutAfterCanary && !fanOutAttempted && !canceled) {
+					fanOutAttempted = true;
+					toast.loading('Saving configuration to the cluster', {
 						...toastConfig,
 						id: toastId,
 						description: (
 							<ProgressBar
 								animated={true}
-								width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
+								width={((i + 1) / targets.length * 100) + '%'}
 							/>
 						),
 					});
-					try {
-						// Make sure the instance is responding.
-						await getInstanceUserInfo({
-							instanceClient,
-						});
-
-						await setConfiguration({
-							...params,
-							instanceClient,
-						});
-						// Then restart it.
-						await restartInstance({
-							operation: 'restart_service',
-							replicated: false,
-							instanceClient,
-						});
-						instancesRestarted += 1;
-					} catch {
-						if (i + 1 !== instanceClients.length) {
-							// If it fails to restart, or wasn't available, warn for a bit then move on.
-							toast.loading(`Failed Restarting Instance ${i + 1} of ${instanceClients.length}`, {
-								...toastConfig,
-								id: toastId,
-								description: 'We will carry on momentarily.',
-							});
-							await sleep(3000);
-						}
-					}
+					acknowledged = await setConfiguration({
+						...params,
+						replicated: true,
+						instanceClient,
+					}).then(acknowledgedReplicationNodes, () => new Set<string>());
 				}
 			}
-		}
 
-		setIsPending(false);
-		void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
-
-		if (canceled) {
-			toast.error('Cancelled', {
-				id: toastId,
-				description: `The config update was partially cancelled.`,
-				duration: 10_000,
-				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
-				},
-			});
-		} else if (allInstances.length === instancesRestarted) {
-			onRestartedSuccessfully?.();
-			toast.success('Success', {
-				id: toastId,
-				description: `Your configuration has been updated successfully!`,
-				duration: 10_000,
-				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
-				},
-			});
-		} else {
-			const allTheInstances = pluralize(allInstances.length, 'instance', 'instances');
-			const someRunningInstancesWere = pluralize(
-				instancesRestarted,
-				'"RUNNING" instance was',
-				'"RUNNING" instances were',
-			);
-			toast.error('Error', {
-				id: toastId,
-				description: `Failed to fully update cluster.\n`
-					+ ([
-						allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-						instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
-						allInstances.length !== instancesRestarted
-						&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
-					].filter(excludeFalsy).shift() || ''),
-				duration: 10_000,
-				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
-				},
-			});
+			if (canceled) {
+				toast.error('Cancelled', {
+					id: toastId,
+					description: `The config update was partially cancelled.${fanOutAttempted ? ` ${MAY_BE_PENDING}` : ''}`,
+					duration: 10_000,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			} else if (allInstances.length > 0 && allInstances.length === instancesRestarted) {
+				onRestartedSuccessfully?.();
+				toast.success('Success', {
+					id: toastId,
+					description: `Your configuration has been updated successfully!`,
+					duration: 10_000,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			} else {
+				const allTheInstances = pluralize(allInstances.length, 'instance', 'instances');
+				const someRunningInstancesWere = pluralize(
+					instancesRestarted,
+					'"RUNNING" instance was',
+					'"RUNNING" instances were',
+				);
+				toast.error('Error', {
+					id: toastId,
+					description: `Failed to fully update cluster.\n`
+						+ ([
+							allInstances.length === 0 && 'No instances were found within the cluster to restart.',
+							instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+							allInstances.length !== instancesRestarted
+							&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
+						].filter(excludeFalsy).shift() || '')
+						+ (fanOutAttempted ? '\n' + MAY_BE_PENDING : ''),
+					duration: 10_000,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			}
+		} finally {
+			setIsPending(false);
+			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
 	}, [operationsParams, onRestartedSuccessfully, queryClient]);
 
