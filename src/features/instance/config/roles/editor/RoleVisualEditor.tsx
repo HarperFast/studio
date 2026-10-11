@@ -11,6 +11,7 @@ import {
 	getEditableDatabaseNames,
 	getPreservedEntries,
 	getRoleType,
+	getTableAttributeNames,
 	getTableEntry,
 	getTableEntryInRecord,
 	getTablePrimaryKey,
@@ -191,9 +192,11 @@ function RoleTypeSection({
 	onChange: (next: LocalRolePermission) => void;
 }) {
 	const id = useId();
-	// Only Harper 4 gives this flag a meaning (it marks the role of the user that connects cluster
-	// nodes); nothing in Harper 5 reads it, so it is offered there only to a role that already has it.
-	const offerClusterUser = roleType === 'cluster_user' || !wasAReleasedBeforeB('5.0.0', version);
+	// Only Harper 4 gives this flag a meaning: it marks the user clustering connects as, and that user's
+	// password is then stored reversibly encrypted (harperdb security/user.ts). Nothing in Harper 5 reads
+	// it, so it is offered there only to a role that already has it.
+	const harper4 = !wasAReleasedBeforeB('5.0.0', version);
+	const offerClusterUser = roleType === 'cluster_user' || harper4;
 	const dropsOthers = roleType !== 'standard' && carriesOtherPermissions(permission, roleType);
 	return (
 		<section className="flex flex-col gap-2" aria-labelledby={`${id}-heading`}>
@@ -212,7 +215,9 @@ function RoleTypeSection({
 				</RadioOption>
 				{offerClusterUser && (
 					<RadioOption id={`${id}-cluster`} value="cluster_user" label="Cluster user">
-						Harper 4 uses this role type for the user that connects cluster nodes.
+						{harper4
+							? 'For the user that connects cluster nodes. Harper keeps the password of a user with this role in a recoverable form so clustering can use it.'
+							: "Harper 5 doesn't use this role type. Harper 4 used it for the user that connects cluster nodes."}
 					</RadioOption>
 				)}
 			</RadioGroup>
@@ -337,16 +342,16 @@ function TablePermissionsSection({
 	readOnly?: boolean;
 	onChange: (next: LocalRolePermission) => void;
 }) {
-	// Databases the role already grants something on open expanded, so the role reads at a glance;
-	// a role with no grants yet opens the first one as a starting point.
+	// One database opens, never all of them: an open database mounts its whole table grid, so a broad
+	// role on a large instance would otherwise render every table before the modal appears.
 	const [openDatabases, setOpenDatabases] = useState<string[]>(() => {
-		const granted = databaseNames.filter((databaseName) =>
+		const firstGranted = databaseNames.find((databaseName) =>
 			Object.keys(instanceDatabaseMap[databaseName]).some((tableName) => {
 				const entry = getTableEntry(permission, databaseName, tableName);
 				return entry && TABLE_ACTIONS.some((action) => entry[action] === true);
 			})
 		);
-		return granted.length ? granted : databaseNames.slice(0, 1);
+		return [firstGranted ?? databaseNames[0]].filter((name) => name !== undefined);
 	});
 	// Survives turning attribute scoping off and on again within the session, like the operations
 	// switch does for its allowlist.
@@ -506,10 +511,7 @@ const TableRows = memo(function TableRows({
 	update: (patch: PermissionPatch) => void;
 	scopingRestore: Map<string, LocalRoleAttributePermissionTable[]>;
 }) {
-	const attributeNames = useMemo(
-		() => schemaTable.attributes.map((attribute) => attribute.attribute),
-		[schemaTable],
-	);
+	const attributeNames = useMemo(() => getTableAttributeNames(schemaTable), [schemaTable]);
 	const primaryKey = getTablePrimaryKey(schemaTable);
 	const scoped = isTableScopedToAttributes(entry);
 	const [expanded, setExpanded] = useState(false);
@@ -625,7 +627,7 @@ function AttributePanel({
 			</div>
 			<p className="text-xs text-muted-foreground">
 				{scoped
-					? "Only the access checked here applies. An attribute with nothing checked has no access, including attributes added to the table later. Computed attributes aren't listed here; grant them in the JSON."
+					? 'Only the access checked here applies. An attribute with nothing checked has no access, including attributes added to the table later. Computed and relationship attributes may be missing from this list; grant those in the JSON.'
 					: "The table's read, insert and update apply to every attribute."}
 			</p>
 			{scoped && (
