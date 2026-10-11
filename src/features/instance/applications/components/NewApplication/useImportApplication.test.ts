@@ -133,6 +133,26 @@ describe('useImportApplication', () => {
 		expect(consoleError).toHaveBeenCalledOnce();
 	});
 
+	it("reports an import that finishes after the form has gone, without moving the editor's selection", async () => {
+		let succeed!: (value: unknown) => void;
+		mocks.post.mockReturnValue(
+			new Promise((resolve) => {
+				succeed = resolve;
+			}),
+		);
+		const { result, unmount } = renderImport();
+		act(() => result.current.importApplication({ contents, project: 'my-app' }));
+
+		unmount();
+		succeed({ data: { message: 'Successfully deployed: my-app' } });
+
+		await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledOnce());
+		expect(vi.mocked(toast.dismiss)).toHaveBeenCalledWith('loading-toast');
+		expect(mocks.editorView.reloadRootEntries).toHaveBeenCalledOnce();
+		expect(mocks.editorView.setSelectedItems).not.toHaveBeenCalled();
+		expect(mocks.editorView.setFocusedItem).not.toHaveBeenCalled();
+	});
+
 	it('verifies an inconclusive stream instead of reporting it as a failure', async () => {
 		mocks.sse.enabled = true;
 		mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
