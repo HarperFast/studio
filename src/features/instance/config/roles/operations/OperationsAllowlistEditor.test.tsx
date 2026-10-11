@@ -122,7 +122,7 @@ describe('OperationsAllowlistEditor', () => {
 		render(
 			<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" structureUserDdl />,
 		);
-		// The allowlist IS enforced for a structure user on everything except DDL.
+		// Before 5.3 the allowlist IS enforced for a structure user on everything except DDL.
 		expect(screen.getByText(/regardless of the list/)).toBeTruthy();
 		expect(screen.getByText(/on any database/)).toBeTruthy();
 		expect(screen.queryByText(/has no effect/)).toBeNull();
@@ -150,6 +150,106 @@ describe('OperationsAllowlistEditor', () => {
 	it('exempts the structure_user DDL carve-out from the cannot-run-anything warning', () => {
 		render(<OperationsAllowlistEditor value={[]} onChange={() => {}} version="5.2.2" structureUserDdl />);
 		expect(screen.getByText(/except the DDL noted above/)).toBeTruthy();
+	});
+
+	describe('from 5.3.0-alpha.1, where the list runs ahead of the structure_user and SQL paths', () => {
+		// 5.3.0-beta.2 is the last build that gates first without naming every entry, so it pins the
+		// gate-order boundary apart from #1884's naming boundary.
+		const GATE_FIRST_VERSIONS = ['5.3.0-alpha.1', '5.3.0-beta.2', '5.3.0'];
+
+		it('tells a structure user its DDL needs listing, and names what is missing', () => {
+			for (const version of GATE_FIRST_VERSIONS) {
+				render(
+					<OperationsAllowlistEditor
+						value={['read_only', 'create_table']}
+						onChange={() => {}}
+						version={version}
+						structureUserDdl
+					/>,
+				);
+				expect(screen.getByText(/gates its DDL too/), version).toBeTruthy();
+				expect(screen.queryByText(/regardless of the list/), version).toBeNull();
+				const note = screen.getByText(/Not listed, so Harper refuses them/).textContent ?? '';
+				expect(note.split('refuses them:')[1], version).toBe(
+					' create_attribute, drop_table, drop_attribute, create_database, drop_database.',
+				);
+				cleanup();
+			}
+		});
+
+		it('drops the missing-DDL sentence once every DDL operation is listed', () => {
+			const allDdl = [
+				'create_attribute',
+				'create_database',
+				'create_table',
+				'drop_attribute',
+				'drop_database',
+				'drop_table',
+			];
+			render(<OperationsAllowlistEditor value={allDdl} onChange={() => {}} version="5.3.0" structureUserDdl />);
+			expect(screen.getByText(/gates its DDL too/)).toBeTruthy();
+			expect(screen.queryByText(/Not listed/)).toBeNull();
+		});
+
+		it('does not count an alias spelling as listing the database DDL', () => {
+			// create_schema is registered under create_database's api_name, so the gate never matches it.
+			render(
+				<OperationsAllowlistEditor value={['create_schema']} onChange={() => {}} version="5.3.0" structureUserDdl />,
+			);
+			expect(screen.getByText(/Not listed, so Harper refuses them/).textContent?.split('refuses them:')[1])
+				.toContain('create_database');
+		});
+
+		it('keeps an array-shaped structure user to its databases, without the database DDL', () => {
+			render(
+				<OperationsAllowlistEditor value={[]} onChange={() => {}} version="5.3.0" structureUserDdl={['dev']} />,
+			);
+			const note = screen.getByText(/gates its DDL too/).textContent ?? '';
+			expect(note).toContain('dev');
+			expect(note).toContain('cannot reach another database');
+			expect(note).not.toContain('create_database');
+		});
+
+		it('leaves no DDL exception standing on an empty list, and says SQL is denied too', () => {
+			render(<OperationsAllowlistEditor value={[]} onChange={() => {}} version="5.3.0-alpha.1" structureUserDdl />);
+			expect(screen.getByText(/not even SQL or its structure-user DDL/)).toBeTruthy();
+			expect(screen.queryByText(/except the DDL noted above/)).toBeNull();
+			expect(screen.queryByText(/SQL is gated by table permissions, not this list/)).toBeNull();
+		});
+
+		it('says the list gates SQL, where before 5.3 it says the opposite', () => {
+			render(<Harness initial={[]} version="5.3.0-beta.2" />);
+			expect(screen.getByText(/anything unlisted is denied, SQL included/)).toBeTruthy();
+			expect(screen.queryByText(/this list does not restrict them/)).toBeNull();
+
+			cleanup();
+			render(<Harness initial={[]} version="5.2.15" />);
+			expect(screen.getByText(/this list does not restrict them/)).toBeTruthy();
+			expect(screen.queryByText(/SQL included/)).toBeNull();
+		});
+
+		it('counts sql as a grant, in read_only and on its own chip', () => {
+			render(<Harness initial={['read_only']} version="5.3.0-alpha.1" />);
+			expect(screen.getByText(/Effectively allows 13 operations/)).toBeTruthy();
+
+			cleanup();
+			render(<Harness initial={['sql']} version="5.3.0" />);
+			expect(screen.getByText(/Effectively allows 1 operation\./)).toBeTruthy();
+			const chip = screen.getByRole('button', { name: 'Remove sql' }).parentElement;
+			expect(chip?.getAttribute('title') ?? '').not.toMatch(/changes nothing/);
+		});
+
+		it('still treats the deploy grants as inert on the prereleases before beta.3', () => {
+			render(<Harness initial={['deploy_component']} version="5.3.0-beta.2" />);
+			expect(screen.getByText(/Every entry here is inert/)).toBeTruthy();
+		});
+	});
+
+	it('calls a saved sql grant inert before 5.3, and says why on its chip', () => {
+		render(<Harness initial={['sql']} version="5.2.15" />);
+		expect(screen.getByText(/Every entry here is inert/)).toBeTruthy();
+		const chip = screen.getByRole('button', { name: 'Remove sql' }).parentElement;
+		expect(chip?.getAttribute('title')).toMatch(/changes nothing/);
 	});
 
 	it('marks a grant this version cannot enforce, and says which version does', () => {

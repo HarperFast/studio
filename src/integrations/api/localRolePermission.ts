@@ -56,12 +56,13 @@ export function rolePreventsOperationsAllowlist(permission: LocalRolePermission 
 }
 
 /**
- * Which DDL this role reaches without consulting the allowlist, matching verifyPerms:
+ * Which DDL the role's `structure_user` flag covers, matching verifyPerms:
  * - `true`: an unscoped structure user — the four table/attribute DDL operations anywhere, plus
  *   create/drop database (that pair requires the boolean form).
  * - an array: DDL on those databases only, and never create/drop database.
- * - `false`: not a structure user; every operation goes through the gate.
- * Everything outside that carve-out is still gated for both forms.
+ * - `false`: not a structure user.
+ * The shape only: whether that DDL also needs the allowlist depends on the version
+ * (`allowlistGatesEveryPath`).
  */
 export function structureUserDdlScope(
 	permission: LocalRolePermission | undefined,
@@ -73,13 +74,16 @@ export function structureUserDdlScope(
 	return Array.isArray(structureUser) && structureUser.length > 0 ? structureUser : false;
 }
 
-/** The DDL operations a structure_user role reaches regardless of its allowlist. */
+/** The DDL operations `structure_user` covers in either form (Harper's STRUCTURE_USER_OPS). */
 export const STRUCTURE_USER_DDL_OPERATIONS = [
 	'create_table',
 	'create_attribute',
 	'drop_table',
 	'drop_attribute',
 ];
+
+/** The database DDL only the boolean form covers. */
+export const STRUCTURE_USER_DATABASE_OPERATIONS = ['create_database', 'drop_database'];
 
 /**
  * The role's operations allowlist, but only when it is well-formed (an array of strings).

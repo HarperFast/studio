@@ -14,6 +14,7 @@ vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSuppo
 }));
 
 const ON_5_3: AllowlistVersion = { supported: true, band: '5.3' };
+const BEFORE_5_3: AllowlistVersion = { supported: true, band: 'pre-5.3' };
 
 beforeEach(() => allowlistVersion.mockReturnValue(ON_5_3));
 
@@ -53,16 +54,37 @@ describe('RoleOperationsSummary', () => {
 	});
 
 	it('notes the DDL carve-out for a structure_user role instead of calling the list inert', () => {
+		allowlistVersion.mockReturnValue(BEFORE_5_3);
 		render(<RoleOperationsSummary role={role({ structure_user: true, operations: ['read_only'] })} />);
 		expect(screen.getByText(/create\/drop database — apply on any/)).toBeTruthy();
 	});
 
 	it('does not leave the absolute wording standing for a structure_user with an empty list', () => {
+		allowlistVersion.mockReturnValue(BEFORE_5_3);
 		render(<RoleOperationsSummary role={role({ structure_user: true, operations: [] })} />);
 		const text = screen.getByText(/cannot run any Operations API call/).textContent ?? '';
 		// The DDL carve-out has to qualify the sentence, not contradict it after a full stop.
 		expect(text).not.toMatch(/cannot run any operation\./);
 		expect(text).toContain('except that it is a structure user');
+	});
+
+	it('claims no DDL carve-out where the list runs ahead of structure_user', () => {
+		// 5.3.0-alpha.1 on: Harper checks the allowlist before the structure-user returns.
+		for (const band of ['5.3-early', '5.3'] as const) {
+			allowlistVersion.mockReturnValue({ supported: true, band });
+			render(<RoleOperationsSummary role={role({ structure_user: true, operations: ['read_only'] })} />);
+			const text = screen.getByText(/restricted to 13 operations/).textContent ?? '';
+			expect(text, band).toContain('its structure-user DDL needs listing too');
+			expect(text, band).not.toContain('regardless of the list');
+			cleanup();
+
+			render(<RoleOperationsSummary role={role({ structure_user: true, operations: [] })} />);
+			const empty = screen.getByText(/cannot run any Operations API call/).textContent ?? '';
+			expect(empty, band).toContain('not even SQL or its structure-user DDL.');
+			expect(empty, band).not.toContain('except that it is a structure user');
+			expect(empty, band).not.toContain('SQL is authorized by table permissions');
+			cleanup();
+		}
 	});
 
 	it('says the entries are inert rather than claiming the list is empty', () => {
@@ -79,10 +101,28 @@ describe('RoleOperationsSummary', () => {
 
 	it('summarizes the effective expansion with a truncated preview and full title', () => {
 		render(<RoleOperationsSummary role={role({ operations: ['read_only'] })} />);
-		const summary = screen.getByText(/restricted to 12 operations/);
+		// read_only's sql member counts once the list gates SQL; before 5.3 it does not.
+		const summary = screen.getByText(/restricted to 13 operations/);
 		// Five names shown inline, the full list on the title.
 		expect(summary.textContent).toContain(', …');
 		expect(summary.getAttribute('title')).toContain('user_info');
+		expect(summary.getAttribute('title')).toContain('sql');
+
+		cleanup();
+		allowlistVersion.mockReturnValue(BEFORE_5_3);
+		render(<RoleOperationsSummary role={role({ operations: ['read_only'] })} />);
+		expect(screen.getByText(/restricted to 12 operations/).getAttribute('title')).not.toContain('sql');
+	});
+
+	it('says an empty list leaves SQL to table permissions before 5.3 only', () => {
+		allowlistVersion.mockReturnValue(BEFORE_5_3);
+		render(<RoleOperationsSummary role={role({ operations: [] })} />);
+		expect(screen.getByText(/SQL is authorized by table permissions instead/)).toBeTruthy();
+
+		cleanup();
+		allowlistVersion.mockReturnValue(ON_5_3);
+		render(<RoleOperationsSummary role={role({ operations: [] })} />);
+		expect(screen.getByText(/cannot run any Operations API call, not even SQL\./)).toBeTruthy();
 	});
 
 	it('counts a deploy-only CI role by what its instance version grants', () => {

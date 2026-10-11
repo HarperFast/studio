@@ -106,8 +106,8 @@ describe('operation mappings', () => {
 });
 
 describe('checkTableActionAllowed', () => {
-	// verifyPerms clears a super_user before reaching the allowlist, so gating one would hide UI that
-	// works.
+	// Before 5.3 verifyPerms clears a super_user ahead of the allowlist, and from 5.3 Harper refuses to
+	// store a list on one, so gating one would hide UI that works.
 	it('ignores the allowlist for a super_user', () => {
 		expect(checkTableActionAllowed(perm({ super_user: true, operations: [] }), 'insert')).toBe(true);
 		expect(checkTableActionAllowed(perm({ super_user: true, operations: ['read_only'] }), 'delete')).toBe(
@@ -115,8 +115,7 @@ describe('checkTableActionAllowed', () => {
 		);
 	});
 
-	// isElevatedRole counts these two as well, because it answers a broader question. DML is where
-	// they are still gated.
+	// Elevated, but not past the list for DML on any version.
 	it('still applies the allowlist to structure_user and cluster_user', () => {
 		expect(checkTableActionAllowed(perm({ structure_user: true, operations: ['read_only'] }), 'insert'))
 			.toBe(false);
