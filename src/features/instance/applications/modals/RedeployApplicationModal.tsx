@@ -20,6 +20,7 @@ import {
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
@@ -28,7 +29,7 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCwIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { deployNotes, reportDeployOutcome, reportDeployResult, reportStaged } from './reportDeployHealth';
@@ -47,8 +48,14 @@ export function RedeployApplicationModal() {
 	const { openedEntry } = useEditorView();
 	const packageUrl = openedEntry?.package;
 
-	const { mutate: reDeployApplication, isPending } = useDeployComponentMutation();
+	const { mutateAsync: reDeployApplication, isPending } = useDeployComponentMutation();
 	const [isStreaming, setIsStreaming] = useState(false);
+	// The attempt whose panel is on screen. Set beside the state it mirrors, not from an effect: a
+	// deploy can fail before the render that shows the panel commits.
+	const deployOnScreen = useRef<symbol>(undefined);
+	useEffect(() => () => {
+		deployOnScreen.current = undefined;
+	}, []);
 	const [isStaging, setIsStaging] = useState(false);
 
 	const methods = useForm({
@@ -71,6 +78,7 @@ export function RedeployApplicationModal() {
 		attemptToRestoreFocus(trigger);
 		reset({ applicationUrl: packageUrl, stageOnly: false });
 		setIsStreaming(false);
+		deployOnScreen.current = undefined;
 		setIsStaging(false);
 		stream.reset();
 	}, [reset, packageUrl, trigger, stream]);
@@ -83,80 +91,85 @@ export function RedeployApplicationModal() {
 	}, [queryClient, instanceParams.entityId]);
 
 	const redeployWithProgress = useCallback(
-		(applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
+		async (applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
 			if (!openedEntry) {
 				return;
 			}
 			const project = openedEntry.project;
+			const deploy = Symbol(project);
+			const isOnScreen = () => deployOnScreen.current === deploy;
 			stream.reset();
 			stream.markStarted();
 			setIsStreaming(true);
 			setIsStaging(stage);
+			deployOnScreen.current = deploy;
 
-			reDeployApplication(
-				{
+			let result: DeployComponentResult;
+			try {
+				result = await reDeployApplication({
 					request: { kind: stage ? 'stage' : 'deploy', project, package: applicationUrl, installCommand },
 					useSSE: true,
 					onEvent: stream.onEvent,
 					...instanceParams,
-				},
-				{
-					onSuccess: async (result) => {
-						if (stage) {
-							stream.markSettled('success', undefined, { result });
-							reportStaged(project, result, { action: recordAction(result?.deployment_id) });
-							if (!deployNotes(result).warn) {
-								closeModal();
-							}
-							return;
-						}
-						const known = result?.rollout?.state !== 'unfollowable';
-						stream.markSettled(known ? 'success' : 'inconclusive', undefined, { result });
+				});
+			} catch (error) {
+				// The deploy started but the live stream dropped — verify via health check
+				// instead of reporting a failure we don't actually know happened.
+				if (error instanceof SSEInconclusiveError) {
+					if (isOnScreen()) {
+						stream.markSettled('inconclusive');
+					}
+					if (stage) {
+						// A stage changes nothing that is running, so the component's health says nothing about it.
+						toast.warning(`${project} may not be staged`, {
+							description: 'Live updates ended before the stage finished. Check Deployments for its record.',
+						});
+					} else {
 						invalidateComponents();
-						await reportDeployOutcome(project, result, runHealthCheck, {
-							action: recordAction(result?.deployment_id),
-						});
-						// Left open when there is something to read in it: an outcome Studio couldn't confirm, or a warning.
-						if (known && !deployNotes(result).warn) {
-							closeModal();
-						}
-					},
-					onError: async (error) => {
-						// The deploy started but the live stream dropped — verify via health check
-						// instead of reporting a failure we don't actually know happened.
-						if (error instanceof SSEInconclusiveError) {
-							stream.markSettled('inconclusive');
-							if (stage) {
-								// A stage changes nothing that is running, so the component's health says nothing about it.
-								toast.warning(`${project} may not be staged`, {
-									description: 'Live updates ended before the stage finished. Check Deployments for its record.',
-								});
-								closeModal();
-								return;
-							}
-							invalidateComponents();
-							await reportDeployOutcome(project, undefined, runHealthCheck);
-							closeModal();
-							return;
-						}
-						const action = recordAction(deployFailureDetails(error).deploymentId);
-						if (error instanceof DeployRolloutError) {
-							// Live on the node that received it; the rollout section names the nodes that did not take it.
-							stream.markSettled('error', undefined, { failure: error });
-							invalidateComponents();
-							toast.error(`${project} did not reach every node`, { description: error.message, action });
-							return;
-						}
-						stream.markSettled('error', error instanceof Error ? error.message : String(error), {
-							failure: error,
-						});
-						toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${project}`, {
-							description: error instanceof Error ? error.message : undefined,
-							action,
-						});
-					},
-				},
-			);
+						await reportDeployOutcome(project, undefined, runHealthCheck);
+					}
+					if (isOnScreen()) {
+						closeModal();
+					}
+					return;
+				}
+				const rolloutFailed = error instanceof DeployRolloutError;
+				if (rolloutFailed) {
+					// Live on the node that received it.
+					invalidateComponents();
+				}
+				const { message } = describeError(error);
+				if (isOnScreen()) {
+					// The rollout section names the nodes a rolled-out release missed.
+					stream.markSettled('error', rolloutFailed ? undefined : message, { failure: error });
+					return;
+				}
+				const title = rolloutFailed
+					? `${project} did not reach every node`
+					: `Failed to ${stage ? 'stage' : 'redeploy'} ${project}`;
+				toast.error(title, { description: message, action: recordAction(deployFailureDetails(error).deploymentId) });
+				return;
+			}
+			if (stage) {
+				if (isOnScreen()) {
+					stream.markSettled('success', undefined, { result });
+				}
+				reportStaged(project, result, { action: recordAction(result?.deployment_id) });
+				if (isOnScreen() && !deployNotes(result).warn) {
+					closeModal();
+				}
+				return;
+			}
+			const known = result?.rollout?.state !== 'unfollowable';
+			if (isOnScreen()) {
+				stream.markSettled(known ? 'success' : 'inconclusive', undefined, { result });
+			}
+			invalidateComponents();
+			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
+			// Left open when there is something to read in it: an outcome Studio couldn't confirm, or a warning.
+			if (isOnScreen() && known && !deployNotes(result).warn) {
+				closeModal();
+			}
 		},
 		[
 			reDeployApplication,
@@ -171,60 +184,44 @@ export function RedeployApplicationModal() {
 	);
 
 	const redeployBuffered = useCallback(
-		(applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
+		async (applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
 			if (!openedEntry) {
 				return;
 			}
+			const project = openedEntry.project;
 			closeModal();
 			const toastId = toast.loading(stage ? 'Staging...' : 'Redeploying...');
-			reDeployApplication(
-				{
-					request: {
-						kind: stage ? 'stage' : 'deploy',
-						project: openedEntry.project,
-						package: applicationUrl,
-						installCommand,
-					},
+			let result: DeployComponentResult;
+			try {
+				result = await reDeployApplication({
+					request: { kind: stage ? 'stage' : 'deploy', project, package: applicationUrl, installCommand },
 					...instanceParams,
-				},
-				{
-					onSuccess: (result) => {
-						if (stage) {
-							reportStaged(openedEntry.project, result, { id: toastId, action: recordAction(result?.deployment_id) });
-							return;
-						}
-						reportDeployResult(
-							openedEntry.project,
-							result,
-							{ title: `Application ${openedEntry.project} redeployed successfully` },
-							{ id: toastId, action: recordAction(result?.deployment_id) },
-						);
-						invalidateComponents();
-					},
-					onError: (error) => {
-						// The modal is already closed, so a toast is the only place left to link the record from.
-						const action = recordAction(deployFailureDetails(error).deploymentId);
-						if (error instanceof DeployRolloutError) {
-							toast.error(`${openedEntry.project} did not reach every node`, {
-								id: toastId,
-								description: error.message,
-								action,
-							});
-							invalidateComponents();
-							return;
-						}
-						if (action) {
-							toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${openedEntry.project}`, {
-								id: toastId,
-								description: describeError(error).message,
-								action,
-							});
-							return;
-						}
-						toast.dismiss(toastId);
-					},
-				},
+				});
+			} catch (error) {
+				const action = recordAction(deployFailureDetails(error).deploymentId);
+				if (error instanceof DeployRolloutError) {
+					toast.error(`${project} did not reach every node`, { id: toastId, description: error.message, action });
+					invalidateComponents();
+					return;
+				}
+				toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${project}`, {
+					id: toastId,
+					description: describeError(error).message,
+					action,
+				});
+				return;
+			}
+			if (stage) {
+				reportStaged(project, result, { id: toastId, action: recordAction(result?.deployment_id) });
+				return;
+			}
+			reportDeployResult(
+				project,
+				result,
+				{ title: `Application ${project} redeployed successfully` },
+				{ id: toastId, action: recordAction(result?.deployment_id) },
 			);
+			invalidateComponents();
 		},
 		[reDeployApplication, openedEntry, instanceParams, invalidateComponents, closeModal, recordAction],
 	);
@@ -239,9 +236,9 @@ export function RedeployApplicationModal() {
 		}
 		const stage = canStage && !!stageOnly;
 		if (sseDeploy) {
-			redeployWithProgress(applicationUrl, installCommand, stage);
+			void redeployWithProgress(applicationUrl, installCommand, stage);
 		} else {
-			redeployBuffered(applicationUrl, installCommand, stage);
+			void redeployBuffered(applicationUrl, installCommand, stage);
 		}
 	};
 

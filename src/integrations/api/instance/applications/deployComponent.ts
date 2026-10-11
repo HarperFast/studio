@@ -122,10 +122,12 @@ export async function deployAndFollowComponent(args: DeployComponentArgs): Promi
 	return { ...result, rollout };
 }
 
-export function useDeployComponentMutation(mutationKey?: readonly unknown[], meta?: Record<string, unknown>) {
+export function useDeployComponentMutation(mutationKey?: readonly unknown[]) {
 	return useMutation({
 		mutationKey,
-		meta,
 		mutationFn: deployAndFollowComponent,
+		// Every caller shows its own failure: applications/DESIGN.md, "Who reports a failed deploy".
+		meta: { skipGlobalErrorToast: true },
+		onError: (error) => console.error(error),
 	});
 }
