@@ -19,6 +19,7 @@
  */
 import { apiClient } from '@/config/apiClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { encryptEnvelope } from '@/lib/crypto/envSecret';
 import { QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
@@ -65,9 +66,14 @@ export class SecretsOperationError extends Error {
 /**
  * Operations API errors carry Harper's message in the response body; surface that, not the Axios
  * noise. A failure with no such message (the network, a bug) is not Harper's text, so it stays as
- * thrown and Error Tracking keeps its type and message.
+ * thrown and Error Tracking keeps its type and message. A write that got no verdict is rethrown as
+ * is too, even when a gateway body carries a message: re-wrapped, nothing downstream could say its
+ * outcome is unknown.
  */
 function operationError(error: unknown): unknown {
+	if (isUnansweredWrite(error)) {
+		return error;
+	}
 	const body = (error as { response?: { data?: { error?: unknown; message?: unknown } } })?.response?.data;
 	const message = typeof body?.error === 'string' ? body.error : body?.message;
 	return typeof message === 'string' ? new SecretsOperationError(message) : error;

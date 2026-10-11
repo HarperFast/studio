@@ -70,6 +70,7 @@ import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { pluralize } from '@/lib/pluralize';
 import { Row } from '@/lib/table';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -645,7 +646,9 @@ export function DatabaseTableView({
 				refreshTable();
 			},
 			onError: (error) => {
-				toast.error(error instanceof Error ? error.message : 'Failed to cleanup orphan blobs');
+				if (shouldToastOwnFailure(error)) {
+					toast.error(error instanceof Error ? error.message : 'Failed to cleanup orphan blobs');
+				}
 			},
 		});
 	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);

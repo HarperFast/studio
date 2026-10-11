@@ -3,6 +3,7 @@ import { inputSchema } from '@harperfast/agent-tools/tools/restartHTTPService/in
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ExecuteParams } from '../../types/executeParams';
+import { describeToolError } from '../describeToolError';
 import { Output } from './output';
 
 export async function execute(
@@ -22,7 +23,7 @@ export async function execute(
 	} catch (err) {
 		return {
 			success: false,
-			message: `Error: ${err}`,
+			message: `Error: ${describeToolError(err)}`,
 		};
 	}
 

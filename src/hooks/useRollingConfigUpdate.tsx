@@ -7,6 +7,7 @@ import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInsta
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
 import { setConfiguration, shouldFanOutSetConfiguration } from '@/integrations/api/instance/status/setConfiguration';
 import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
+import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
@@ -109,6 +110,7 @@ export function useRollingConfigUpdate(
 			let fanOutAttempted = false;
 			let acknowledged = new Set<string>();
 			let instancesRestarted = 0;
+			let instancesUnanswered = 0;
 
 			for (let i = 0; i < targets.length; i++) {
 				const { instanceClient, replicationFqdn } = targets[i];
@@ -149,10 +151,13 @@ export function useRollingConfigUpdate(
 					});
 					instancesRestarted += 1;
 					restarted = true;
-				} catch {
+				} catch (error) {
+					const unanswered = isUnansweredWrite(error);
+					instancesUnanswered += unanswered ? 1 : 0;
 					if (i + 1 !== targets.length) {
 						// If it fails to restart, or wasn't available, warn for a bit then move on.
-						toast.loading(`Failed Restarting Instance ${i + 1} of ${targets.length}`, {
+						const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
+						toast.loading(`${verdict} Instance ${i + 1} of ${targets.length}`, {
 							...toastConfig,
 							id: toastId,
 							description: 'We will carry on momentarily.',
@@ -211,15 +216,18 @@ export function useRollingConfigUpdate(
 					'"RUNNING" instance was',
 					'"RUNNING" instances were',
 				);
-				toast.error('Error', {
+				toast.error(instancesUnanswered ? OUTCOME_UNKNOWN_TITLE : 'Error', {
 					id: toastId,
-					description: `Failed to fully update cluster.\n`
-						+ ([
-							allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-							targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
-							allInstances.length !== instancesRestarted
-							&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
-						].filter(excludeFalsy).shift() || '')
+					description: (instancesUnanswered
+						? `Only ${someRunningInstancesWere} confirmed updated of ${allTheInstances}. `
+							+ describeUnansweredWrites(instancesUnanswered)
+						: `Failed to fully update cluster.\n`
+							+ ([
+								allInstances.length === 0 && 'No instances were found within the cluster to restart.',
+								targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+								allInstances.length !== instancesRestarted
+								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
+							].filter(excludeFalsy).shift() || ''))
 						+ (fanOutAttempted ? '\n' + MAY_BE_PENDING : ''),
 					duration: 10_000,
 					action: {

@@ -24,6 +24,7 @@ import { DeployComponentResult } from '@/integrations/api/instance/applications/
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { describeError } from '@/react-query/queryClient';
@@ -146,7 +147,7 @@ export function RedeployApplicationModal() {
 				}
 				const title = rolloutFailed
 					? `${project} did not reach every node`
-					: `Failed to ${stage ? 'stage' : 'redeploy'} ${project}`;
+					: redeployFailureTitle(error, project, stage);
 				toast.error(title, { description: message, action: recordAction(deployFailureDetails(error).deploymentId) });
 				return;
 			}
@@ -204,7 +205,7 @@ export function RedeployApplicationModal() {
 					invalidateComponents();
 					return;
 				}
-				toast.error(`Failed to ${stage ? 'stage' : 'redeploy'} ${project}`, {
+				toast.error(redeployFailureTitle(error, project, stage), {
 					id: toastId,
 					description: describeError(error).message,
 					action,
@@ -358,4 +359,12 @@ export function RedeployApplicationModal() {
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/** Never "Failed" for a deploy that got no verdict: it may be live, and the message says to check first. */
+function redeployFailureTitle(error: unknown, project: string, stage: boolean): string {
+	if (isUnansweredWrite(error)) {
+		return `Couldn't confirm ${project} was ${stage ? 'staged' : 'redeployed'}`;
+	}
+	return `Failed to ${stage ? 'stage' : 'redeploy'} ${project}`;
 }

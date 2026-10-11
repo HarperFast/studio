@@ -19,6 +19,7 @@ import {
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -97,7 +98,9 @@ export function AddOrganizationRoleModal({
 						form.reset();
 					},
 					onError: (error: Error) => {
-						toast.error(`Failed to add organization role: ${error.message}`);
+						if (shouldToastOwnFailure(error)) {
+							toast.error(`Failed to add organization role: ${error.message}`);
+						}
 					},
 				});
 			}

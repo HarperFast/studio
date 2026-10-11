@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 import { EntityIds } from '@/features/auth/store/authStore';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { webcrypto } from 'node:crypto';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -276,5 +277,57 @@ describe.each(
 		const failure = networkError();
 		post.mockRejectedValueOnce(failure);
 		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' })).rejects.toBe(failure);
+	});
+});
+
+describe('a secrets write that got no verdict', () => {
+	function unanswered(body: { operation: string }) {
+		const config = { method: 'post', data: JSON.stringify(body) } as InternalAxiosRequestConfig;
+		return new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config);
+	}
+
+	it('rejects with the AxiosError itself, so its failure can say the outcome is unknown', async () => {
+		const { post, wrapper, params } = harness();
+		const key = await generateKey();
+		post.mockImplementation((_url: string, body: { operation: string }) => {
+			if (body.operation === 'get_secrets_public_key') {
+				return Promise.resolve({ data: { public_key: key.pem, fingerprint: key.fingerprint } });
+			}
+			return Promise.reject(unanswered(body));
+		});
+
+		const set = renderHook(() => useSetSecret(), { wrapper }).result;
+		const remove = renderHook(() => useDeleteSecret(), { wrapper }).result;
+		const grant = renderHook(() => useGrantSecret(), { wrapper }).result;
+		const failures = await Promise.all([
+			set.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' }).catch((e: unknown) => e),
+			remove.current.mutateAsync({ ...params, name: 'API_KEY' }).catch((e: unknown) => e),
+			grant.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' }).catch((e: unknown) => e),
+		]);
+
+		for (const failure of failures) {
+			expect(isUnansweredWrite(failure)).toBe(true);
+		}
+	});
+
+	// Central manager's proxy answers a 504 with a JSON `error` after forwarding the operation, so the
+	// body has the shape a Harper refusal has; the status, not the body, decides.
+	it('keeps a gateway 504 that carries a JSON message as the AxiosError, not a SecretsOperationError', async () => {
+		const { post, wrapper, params } = harness();
+		const config = {
+			method: 'post',
+			data: JSON.stringify({ operation: 'delete_secret' }),
+		} as InternalAxiosRequestConfig;
+		const gateway = new AxiosError('Request failed with status code 504', AxiosError.ERR_BAD_RESPONSE, config, null, {
+			status: 504,
+			statusText: 'Gateway Timeout',
+			headers: {},
+			config,
+			data: { error: 'Proxied operation timed out after 30s on instance ins-1' },
+		});
+		post.mockRejectedValueOnce(gateway);
+
+		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(gateway);
 	});
 });

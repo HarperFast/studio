@@ -51,6 +51,7 @@ import {
 	deployComponentStream,
 } from '@/integrations/api/instance/applications/deployComponentStream';
 import { SSEOperationError } from '@/integrations/api/sse/errors';
+import { UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -187,6 +188,50 @@ describe('RedeployApplicationModal', () => {
 		expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to redeploy my-app', {
 			id: 'loading-toast',
 			description: FAILURE,
+		});
+	});
+
+	describe('a redeploy that got no verdict', () => {
+		const unanswered = () =>
+			new AxiosError(
+				'timeout of 300000ms exceeded',
+				AxiosError.ECONNABORTED,
+				{
+					headers: new AxiosHeaders(),
+					method: 'post',
+					data: JSON.stringify({ operation: 'deploy_component' }),
+				} as InternalAxiosRequestConfig,
+			);
+
+		it("replaces a buffered redeploy's progress toast without calling it failed", async () => {
+			mocks.sse.enabled = false;
+			mocks.post.mockRejectedValue(unanswered());
+			await renderOpenModal();
+
+			await submit();
+
+			await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
+			expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Couldn't confirm my-app was redeployed", {
+				id: 'loading-toast',
+				description: UNANSWERED_WRITE_MESSAGE,
+			});
+		});
+
+		it('toasts a streamed one that lands after the modal was closed without calling it failed', async () => {
+			const pending = deferred();
+			vi.mocked(deployComponentStream).mockReturnValue(pending.promise);
+			await renderOpenModal();
+			await submit();
+
+			await act(async () => {
+				fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+			});
+			await act(async () => pending.reject(unanswered()));
+
+			await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
+			expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Couldn't confirm my-app was redeployed", {
+				description: UNANSWERED_WRITE_MESSAGE,
+			});
 		});
 	});
 

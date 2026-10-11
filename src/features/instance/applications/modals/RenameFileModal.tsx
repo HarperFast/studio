@@ -22,9 +22,11 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -123,9 +125,11 @@ export function RenameFileModal() {
 				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
 				await reloadRootEntries();
 			} catch (error) {
-				toast.error('Rename Failed', {
+				const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+					title: 'Rename Failed',
 					description: error instanceof Error ? error.message : 'Could not remove the original directory.',
-				});
+				};
+				toast.error(title, { description });
 				setIsPending(false);
 				return;
 			}
