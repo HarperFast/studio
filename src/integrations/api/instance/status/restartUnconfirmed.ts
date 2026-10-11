@@ -1,3 +1,5 @@
+import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { errorText } from '@/lib/errorText';
 import { pluralize } from '@/lib/pluralize';
 
@@ -21,11 +23,41 @@ export class RestartUnconfirmedError extends Error {
 	}
 }
 
+export interface RollingOutcome {
+	total: number;
+	confirmed: number;
+	failed: number;
+	unanswered: number;
+	/** Set when a member never came back and the loop stopped there: the members after it, left alone. */
+	untouched?: number;
+}
+
 /**
- * For a loop that restarts one member at a time and stopped at the member that has not come back:
- * `untouched` members were left alone, since restarting another could take the cluster down.
+ * The final toast of a loop that restarts one member at a time, when some member's outcome is not
+ * known; undefined when every outcome is.
  */
-export function describeUnconfirmedRestart(untouched: number, verb: 'restarted' | 'updated'): string {
+export function describeUncertainRollingOutcome(
+	{ total, confirmed, failed, unanswered, untouched }: RollingOutcome,
+	verb: 'restarted' | 'updated',
+): { title: string; description: string } | undefined {
+	if (!unanswered && untouched === undefined) {
+		return undefined;
+	}
+	const confirmedOf = `${pluralize(confirmed, '"RUNNING" instance was', '"RUNNING" instances were')} confirmed ${verb} `
+		+ `of ${pluralize(total, 'instance', 'instances')}.`;
+	return {
+		title: unanswered ? OUTCOME_UNKNOWN_TITLE : RESTART_UNCONFIRMED_TITLE,
+		description: [
+			`Only ${confirmedOf}`,
+			failed > 0
+			&& `${pluralize(failed, 'instance', 'instances')} failed to ${verb === 'restarted' ? 'restart' : 'update'}.`,
+			unanswered > 0 && describeUnansweredWrites(unanswered),
+			untouched !== undefined && describeNoReturn(untouched, verb),
+		].filter(excludeFalsy).join(' '),
+	};
+}
+
+function describeNoReturn(untouched: number, verb: 'restarted' | 'updated'): string {
 	const leftAlone = pluralize(untouched, 'other instance was', 'other instances were');
 	return "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
 		+ (untouched > 0 ? `${leftAlone} not ${verb}, to keep the cluster available. ` : '')

@@ -6,13 +6,12 @@ import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
 import {
-	describeUnconfirmedRestart,
-	RESTART_UNCONFIRMED_TITLE,
+	describeUncertainRollingOutcome,
 	RestartUnconfirmedError,
 } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { setConfiguration, shouldFanOutSetConfiguration } from '@/integrations/api/instance/status/setConfiguration';
 import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
-import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
@@ -116,7 +115,7 @@ export function useRollingConfigUpdate(
 			let acknowledged = new Set<string>();
 			let instancesRestarted = 0;
 			let instancesUnanswered = 0;
-			/** Members left alone after one accepted the restart and never came back; undefined until then. */
+			let instancesFailed = 0;
 			let instancesUntouched: number | undefined;
 
 			for (let i = 0; i < targets.length; i++) {
@@ -173,6 +172,7 @@ export function useRollingConfigUpdate(
 					}
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
+					instancesFailed += unanswered ? 0 : 1;
 					if (i + 1 !== targets.length) {
 						// If it fails to restart, or wasn't available, warn for a bit then move on.
 						const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
@@ -207,7 +207,14 @@ export function useRollingConfigUpdate(
 				}
 			}
 
-			if (canceled) {
+			const uncertain = describeUncertainRollingOutcome({
+				total: allInstances.length,
+				confirmed: instancesRestarted,
+				failed: instancesFailed,
+				unanswered: instancesUnanswered,
+				untouched: instancesUntouched,
+			}, 'updated');
+			if (canceled && !uncertain) {
 				toast.error('Cancelled', {
 					id: toastId,
 					description: `The config update was partially cancelled.${fanOutAttempted ? ` ${MAY_BE_PENDING}` : ''}`,
@@ -235,20 +242,10 @@ export function useRollingConfigUpdate(
 					'"RUNNING" instance was',
 					'"RUNNING" instances were',
 				);
-				const title = instancesUnanswered
-					? OUTCOME_UNKNOWN_TITLE
-					: instancesUntouched === undefined
-					? 'Error'
-					: RESTART_UNCONFIRMED_TITLE;
-				toast.error(title, {
+				toast.error(uncertain?.title ?? 'Error', {
 					id: toastId,
-					description: (instancesUnanswered || instancesUntouched !== undefined
-						? [
-							`Only ${someRunningInstancesWere} confirmed updated of ${allTheInstances}.`,
-							instancesUnanswered && describeUnansweredWrites(instancesUnanswered),
-							instancesUntouched !== undefined && describeUnconfirmedRestart(instancesUntouched, 'updated'),
-						].filter(excludeFalsy).join(' ')
-						: `Failed to fully update cluster.\n`
+					description: (uncertain?.description
+						?? `Failed to fully update cluster.\n`
 							+ ([
 								allInstances.length === 0 && 'No instances were found within the cluster to restart.',
 								targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
