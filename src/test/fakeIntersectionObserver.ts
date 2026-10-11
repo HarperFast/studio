@@ -30,7 +30,6 @@ export class FakeIntersectionObserver {
 		return [];
 	}
 
-	/** Report observed targets as (not) intersecting — all of them, or those `which` accepts. */
 	static setIntersecting(isIntersecting: boolean, which: (target: Element) => boolean = () => true) {
 		for (const observer of FakeIntersectionObserver.instances) {
 			const targets = [...observer.targets].filter(which);
