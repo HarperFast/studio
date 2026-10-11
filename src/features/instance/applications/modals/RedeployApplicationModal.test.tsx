@@ -36,7 +36,10 @@ vi.mock('@/integrations/api/instance/applications/deployComponentStream', async 
 }));
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 
-import { deployComponentStream } from '@/integrations/api/instance/applications/deployComponentStream';
+import {
+	DeployComponentResult,
+	deployComponentStream,
+} from '@/integrations/api/instance/applications/deployComponentStream';
 import { SSEOperationError } from '@/integrations/api/sse/errors';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { mutationErrorHandler } from '@/react-query/queryClient';
@@ -128,6 +131,28 @@ describe('RedeployApplicationModal', () => {
 
 		await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
 		expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to redeploy my-app', { description: FAILURE });
+	});
+
+	it('leaves a reopened modal alone when the deploy it no longer shows succeeds', async () => {
+		let succeed!: (value: DeployComponentResult) => void;
+		vi.mocked(deployComponentStream).mockReturnValue(
+			new Promise((resolve) => {
+				succeed = resolve;
+			}),
+		);
+		mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
+		await renderOpenModal();
+		await submit();
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+		});
+		await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+
+		await act(async () => succeed({ message: 'Successfully deployed: my-app', deployment_id: 'd1' }));
+
+		await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', {}));
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Redeploy Application/ })).toBeTruthy();
 	});
 
 	it("replaces a buffered redeploy's progress toast with the server's reason, once", async () => {
