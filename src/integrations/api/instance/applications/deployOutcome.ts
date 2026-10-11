@@ -34,7 +34,7 @@ export function readCertificationDecision(value: unknown): CertificationDecision
 	};
 }
 
-export interface DeployFailureDetails {
+interface DeployFailureDetails {
 	deploymentId?: string;
 	certification?: CertificationDecision;
 }

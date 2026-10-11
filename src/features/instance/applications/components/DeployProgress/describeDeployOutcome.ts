@@ -1,14 +1,15 @@
 import { CertificationDecision } from '@/integrations/api/instance/applications/deployOutcome';
 import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
 
-export interface CertificationSummary {
+interface CertificationSummary {
 	label: string;
 	/** Why it went out unchecked, when it did. */
 	detail?: string;
 	certified: boolean;
 }
 
-/** Harper's `certification` string (5.4.0+), as a person reads it. */
+// The reasons are Harper's own (documentation `reference/operations-api/operations.md`, "Certifying a release in a
+// canary worker"; harper `components/operations.js:815-817`).
 export function describeCertification(certification: string): CertificationSummary {
 	switch (certification) {
 		case 'certified':
@@ -34,14 +35,9 @@ export function describeCertification(certification: string): CertificationSumma
 	}
 }
 
-export interface DecisionSummary {
-	title: string;
-	reason?: string;
-	outcome?: string;
-}
-
-/** A canary's refusal of a release on the node that received the deploy. */
-export function describeDecision(decision: CertificationDecision): DecisionSummary {
+export function describeDecision(
+	decision: CertificationDecision,
+): { title: string; reason?: string; outcome?: string } {
 	const title = decision.status === 'rejected'
 		? 'Its canary rejected this release on the node that received the deploy.'
 		: decision.status === 'interrupted'
@@ -55,7 +51,6 @@ export function describeDecision(decision: CertificationDecision): DecisionSumma
 	return { title, reason: decision.reason, outcome };
 }
 
-/** Why Studio could not say how the other nodes took the release. */
 export function describeUnfollowable(rollout: RolloutSnapshot): string | undefined {
 	switch (rollout.unfollowable) {
 		case 'not-found':
@@ -67,11 +62,13 @@ export function describeUnfollowable(rollout: RolloutSnapshot): string | undefin
 		case 'timed-out':
 			return 'The other nodes were still restarting after 30 minutes, so Studio stopped waiting. The restart may '
 				+ 'still finish; check their status before relying on it.';
+		case 'unrecognized':
+			return "This deploy's restart job finished, but Studio couldn't read how the other nodes took the release. "
+				+ 'Check their status before relying on it.';
 	}
 	return undefined;
 }
 
-/** One node's line in the rollout list. */
 export function describeRolloutNode(node: RolloutNode): { label: string; detail?: string } {
 	switch (node.outcome) {
 		case 'activated':

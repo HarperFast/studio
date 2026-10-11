@@ -6,10 +6,15 @@ import { ComponentHealthResult } from '@/features/instance/applications/hooks/us
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { toast } from 'sonner';
 
-/** What else the deploy said, beyond the component's health. `warn` when a person should look at it. */
-export interface DeployNotes {
+interface DeployNotes {
 	lines: string[];
 	warn: boolean;
+}
+
+/** A toast's link to the deployment's record, and the toast to replace, when a caller has them. */
+export interface DeployToastOptions {
+	id?: string | number;
+	action?: { label: string; onClick: () => void };
 }
 
 export function deployNotes(result: DeployComponentResult | undefined): DeployNotes {
@@ -48,22 +53,28 @@ export function reportDeployHealth(
 	project: string,
 	health: ComponentHealthResult,
 	notes: DeployNotes = { lines: [], warn: false },
+	options: DeployToastOptions = {},
 ): void {
 	switch (health.level) {
 		case 'healthy':
 			if (notes.warn) {
-				toast.warning(`${project} deployed with warnings`, { description: withNotes(health.message, notes) });
+				toast.warning(`${project} deployed with warnings`, {
+					...options,
+					description: withNotes(health.message, notes),
+				});
 				return;
 			}
-			toast.success(`${project} deployed and healthy`, { description: withNotes(health.message, notes) });
+			toast.success(`${project} deployed and healthy`, { ...options, description: withNotes(health.message, notes) });
 			return;
 		case 'warning':
 			toast.warning(`${project} deployed with warnings`, {
+				...options,
 				description: withNotes(health.message ?? 'The component loaded but reported a warning.', notes),
 			});
 			return;
 		case 'error':
 			toast.error(`${project} deployed but failed to load`, {
+				...options,
 				description: withNotes(health.message ?? 'The component reported an error after deploying.', notes),
 			});
 			return;
@@ -72,6 +83,7 @@ export function reportDeployHealth(
 		case 'indeterminate':
 		default:
 			toast.success(`${project} deployed`, {
+				...options,
 				description: withNotes('Still verifying — the component is loading. Check its status shortly.', notes),
 			});
 			return;
@@ -89,13 +101,47 @@ export async function reportDeployOutcome(
 	project: string,
 	result: DeployComponentResult | undefined,
 	runHealthCheck: (project: string) => Promise<ComponentHealthResult>,
+	options: DeployToastOptions = {},
 ): Promise<boolean> {
-	if (result?.rollout?.state === 'unfollowable') {
-		toast.warning(`${project} deployed on the node that received it`, {
-			description: describeUnfollowable(result.rollout),
-		});
+	if (reportUnfollowable(project, result, options)) {
 		return false;
 	}
-	reportDeployHealth(project, await runHealthCheck(project), deployNotes(result));
+	reportDeployHealth(project, await runHealthCheck(project), deployNotes(result), options);
+	return true;
+}
+
+/**
+ * Report a resolved deploy whose component is not health-checked, by what its rollout said. `success` is the toast
+ * for a deploy with nothing to add; it is replaced by a warning when a rollout is unknown or has something to read.
+ */
+export function reportDeployResult(
+	project: string,
+	result: DeployComponentResult | undefined,
+	success: { title: string; description?: string },
+	options: DeployToastOptions = {},
+): void {
+	if (reportUnfollowable(project, result, options)) {
+		return;
+	}
+	const notes = deployNotes(result);
+	if (notes.warn) {
+		toast.warning(`${project} deployed with warnings`, { ...options, description: withNotes(undefined, notes) });
+		return;
+	}
+	toast.success(success.title, { ...options, description: withNotes(success.description, notes) });
+}
+
+function reportUnfollowable(
+	project: string,
+	result: DeployComponentResult | undefined,
+	options: DeployToastOptions,
+): boolean {
+	if (result?.rollout?.state !== 'unfollowable') {
+		return false;
+	}
+	toast.warning(`${project} deployed on the node that received it`, {
+		...options,
+		description: describeUnfollowable(result.rollout),
+	});
 	return true;
 }

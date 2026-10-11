@@ -57,19 +57,23 @@ type Action =
 	| { kind: 'event'; event: DeployStreamEvent }
 	| { kind: 'settled'; lifecycle: Settled; error?: string; outcome?: SettledOutcome };
 
-/** What the deploy answered, or failed with, beyond its lifecycle. */
-export interface SettledOutcome {
+interface SettledOutcome {
 	result?: DeployComponentResult;
 	failure?: unknown;
 }
 
-function settledDetails(outcome: SettledOutcome | undefined): Partial<DeploymentStreamState> {
+function settledDetails(
+	state: DeploymentStreamState,
+	outcome: SettledOutcome | undefined,
+): Partial<DeploymentStreamState> {
 	if (outcome?.result) {
-		const { certification, deployment_id, rollout } = outcome.result;
+		const { certification, deployment_id, rollout, warnings } = outcome.result;
 		return {
 			certification: typeof certification === 'string' ? certification : undefined,
 			deploymentId: deployment_id,
 			...(rollout ? { rollout } : {}),
+			// The streamed events already put them here; a result that did not stream still carries them.
+			...(!state.warnings?.length && warnings?.length ? { warnings } : {}),
 		};
 	}
 	if (outcome?.failure !== undefined) {
@@ -118,7 +122,7 @@ function reducer(state: DeploymentStreamState, action: Action): DeploymentStream
 			return { ...state, peers: state.peers.concat(event.data) };
 		}
 		case 'settled':
-			return { ...state, ...settledDetails(action.outcome), lifecycle: action.lifecycle, error: action.error };
+			return { ...state, ...settledDetails(state, action.outcome), lifecycle: action.lifecycle, error: action.error };
 	}
 }
 

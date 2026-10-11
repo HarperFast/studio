@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Separator } from '@/components/ui/separator';
+import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { DEPLOY_PHASE_ORDER } from '@/integrations/api/instance/applications/deployComponentStream';
 import { CertificationDecision } from '@/integrations/api/instance/applications/deployOutcome';
 import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
@@ -177,7 +178,7 @@ export function DeployProgress({
 				</div>
 			)}
 
-			{state.lifecycle === 'inconclusive' && (
+			{state.lifecycle === 'inconclusive' && !state.rollout && (
 				<Badge variant="warning" className="self-start">
 					Live updates ended early — verifying…
 				</Badge>
@@ -185,7 +186,7 @@ export function DeployProgress({
 
 			{state.deploymentId && (
 				<Link
-					to={buildAbsoluteLinkToPage(params, `config/deployments/${encodeURIComponent(state.deploymentId)}`)}
+					to={deploymentRecordPath(params, state.deploymentId)}
 					onClick={onNavigateAway}
 					className="self-start text-sm underline"
 				>

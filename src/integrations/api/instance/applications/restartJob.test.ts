@@ -112,14 +112,26 @@ describe('readRestartJob', () => {
 	});
 
 	it.each([
-		['a result that is not an object', { status: 'COMPLETE', result: 'done' }, 'complete'],
-		['a non-array activated list', { status: 'COMPLETE', result: { activated: 'node-b' } }, 'complete'],
 		['entries that are not objects', { status: 'COMPLETE', result: { activated: [null, 3, 'x'] } }, 'complete'],
 		['an ERROR with no message', { status: 'ERROR' }, 'failed'],
-		['a status in another case', { status: 'complete', result: {} }, 'complete'],
+		['a status in another case', { status: 'complete', result: { replicated: [] } }, 'complete'],
 		['no status at all', {}, 'following'],
 	])('never throws on %s', (_label, job, state) => {
 		expect(readRestartJob('job-1', { id: 'job-1', ...job } as never).state).toBe(state);
+	});
+
+	it.each([
+		['no result', { status: 'COMPLETE', message: 'Successfully completed job: job-1' }],
+		['a result that is not an object', { status: 'COMPLETE', result: 'done' }],
+		['a result in neither shape', { status: 'COMPLETE', result: { restarted: ['node-b'] } }],
+		['a non-array activated list', { status: 'COMPLETE', result: { activated: 'node-b' } }],
+	])('does not read a finished job with %s as a successful rollout', (_label, job) => {
+		expect(readRestartJob('job-1', { id: 'job-1', ...job } as never)).toEqual({
+			jobId: 'job-1',
+			state: 'unfollowable',
+			nodes: [],
+			unfollowable: 'unrecognized',
+		});
 	});
 
 	it('names an entry with no node rather than dropping it', () => {
@@ -170,7 +182,7 @@ describe('followRestartJob', () => {
 		const snapshot = await pending;
 		expect(snapshot.state).toBe('complete');
 		expect(post).toHaveBeenCalledTimes(3);
-		expect(post).toHaveBeenCalledWith('/', { operation: 'get_job', id: 'job-1' });
+		expect(post).toHaveBeenCalledWith('/', { operation: 'get_job', id: 'job-1' }, undefined);
 		expect(updates.map((s) => s.state)).toEqual(['following', 'complete']);
 	});
 
@@ -234,6 +246,28 @@ describe('followRestartJob', () => {
 		await vi.advanceTimersByTimeAsync(30 * 60_000);
 		// 30 in the first minute, 48 over the next four, 100 over the last 25.
 		expect(post.mock.calls.length).toBeLessThan(200);
+	});
+
+	it('rejects, without reporting the outcome, when its signal aborts while a poll is in flight', async () => {
+		let answer: (value: { data: object[] }) => void = () => {};
+		const post = vi.fn((_url: string, _body: object, config?: { signal?: AbortSignal }) => {
+			expect(config?.signal).toBeInstanceOf(AbortSignal);
+			return new Promise<{ data: object[] }>((resolve) => (answer = resolve));
+		});
+		const controller = new AbortController();
+		const updates: RolloutSnapshot[] = [];
+		const pending = followRestartJob({
+			instanceClient: { post } as unknown as InstanceClient,
+			jobId: 'job-1',
+			signal: controller.signal,
+			onUpdate: (s) => updates.push(s),
+		});
+		pending.catch(() => {});
+		await vi.advanceTimersByTimeAsync(0);
+		controller.abort(new Error('cancelled'));
+		answer({ data: [certifiedActivation] });
+		await expect(pending).rejects.toThrow('cancelled');
+		expect(updates.map((s) => s.state)).toEqual(['following']);
 	});
 
 	it('rejects when its signal aborts', async () => {

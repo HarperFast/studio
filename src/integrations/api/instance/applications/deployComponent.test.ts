@@ -133,7 +133,7 @@ describe('deployAndFollowComponent', () => {
 		await vi.advanceTimersByTimeAsync(5_000);
 		const result = await pending;
 		expect(result.rollout).toMatchObject({ state: 'complete', nodes: [{ node: 'node-b', outcome: 'activated' }] });
-		expect(post).toHaveBeenCalledWith('/', { operation: 'get_job', id: 'job-1' });
+		expect(post).toHaveBeenCalledWith('/', { operation: 'get_job', id: 'job-1' }, undefined);
 		expect(onEvent.mock.calls.map(([event]) => [event.type, event.data.state])).toEqual([
 			['rollout', 'following'],
 			['rollout', 'complete'],

@@ -32,7 +32,7 @@ export interface DeployPeerEvent {
 }
 
 /** Something the deploy wants a person to know without failing, e.g. a peer that installed different code (5.3.1+). */
-export interface DeployWarningEvent {
+interface DeployWarningEvent {
 	message?: string;
 }
 
@@ -59,7 +59,6 @@ export interface DeployComponentResult extends ReplicatedResponse {
 	rollout?: RolloutSnapshot;
 }
 
-/** The deploy events a `deploy_component` or `get_deployment` stream carries; anything else is not one. */
 export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | undefined {
 	switch (message.event) {
 		case 'phase':

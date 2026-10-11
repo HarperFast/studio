@@ -10,20 +10,21 @@ import { isDeterministicRejection } from '@/react-query/pollUnlessForbidden';
  *
  * `unfollowable` means Studio stopped without learning how the job ended, so it claims nothing.
  */
-export type RolloutState = 'following' | 'complete' | 'failed' | 'unfollowable';
+type RolloutState = 'following' | 'complete' | 'failed' | 'unfollowable';
 
 /**
  * `not-found`: the node Studio reached has no such job. `hdb_job` does not replicate, so only the node
  * that received the deploy can answer for it, and a cluster's address may reach another node.
+ * `unrecognized`: the job ended with a result in neither shape Harper writes, so it says nothing about the nodes.
  */
-export type UnfollowableReason = 'not-found' | 'refused' | 'timed-out';
+type UnfollowableReason = 'not-found' | 'refused' | 'timed-out' | 'unrecognized';
 
 /**
  * `activated` and `failed` come from a Harper 5.4+ activation job, where each node certifies the
  * release itself. `restarted` and `unconfirmed` come from the plain restart job older versions run:
  * there a node the job could not reach is listed with the error, and the job still completes.
  */
-export type RolloutNodeOutcome = 'activated' | 'restarted' | 'failed' | 'unconfirmed';
+type RolloutNodeOutcome = 'activated' | 'restarted' | 'failed' | 'unconfirmed';
 
 export interface RolloutNode {
 	node: string;
@@ -76,7 +77,6 @@ function restartedNodes(entries: unknown[]): RolloutNode[] {
 	});
 }
 
-/** Read one `get_job` row of a rolling deploy's restart job. */
 export function readRestartJob(jobId: string, job: HarperJob): RolloutSnapshot {
 	const status = typeof job.status === 'string' ? job.status.toUpperCase() : undefined;
 	if (status === 'COMPLETE') {
@@ -85,7 +85,10 @@ export function readRestartJob(jobId: string, job: HarperJob): RolloutSnapshot {
 			? activatedNodes(result.activated)
 			: Array.isArray(result?.replicated)
 			? restartedNodes(result.replicated)
-			: [];
+			: undefined;
+		if (!nodes) {
+			return { jobId, state: 'unfollowable', nodes: [], unfollowable: 'unrecognized' };
+		}
 		return { jobId, state: nodes.some((node) => node.outcome === 'failed') ? 'failed' : 'complete', nodes };
 	}
 	if (status === 'ERROR') {
@@ -114,7 +117,7 @@ export function rolloutPollDelayMs(elapsedMs: number, fastMs: number): number {
 // again on the next request, so a missing row only counts once the job has stayed missing for a while.
 const NOT_FOUND_GRACE_MS = 20_000;
 
-export interface FollowRestartJobParams extends InstanceClientConfig {
+interface FollowRestartJobParams extends InstanceClientConfig {
 	jobId: string;
 	onUpdate?: (snapshot: RolloutSnapshot) => void;
 	signal?: AbortSignal;
@@ -148,7 +151,8 @@ export async function followRestartJob({
 	for (;;) {
 		signal?.throwIfAborted();
 		try {
-			const job = await getJob({ jobId, instanceClient });
+			const job = await getJob({ jobId, instanceClient, signal });
+			signal?.throwIfAborted();
 			if (job) {
 				missingSince = undefined;
 				const snapshot = readRestartJob(jobId, job);
@@ -162,6 +166,7 @@ export async function followRestartJob({
 				}
 			}
 		} catch (error) {
+			signal?.throwIfAborted();
 			// Anything else — a dropped connection, a 5xx while that node's own workers restart — passes.
 			if (isDeterministicRejection(error)) {
 				return unfollowable('refused');

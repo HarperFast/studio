@@ -1,9 +1,11 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
+import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { reportDeployOutcome } from '@/features/instance/applications/modals/reportDeployHealth';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
@@ -30,6 +32,7 @@ export function useImportApplication(
 	const instanceParams = useInstanceClientIdParams();
 	const sseDeploy = useSupportsDeploymentSSE();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
+	const recordAction = useDeploymentRecordAction();
 	const { reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems } = useEditorView();
 
 	const onImported = useCallback((project: string) => {
@@ -93,8 +96,11 @@ export function useImportApplication(
 			onSuccess: async (result) => {
 				toast.dismiss(toastId);
 				onImported(project);
-				if (sseDeploy || result?.rollout?.state === 'unfollowable') {
-					await reportDeployOutcome(project, result, runHealthCheck);
+				// A followed rollout restarted the other nodes, so there is a health to check however the deploy was sent.
+				if (sseDeploy || result?.rollout) {
+					await reportDeployOutcome(project, result, runHealthCheck, {
+						action: recordAction(result?.deployment_id),
+					});
 				} else {
 					toast.success(`Imported successfully`, {
 						description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
@@ -110,17 +116,19 @@ export function useImportApplication(
 					await reportDeployOutcome(project, undefined, runHealthCheck);
 					return;
 				}
+				const action = recordAction(deployFailureDetails(error).deploymentId);
 				if (error instanceof DeployRolloutError) {
 					onImported(project);
-					toast.error(`${project} did not reach every node`, { description: error.message });
+					toast.error(`${project} did not reach every node`, { description: error.message, action });
 					return;
 				}
 				toast.error(`Failed to import ${project}`, {
 					description: error instanceof Error ? error.message : undefined,
+					action,
 				});
 			},
 		});
-	}, [mutate, sseDeploy, instanceParams, runHealthCheck, onImported]);
+	}, [mutate, sseDeploy, instanceParams, runHealthCheck, onImported, recordAction]);
 
 	return useMemo(() => ({
 		isImportingApplication,

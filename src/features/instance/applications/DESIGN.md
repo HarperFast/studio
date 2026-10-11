@@ -13,9 +13,10 @@ So [`deployAndFollowComponent`](../../../integrations/api/instance/applications/
   progress panel name each node that did not take it. Its message quotes those nodes' errors, so Datadog withholds it
   like `SSEOperationError`.
 - **A job Studio could not follow resolves, as `rollout.state === 'unfollowable'`, and is never reported as success.**
-  [`reportDeployOutcome`](modals/reportDeployHealth.ts) skips the post-deploy health check for it, because that check
-  reads the one node Studio reaches, which can be healthy on the release a rejecting node kept. Any new caller of the
-  deploy mutation has to make the same distinction.
+  That covers a job that ended with a result in neither shape below. [`reportDeployOutcome`](modals/reportDeployHealth.ts)
+  skips the post-deploy health check for it, because that check reads the one node Studio reaches, which can be healthy
+  on the release a rejecting node kept; `reportDeployResult` is the same policy for a caller that does not health-check.
+  Any new caller of the deploy mutation reports through one of the two.
 - **The job may not be there.** `hdb_job` is a non-replicating system table, so only the receiving node can answer for
   it. Central manager's cluster proxy sends every operation to the first running instance, so over the proxy the deploy
   and its polls reach the same node; a direct connection to a cluster's address can reach another node, which answers
