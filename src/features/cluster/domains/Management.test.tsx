@@ -2,13 +2,13 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren, Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
-vi.mock('@/config/apiClient', () => ({ apiClient: { get, post } }));
+const { get, post, put } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { get, post, put } }));
 
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
@@ -49,13 +49,16 @@ function renderManagement() {
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
-	return render(
-		<QueryClientProvider client={queryClient}>
-			<Suspense fallback={<div>loading</div>}>
-				<DomainsManagement />
-			</Suspense>
-		</QueryClientProvider>,
-	);
+	return {
+		queryClient,
+		...render(
+			<QueryClientProvider client={queryClient}>
+				<Suspense fallback={<div>loading</div>}>
+					<DomainsManagement />
+				</Suspense>
+			</QueryClientProvider>,
+		),
+	};
 }
 
 function domainListFetches(): number {
@@ -403,5 +406,180 @@ describe('DomainsManagement — adding a domain', () => {
 		submitWith(container, 'example.com');
 
 		await waitFor(() => expect(queryByText(/Domain already exists/)).toBeNull());
+	});
+});
+
+describe('DomainsManagement — binding and unbinding', () => {
+	const boundDomains = [
+		{ id: 'dom-a', domain: 'a.example.com', status: 'ACTIVE', clusterId: 'clu-1', organizationId: 'org-1' },
+		{ id: 'dom-b', domain: 'b.example.com', status: 'ACTIVE', clusterId: 'clu-1', organizationId: 'org-1' },
+	];
+
+	function serve(domains: object[], clusterDomainIds: () => string[]) {
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({ data: domains })
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: clusterDomainIds() },
+				})
+		);
+	}
+
+	function sentBody(call = 0): unknown {
+		expect(put.mock.calls[call][0]).toBe('/Cluster/clu-1');
+		return JSON.parse(JSON.stringify(put.mock.calls[call][1]));
+	}
+
+	async function unbind(findByText: (text: string) => Promise<HTMLElement>, domain: string) {
+		const row = (await findByText(domain)).closest('tr')!;
+		fireEvent.click(within(row).getByRole('button', { name: 'Unbind Domain' }));
+	}
+
+	it('leaves cert intent alone when unbinding one domain, so the domains still bound keep theirs', async () => {
+		put.mockResolvedValue({ data: {} });
+		serve(boundDomains, () => ['dom-a', 'dom-b']);
+		const { findByText } = renderManagement();
+
+		await unbind(findByText, 'a.example.com');
+
+		await waitFor(() => expect(put).toHaveBeenCalledOnce());
+		expect(sentBody()).toEqual({ domainIds: ['dom-b'] });
+	});
+
+	it('unbinds against the cluster as it is now, not as it was when the page mounted', async () => {
+		put.mockResolvedValue({ data: {} });
+		let clusterDomainIds = ['dom-a'];
+		let releaseDomainList!: () => void;
+		const domainListHeld = new Promise<void>((resolve) => {
+			releaseDomainList = resolve;
+		});
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? domainListHeld.then(() => ({ data: boundDomains }))
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: clusterDomainIds },
+				})
+		);
+		const { container, findByText, queryClient } = renderManagement();
+		await waitFor(() => expect(container.querySelector('input[name="domain"]')).not.toBeNull());
+
+		clusterDomainIds = ['dom-a', 'dom-b'];
+		await queryClient.refetchQueries({ queryKey: ['clu-1'], exact: true });
+		releaseDomainList();
+
+		await unbind(findByText, 'a.example.com');
+
+		await waitFor(() => expect(put).toHaveBeenCalledOnce());
+		expect(sentBody()).toEqual({ domainIds: ['dom-b'] });
+	});
+
+	it('builds the next change on the list the last one left, without waiting for the cluster poll', async () => {
+		let clusterDomainIds = ['dom-a', 'dom-b'];
+		put.mockImplementation((_url: string, body: { domainIds: string[] }) => {
+			clusterDomainIds = body.domainIds;
+			return Promise.resolve({ data: {} });
+		});
+		serve(boundDomains, () => clusterDomainIds);
+		const { findByText, getByText } = renderManagement();
+
+		await unbind(findByText, 'a.example.com');
+		await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Domain unbound!'));
+		const unbindB = await waitFor(() => {
+			const button = within(getByText('b.example.com').closest('tr')!).getByRole('button', {
+				name: 'Unbind Domain',
+			}) as HTMLButtonElement;
+			expect(button.disabled).toBe(false);
+			return button;
+		});
+		fireEvent.click(unbindB);
+
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+		expect(sentBody(1)).toEqual({ domainIds: [] });
+	});
+
+	it('builds the next change on the list the last one left even when re-reading the cluster fails', async () => {
+		let changed = false;
+		put.mockImplementation(() => {
+			changed = true;
+			return Promise.resolve({ data: {} });
+		});
+		get.mockImplementation((url: string) => {
+			if (url.startsWith('/Domain/')) {
+				return Promise.resolve({ data: boundDomains });
+			}
+			return changed
+				? Promise.reject(new AxiosError('Network Error', AxiosError.ERR_NETWORK))
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: ['dom-a', 'dom-b'] },
+				});
+		});
+		const { findByText, getByText } = renderManagement();
+
+		await unbind(findByText, 'a.example.com');
+		await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Domain unbound!'));
+		await waitFor(() => expect(get.mock.calls.filter(([url]) => String(url) === '/Cluster/clu-1')).toHaveLength(2));
+		const unbindB = await waitFor(() => {
+			const button = within(getByText('b.example.com').closest('tr')!).getByRole('button', {
+				name: 'Unbind Domain',
+			}) as HTMLButtonElement;
+			expect(button.disabled).toBe(false);
+			return button;
+		});
+		fireEvent.click(unbindB);
+
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+		expect(sentBody(1)).toEqual({ domainIds: [] });
+	});
+
+	it('holds every domain action while one is in flight, since each sends the whole list', async () => {
+		let settle!: () => void;
+		put.mockReturnValue(
+			new Promise((resolve) => {
+				settle = () => resolve({ data: {} });
+			}),
+		);
+		const unboundDomain = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+		serve([...boundDomains, unboundDomain], () => ['dom-a', 'dom-b']);
+		const { findByText, getByRole } = renderManagement();
+		fireEvent.click(within((await findByText('c.example.com')).closest('tr')!).getByRole('checkbox'));
+		const bind = getByRole('button', { name: /Bind 1 Domain/ }) as HTMLButtonElement;
+
+		await unbind(findByText, 'a.example.com');
+
+		await waitFor(() => expect(bind.disabled).toBe(true));
+		settle();
+		await waitFor(() => expect(bind.disabled).toBe(false));
+	});
+
+	it('refuses a second domain action queued before the first one disabled the controls', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const unboundDomain = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+		serve([...boundDomains, unboundDomain], () => ['dom-a', 'dom-b']);
+		const { findByText, getByRole } = renderManagement();
+		fireEvent.click(within((await findByText('c.example.com')).closest('tr')!).getByRole('checkbox'));
+		const unbindA = within((await findByText('a.example.com')).closest('tr')!).getByRole('button', {
+			name: 'Unbind Domain',
+		});
+		const bind = getByRole('button', { name: /Bind 1 Domain/ });
+
+		fireEvent.click(unbindA);
+		fireEvent.click(bind);
+
+		await waitFor(() => expect(put).toHaveBeenCalled());
+		expect(put).toHaveBeenCalledOnce();
+		expect(sentBody()).toEqual({ domainIds: ['dom-b'] });
+	});
+
+	it('still asks for certificates when binding', async () => {
+		put.mockResolvedValue({ data: {} });
+		serve([{ id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' }], () => []);
+		const { findByText, getByRole } = renderManagement();
+
+		const row = (await findByText('c.example.com')).closest('tr')!;
+		fireEvent.click(within(row).getByRole('checkbox'));
+		fireEvent.click(getByRole('button', { name: /Bind 1 Domain/ }));
+
+		await waitFor(() => expect(put).toHaveBeenCalledOnce());
+		expect(sentBody()).toEqual({ domainIds: ['dom-c'], generateDomainCerts: true });
 	});
 });

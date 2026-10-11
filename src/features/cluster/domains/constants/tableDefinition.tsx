@@ -1,15 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { isRunning } from '@/components/ui/utils/badgeStatus';
 import { AssociateDomainWithCluster } from '@/features/cluster/domains/AssociateDomainWithCluster';
 import { CertificateProgress } from '@/features/cluster/domains/components/CertificateProgress';
 import { useChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
-import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import { useIsSettingDomainIds, useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
-import { unique } from '@/lib/arrays/unique';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { queryClient } from '@/react-query/queryClient';
 import { useCallback, useMemo } from 'react';
@@ -28,30 +26,10 @@ export function useDataTableColumns(
 		[challengeCertificates],
 	);
 
-	const { mutate: setDomainIds, isPending: addPending } = useSetDomainIdsOnCluster();
+	const { mutate: setDomainIds } = useSetDomainIdsOnCluster();
+	const settingDomainIds = useIsSettingDomainIds();
 	const { mutate: deleteDomain, isPending: deletePending } = useDeleteDomain();
-	const isPending = addPending || deletePending;
-
-	const bindDomainToThisCluster = useCallback((domainId: string, generateDomainCerts: boolean) => {
-		if (!isRunning(cluster.status)) {
-			toast.error('Cluster is currently ' + cluster.status, { description: 'To bind a domain, it must be running.' });
-			return;
-		}
-		setDomainIds({
-			clusterId: cluster.id,
-			domainIds: unique((cluster.domainIds?.slice() || []).concat([domainId])),
-			generateDomainCerts,
-		}, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
-				toast.success(
-					'Domain bound!' + (generateDomainCerts
-						? ' Certificates are being generated in the background now.'
-						: ''),
-				);
-			},
-		});
-	}, [setDomainIds, cluster]);
+	const isPending = settingDomainIds || deletePending;
 
 	const deleteDomainById = useCallback((domainId: string) => {
 		deleteDomain({
@@ -62,20 +40,21 @@ export function useDataTableColumns(
 				toast.success('Domain removed!');
 			},
 		});
-	}, [deleteDomain]);
+	}, [deleteDomain, cluster.organizationId]);
 
 	const unbindDomainById = useCallback((domainId: string) => {
+		// No `generateDomainCerts`: the flag is cluster-wide, so restating it here would decide cert
+		// intent for every domain that stays bound.
 		setDomainIds({
 			clusterId: cluster.id,
-			domainIds: (cluster.domainIds?.slice() || []).filter((id) => id !== domainId),
-			generateDomainCerts: false,
+			domainIds: (cluster.domainIds ?? []).filter((id) => id !== domainId),
 		}, {
 			onSuccess: () => {
 				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
 				toast.success('Domain unbound!');
 			},
 		});
-	}, [deleteDomain]);
+	}, [setDomainIds, cluster]);
 
 	return useMemo(() => [
 		columnHelper.display({
@@ -194,7 +173,8 @@ export function useDataTableColumns(
 		}),
 	], [
 		cluster,
-		bindDomainToThisCluster,
+		deleteDomainById,
+		unbindDomainById,
 		isPending,
 		challengeCertificates,
 		isGeneratingCert,
