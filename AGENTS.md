@@ -454,10 +454,11 @@ Four things worth knowing before changing the record editor:
   save that 403s. Check both `attribute_permissions` (v5) and `attribute_restrictions` (translated
   v4). Only `super_user` short-circuits; `structure_user` covers DDL, not DML.
 - **Version-gated, but an unreadable version does NOT block the save.** Harper denies
-  `registration_info` to any role carrying an `operations` allowlist — it is in the gate-inert list in
-  `config/roles/operations/operationsCatalog.ts` — which is exactly the shape of role
-  `checkTablePutPermission` exists to accept. Blocking on an unread version therefore made the
-  feature permanently unavailable for those roles, behind a "reload and try again" that never helps.
+  `registration_info` to any role whose `operations` allowlist does not list it (and before 5.3 to one
+  that does — `gate: 'from-5.3'` in `config/roles/operations/operationsCatalog.ts`), which is exactly
+  the shape of role `checkTablePutPermission` exists to accept. Blocking on an unread version therefore
+  made the feature permanently unavailable for those roles, behind a "reload and try again" that never
+  helps.
   Allowing it is safe because the fallback isn't silent: `put` is a distinct operation name, so a
   pre-5.3 instance rejects the request outright rather than merging and keeping the attribute. A
   version that IS readable and predates the operation still blocks, for the clearer message, and

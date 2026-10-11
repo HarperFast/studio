@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
 	expandEffectiveOperations,
+	GATE_NAMES_EVERY_ENTRY_FROM,
 	gateVerdict,
 	getAvailableGroups,
 	getGrantableOperations,
@@ -247,8 +248,9 @@ function GroupCheckbox({
 	);
 }
 
-const NEEDS_5_3_TITLE = 'Before Harper 5.3 the allowlist checks this operation under its internal handler name, so '
-	+ 'listing it has no effect on this instance (HarperFast/harper#2175). It takes effect on Harper 5.3.0 or later.';
+const NEEDS_5_3_TITLE = "This instance's Harper checks this operation under its internal handler name, so listing "
+	+ 'it has no effect here (HarperFast/harper#2175). Harper 5.3.0 and later grant it, as do prereleases from '
+	+ `${GATE_NAMES_EVERY_ENTRY_FROM}.`;
 
 // Component-registered operation names are exact strings, not identifiers — camelCase, hyphens,
 // dots, and colons are all legal (`deploy-v2`, `acme.deploy`) — so keep the case and only rule
@@ -387,7 +389,7 @@ function OperationsPicker({
 								{gateVerdict(operation.name, band) === 'needs-5.3'
 									? (
 										<Badge variant="outline" title={NEEDS_5_3_TITLE}>
-											needs Harper 5.3
+											needs newer Harper
 										</Badge>
 									)
 									: operation.su && (
