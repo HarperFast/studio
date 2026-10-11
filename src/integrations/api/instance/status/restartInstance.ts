@@ -31,7 +31,7 @@ interface RestartInstanceParams {
 
 /**
  * Rejects with the restart request's own error when Harper refused it or never answered it, and with
- * {@link RestartUnconfirmedError} when Harper accepted it but the target never answered again. A 2xx is
+ * {@link RestartUnconfirmedError} when Harper accepted it but the watch never saw the target back. A 2xx is
  * the only verdict Harper gives: `restart` answers before it tears down, `restart_service` once its job
  * has started.
  */
