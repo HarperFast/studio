@@ -124,6 +124,13 @@ describe('getVisualEditorBlockers', () => {
 		expect(getVisualEditorBlockers(duplicated, schema, VERSION)).toEqual([
 			'"data.cat.attribute_permissions" lists "name" more than once.',
 		]);
+		// Harper's role validation requires the key (ATTR_PERMS_ARRAY_MISSING), so say how to add it.
+		const missing = asPermission({
+			data: { tables: { cat: { read: true, insert: false, update: false, delete: false } } },
+		});
+		expect(getVisualEditorBlockers(missing, schema, VERSION)).toEqual([
+			'"data.cat" needs an "attribute_permissions" list ([] applies the table\'s access to every attribute).',
+		]);
 		const legacy = asPermission({ data: { tables: { cat: { ...entry(true), attribute_restrictions: [] } } } });
 		expect(getVisualEditorBlockers(legacy, schema, VERSION)).toHaveLength(1);
 		expect(getVisualEditorBlockers({}, schema, '2.1.2')).toHaveLength(1);
@@ -292,6 +299,15 @@ describe('attribute scoping', () => {
 			// Its stored insert/update are ignored by Harper, so they do not reach the key either.
 			{ name: '__createdtime__', read: true, insert: false, update: false, derived: false },
 		]);
+	});
+
+	it('derives the primary key from listed attributes the schema does not show, as Harper does', () => {
+		// describe_all omits `@computed` attributes unless asked, but Harper still counts their entries.
+		const dog = entry(true, false, false, false, [
+			{ attribute_name: 'computed_score', read: true, insert: false, update: false },
+		]);
+		const id = getAttributeViews(dog as never, dogAttributes, 'id').find((view) => view.name === 'id');
+		expect(id).toMatchObject({ read: true, derived: true });
 	});
 
 	it('adds an unlisted attribute with its effective access before flipping one action', () => {

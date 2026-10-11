@@ -140,9 +140,18 @@ describe('RoleVisualEditor', () => {
 
 	it('offers the cluster user type on Harper 4, and to a role that already has it', () => {
 		renderEditor({}, '4.7.40');
-		expect(screen.getByRole('radio', { name: /Cluster user/ })).toBeTruthy();
+		// Harper 4 stores such a user's password reversibly encrypted (harperdb security/user.ts).
+		expect(screen.getByRole('radio', { name: /Cluster user.*recoverable form/ })).toBeTruthy();
 		cleanup();
 		renderEditor({ cluster_user: true });
-		expect(screen.getByRole('radio', { name: /Cluster user/ }).getAttribute('aria-checked')).toBe('true');
+		const radio = screen.getByRole('radio', { name: /Cluster user.*Harper 5 doesn't use this role type/ });
+		expect(radio.getAttribute('aria-checked')).toBe('true');
+	});
+
+	it('opens only one database on a role that grants several, so a large schema stays cheap to open', () => {
+		renderEditor({ data: { tables: { dog: table(true) } }, dev: { tables: { thing: table(true) } } });
+
+		expect(screen.getByRole('checkbox', { name: 'Read on data.dog' })).toBeTruthy();
+		expect(screen.queryByRole('checkbox', { name: 'Read on dev.thing' })).toBeNull();
 	});
 });

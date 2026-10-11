@@ -290,14 +290,32 @@ describe('EditRoleModal visual editor', () => {
 		expect(screen.queryByText(/changed somewhere else/)).toBeNull();
 		expect((screen.getByRole('checkbox', { name: 'Insert on data.dog' }) as HTMLInputElement).checked).toBe(true);
 
-		// …while a newer stored version is announced rather than silently overwritten.
+		// …while a newer stored version blocks Save: alter_role would replace it wholesale.
 		rerenderWith(roleData({ super_user: true }, 5));
 		expect(screen.getByText(/changed somewhere else/)).toBeTruthy();
+		const saveButton = screen.getByRole('button', { name: 'Save Changes' });
+		expect(saveButton.hasAttribute('disabled')).toBe(true);
+		fireEvent.click(saveButton);
+		expect(mocks.alterRoleMutate).not.toHaveBeenCalled();
+
 		fireEvent.click(screen.getByRole('button', { name: 'Load the latest version' }));
 		expect(screen.queryByText(/changed somewhere else/)).toBeNull();
 		expect((screen.getByRole('radio', { name: /Super user/ }) as HTMLButtonElement).getAttribute('aria-checked')).toBe(
 			'true',
 		);
+		expect(save()).toEqual({ super_user: true });
+	});
+
+	it('saves over a newer stored version only once the author chooses to keep theirs', async () => {
+		const { rerenderWith } = renderModal({ data: readOnlyDog([]) });
+		fireEvent.click(await screen.findByRole('checkbox', { name: 'Insert on data.dog' }));
+
+		rerenderWith(roleData({ super_user: true }, 5));
+		fireEvent.click(screen.getByRole('button', { name: 'Keep my changes' }));
+		expect(screen.queryByText(/changed somewhere else/)).toBeNull();
+		expect(save()).toEqual({
+			data: { tables: { dog: { ...readOnlyDog([]).tables.dog, insert: true } } },
+		});
 	});
 });
 

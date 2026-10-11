@@ -39,8 +39,8 @@ export function EditRoleModal({
 	const auth = useInstanceAuth(instanceId ?? clusterId);
 	const isSelf = auth.user?.role?.id === data.id;
 
-	// The stored permission, as it is — never a schema-derived template, which would rewrite what it
-	// does not model. Seeded once: the roles list polls, and a refetch must not replace the draft.
+	// Seeded once from the stored permission (see the roles DESIGN.md): a polled refetch must not
+	// replace the draft, and a newer stored version blocks Save, since alter_role has no revision check.
 	const draft = useRolePermissionDraft(data.permission);
 	const { permission } = draft;
 	const [loadedUpdatedTime, setLoadedUpdatedTime] = useState(data.__updatedtime__);
@@ -53,7 +53,7 @@ export function EditRoleModal({
 	const operationsUnusable = isOperationsValueUnusable(permission, schema.version);
 
 	const onSubmitClick = useCallback(() => {
-		if (!permission || operationsUnusable) {
+		if (!permission || operationsUnusable || changedElsewhere) {
 			return;
 		}
 		alterRole(
@@ -70,13 +70,25 @@ export function EditRoleModal({
 				},
 			},
 		);
-	}, [alterRole, data.id, instanceParams, onChangesSaved, onSelectRole, operationsUnusable, permission]);
+	}, [
+		alterRole,
+		changedElsewhere,
+		data.id,
+		instanceParams,
+		onChangesSaved,
+		onSelectRole,
+		operationsUnusable,
+		permission,
+	]);
 
 	const { setPermission } = draft;
+	const [loadCount, setLoadCount] = useState(0);
 	const onLoadLatestClick = useCallback(() => {
-		setLoadedUpdatedTime(data.__updatedtime__);
 		setPermission(data.permission);
+		setLoadCount((count) => count + 1);
+		setLoadedUpdatedTime(data.__updatedtime__);
 	}, [data.__updatedtime__, data.permission, setPermission]);
+	const onKeepMineClick = useCallback(() => setLoadedUpdatedTime(data.__updatedtime__), [data.__updatedtime__]);
 
 	const onRoleDeleted = useCallback(() => {
 		dropRole(
@@ -108,14 +120,21 @@ export function EditRoleModal({
 					{changedElsewhere && (
 						<div className="flex flex-wrap items-center gap-2 text-xs text-warning" role="status">
 							<span>
-								This role was changed somewhere else after you opened it. Saving replaces that version with this one.
+								This role was changed somewhere else after you opened it. Load that version, or keep yours to replace it
+								when you save.
 							</span>
 							<Button type="button" size="sm" variant="defaultOutline" onClick={onLoadLatestClick}>
 								Load the latest version
 							</Button>
+							{!isSelf && (
+								<Button type="button" size="sm" variant="defaultOutline" onClick={onKeepMineClick}>
+									Keep my changes
+								</Button>
+							)}
 						</div>
 					)}
-					<RolePermissionEditor draft={draft} schema={schema} readOnly={isSelf} />
+					{/* Remounted on a load, so the editor's own state (open sections, restorable lists) starts over too. */}
+					<RolePermissionEditor key={loadCount} draft={draft} schema={schema} readOnly={isSelf} />
 					<DialogFooter>
 						{!isSelf && (
 							<div className="flex justify-between w-full">
@@ -130,7 +149,7 @@ export function EditRoleModal({
 								<Button
 									variant="submit"
 									onClick={onSubmitClick}
-									disabled={isPending || !permission || operationsUnusable}
+									disabled={isPending || !permission || operationsUnusable || changedElsewhere}
 								>
 									Save Changes
 								</Button>
