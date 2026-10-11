@@ -62,10 +62,15 @@ export class SecretsOperationError extends Error {
 	}
 }
 
-/** Operations API errors carry the message in the response body; surface that, not the Axios noise. */
-function operationErrorMessage(error: unknown): string {
-	const body = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
-	return body?.error ?? body?.message ?? String(error);
+/**
+ * Operations API errors carry Harper's message in the response body; surface that, not the Axios
+ * noise. A failure with no such message (the network, a bug) is not Harper's text, so it stays as
+ * thrown and Error Tracking keeps its type and message.
+ */
+function operationError(error: unknown): unknown {
+	const body = (error as { response?: { data?: { error?: unknown; message?: unknown } } })?.response?.data;
+	const message = body?.error ?? body?.message;
+	return typeof message === 'string' ? new SecretsOperationError(message) : error;
 }
 
 /**
@@ -171,15 +176,15 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 		});
 		return data;
 	} catch (error) {
-		const message = operationErrorMessage(error);
+		const failure = operationError(error);
 		// A kid mismatch means our cached public key is stale (the custody key rotated). Drop the
 		// cached key (ensureQueryData returns stale entries, so invalidation isn't enough) and
 		// re-encrypt once; anything else (or a second mismatch) surfaces to the caller.
-		if (!isRetry && isKidMismatchError(message)) {
+		if (!isRetry && failure instanceof SecretsOperationError && isKidMismatchError(failure.message)) {
 			queryClient.removeQueries({ queryKey: secretsPublicKeyQueryOptions(args).queryKey });
 			return encryptAndSetSecret(queryClient, args, true);
 		}
-		throw new SecretsOperationError(message);
+		throw failure;
 	}
 }
 
@@ -199,7 +204,7 @@ async function deleteSecret({ instanceClient, name }: DeleteSecretArgs): Promise
 		const { data } = await instanceClient.post('/', { operation: 'delete_secret', name });
 		return data;
 	} catch (error) {
-		throw new SecretsOperationError(operationErrorMessage(error));
+		throw operationError(error);
 	}
 }
 
@@ -226,7 +231,7 @@ async function mutateGrant(
 		const { data } = await instanceClient.post<GrantSecretResponse>('/', { operation, name, component });
 		return data;
 	} catch (error) {
-		throw new SecretsOperationError(operationErrorMessage(error));
+		throw operationError(error);
 	}
 }
 
