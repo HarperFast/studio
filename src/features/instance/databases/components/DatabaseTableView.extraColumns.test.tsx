@@ -26,7 +26,6 @@ interface SearchBody {
 
 const instance = vi.hoisted(() => ({
 	tables: {} as Record<string, Record<string, unknown>[]>,
-	// Pages held back until the test releases them.
 	held: new Map<string, () => void>(),
 	holdPages: new Set<string>(),
 }));
