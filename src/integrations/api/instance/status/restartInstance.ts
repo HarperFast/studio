@@ -20,13 +20,18 @@ export async function restartInstance(
 		service: operation === 'restart_service' ? 'http' : undefined,
 		replicated,
 	}, { skipRestartGate: true });
+	await waitUntilAnsweringAfterRestart({ instanceClient });
+	return data;
+}
+
+/** Resolves once a just-restarted target answers again; rejects if it never does within ~3 minutes. */
+export async function waitUntilAnsweringAfterRestart({ instanceClient }: InstanceClientConfig): Promise<void> {
 	await sleep(10_000);
 	await axiosRetry(
 		() => getInstanceUserInfo({ instanceClient, timeout: 3_000, skipRestartGate: true }),
 		12,
 		15_000,
 	);
-	return data;
 }
 
 export function useRestartInstance() {

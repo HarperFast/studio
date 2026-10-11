@@ -18,7 +18,16 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useParams } from '@tanstack/react-router';
-import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, ServerIcon, SettingsIcon } from 'lucide-react';
+import {
+	DatabaseIcon,
+	GaugeIcon,
+	Menu,
+	NotepadTextIcon,
+	PackageIcon,
+	ServerIcon,
+	SettingsIcon,
+	SquareTerminalIcon,
+} from 'lucide-react';
 import { ReactNode, useMemo } from 'react';
 
 interface Link {
@@ -66,6 +75,11 @@ export function InstanceNavBar() {
 				to: buildAbsoluteLinkToPage(params, 'apis'),
 				name: 'APIs',
 				icon: <ServerIcon className="inline-block" />,
+			},
+			canManage && {
+				to: buildAbsoluteLinkToPage(params, 'operations'),
+				name: 'Operations',
+				icon: <SquareTerminalIcon className="inline-block" />,
 			},
 			canManage && statusAvailable && {
 				to: buildAbsoluteLinkToPage(params, 'status'),

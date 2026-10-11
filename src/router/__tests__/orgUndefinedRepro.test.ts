@@ -48,6 +48,22 @@ describe('deep-link route matching for cluster instance pages', () => {
 		});
 	});
 
+	it.each([
+		['cluster', '/org-qpz5akmyrp1d0opj/clu-tc9pqw20vrks2zik/operations', {}],
+		['instance', '/org-qpz5akmyrp1d0opj/clu-tc9pqw20vrks2zik/instance/ins-abc123/operations', {
+			instanceId: 'ins-abc123',
+		}],
+	])('matches the operations console in %s mode', (_mode, path, extraParams) => {
+		const leaf = matchDeepLink(path).at(-1)!;
+
+		expect(leaf.routeId).toMatch(/\/operations$/);
+		expect(leaf.params).toMatchObject({
+			organizationId: 'org-qpz5akmyrp1d0opj',
+			clusterId: 'clu-tc9pqw20vrks2zik',
+			...extraParams,
+		});
+	});
+
 	it('still matches explicit instance routes', () => {
 		const matches = matchDeepLink(
 			'/org-qpz5akmyrp1d0opj/clu-tc9pqw20vrks2zik/instance/ins-abc123/logs',

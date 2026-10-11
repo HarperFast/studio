@@ -1,3 +1,4 @@
+import { isReadOperation } from '@/integrations/api/isReadOperation';
 import { getRestartState, holdsRequests, isRestarting, waitUntilReachable } from '@/lib/restart/restartTracker';
 import { AxiosError, type AxiosInstance, CanceledError, type InternalAxiosRequestConfig } from 'axios';
 
@@ -14,19 +15,11 @@ declare module 'axios' {
 
 export const RESTARTING_ERROR_CODE = 'ERR_TARGET_RESTARTING';
 
-/**
- * Operations safe to send minutes late: reads, by Harper's naming. Token minting is deliberately not
- * one — held, it would stall a route guard's Fabric Connect attempt behind a notice that cannot mount
- * yet; refused, the guard falls through to sign-in at once.
- */
-const SAFE_TO_DELAY =
-	/^(?:get_|search_|describe_|list_|read_|user_info$|system_information$|cluster_status$|registration_info$)/;
-
 function operationOf(data: unknown): unknown {
 	if (typeof data !== 'string') {
 		return (data as { operation?: unknown } | undefined)?.operation;
 	}
-	// A gateway retry re-sends the config axios already serialized.
+	// A gateway retry re-sends the config axios already serialized; the operations console sends raw text.
 	try {
 		return (JSON.parse(data) as { operation?: unknown } | null)?.operation;
 	} catch {
@@ -36,8 +29,7 @@ function operationOf(data: unknown): unknown {
 
 function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
 	if (config.method?.toLowerCase() === 'get') { return true; }
-	const operation = operationOf(config.data);
-	return typeof operation === 'string' && SAFE_TO_DELAY.test(operation);
+	return isReadOperation(operationOf(config.data));
 }
 
 /**
