@@ -269,3 +269,24 @@ export function buildSyntheticGetAttributes(
 	}
 	return selects.length ? [...selects, '*'] : undefined;
 }
+
+/**
+ * `get_attributes` for a CSV export: every attribute describe lists except relationships, whose
+ * resolved records don't fit a CSV cell. Only a table with a `@computed` attribute needs one, since
+ * only naming it resolves it. The list can't end in `'*'` the way `buildSyntheticGetAttributes`
+ * does: a CSV's columns come from the select with its `'*'` expanded to every attribute, so any name
+ * ahead of the `'*'` becomes a duplicate column.
+ */
+export function buildExportGetAttributes(
+	instanceTable: InstanceTable | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+	schemaRelationships?: SchemaRelationship[],
+): string[] | undefined {
+	const attributes = instanceTable?.attributes ?? [];
+	if (!attributes.some((attribute) => attribute.computed)) {
+		return undefined;
+	}
+	return attributes
+		.filter((attribute) => attribute.computed || !isSyntheticAttribute(attribute, databaseTables, schemaRelationships))
+		.map((attribute) => attribute.attribute);
+}

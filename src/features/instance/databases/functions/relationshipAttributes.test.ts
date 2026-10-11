@@ -1,6 +1,7 @@
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
+	buildExportGetAttributes,
 	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
 	getRelationshipInfo,
@@ -193,6 +194,26 @@ describe('buildSyntheticGetAttributes with @computed attributes', () => {
 
 	it('keeps computed attributes out of record writes', () => {
 		expect(syntheticAttributeNames(gadget.attributes, catalog)).toEqual(['brand', 'label']);
+	});
+
+	// harperdb 4.7.40, `Accept: text/csv`: `['totalPrice', '*']` answers search_by_conditions with the
+	// header "totalPrice","id","price","taxRate","totalPrice". The explicit list is the clean header.
+	it('exports every described attribute by name, in describe order, with no *', () => {
+		expect(buildExportGetAttributes(product2, catalog)).toEqual(['id', 'price', 'taxRate', 'totalPrice']);
+	});
+
+	it('leaves relationships out of the export, describe-detected or schema-declared', () => {
+		expect(buildExportGetAttributes(gadget, catalog)).toEqual(['id', 'name', 'brandId', 'label']);
+		// A legacy attribute registry can report a declared relationship as an untyped array.
+		const legacyGadget = { ...gadget, attributes: [...gadget.attributes, { attribute: 'parts', type: 'array' }] };
+		const declared = [{ attribute: 'parts', relatedTableName: 'Gadget', isToMany: true, to: 'parentId' }];
+		expect(buildExportGetAttributes(legacyGadget, catalog)).toEqual(['id', 'name', 'brandId', 'label', 'parts']);
+		expect(buildExportGetAttributes(legacyGadget, catalog, declared)).toEqual(['id', 'name', 'brandId', 'label']);
+	});
+
+	it('keeps the plain * export for a table with no computed attribute', () => {
+		expect(buildExportGetAttributes(brand, catalog)).toBeUndefined();
+		expect(buildExportGetAttributes(undefined, catalog)).toBeUndefined();
 	});
 });
 

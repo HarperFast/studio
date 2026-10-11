@@ -4,12 +4,13 @@
 import { ContextMenu, ContextMenuContent } from '@/components/ui/contextMenu';
 import { TableContextMenuItems } from '@/features/instance/databases/components/TableContextMenuItems';
 import { LocalRolePermission } from '@/integrations/api/api.patch';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // The permission hooks read the signed-in role from the auth store and the ids from the router; both
 // are mocked so the real allowlist -> hook -> rendered control path is what the assertions exercise.
 const permission = vi.hoisted(() => ({ current: undefined as LocalRolePermission | undefined }));
+const exportCsvSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ instanceId: 'instance-1' }),
@@ -22,7 +23,7 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/features/instance/databases/hooks/useExportTableCsv', () => ({
-	useExportTableCsv: () => ({ exportCsv: () => undefined }),
+	useExportTableCsv: () => ({ exportCsv: exportCsvSpy }),
 }));
 
 const keyedTable = { primary_key: 'id', attributes: [{ attribute: 'id', is_primary_key: true }] };
@@ -49,6 +50,7 @@ const exportCsv = () => screen.getByRole('menuitem', { name: 'Export CSV' });
 afterEach(() => {
 	cleanup();
 	permission.current = undefined;
+	exportCsvSpy.mockClear();
 });
 
 describe('TableContextMenuItems allowlist gating', () => {
@@ -101,6 +103,20 @@ describe('TableContextMenuItems on a table with no primary key', () => {
 	it('leaves Export enabled on a keyed table', () => {
 		renderMenu({ super_user: true });
 		expect(exportCsv().hasAttribute('data-disabled')).toBe(false);
+	});
+});
+
+describe('TableContextMenuItems Export CSV', () => {
+	// The export names a table's computed attributes from its describe, which the browse page's
+	// describe_all carries; without it the exported file leaves their values out (#1820).
+	it('hands the export the table and its database from the map', () => {
+		renderMenu({ super_user: true });
+		fireEvent.click(exportCsv());
+		expect(exportCsvSpy).toHaveBeenCalledWith(expect.objectContaining({
+			primaryKey: 'id',
+			instanceTable: keyedTable,
+			databaseTables: { dog: keyedTable, cat: keyedTable },
+		}));
 	});
 });
 

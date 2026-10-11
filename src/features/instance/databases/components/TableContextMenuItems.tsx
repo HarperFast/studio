@@ -35,7 +35,14 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 
 	const onExport = () => {
 		const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
-		void exportCsv({ databaseName, tableName, primaryKey, conditions: null });
+		void exportCsv({
+			databaseName,
+			tableName,
+			primaryKey,
+			conditions: null,
+			instanceTable,
+			databaseTables: instanceDatabaseMap?.[databaseName],
+		});
 	};
 
 	return (
