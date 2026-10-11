@@ -8,7 +8,8 @@
  * features exist. Import table types from this module rather than from `@tanstack/react-table`.
  *
  * Row models are part of the feature set, so they are shared too. A table that must not sort on the
- * client opts out per table with `manualSorting: true` (the browse table sorts on the server).
+ * client opts out per table with `manualSorting: true` (the browse table sorts on the server). The
+ * filtered and paginated row models are the exception: see `studioClientTableFeatures`.
  */
 import {
 	Cell as TanStackCell,
@@ -19,11 +20,15 @@ import {
 	columnSizingFeature,
 	columnVisibilityFeature,
 	createColumnHelper as createTanStackColumnHelper,
+	createFilteredRowModel,
+	createPaginatedRowModel,
 	createSortedRowModel,
+	globalFilteringFeature,
 	Header as TanStackHeader,
 	HeaderGroup as TanStackHeaderGroup,
 	Row as TanStackRow,
 	RowData,
+	rowPaginationFeature,
 	rowSelectionFeature,
 	rowSortingFeature,
 	sortFns,
@@ -38,8 +43,12 @@ export const studioTableFeatures = tableFeatures({
 	// The browse table hides columns via the "Columns" dropdown.
 	columnVisibilityFeature,
 	// Only for `columnDef.enableColumnFilter`, which marks the browse table's filterable columns.
-	// No filtered row model is registered: filtering runs on the server.
+	// No filtered row model is registered here: filtering runs on the server.
 	columnFilteringFeature,
+	// `SimpleBrowseDataTable`'s search box and pager. Only their APIs and state are shared; their row
+	// models are in `studioClientTableFeatures`.
+	globalFilteringFeature,
+	rowPaginationFeature,
 	// `row.getIsSelected()` drives the selected-row styling shared by every table.
 	rowSelectionFeature,
 	rowSortingFeature,
@@ -50,6 +59,19 @@ export const studioTableFeatures = tableFeatures({
 });
 
 export type StudioTableFeatures = typeof studioTableFeatures;
+
+/**
+ * The shared set plus the client-side filtered and paginated row models, for a table that holds its
+ * whole data set (`SimpleBrowseDataTable`). Not in the shared set because the paginated row model's
+ * default state is a 10-row page: registered there, it would truncate every table that didn't opt out,
+ * the browse and logs tables included. Typed as the shared set because row-model slots carry no types
+ * and TanStack's table types are invariant in the feature set.
+ */
+const clientRowModels = {
+	filteredRowModel: createFilteredRowModel(),
+	paginatedRowModel: createPaginatedRowModel(),
+};
+export const studioClientTableFeatures: StudioTableFeatures = { ...studioTableFeatures, ...clientRowModels };
 
 export type Cell<TData extends RowData, TValue = unknown> = TanStackCell<StudioTableFeatures, TData, TValue>;
 export type CellContext<TData extends RowData, TValue = unknown> = TanStackCellContext<
