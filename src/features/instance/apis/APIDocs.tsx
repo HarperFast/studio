@@ -128,7 +128,7 @@ export function APIDocs() {
 			{apiInaccessibleWarning && (
 				<ErrorComponent
 					title="CORS Disabled: HTTP API Not Accessible"
-					className="mt-0 mb-6 shrink-0 border-yellow text-yellow"
+					className="mt-0 mb-6 shrink-0 border-yellow text-amber-800 dark:text-yellow"
 					error={{ message: apiInaccessibleWarning }}
 					showReturnToHome={false}
 				>

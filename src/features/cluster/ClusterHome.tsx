@@ -417,7 +417,7 @@ function StatusPill({ status }: { status?: string }) {
 		: status === 'STOPPED'
 		? 'text-destructive bg-destructive/10'
 		: status === 'PARTIAL'
-		? 'text-yellow bg-yellow/10'
+		? 'text-amber-800 dark:text-yellow bg-yellow/10'
 		: 'text-muted-foreground bg-muted';
 	return (
 		<span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${colorClass}`}>
@@ -433,7 +433,7 @@ function SafeModePill() {
 	return (
 		<span
 			title="All instances running in safe mode — user apps/components are not loaded"
-			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-yellow bg-yellow/10"
+			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-amber-800 dark:text-yellow bg-yellow/10"
 		>
 			<LifeBuoy className="size-3" />
 			Safe mode
