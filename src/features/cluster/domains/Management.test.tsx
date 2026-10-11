@@ -1037,3 +1037,30 @@ describe('DomainsManagement — a domain change central manager would refuse', (
 		expect(consoleError.mock.calls.filter(([logged]: unknown[]) => logged instanceof AxiosError)).toHaveLength(1);
 	});
 });
+
+describe('DomainsManagement — the Remove Domain tooltip', () => {
+	it.each([
+		{ state: 'bound', clusterId: 'clu-1', tip: 'To delete this domain, please unbind it from all clusters first.' },
+		{ state: 'unbound', clusterId: undefined, tip: 'Remember to clean up your DNS records!' },
+	])('opens over a $state domain', async ({ clusterId, tip }) => {
+		const domain = { id: 'dom-a', domain: 'a.example.com', status: 'ACTIVE', organizationId: 'org-1', clusterId };
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({ data: [domain] })
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: clusterId ? ['dom-a'] : [] },
+				})
+		);
+		const { findByText, findByRole, queryByRole } = renderManagement();
+		const name = await findByText('a.example.com');
+		const remove = within(name.closest('tr')!).getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement;
+		expect(remove.disabled).toBe(!!clusterId);
+
+		fireEvent.pointerMove(name);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(queryByRole('tooltip')).toBeNull();
+
+		fireEvent.pointerMove(remove.parentElement!);
+		expect((await findByRole('tooltip')).textContent).toBe(tip);
+	});
+});
