@@ -2,10 +2,14 @@
  * @vitest-environment jsdom
  */
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
+import { orgLayoutRoute } from '@/features/organization/routes';
+import { orgsLayoutRoute } from '@/features/organizations/routes';
 import { queryClient } from '@/react-query/queryClient';
+import { dashboardLayout } from '@/router/dashboardRoute';
+import { rootRoute } from '@/router/rootRoute';
 import { useNewRouter } from '@/router/useNewRouter';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider } from '@tanstack/react-router';
+import { createRoute, RouterProvider } from '@tanstack/react-router';
 import { cleanup, render, screen } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,21 +33,48 @@ vi.mock('@/features/layouts/Dashboard', async () => {
 	return { Dashboard: Outlet };
 });
 
+function httpError(url: string, status: number) {
+	const config = { headers: new AxiosHeaders(), url } as InternalAxiosRequestConfig;
+	return new AxiosError(
+		`Request failed with status code ${status}`,
+		status >= 500 ? AxiosError.ERR_BAD_RESPONSE : AxiosError.ERR_BAD_REQUEST,
+		config,
+		{},
+		{ status, statusText: '', data: { title: 'Forbidden' }, headers: {}, config },
+	);
+}
+
 function rejectWith(status: number) {
 	get.mockImplementation(async (url: string) => {
-		const config = { headers: new AxiosHeaders(), url } as InternalAxiosRequestConfig;
-		throw new AxiosError(
-			`Request failed with status code ${status}`,
-			status >= 500 ? AxiosError.ERR_BAD_RESPONSE : AxiosError.ERR_BAD_REQUEST,
-			config,
-			{},
-			{ status, statusText: '', data: { title: 'Forbidden' }, headers: {}, config },
-		);
+		throw httpError(url, status);
 	});
 }
 
+// The production chain down to the org layout, with light pages in place of its real children.
+const orgHomeRoute = createRoute({
+	getParentRoute: () => orgLayoutRoute,
+	path: '/',
+	component: () => <p>organization loaded</p>,
+});
+const forbiddenChildRoute = createRoute({
+	getParentRoute: () => orgLayoutRoute,
+	path: '/admin-only',
+	beforeLoad: () => {
+		throw httpError('/OrganizationRole/org-mine', 403);
+	},
+	component: () => <p>admin page</p>,
+});
+const routeTree = rootRoute.addChildren([
+	dashboardLayout.addChildren([
+		orgsLayoutRoute.addChildren([orgLayoutRoute.addChildren([orgHomeRoute, forbiddenChildRoute])]),
+	]),
+]);
+
 function App() {
-	const router = useNewRouter({ authentication: { [OverallAppSignIn]: signedIn } as never });
+	const router = useNewRouter({
+		routeTree: routeTree as never,
+		authentication: { [OverallAppSignIn]: signedIn } as never,
+	});
 	return (
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider router={router} />
@@ -81,6 +112,14 @@ describe('OrgRouteError on the organization route', () => {
 
 		expect(heading.textContent).toBe('Organization Not Found');
 		expect(screen.queryByText(/Request failed with status code/)).toBeNull();
+	});
+
+	it("leaves a page's own 403 under an organization the user belongs to as a generic access denial", async () => {
+		get.mockResolvedValue({ data: { id: 'org-mine', name: 'Mine', clusters: [] } });
+		const heading = await openOrganization('org-mine/admin-only');
+
+		expect(heading.textContent).toBe('Access Denied');
+		expect(screen.queryByText(/isn't a member of it/)).toBeNull();
 	});
 
 	it('leaves any other failure to the generic error page', async () => {
