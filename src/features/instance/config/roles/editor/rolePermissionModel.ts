@@ -17,13 +17,9 @@ import {
 import { compareVersions } from '@/lib/string/wasAReleasedBeforeB';
 
 /**
- * The model behind the visual role editor (HarperFast/studio#1634). The permission JSON stays the
- * single source of truth: the editor reads the parsed document and every edit here is a
- * copy-on-write patch of only the keys it touches, so a key the GUI does not model survives a
- * round-trip by construction rather than by being re-serialized from a model that knows about it.
- *
- * The rules encoded below were traced to Harper 5.3.1 (`validation/role_validation.ts`,
- * `security/permissionsTranslator.js`) and checked against its build.
+ * Every edit here is a copy-on-write patch of only the keys it touches, so content the visual editor
+ * does not model survives a round-trip (see the roles DESIGN.md). Harper rules are traced to 5.3.1's
+ * `validation/role_validation.ts` and `security/permissionsTranslator.js`.
  */
 
 export const TABLE_ACTIONS: readonly LocalRolePermissionAction[] = ['read', 'insert', 'update', 'delete'];

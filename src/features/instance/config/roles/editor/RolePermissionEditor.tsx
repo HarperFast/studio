@@ -10,7 +10,7 @@ import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { InstanceDatabaseMap, LocalRolePermission } from '@/integrations/api/api.patch';
 import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
-import { classifyOperationsValue } from '@/integrations/api/localRolePermission';
+import { classifyOperationsValue, getOperationsAllowlist } from '@/integrations/api/localRolePermission';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { useQuery } from '@tanstack/react-query';
 import { CodeIcon, RefreshCwIcon, Table2Icon } from 'lucide-react';
@@ -24,7 +24,6 @@ export interface RoleEditorSchema {
 	retry: () => void;
 }
 
-/** The instance schema and version both role modals render against. */
 export function useRoleEditorSchema(): RoleEditorSchema {
 	const instanceParams = useInstanceClientIdParams();
 	// Permission editing only needs the schema tree, never record counts, so this shares the
@@ -46,12 +45,15 @@ export function useRoleEditorSchema(): RoleEditorSchema {
 
 /**
  * Saving past an unusable `operations` value would normalize it away and widen the role, so it has
- * to be repaired in the JSON first. Without a version the allowlist floor is unknown, and Harper's
- * own role validation is left to reject a malformed value.
+ * to be repaired in the JSON first. Without a version the allowlist floor is unknown, so anything
+ * but a list of names counts as unusable rather than risk dropping one.
  */
 export function isOperationsValueUnusable(permission: LocalRolePermission | null, version: string | undefined) {
-	if (!permission || !version) {
+	if (!permission) {
 		return false;
+	}
+	if (!version) {
+		return permission.operations !== undefined && getOperationsAllowlist(permission) === undefined;
 	}
 	const kind = classifyOperationsValue(permission, supportsOperationsAllowlist(version));
 	return kind === 'breaks-auth' || kind === 'malformed';
@@ -60,11 +62,8 @@ export function isOperationsValueUnusable(permission: LocalRolePermission | null
 const MAX_LISTED_BLOCKERS = 5;
 
 /**
- * Visual-first role permission editor with a JSON escape hatch (HarperFast/studio#1634), mirroring
- * the schema editor's toggle. The draft's text is the single source of truth: the visual editor
- * patches the parsed document and writes the result back, and the JSON view edits the text
- * directly, so switching views never loses an edit. The visual view is offered only while the text
- * holds a document it can represent; otherwise the JSON view says why and stays in charge.
+ * Visual first, JSON as the escape hatch, like the schema editor. Both views edit the same draft
+ * text, and the visual one is offered only while that text holds a document it can represent.
  */
 export function RolePermissionEditor({
 	draft,

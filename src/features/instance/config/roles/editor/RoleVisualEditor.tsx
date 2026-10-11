@@ -61,10 +61,8 @@ import {
 const ACTION_LABELS = { read: 'Read', insert: 'Insert', update: 'Update', delete: 'Delete' } as const;
 
 /**
- * The GUI half of the role editor (HarperFast/studio#1634): renders a parsed permission document
- * against the instance schema and reports every edit as the whole next document. Rendering what
- * Harper would enforce, not just what is stored: a table the role does not mention shows as no
- * access, and a scoped table shows each attribute's effective access.
+ * Renders what Harper would enforce, not only what is stored: a table the role does not mention
+ * shows as no access, and a scoped table shows each attribute's effective access.
  */
 export function RoleVisualEditor({
 	permission,
