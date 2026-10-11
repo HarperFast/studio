@@ -1,9 +1,7 @@
 import { ProgressBar } from '@/components/ProgressBar';
-import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { authStore } from '@/features/auth/store/authStore';
-import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
+import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
@@ -12,7 +10,6 @@ import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
-import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 import { useCallback, useState } from 'react';
@@ -51,23 +48,13 @@ async function planRollingConfigUpdate(
 			fanOutAfterCanary: false,
 		};
 	}
-	const cluster = await getClusterInfo(operationsParams.entityId);
-	const allInstances = cluster?.instances || [];
-	const clusterUsesFabricConnect = !!cluster && authStore.checkForFabricConnect(cluster.id);
-	const targets = allInstances
-		.filter(instance => instance.status === 'RUNNING')
-		.map(instance => ({
-			instanceClient: getInstanceClient({
-				id: instance.id,
-				forceFabricConnect: clusterUsesFabricConnect,
-				operationsUrl: getOperationsUrlForInstance(instance),
-			}),
-			replicationFqdn: instance.replicationFqdn,
-		}))
-		.reverse();
+	const { allInstances, targets } = await getClusterRestartTargets(operationsParams.entityId);
 	return {
 		allInstances,
-		targets,
+		targets: targets.map(({ instance, instanceClient }) => ({
+			instanceClient,
+			replicationFqdn: instance.replicationFqdn,
+		})),
 		fanOutAfterCanary: shouldFanOutSetConfiguration(allInstances),
 	};
 }
