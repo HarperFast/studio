@@ -30,13 +30,19 @@ import {
 	useDeleteNotificationMutation,
 	useUpdateNotificationMutation,
 } from '@/features/admin/notifications/mutations/useNotificationMutations';
+import {
+	parseWindowBound,
+	toInputValue,
+	WINDOW_INPUT_MAX,
+	WINDOW_INPUT_MIN,
+} from '@/features/admin/notifications/notificationWindowInput';
 import { NotificationLink } from '@/features/notifications/components/NotificationLink';
 import { useNotifications } from '@/features/notifications/hooks';
 import { getSeverityConfig, parseNotificationLink, toMs } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { ColumnDef } from '@/lib/table';
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const TYPE_OPTIONS = [
 	{ value: 'error', label: 'Error / Outage' },
@@ -44,24 +50,6 @@ const TYPE_OPTIONS = [
 	{ value: 'maintenance', label: 'Maintenance' },
 	{ value: 'info', label: 'Info' },
 ];
-
-/** A stored timestamp → the `YYYY-MM-DDTHH:mm` local value a `datetime-local` input expects. */
-function toInputValue(value: string | number | null | undefined): string {
-	const ms = toMs(value);
-	if (ms === null) { return ''; }
-	const date = new Date(ms);
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${
-		pad(date.getMinutes())
-	}`;
-}
-
-/** A `datetime-local` value (local time) → a UTC ISO string, or null when empty. */
-function fromInputValue(value: string): string | null {
-	if (!value) { return null; }
-	const ms = Date.parse(value);
-	return Number.isNaN(ms) ? null : new Date(ms).toISOString();
-}
 
 function formatWindow(notification: SystemStatusNotification): string {
 	const start = toMs(notification.startAt);
@@ -216,6 +204,8 @@ function NotificationFormDialog({
 	const [url, setUrl] = useState('');
 	const [startAt, setStartAt] = useState('');
 	const [endAt, setEndAt] = useState('');
+	const startInputRef = useRef<HTMLInputElement>(null);
+	const endInputRef = useRef<HTMLInputElement>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	// Reset the form to the edited row (or blanks for create) each time the dialog opens.
@@ -235,9 +225,17 @@ function NotificationFormDialog({
 			setError('Message is required.');
 			return;
 		}
-		const start = fromInputValue(startAt);
-		const end = fromInputValue(endAt);
-		if (start && end && Date.parse(end) <= Date.parse(start)) {
+		const start = parseWindowBound(startAt, 'start', startInputRef.current?.validity.badInput);
+		if (!start.ok) {
+			setError(start.error);
+			return;
+		}
+		const end = parseWindowBound(endAt, 'end', endInputRef.current?.validity.badInput);
+		if (!end.ok) {
+			setError(end.error);
+			return;
+		}
+		if (start.iso && end.iso && Date.parse(end.iso) <= Date.parse(start.iso)) {
 			setError('End time must be after start time.');
 			return;
 		}
@@ -248,13 +246,14 @@ function NotificationFormDialog({
 			setError('Link must be an http(s) URL, a mailto: address, or a path starting with “/”.');
 			return;
 		}
+		setError(null);
 
 		const draft: NotificationDraft = {
 			type,
 			message: trimmedMessage,
 			url: trimmedUrl || null,
-			startAt: start,
-			endAt: end,
+			startAt: start.iso,
+			endAt: end.iso,
 		};
 		const onSuccess = () => onOpenChange(false);
 		if (editing) {
@@ -318,7 +317,10 @@ function NotificationFormDialog({
 							<Label htmlFor="notification-start">Start (local time)</Label>
 							<Input
 								id="notification-start"
+								ref={startInputRef}
 								type="datetime-local"
+								min={WINDOW_INPUT_MIN}
+								max={WINDOW_INPUT_MAX}
 								value={startAt}
 								onChange={(event) => setStartAt(event.target.value)}
 							/>
@@ -327,7 +329,10 @@ function NotificationFormDialog({
 							<Label htmlFor="notification-end">End (local time)</Label>
 							<Input
 								id="notification-end"
+								ref={endInputRef}
 								type="datetime-local"
+								min={WINDOW_INPUT_MIN}
+								max={WINDOW_INPUT_MAX}
 								value={endAt}
 								onChange={(event) => setEndAt(event.target.value)}
 							/>
