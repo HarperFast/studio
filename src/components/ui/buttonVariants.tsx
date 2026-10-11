@@ -36,7 +36,7 @@ export const buttonVariants = cva(
 				destructiveGhost: 'hover:bg-accent hover:text-red',
 				link: 'text-primary underline-offset-4 hover:underline',
 				positive: 'bg-green text-white shadow-xs hover:bg-green/90',
-				warning: 'bg-yellow text-white shadow-xs hover:bg-yellow/90',
+				warning: 'bg-yellow text-black-dark shadow-xs hover:bg-yellow/90',
 				outline: `border-2 ${outlineCommon}`,
 				ghostOutline: outlineCommon,
 				positiveOutline: `border-2 border-green ${outlineCommon}`,
