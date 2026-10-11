@@ -25,7 +25,7 @@ export const RESTART_MARK_TTL_MS = LONGEST_RESTART_MS + 60_000;
 interface RestartInstanceParams {
 	operation: 'restart_service' | 'restart';
 	replicated: boolean;
-	/** Called once the target has stayed unanswered past the usual recovery time; the watch goes on. */
+	/** Called once the target is still not back past the usual recovery time; the watch goes on. */
 	onSlowToReturn?: () => void;
 }
 
@@ -53,7 +53,10 @@ export async function restartInstance(
 	return data;
 }
 
-/** Resolves once a just-restarted target answers again; rejects with the last probe's error if it never does. */
+/**
+ * Resolves once a just-restarted target answers `user_info`; rejects with the last probe's error if it never
+ * does. Only a success counts: through central manager's proxy even a 401/403 is CM's answer, not the target's.
+ */
 export async function waitUntilAnsweringAfterRestart(
 	{ instanceClient, onSlowToReturn }: InstanceClientConfig & Pick<RestartInstanceParams, 'onSlowToReturn'>,
 ): Promise<void> {
@@ -64,9 +67,11 @@ export async function waitUntilAnsweringAfterRestart(
 	try {
 		await axiosRetry(probe, SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);
 	} catch {
-		// Queued, so a callback that throws cannot cut the watch short.
-		if (onSlowToReturn) {
-			queueMicrotask(onSlowToReturn);
+		try {
+			onSlowToReturn?.();
+		} catch (error) {
+			// A broken progress callback must not cut the watch short.
+			console.error(error);
 		}
 		await sleep(PROBE_INTERVAL_MS);
 		await axiosRetry(probe, PROBES - SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);

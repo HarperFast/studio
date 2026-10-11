@@ -65,8 +65,8 @@ export function useRestartInstanceClick({
 				onSlowToReturn: () =>
 					toast.loading('Still restarting', {
 						id: toastId,
-						description: `Harper accepted the restart, but the ${targetNoun.toLowerCase()} hasn't answered yet. `
-							+ 'Still waiting for it to come back.',
+						description: `Harper accepted the restart, but the ${targetNoun.toLowerCase()} isn't back yet. `
+							+ 'Still waiting for it.',
 					}),
 			});
 			// Releasing a tracked target refetches its queries (`onRestartSettled`); invalidating it here

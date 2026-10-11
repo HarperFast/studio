@@ -66,9 +66,9 @@ export async function execute(
 			// The app exists either way; `success: false` would invite creating it again.
 			return {
 				success: true,
-				message: `App "${name}" created. Harper accepted the restart that loads it, but the instance hasn't `
-					+ "answered since, so it may still be starting. Don't create the app or restart again until its "
-					+ 'status shows it is back.',
+				message: `App "${name}" created. Harper accepted the restart that loads it, but Studio couldn't confirm `
+					+ "the instance came back, so it may still be starting. Don't create the app or restart again until "
+					+ 'its status shows it is back.',
 				webURL: baseURL,
 			};
 		}

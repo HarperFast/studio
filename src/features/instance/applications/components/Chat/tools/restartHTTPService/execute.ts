@@ -27,8 +27,9 @@ export async function execute(
 			// `success` is whether the tool's own action was carried out, and Harper accepted the restart.
 			return {
 				success: true,
-				message: "Harper accepted the restart, but the HTTP service hasn't answered since, so it may still be "
-					+ "starting. Don't restart it again until its status shows it is back, or it goes down a second time.",
+				message: "Harper accepted the restart, but Studio couldn't confirm the HTTP service came back, so it may "
+					+ "still be starting. Don't restart it again until its status shows it is back, or it goes down a "
+					+ 'second time.',
 				webURL: baseURL,
 			};
 		}

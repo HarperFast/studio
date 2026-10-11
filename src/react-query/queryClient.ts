@@ -24,7 +24,7 @@ import { toast } from 'sonner';
  *
  * A write that got no verdict ({@link isUnansweredWrite}) gets our own copy instead, chosen by status
  * and never by body: a gateway's body describes the gateway, and "failed" is exactly what it can't claim.
- * So does a restart Harper accepted whose target has not answered since ({@link RestartUnconfirmedError}).
+ * So does a restart Harper accepted whose target was never confirmed back ({@link RestartUnconfirmedError}).
  */
 export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
 	if (isUnansweredWrite(rawErr)) {
