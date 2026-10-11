@@ -18,28 +18,30 @@ export function extraRecordAttributes(
 	rows: readonly Record<string, unknown>[],
 	knownAttributes: ReadonlySet<string>,
 ): ExtraRecordAttribute[] {
-	const counts = new Map<string, number>();
-	const samples = new Map<string, unknown>();
+	const seen = new Map<string, { count: number; sample: unknown }>();
 	for (const row of rows) {
 		for (const key of Object.keys(row)) {
 			if (knownAttributes.has(key)) {
 				continue;
 			}
-			counts.set(key, (counts.get(key) ?? 0) + 1);
-			if (samples.get(key) == null) {
-				samples.set(key, row[key]);
+			const entry = seen.get(key);
+			if (entry) {
+				entry.count++;
+				entry.sample ??= row[key];
+			} else {
+				seen.set(key, { count: 1, sample: row[key] });
 			}
 		}
 	}
-	return [...counts]
-		.sort(([, a], [, b]) => b - a)
+	return [...seen]
+		.sort(([, a], [, b]) => b.count - a.count)
 		.slice(0, MAX_EXTRA_COLUMNS)
-		.map(([attribute]) => ({ attribute, type: typeOfValue(samples.get(attribute)) }));
+		.map(([attribute, { sample }]) => ({ attribute, type: typeOfValue(sample) }));
 }
 
 export function sameExtraRecordAttributes(a: readonly ExtraRecordAttribute[], b: readonly ExtraRecordAttribute[]) {
-	return a.length === b.length
-		&& a.every((extra, index) => extra.attribute === b[index].attribute && extra.type === b[index].type);
+	return a === b || a.length === b.length
+			&& a.every((extra, index) => extra.attribute === b[index].attribute && extra.type === b[index].type);
 }
 
 function typeOfValue(value: unknown): InstanceAttribute['type'] {
