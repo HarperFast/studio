@@ -49,13 +49,7 @@ export interface DeployComponentArgs extends InstanceClientConfig, InstanceTypeC
 	signal?: AbortSignal;
 }
 
-/**
- * Whether a live deploy that produced no stream provably never ran, so its body may go out again on the
- * buffered path. Harper refuses a request before starting the operation (authentication, permissions,
- * validation) with a 4xx, and answers one it started with a 200 event stream at once (harper
- * `server/serverHelpers/serverHandlers.js`, `handlePostRequest`). A gateway's 5xx, a 2xx that is not a
- * stream, or no response at all can each follow a deploy that is already running.
- */
+/** Only a 4xx proves Harper never started the deploy: applications/DESIGN.md, "A live deploy is sent once". */
 function refusedBeforeRunning({ status }: SSEUnsupportedError): boolean {
 	return status !== undefined && status >= 400 && status < 500;
 }
