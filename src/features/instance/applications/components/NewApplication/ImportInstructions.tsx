@@ -151,7 +151,7 @@ export function ImportInstructions({
 									type="text"
 									autoCapitalize="none"
 									autoComplete="off"
-									placeholder="npm install"
+									placeholder="Leave blank to install dependencies automatically"
 									{...field}
 								/>
 							</FormControl>

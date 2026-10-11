@@ -307,7 +307,7 @@ export function RedeployApplicationModal() {
 												<FormControl>
 													<Input
 														type="text"
-														placeholder="npm install"
+														placeholder="Leave blank to install dependencies automatically"
 														{...field}
 													/>
 												</FormControl>
