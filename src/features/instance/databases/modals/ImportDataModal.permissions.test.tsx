@@ -129,3 +129,12 @@ describe('ImportDataModal requested method', () => {
 		expect(selectedMethod()).toBe('import-method-url');
 	});
 });
+
+describe('ImportDataModal name fields', () => {
+	it('stops the database and table names at the lengths the form accepts', () => {
+		renderModal({ super_user: true });
+
+		expect((screen.getByLabelText('Database') as HTMLInputElement).maxLength).toBe(75);
+		expect((screen.getByLabelText('Table') as HTMLInputElement).maxLength).toBe(250);
+	});
+});

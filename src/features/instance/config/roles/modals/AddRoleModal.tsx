@@ -100,7 +100,7 @@ export function AddRoleModal({
 								<FormItem>
 									<FormLabel className="pb-1">Name</FormLabel>
 									<FormControl>
-										<Input type="text" {...field} />
+										<Input type="text" maxLength={AddRoleFormSchema.shape.role.maxLength!} {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>

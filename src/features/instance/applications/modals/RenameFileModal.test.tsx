@@ -52,6 +52,12 @@ function renameButton() {
 }
 
 describe('RenameFileModal', () => {
+	it('stops the name at the 50 characters the form accepts', () => {
+		render(<RenameFileModal />);
+
+		expect((screen.getByLabelText('Name') as HTMLInputElement).maxLength).toBe(50);
+	});
+
 	it('shows the reason when Enter is pressed, then clears it once the name is fixed', async () => {
 		render(<RenameFileModal />);
 		await typeName('index(1).js');

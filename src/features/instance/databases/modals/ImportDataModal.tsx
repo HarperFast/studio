@@ -530,6 +530,7 @@ export function ImportDataModal({
 												{...field}
 												type="text"
 												placeholder="data"
+												maxLength={ImportDataFormSchema.shape.database.maxLength!}
 												autoCapitalize="off"
 												autoComplete="off"
 												autoCorrect="off"
@@ -549,6 +550,7 @@ export function ImportDataModal({
 											<Input
 												{...field}
 												type="text"
+												maxLength={ImportDataFormSchema.shape.table.maxLength!}
 												autoCapitalize="off"
 												autoComplete="off"
 												autoCorrect="off"

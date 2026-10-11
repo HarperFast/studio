@@ -8,13 +8,13 @@ export const UpdateUserSchema = z
 				error: 'Please enter your first name.',
 			})
 			.min(2, { error: 'First name is required.' })
-			.max(50, { error: 'First name must be less than 50 characters.' }),
+			.max(40, { error: 'First name cannot be longer than 40 characters.' }),
 		lastname: z
 			.string({
 				error: 'Please enter your last name.',
 			})
 			.min(2, { error: 'Last name is required.' })
-			.max(50, { error: 'Last name must be less than 50 characters.' }),
+			.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 		newPassword: z
 			.string({
 				error: 'Please enter your new password.',

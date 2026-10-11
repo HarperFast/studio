@@ -222,6 +222,7 @@ export function SignUp() {
 								<AuthInput
 									type="text"
 									autoCapitalize="words"
+									maxLength={SignUpSchema.shape.firstname.maxLength!}
 									{...field}
 									placeholder="Your first name"
 									autoComplete="given-name"
@@ -239,6 +240,7 @@ export function SignUp() {
 								<AuthInput
 									type="text"
 									autoCapitalize="words"
+									maxLength={SignUpSchema.shape.lastname.maxLength!}
 									{...field}
 									placeholder="Your last name"
 									autoComplete="family-name"
@@ -260,6 +262,7 @@ export function SignUp() {
 									disabled={!!searchEmail}
 									autoComplete="email"
 									autoCapitalize="none"
+									maxLength={SignUpSchema.shape.email.maxLength!}
 									{...field}
 								/>
 								<FormMessage />

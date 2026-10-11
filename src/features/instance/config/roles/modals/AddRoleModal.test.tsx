@@ -99,4 +99,10 @@ describe('AddRoleModal', () => {
 		await screen.findByRole('radio', { name: /Super user/ });
 		expect(screen.queryByRole('radio', { name: /Cluster user/ })).toBeNull();
 	});
+
+	it('stops the role name at the 30 characters the form accepts', () => {
+		renderModal();
+
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).maxLength).toBe(30);
+	});
 });
