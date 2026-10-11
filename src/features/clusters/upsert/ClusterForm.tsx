@@ -20,6 +20,7 @@ import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { isPositive } from '@/lib/types/isPositive';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -76,7 +77,8 @@ export function ClusterForm({
 
 	const queryClient = useQueryClient();
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
-	const { mutate: submitEditClusterData, isPending: isEditPending } = useEditClusterMutation();
+	const { mutate: submitEditClusterData, isPending: isEditPending, error: editError } = useEditClusterMutation();
+	const editFailure = editError ? describeError(editError).message : undefined;
 
 	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(startOffOnBilling);
 
@@ -554,6 +556,7 @@ export function ClusterForm({
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
+									submitError={editFailure}
 									totalPrice={totalPrice}
 									isEnterprise={isEnterprise}
 									cloudProvider={cloudProvider}
@@ -580,6 +583,7 @@ export function ClusterForm({
 											onSubmit={executeChangesToCluster}
 											organizationId={organizationId}
 											selectedPlan={selectedPlan}
+											submitError={editFailure}
 										/>
 									</CardContent>
 								</Card>

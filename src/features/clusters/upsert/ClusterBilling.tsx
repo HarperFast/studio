@@ -1,5 +1,6 @@
 import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
+import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
@@ -19,6 +20,7 @@ interface ClusterBillingProps {
 	readonly onSubmit?: () => void;
 	readonly organizationId: string;
 	readonly selectedPlan: SchemaPlan | undefined;
+	readonly submitError?: string;
 }
 
 export function ClusterBilling({
@@ -29,6 +31,7 @@ export function ClusterBilling({
 	onSubmit,
 	organizationId,
 	selectedPlan,
+	submitError,
 }: ClusterBillingProps) {
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
@@ -42,6 +45,11 @@ export function ClusterBilling({
 
 	const footer = (
 		<>
+			{submitError && (
+				<div className="mt-3 max-w-xl">
+					<SubmitErrorMessage message={submitError} />
+				</div>
+			)}
 			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end mt-3 max-w-xl">
 				<Button
 					type="button"
