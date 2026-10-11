@@ -16,7 +16,7 @@ import { CheckCircle2Icon, TriangleAlertIcon } from 'lucide-react';
 import { ReactNode, useCallback } from 'react';
 import { Control, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { extractGitUrlHost, replaceGitUrlHost } from './gitUrl';
+import { extractGitUrlHost, replaceGitUrlHost, toSSHGitUrl, usesNonSSHTransport } from './gitUrl';
 import { NewApplicationSchema } from './schema';
 
 export function ImportAuthorization({
@@ -51,10 +51,15 @@ export function ImportAuthorization({
 	});
 
 	const urlHost = extractGitUrlHost(ref);
-	const keyHost = selectedKey?.host;
-	const hostMatches = !!urlHost && !!keyHost && urlHost.toLowerCase() === keyHost.toLowerCase();
-	const hostMismatch = !!urlHost && !!keyHost && !hostMatches;
-	const suggestedUrl = hostMismatch ? replaceGitUrlHost(ref, keyHost) : '';
+	const listedKey = sshKeys?.find((key) => key.name === sshKeyName);
+	const keyHost = selectedKey?.host ?? listedKey?.host;
+	const keyHostname = selectedKey?.hostname ?? listedKey?.hostname;
+	const nonSSHUrl = usesNonSSHTransport(ref);
+	const hostMatches = !nonSSHUrl && !!urlHost && !!keyHost && urlHost.toLowerCase() === keyHost.toLowerCase();
+	const hostMismatch = !nonSSHUrl && !!urlHost && !!keyHost && !hostMatches;
+	const keyServesUrlHost = !!keyHost && !!keyHostname && keyHostname.toLowerCase() === urlHost?.toLowerCase();
+	const sshUrl = nonSSHUrl && keyHost && keyServesUrlHost ? toSSHGitUrl(ref, keyHost) : null;
+	const suggestedUrl = sshUrl ?? (hostMismatch ? replaceGitUrlHost(ref, keyHost) : '');
 
 	const useSuggestedUrl = useCallback(() => {
 		setValue('contents.ref', suggestedUrl, { shouldValidate: true, shouldDirty: true });
@@ -171,6 +176,35 @@ export function ImportAuthorization({
 
 						<TabsContent value="true" className="space-y-4 mt-4">
 							{body}
+							{nonSSHUrl && (
+								<Alert variant="warning">
+									<TriangleAlertIcon className="h-4 w-4" />
+									<AlertDescription>
+										<span>
+											Git only uses an SSH key for an SSH URL, so this import won't use one and a private repository
+											will likely fail to authenticate.
+										</span>
+										{sshUrl
+											? (
+												<>
+													<span>Use the SSH URL for the selected key instead:</span>
+													<code className="block break-all">{sshUrl}</code>
+													<Button type="button" variant="defaultOutline" size="sm" onClick={useSuggestedUrl}>
+														Use SSH URL
+													</Button>
+												</>
+											)
+											: (
+												<span>
+													Use the repository's SSH clone URL from your git host instead, with its host replaced by{' '}
+													{keyServesUrlHost
+														? <code>{keyHost}</code>
+														: 'the host alias of the SSH key for this repository'}.
+												</span>
+											)}
+									</AlertDescription>
+								</Alert>
+							)}
 						</TabsContent>
 					</Tabs>
 				)}
