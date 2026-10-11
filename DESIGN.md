@@ -8,7 +8,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope, and when the cluster form may terminate a cluster.
 
-- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, where the cluster card's sync chip gets its data, and how custom-domain cert intent and certificate progress work.
+- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, where the cluster card's sync chip gets its data, and how custom-domain cert intent, certificate progress and the Bind selection work.
 
 - [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, why a table without a primary key can't be listed, why a filtered list pages without a count, why a table with a computed attribute exports by naming its columns, where columns for undeclared properties come from, and why a filter no index can answer asks first.
 

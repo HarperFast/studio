@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { watchChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 interface Params {
@@ -41,11 +41,15 @@ export function useSetDomainIdsOnCluster() {
 	// `useIsSettingDomainIds` disables the controls only once React re-renders, so a click already
 	// queued behind the first change would otherwise build its list from the same stale cache.
 	const mutateWhenIdle = useCallback<typeof mutate>((variables, options) => {
-		if (queryClient.isMutating({ mutationKey: setDomainIdsMutationKey }) === 0) {
+		if (!isSettingDomainIds(queryClient)) {
 			mutate(variables, options);
 		}
 	}, [mutate, queryClient]);
 	return { ...mutation, mutate: mutateWhenIdle };
+}
+
+export function isSettingDomainIds(queryClient: QueryClient): boolean {
+	return queryClient.isMutating({ mutationKey: setDomainIdsMutationKey }) > 0;
 }
 
 export function useIsSettingDomainIds(): boolean {

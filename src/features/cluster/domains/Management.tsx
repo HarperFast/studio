@@ -20,6 +20,7 @@ import {
 	unresolvedFailures,
 	withinReconcileWindow,
 } from '@/features/cluster/domains/addDomainsSequentially';
+import { bindableDomainIds } from '@/features/cluster/domains/canBindDomain';
 import { useDataTableColumns } from '@/features/cluster/domains/constants/tableDefinition';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useIsSettingDomainIds, useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
@@ -28,6 +29,7 @@ import {
 	DOMAIN_REQUIRED_MESSAGE,
 	useAddDomainToOrganization,
 } from '@/features/organization/mutations/addDomainToOrganization';
+import { isDeletingDomain, useIsDeletingDomain } from '@/features/organization/mutations/deleteDomain';
 import { validateDomainInOrganization } from '@/features/organization/mutations/validateDomainInOrganization';
 import { getOrganizationDomainsQueryOptions } from '@/features/organization/queries/getOrganizationDomains';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
@@ -37,7 +39,7 @@ import { unique } from '@/lib/arrays/unique';
 import { pluralize } from '@/lib/pluralize';
 import { queryClient } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { onlineManager, useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { onlineManager, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ListTodoIcon, PlusIcon, RefreshCwIcon, Save } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -88,10 +90,30 @@ export function DomainsManagement() {
 		);
 	}, []);
 
+	const domainIdsToBind = useMemo(
+		() => bindableDomainIds(selectedDomainIds, organizationDomains, cluster),
+		[cluster, organizationDomains, selectedDomainIds],
+	);
+
 	const { mutate: setDomainIds } = useSetDomainIdsOnCluster();
 	const settingDomainIds = useIsSettingDomainIds();
+	const deletingDomain = useIsDeletingDomain();
+	const activeQueryClient = useQueryClient();
 
 	const onBindClick = useCallback(() => {
+		// From the query client, not this render: a removal reaches the button a render after it
+		// starts or lands, and a click in between would still send the domain being removed.
+		if (isDeletingDomain(activeQueryClient)) {
+			return;
+		}
+		const toBind = bindableDomainIds(
+			selectedDomainIds,
+			activeQueryClient.getQueryData(getOrganizationDomainsQueryOptions(organizationId).queryKey),
+			cluster,
+		);
+		if (toBind.length === 0) {
+			return;
+		}
 		if (!isRunning(cluster.status)) {
 			toast.error('Cluster is currently ' + cluster.status, { description: 'To bind a domain, it must be running.' });
 			return;
@@ -99,7 +121,7 @@ export function DomainsManagement() {
 
 		setDomainIds({
 			clusterId: cluster.id,
-			domainIds: unique((cluster.domainIds?.slice() || []).concat(selectedDomainIds)),
+			domainIds: unique((cluster.domainIds?.slice() || []).concat(toBind)),
 			generateDomainCerts: true,
 		}, {
 			onSuccess: () => {
@@ -108,7 +130,7 @@ export function DomainsManagement() {
 				setSelectedDomainIds([]);
 			},
 		});
-	}, [cluster, selectedDomainIds, setDomainIds]);
+	}, [activeQueryClient, cluster, organizationId, selectedDomainIds, setDomainIds]);
 
 	const { mutateAsync: addDomain } = useAddDomainToOrganization();
 	const form = useForm({
@@ -324,14 +346,14 @@ export function DomainsManagement() {
 					</Form>
 				)}
 
-				{selectedDomainIds.length > 0 && (
+				{domainIdsToBind.length > 0 && (
 					<div className="flex-0 self-start md:pt-6.5">
 						<Button
 							variant="submit"
 							onClick={onBindClick}
-							disabled={settingDomainIds}
+							disabled={settingDomainIds || deletingDomain}
 						>
-							<Save /> Bind {pluralize(selectedDomainIds.length, 'Domain', 'Domains')}
+							<Save /> Bind {pluralize(domainIdsToBind.length, 'Domain', 'Domains')}
 						</Button>
 					</div>
 				)}

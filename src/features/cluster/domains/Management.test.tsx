@@ -7,8 +7,8 @@ import { AxiosError } from 'axios';
 import { PropsWithChildren, Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get, post, put } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
-vi.mock('@/config/apiClient', () => ({ apiClient: { get, post, put } }));
+const { get, post, put, del } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { get, post, put, delete: del } }));
 
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
@@ -581,6 +581,145 @@ describe('DomainsManagement — binding and unbinding', () => {
 
 		await waitFor(() => expect(put).toHaveBeenCalledOnce());
 		expect(sentBody()).toEqual({ domainIds: ['dom-c'], generateDomainCerts: true });
+	});
+
+	describe('a ticked domain the list no longer offers', () => {
+		const unboundC = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+		const unboundD = { id: 'dom-d', domain: 'd.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+
+		function serveList(list: () => object[]) {
+			get.mockImplementation((url: string) =>
+				url.startsWith('/Domain/')
+					? Promise.resolve({ data: list() })
+					: Promise.resolve({ data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: [] } })
+			);
+		}
+
+		function rowOf(getByText: (text: string) => HTMLElement, domain: string) {
+			return within(getByText(domain).closest('tr')!);
+		}
+
+		async function tickBoth(
+			findByText: (text: string) => Promise<HTMLElement>,
+			getByText: (text: string) => HTMLElement,
+		) {
+			await findByText('c.example.com');
+			fireEvent.click(rowOf(getByText, 'c.example.com').getByRole('checkbox'));
+			fireEvent.click(rowOf(getByText, 'd.example.com').getByRole('checkbox'));
+		}
+
+		it('is not sent by Bind once it has been removed, without waiting for the list to refetch', async () => {
+			let removed = false;
+			get.mockImplementation((url: string) => {
+				if (!url.startsWith('/Domain/')) {
+					return Promise.resolve({ data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: [] } });
+				}
+				return removed ? new Promise(() => {}) : Promise.resolve({ data: [unboundC, unboundD] });
+			});
+			del.mockImplementation(() => {
+				removed = true;
+				return Promise.resolve({ data: undefined });
+			});
+			put.mockResolvedValue({ data: {} });
+			const { findByText, getByText, findByRole } = renderManagement();
+			await tickBoth(findByText, getByText);
+
+			fireEvent.click(rowOf(getByText, 'c.example.com').getByRole('button', { name: 'Remove Domain' }));
+
+			await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Domain removed!'));
+			const bind = await findByRole('button', { name: /Bind 1 Domain$/ }) as HTMLButtonElement;
+			await waitFor(() => expect(bind.disabled).toBe(false));
+			fireEvent.click(bind);
+
+			await waitFor(() => expect(put).toHaveBeenCalledOnce());
+			expect(sentBody()).toEqual({ domainIds: ['dom-d'], generateDomainCerts: true });
+		});
+
+		it('is not offered once the list shows it bound to another cluster', async () => {
+			let list: object[] = [unboundC];
+			serveList(() => list);
+			const { findByText, getByText, queryByRole, queryClient } = renderManagement();
+			await findByText('c.example.com');
+			fireEvent.click(rowOf(getByText, 'c.example.com').getByRole('checkbox'));
+			expect(queryByRole('button', { name: /Bind 1 Domain/ })).not.toBeNull();
+
+			list = [{ ...unboundC, clusterId: 'clu-2' }];
+			await queryClient.refetchQueries({ queryKey: ['org-1', 'domains'] });
+
+			await waitFor(() => expect(queryByRole('button', { name: /Bind \d+ Domain/ })).toBeNull());
+		});
+
+		it('holds Bind while a removal is in flight', async () => {
+			let settle!: () => void;
+			serveList(() => [unboundC, unboundD]);
+			del.mockReturnValue(
+				new Promise((resolve) => {
+					settle = () => resolve({ data: undefined });
+				}),
+			);
+			const { findByText, getByText, getByRole } = renderManagement();
+			await tickBoth(findByText, getByText);
+			const bind = getByRole('button', { name: /Bind 2 Domains/ }) as HTMLButtonElement;
+
+			fireEvent.click(rowOf(getByText, 'c.example.com').getByRole('button', { name: 'Remove Domain' }));
+
+			await waitFor(() => expect(bind.disabled).toBe(true));
+			settle();
+			await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Domain removed!'));
+		});
+
+		it('refuses a Bind queued behind a removal before the controls disabled', async () => {
+			serveList(() => [unboundC, unboundD]);
+			del.mockReturnValue(new Promise(() => {}));
+			const { findByText, getByText, getByRole } = renderManagement();
+			await tickBoth(findByText, getByText);
+			const bind = getByRole('button', { name: /Bind 2 Domains/ });
+
+			fireEvent.click(rowOf(getByText, 'c.example.com').getByRole('button', { name: 'Remove Domain' }));
+			fireEvent.click(bind);
+
+			await waitFor(() => expect(del).toHaveBeenCalledOnce());
+			await waitFor(() => expect((bind as HTMLButtonElement).disabled).toBe(true));
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			expect(put).not.toHaveBeenCalled();
+		});
+
+		it('is not removed by a click queued behind a Bind that is sending it', async () => {
+			serveList(() => [unboundC, unboundD]);
+			put.mockReturnValue(new Promise(() => {}));
+			const { findByText, getByText, getByRole } = renderManagement();
+			await tickBoth(findByText, getByText);
+			const remove = rowOf(getByText, 'c.example.com').getByRole('button', { name: 'Remove Domain' });
+
+			fireEvent.click(getByRole('button', { name: /Bind 2 Domains/ }));
+			fireEvent.click(remove);
+
+			await waitFor(() => expect(put).toHaveBeenCalledOnce());
+			// Re-queried: the row re-renders as a new element once the controls disable.
+			await waitFor(() =>
+				expect(
+					(rowOf(getByText, 'c.example.com').getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement)
+						.disabled,
+				).toBe(true)
+			);
+			expect(del).not.toHaveBeenCalled();
+		});
+
+		it('is not sent by a click that lands after the list changed but before the button re-rendered', async () => {
+			serveList(() => [unboundC, unboundD]);
+			put.mockResolvedValue({ data: {} });
+			const { findByText, getByText, getByRole, queryClient } = renderManagement();
+			await tickBoth(findByText, getByText);
+			const bind = getByRole('button', { name: /Bind 2 Domains/ });
+
+			// React Query notifies observers on a later tick, so the click below still runs the
+			// handler from the render that showed both domains.
+			queryClient.setQueryData(['org-1', 'domains'], [unboundD]);
+			fireEvent.click(bind);
+
+			await waitFor(() => expect(put).toHaveBeenCalledOnce());
+			expect(sentBody()).toEqual({ domainIds: ['dom-d'], generateDomainCerts: true });
+		});
 	});
 
 	it('re-reads certificate progress as soon as a domain change lands, rather than on the idle poll', async () => {
