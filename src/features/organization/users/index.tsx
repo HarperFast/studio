@@ -93,6 +93,8 @@ export function OrgConfigUsersIndex() {
 						columns={dataTableColumns}
 						onRowClick={onRowClick}
 						sortingState={sortingState}
+						filter={{ label: 'Filter users', placeholder: 'Filter by email, name, role or status' }}
+						paginated
 					>
 						<Button
 							variant="defaultOutline"

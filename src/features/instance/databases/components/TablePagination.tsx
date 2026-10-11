@@ -8,7 +8,7 @@ import { cn } from '@/lib/cn';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import { ComponentProps, Dispatch, FormEvent, SetStateAction, useState } from 'react';
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 250];
+export const PAGE_SIZE_OPTIONS = [20, 50, 100, 250] as const;
 
 /** The page on screen, for a result set with no count to page by. Both are `undefined` while it loads. */
 export interface UncountedPage {
