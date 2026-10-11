@@ -5,6 +5,7 @@ import { DeployProgress } from '@/features/instance/applications/components/Depl
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { explainDeployFailureText } from '@/integrations/api/instance/applications/explainDeployFailure';
 import { getDeploymentQueryOptions, getDeploymentStream } from '@/integrations/api/instance/deployments/getDeployment';
 import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
 import { cn } from '@/lib/cn';
@@ -167,7 +168,9 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 								? ` (${deployment.error.code})`
 								: ''}
 						</span>
-						<span className="break-words">{errorText(deployment.error) ?? 'Unknown error'}</span>
+						<span className="break-words">
+							{explainDeployFailureText(errorText(deployment.error) ?? 'Unknown error')}
+						</span>
 					</div>
 				</>
 			)}
@@ -225,7 +228,7 @@ function DeploymentEventLog({ deployment }: { deployment: Deployment }) {
 							<span className="shrink-0 text-muted-foreground">{new Date(entry.t).toLocaleTimeString()}</span>
 							<span className="font-medium">{entry.event}</span>
 							<span className="break-words text-muted-foreground">
-								{typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data)}
+								{explainDeployFailureText(typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data))}
 							</span>
 						</li>
 					))}

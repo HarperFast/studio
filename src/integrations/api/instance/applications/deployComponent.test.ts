@@ -1,10 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 vi.mock('./deployComponentStream', () => ({
 	deployComponentStream: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
+import { mutationErrorHandler } from '@/react-query/queryClient';
+import { MutationCache, MutationObserver, QueryClient } from '@tanstack/react-query';
+import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'sonner';
 import { deployAndFollowComponent, deployRequestBody, onDeployComponentSubmit } from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { DeployRolloutError } from './restartJob';
@@ -175,6 +180,64 @@ describe('onDeployComponentSubmit', () => {
 			}),
 		).rejects.toBeInstanceOf(SSEOperationError);
 		expect(client.post).not.toHaveBeenCalled();
+	});
+
+	describe('a git repository with no root package.json', () => {
+		const raw = "ENOENT: no such file or directory, open '/tmp/harper-git-clone-oXPS7c/package.json'";
+		const GUIDANCE = /^This repository has no package\.json in its root folder\./;
+
+		it('rejects a streamed deploy with guidance, never the clone path', async () => {
+			mockStream.mockRejectedValue(new SSEOperationError(raw, { phase: 'prepare' }));
+			const error = await onDeployComponentSubmit({
+				...baseArgs,
+				useSSE: true,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				instanceClient: fakeClient({}) as any,
+			}).catch((rejection: unknown) => rejection);
+
+			expect(error).toBeInstanceOf(SSEOperationError);
+			expect((error as SSEOperationError).message).toMatch(GUIDANCE);
+			expect((error as SSEOperationError).phase).toBe('prepare');
+		});
+
+		it('rejects a buffered deploy with guidance, never the clone path', async () => {
+			const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+			const client = {
+				post: vi.fn().mockRejectedValue(
+					new AxiosError('Request failed with status code 500', AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+						data: { error: 'ENOENT', message: raw },
+						status: 500,
+						statusText: 'Internal Server Error',
+						headers: {},
+						config,
+					}),
+				),
+			};
+
+			await expect(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				onDeployComponentSubmit({ ...baseArgs, instanceClient: client as any }),
+			).rejects.toThrow(GUIDANCE);
+		});
+
+		it('reaches the global mutation toast as guidance too', async () => {
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			onTestFinished(() => consoleError.mockRestore());
+			mockStream.mockRejectedValue(new SSEOperationError(raw));
+			const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
+			// The function `useDeployComponentMutation` runs, so a failure reaches the toast the way it does in the app.
+			const observer = new MutationObserver(queryClient, { mutationFn: deployAndFollowComponent });
+
+			await observer
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				.mutate({ ...baseArgs, useSSE: true, instanceClient: fakeClient({}) as any })
+				.catch(() => undefined);
+
+			expect(vi.mocked(toast.error)).toHaveBeenCalledOnce();
+			const [title, options] = vi.mocked(toast.error).mock.calls[0];
+			expect(title).toBe('Error');
+			expect(options?.description).toMatch(GUIDANCE);
+		});
 	});
 });
 
