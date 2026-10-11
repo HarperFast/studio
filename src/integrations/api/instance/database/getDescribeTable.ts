@@ -5,9 +5,16 @@ import { queryOptions } from '@tanstack/react-query';
 interface GetDescribeTableParams extends InstanceClientIdConfig {
 	databaseName: string;
 	tableName: string;
+	/**
+	 * Also list `@computed` attributes (flagged `computed: true`), which describe omits by default.
+	 * Servers that predate the flag ignore it.
+	 */
+	includeComputed?: boolean;
 }
 
-export async function getDescribeTable({ databaseName, tableName, instanceClient }: GetDescribeTableParams) {
+export async function getDescribeTable(
+	{ databaseName, tableName, instanceClient, includeComputed }: GetDescribeTableParams,
+) {
 	const { data } = await instanceClient.post<InstanceTable>('/', {
 		operation: 'describe_table',
 		database: databaseName,
@@ -17,14 +24,15 @@ export async function getDescribeTable({ databaseName, tableName, instanceClient
 		// exact count is a separate, on-demand fetch. `exact_count: false` is the default on current servers,
 		// so this is mainly an explicit guard against any server that would otherwise count exactly.
 		exact_count: false,
+		include_computed: includeComputed || undefined,
 	});
 	return data;
 }
 
-export function getDescribeTableQueryOptions(params: GetDescribeTableParams) {
+export function getDescribeTableQueryOptions(params: Omit<GetDescribeTableParams, 'includeComputed'>) {
 	return queryOptions({
 		queryKey: [params.entityId, params.databaseName, params.tableName, 'describe_table'] as const,
-		queryFn: () => getDescribeTable(params),
+		queryFn: () => getDescribeTable({ ...params, includeComputed: true }),
 		staleTime: 60_000,
 		gcTime: 5_000,
 		enabled: !!params.databaseName && !!params.tableName,

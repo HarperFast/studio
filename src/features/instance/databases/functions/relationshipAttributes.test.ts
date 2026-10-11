@@ -1,7 +1,7 @@
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
-	buildRelationshipGetAttributes,
+	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
 	getRelationshipInfo,
 	getRelationshipInfoMap,
@@ -98,18 +98,92 @@ describe('isSyntheticAttribute / syntheticAttributeNames', () => {
 	});
 });
 
-describe('buildRelationshipGetAttributes', () => {
+describe('buildSyntheticGetAttributes', () => {
 	it('selects each relationship by related primary key, with * last', () => {
-		expect(buildRelationshipGetAttributes(relProduct, tables)).toEqual([
+		expect(buildSyntheticGetAttributes(relProduct, tables)).toEqual([
 			{ name: 'reviews', select: ['id'] },
 			'*',
 		]);
 	});
 
-	it('returns undefined when the table has no relationships', () => {
+	it('returns undefined when the table has no relationships or computed attributes', () => {
 		const plain = { ...relProduct, attributes: relProduct.attributes.slice(0, 4) };
-		expect(buildRelationshipGetAttributes(plain, tables)).toBeUndefined();
-		expect(buildRelationshipGetAttributes(undefined, tables)).toBeUndefined();
+		expect(buildSyntheticGetAttributes(plain, tables)).toBeUndefined();
+		expect(buildSyntheticGetAttributes(undefined, tables)).toBeUndefined();
+	});
+});
+
+describe('buildSyntheticGetAttributes with @computed attributes', () => {
+	// describe_table with `include_computed: true`, copied from harperdb 4.7.40 for:
+	//   type Product2 @table { id: ID @primaryKey price: Float taxRate: Float
+	//     totalPrice: Float @computed(from: "price + (price * taxRate)") }
+	//   type Gadget @table { id: ID @primaryKey name: String brandId: ID @indexed
+	//     brand: Brand @relationship(from: brandId) label: String @computed(from: "name + '!'") }
+	//   type Brand @table { id: ID @primaryKey name: String products: [Gadget] @relationship(to: brandId) }
+	const product2 = {
+		schema: 'data',
+		name: 'Product2',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'price', type: 'Float' },
+			{ attribute: 'taxRate', type: 'Float' },
+			{ attribute: 'totalPrice', type: 'Float', computed: true },
+		],
+	} as InstanceTable;
+	const brand = {
+		schema: 'data',
+		name: 'Brand',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'products', type: 'array', elements: 'Gadget' },
+		],
+	} as InstanceTable;
+	const gadget = {
+		schema: 'data',
+		name: 'Gadget',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'brandId', type: 'ID', indexed: {} },
+			{
+				attribute: 'brand',
+				type: 'Brand',
+				properties: [{ type: 'ID', name: 'id' }, { type: 'String', name: 'name' }, {
+					type: 'array',
+					name: 'products',
+				}],
+			},
+			{ attribute: 'label', type: 'String', computed: true },
+		],
+	} as InstanceTable;
+	const catalog: InstanceDatabaseTableMap = { Product2: product2, Brand: brand, Gadget: gadget };
+
+	it('names each computed attribute ahead of the *', () => {
+		expect(buildSyntheticGetAttributes(product2, catalog)).toEqual(['totalPrice', '*']);
+	});
+
+	it('selects computed attributes alongside relationships (Harper 4.7)', () => {
+		expect(buildSyntheticGetAttributes(gadget, catalog)).toEqual([
+			{ name: 'brand', select: ['id'] },
+			'label',
+			'*',
+		]);
+	});
+
+	it('selects computed attributes where describe omits relationships (Harper 5.1+)', () => {
+		const gadgetWithoutRelationships = {
+			...gadget,
+			attributes: gadget.attributes.filter((attribute) => attribute.attribute !== 'brand'),
+		};
+		expect(buildSyntheticGetAttributes(gadgetWithoutRelationships, catalog)).toEqual(['label', '*']);
+	});
+
+	it('keeps computed attributes out of record writes', () => {
+		expect(syntheticAttributeNames(gadget.attributes, catalog)).toEqual(['brand', 'label']);
 	});
 });
 
@@ -211,7 +285,7 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 	});
 
 	it('omits unresolvable relationships from get_attributes', () => {
-		expect(buildRelationshipGetAttributes(albums, albumTables)).toBeUndefined();
+		expect(buildSyntheticGetAttributes(albums, albumTables)).toBeUndefined();
 	});
 
 	it('only infers the reverse key when the owner table is known', () => {

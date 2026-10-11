@@ -10,7 +10,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
 import {
-	buildRelationshipGetAttributes,
+	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
 	getRelationshipInfoMap,
 	syntheticAttributeNames,
@@ -170,8 +170,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		() => getRelationshipInfoMap(instanceTable, databaseTables, schemaRelationships),
 		[instanceTable, databaseTables, schemaRelationships],
 	);
-	const relationshipGetAttributes = useMemo(
-		() => buildRelationshipGetAttributes(instanceTable, databaseTables),
+	const syntheticGetAttributes = useMemo(
+		() => buildSyntheticGetAttributes(instanceTable, databaseTables),
 		[instanceTable, databaseTables],
 	);
 	const syntheticAttributes = useMemo(
@@ -423,7 +423,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
-		getAttributes: relationshipGetAttributes,
+		getAttributes: syntheticGetAttributes,
 	};
 	const searchByValueOptions = getSearchByValueOptions(searchByValueParams);
 	const { data: fullTableData, isFetching: tableDataFetching, isError: isFullTableError } = useQuery(
@@ -441,7 +441,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
-		getAttributes: relationshipGetAttributes,
+		getAttributes: syntheticGetAttributes,
 	};
 	const searchByConditionsOptions = getSearchByConditionsOptions(searchByConditionsParams);
 	const { data: filteredTableData, isFetching: tableConditionsDataFetching, isError: isFilteredTableError } = useQuery(

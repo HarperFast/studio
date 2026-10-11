@@ -544,9 +544,15 @@ What `describe_table` reports differs by server version (verified empirically, J
 - **Harper 4.7**: relationship attrs ARE listed — to-one as `{attribute, type: '<RelatedTable>',
   properties: [...]}`, to-many as `{type: 'array', elements: '<RelatedTable>'}` — but there is
   NO explicit relationship flag: the only signal is that `type`/`elements` names a sibling
-  table. `@computed` attrs are omitted.
+  table. `@computed` attrs are omitted unless describe is sent `include_computed: true` (4.7.40,
+  Oct 2026), and then carry `computed: true`.
 - **Harper 5.1**: relationship attrs are omitted from describe entirely; `@computed` attrs appear
   only with `include_computed: true`, and carry `computed: true`.
+
+Browse sends `include_computed` (describe_table, and its describe_all) and names each computed
+attribute ahead of the `'*'` in `get_attributes`. A `['*']` search omits them on 4.7.40, and Harper
+5 strips them from an expanded `'*'` (`dataLayer/harperBridge/ResourceBridge.ts` `getSelect`), so
+without both the column is missing or blank (#1256).
 
 The 5.1 omission is an **unintentional regression**, not a deliberate change (traced in the Harper
 source, Jul 2026). describe's `pushAtt` never filtered relationships and hasn't changed; what
