@@ -1,4 +1,4 @@
-import { isReadOperation } from '@/integrations/api/isReadOperation';
+import { isReadRequest } from '@/integrations/api/isReadOperation';
 import { getRestartState, holdsRequests, isRestarting, waitUntilReachable } from '@/lib/restart/restartTracker';
 import { AxiosError, type AxiosInstance, CanceledError, type InternalAxiosRequestConfig } from 'axios';
 
@@ -14,23 +14,6 @@ declare module 'axios' {
 }
 
 export const RESTARTING_ERROR_CODE = 'ERR_TARGET_RESTARTING';
-
-function operationOf(data: unknown): unknown {
-	if (typeof data !== 'string') {
-		return (data as { operation?: unknown } | undefined)?.operation;
-	}
-	// A gateway retry re-sends the config axios already serialized; the operations console sends raw text.
-	try {
-		return (JSON.parse(data) as { operation?: unknown } | null)?.operation;
-	} catch {
-		return undefined;
-	}
-}
-
-function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
-	if (config.method?.toLowerCase() === 'get') { return true; }
-	return isReadOperation(operationOf(config.data));
-}
 
 /**
  * While the tracker says this kind of client cannot reach `entityId`, hold its reads and send them
@@ -55,7 +38,7 @@ export function installRestartGate(
 ) {
 	client.interceptors.request.use(
 		(config: InternalAxiosRequestConfig) => {
-			if (!isSafeToDelay(config)) {
+			if (!isReadRequest(config)) {
 				const target = entityId.startsWith('clu-') ? 'This cluster' : 'This instance';
 				throw new AxiosError(
 					`${target} is restarting. Try again once it's back online.`,
