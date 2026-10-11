@@ -2,7 +2,7 @@ import { InstanceAttribute } from '@/integrations/api/api.patch';
 
 export type FilterKind = 'text' | 'number' | 'date' | 'boolean';
 
-// What `parseComparator` reads, by the kind of value the column holds.
+// Must teach only what `parseComparator` reads; filterSyntaxHint.test.ts holds the two together.
 export const FILTER_SYNTAX: Readonly<Record<FilterKind, readonly string[]>> = {
 	text: [
 		'Jo* starts with',
@@ -19,7 +19,7 @@ export const FILTER_SYNTAX: Readonly<Record<FilterKind, readonly string[]>> = {
 
 const NUMERIC_TYPES: ReadonlySet<string> = new Set(['Int', 'Long', 'Float', 'BigInt']);
 
-export function filterKind(type: InstanceAttribute['type']): FilterKind {
+function filterKind(type: InstanceAttribute['type']): FilterKind {
 	if (NUMERIC_TYPES.has(type ?? '')) {
 		return 'number';
 	}
@@ -27,23 +27,27 @@ export function filterKind(type: InstanceAttribute['type']): FilterKind {
 }
 
 const UNINDEXED_NOTE = 'Not indexed: a filter on this alone reads every record, so you are asked first.';
+const NE_NOTE = '!= reads every record unless another filter uses an index.';
 const SCAN_NOTE: Readonly<Record<FilterKind, string>> = {
 	text: 'Ends with, contains and != read every record unless another filter uses an index.',
-	number: '!= reads every record unless another filter uses an index.',
-	date: '!= reads every record unless another filter uses an index.',
-	boolean: '!= reads every record unless another filter uses an index.',
+	number: NE_NOTE,
+	date: NE_NOTE,
+	boolean: NE_NOTE,
 };
 
-// Built on every render of the grid's columns, so the eight possible strings are made once.
-const hints = new Map<string, string>();
+const hintsFor = (kind: FilterKind) => ({
+	indexed: [...FILTER_SYNTAX[kind], SCAN_NOTE[kind]].join('\n'),
+	unindexed: [...FILTER_SYNTAX[kind], UNINDEXED_NOTE].join('\n'),
+});
+// The grid rebuilds its columns on every render, keystrokes in a filter included.
+const HINTS: Readonly<Record<FilterKind, { indexed: string; unindexed: string }>> = {
+	text: hintsFor('text'),
+	number: hintsFor('number'),
+	date: hintsFor('date'),
+	boolean: hintsFor('boolean'),
+};
 
 export function filterSyntaxHint(type: InstanceAttribute['type'], unindexed: boolean): string {
-	const kind = filterKind(type);
-	const key = `${kind}:${unindexed}`;
-	let hint = hints.get(key);
-	if (hint === undefined) {
-		hint = [...FILTER_SYNTAX[kind], unindexed ? UNINDEXED_NOTE : SCAN_NOTE[kind]].join('\n');
-		hints.set(key, hint);
-	}
-	return hint;
+	const hints = HINTS[filterKind(type)];
+	return unindexed ? hints.unindexed : hints.indexed;
 }
