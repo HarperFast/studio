@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isOperationsProxyRefused, isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useIsOnScreen } from '@/hooks/useIsOnScreen';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
 import {
@@ -30,6 +31,10 @@ export function InstanceStatusCell(
 	const { mutate: setStatus, isPending: isSettingStatus } = useSetStatus();
 
 	const [ready, setReady] = useState(false);
+	const [cellElement, setCellElement] = useState<HTMLDivElement | null>(null);
+	// A row scrolled out of view stops polling, so a large cluster costs what is on screen rather than
+	// one request per instance every 10s. The margin starts a row's fetch just before it scrolls in.
+	const onScreen = useIsOnScreen(cellElement, '200px');
 
 	// Spread the status requests out.
 	useEffect(() => {
@@ -39,7 +44,7 @@ export function InstanceStatusCell(
 
 	const notProxied = isOperationsProxyRefused(instance.status);
 	const statusSupported = supportsGetStatus(instance.version);
-	const statusPollEnabled = ready && canManage && !notProxied && statusSupported;
+	const statusPollEnabled = ready && onScreen && canManage && !notProxied && statusSupported;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
@@ -75,11 +80,11 @@ export function InstanceStatusCell(
 	}
 
 	return (
-		<div className="flex items-center gap-2">
+		<div ref={setCellElement} className="flex items-center gap-2">
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<div className="flex items-center">
-						{isLoading || !ready || (isFetching && !statusResponse)
+						{isLoading || !ready || ((isFetching || !onScreen) && !statusResponse)
 							? <LoaderCircleIcon className="animate-spin size-5 text-muted-foreground" />
 							: (
 								<Badge

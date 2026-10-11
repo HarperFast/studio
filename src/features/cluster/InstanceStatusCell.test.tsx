@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import type { Instance } from '@/integrations/api/api.patch';
+import { FakeIntersectionObserver } from '@/test/fakeIntersectionObserver';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,8 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	vi.useRealTimers();
+	vi.unstubAllGlobals();
+	FakeIntersectionObserver.reset();
 });
 
 async function renderCell(status: string, version: string | undefined = '4.7.3') {
@@ -85,5 +88,32 @@ describe('InstanceStatusCell get_status poll', () => {
 		await renderCell('RUNNING', '4.5.12');
 		expect(screen.getByLabelText('Status needs Harper 4.6 or later')).toBeTruthy();
 		expect(screen.queryByRole('button')).toBeNull();
+	});
+});
+
+describe('InstanceStatusCell off-screen gating', () => {
+	beforeEach(() => {
+		vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+	});
+
+	it('does not poll a row until it scrolls into view', async () => {
+		await renderCell('RUNNING');
+		expect(state.enabled.at(-1)).toBe(false);
+
+		act(() => FakeIntersectionObserver.setIntersecting(true));
+		expect(state.enabled.at(-1)).toBe(true);
+	});
+
+	it('stops polling a row once it scrolls out of view', async () => {
+		await renderCell('RUNNING');
+		act(() => FakeIntersectionObserver.setIntersecting(true));
+		act(() => FakeIntersectionObserver.setIntersecting(false));
+		expect(state.enabled.at(-1)).toBe(false);
+	});
+
+	it('shows a spinner rather than an unknown status for a row that has not loaded yet', async () => {
+		await renderCell('RUNNING');
+		expect(screen.queryByText('Offline')).toBeNull();
+		expect(document.querySelector('.animate-spin')).toBeTruthy();
 	});
 });
