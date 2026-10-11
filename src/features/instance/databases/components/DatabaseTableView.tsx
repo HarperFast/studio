@@ -7,7 +7,15 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import {
+	ExtraRecordAttribute,
+	extraRecordAttributes,
+	sameExtraRecordAttributes,
+} from '@/features/instance/databases/functions/extraRecordAttributes';
+import {
+	browsePrimaryKey,
+	formatBrowseDataTableHeader,
+} from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
 import {
 	buildSyntheticGetAttributes,
@@ -93,6 +101,7 @@ import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 // Stable so `useEffectedState` can reset to it without rebuilding a set on every render.
 const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
 const NO_ROWS: Record<string, unknown>[] = [];
+const NO_EXTRA_ATTRIBUTES: ExtraRecordAttribute[] = [];
 
 export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
 	instanceDatabaseMap?: InstanceDatabaseMap;
@@ -292,7 +301,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		clearFilters,
 	]);
 
-	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
+	const primaryKey = browsePrimaryKey(instanceTable);
 	// Both list queries need a primary key, so for a table without one neither ever runs, and the grid
 	// would read that "no data" as rows still in flight (#1748). True until the schema arrives without
 	// one, so the spinner still covers the schema load.
@@ -458,6 +467,38 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// the previous page's data -- which is what tells a pending record step that its page hasn't
 	// arrived yet.
 	const pageRows = tableData?.data;
+
+	// Describe lists only what the schema declares, and a record can carry more; those properties get
+	// columns from the rows on screen.
+	const columnAttributes = useMemo(
+		() =>
+			new Set([
+				...(instanceTable?.attributes ?? []).map(({ attribute }) => attribute),
+				...Object.keys(relationshipInfoMap),
+			]),
+		[instanceTable, relationshipInfoMap],
+	);
+	const pageExtraAttributes = useMemo(
+		() => pageRows && extraRecordAttributes(pageRows, columnAttributes),
+		[pageRows, columnAttributes],
+	);
+	// While the next page loads there are no rows to read them from, so the last page's extra columns
+	// stay up rather than dropping out of the header and coming back.
+	const extraAttributesKey = JSON.stringify([instanceParams.entityId, databaseName, tableName]);
+	const [heldExtraAttributes, setHeldExtraAttributes] = useState({
+		key: extraAttributesKey,
+		extras: NO_EXTRA_ATTRIBUTES,
+	});
+	if (
+		pageExtraAttributes
+		&& (heldExtraAttributes.key !== extraAttributesKey
+			|| !sameExtraRecordAttributes(heldExtraAttributes.extras, pageExtraAttributes))
+	) {
+		setHeldExtraAttributes({ key: extraAttributesKey, extras: pageExtraAttributes });
+	}
+	const extraAttributes = pageExtraAttributes
+		?? (heldExtraAttributes.key === extraAttributesKey ? heldExtraAttributes.extras : NO_EXTRA_ATTRIBUTES);
+	const { dataTableColumns } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap, extraAttributes);
 	// The table's count doesn't describe a filtered result set, and a search reports no count of its own.
 	const uncountedPage: UncountedPage | undefined = useFilteredList
 		? { rowCount: filteredTableData?.data.length, hasNextPage: filteredTableData?.hasNextPage }
