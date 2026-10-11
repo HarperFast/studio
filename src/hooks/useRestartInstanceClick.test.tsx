@@ -147,6 +147,7 @@ describe('useRestartInstanceClick', () => {
 			await act(() => result.current.onRestartClick());
 
 			expect(errorTitles()).toEqual([[RESTART_UNCONFIRMED_TITLE, RESTART_UNCONFIRMED_MESSAGE]]);
+			expect(toast.dismiss).toHaveBeenCalledWith('restart-toast');
 			expect(toast.success).not.toHaveBeenCalled();
 			expect(client.restarts()).toBe(1);
 			expect(client.probes()).toBe(24);
@@ -175,8 +176,7 @@ describe('useRestartInstanceClick', () => {
 			expect(result.current.isRestartPending).toBe(true);
 			expect(toast.loading).toHaveBeenLastCalledWith('Still restarting', {
 				id: 'restart-toast',
-				description:
-					"Harper accepted the restart, but the instance hasn't answered yet. Still waiting for it to come back.",
+				description: "Harper accepted the restart, but the instance isn't back yet. Still waiting for it.",
 			});
 			expect(toast.error).not.toHaveBeenCalled();
 

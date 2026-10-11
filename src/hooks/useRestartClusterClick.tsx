@@ -127,7 +127,7 @@ export function useRestartClusterClick(
 									toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
 										...toastConfig,
 										id: toastId,
-										description: "It accepted the restart but hasn't answered yet.",
+										description: "It accepted the restart but isn't back yet.",
 									}),
 							});
 							instancesRestarted += 1;

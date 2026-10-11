@@ -432,7 +432,7 @@ describe('a write that got no verdict', () => {
 	});
 });
 
-describe('a restart Harper accepted whose target has not answered since', () => {
+describe('a restart Harper accepted whose target was never confirmed back', () => {
 	const unconfirmed = () =>
 		new RestartUnconfirmedError(
 			new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED, {

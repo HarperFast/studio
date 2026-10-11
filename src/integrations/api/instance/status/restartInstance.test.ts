@@ -84,6 +84,24 @@ describe('restartInstance', () => {
 		expect(onSlowToReturn).toHaveBeenCalledOnce();
 	});
 
+	it('keeps watching when the slow-return callback throws', async () => {
+		const client = instanceClient({ restart: ok(ACCEPTED), userInfo: answersFrom(20) });
+		const broken = new Error('toast unavailable');
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		await expect(restartInstance({
+			operation: 'restart',
+			replicated: false,
+			instanceClient: client,
+			onSlowToReturn: () => {
+				throw broken;
+			},
+		})).resolves.toEqual(ACCEPTED);
+		expect(probesSent()).toBe(20);
+		expect(consoleError).toHaveBeenCalledWith(broken);
+		consoleError.mockRestore();
+	});
+
 	it('does not call a target slow that answers within the usual time', async () => {
 		const client = instanceClient({ restart: ok(ACCEPTED), userInfo: answersFrom(12) });
 		const onSlowToReturn = vi.fn();
@@ -173,6 +191,6 @@ describe('RestartUnconfirmedError', () => {
 		const error = new RestartUnconfirmedError(cause);
 
 		expect(error.cause).toBe(cause);
-		expect(error.message).toMatch(/^The restart was accepted, but the target has not answered since: /);
+		expect(error.message).toMatch(/^The restart was accepted, but the target was not confirmed back: /);
 	});
 });

@@ -298,7 +298,7 @@ describe('useRestartClusterClick, for a member whose restart got no answer', () 
 	});
 });
 
-describe('useRestartClusterClick, for a member that accepted the restart but has not answered since', () => {
+describe('useRestartClusterClick, for a member that accepted the restart but was never confirmed back', () => {
 	beforeEach(() => {
 		vi.mocked(getClusterInfo).mockResolvedValue(
 			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b'), instance('ins-c')] } as Cluster,
@@ -314,12 +314,12 @@ describe('useRestartClusterClick, for a member that accepted the restart but has
 		expect(restarted).toEqual(['ins-c', 'ins-b']);
 		expect(toast.loading).toHaveBeenCalledWith(
 			'Waiting On Instance 2 of 3',
-			expect.objectContaining({ description: "It accepted the restart but hasn't answered yet." }),
+			expect.objectContaining({ description: "It accepted the restart but isn't back yet." }),
 		);
 		expect(finalError()).toEqual({
 			title: 'Not back yet',
 			description: 'Only 1 "RUNNING" instance was confirmed restarted of 3 instances. '
-				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not restarted, to keep the cluster available. '
 				+ 'Check its status before you restart it again.',
 		});
@@ -336,7 +336,7 @@ describe('useRestartClusterClick, for a member that accepted the restart but has
 		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
 		expect(finalError().description).toBe(
 			'Only 2 "RUNNING" instances were confirmed restarted of 3 instances. '
-				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ 'Check its status before you restart it again.',
 		);
 	});
@@ -385,7 +385,7 @@ describe('useRestartClusterClick, for a member that accepted the restart but has
 			title: 'Not back yet',
 			description: 'Only 0 "RUNNING" instances were confirmed restarted of 3 instances. '
 				+ '1 instance failed to restart. '
-				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not restarted, to keep the cluster available. '
 				+ 'Check its status before you restart it again.',
 		});

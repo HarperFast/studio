@@ -531,7 +531,7 @@ function finalError() {
 	return { title, description: (options as { description?: string } | undefined)?.description };
 }
 
-describe('useRollingConfigUpdate, for a member that accepted the restart but has not answered since', () => {
+describe('useRollingConfigUpdate, for a member that accepted the restart but was never confirmed back', () => {
 	it('stops there rather than update another member, and never says the update failed', async () => {
 		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
 		notBackAfterRestart('ins-b');
@@ -542,12 +542,12 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but has
 		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
 		expect(toast.loading).toHaveBeenCalledWith(
 			'Waiting On Instance 1 of 2',
-			expect.objectContaining({ description: "It accepted the restart but hasn't answered yet." }),
+			expect.objectContaining({ description: "It accepted the restart but isn't back yet." }),
 		);
 		expect(finalError()).toEqual({
 			title: 'Not back yet',
 			description: 'Only 0 "RUNNING" instances were confirmed updated of 2 instances. '
-				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not updated, to keep the cluster available. '
 				+ 'Check its status before you restart it again.',
 		});
@@ -603,7 +603,7 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but has
 		expect(finalError()).toEqual({
 			title: 'Not back yet',
 			description: 'Only 1 "RUNNING" instance was confirmed updated of 3 instances. '
-				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not updated, to keep the cluster available. '
 				+ 'Check its status before you restart it again.\n'
 				+ 'Instances that were not restarted may already have the new configuration saved, and will apply it '
