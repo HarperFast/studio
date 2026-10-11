@@ -8,6 +8,7 @@ import { Instance } from '@/integrations/api/api.patch';
 import {
 	getStatusQueryOptions,
 	getSystemStatusById,
+	predatesGetStatus,
 	supportsGetStatus,
 } from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
@@ -58,7 +59,7 @@ export function InstanceStatusCell(
 		let label = 'Status unavailable';
 		if (notProxied && isStoppedOrTransitioning(instance.status)) {
 			label = 'Not running';
-		} else if (!notProxied && instance.version) {
+		} else if (!notProxied && predatesGetStatus(instance.version)) {
 			label = 'Status needs Harper 4.6 or later';
 		}
 		return (

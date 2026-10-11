@@ -47,6 +47,12 @@ export function supportsGetStatus(harperVersion: string | undefined): boolean {
 	return !!harperVersion && wasAReleasedBeforeB(GET_STATUS_MIN_VERSION, harperVersion);
 }
 
+/** Unlike `!supportsGetStatus`, false for a version that is missing or doesn't parse. */
+export function predatesGetStatus(harperVersion: string | undefined): boolean {
+	return !!harperVersion && !supportsGetStatus(harperVersion)
+		&& wasAReleasedBeforeB(harperVersion, GET_STATUS_MIN_VERSION);
+}
+
 export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig, enabled?: boolean) {
 	return queryOptions({
 		queryKey: ['get_status', entityId] as const,

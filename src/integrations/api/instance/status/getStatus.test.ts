@@ -1,7 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { getStatusQueryOptions, getSystemStatusById } from './getStatus';
+import { getStatusQueryOptions, getSystemStatusById, predatesGetStatus, supportsGetStatus } from './getStatus';
 
 /** The subset of `Query` the `refetchInterval` callback reads. */
 type ErrorStateQuery = { state: { error: unknown } };
@@ -98,5 +98,24 @@ describe('getSystemStatusById', () => {
 		};
 
 		expect(getSystemStatusById(mockStatusResponse, 'availability')).toBeUndefined();
+	});
+});
+
+describe('get_status version floor', () => {
+	it('supports Harper 4.6.0 and later, and nothing unknown', () => {
+		for (const version of ['4.6.0', '4.7.3', '5.0.2']) {
+			expect(supportsGetStatus(version)).toBe(true);
+		}
+		for (const version of ['4.5.12', '', undefined, 'custom-build']) {
+			expect(supportsGetStatus(version)).toBe(false);
+		}
+	});
+
+	it('says a version predates get_status only when it parses and is older', () => {
+		expect(predatesGetStatus('4.5.12')).toBe(true);
+		expect(predatesGetStatus('4.6.0-beta.3')).toBe(true);
+		for (const version of ['4.6.0', '5.0.2', '', undefined, 'custom-build']) {
+			expect(predatesGetStatus(version)).toBe(false);
+		}
 	});
 });
