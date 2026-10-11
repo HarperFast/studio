@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { zodRequirePassword } from '@/lib/zod/password';
+import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
@@ -18,7 +18,7 @@ const ResetPasswordSchema = z
 	.object({
 		password: zodRequirePassword
 			.min(8, { error: 'Password must be at least 8 characters long.' })
-			.max(50, { error: 'Password cannot be longer than 50 characters.' }),
+			.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR }),
 		confirmPassword: z.string(),
 	})
 	.refine((data) => data.password === data.confirmPassword, {

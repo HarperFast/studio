@@ -66,6 +66,26 @@ describe('ProfileIndex', () => {
 		await waitFor(() => expect(saveButton().disabled).toBe(false));
 	});
 
+	it('refuses a new password longer than sign-up accepts once the field is left', async () => {
+		render(<ProfileIndex />);
+		await type('New Password', 'p'.repeat(257));
+		await leave('New Password');
+
+		expect(await screen.findByText('Password cannot be longer than 256 characters.')).toBeTruthy();
+		expect(saveButton().disabled).toBe(true);
+	});
+
+	it('accepts a new password as long as sign-up allows', async () => {
+		render(<ProfileIndex />);
+		await type('New Password', 'p'.repeat(256));
+		await leave('New Password');
+		await type('Confirm New Password', 'p'.repeat(256));
+		await leave('Confirm New Password');
+
+		await waitFor(() => expect(saveButton().disabled).toBe(false));
+		expect(screen.queryByText(/cannot be longer than/)).toBeNull();
+	});
+
 	it('explains a short new password when Enter is pressed in it', async () => {
 		render(<ProfileIndex />);
 		await type('New Password', 'short');

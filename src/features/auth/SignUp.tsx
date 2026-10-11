@@ -11,7 +11,7 @@ import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
-import { zodRequirePassword } from '@/lib/zod/password';
+import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -53,7 +53,8 @@ const SignUpSchema = z.object({
 		)
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 	password: zodRequirePassword
-		.min(8, { error: 'Password must be at least 8 characters long.' }),
+		.min(8, { error: 'Password must be at least 8 characters long.' })
+		.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR }),
 	confirmPassword: z.string(),
 	acceptTerms: z.boolean().refine(val => val === true, {
 		message: 'You must accept the Privacy Policy and Terms of Service.',

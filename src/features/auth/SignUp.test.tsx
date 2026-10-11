@@ -109,6 +109,29 @@ describe('SignUp', () => {
 		expect(maxLengthOf('Confirm Password')).toBe(-1);
 	});
 
+	it('refuses a password longer than central manager accepts before sending it', async () => {
+		renderSignUp();
+		fillValidForm();
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(257) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(257) } });
+		submit();
+
+		expect(await screen.findByText('Password cannot be longer than 256 characters.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('sends a password right at central manager’s limit', async () => {
+		post.mockResolvedValue({ data: { id: 'usr-1', email: 'taken@example.com' } });
+		renderSignUp();
+		fillValidForm();
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(256) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(256) } });
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		expect(post.mock.calls[0][1]).toMatchObject({ password: 'p'.repeat(256) });
+	});
+
 	it('reveals each password independently without submitting or losing field values', () => {
 		renderSignUp();
 		const password = screen.getByLabelText('Password') as HTMLInputElement;
