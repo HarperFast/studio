@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	consoleError.mockRestore();
+	consoleError?.mockRestore();
 	vi.clearAllMocks();
 });
 
