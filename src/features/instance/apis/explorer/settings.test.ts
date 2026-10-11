@@ -6,7 +6,7 @@ import {
 	scrubLegacySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const KEY = 'ApiExplorerSettings';
 
@@ -53,6 +53,61 @@ describe('explorer settings persistence (sessionStorage)', () => {
 			method: 'basic',
 			auth: { type: 'basic', username: 'u', password: '' },
 		});
+	});
+});
+
+describe('explorer credential removal when the rewrite fails', () => {
+	beforeEach(() => {
+		sessionStorage.clear();
+		localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function failEveryStorageWrite() {
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+	}
+
+	it('forgetEntitySettings gives up every entity rather than keep the credential', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		writeEntitySettings('ins-b', { server: 'http://b' });
+		failEveryStorageWrite();
+
+		forgetEntitySettings('ins-a');
+
+		expect(sessionStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('forgetEntitySettings does not throw when the fallback removal is refused too', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+
+		expect(() => forgetEntitySettings('ins-a')).not.toThrow();
+	});
+
+	it('pruneStaleEntitySettings gives up every entity rather than keep a revoked credential', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'revoked' }, authGeneration: 1 });
+		failEveryStorageWrite();
+
+		pruneStaleEntitySettings(() => 2);
+
+		expect(sessionStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('leaves the stored map alone when an ordinary settings write fails', () => {
+		writeEntitySettings('ins-a', { server: 'http://a' });
+		failEveryStorageWrite();
+
+		writeEntitySettings('ins-a', { server: 'http://a2' });
+
+		expect(readEntitySettings('ins-a')).toEqual({ server: 'http://a' });
 	});
 });
 
