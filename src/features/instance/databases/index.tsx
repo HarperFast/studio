@@ -24,8 +24,9 @@ export function Databases() {
 	// Skip the per-table record-count scan here: the sidebar and table view only need schema to render,
 	// and the selected table's count is fetched separately (see DatabaseTableView / DatabaseOverview) so
 	// a slow count never blocks the database tree or the first page of records from appearing.
+	// Computed attributes too, so the grid's first render from this map already has their columns.
 	const { data: instanceDatabaseMap } = useQuery(
-		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true }),
+		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true, includeComputed: true }),
 	);
 
 	const { width: sidebarWidth, isResizing, startResizing, handleKeyDown } = useResizableDatabasesSidebar();

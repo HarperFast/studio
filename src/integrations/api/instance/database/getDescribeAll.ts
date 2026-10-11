@@ -9,9 +9,14 @@ interface GetDescribeAllParams extends InstanceClientIdConfig {
 	 * tools) keep them; opt in where the count can be fetched separately/lazily.
 	 */
 	skipRecordCount?: boolean;
+	/**
+	 * Also list `@computed` attributes (flagged `computed: true`), which describe omits by default.
+	 * Opt-in: a caller has to treat them as read-only, as browse does.
+	 */
+	includeComputed?: boolean;
 }
 
-export async function getDescribeAll({ instanceClient, skipRecordCount }: GetDescribeAllParams) {
+export async function getDescribeAll({ instanceClient, skipRecordCount, includeComputed }: GetDescribeAllParams) {
 	const { data } = await instanceClient.post<InstanceDatabaseMap>('/', {
 		operation: 'describe_all',
 		// When we don't need counts, ask the server to skip them entirely. Pair it with `exact_count: false`
@@ -20,14 +25,15 @@ export async function getDescribeAll({ instanceClient, skipRecordCount }: GetDes
 		// this is safe: newer servers don't count at all, older ones at least never count exactly.
 		skip_record_count: skipRecordCount || undefined,
 		exact_count: skipRecordCount ? false : undefined,
+		include_computed: includeComputed || undefined,
 	});
 	return data;
 }
 
 export function getDescribeAllQueryOptions(params: GetDescribeAllParams) {
 	return queryOptions({
-		// Keyed by the flag so a count-skipping result never collides with a counted one.
-		queryKey: [params.entityId, 'describe_all', !!params.skipRecordCount] as const,
+		// Keyed by the flags so results asked for differently never collide.
+		queryKey: [params.entityId, 'describe_all', !!params.skipRecordCount, !!params.includeComputed] as const,
 		queryFn: () => getDescribeAll(params),
 		staleTime: 60_000,
 		gcTime: 5_000,

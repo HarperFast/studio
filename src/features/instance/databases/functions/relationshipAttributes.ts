@@ -251,18 +251,23 @@ export function collapsedForeignKeyNames(
 export type GetAttribute = string | { name: string; select: string[] };
 
 /**
- * `get_attributes` list that resolves relationship attributes to their related records' primary
- * keys. Plain `['*']` returns raw records with relationship attributes missing (blank cells);
- * naming them with a nested select resolves them. The `'*'` must come last: a leading `'*'`
- * makes the server return raw records and ignore the rest of the list.
- * Returns undefined when the table has no relationship attributes (callers fall back to `['*']`).
+ * `get_attributes` list that resolves the attributes Harper computes at read time: relationship
+ * attributes to their related records' primary keys, and `@computed` attributes by name. Plain
+ * `['*']` returns only what is stored, so both read as blank cells; naming them resolves them.
+ * The `'*'` must come last: a leading `'*'` makes the server return stored records and ignore the
+ * rest of the list.
+ * Returns undefined when the table has neither (callers fall back to `['*']`).
  */
-export function buildRelationshipGetAttributes(
+export function buildSyntheticGetAttributes(
 	instanceTable: InstanceTable | undefined,
 	databaseTables: InstanceDatabaseTableMap | undefined,
 ): GetAttribute[] | undefined {
 	const selects: GetAttribute[] = [];
 	for (const attribute of instanceTable?.attributes ?? []) {
+		if (attribute.computed) {
+			selects.push(attribute.attribute);
+			continue;
+		}
 		const info = getRelationshipInfo(attribute, databaseTables);
 		if (info?.resolvable) {
 			selects.push({ name: attribute.attribute, select: [info.relatedPrimaryKey] });
