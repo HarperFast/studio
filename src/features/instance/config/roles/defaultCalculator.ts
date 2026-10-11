@@ -160,6 +160,7 @@ function buildCurrent(
 							: extantTablePermissions?.update || false,
 					};
 				})
-			: null,
+			// Not `null`, which Harper stores and then 500s on for every `['*']` read (HarperFast/harper#3143).
+			: [],
 	};
 }

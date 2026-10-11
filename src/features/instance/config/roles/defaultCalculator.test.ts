@@ -64,4 +64,31 @@ describe('calculateDefaultPermissions', () => {
 		expect(result.operations).toEqual(['read_only']);
 		expect(result.data).toBeDefined();
 	});
+
+	it('writes an empty attribute_permissions array when attributes are not picked, never null', () => {
+		// HarperFast/harper#3143: a stored `null` makes every `['*']` read the role sends 500.
+		const fresh = calculateDefaultPermissions({
+			instanceDatabaseMap: databaseMap(`{"data":${oneTable}}`),
+			currentRolePermissions: { super_user: false, structure_user: false },
+			version: '5.3.1',
+			showAttributes: false,
+		});
+		expect(fresh.data).toEqual({
+			tables: { dog: { read: false, insert: false, update: false, delete: false, attribute_permissions: [] } },
+		});
+
+		const stored = calculateDefaultPermissions({
+			instanceDatabaseMap: databaseMap(`{"data":${oneTable}}`),
+			currentRolePermissions: {
+				data: {
+					tables: { dog: { read: true, insert: false, update: false, delete: false, attribute_permissions: null } },
+				},
+			},
+			version: '4.7.40',
+			showAttributes: false,
+		});
+		expect(stored.data).toEqual({
+			tables: { dog: { read: true, insert: false, update: false, delete: false, attribute_permissions: [] } },
+		});
+	});
 });
