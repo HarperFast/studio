@@ -1,4 +1,5 @@
 import {
+	allowlistGatesEveryPath,
 	canonicalOperationName,
 	expandEffectiveOperations,
 	gateVerdict,
@@ -8,6 +9,7 @@ import {
 	GrantBand,
 	isInertGrant,
 	isOperationGroupName,
+	isOutOfGate,
 	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
 	OPERATION_GROUPS,
@@ -178,20 +180,14 @@ describe('expandEffectiveOperations', () => {
 		// Harper's group lists both spellings of two alias pairs (describe_schema/describe_database,
 		// search_by_hash/search_by_id), but each pair reaches one handler — counting both would
 		// overstate the role's reach against the chips shown beside the count.
-		expect(expandEffectiveOperations(['read_only'], '5.3')).toEqual([
-			'describe_all',
-			'describe_metric',
-			'describe_schema',
-			'describe_table',
-			'get_analytics',
-			'get_job',
-			'list_metrics',
-			'search',
-			'search_by_conditions',
-			'search_by_hash',
-			'search_by_value',
-			'user_info',
-		]);
+		expect(expandEffectiveOperations(['read_only'], 'pre-5.3')).toEqual(READ_ONLY_PRE_5_3);
+	});
+
+	it('counts the sql member of read_only once the list gates the SQL path', () => {
+		// Harper's read_only carries sql, which the gate checks from 5.3.0-alpha.1 on.
+		for (const band of ['5.3-early', '5.3'] as const) {
+			expect(expandEffectiveOperations(['read_only'], band), band).toEqual([...READ_ONLY_PRE_5_3, 'sql'].sort());
+		}
 	});
 
 	it('does not credit a directly granted alias with its canonical operation', () => {
@@ -202,9 +198,15 @@ describe('expandEffectiveOperations', () => {
 	});
 
 	it('leaves out entries the allowlist does not govern', () => {
-		// set_secret and the trust-policy operations self-enforce super_user; sql is authorized on its
-		// own path, so listing any of them changes nothing about what the role can do.
-		expect(expandEffectiveOperations(['set_secret', 'sql', 'add_oidc_trust', 'list_oidc_trust'], '5.3')).toEqual([]);
+		// set_secret and the trust-policy operations self-enforce super_user, so listing them changes
+		// nothing about what the role can do.
+		expect(expandEffectiveOperations(['set_secret', 'add_oidc_trust', 'list_oidc_trust'], '5.3')).toEqual([]);
+	});
+
+	it('counts a direct sql grant only where the gate checks the SQL path', () => {
+		expect(expandEffectiveOperations(['sql'], 'pre-5.3')).toEqual([]);
+		expect(expandEffectiveOperations(['sql'], '5.3-early')).toEqual(['sql']);
+		expect(expandEffectiveOperations(['sql'], '5.3')).toEqual(['sql']);
 	});
 
 	it('de-duplicates group members against explicit names and passes unknown names through', () => {
@@ -223,11 +225,13 @@ describe('expandEffectiveOperations', () => {
 	it('counts the deploy operations from 5.3 and not before', () => {
 		const deployRole = ['deploy_component', 'get_job'];
 		expect(expandEffectiveOperations(deployRole, 'pre-5.3')).toEqual(['get_job']);
+		// The early 5.3 prereleases already gate first but have not named the deploy entries yet.
+		expect(expandEffectiveOperations(deployRole, '5.3-early')).toEqual(['get_job']);
 		expect(expandEffectiveOperations(deployRole, '5.3')).toEqual(['deploy_component', 'get_job']);
 	});
 
 	it('never counts the operations Harper keeps out of every allowlist', () => {
-		for (const band of ['pre-5.3', '5.3'] as const) {
+		for (const band of ['pre-5.3', '5.3-early', '5.3'] as const) {
 			expect(expandEffectiveOperations(['get_backup', 'read_transaction_log'], band)).toEqual([]);
 		}
 	});
@@ -236,6 +240,22 @@ describe('expandEffectiveOperations', () => {
 		expect(expandEffectiveOperations([], '5.3')).toEqual([]);
 	});
 });
+
+// read_only's members less the two folded alias pairs and sql, which pre-5.3 Harper does not gate.
+const READ_ONLY_PRE_5_3 = [
+	'describe_all',
+	'describe_metric',
+	'describe_schema',
+	'describe_table',
+	'get_analytics',
+	'get_job',
+	'list_metrics',
+	'search',
+	'search_by_conditions',
+	'search_by_hash',
+	'search_by_value',
+	'user_info',
+];
 
 // Harper's own record of which names gate 1 grants by name (unitTests/utility/operation_authorization.test.js
 // at v5.3.0, GRANTED_BY_NAME): the twenty entries that were unnamed before 5.3.
@@ -269,8 +289,14 @@ describe('resolveGrantBand', () => {
 		}
 	});
 
-	it('keeps the 5.3 prereleases that predate it, and every 5.2, on the old side', () => {
-		for (const version of ['5.3.0-alpha.1', '5.3.0-beta.1', '5.3.0-beta.2', '5.2.15', '5.0.0']) {
+	it('puts the 5.3 prereleases that gate first but predate the names in their own band', () => {
+		for (const version of ['5.3.0-alpha.1', '5.3.0-beta.1', '5.3.0-beta.2']) {
+			expect(resolveGrantBand(version), version).toBe('5.3-early');
+		}
+	});
+
+	it('keeps every 5.2 and earlier on the old side', () => {
+		for (const version of ['5.2.15', '5.2.99', '5.0.0-alpha.8', '5.0.0']) {
 			expect(resolveGrantBand(version), version).toBe('pre-5.3');
 		}
 	});
@@ -282,12 +308,22 @@ describe('resolveGrantBand', () => {
 	});
 });
 
+describe('allowlistGatesEveryPath', () => {
+	it('is the gate-order change at 5.3.0-alpha.1, not the naming change at beta.3', () => {
+		expect(allowlistGatesEveryPath('pre-5.3')).toBe(false);
+		expect(allowlistGatesEveryPath('5.3-early')).toBe(true);
+		expect(allowlistGatesEveryPath('5.3')).toBe(true);
+	});
+});
+
 describe('gateVerdict', () => {
 	it('marks exactly the twenty newly named entries as needing 5.3', () => {
-		const needs53 = OPERATION_CATALOG.filter((operation) => gateVerdict(operation.name, 'pre-5.3') === 'needs-5.3')
-			.map((operation) => operation.name)
-			.sort();
-		expect(needs53).toEqual(NAMED_FROM_5_3);
+		for (const band of ['pre-5.3', '5.3-early'] as const) {
+			const needs53 = OPERATION_CATALOG.filter((operation) => gateVerdict(operation.name, band) === 'needs-5.3')
+				.map((operation) => operation.name)
+				.sort();
+			expect(needs53, band).toEqual(NAMED_FROM_5_3);
+		}
 		for (const name of NAMED_FROM_5_3) {
 			expect(gateVerdict(name, '5.3'), name).toBe('grants');
 		}
@@ -299,6 +335,8 @@ describe('gateVerdict', () => {
 				.map((operation) => operation.name)
 				.sort();
 		expect(never('pre-5.3')).toEqual(['get_backup', 'read_transaction_log']);
+		// catchup still matches through the handler-name fallback until beta.3 names it null.
+		expect(never('5.3-early')).toEqual(['get_backup', 'read_transaction_log']);
 		expect(never('5.3')).toEqual(['catchup', 'get_backup', 'read_transaction_log']);
 	});
 
@@ -311,6 +349,21 @@ describe('isInertGrant', () => {
 	it('stops calling the deploy-only CI role inert on 5.3', () => {
 		expect(isInertGrant('deploy_component', 'pre-5.3')).toBe(true);
 		expect(isInertGrant('deploy_component', '5.3')).toBe(false);
+	});
+
+	it('calls sql inert only where the SQL path skips the gate', () => {
+		expect(isInertGrant('sql', 'pre-5.3')).toBe(true);
+		expect(isInertGrant('sql', '5.3-early')).toBe(false);
+		expect(isInertGrant('sql', '5.3')).toBe(false);
+	});
+});
+
+describe('isOutOfGate', () => {
+	it('places sql outside the gate before 5.3 only, and nothing else in any band', () => {
+		for (const band of ['pre-5.3', '5.3-early', '5.3'] as const) {
+			const outside = OPERATION_CATALOG.filter((operation) => isOutOfGate(operation.name, band)).map((o) => o.name);
+			expect(outside, band).toEqual(band === 'pre-5.3' ? ['sql'] : []);
+		}
 	});
 });
 

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
+	allowlistGatesEveryPath,
 	expandEffectiveOperations,
 	GATE_NAMES_EVERY_ENTRY_FROM,
 	gateVerdict,
@@ -21,6 +22,7 @@ import {
 	GrantBand,
 	isInertGrant,
 	isOperationGroupName,
+	isOutOfGate,
 	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
 	OPERATION_GROUPS,
@@ -28,7 +30,11 @@ import {
 	resolveGrantBand,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
-import { STRUCTURE_USER_DDL_OPERATIONS } from '@/integrations/api/localRolePermission';
+import {
+	STRUCTURE_USER_DATABASE_OPERATIONS,
+	STRUCTURE_USER_DDL_OPERATIONS,
+} from '@/integrations/api/localRolePermission';
+import { cn } from '@/lib/cn';
 import { groupBy } from '@/lib/groupBy';
 import { pluralize } from '@/lib/pluralize';
 import { ChevronDown, PlusIcon, XIcon } from 'lucide-react';
@@ -54,7 +60,7 @@ export function OperationsAllowlistEditor({
 	version: string;
 	/** super_user/cluster_user: Harper refuses to store an allowlist alongside the flag. */
 	allowlistRejected?: boolean;
-	/** structure_user DDL carve-out: `true` everywhere, an array for those databases only. */
+	/** The role's `structure_user` scope (`structureUserDdlScope`): `true` everywhere, an array for those databases. */
 	structureUserDdl?: true | string[] | false;
 	disabled?: boolean;
 }) {
@@ -68,6 +74,7 @@ export function OperationsAllowlistEditor({
 	);
 	const grantable = getGrantableOperations(version);
 	const band = resolveGrantBand(version);
+	const gatesEveryPath = allowlistGatesEveryPath(band);
 	const selectedSet = new Set(value ?? []);
 	const selectedOperations = (value ?? []).filter((entry) => !isOperationGroupName(entry));
 	const effective = value ? expandEffectiveOperations(value, band) : [];
@@ -119,12 +126,16 @@ export function OperationsAllowlistEditor({
 				<span className="font-medium">Restrict operations</span>
 			</Label>
 			<p className="text-xs text-muted-foreground">
-				{restricted
-					? 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
+				{!restricted
+					? 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
+						+ '(for example a deploy-only CI role).'
+					: gatesEveryPath
+					? 'Only the operations below are allowed — anything unlisted is denied, SQL included: SQL statements '
+						+ 'need sql (or a group with it) listed here, and are then checked against table permissions as '
+						+ 'well. Listing an operation that normally requires super_user deliberately grants it to this role.'
+					: 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
 						+ 'normally requires super_user deliberately grants it to this role. SQL statements are authorized '
-						+ 'against table permissions instead, so this list does not restrict them.'
-					: 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
-						+ '(for example a deploy-only CI role).'}
+						+ 'against table permissions instead, so this list does not restrict them.'}
 			</p>
 			{allowlistRejected && (
 				// validateNoSUPerms rejects any multi-key permission setting super_user/cluster_user, so
@@ -135,20 +146,22 @@ export function OperationsAllowlistEditor({
 					removed when you save.
 				</p>
 			)}
-			{structureUserDdl && restricted && (
-				<p className="text-xs text-warning">
-					This role is a structure user, so it reaches{' '}
-					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
-					{structureUserDdl === true
-						? ' (and create/drop database) on any database regardless of the list below.'
-						: (
-							<>
-								{' '}on <span className="font-mono">{structureUserDdl.join(', ')}</span>{' '}
-								regardless of the list below — and listing them here cannot reach another database.
-							</>
-						)} Every other operation is still gated by the list.
-				</p>
-			)}
+			{structureUserDdl && restricted && (gatesEveryPath
+				? <GatedStructureUserNote scope={structureUserDdl} effective={effective} />
+				: (
+					<p className="text-xs text-warning">
+						This role is a structure user, so it reaches{' '}
+						<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
+						{structureUserDdl === true
+							? ' (and create/drop database) on any database regardless of the list below.'
+							: (
+								<>
+									{' '}on <span className="font-mono">{structureUserDdl.join(', ')}</span>{' '}
+									regardless of the list below — and listing them here cannot reach another database.
+								</>
+							)} Every other operation is still gated by the list.
+					</p>
+				))}
 
 			{restricted && (
 				<>
@@ -200,9 +213,10 @@ export function OperationsAllowlistEditor({
 						? (
 							<p className="text-xs text-destructive">
 								{value?.length ? 'Every entry here is inert' : 'Nothing selected'}{' '}
-								— this role cannot run any Operations API call{structureUserDdl ? ', except the DDL noted above' : ''}
-								{' '}
-								(SQL is gated by table permissions, not this list).
+								— this role cannot run any Operations API call{gatesEveryPath
+									? `, not even SQL${structureUserDdl ? ' or its structure-user DDL' : ''}.`
+									: `${structureUserDdl ? ', except the DDL noted above' : ''}`
+										+ ' (SQL is gated by table permissions, not this list).'}
 							</p>
 						)
 						: (
@@ -215,6 +229,32 @@ export function OperationsAllowlistEditor({
 				</>
 			)}
 		</div>
+	);
+}
+
+/** The flag still scopes which databases its DDL may touch, but that DDL no longer skips the list. */
+function GatedStructureUserNote({ scope, effective }: { scope: true | string[]; effective: readonly string[] }) {
+	const covered = scope === true
+		? [...STRUCTURE_USER_DDL_OPERATIONS, ...STRUCTURE_USER_DATABASE_OPERATIONS]
+		: STRUCTURE_USER_DDL_OPERATIONS;
+	const unlisted = covered.filter((name) => !effective.includes(name));
+	return (
+		<p className={cn('text-xs', unlisted.length > 0 ? 'text-warning' : 'text-muted-foreground')}>
+			This role is a structure user{scope === true ? '' : (
+				<>
+					{' '}on <span className="font-mono">{scope.join(', ')}</span>
+				</>
+			)}, but on this Harper version the list below gates its DDL too: it can run{' '}
+			<span className="font-mono">{covered.join(', ')}</span>
+			{scope === true
+				? ' only when they are listed.'
+				: ' on those databases only when they are listed, and listing them cannot reach another database.'}
+			{unlisted.length > 0 && (
+				<>
+					{' '}Not listed, so Harper refuses them: <span className="font-mono">{unlisted.join(', ')}</span>.
+				</>
+			)}
+		</p>
 	);
 }
 
@@ -449,10 +489,8 @@ function OperationChip({
 		: info?.nonDelegable
 		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
 			+ 'non-super_user role.'
-		: info?.outOfGate
-		? info.caveat
-		: info?.caveat
-		? info.caveat
+		: isOutOfGate(name, band)
+		? info?.caveat
 		: info?.su
 		? 'Normally requires super_user; listing it grants it to this role.'
 		: info

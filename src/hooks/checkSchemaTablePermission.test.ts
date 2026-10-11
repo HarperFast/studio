@@ -85,7 +85,7 @@ describe('checkSchemaTablePermission', () => {
 		).toBe(false);
 	});
 
-	// verifyPerms clears a super_user before reaching the allowlist.
+	// Before 5.3 verifyPerms clears a super_user ahead of the allowlist; from 5.3 Harper refuses to store one.
 	it('leaves super_user alone, allowlist or not', () => {
 		expect(checkSchemaTablePermission(perm({ super_user: true, operations: [] }), 'data', 'dog', 'insert'))
 			.toBe(true);

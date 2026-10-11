@@ -582,24 +582,39 @@ execute relationship joins).
 
 Harper 5.0+ roles accept an `operations` allowlist. Almost every intuitive reading of it is wrong,
 and each of these cost a review round on #1628 — verify against the Harper source before changing
-`src/features/instance/config/roles/operations/**` or `src/integrations/api/localRolePermission.ts`.
+`src/features/instance/config/roles/operations/**` or `src/integrations/api/localRolePermission.ts`,
+**at the tag you mean**. Harper changed gate 1 twice in 5.3, and `resolveGrantBand` turns a version
+into one of three bands (`pre-5.3`, `5.3-early`, `5.3`) so callers don't parse SemVer per operation:
+from v5.3.0-alpha.1 (harper `f8a5aa90a`) `verifyPerms` runs the gate ahead of every privilege
+early-return and `chooseOperation` runs it on `sql`; from v5.3.0-beta.3 every entry names its grant.
+`allowlistGatesEveryPath(band)` is the first change.
 
-- **It does not restrict super users.** `verifyPerms` returns early for `super_user`
-  ("admins can do (almost) anything") _before_ the allowlist gate. The allowlist is a way to scope
-  a NON-super role (gate 2 then lets it hold otherwise-SU operations), not a way to narrow an admin.
+- **The list never narrows a stored super user, for a different reason on each side.** Through 5.2.x
+  `verifyPerms` returns early for `super_user` ("admins can do (almost) anything") _before_ the gate.
+  From v5.3.0-alpha.1 the gate comes first ("must run before EVERY privilege early-return"), and a
+  list beside `super_user` would be enforced, but `validateNoSUPerms` (next bullet) refuses to store
+  one. Either way the allowlist scopes a NON-super role (gate 2 then lets it hold otherwise-SU
+  operations).
 - **`super_user`/`cluster_user` + `operations` cannot even be saved.** `validateNoSUPerms` rejects
   any permission with more than one key that sets either flag, so the combination 400s. Strip the
   allowlist for those roles rather than sending it.
-- **`structure_user` is different and IS gated** — only `create_table`/`create_attribute`/
-  `drop_table`/`drop_attribute` (plus create/drop database for the boolean form) short-circuit. The
-  array form scopes that carve-out to its listed databases and never reaches create/drop database.
-- **Which names the gate matches depends on the version.** Before 5.3, 20 entries omit `api_name`,
+- **`structure_user` DDL skips the list only before 5.3.** Through 5.2.x `create_table`/
+  `create_attribute`/`drop_table`/`drop_attribute` (plus create/drop database for the boolean form)
+  return before the gate. From v5.3.0-alpha.1 the gate runs first, so an allowlisted structure user
+  runs that DDL only when it is listed. On both, the array form keeps the DDL to its listed databases
+  (listing `drop_table` cannot reach another one), and its flag never covers create/drop database.
+  `structureUserDdlScope` reads the shape only; the editor's copy takes the band.
+- **Which names the gate matches depends on the version.** Before v5.3.0-beta.3, 20 entries omit `api_name`,
   so the gate compares a camelCase handler name against a snake_case grant and never matches
   (`deploy_component`, `get_status`, `registration_info`, …; HarperFast/harper#2175). From
   v5.3.0-beta.3 every entry names its grant, and `get_backup`, `read_transaction_log` and `catchup`
   name `null` on purpose, so no allowlist reaches them. The catalog records this per entry (`gate`), and
-  callers resolve the instance version into a `GrantBand` once. `sql` is worse: it routes to
-  `verifyPermsAST`, which never consults the allowlist at all.
+  callers resolve the instance version into a `GrantBand` once.
+- **`sql` ignores the list before 5.3 and needs it from v5.3.0-alpha.1.** Through 5.2.x
+  `chooseOperation` sends it straight to `checkASTPermissions`, which never consults the allowlist,
+  so listing or omitting it changes nothing. From alpha.1 it calls `verifyOperationsAllowlist` on
+  `sql` first, so a list without `sql` (or a group carrying it, like `read_only`) denies every SQL
+  statement. Table permissions apply on both. The catalog marks it `outOfGate: 'pre-5.3'`.
 - **Alias spellings are inert too** (`describe_database`, `search_by_id`, `create_schema`, …): both
   spellings dispatch to one handler whose entry carries only the canonical `api_name`.
 - **A non-iterable value takes the instance down.** `listUsers` expands every assigned role's
@@ -615,22 +630,28 @@ and each of these cost a review round on #1628 — verify against the Harper sou
 Practical consequence for the UI: never describe a restriction the server does not enforce, and
 never advise "fixing" an `operations` value in place — both mistakes shipped and were caught in
 review. `classifyOperationsValue` needs the instance version because the same shape means different
-things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0).
+things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0). The
+editor's structure-user and SQL sentences need the band for the same reason: each is true on one side
+of v5.3.0-alpha.1 only.
 
 ### Which of those the UI gating turns on
 
 The two facts that decide Studio's permission hooks (`src/hooks/checkOperationPermission.ts`):
 
-- **Gate admin chrome on the allowlist and you hide UI that works.** Because super users never reach
-  the gate, `useInstanceManagePermission` and `useInstanceBrowseManagePermission` are deliberately NOT
-  gated. Note browse-manage is only half short-circuited: its DDL half is, but the application-editor
-  operations behind it (`set_component_file`, `drop_component`, `deploy_component`, `set_env_value`,
-  `restart_service`) are not in `STRUCTURE_USER_OPS`, so for a non-super role they do reach the gate —
-  where an allowlist listing them _grants_ them via gate 2. Denying that half on the allowlist would
-  therefore hide UI a scoped role can legitimately use.
-- **`isElevatedRole` is the wrong question for a specific operation.** It answers "is the list
-  unenforceable anywhere for this role", which is what the editor warns about. For DML,
-  `structure_user` and `cluster_user` are still gated.
+- **Gate admin chrome on the allowlist and you hide UI that works.** No stored super user fails the
+  gate on any version (see above), so `useInstanceManagePermission` is deliberately NOT gated.
+  `useInstanceBrowseManagePermission` isn't either, but only pre-5.3 makes that exact: there its DDL
+  half returns before the gate for a structure user. From v5.3.0-alpha.1 nothing does, so an
+  allowlisted structure user is offered DDL the server refuses unless the list names it. The hooks
+  can't see the version, and gating them on the list would hide DDL that works on 5.2, so they stay
+  open and the server's 403 names the operation (HarperFast/studio#1894 tracks per-operation checks).
+  The application-editor operations behind browse-manage (`set_component_file`, `drop_component`,
+  `deploy_component`, `set_env_value`, `restart_service`) are not in `STRUCTURE_USER_OPS`, so for a
+  non-super role they reach the gate on every version — where an allowlist listing them _grants_ them
+  via gate 2. Denying that half on the allowlist would hide UI a scoped role can legitimately use.
+- **Only `super_user` short-circuits a specific operation.** For DML, `structure_user` and
+  `cluster_user` are gated on every version, so `checkTableOperationsAllowed` exempts the first flag
+  alone. Asking whether a role carries an elevating flag is the editor's question, not this one.
 
 Also two different expansions are correct for two different questions, and sharing one silently broke
 the second once: `expandEffectiveOperations` folds alias spellings together to describe a role's
@@ -648,6 +669,12 @@ denied. `testUtils.preTestPrep()` + `testUtils.setGlobalSchema(...)` provide the
 `verifyPermsAST` (to show SQL skipping the gate). Run with `npx mocha unitTests/utility/<file>`, read
 the verdicts, delete the file. Measured this way: `super_user` + `operations: []` still ALLOWS insert,
 search, restart and get_configuration, while `super_user: false` + `operations: []` DENIES insert.
+Those are 5.2 verdicts. A built `dist` answers too, without touching a checkout — a checkout's, or an
+installed `harper` package's, which is how to compare versions: `require` its
+`utility/operation_authorization.js`, set `global.hdb_schema`, and call `verifyPerms` (or
+`verifyOperationsAllowlist(requestJson, 'sql')` for the SQL gate). Run that way on 5.2.3, 5.3.0-beta.2
+and 5.3.1, `structure_user: true` + `operations: ['read_only']` ALLOWS `create_table` on the first and
+DENIES it on the other two, and so does `super_user: true` + `operations: []`.
 
 ## Datadog RUM — `beforeSend` fails open, so nothing in it may throw
 
