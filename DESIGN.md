@@ -10,7 +10,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, and where the cluster card's sync chip gets its data.
 
-- [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, and why a table without a primary key can't be listed.
+- [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, why a table without a primary key can't be listed, and why a filtered list pages without a count.
 
 - [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again.
 - [`src/features/instance/config/roles/DESIGN.md`](src/features/instance/config/roles/DESIGN.md) — why the role editor's JSON text is the only source of truth, what forces the JSON view, and what Save changes on purpose.

@@ -89,8 +89,24 @@ export function getSearchByConditionsOptions(params: GetSearchByConditionsParams
 		staleTime: 60_000,
 		gcTime: 5_000,
 		retry: false,
-		queryFn: () => getSearchByConditions(params),
+		queryFn: () => getSearchByConditionsPage(params),
 	});
+}
+
+export interface SearchByConditionsPage<T> {
+	data: T[];
+	hasNextPage: boolean;
+}
+
+/**
+ * A search reports no count of what it matched, so a page asks for one record past its end: whether
+ * that record comes back is the only exact answer to whether another page follows.
+ */
+export async function getSearchByConditionsPage<T = Record<string, unknown>>(
+	params: Omit<GetSearchByConditionsParams, 'enabled'>,
+): Promise<SearchByConditionsPage<T>> {
+	const { data } = await getSearchByConditions<T>({ ...params, limit: params.pageSize + 1 });
+	return { data: data.slice(0, params.pageSize), hasNextPage: data.length > params.pageSize };
 }
 
 export function getSearchByConditions<T = Record<string, unknown>>({
@@ -101,10 +117,11 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	sort,
 	pageIndex,
 	pageSize,
+	limit = pageSize,
 	onlyIfCached,
 	getAttributes,
 	headers,
-}: Omit<GetSearchByConditionsParams, 'enabled'>) {
+}: Omit<GetSearchByConditionsParams, 'enabled'> & { limit?: number }) {
 	return instanceClient.post<T[]>(
 		'/',
 		{
@@ -115,7 +132,7 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 			conditions: conditions!,
 			sort: sort.attribute.length ? sort : undefined,
 			offset: pageIndex * pageSize,
-			limit: pageSize,
+			limit,
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByConditionsRequest,
