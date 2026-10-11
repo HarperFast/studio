@@ -13,10 +13,10 @@ import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployme
 import { Deployment, DeploymentStatus } from '@/integrations/api/instance/deployments/types';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { Row } from '@/lib/table';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DEPLOYMENT_STATUS_LABEL } from './components/deploymentStatusBadge';
 import { deploymentColumns } from './constants/tableDefinition';
 import { DEPLOYMENTS_PAGE_SIZE, DeploymentsSearch, filterableStatuses } from './deploymentsSearch';
@@ -28,7 +28,7 @@ export function ConfigDeploymentsIndex() {
 	const navigate = useNavigate();
 	const canManage = useInstanceManagePermission();
 	const { deploymentId }: { deploymentId?: string } = useParams({ strict: false });
-	const { project, status, page = 1 }: DeploymentsSearch = useSearch({ strict: false });
+	const { project, status: requestedStatus, page = 1 }: DeploymentsSearch = useSearch({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	// The nav hides this page below Harper 5.1, but a bookmark or back-navigation still lands here.
 	const { data: registrationInfo, isError: registrationFailed } = useQuery(
@@ -38,9 +38,11 @@ export function ConfigDeploymentsIndex() {
 	const versionUnavailable = !versionKnown && registrationFailed;
 	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
 	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version));
+	// A saved `?status=staged` opened against an instance without staging asks for nothing it can answer.
+	const status = requestedStatus && statuses.includes(requestedStatus) ? requestedStatus : undefined;
 
-	const { data, isFetching, isRefetching, refetch, error } = useQuery({
-		...getDeploymentsQueryOptions({
+	const { data, isFetching, isRefetching, refetch, error } = useQuery(
+		getDeploymentsQueryOptions({
 			...instanceParams,
 			project,
 			status,
@@ -49,9 +51,7 @@ export function ConfigDeploymentsIndex() {
 			enabled: canManage && deploymentsAvailable,
 			pollWhileOpen: true,
 		}),
-		// A filter or page change keeps the rows on screen until the next ones arrive.
-		placeholderData: keepPreviousData,
-	});
+	);
 	const deployments = useMemo(() => data?.deployments ?? [], [data]);
 	const total = data?.total ?? 0;
 	const firstShown = total === 0 ? 0 : (page - 1) * DEPLOYMENTS_PAGE_SIZE + 1;
@@ -84,6 +84,13 @@ export function ConfigDeploymentsIndex() {
 	const onRowClick = useCallback((row: Row<Deployment>) => onSelect(row.original.deployment_id), [onSelect]);
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
 	const onRefreshClick = useRefreshClick(refetch);
+	const projectInput = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		// Follows a filter set from outside the field, such as the editor's link, without remounting it.
+		if (projectInput.current && projectInput.current.value.trim() !== (project ?? '')) {
+			projectInput.current.value = project ?? '';
+		}
+	}, [project]);
 
 	if (!canManage) {
 		return (
@@ -117,14 +124,12 @@ export function ConfigDeploymentsIndex() {
 					}}
 				>
 					<Input
-						// Re-seeded whenever the URL's filter changes, e.g. by a link from the editor.
-						key={project ?? ''}
+						ref={projectInput}
 						name="project"
 						aria-label="Component"
-						placeholder="Component"
+						placeholder="Component (Enter to filter)"
 						defaultValue={project ?? ''}
-						onBlur={(event) => applyProject(event.currentTarget.value)}
-						className="w-48"
+						className="w-56"
 					/>
 					<Select
 						value={status ?? ALL_STATUSES}

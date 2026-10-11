@@ -105,6 +105,21 @@ describe('ConfigDeploymentsIndex filters and paging', () => {
 		expect(state.listParams.at(-1)).toMatchObject({ project: 'web', status: 'staged', limit: 25, offset: 50 });
 	});
 
+	it('does not ask a pre-5.3 instance for staged records a saved link names', () => {
+		state.search = { status: 'staged' };
+		renderPage('5.2.15');
+		expect(state.listParams.at(-1)).toMatchObject({ status: undefined });
+	});
+
+	it('applies the component filter on Enter only, so leaving the field does not move the page', () => {
+		state.search = { page: 2 };
+		renderPage('5.3.0');
+		const input = screen.getByRole('textbox', { name: 'Component' });
+		fireEvent.change(input, { target: { value: 'web' } });
+		fireEvent.blur(input);
+		expect(state.navigate).not.toHaveBeenCalled();
+	});
+
 	it('pages by the total the server reports, not by the rows it sent', () => {
 		state.search = { page: 2 };
 		state.listData = { deployments: Array.from({ length: 25 }, (_, i) => row(`d-${i}`)), total: 60 };
