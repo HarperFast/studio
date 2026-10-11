@@ -44,17 +44,21 @@ describe('read_log auto-refresh', () => {
 				isAutoRefreshEnabled,
 			} as Parameters<typeof getReadLogQueryOptions>[0],
 		);
-		return refetchInterval as unknown as (query: { state: { error: unknown; errorUpdatedAt?: number } }) => unknown;
+		return refetchInterval as unknown as
+			| ((query: { state: { error: unknown; errorUpdatedAt?: number } }) => unknown)
+			| false;
 	}
 
 	it('refreshes every 5s only while auto-refresh is on', () => {
-		expect(intervalFor(true)({ state: { error: null } })).toBe(5_000);
-		expect(intervalFor(false)({ state: { error: null } })).toBe(false);
+		const poll = intervalFor(true);
+		expect(poll && poll({ state: { error: null } })).toBe(5_000);
+		expect(intervalFor(false)).toBe(false);
 	});
 
 	it('stops auto-refreshing a log the user may not read', () => {
 		const forbidden = new AxiosError('Request failed with status code 403');
 		forbidden.response = { status: 403 } as AxiosError['response'];
-		expect(intervalFor(true)({ state: { error: forbidden, errorUpdatedAt: 0 } })).toBe(false);
+		const poll = intervalFor(true);
+		expect(poll && poll({ state: { error: forbidden, errorUpdatedAt: 0 } })).toBe(false);
 	});
 });

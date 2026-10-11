@@ -6,6 +6,7 @@ import { ConfigDeploymentsIndex } from './index';
 
 const state = vi.hoisted(() => ({
 	version: undefined as string | undefined,
+	registrationFails: false,
 	listEnabled: [] as (boolean | undefined)[],
 }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn(), useParams: () => ({}) }));
@@ -14,7 +15,8 @@ vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => 
 vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 	getRegistrationInfoQueryOptions: () => ({
 		queryKey: ['registration_info', 'ins-a'],
-		queryFn: () => new Promise(() => {}),
+		queryFn: () => (state.registrationFails ? Promise.reject(new Error('unreachable')) : new Promise(() => {})),
+		retry: false,
 		...(state.version === undefined ? {} : { initialData: { version: state.version } }),
 	}),
 }));
@@ -29,6 +31,7 @@ vi.mock('./modals/DeploymentDetailModal', () => ({ DeploymentDetailModal: () => 
 afterEach(() => {
 	cleanup();
 	state.version = undefined;
+	state.registrationFails = false;
 	state.listEnabled = [];
 });
 
@@ -52,6 +55,13 @@ describe('ConfigDeploymentsIndex version gate', () => {
 		renderPage('5.0.13');
 		expect(state.listEnabled.every(enabled => enabled === false)).toBe(true);
 		expect(screen.getByText('Deployment history needs Harper 5.1 or later on this instance.')).toBeTruthy();
+	});
+
+	it('says it could not load, rather than spinning forever, when the version cannot be read', async () => {
+		state.registrationFails = true;
+		renderPage(undefined);
+		expect(await screen.findByText(/Could not load deployments/)).toBeTruthy();
+		expect(state.listEnabled.every(enabled => enabled === false)).toBe(true);
 	});
 
 	it('waits for the version instead of claiming either outcome', () => {

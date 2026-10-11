@@ -84,6 +84,6 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 		] as const,
 		queryFn: () => getReadLog(params),
 		retry: false,
-		refetchInterval: pollUnlessForbidden(params.isAutoRefreshEnabled ? 5000 : false),
+		refetchInterval: params.isAutoRefreshEnabled ? pollUnlessForbidden(5_000) : false,
 	});
 }
