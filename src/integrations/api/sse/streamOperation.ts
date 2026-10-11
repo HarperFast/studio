@@ -104,7 +104,13 @@ export async function streamOperation({
 					if (!data || typeof data !== 'object') {
 						throw new SSEOperationError(typeof data === 'string' && data ? data : 'The operation failed.');
 					}
-					const err = data as { message?: string; code?: string | number; phase?: string; deployment_id?: string };
+					const err = data as {
+						message?: string;
+						code?: string | number;
+						phase?: string;
+						deployment_id?: string;
+						certification?: unknown;
+					};
 					// A non-string message (a structured/nested error object) would stringify to
 					// "[object Object]" in every toast that renders it — extract its nested
 					// message (or JSON) instead of discarding the detail (#1426).
@@ -112,6 +118,7 @@ export async function streamOperation({
 						code: err.code,
 						phase: err.phase,
 						deploymentId: err.deployment_id,
+						certification: err.certification,
 					});
 				}
 			}

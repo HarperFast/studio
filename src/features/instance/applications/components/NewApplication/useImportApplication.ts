@@ -2,8 +2,9 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
-import { reportDeployHealth } from '@/features/instance/applications/modals/reportDeployHealth';
+import { reportDeployOutcome } from '@/features/instance/applications/modals/reportDeployHealth';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useQueryClient } from '@tanstack/react-query';
@@ -79,15 +80,21 @@ export function useImportApplication(
 						description: event.data.line.trim().slice(0, 140),
 						duration: 300_000,
 					});
+				} else if (event.type === 'rollout' && event.data.state === 'following') {
+					toast.loading(`Importing ${project}…`, {
+						id: toastId,
+						description: 'Rolling out to the other nodes…',
+						duration: Infinity,
+					});
 				}
 			},
 			...instanceParams,
 		}, {
-			onSuccess: async () => {
+			onSuccess: async (result) => {
 				toast.dismiss(toastId);
 				onImported(project);
-				if (sseDeploy) {
-					reportDeployHealth(project, await runHealthCheck(project));
+				if (sseDeploy || result?.rollout?.state === 'unfollowable') {
+					await reportDeployOutcome(project, result, runHealthCheck);
 				} else {
 					toast.success(`Imported successfully`, {
 						description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
@@ -100,7 +107,12 @@ export function useImportApplication(
 				// Live stream dropped after the deploy started — verify rather than assume failure.
 				if (error instanceof SSEInconclusiveError) {
 					onImported(project);
-					reportDeployHealth(project, await runHealthCheck(project));
+					await reportDeployOutcome(project, undefined, runHealthCheck);
+					return;
+				}
+				if (error instanceof DeployRolloutError) {
+					onImported(project);
+					toast.error(`${project} did not reach every node`, { description: error.message });
 					return;
 				}
 				toast.error(`Failed to import ${project}`, {
