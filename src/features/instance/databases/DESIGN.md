@@ -60,3 +60,17 @@ The cost is limited to tables with a computed attribute. An undeclared property 
 exported record carries is no longer a column of an unfiltered 4.7 export. A filtered 4.7 export
 already left such properties out, because its `['*']` header lists only declared attributes, and so
 does a Harper 5 export of a schema-defined table (the same `getColumns`, with no select).
+
+## Columns for undeclared properties come from the rows on screen
+
+`describe_table` lists only what a schema declares, and a table that isn't `@sealed` stores whatever
+else a record brings. So [`DatabaseTableView`](components/DatabaseTableView.tsx) adds a column for
+each property the loaded page carries that no column covers
+([`extraRecordAttributes`](functions/extraRecordAttributes.ts)), most common first and capped at
+`MAX_EXTRA_COLUMNS` (#1314). Those columns only display. On harperdb 4.7.40, Harper refuses an
+undeclared attribute in a condition (`unknown attribute 'color'`) and in a sort
+(`color is not a defined attribute`), so they offer neither a filter nor a sort.
+
+They describe one page, so they can change when the page does. Neither list query keeps the previous
+page's rows, so while the next page loads, the view keeps the last page's extra columns instead of
+dropping them from the header and putting them back.

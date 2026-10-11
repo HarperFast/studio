@@ -1,4 +1,5 @@
 import { RelationshipCell } from '@/features/instance/databases/components/RelationshipCell';
+import { ExtraRecordAttribute } from '@/features/instance/databases/functions/extraRecordAttributes';
 import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { CellContext, ColumnDef } from '@/lib/table';
@@ -22,6 +23,7 @@ declare module '@tanstack/react-table' {
 export function formatBrowseDataTableHeader(
 	instanceTable?: InstanceTable,
 	relationshipInfoMap: Record<string, RelationshipAttributeInfo> = {},
+	extraAttributes: readonly ExtraRecordAttribute[] = [],
 ): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
 	primaryKey: string;
@@ -32,11 +34,12 @@ export function formatBrowseDataTableHeader(
 			primaryKey: '',
 		};
 	}
-	const primaryKey = instanceTable.primary_key ?? instanceTable.hash_attribute ?? '';
+	const primaryKey = browsePrimaryKey(instanceTable);
 	const { attributes } = instanceTable;
 	const primaryKeyColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];
+	const extraColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const timeColumns: ColumnDef<Record<string, unknown>>[] = [];
 
 	const relationshipCell =
@@ -50,7 +53,7 @@ export function formatBrowseDataTableHeader(
 
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
-		const relationshipInfo = relationshipInfoMap[attribute];
+		const relationshipInfo = Object.hasOwn(relationshipInfoMap, attribute) ? relationshipInfoMap[attribute] : undefined;
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
@@ -65,7 +68,7 @@ export function formatBrowseDataTableHeader(
 		};
 		if (is_primary_key) {
 			primaryKeyColumns.push(dataTableColumn);
-		} else if (attribute === '__createdtime__' || attribute === '__updatedtime__') {
+		} else if (isTimeAttribute(attribute)) {
 			timeColumns.push(dataTableColumn);
 		} else if (dataTableColumn.enableSorting) {
 			sortableColumns.push(dataTableColumn);
@@ -93,10 +96,34 @@ export function formatBrowseDataTableHeader(
 		});
 	}
 
+	// Properties records carry beyond what describe declares. Harper refuses an undeclared attribute in
+	// a condition or a sort ("unknown attribute"), so these columns only display.
+	for (const { attribute, type } of extraAttributes) {
+		if (describedAttributes.has(attribute) || Object.hasOwn(relationshipInfoMap, attribute)) {
+			continue;
+		}
+		(isTimeAttribute(attribute) ? timeColumns : extraColumns).push({
+			header: attribute,
+			accessorKey: attribute,
+			enableSorting: false,
+			enableColumnFilter: false,
+			size: sizeByAttributeType(type),
+			cell: renderPlainCell,
+		});
+	}
+
 	return {
-		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...timeColumns],
+		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...extraColumns, ...timeColumns],
 		primaryKey,
 	};
+}
+
+export function browsePrimaryKey(instanceTable: InstanceTable | undefined): string {
+	return instanceTable?.primary_key ?? instanceTable?.hash_attribute ?? '';
+}
+
+function isTimeAttribute(attribute: string) {
+	return attribute === '__createdtime__' || attribute === '__updatedtime__';
 }
 
 /**
