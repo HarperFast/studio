@@ -95,6 +95,15 @@ describe('preparePermissionForSave', () => {
 		expect(preparePermissionForSave(clusterUser)).toEqual({ cluster_user: true });
 	});
 
+	it('drops structure_user beside super_user or cluster_user, whatever its value', () => {
+		// validateNoSUPerms counts keys, so `{ super_user: true, structure_user: true }` is rejected as
+		// surely as a table permission — which a role-type switch in the editor can produce.
+		expect(preparePermissionForSave({ super_user: true, structure_user: true })).toEqual({ super_user: true });
+		expect(preparePermissionForSave({ cluster_user: true, structure_user: ['data'], ...tablePerms })).toEqual({
+			cluster_user: true,
+		});
+	});
+
 	it('keeps the allowlist for a structure_user role, which Harper does accept and enforce', () => {
 		const permission: LocalRolePermission = {
 			structure_user: true,

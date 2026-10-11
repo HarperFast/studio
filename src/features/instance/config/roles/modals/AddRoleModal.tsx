@@ -15,6 +15,13 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	isOperationsValueUnusable,
+	RolePermissionEditor,
+	useRoleEditorSchema,
+} from '@/features/instance/config/roles/editor/RolePermissionEditor';
+import { useRolePermissionDraft } from '@/features/instance/config/roles/editor/useRolePermissionDraft';
+import { preparePermissionForSave } from '@/features/instance/config/roles/preparePermissionForSave';
 import { AddRoleFormData, useAddRoleMutation } from '@/integrations/api/instance/auth/addRole';
 import { AddRoleFormSchema } from '@/integrations/api/instance/auth/addRoleFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,77 +30,74 @@ import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+/** The shape add_role has always been sent for a new, not-yet-granted role. */
+const NEW_ROLE_PERMISSION = { super_user: false, structure_user: false };
+
+/**
+ * Creates a role with its full permissions in one step, through the same editor as editing one.
+ * Render it only while open: its draft lives in this component's state.
+ */
 export function AddRoleModal({
-	isModalOpen,
 	onChangesSaved,
-	setIsModalOpen,
+	closeModal,
 }: {
-	isModalOpen: boolean;
-	onChangesSaved: (roleId: string) => void;
-	setIsModalOpen: (open: boolean) => void;
+	onChangesSaved: () => void;
+	closeModal: () => void;
 }) {
 	const form = useForm({
 		resolver: zodResolver(AddRoleFormSchema),
-		defaultValues: {
-			role: '',
-			super_user: false,
-			structure_user: false,
-		},
+		defaultValues: { role: '' },
 	});
 	const instanceParams = useInstanceClientIdParams();
+	const schema = useRoleEditorSchema();
 	const { mutate: addRole, isPending: isAddPending } = useAddRoleMutation();
+	const draft = useRolePermissionDraft(NEW_ROLE_PERMISSION);
+	const { permission } = draft;
+	const operationsUnusable = isOperationsValueUnusable(permission, schema.version);
 
 	const onSubmitClick = useCallback(
-		async (formData: AddRoleFormData) => {
-			if (formData) {
-				addRole(
-					{
-						role: formData.role,
-						super_user: formData.super_user,
-						structure_user: formData.structure_user,
-						...instanceParams,
-					},
-					{
-						onSuccess: (newRole) => {
-							form.reset();
-							onChangesSaved(newRole.id);
-							toast.success('Role added successfully!');
-							setIsModalOpen(false);
-						},
-					},
-				);
+		(formData: AddRoleFormData) => {
+			if (!permission || operationsUnusable) {
+				return;
 			}
+			addRole(
+				{
+					role: formData.role,
+					// Also what lets a super user role be created at all: Harper rejects one that carries any
+					// other key, including the `structure_user: false` a new role starts with.
+					permission: preparePermissionForSave(permission),
+					...instanceParams,
+				},
+				{
+					onSuccess: () => {
+						toast.success('Role added successfully!');
+						onChangesSaved();
+					},
+				},
+			);
 		},
-		[addRole, form, instanceParams, onChangesSaved, setIsModalOpen],
+		[addRole, instanceParams, onChangesSaved, operationsUnusable, permission],
 	);
 
-	const onClickCancel = useCallback(() => {
-		form.reset();
-		setIsModalOpen(false);
-	}, [form, setIsModalOpen]);
-
 	return (
-		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-			{/* NOTE - Is this okay to do for the aria describedby? */}
-			<DialogContent aria-describedby={undefined}>
+		<Dialog onOpenChange={closeModal} open>
+			<DialogContent resizable aria-describedby={undefined}>
 				<Form {...form}>
 					<form
 						id="instance-add-role-form"
 						name="instance-add-role-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
-						className="grid gap-4 my-4 md:grid-cols-2"
+						className="flex min-h-0 flex-1 flex-col gap-4"
 					>
-						<DialogHeader className="md:col-span-2">
+						<DialogHeader>
 							<DialogTitle>Add New Role</DialogTitle>
-							<DialogDescription>
-								After adding the role, you will be able to edit the per-table permissions.
-							</DialogDescription>
+							<DialogDescription>Name the role and choose what it can access.</DialogDescription>
 						</DialogHeader>
 						<FormField
 							control={form.control}
 							name="role"
 							render={({ field }) => (
-								<FormItem className="md:col-span-2">
+								<FormItem>
 									<FormLabel className="pb-1">Name</FormLabel>
 									<FormControl>
 										<Input type="text" {...field} />
@@ -102,54 +106,22 @@ export function AddRoleModal({
 								</FormItem>
 							)}
 						/>
-						<FormField
-							control={form.control}
-							name="super_user"
-							render={({ field }) => (
-								<FormItem className="flex">
-									<FormControl>
-										<Input
-											type="checkbox"
-											className="w-6"
-											checked={field.value}
-											onChange={(e) => field.onChange(e.target.checked)}
-										/>
-									</FormControl>
-									<FormLabel className="pl-4 pr-8 flex-1 py-2.5">Super User</FormLabel>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="structure_user"
-							render={({ field }) => (
-								<FormItem className="flex">
-									<FormControl>
-										<Input
-											type="checkbox"
-											className="w-6"
-											checked={field.value}
-											onChange={(e) => field.onChange(e.target.checked)}
-										/>
-									</FormControl>
-									<FormLabel className="pl-4 pr-8 flex-1 py-2.5">Structure User</FormLabel>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<DialogFooter className="md:col-span-2">
+						<RolePermissionEditor draft={draft} schema={schema} />
+						<DialogFooter>
 							<div className="flex justify-between w-full">
 								<Button
 									variant="destructiveOutline"
 									type="button"
-									onClick={onClickCancel}
+									onClick={closeModal}
 									disabled={isAddPending}
 								>
 									Cancel
 								</Button>
-								<Button type="submit" variant="submit" disabled={isAddPending}>
+								<Button
+									type="submit"
+									variant="submit"
+									disabled={isAddPending || !permission || operationsUnusable}
+								>
 									<Save /> Add Role
 								</Button>
 							</div>

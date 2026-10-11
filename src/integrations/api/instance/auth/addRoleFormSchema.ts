@@ -10,6 +10,4 @@ export const AddRoleFormSchema = z.object({
 		.max(30, {
 			error: 'Role cannot be longer than 30 characters.',
 		}),
-	super_user: z.boolean(),
-	structure_user: z.boolean(),
 });
