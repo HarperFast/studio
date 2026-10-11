@@ -96,15 +96,17 @@ export function formatBrowseDataTableHeader(
 		});
 	}
 
-	// Properties records carry beyond what describe declares. Harper refuses an undeclared attribute in
-	// a condition or a sort ("unknown attribute"), so these columns only display.
+	// Harper refuses an undeclared attribute in a condition or a sort ("unknown attribute"), so these
+	// columns only display. The names are arbitrary record keys: an `accessorKey` would read a dotted
+	// one as a path, and a row without `toString` would show Object.prototype's.
 	for (const { attribute, type } of extraAttributes) {
 		if (describedAttributes.has(attribute) || Object.hasOwn(relationshipInfoMap, attribute)) {
 			continue;
 		}
 		(isTimeAttribute(attribute) ? timeColumns : extraColumns).push({
+			id: attribute,
 			header: attribute,
-			accessorKey: attribute,
+			accessorFn: (row) => (Object.hasOwn(row, attribute) ? row[attribute] : undefined),
 			enableSorting: false,
 			enableColumnFilter: false,
 			size: sizeByAttributeType(type),

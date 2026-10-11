@@ -468,8 +468,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// arrived yet.
 	const pageRows = tableData?.data;
 
-	// Describe lists only what the schema declares, and a record can carry more; those properties get
-	// columns from the rows on screen.
 	const columnAttributes = useMemo(
 		() =>
 			new Set([

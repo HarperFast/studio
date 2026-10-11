@@ -7,9 +7,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
-// The grid and React Query stay real, so a property the schema doesn't declare has to reach a
-// rendered column the way it does in production.
-
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
 	const search = {};
@@ -22,16 +19,18 @@ vi.mock('@tanstack/react-router', () => {
 
 interface SearchBody {
 	operation: string;
+	table?: string;
 	offset?: number;
 	limit?: number;
 }
 
 const instance = vi.hoisted(() => ({
-	records: [] as Record<string, unknown>[],
-	// Pages held back until the test releases them, keyed by offset.
-	held: new Map<number, () => void>(),
-	holdOffsets: new Set<number>(),
+	tables: {} as Record<string, Record<string, unknown>[]>,
+	// Pages held back until the test releases them.
+	held: new Map<string, () => void>(),
+	holdPages: new Set<string>(),
 }));
+const pageKey = (table: string | undefined, offset: number) => `${table}@${offset}`;
 
 // As harperdb 4.7.40 answers for `type Thing @table { id: ID @primaryKey name: String @indexed }`:
 // describe lists only the declared attributes, and a `'*'` search returns each record as stored,
@@ -44,7 +43,7 @@ vi.mock('@/config/useInstanceClient', () => {
 					return {
 						data: {
 							schema: 'data',
-							name: 'Thing',
+							name: body.table!,
 							hash_attribute: 'id',
 							audit: true,
 							schema_defined: true,
@@ -54,7 +53,7 @@ vi.mock('@/config/useInstanceClient', () => {
 							],
 							db_size: 65536,
 							sources: [],
-							record_count: instance.records.length,
+							record_count: instance.tables[body.table!]?.length ?? 0,
 							table_size: 4096,
 							db_audit_size: 4096,
 						} satisfies InstanceTable,
@@ -64,10 +63,12 @@ vi.mock('@/config/useInstanceClient', () => {
 					return { data: { version: '4.7.40' }, status: 200 };
 				case 'search_by_value': {
 					const offset = body.offset ?? 0;
-					if (instance.holdOffsets.has(offset)) {
-						await new Promise<void>((resolve) => instance.held.set(offset, resolve));
+					const key = pageKey(body.table, offset);
+					if (instance.holdPages.has(key)) {
+						await new Promise<void>((resolve) => instance.held.set(key, resolve));
 					}
-					return { data: instance.records.slice(offset, offset + (body.limit ?? 0)), status: 200 };
+					const records = instance.tables[body.table!] ?? [];
+					return { data: records.slice(offset, offset + (body.limit ?? 0)), status: 200 };
 				}
 				default:
 					return { data: [], status: 200 };
@@ -109,17 +110,21 @@ beforeAll(() => {
 
 afterEach(() => {
 	cleanup();
-	instance.records = [];
+	instance.tables = {};
 	instance.held.clear();
-	instance.holdOffsets.clear();
+	instance.holdPages.clear();
 });
 
-function renderView() {
-	return render(
-		<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-			<DatabaseTableView databaseName="data" tableName="Thing" />
-		</QueryClientProvider>,
+// The view stays mounted across tables, as it does under the router: only its props change.
+function renderView(tableName = 'Thing') {
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const view = (name: string) => (
+		<QueryClientProvider client={queryClient}>
+			<DatabaseTableView databaseName="data" tableName={name} />
+		</QueryClientProvider>
 	);
+	const rendered = render(view(tableName));
+	return { switchTable: (name: string) => rendered.rerender(view(name)) };
 }
 
 // The real grid renders slowly under a loaded test run, well past the one-second default.
@@ -128,7 +133,7 @@ const headers = () => screen.getAllByRole('columnheader').map((header) => header
 
 describe('DatabaseTableView on records with properties the schema does not declare', { timeout: 30_000 }, () => {
 	it('shows a column for each, most common first, after the declared ones', async () => {
-		instance.records = [
+		instance.tables.Thing = [
 			{ id: 't1', name: 'John' },
 			{ id: 't2', name: 'Johanna', color: 'red' },
 			{ id: 't3', name: 'Bohn', size: 3, color: 'blue' },
@@ -141,23 +146,51 @@ describe('DatabaseTableView on records with properties the schema does not decla
 	});
 
 	it('keeps them while the next page loads, then shows that page’s own', async () => {
-		instance.records = Array.from({ length: 25 }, (_, index) =>
+		instance.tables.Thing = Array.from({ length: 25 }, (_, index) =>
 			index < 20
 				? { id: `t${index + 1}`, name: `n${index + 1}`, color: 'red' }
 				: { id: `t${index + 1}`, name: `n${index + 1}`, weight: index });
-		instance.holdOffsets.add(20);
+		instance.holdPages.add(pageKey('Thing', 20));
 		renderView();
 		await findCell('t1');
 		expect(headers()).toContain('color');
 
 		fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-		await vi.waitFor(() => expect(instance.held.has(20)).toBe(true));
+		await vi.waitFor(() => expect(instance.held.has(pageKey('Thing', 20))).toBe(true));
 		expect(screen.queryByRole('cell', { name: 't1' })).toBeNull();
 		expect(headers()).toContain('color');
 
-		instance.held.get(20)!();
+		instance.held.get(pageKey('Thing', 20))!();
 		await findCell('t21');
 		expect(headers()).toContain('weight');
 		expect(headers()).not.toContain('color');
+	});
+
+	it('drops the last table’s extra columns as soon as another table opens', async () => {
+		instance.tables.Thing = [{ id: 't1', name: 'John', color: 'red' }];
+		instance.tables.Other = [{ id: 'o1', name: 'Olga', weight: 3 }];
+		instance.holdPages.add(pageKey('Other', 0));
+		const { switchTable } = renderView();
+		await findCell('red');
+
+		switchTable('Other');
+		await vi.waitFor(() => expect(instance.held.has(pageKey('Other', 0))).toBe(true));
+		expect(headers()).not.toContain('color');
+
+		instance.held.get(pageKey('Other', 0))!();
+		await findCell('Olga');
+		expect(headers()).toContain('weight');
+	});
+
+	it('reads each cell from the record’s own property, whatever its name', async () => {
+		instance.tables.Thing = [
+			{ id: 't1', name: 'John', 'profile.name': 'Ada', toString: 'own value' },
+			{ id: 't2', name: 'Johanna' },
+		];
+		renderView();
+
+		await findCell('Ada');
+		expect(screen.getByRole('cell', { name: 'own value' })).toBeTruthy();
+		expect(screen.queryByText(/native code/)).toBeNull();
 	});
 });
