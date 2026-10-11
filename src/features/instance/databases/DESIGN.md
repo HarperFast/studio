@@ -83,8 +83,10 @@ Harper 5's `ResourceBridge` passes `allowFullScan: true` itself, and 4.7.40 runs
 safeguard is Studio's. [`fullScanAttributes`](functions/fullScanFilter.ts) decides whether a filter
 needs a scan of the whole table: it does when no condition can be served by an index. Harper runs an
 `and` search from its narrowest condition and filters the rest (`resources/Table.ts`
-`orderConditions`), so one indexed condition is enough, and `ne` scans even on an indexed attribute.
-Typed filters and deep-linked ones both reach the server only through `applySearchConditions` in
+`orderConditions`), so one indexed condition is enough. `ne`, and the `*hn` (ends with) and `*oh*`
+(contains) wildcards (#1549), scan even on an indexed attribute (`resources/search.ts`
+`searchByIndex`). A relationship filter is a join that Harper answers by searching the related table,
+so it is judged by that table's attribute. Typed filters and deep-linked ones both reach the server only through `applySearchConditions` in
 [`DatabaseTableView`](components/DatabaseTableView.tsx), which asks first (#1285). The request then
 carries `allowFullScan: true`, and so does a CSV export of that filter. A new way to apply a filter
 has to go through that function.

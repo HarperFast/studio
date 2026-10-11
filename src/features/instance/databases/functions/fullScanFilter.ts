@@ -3,7 +3,12 @@ import { InstanceAttribute } from '@/integrations/api/api.patch';
 import { SearchCondition } from '@/integrations/api/instance/database/getSearchByConditions';
 
 /** Comparators Harper answers by reading every record, even on an indexed attribute (`resources/search.ts` `searchByIndex`). */
-const SCANNING_COMPARATORS: ReadonlySet<SearchCondition['search_type']> = new Set(['ne', 'not_equal']);
+const SCANNING_COMPARATORS: ReadonlySet<SearchCondition['search_type']> = new Set([
+	'contains',
+	'ends_with',
+	'ne',
+	'not_equal',
+]);
 
 export interface FullScan {
 	/** The column filtered, or `column.subProperty` for a relationship join. */

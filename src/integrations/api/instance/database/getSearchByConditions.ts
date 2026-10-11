@@ -26,8 +26,8 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 
 type Comparator =
 	| 'between'
-	// | 'contains' // Turned off for performance reasons until we add warnings for the user.
-	// | 'ends_with' // Turned off for performance reasons until we add warnings for the user.
+	| 'contains'
+	| 'ends_with'
 	| 'eq'
 	| 'equals'
 	| 'greater_than'
@@ -346,7 +346,14 @@ export function parseComparator(value: string): { comparator: Comparator; value:
 		}
 	}
 
-	if (lowered.endsWith('*')) {
+	// As Harper reads a wildcard `search_value`: `*hn` ends with, `*oh*` contains, `Jo*` starts with. A
+	// lone `*` stays a starts-with of nothing, which matches every value.
+	if (value.length > 1 && value.startsWith('*')) {
+		return value.endsWith('*')
+			? { comparator: 'contains', value: value.slice(1, -1) }
+			: { comparator: 'ends_with', value: value.slice(1) };
+	}
+	if (value.endsWith('*')) {
 		return {
 			comparator: 'starts_with',
 			value: value.slice(0, -1),

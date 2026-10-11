@@ -140,6 +140,20 @@ describe('parseComparator', () => {
 		});
 	});
 
+	// The same wildcard positions Harper's search_by_value reads (`ResourceBridge.searchByValue`).
+	it('reads a leading * as ends-with and one at each end as contains', () => {
+		expect(parseComparator('*hn')).toEqual({ comparator: 'ends_with', value: 'hn' });
+		expect(parseComparator('*oh*')).toEqual({ comparator: 'contains', value: 'oh' });
+		expect(parseComparator('*Jo Hn*')).toEqual({ comparator: 'contains', value: 'Jo Hn' });
+		expect(parseComparator('**')).toEqual({ comparator: 'contains', value: '' });
+	});
+
+	it('keeps a lone * matching everything, and an exact match literal', () => {
+		expect(parseComparator('*')).toEqual({ comparator: 'starts_with', value: '' });
+		expect(parseComparator('== *hn')).toEqual({ comparator: 'eq', value: '*hn' });
+		expect(parseComparator('!= *hn')).toEqual({ comparator: 'ne', value: '*hn' });
+	});
+
 	it('can compare booleans', () => {
 		expect(parseComparator('!= bet')).toEqual({
 			comparator: 'ne',

@@ -1,5 +1,6 @@
 import { RelationshipCell } from '@/features/instance/databases/components/RelationshipCell';
 import { ExtraRecordAttribute } from '@/features/instance/databases/functions/extraRecordAttributes';
+import { filterSyntaxHint } from '@/features/instance/databases/functions/filterSyntaxHint';
 import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { CellContext, ColumnDef } from '@/lib/table';
@@ -19,6 +20,8 @@ declare module '@tanstack/react-table' {
 		relationshipInfo?: RelationshipAttributeInfo;
 		/** Set on a filterable column no index covers, whose filter alone reads every record. */
 		unindexed?: boolean;
+		/** The filter syntax for a plain filterable column, shown on its input. */
+		filterHint?: string;
 	}
 }
 
@@ -64,15 +67,20 @@ export function formatBrowseDataTableHeader(
 		// executes as a join against the related table. Any other column takes a filter too, but one no
 		// index covers asks before it runs (`fullScanAttributes`).
 		const isUnindexedFilter = !relationshipInfo && !isIndexed && !UNFILTERABLE_TYPES.has(type ?? '');
+		const isPlainFilter = !relationshipInfo && (isIndexed || isUnindexedFilter);
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
 			accessorKey: attribute,
 			enableSorting: isIndexed,
-			enableColumnFilter: isIndexed || !!relationshipInfo || isUnindexedFilter,
+			enableColumnFilter: isPlainFilter || !!relationshipInfo,
 			size: sizeByAttributeType(type),
 			cell: relationshipInfo ? relationshipCell(relationshipInfo) : renderPlainCell,
-			meta: relationshipInfo ? { relationshipInfo } : isUnindexedFilter ? { unindexed: true } : undefined,
+			meta: relationshipInfo
+				? { relationshipInfo }
+				: isPlainFilter
+				? { filterHint: filterSyntaxHint(type, isUnindexedFilter), ...(isUnindexedFilter && { unindexed: true }) }
+				: undefined,
 		};
 		if (is_primary_key) {
 			primaryKeyColumns.push(dataTableColumn);
