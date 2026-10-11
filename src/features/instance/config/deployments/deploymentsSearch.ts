@@ -1,6 +1,5 @@
 import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
 
-/** The Deployments page's filters and page, kept in the URL so a link can open it filtered. */
 export interface DeploymentsSearch {
 	project?: string;
 	status?: DeploymentStatus;
@@ -8,7 +7,7 @@ export interface DeploymentsSearch {
 	page?: number;
 }
 
-/** What `list_deployments` can filter on. `staged` only exists from Harper 5.3.0. */
+// `rolled_back` is left out: no Harper version writes it, so the filter could only ever come back empty.
 export const FILTERABLE_STATUSES: readonly DeploymentStatus[] = [
 	'pending',
 	'extracting',
