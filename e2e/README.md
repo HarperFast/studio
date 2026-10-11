@@ -97,7 +97,7 @@ docker compose run --rm e2e pnpm update-snapshots   # regenerate, then review th
 
 ```
 e2e/
-  playwright.config.ts   projects: setup (login) → authed; anon (no session)
+  playwright.config.ts   projects: setup (login) → authed; anon (no session); unit (no browser)
   tests/
     auth.setup.ts            logs in via UI once, saves cookie storageState
     sign-in.anon.spec.ts     sign-in page render + validation + visual baseline
@@ -105,13 +105,16 @@ e2e/
     signup-verification.anon.spec.ts  full signup → email → verify → login round-trip
     org-users.authed.spec.ts app shell + org users list (needs a test account)
     mail.ts                  Mailosaur wrapper (controlled inbox)
+    accountCleanup.ts        self-deletes the round-trip's throwaway account
+    *.unit.spec.ts           tests of those helpers against in-process fakes
     testData.ts              shared fixtures
   Dockerfile / docker-compose.yml / .dockerignore
   .env.e2e.example         copy to .env.e2e (gitignored)
 ```
 
 Naming drives which project runs a spec: `*.anon.spec.ts` = no session,
-`*.authed.spec.ts` = logged-in.
+`*.authed.spec.ts` = logged-in, `*.unit.spec.ts` = no browser, target, or credentials
+(`npx playwright test --project=unit`).
 
 ## Conventions worth knowing
 
@@ -132,7 +135,9 @@ Naming drives which project runs a spec: `*.anon.spec.ts` = no session,
 `signup-verification.anon.spec.ts` does the full loop: sign up with a fresh controlled
 address → fetch the email via Mailosaur → follow the `?token=` link → confirm the account
 is verified by signing in without bouncing to `/#/verifying`. Config: set
-`MAILOSAUR_API_KEY` and `MAILOSAUR_SERVER_ID` in `.env.e2e` (see `mail.ts`).
+`MAILOSAUR_API_KEY` and `MAILOSAUR_SERVER_ID` in `.env.e2e` (see `mail.ts`). Afterwards it deletes
+only the mail sent to the address it signed up with: the Mailosaur server is shared by every lane and
+developer, so purging the whole server would delete another run's verification email mid-wait.
 
 Two operational gotchas:
 
@@ -142,9 +147,12 @@ Two operational gotchas:
   must be in that list; otherwise the round-trip **fails** with a pointer to this, unless the
   explicit escape hatch `E2E_ALLOW_SIGNUP_403_SKIP=1` is set (a 403 is at least as likely to be an
   authz/WAF regression as a misconfigured allowlist, so failing is the safe default).
-- **Account churn.** Each run creates a real account on the target env; the spec self-deletes it in
-  a `finally` (see `deleteThrowawayAccount`). A failure before login has no session to delete, so
-  the odd account can still leak — worth an occasional sweep.
+- **Account churn.** Each run creates a real account on the backend; the spec self-deletes it in a
+  `finally` (see `accountCleanup.ts`). The delete goes to the API the signup request actually
+  reached, not to `PLAYWRIGHT_BASE_URL`: on a localhost target the dev server serves only the UI and
+  the API is wherever its `VITE_CENTRAL_MANAGER_API_URL` points (stage, per `.env.local`). A cleanup
+  that cannot delete the account **fails the test** and names the leaked address — including after a
+  failure before login, which has no session to delete with. Sweep any address it names.
 
 ## Roadmap
 

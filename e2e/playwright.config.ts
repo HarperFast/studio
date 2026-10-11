@@ -91,6 +91,11 @@ export default defineConfig({
 				storageState: path.join(dir, '.auth/user.json'),
 			},
 		},
+		// 4. The harness's own helpers, against in-process fakes: no browser, target, or credentials.
+		{
+			name: 'unit',
+			testMatch: /.*\.unit\.spec\.ts$/,
+		},
 	],
 	// Only when targeting localhost: bring up (or reuse) the app dev server.
 	// When testing a deployed URL (the default), the app is already running.
