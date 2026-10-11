@@ -47,11 +47,13 @@ export function ConfigRolesIndex() {
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
-	const onRoleAdded = useCallback((newRoleId: string) => {
+	const onRoleAdded = useCallback(() => {
 		void refetch();
 		setIsAddModalOpen(false);
-		onSelectRole(newRoleId);
-	}, [onSelectRole, refetch]);
+	}, [refetch]);
+	const closeAddModal = useCallback(() => {
+		setIsAddModalOpen(false);
+	}, []);
 
 	const onRowClick = useCallback(
 		(rowData: Row<LocalRole>) => {
@@ -88,7 +90,7 @@ export function ConfigRolesIndex() {
 					</Button>
 				</SimpleBrowseDataTable>
 			</AllowlistSupportedProvider>
-			<AddRoleModal isModalOpen={isAddModalOpen} onChangesSaved={onRoleAdded} setIsModalOpen={setIsAddModalOpen} />
+			{isAddModalOpen && <AddRoleModal onChangesSaved={onRoleAdded} closeModal={closeAddModal} />}
 			{isEditModalOpen && (
 				<EditRoleModal
 					instanceId={instanceId}
