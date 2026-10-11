@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren, Suspense } from 'react';
@@ -10,8 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { get, post, put, del } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, post, put, delete: del } }));
 
+// One object, mutated rather than replaced: the page reads its params into dependency arrays.
+const { routeParams } = vi.hoisted(() => ({ routeParams: { organizationId: 'org-1', clusterId: 'clu-1' } }));
 vi.mock('@tanstack/react-router', () => ({
-	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
+	useParams: () => routeParams,
 	Link: ({ children }: PropsWithChildren) => <a>{children}</a>,
 }));
 
@@ -28,7 +30,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 const { instancePost } = vi.hoisted(() => ({ instancePost: vi.fn() }));
 vi.mock('@/config/getInstanceClient', () => ({ getInstanceClient: () => ({ post: instancePost }) }));
 
-import { mutationErrorHandler } from '@/react-query/queryClient';
+import { mutationErrorHandler, queryErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 
 import { DomainsManagement } from './Management';
@@ -46,19 +48,19 @@ function conflict(): AxiosError {
 
 function renderManagement() {
 	const queryClient = new QueryClient({
+		queryCache: new QueryCache({ onError: queryErrorHandler }),
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
-	return {
-		queryClient,
-		...render(
-			<QueryClientProvider client={queryClient}>
-				<Suspense fallback={<div>loading</div>}>
-					<DomainsManagement />
-				</Suspense>
-			</QueryClientProvider>,
-		),
-	};
+	const page = () => (
+		<QueryClientProvider client={queryClient}>
+			<Suspense fallback={<div>loading</div>}>
+				<DomainsManagement />
+			</Suspense>
+		</QueryClientProvider>
+	);
+	const rendered = render(page());
+	return { queryClient, ...rendered, rerenderPage: () => rendered.rerender(page()) };
 }
 
 function domainListFetches(): number {
@@ -87,7 +89,10 @@ beforeEach(() => {
 
 // `clearAllMocks` keeps implementations, so a `post.mockRejectedValue` would leak into the next
 // test; reset so a test that forgets to set `post` fails instead of inheriting one.
-afterEach(() => vi.resetAllMocks());
+afterEach(() => {
+	vi.resetAllMocks();
+	routeParams.clusterId = 'clu-1';
+});
 
 describe('DomainsManagement — adding a domain', () => {
 	it('states the conflict under the input instead of only in a toast that fades', async () => {
@@ -497,7 +502,7 @@ describe('DomainsManagement — binding and unbinding', () => {
 		expect(sentBody(1)).toEqual({ domainIds: [] });
 	});
 
-	it('builds the next change on the list the last one left even when re-reading the cluster fails', async () => {
+	it('sends no change built on a cluster it could not re-read', async () => {
 		let changed = false;
 		put.mockImplementation(() => {
 			changed = true;
@@ -517,7 +522,6 @@ describe('DomainsManagement — binding and unbinding', () => {
 
 		await unbind(findByText, 'a.example.com');
 		await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Domain unbound!'));
-		await waitFor(() => expect(get.mock.calls.filter(([url]) => String(url) === '/Cluster/clu-1')).toHaveLength(2));
 		const unbindB = await waitFor(() => {
 			const button = within(getByText('b.example.com').closest('tr')!).getByRole('button', {
 				name: 'Unbind Domain',
@@ -527,8 +531,8 @@ describe('DomainsManagement — binding and unbinding', () => {
 		});
 		fireEvent.click(unbindB);
 
-		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
-		expect(sentBody(1)).toEqual({ domainIds: [] });
+		expect(await findByText("The domain change didn't go through: Network Error")).toBeTruthy();
+		expect(put).toHaveBeenCalledOnce();
 	});
 
 	it('holds every domain action while one is in flight, since each sends the whole list', async () => {
@@ -658,13 +662,13 @@ describe('DomainsManagement — binding and unbinding', () => {
 			fireEvent.click(rowOf(getByText, 'd.example.com').getByRole('checkbox'));
 		}
 
-		it('is not sent by Bind once it has been removed, without waiting for the list to refetch', async () => {
+		it('is not offered or sent by Bind once it has been removed, without waiting for the list to refetch', async () => {
 			let removed = false;
 			get.mockImplementation((url: string) => {
 				if (!url.startsWith('/Domain/')) {
 					return Promise.resolve({ data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: [] } });
 				}
-				return removed ? new Promise(() => {}) : Promise.resolve({ data: [unboundC, unboundD] });
+				return Promise.resolve({ data: removed ? [unboundD] : [unboundC, unboundD] });
 			});
 			del.mockImplementation(() => {
 				removed = true;
@@ -786,5 +790,250 @@ describe('DomainsManagement — binding and unbinding', () => {
 			operation: 'search_by_value',
 			table: 'ChallengeCertificate',
 		});
+	});
+});
+
+describe('DomainsManagement — a domain change central manager would refuse', () => {
+	const domainA = {
+		id: 'dom-a',
+		domain: 'a.example.com',
+		status: 'ACTIVE',
+		clusterId: 'clu-1',
+		organizationId: 'org-1',
+	};
+	const domainC = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+	const instanceNotRunning =
+		'Cluster has an instance that is not RUNNING (ins-1: FAILED). Resolve the instance before the update.';
+	const shownForInstanceNotRunning = `The domain change didn't go through: ${instanceNotRunning}`;
+
+	/** Central manager's `assertClusterMutable` refusal, through Harper's REST problem-details serializer. */
+	function refused(title: string): AxiosError {
+		return {
+			isAxiosError: true,
+			message: 'Request failed with status code 400',
+			response: { status: 400, data: { type: 'error:ClientError', code: 'ClientError', title, status: 400 } },
+		} as AxiosError;
+	}
+
+	function serve(domains: () => object[], cluster: object = {}) {
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({ data: domains() })
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: ['dom-a'], ...cluster },
+				})
+		);
+	}
+
+	type Rendered = ReturnType<typeof renderManagement>;
+
+	async function tickC({ findByText }: Rendered) {
+		fireEvent.click(within((await findByText('c.example.com')).closest('tr')!).getByRole('checkbox'));
+	}
+
+	async function bindC(rendered: Rendered) {
+		await tickC(rendered);
+		fireEvent.click(rendered.getByRole('button', { name: /Bind 1 Domain/ }));
+	}
+
+	async function unbindA({ findByText }: Rendered) {
+		fireEvent.click(
+			within((await findByText('a.example.com')).closest('tr')!).getByRole('button', { name: 'Unbind Domain' }),
+		);
+	}
+
+	let consoleError: ReturnType<typeof vi.spyOn>;
+	beforeEach(() => {
+		consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	});
+	afterEach(() => consoleError.mockRestore());
+
+	it("keeps central manager's reason on the page when it refuses a bind, instead of a toast that fades", async () => {
+		serve(() => [domainA, domainC]);
+		put.mockRejectedValue(refused(instanceNotRunning));
+		const rendered = renderManagement();
+
+		await bindC(rendered);
+
+		expect((await rendered.findByText(shownForInstanceNotRunning)).getAttribute('role')).toBe('alert');
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ response: expect.anything() }));
+	});
+
+	it('shows a refused unbind the same way', async () => {
+		serve(() => [domainA, domainC]);
+		put.mockRejectedValue(refused(instanceNotRunning));
+		const rendered = renderManagement();
+
+		await unbindA(rendered);
+
+		expect(await rendered.findByText(shownForInstanceNotRunning)).toBeTruthy();
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('drops the reason once the next change goes through', async () => {
+		serve(() => [domainA, domainC]);
+		put.mockRejectedValueOnce(refused(instanceNotRunning)).mockResolvedValue({ data: {} });
+		const rendered = renderManagement();
+		await bindC(rendered);
+		await rendered.findByText(shownForInstanceNotRunning);
+
+		const bind = rendered.getByRole('button', { name: /Bind 1 Domain/ }) as HTMLButtonElement;
+		await waitFor(() => expect(bind.disabled).toBe(false));
+		fireEvent.click(bind);
+
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+		await waitFor(() => expect(rendered.queryByText(shownForInstanceNotRunning)).toBeNull());
+	});
+
+	// UPDATED is the trap: Studio's `isRunning` counts it as running, and central manager does not.
+	it.each(['FAILED', 'STOPPED', 'UPDATED'])('sends nothing while an instance is %s, and says which', async (status) => {
+		serve(() => [domainA, domainC], {
+			instances: [
+				{ id: 'ins-2', instanceFqdn: 'node-2.example.com', status: 'RUNNING' },
+				{ id: 'ins-1', instanceFqdn: 'node-1.example.com', status },
+			],
+		});
+		const rendered = renderManagement();
+
+		await bindC(rendered);
+
+		expect(await rendered.findByText(/Instance node-1\.example\.com/)).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalledWith(expect.any(Error));
+	});
+
+	it('sends no unbind while the cluster is not running', async () => {
+		serve(() => [domainA, domainC], { status: 'UPDATING' });
+		const rendered = renderManagement();
+
+		await unbindA(rendered);
+
+		expect(await rendered.findByText(/This cluster is UPDATING/)).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+	});
+
+	it('still sends a change while every instance is running or gone', async () => {
+		serve(() => [domainA, domainC], {
+			instances: [
+				{ id: 'ins-1', instanceFqdn: 'node-1.example.com', status: 'RUNNING' },
+				{ id: 'ins-2', instanceFqdn: 'node-2.example.com', status: 'TERMINATED' },
+			],
+		});
+		put.mockResolvedValue({ data: {} });
+		const rendered = renderManagement();
+
+		await bindC(rendered);
+
+		await waitFor(() => expect(put).toHaveBeenCalledOnce());
+	});
+
+	it('refuses a ticked domain the fresh list shows bound elsewhere, and stops offering it', async () => {
+		let list: object[] = [domainA, domainC];
+		serve(() => list);
+		const rendered = renderManagement();
+		await tickC(rendered);
+
+		list = [domainA, { ...domainC, clusterId: 'clu-2' }];
+		fireEvent.click(rendered.getByRole('button', { name: /Bind 1 Domain/ }));
+
+		expect(await rendered.findByText(/c\.example\.com is bound to cluster clu-2/)).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+		await waitFor(() => expect(rendered.queryByRole('button', { name: /Bind \d+ Domain/ })).toBeNull());
+	});
+
+	it('refuses every change while the cluster still lists a domain that no longer exists, and points at support', async () => {
+		serve(() => [domainA, domainC], { domainIds: ['dom-a', 'dom-gone'] });
+		const rendered = renderManagement();
+
+		await unbindA(rendered);
+
+		expect(await rendered.findByText(/still lists dom-gone, which isn't one of this organization's domains/))
+			.toBeTruthy();
+		expect(rendered.getByRole('link', { name: 'Contact us' })).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+	});
+
+	it('builds the list from the cluster as central manager has it, keeping a domain bound meanwhile', async () => {
+		let clusterDomainIds = ['dom-a'];
+		let domains: object[] = [domainA, domainC];
+		const domainB = {
+			id: 'dom-b',
+			domain: 'b.example.com',
+			status: 'ACTIVE',
+			clusterId: 'clu-1',
+			organizationId: 'org-1',
+		};
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({ data: domains })
+				: Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: clusterDomainIds },
+				})
+		);
+		put.mockResolvedValue({ data: {} });
+		const rendered = renderManagement();
+		await tickC(rendered);
+
+		// Another member binds dom-b; this page has not re-read the cluster since.
+		clusterDomainIds = ['dom-a', 'dom-b'];
+		domains = [domainA, domainB, domainC];
+		fireEvent.click(rendered.getByRole('button', { name: /Bind 1 Domain/ }));
+
+		await waitFor(() => expect(put).toHaveBeenCalledOnce());
+		expect(JSON.parse(JSON.stringify(put.mock.calls[0][1]))).toEqual({
+			domainIds: ['dom-a', 'dom-b', 'dom-c'],
+			generateDomainCerts: true,
+		});
+	});
+
+	it("does not show one cluster's failed change on another cluster's page", async () => {
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({ data: [domainA, domainC] })
+				: Promise.resolve({
+					data: {
+						id: url.endsWith('clu-2') ? 'clu-2' : 'clu-1',
+						organizationId: 'org-1',
+						status: 'RUNNING',
+						domainIds: url.endsWith('clu-2') ? [] : ['dom-a'],
+					},
+				})
+		);
+		put.mockRejectedValue(refused(instanceNotRunning));
+		const rendered = renderManagement();
+		await bindC(rendered);
+		await rendered.findByText(shownForInstanceNotRunning);
+
+		routeParams.clusterId = 'clu-2';
+		rendered.rerenderPage();
+
+		await waitFor(() => expect(get).toHaveBeenCalledWith('/Cluster/clu-2'));
+		// The page suspends on the new cluster, and hides rather than unmounts what it showed.
+		await waitFor(() => expect(rendered.queryByText('loading')).toBeNull());
+		expect(rendered.queryByText(shownForInstanceNotRunning)).toBeNull();
+	});
+
+	it('sends nothing when the fresh domain list cannot be read, and says so', async () => {
+		let listReads = 0;
+		get.mockImplementation((url: string) => {
+			if (!url.startsWith('/Domain/')) {
+				return Promise.resolve({
+					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: ['dom-a'] },
+				});
+			}
+			listReads += 1;
+			return listReads === 1
+				? Promise.resolve({ data: [domainA, domainC] })
+				: Promise.reject(new AxiosError('Network Error', AxiosError.ERR_NETWORK));
+		});
+		const rendered = renderManagement();
+
+		await bindC(rendered);
+
+		expect(await rendered.findByText("The domain change didn't go through: Network Error")).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError.mock.calls.filter(([logged]: unknown[]) => logged instanceof AxiosError)).toHaveLength(1);
 	});
 });

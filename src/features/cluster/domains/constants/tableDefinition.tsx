@@ -8,11 +8,7 @@ import {
 	useChallengeCertificates,
 } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
-import {
-	isSettingDomainIds,
-	useIsSettingDomainIds,
-	useSetDomainIdsOnCluster,
-} from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import { isSettingDomainIds, useIsSettingDomainIds } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -27,6 +23,7 @@ export function useDataTableColumns(
 	cluster: Cluster,
 	selectedDomainIds: string[],
 	onToggleDomainSelection: (domainId: string) => void,
+	onUnbindClick: (domainId: string) => void,
 ): Array<ColumnDef<SchemaOrganizationDomain>> {
 	const { data: challengeCertificates } = useChallengeCertificates(cluster.id);
 	const isGeneratingCert = useMemo(
@@ -34,7 +31,6 @@ export function useDataTableColumns(
 		[challengeCertificates],
 	);
 
-	const { mutate: setDomainIds } = useSetDomainIdsOnCluster();
 	const settingDomainIds = useIsSettingDomainIds();
 	const { mutate: deleteDomain, isPending: deletePending } = useDeleteDomain();
 	const isPending = settingDomainIds || deletePending;
@@ -58,20 +54,6 @@ export function useDataTableColumns(
 			},
 		});
 	}, [activeQueryClient, deleteDomain, cluster.organizationId]);
-
-	const unbindDomainById = useCallback((domainId: string) => {
-		// No `generateDomainCerts`: the flag is cluster-wide, so restating it here would decide cert
-		// intent for every domain that stays bound.
-		setDomainIds({
-			clusterId: cluster.id,
-			domainIds: (cluster.domainIds ?? []).filter((id) => id !== domainId),
-		}, {
-			onSuccess: () => {
-				void activeQueryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
-				toast.success('Domain unbound!');
-			},
-		});
-	}, [activeQueryClient, setDomainIds, cluster]);
 
 	return useMemo(() => [
 		columnHelper.display({
@@ -155,7 +137,7 @@ export function useDataTableColumns(
 									variant="destructiveGhost"
 									className="text-muted-foreground text-xs"
 									disabled={isPending}
-									onClick={() => unbindDomainById(domain.id)}
+									onClick={() => onUnbindClick(domain.id)}
 								>
 									Unbind Domain
 								</Button>
@@ -190,7 +172,7 @@ export function useDataTableColumns(
 	], [
 		cluster,
 		deleteDomainById,
-		unbindDomainById,
+		onUnbindClick,
 		isPending,
 		challengeCertificates,
 		isGeneratingCert,

@@ -21,5 +21,9 @@ async function onEditClusterSubmit(
 export function useEditClusterMutation() {
 	return useMutation<SchemaCluster, Error, EditRegionPlan | EditVersion>({
 		mutationFn: (clusterInfo) => onEditClusterSubmit(clusterInfo),
+		// ClusterForm shows the failure beside its submit button, so the fading toast is off. Reported
+		// here rather than in the form's `onError`, which React Query skips once the form unmounts.
+		meta: { skipGlobalErrorToast: true },
+		onError: (error) => console.error(error),
 	});
 }

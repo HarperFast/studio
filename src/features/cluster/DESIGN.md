@@ -78,3 +78,28 @@ The Bind selection is page state that outlives its rows, so Bind counts and send
 list still offers for binding (`canBindDomain`, the same predicate that renders the checkbox). A removal takes its row
 out of the cached list as soon as it succeeds, rather than when the refetch lands, and Bind waits while one is in flight
 ([HarperFast/studio#1800](https://github.com/HarperFast/studio/issues/1800)).
+
+## Custom domains: a domain change is built and checked from a fresh read
+
+`PUT /Cluster/{id}` replaces the cluster's whole `domainIds` list, and central manager unbinds every domain the new
+list leaves out without checking which cluster that domain is bound to. So callers of `useSetDomainIdsOnCluster` pass
+intent (`add`, `remove`), and the mutation builds the list from a fresh read of the cluster and of the organization's
+domains, never from what the page last saw: another tab or member may have bound a domain since.
+
+Before sending, it refuses what central manager would refuse, so the user gets a reason instead of a bare 400
+([HarperFast/studio#1686](https://github.com/HarperFast/studio/issues/1686)), in
+[`describeDomainChangeRefusal.ts`](../clusters/mutations/describeDomainChangeRefusal.ts):
+
+- **The cluster can't change.** Central manager's `assertClusterMutable` refuses every cluster update, edits included,
+  unless the cluster is `RUNNING` and no instance is `FAILED` or in its `TRANSITIONING_INSTANCE_STATES`, which include
+  `STOPPED` and `UPDATED`. Studio keeps a copy of that list. A status missing from the copy still reaches central
+  manager, whose own refusal is then shown, so the copy must never list more than central manager's does.
+- **A domain it touches is refused.** That covers a missing, unverified or foreign-bound domain, and a self-managed
+  cluster. Studio refuses rather than drops. Dropping a domain bound elsewhere would unbind it there. Dropping a deleted
+  id doesn't help either: Harper resolves a missing id in the `domains` relationship to `undefined`, so central
+  manager's own removal loop fails on such a cluster whatever the request carries. A refusal over a domain the cluster
+  already lists points at support, since nothing on the page clears it.
+
+Failures stay on the page beside the control, for both domain changes and cluster edits, and the global toast is off
+for both mutations. Each mutation reports a real request failure to RUM itself, at mutation level, but not a refusal,
+which is Studio declining to send.
