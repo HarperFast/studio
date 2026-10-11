@@ -217,7 +217,7 @@ export function FieldRow({
 						<div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
 							<TextField
 								label="Index type"
-								placeholder="HNSW"
+								placeholder="e.g. HNSW"
 								value={str('indexed', 'type')}
 								disabled={readOnly}
 								onChange={value => setStr('indexed', 'type', value)}

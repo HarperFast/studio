@@ -29,7 +29,7 @@ export function ClusterFQDN({
 							autoCapitalize="none"
 							autoComplete="off"
 							autoCorrect="off"
-							placeholder="example.your-company.com"
+							placeholder="e.g. cluster.your-company.com"
 							disabled={disabled}
 						/>
 					</FormControl>

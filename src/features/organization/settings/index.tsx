@@ -37,6 +37,10 @@ async function patchOAuthConfig(orgId: string, payload: Partial<OAuthConfig> & {
 	return data as unknown as OAuthConfig;
 }
 
+// Central manager stores the scope verbatim and it overrides the provider preset, so a blank field
+// would sign in with an empty scope: submit the default its placeholder shows instead.
+const DEFAULT_OAUTH_SCOPE = 'openid email profile';
+
 // ── Add form ──────────────────────────────────────────────────────────────────
 
 const addSchema = z.object({
@@ -82,12 +86,12 @@ export function OrgSettingsIndex() {
 	// Add
 	const addForm = useForm<AddForm>({
 		resolver: zodResolver(addSchema),
-		defaultValues: { domain: '', clientId: '', clientSecret: '', scope: 'openid email profile' },
+		defaultValues: { domain: '', clientId: '', clientSecret: '', scope: DEFAULT_OAUTH_SCOPE },
 	});
 
 	const onAdd = (data: AddForm) => {
 		patch(
-			{ provider: 'okta', ...data },
+			{ provider: 'okta', ...data, scope: data.scope?.trim() || DEFAULT_OAUTH_SCOPE },
 			{
 				onSuccess: () => {
 					toast.success('OAuth provider added.');
@@ -111,7 +115,7 @@ export function OrgSettingsIndex() {
 			id: config.id!,
 			provider: config.provider,
 			domain: data.domain,
-			scope: data.scope,
+			scope: data.scope?.trim() || DEFAULT_OAUTH_SCOPE,
 		};
 		// Only include secrets if the user actually typed something (blank = keep existing)
 		if (data.clientId) { payload.clientId = data.clientId; }
@@ -207,7 +211,7 @@ export function OrgSettingsIndex() {
 														<FormItem>
 															<FormLabel>Domain</FormLabel>
 															<FormControl>
-																<Input placeholder="company.okta.com" {...field} />
+																<Input placeholder="e.g. company.okta.com" {...field} />
 															</FormControl>
 															<FormMessage />
 														</FormItem>
@@ -246,7 +250,7 @@ export function OrgSettingsIndex() {
 														<FormItem>
 															<FormLabel>Scope</FormLabel>
 															<FormControl>
-																<Input placeholder="openid email profile" {...field} />
+																<Input placeholder={DEFAULT_OAUTH_SCOPE} {...field} />
 															</FormControl>
 															<FormMessage />
 														</FormItem>
@@ -377,6 +381,7 @@ export function OrgSettingsIndex() {
 												<Button
 													variant="outline"
 													size="sm"
+													aria-label="Edit provider"
 													onClick={() => startEdit(config)}
 													disabled={isPending}
 												>
@@ -418,7 +423,7 @@ export function OrgSettingsIndex() {
 												<FormItem>
 													<FormLabel>Domain</FormLabel>
 													<FormControl>
-														<Input placeholder="company.okta.com" autoFocus {...field} />
+														<Input placeholder="e.g. company.okta.com" autoFocus {...field} />
 													</FormControl>
 													<FormMessage />
 												</FormItem>
@@ -457,7 +462,7 @@ export function OrgSettingsIndex() {
 												<FormItem>
 													<FormLabel>Scope</FormLabel>
 													<FormControl>
-														<Input placeholder="openid email profile" {...field} />
+														<Input placeholder={DEFAULT_OAUTH_SCOPE} {...field} />
 													</FormControl>
 													<FormMessage />
 												</FormItem>
