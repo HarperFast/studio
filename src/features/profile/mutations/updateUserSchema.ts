@@ -1,3 +1,4 @@
+import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR } from '@/lib/zod/password';
 import { z } from 'zod';
 
 export const UpdateUserSchema = z
@@ -20,6 +21,7 @@ export const UpdateUserSchema = z
 				error: 'Please enter your new password.',
 			})
 			.min(8, { error: 'Password must be 8 characters or more.' })
+			.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR })
 			.or(z.string().max(0)),
 		confirmNewPassword: z
 			.string()
