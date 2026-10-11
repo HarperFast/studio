@@ -104,8 +104,9 @@ export async function deployAndFollowComponent(args: DeployComponentArgs): Promi
 	return { ...result, rollout };
 }
 
-export function useDeployComponentMutation() {
+export function useDeployComponentMutation(mutationKey?: readonly unknown[]) {
 	return useMutation({
+		mutationKey,
 		mutationFn: deployAndFollowComponent,
 	});
 }

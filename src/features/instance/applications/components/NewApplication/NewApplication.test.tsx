@@ -21,7 +21,6 @@ vi.mock('./useCheckCLI', () => ({ useCheckCLI: () => ({ checkCLI: vi.fn() }) }))
 // These read the instance's SSH keys and auth, which aren't what these tests exercise.
 vi.mock('./ImportAuthorization', () => ({ ImportAuthorization: () => null }));
 vi.mock('./useCLISteps', () => ({ useCLISteps: () => [] }));
-// Reads the instance's version to decide whether to offer staging.
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useStagedDeploymentsAvailable: () => false,
 }));
