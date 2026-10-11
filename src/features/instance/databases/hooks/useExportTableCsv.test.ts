@@ -81,6 +81,12 @@ describe('useExportTableCsv', () => {
 		expect(body.get_attributes).toEqual(['id', 'price', 'taxRate', 'totalPrice']);
 	});
 
+	it('carries the consent to a full scan that the filter was applied with', async () => {
+		const conditions = [{ search_attribute: 'taxRate', search_type: 'equals' as const, search_value: 0.19 }];
+		const { body } = await exportWith({ instanceTable: plain, conditions, allowFullScan: true });
+		expect(body.allowFullScan).toBe(true);
+	});
+
 	// A legacy attribute registry can report a declared relationship as an untyped array, which a
 	// named select would then resolve into records.
 	it('leaves out a relationship only the component schema declares', async () => {

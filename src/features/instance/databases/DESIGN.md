@@ -74,3 +74,17 @@ undeclared attribute in a condition (`unknown attribute 'color'`) and in a sort
 They describe one page, so they can change when the page does. Neither list query keeps the previous
 page's rows, so while the next page loads, the view keeps the last page's extra columns instead of
 dropping them from the header and putting them back.
+
+## A filter no index can answer runs only after the user agrees
+
+Every described column takes a filter, indexed or not (except binary ones). Harper's operations API
+answers a condition on an unindexed attribute by reading every record. It needs no flag for that:
+Harper 5's `ResourceBridge` passes `allowFullScan: true` itself, and 4.7.40 runs it unasked. So the
+safeguard is Studio's. [`fullScanAttributes`](functions/fullScanFilter.ts) decides whether a filter
+needs a scan of the whole table: it does when no condition can be served by an index. Harper runs an
+`and` search from its narrowest condition and filters the rest (`resources/Table.ts`
+`orderConditions`), so one indexed condition is enough, and `ne` scans even on an indexed attribute.
+Typed filters and deep-linked ones both reach the server only through `applySearchConditions` in
+[`DatabaseTableView`](components/DatabaseTableView.tsx), which asks first (#1285). The request then
+carries `allowFullScan: true`, and so does a CSV export of that filter. A new way to apply a filter
+has to go through that function.

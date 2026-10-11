@@ -16,6 +16,8 @@ interface ExportTableCsvParams {
 	sort?: { attribute: string; descending: boolean };
 	/** When provided, exports the filtered result set; otherwise the whole table. */
 	conditions?: SearchCondition[] | null;
+	/** The user agreed that `conditions` may read every record. */
+	allowFullScan?: boolean;
 	/** Read with `include_computed`. */
 	instanceTable?: InstanceTable;
 	databaseTables?: InstanceDatabaseTableMap;
@@ -33,7 +35,8 @@ export function useExportTableCsv() {
 
 	const exportCsv = useCallback(
 		async (
-			{ databaseName, tableName, primaryKey, sort, conditions, instanceTable, databaseTables }: ExportTableCsvParams,
+			{ databaseName, tableName, primaryKey, sort, conditions, allowFullScan, instanceTable, databaseTables }:
+				ExportTableCsvParams,
 		) => {
 			if (!primaryKey) {
 				toast.error(`Cannot export "${tableName}": no primary key found.`);
@@ -66,7 +69,7 @@ export function useExportTableCsv() {
 					headers: { Accept: 'text/csv' },
 				};
 				const response = await (conditions?.length
-					? getSearchByConditions({ ...base, conditions })
+					? getSearchByConditions({ ...base, conditions, allowFullScan })
 					: getSearchByValue({ ...base, searchAttribute: primaryKey }));
 				toast.loading('Preparing CSV...', { id });
 				const content = response.data as unknown as string;

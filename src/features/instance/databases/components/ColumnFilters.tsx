@@ -52,6 +52,7 @@ export function ColumnFilters<TData extends RowData>({
 						)}
 						{headerGroup.headers.map((header) => {
 							const relationshipInfo = header.column.columnDef.meta?.relationshipInfo;
+							const unindexed = header.column.columnDef.meta?.unindexed;
 							return (
 								<TableCell
 									key={header.id}
@@ -85,6 +86,11 @@ export function ColumnFilters<TData extends RowData>({
 																value={field.value ?? ''}
 																placeholder={relationshipInfo
 																	? `.${relationshipInfo.relatedPrimaryKey} value`
+																	: unindexed
+																	? 'not indexed'
+																	: undefined}
+																title={unindexed
+																	? `${header.column.id} has no index: filtering on it alone reads every record, so Studio asks first.`
 																	: undefined}
 															/>
 														</FormControl>
