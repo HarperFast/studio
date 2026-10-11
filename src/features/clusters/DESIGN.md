@@ -14,3 +14,9 @@ create prefilled from it, and once that create succeeds the form terminates the 
 saved form values can bring it back after a billing redirect. So `onClusterSavedCallback` gates the terminate on
 `creating`, not on `sourceClusterId` alone. Without that gate, an update that failed straight away made an edit delete
 the cluster it was editing.
+
+A tier with `allowedRegionIds` takes one region, and the form corrects that region whenever it is the only one left,
+which includes the moment a second region is removed. A custom region is never corrected, since the allow-list describes
+the catalog. The correction keeps the chosen region, matching the catalog entry's name for the stored region id, and
+moves only its latency when the tier offers that region at all. It falls back to the default region only when the tier
+offers nothing there (#1275).
