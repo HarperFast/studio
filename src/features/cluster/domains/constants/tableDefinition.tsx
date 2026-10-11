@@ -2,7 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AssociateDomainWithCluster } from '@/features/cluster/domains/AssociateDomainWithCluster';
 import { CertificateProgress } from '@/features/cluster/domains/components/CertificateProgress';
-import { useChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
+import {
+	isGeneratingCertificate,
+	useChallengeCertificates,
+} from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
 import { useIsSettingDomainIds, useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
@@ -22,7 +25,7 @@ export function useDataTableColumns(
 ): Array<ColumnDef<SchemaOrganizationDomain>> {
 	const { data: challengeCertificates } = useChallengeCertificates(cluster.id);
 	const isGeneratingCert = useMemo(
-		() => !!challengeCertificates?.some((cert) => !cert.issueDate || cert.inProgress),
+		() => !!challengeCertificates?.some(isGeneratingCertificate),
 		[challengeCertificates],
 	);
 
@@ -129,7 +132,7 @@ export function useDataTableColumns(
 						return (
 							<>
 								<div>Bound to this cluster</div>
-								{certForDomain && (!certForDomain.issueDate || certForDomain.inProgress) && (
+								{certForDomain && isGeneratingCertificate(certForDomain) && (
 									<div className="py-2">
 										<CertificateProgress certificate={certForDomain} domain={domain} cluster={cluster} />
 									</div>

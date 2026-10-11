@@ -58,3 +58,18 @@ page for anything else. Handle it there, not per page: every page under the rout
 The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING` one to Scaling for every viewer, so a
 non-admin on a new cluster lands on that message instead of a dead card
 ([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
+
+## Custom domains: cert intent is cluster-wide, and certificate progress is polled
+
+`generateDomainCerts` is one flag for the whole cluster. Central manager reads an absent flag on a `domainIds` edit as
+unchanged, and stamps the result onto every running instance and the Cluster row, which later expansions read
+([HarperFast/central-manager#669](https://github.com/HarperFast/central-manager/pull/669)). So only a bind states it:
+an unbind that sent `false` would revoke it for every domain still bound
+([HarperFast/studio#1626](https://github.com/HarperFast/studio/issues/1626)).
+
+Nothing pushes certificate progress. Central manager answers the domain change before host manager acts on it; host
+manager then upserts a `ChallengeCertificate` row per added domain, and Studio reads progress from that row's
+`issueDate` and `inProgress`. The Domains table polls those rows at 5s while one is generating or for three minutes
+after a domain change (`watchChallengeCertificates`, which the mutation calls), and once a minute otherwise. A cluster
+without the table answers 404, which `getSearchByValue` reads as an empty result, so an idle poll never errors and
+nothing else stops it ([HarperFast/studio#1630](https://github.com/HarperFast/studio/issues/1630)).

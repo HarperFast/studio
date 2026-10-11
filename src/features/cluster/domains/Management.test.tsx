@@ -582,4 +582,20 @@ describe('DomainsManagement — binding and unbinding', () => {
 		await waitFor(() => expect(put).toHaveBeenCalledOnce());
 		expect(sentBody()).toEqual({ domainIds: ['dom-c'], generateDomainCerts: true });
 	});
+
+	it('re-reads certificate progress as soon as a domain change lands, rather than on the idle poll', async () => {
+		put.mockResolvedValue({ data: {} });
+		serve(boundDomains, () => ['dom-a', 'dom-b']);
+		const { findByText } = renderManagement();
+		await findByText('a.example.com');
+		await waitFor(() => expect(instancePost).toHaveBeenCalledOnce());
+
+		await unbind(findByText, 'a.example.com');
+
+		await waitFor(() => expect(instancePost).toHaveBeenCalledTimes(2));
+		expect(instancePost.mock.calls[1][1]).toMatchObject({
+			operation: 'search_by_value',
+			table: 'ChallengeCertificate',
+		});
+	});
 });
