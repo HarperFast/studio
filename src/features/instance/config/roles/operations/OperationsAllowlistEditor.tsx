@@ -12,17 +12,19 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
 	expandEffectiveOperations,
+	gateVerdict,
 	getAvailableGroups,
 	getGrantableOperations,
 	getOperationInfo,
 	GrantableOperation,
-	isGrantGateInert,
+	GrantBand,
 	isInertGrant,
 	isOperationGroupName,
 	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
 	OPERATION_GROUPS,
 	OperationGroup,
+	resolveGrantBand,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { STRUCTURE_USER_DDL_OPERATIONS } from '@/integrations/api/localRolePermission';
@@ -64,9 +66,10 @@ export function OperationsAllowlistEditor({
 		(group) => !offeredGroups.includes(group) && value?.includes(group.name),
 	);
 	const grantable = getGrantableOperations(version);
+	const band = resolveGrantBand(version);
 	const selectedSet = new Set(value ?? []);
 	const selectedOperations = (value ?? []).filter((entry) => !isOperationGroupName(entry));
-	const effective = value ? expandEffectiveOperations(value) : [];
+	const effective = value ? expandEffectiveOperations(value, band) : [];
 	// expandEffectiveOperations already drops grants the server cannot honor, so anything left that
 	// is su-only is a delegation the role really receives.
 	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su);
@@ -172,6 +175,7 @@ export function OperationsAllowlistEditor({
 
 					<OperationsPicker
 						grantable={grantable}
+						band={band}
 						selectedSet={selectedSet}
 						onToggle={toggle}
 						disabled={disabled}
@@ -183,6 +187,7 @@ export function OperationsAllowlistEditor({
 								<OperationChip
 									key={name}
 									name={name}
+									band={band}
 									onRemove={() => toggle(name)}
 									disabled={disabled}
 								/>
@@ -242,6 +247,9 @@ function GroupCheckbox({
 	);
 }
 
+const NEEDS_5_3_TITLE = 'Before Harper 5.3 the allowlist checks this operation under its internal handler name, so '
+	+ 'listing it has no effect on this instance (HarperFast/harper#2175). It takes effect on Harper 5.3.0 or later.';
+
 // Component-registered operation names are exact strings, not identifiers — camelCase, hyphens,
 // dots, and colons are all legal (`deploy-v2`, `acme.deploy`) — so keep the case and only rule
 // out whitespace/quote garbage that could never be an operation name.
@@ -254,11 +262,13 @@ const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
  */
 function OperationsPicker({
 	grantable,
+	band,
 	selectedSet,
 	onToggle,
 	disabled,
 }: {
 	grantable: GrantableOperation[];
+	band: GrantBand;
 	selectedSet: Set<string>;
 	onToggle: (name: string) => void;
 	disabled?: boolean;
@@ -308,6 +318,7 @@ function OperationsPicker({
 			&& !caseVariantOfKnownName
 			&& !knownInfo?.nonDelegable
 			&& !knownInfo?.aliasOf
+			&& gateVerdict(rawQuery, band) !== 'never'
 			&& !grantable.some((operation) => operation.name === rawQuery)
 			&& !selectedSet.has(rawQuery)
 		? rawQuery
@@ -373,15 +384,10 @@ function OperationsPicker({
 								onSelect={(event) => event.preventDefault()}
 							>
 								<span className="flex-1 truncate font-mono text-xs">{operation.name}</span>
-								{isGrantGateInert(operation.name)
+								{gateVerdict(operation.name, band) === 'needs-5.3'
 									? (
-										<Badge
-											variant="outline"
-											title={'Harper authorizes this operation under its internal handler name, so listing it has '
-												+ 'no effect on current 5.x releases (HarperFast/harper#2175). Kept available so the role '
-												+ 'is ready once that lands.'}
-										>
-											not yet enforced
+										<Badge variant="outline" title={NEEDS_5_3_TITLE}>
+											needs Harper 5.3
 										</Badge>
 									)
 									: operation.su && (
@@ -417,22 +423,27 @@ function OperationsPicker({
 
 function OperationChip({
 	name,
+	band,
 	onRemove,
 	disabled,
 }: {
 	name: string;
+	band: GrantBand;
 	onRemove: () => void;
 	disabled?: boolean;
 }) {
 	const info = getOperationInfo(name);
-	const inert = isInertGrant(name);
+	const inert = isInertGrant(name, band);
+	const verdict = gateVerdict(name, band);
 	const variant = inert ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
 	const title = info?.aliasOf
 		? `Legacy alias: Harper authorizes this operation under '${info.aliasOf}', so this entry grants nothing. `
 			+ `Grant '${info.aliasOf}' instead.`
-		: isGrantGateInert(name)
-		? 'Harper authorizes this operation under its internal handler name, so this grant has no effect on '
-			+ 'current 5.x releases (HarperFast/harper#2175).'
+		: verdict === 'needs-5.3'
+		? NEEDS_5_3_TITLE
+		: verdict === 'never'
+		? "This instance's Harper version never lets an operations allowlist grant this operation, so this entry "
+			+ 'has no effect; only a super_user role can run it.'
 		: info?.nonDelegable
 		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
 			+ 'non-super_user role.'

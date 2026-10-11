@@ -79,12 +79,12 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 function OperationsCell({ permission }: { permission: LocalRole['permission'] }) {
 	// One observer for the whole table: the query is shared, but a hook per row would still
 	// allocate an observer and query options for every one of them.
-	const allowlistSupported = useContext(AllowlistSupportedContext);
-	if (allowlistSupported === undefined) {
+	const allowlistVersion = useContext(AllowlistSupportedContext);
+	if (allowlistVersion === undefined) {
 		// The verdict depends on the version; render nothing rather than guess it for a frame.
 		return null;
 	}
-	const kind = classifyOperationsValue(permission, allowlistSupported);
+	const kind = classifyOperationsValue(permission, allowlistVersion.supported);
 	// Below the floor the key is either a real database grant or inert; neither is a restriction.
 	if (kind === 'absent' || kind === 'database' || kind === 'inert') {
 		// aria-label is not exposed on a roleless span, so the text itself has to carry it.
@@ -115,7 +115,7 @@ function OperationsCell({ permission }: { permission: LocalRole['permission'] })
 			</span>
 		);
 	}
-	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
+	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? [], allowlistVersion.band);
 	const summary = summarizeOperations(effective);
 	return (
 		<span title={summary}>
