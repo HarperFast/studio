@@ -7,7 +7,6 @@ const KIND_LABELS: Readonly<Record<FilterKind, string>> = {
 	boolean: 'Booleans',
 };
 
-/** The filter syntax for every kind of column, for whoever can't hover an input to read its own. */
 export function FilterSyntaxHelp({ id }: { id: string }) {
 	return (
 		// No ligatures: the mono font would draw `>=` and `!=` as single glyphs nobody can type.

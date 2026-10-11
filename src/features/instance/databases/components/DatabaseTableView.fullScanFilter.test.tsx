@@ -216,7 +216,6 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 		expect(screen.getByRole('textbox', { name: 'Filter name' })).toBe(filterInput('name'));
 	});
 
-	// A title only shows on hover, so the same syntax is one tap away for keyboard and touch.
 	it('shows every kind’s syntax from a toggle next to the filters', async () => {
 		renderView();
 		await findCell('t1');
