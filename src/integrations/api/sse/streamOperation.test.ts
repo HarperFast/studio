@@ -109,23 +109,39 @@ describe('streamOperation', () => {
 		).rejects.toMatchObject({ name: 'SSEOperationError', message: 'The operation failed.' });
 	});
 
-	it('falls back (SSEUnsupportedError) when the response is not an event stream', async () => {
+	it('falls back (SSEUnsupportedError) when the response is not an event stream, with its status', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn().mockResolvedValue(sseResponse('{"message":"ok"}', { contentType: 'application/json' })),
 		);
 
-		await expect(
-			streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } }),
-		).rejects.toBeInstanceOf(SSEUnsupportedError);
+		const error = await streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } })
+			.catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(SSEUnsupportedError);
+		expect((error as SSEUnsupportedError).status).toBe(200);
 	});
 
-	it('falls back (SSEUnsupportedError) when fetch rejects before streaming', async () => {
+	it('reports the status of a response that refused the stream', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(sseResponse('{"error":"Gateway Timeout"}', { status: 504, contentType: 'text/html' })),
+		);
+
+		const error = await streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } })
+			.catch((e: unknown) => e);
+
+		expect((error as SSEUnsupportedError).status).toBe(504);
+	});
+
+	it('falls back (SSEUnsupportedError) when fetch rejects before streaming, with no status', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network down')));
 
-		await expect(
-			streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } }),
-		).rejects.toBeInstanceOf(SSEUnsupportedError);
+		const error = await streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } })
+			.catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(SSEUnsupportedError);
+		expect((error as SSEUnsupportedError).status).toBeUndefined();
 	});
 
 	it('throws SSEInconclusiveError when the stream ends without a terminal event', async () => {
