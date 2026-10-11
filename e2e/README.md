@@ -114,7 +114,7 @@ e2e/
 
 Naming drives which project runs a spec: `*.anon.spec.ts` = no session,
 `*.authed.spec.ts` = logged-in, `*.unit.spec.ts` = no browser, target, or credentials
-(`npx playwright test --project=unit`).
+(`pnpm test:unit`, which also keeps a localhost `PLAYWRIGHT_BASE_URL` from starting the dev server).
 
 ## Conventions worth knowing
 

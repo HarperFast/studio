@@ -19,10 +19,7 @@ export function apiBaseFromSignupUrl(signupUrl: string): URL {
 	return new URL(prefix, url.origin);
 }
 
-/**
- * Self-delete the account whose session `request` carries: `GET User/current` for its id, then
- * `DELETE User/{id}`. Resolves with the deleted id; throws with the reason on any failure.
- */
+/** Throws, with the reason, on any failure: deciding how loud a leaked account is belongs to the caller. */
 export async function deleteSessionAccount(request: APIRequestContext, apiBase: URL): Promise<string> {
 	const currentUrl = new URL('User/current', apiBase).href;
 	const current = await readJson(

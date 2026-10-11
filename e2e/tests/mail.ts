@@ -74,10 +74,11 @@ export async function waitForVerificationEmail(
 /**
  * Best-effort cleanup of the mail sent to `address`, so the server doesn't accumulate test mail.
  * Never the whole server: every lane and developer shares it, and a purge while another run is
- * inside `waitForVerificationEmail` deletes that run's verification email before it is read.
+ * inside `waitForVerificationEmail` deletes that run's verification email before it is read. A
+ * pinned PLAYWRIGHT_TEST_EMAIL is skipped for the same reason — every run that pins it shares it.
  */
 export async function deleteMailTo(address: string): Promise<void> {
-	if (!mailConfigured) { return; }
+	if (!mailConfigured || address === process.env.PLAYWRIGHT_TEST_EMAIL) { return; }
 	try {
 		const { client, serverId } = getClient();
 		await deleteMessagesSentTo(client.messages, serverId, address);
@@ -86,7 +87,6 @@ export async function deleteMailTo(address: string): Promise<void> {
 	}
 }
 
-/** Deletes each message on `serverId` sent to `address`, and nothing else; resolves with how many. */
 export async function deleteMessagesSentTo(
 	messages: Pick<Mailosaur['messages'], 'search' | 'del'>,
 	serverId: string,
