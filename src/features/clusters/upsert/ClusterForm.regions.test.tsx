@@ -85,8 +85,7 @@ function renderForm(defaultValues: Partial<UpsertClusterSchemaType>) {
 	);
 }
 
-// The form stores a region id, so read each row as it shows: the select under its "Region" (or
-// "Region N") label, then the latency select that follows it.
+// The form stores a region id, so read each row as it is shown.
 function selectedRegionPlans() {
 	const comboboxes = screen.getAllByRole('combobox');
 	return screen.getAllByText(/^Region( \d+)?$/, { selector: 'label' }).map(label => {
@@ -130,6 +129,20 @@ describe('ClusterForm regions', () => {
 		]);
 
 		await removeRegion(1);
+
+		expect(selectedRegionPlans()).toEqual(['Europe / 60ms, small distribution']);
+	});
+
+	it('keeps the surviving region when the first is removed on a tier that limits regions', async () => {
+		renderForm({
+			performanceDescription: 'Free tier',
+			regionPlans: [
+				{ regionId: 'ap-medium' },
+				{ regionId: 'eu-medium' },
+			],
+		});
+
+		await removeRegion(0);
 
 		expect(selectedRegionPlans()).toEqual(['Europe / 60ms, small distribution']);
 	});
