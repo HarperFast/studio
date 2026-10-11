@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { apiBaseFromSignupUrl, deleteSessionAccount } from './accountCleanup';
+import { deleteSessionAccount, signupApiBase } from './accountCleanup';
 import { deleteMailTo, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
 
 /**
@@ -75,7 +75,7 @@ test.describe('signup → email verification → login', () => {
 			await page.locator('#auth-signup-form').getByRole('checkbox').check();
 
 			const [signupResponse] = await Promise.all([
-				page.waitForResponse((r) => r.url().includes('/User/') && r.request().method() === 'POST'),
+				page.waitForResponse((r) => r.request().method() === 'POST' && signupApiBase(r.url()) !== undefined),
 				page.getByRole('button', { name: 'Sign Up For Free' }).click(),
 			]);
 
@@ -99,7 +99,7 @@ test.describe('signup → email verification → login', () => {
 				);
 			}
 			expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
-			accountApiBase = apiBaseFromSignupUrl(signupResponse.url());
+			accountApiBase = signupApiBase(signupResponse.url());
 
 			// 2. Success routes to the "check your email" screen for this address.
 			await page.waitForURL(/#\/verifying/, { timeout: 30_000 });

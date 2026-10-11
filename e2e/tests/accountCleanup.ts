@@ -3,20 +3,16 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 const JSON_MEDIA_TYPE = /^application\/(?:[\w.+-]+\+)?json\s*(?:;|$)/i;
 
 /**
- * The central-manager API base that a signup request (`POST <base>User/`) went to.
+ * The central-manager API base of a signup URL (`<base>User/`), or undefined for any other URL, so
+ * one check both picks out the signup response and says where the account it created lives.
  *
  * Read off the request rather than assumed to be Playwright's `baseURL`: a localhost target serves
  * only the SPA, and its API lives wherever that dev server's `VITE_CENTRAL_MANAGER_API_URL` points.
  */
-export function apiBaseFromSignupUrl(signupUrl: string): URL {
-	const url = new URL(signupUrl);
-	const prefix = /^(.*\/)User\/?$/.exec(url.pathname)?.[1];
-	if (prefix === undefined) {
-		throw new Error(
-			`Signup request ${url.origin}${url.pathname} is not POST <api>/User/; cannot tell where its API is`,
-		);
-	}
-	return new URL(prefix, url.origin);
+export function signupApiBase(url: string): URL | undefined {
+	const { origin, pathname } = new URL(url);
+	const prefix = /^(.*\/)User\/?$/.exec(pathname)?.[1];
+	return prefix === undefined ? undefined : new URL(prefix, origin);
 }
 
 /** Throws, with the reason, on any failure: deciding how loud a leaked account is belongs to the caller. */
