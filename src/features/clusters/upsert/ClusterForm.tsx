@@ -337,7 +337,9 @@ export function ClusterForm({
 			const firstRegionId = selectedRegionPlans[0].regionId;
 			if (!isOrganizationRegionId(firstRegionId) && !allowedRegionIds.includes(firstRegionId)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
-				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
+				const chosenRegionName = regionLookup.get(firstRegionId)?.name;
+				const regionToSelect = possibleRegions?.find(r => r.region === chosenRegionName)
+					|| possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionId', regionToSelect.id);
 					void form.trigger();
