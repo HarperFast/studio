@@ -21,8 +21,11 @@ export function ConfigDeploymentsIndex() {
 	const { deploymentId }: { deploymentId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	// The nav hides this page below Harper 5.1, but a bookmark or back-navigation still lands here.
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const { data: registrationInfo, isError: registrationFailed } = useQuery(
+		getRegistrationInfoQueryOptions(instanceParams),
+	);
 	const versionKnown = registrationInfo !== undefined;
+	const versionUnavailable = !versionKnown && registrationFailed;
 	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
 
 	const { data, isFetching, isRefetching, refetch, error } = useQuery(
@@ -66,7 +69,7 @@ export function ConfigDeploymentsIndex() {
 		<>
 			<SimpleBrowseDataTable<Deployment>
 				data={deployments}
-				isFetching={isFetching || isRefetching || !versionKnown}
+				isFetching={isFetching || isRefetching || (!versionKnown && !versionUnavailable)}
 				columns={deploymentColumns}
 				onRowClick={onRowClick}
 			>
@@ -82,7 +85,7 @@ export function ConfigDeploymentsIndex() {
 					</span>
 				</Button>
 			</SimpleBrowseDataTable>
-			{error && (
+			{(error || versionUnavailable) && (
 				<div className="mt-2 text-sm text-muted-foreground">
 					Could not load deployments. This instance may not support deployment history.
 				</div>
