@@ -56,7 +56,7 @@ function remember(signature: string, now: number) {
  *
  * TanStack Router re-throws a route's stored error whenever its match object changes, and every reload
  * of the route throws a fresh but identical one, so a single failed load reaches `onCaughtError` many
- * times (#1695). An identical failure within `REPEAT_WINDOW_MS` of its last report adds nothing.
+ * times. An identical failure within `REPEAT_WINDOW_MS` of its last report adds nothing.
  */
 export function reportReactError(error: unknown, errorInfo: ErrorInfo): void {
 	let signature: string | undefined;
@@ -70,7 +70,13 @@ export function reportReactError(error: unknown, errorInfo: ErrorInfo): void {
 		const last = lastReportedAt.get(signature);
 		if (last !== undefined && now - last < REPEAT_WINDOW_MS) { return; }
 	}
-	addReactError(error as Error, errorInfo);
+	try {
+		addReactError(error as Error, errorInfo);
+	} catch {
+		// The root callback must not throw on top of the failure it was handed; an unrecorded signature
+		// lets the next catch try again.
+		return;
+	}
 	if (signature !== undefined) { remember(signature, now); }
 }
 

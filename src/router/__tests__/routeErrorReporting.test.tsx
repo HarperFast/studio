@@ -81,7 +81,7 @@ afterEach(() => {
 });
 
 describe('route error reporting', () => {
-	it('reports a failed route load to RUM once, through re-catches and reloads, and never as a console error', async () => {
+	it('reports a failed route load from the root handlers once, through re-catches and reloads, with no console error of their own', async () => {
 		const consoleError = vi.spyOn(console, 'error');
 		get.mockImplementation(async (url: string) => {
 			throw httpError(url, 403);
