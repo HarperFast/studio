@@ -689,9 +689,9 @@ For a hook whose job is redaction, that is the one failure mode that matters, an
 instead of testing it for truthiness.
 
 Same reason the URL redaction runs **before** `shouldKeepEvent` and the error-text redaction
-**after** it. The filter attributes errors on the raw stack and raw `error.resource.url`, so those
-can't be rewritten ahead of it — but it reads no URL field, and it can itself throw on a malformed
-error field, which would ship the event with its URLs untouched.
+**after** it. The filter attributes errors on the raw stack, so that can't be rewritten ahead of
+it — but it reads no URL field, and it can itself throw on a malformed error field, which would
+ship the event with its URLs untouched.
 
 `error.stack` is **not** the engine's stack string. The SDK parses it and re-serializes every stack
 it records, so what reaches `beforeSend` is always this shape, whatever the engine produced — no V8

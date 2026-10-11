@@ -116,16 +116,14 @@ function originatesInThirdPartyScript(stack: string, type: string | undefined, m
  * Datadog `beforeSend` predicate: returns true to keep the event, false to discard
  * it (false is what tells RUM to drop the event). Wired straight into `beforeSend`.
  *
- * Reaching an instance can legitimately fail when it's down, restarting, or the
- * user lacks Fabric Connect — these are expected states, not Studio bugs, and they
- * otherwise flood Error Tracking. We drop connectivity-class errors (timeouts,
- * network failures) so they don't create issues.
- *
- * These errors reach RUM two ways: as tracked resource errors (which carry an
- * `error.resource.url`) and as handled AxiosErrors surfaced through `console.error`
- * — most notably React Query's global error handler — which do NOT. The URL-based
- * endpoint check below only ever sees the former, so the URL-less timeouts slipped
- * past it and flooded Error Tracking (issue #1371).
+ * The browser RUM SDK makes an error event from a thrown exception (`source: 'source'`), a
+ * `console.error` call (`'console'`), `addError` (`'custom'` — `addReactError` in `main.tsx`) or a
+ * browser report (`'report'`). A failed request is a `resource` event, never an error:
+ * `ErrorSource.NETWORK` is declared but nothing emits it, and `processError`
+ * (`browser-rum-core/…/errorCollection`) builds no `error.resource`. So a handled request failure
+ * reaches this filter only as whatever logged it, mostly React Query's global handler, with nothing
+ * naming the endpoint. Attribute by message, name and stack; an unreachable instance is visible only
+ * as `@type:resource @resource.status_code:0`.
  */
 export function shouldKeepEvent(event: DatadogErrorEvent) {
 	if (event.type !== 'error') {
@@ -134,11 +132,9 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// Type-checked, not `?? ''`: a malformed field would throw out of this filter, which the SDK
 	// swallows into shipping the event unfiltered.
 	const message = typeof event.error?.message === 'string' ? event.error.message : '';
-	const source = event.error?.source;
 
 	// Aborted requests are client-initiated cancellations (navigating away, a
 	// component unmounting, React Query cancelling an in-flight query) — not failures.
-	// Safe to drop globally regardless of endpoint.
 	if (/Request aborted/i.test(message)) {
 		return false;
 	}
@@ -217,11 +213,9 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 
 	// A request timeout is a connectivity-class failure, never a Studio bug: the instance,
 	// cluster, or backend was too slow to answer, and backend latency is tracked server-side.
-	// The handled AxiosErrors that flood Error Tracking (#1371) carry no resource URL, so the
-	// endpoint gate below cannot reach them. The bare spelling needs the name because on its
-	// own it would also discard a Harper-relayed `Operation timeout exceeded`; the numeric one
-	// stays name-free, so a timeout Studio re-wraps into a plain `Error` (`secrets.ts`) is
-	// dropped exactly as before.
+	// The bare spelling needs the name because on its own it would also discard a Harper-relayed
+	// `Operation timeout exceeded`; the numeric one stays name-free, so a timeout Studio re-wraps
+	// into a plain `Error` (`secrets.ts`) is dropped exactly as before.
 	if (
 		NUMERIC_TIMEOUT_MESSAGE.test(message)
 		|| (errorName === 'AxiosError' && BARE_TIMEOUT_MESSAGE.test(message))
@@ -255,27 +249,6 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// `redactErrorText` is the backstop for repo URLs in deploy errors we do keep. Match on the
 	// prefix rather than the SSH sentence, so a reworded remediation still matches.
 	if (/Failed to deploy private repository\b/i.test(message)) {
-		return false;
-	}
-
-	const url = typeof event.error?.resource?.url === 'string' ? event.error.resource.url : '';
-	const isInstanceEndpoint = /\/(HDBInstance|Cluster)\/[^/]+\/operation/.test(url);
-
-	// A 5xx or a bare timeout from an instance/cluster operation endpoint is the instance itself
-	// failing to answer (broken, unsupported, or mid-restart) — a server-side condition tracked
-	// on the backend, not a Studio bug. The URL attributes it whatever the thrown value's name
-	// is, which is what reaches the tracked resource errors the name gate above cannot.
-	if (
-		isInstanceEndpoint
-		&& (/Request failed with status code 5\d\d\b/i.test(message) || BARE_TIMEOUT_MESSAGE.test(message))
-	) {
-		return false;
-	}
-
-	// Other network failures (connection refused, DNS, offline) against an
-	// instance/cluster operation endpoint — expected when the instance is unreachable.
-	const isNetworkFailure = /Network Error/i.test(message) || source === 'network';
-	if (isInstanceEndpoint && isNetworkFailure) {
 		return false;
 	}
 
