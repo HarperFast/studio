@@ -86,6 +86,8 @@ export function ConfigUsersIndex() {
 				columns={dataTableColumns}
 				onRowClick={onRowClick}
 				sortingState={sortingState}
+				filter={{ label: 'Filter users', placeholder: 'Filter by username or role' }}
+				paginated
 			>
 				{/*<UploadCSVModal />*/}
 				{/*disabled={tableDataFetching}*/}
