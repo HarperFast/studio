@@ -14,6 +14,7 @@ import {
 } from '@/features/clusters/lib/clusterListModel';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { UpsertCluster } from '@/features/clusters/upsert';
+import { draftClusterIdOf } from '@/features/clusters/upsert/draftClusterIdOf';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -71,7 +72,14 @@ export function ClustersList() {
 		return <UpsertCluster />;
 	}
 	if (savedClusterState) {
-		return <Navigate to={`/${organizationId}/new-cluster`} replace={true} />;
+		const draftClusterId = draftClusterIdOf(savedClusterState);
+		if (!draftClusterId) {
+			return <Navigate to={`/${organizationId}/new-cluster`} replace={true} />;
+		}
+		// An edit draft for a cluster this organization doesn't list is left saved for the organization it came from.
+		if (orgInfo?.clusters?.some(({ id }) => id === draftClusterId)) {
+			return <Navigate to={`/${organizationId}/${draftClusterId}/edit`} replace={true} />;
+		}
 	}
 
 	return (
