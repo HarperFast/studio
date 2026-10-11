@@ -102,6 +102,9 @@ export function useRestartClusterClick(
 								instanceClient,
 								skipRestartGate: true,
 							});
+							if (canceled) {
+								continue;
+							}
 							releaseInstance = markRestarting([instance.id], {
 								reach: 'down',
 								ttlMs: INSTANCE_RESTART_TTL_MS,
@@ -166,7 +169,7 @@ export function useRestartClusterClick(
 					description: `Failed to fully restart cluster.\n`
 						+ ([
 							allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-							instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+							targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
 							allInstances.length !== instancesRestarted
 							&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 						].filter(excludeFalsy).shift() || ''),

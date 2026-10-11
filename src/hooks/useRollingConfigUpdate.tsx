@@ -131,6 +131,9 @@ export function useRollingConfigUpdate(
 					await getInstanceUserInfo({
 						instanceClient,
 					});
+					if (canceled) {
+						continue;
+					}
 
 					if (!replicationFqdn || !acknowledged.has(replicationFqdn.toLowerCase())) {
 						await setConfiguration({
@@ -213,7 +216,7 @@ export function useRollingConfigUpdate(
 					description: `Failed to fully update cluster.\n`
 						+ ([
 							allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-							instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+							targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
 							allInstances.length !== instancesRestarted
 							&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 						].filter(excludeFalsy).shift() || '')
