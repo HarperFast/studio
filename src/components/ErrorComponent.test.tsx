@@ -11,16 +11,49 @@ afterEach(() => cleanup());
 
 const FALLBACK = 'An unexpected error occurred.';
 
-async function renderError(error: unknown) {
+async function renderError(error: unknown, props: { title?: string; description?: string } = {}) {
 	render(
 		<TestProvider>
-			<ErrorComponent error={error} showReturnToHome={false} />
+			<ErrorComponent error={error} showReturnToHome={false} {...props} />
 		</TestProvider>,
 	);
 	await act(() => null);
 }
 
+const httpError = (status: number) =>
+	Object.assign(new Error(`Request failed with status code ${status}`), { response: { status } });
+
 describe(ErrorComponent, () => {
+	it.each([
+		[403, 'Access Denied', /doesn't have permission to view this/],
+		[404, 'Not Found', /couldn't find what you were looking for/],
+	])('should describe a %i in words instead of the raw request failure', async (status, title, description) => {
+		await renderError(httpError(status));
+		expect(screen.getByTestId('error-component')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: title })).toBeTruthy();
+		expect(screen.getByText(description)).toBeTruthy();
+		expect(screen.queryByText(/Component Error/)).toBeNull();
+		expect(screen.queryByText(/Request failed with status code/)).toBeNull();
+	});
+
+	it('should read a bare status as well as an axios response', async () => {
+		await renderError({ status: 404, message: 'raw' });
+		expect(screen.getByRole('heading', { name: 'Not Found' })).toBeTruthy();
+	});
+
+	it('should let an explicit title and description win over the status copy', async () => {
+		await renderError(httpError(403), { title: 'Custom title', description: 'Custom description' });
+		expect(screen.getByRole('heading', { name: 'Custom title' })).toBeTruthy();
+		expect(screen.getByText('Custom description')).toBeTruthy();
+		expect(screen.queryByText(/doesn't have permission/)).toBeNull();
+	});
+
+	it('should keep the raw message for a status it has no copy for', async () => {
+		await renderError(httpError(500));
+		expect(screen.getByRole('heading', { name: 'Component Error' })).toBeTruthy();
+		expect(screen.getByText('Request failed with status code 500')).toBeTruthy();
+	});
+
 	it('should render the message of a thrown Error', async () => {
 		await renderError(new Error('the cluster went away'));
 		expect(screen.getByText('the cluster went away')).toBeTruthy();

@@ -67,8 +67,8 @@ test.describe('authenticated app', () => {
 		}
 
 		// Watch for a 403 during the org-users load. That — NOT the generic error boundary — is the
-		// real "no permission" signal. The app's `Component Error` boundary renders for ANY uncaught
-		// error on the route, so skipping on its text alone would hide a genuine break (JS exception,
+		// real "no permission" signal. The app's route error card renders for ANY uncaught
+		// error on the route, so skipping on its presence alone would hide a genuine break (JS exception,
 		// broken query, API error) on exactly the page this spec exists to cover.
 		let saw403 = false;
 		page.on('response', (r) => {
@@ -83,7 +83,8 @@ test.describe('authenticated app', () => {
 
 		// Wait for EITHER the users table or the app's error boundary.
 		const table = page.getByRole('table');
-		const errorBoundary = page.getByText('Component Error');
+		// By test id, not title: the title names the failure (a 403 reads "Access Denied").
+		const errorBoundary = page.getByTestId('error-component');
 		await expect(table.or(errorBoundary).first()).toBeVisible();
 
 		if (await errorBoundary.isVisible().catch(() => false)) {
