@@ -1,10 +1,12 @@
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { supportsDeployments } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { Row } from '@/lib/table';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
@@ -18,9 +20,18 @@ export function ConfigDeploymentsIndex() {
 	const canManage = useInstanceManagePermission();
 	const { deploymentId }: { deploymentId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
+	// The nav hides this page below Harper 5.1, but a bookmark or back-navigation still lands here.
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const versionKnown = registrationInfo !== undefined;
+	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
 
 	const { data, isFetching, isRefetching, refetch, error } = useQuery(
-		getDeploymentsQueryOptions({ ...instanceParams, limit: 100, enabled: canManage, pollWhileOpen: true }),
+		getDeploymentsQueryOptions({
+			...instanceParams,
+			limit: 100,
+			enabled: canManage && deploymentsAvailable,
+			pollWhileOpen: true,
+		}),
 	);
 	const deployments = useMemo(() => data?.deployments ?? [], [data]);
 
@@ -43,11 +54,19 @@ export function ConfigDeploymentsIndex() {
 		);
 	}
 
+	if (versionKnown && !deploymentsAvailable) {
+		return (
+			<div className="p-2 text-sm text-muted-foreground">
+				Deployment history needs Harper 5.1 or later on this instance.
+			</div>
+		);
+	}
+
 	return (
 		<>
 			<SimpleBrowseDataTable<Deployment>
 				data={deployments}
-				isFetching={isFetching || isRefetching}
+				isFetching={isFetching || isRefetching || !versionKnown}
 				columns={deploymentColumns}
 				onRowClick={onRowClick}
 			>
@@ -68,7 +87,7 @@ export function ConfigDeploymentsIndex() {
 					Could not load deployments. This instance may not support deployment history.
 				</div>
 			)}
-			{!error && !isFetching && deployments.length === 0 && (
+			{!error && !isFetching && versionKnown && deployments.length === 0 && (
 				<div className="mt-2 text-sm text-muted-foreground">No deployments yet.</div>
 			)}
 			{!!deploymentId && (

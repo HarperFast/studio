@@ -11,6 +11,10 @@ import { useQuery } from '@tanstack/react-query';
  */
 export const MIN_DEPLOYMENT_SSE_VERSION = '5.1.0';
 
+export function supportsDeployments(harperVersion: string | undefined): boolean {
+	return !!harperVersion && wasAReleasedBeforeB(MIN_DEPLOYMENT_SSE_VERSION, harperVersion);
+}
+
 /**
  * True when the instance/cluster is Harper >= 5.1.0, so the deployment history/detail
  * feature (`list_deployments` / `get_deployment`) is available. This gates feature
@@ -19,7 +23,7 @@ export const MIN_DEPLOYMENT_SSE_VERSION = '5.1.0';
 export function useDeploymentsAvailable(): boolean {
 	const params = useInstanceClientIdParams();
 	const { data } = useQuery(getRegistrationInfoQueryOptions(params));
-	return !!data?.version && wasAReleasedBeforeB(MIN_DEPLOYMENT_SSE_VERSION, data.version);
+	return supportsDeployments(data?.version);
 }
 
 /**

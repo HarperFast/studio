@@ -9,6 +9,7 @@ import {
 import { parseSSEData } from '@/integrations/api/sse/parseSSEStream';
 import { ResolveInstanceConnectionParams } from '@/integrations/api/sse/resolveInstanceConnection';
 import { streamOperation } from '@/integrations/api/sse/streamOperation';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 import { Deployment, isTerminalDeploymentStatus } from './types';
 
@@ -33,9 +34,12 @@ export function getDeploymentQueryOptions(params: GetDeploymentParams & { pollWh
 		queryFn: () => getDeployment(params),
 		retry: false,
 		// While the detail view falls back to polling (no SSE), keep refetching until the
-		// deployment reaches a terminal status, then stop.
+		// deployment reaches a terminal status, then stop. A failed fetch has no status to end
+		// on, so the shared policy is what stops or slows it.
 		refetchInterval: (query) =>
-			params.pollWhileActive && !isTerminalDeploymentStatus(query.state.data?.status) ? 2_000 : false,
+			pollUnlessForbidden(
+				params.pollWhileActive && !isTerminalDeploymentStatus(query.state.data?.status) ? 2_000 : false,
+			)(query),
 	});
 }
 
