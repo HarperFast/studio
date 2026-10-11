@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
+import { errorStatus } from '@/lib/errorStatus';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -17,11 +18,39 @@ interface ErrorProps {
 	// It also matches reality — a throw can be any value, not just an Error.
 	error: unknown;
 	title?: string;
+	description?: ReactNode;
 	showReturnToHome?: boolean;
 	children?: ReactNode;
 }
 
 const FALLBACK_ERROR_MESSAGE = 'An unexpected error occurred.';
+
+interface StatusCopy {
+	title: string;
+	description: string;
+}
+
+const FORBIDDEN_COPY: StatusCopy = {
+	title: 'Access Denied',
+	description:
+		"Your account doesn't have permission to view this. If you think it should, ask an administrator for access.",
+};
+
+const NOT_FOUND_COPY: StatusCopy = {
+	title: 'Not Found',
+	description: "We couldn't find what you were looking for. It may have been deleted, or the link may be wrong.",
+};
+
+function describeStatus(error: unknown): StatusCopy | undefined {
+	switch (errorStatus(error)) {
+		case 403:
+			return FORBIDDEN_COPY;
+		case 404:
+			return NOT_FOUND_COPY;
+		default:
+			return undefined;
+	}
+}
 
 /**
  * Whether React can render this value as visible text.
@@ -59,18 +88,21 @@ function getErrorMessage(error: unknown): ReactNode {
 	return FALLBACK_ERROR_MESSAGE;
 }
 
-export function ErrorComponent({ className, error, title, showReturnToHome, children }: ErrorProps) {
+export function ErrorComponent({ className, error, title, description, showReturnToHome, children }: ErrorProps) {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-	const message = getErrorMessage(error);
+	const statusCopy = describeStatus(error);
 
 	return (
-		<Card className={cn('text-red p-5 border border-red rounded-md m-12 mt-36', className)}>
+		<Card
+			data-testid="error-component"
+			className={cn('text-red p-5 border border-red rounded-md m-12 mt-36', className)}
+		>
 			<CardHeader>
 				<CardTitle className="text-2xl">
-					<h2>{title ?? 'Component Error'}</h2>
+					<h2>{title ?? statusCopy?.title ?? 'Component Error'}</h2>
 				</CardTitle>
-				<CardDescription>{message}</CardDescription>
+				<CardDescription>{description ?? statusCopy?.description ?? getErrorMessage(error)}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				{children}
