@@ -10,7 +10,6 @@ const SETTLE_MS = 10_000;
 const PROBE_TIMEOUT_MS = 3_000;
 const PROBE_INTERVAL_MS = 15_000;
 const PROBES = 24;
-/** After this many unanswered probes the target is slow to return, and still watched. */
 const SLOW_AFTER_PROBES = 12;
 const RESTART_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -65,7 +64,10 @@ export async function waitUntilAnsweringAfterRestart(
 	try {
 		await axiosRetry(probe, SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);
 	} catch {
-		onSlowToReturn?.();
+		// Queued, so a callback that throws cannot cut the watch short.
+		if (onSlowToReturn) {
+			queueMicrotask(onSlowToReturn);
+		}
 		await sleep(PROBE_INTERVAL_MS);
 		await axiosRetry(probe, PROBES - SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);
 	}

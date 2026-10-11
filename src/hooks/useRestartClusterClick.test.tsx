@@ -374,4 +374,51 @@ describe('useRestartClusterClick, for a member that accepted the restart but has
 		expect(finalError().title).toBe('Error');
 		expect(finalError().description).toContain('Only 2 "RUNNING" instances were restarted');
 	});
+
+	it('names a member that refused alongside the one not back', async () => {
+		restartsEndingIn({ 'ins-c': refused(), 'ins-b': notBackYet() });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(finalError()).toEqual({
+			title: 'Not back yet',
+			description: 'Only 0 "RUNNING" instances were confirmed restarted of 3 instances. '
+				+ '1 instance failed to restart. '
+				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ '1 other instance was not restarted, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+	});
+
+	it('still says it is not back yet when Cancel is clicked while waiting on it', async () => {
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+			restarted.push(targetOf(instanceClient));
+			if (targetOf(instanceClient) === 'ins-b') {
+				onSlowToReturn?.();
+				cancel();
+				throw notBackYet();
+			}
+			return { message: 'Restarting Harper. This may take up to 60 seconds.' };
+		});
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(finalError().title).toBe('Not back yet');
+		expect(vi.mocked(toast.error).mock.calls.map(([title]) => title)).not.toContain('Cancelled');
+	});
+
+	it('still says Cancelled when nothing was left uncertain', async () => {
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			restarted.push(targetOf(instanceClient));
+			cancel();
+			return { message: 'Restarting Harper. This may take up to 60 seconds.' };
+		});
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c']);
+		expect(finalError().title).toBe('Cancelled');
+	});
 });

@@ -610,4 +610,50 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but has
 				+ 'the next time they restart.',
 		});
 	});
+
+	it('still says it is not back yet when Cancel is clicked while waiting on it', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			onSlowToReturn?.();
+			cancel();
+			throw new RestartUnconfirmedError(new AxiosError('Network Error', AxiosError.ERR_NETWORK));
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
+		expect(finalError().title).toBe('Not back yet');
+		expect(vi.mocked(toast.error).mock.calls.map(([title]) => title)).not.toContain('Cancelled');
+	});
+
+	it('keeps the pending-configuration note when Cancel lands while waiting on a member after the fan-out', async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			return changes.replicated ? acknowledging('ins-a-repl.example.com') : { message: 'ok' };
+		});
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			if (targetOf(instanceClient) === 'ins-a') {
+				onSlowToReturn?.();
+				cancel();
+				throw new RestartUnconfirmedError(new AxiosError('Network Error', AxiosError.ERR_NETWORK));
+			}
+			return { message: 'Restarting http' };
+		});
+
+		await save();
+
+		expect(events).toEqual([
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'replicate ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(finalError().title).toBe('Not back yet');
+		expect(finalError().description).toContain('may already have the new configuration saved');
+	});
 });

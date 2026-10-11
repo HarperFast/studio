@@ -4,6 +4,7 @@ import { restartInstance } from '@/integrations/api/instance/status/restartInsta
 import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { shouldKeepEvent } from '@/integrations/datadog/shouldKeepEvent';
+import { sleep } from '@/lib/sleep';
 import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,6 +63,7 @@ async function failureOf(promise: Promise<unknown>): Promise<unknown> {
 describe('restartInstance', () => {
 	beforeEach(() => {
 		sent.length = 0;
+		vi.mocked(sleep).mockClear();
 	});
 
 	it('resolves with Harper’s answer once the target answers again', async () => {
@@ -102,6 +104,8 @@ describe('restartInstance', () => {
 		// Sent once: Harper accepted it, so nothing here may send it again.
 		expect(sent.filter((operation) => operation === 'restart')).toHaveLength(1);
 		expect(probesSent()).toBe(24);
+		// One settle, then every probe 15s after the last: the schedule RESTART_MARK_TTL_MS is derived from.
+		expect(vi.mocked(sleep).mock.calls.map(([ms]) => ms)).toEqual([10_000, ...Array(23).fill(15_000)]);
 	});
 
 	it('sends each probe once, even when a gateway answers it', async () => {
