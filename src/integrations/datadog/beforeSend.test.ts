@@ -314,8 +314,8 @@ describe('beforeSend', () => {
 	});
 
 	describe('error.causes', () => {
-		// The production shape: every cause-bearing event in 30 days of RUM looked like this.
 		const abortCause = {
+			source: 'console',
 			type: 'AbortError',
 			message: 'BodyStreamBuffer was aborted',
 			stack:
@@ -339,6 +339,12 @@ describe('beforeSend', () => {
 
 		it('keeps an event with an empty cause chain', () => {
 			expect(beforeSend(withCauses([]))).toBe(true);
+		});
+
+		// How the SDK records a cause that was not an Error: serialised, with no type or stack.
+		it('keeps a non-Error cause whose serialised text needs no redaction', () => {
+			const cause = { source: 'console', type: undefined, message: '{"code":"ECONNRESET"}', stack: undefined };
+			expect(beforeSend(withCauses([cause]))).toBe(true);
 		});
 
 		it.each([
@@ -369,8 +375,7 @@ describe('beforeSend', () => {
 			expect(beforeSend(withCauses(chain.slice(0, 9)))).toBe(true);
 		});
 
-		// The SDK only ever emits an array of `{ message: string, stack?: string, type?: string }`.
-		// Anything else can't be checked, and can't be rewritten, so it must not be sent.
+		// Anything but the SDK's own shape can't be checked, and can't be rewritten either.
 		it.each([
 			['a string', 'Failed to clone acme-corp/billing'],
 			['null', null],
@@ -380,6 +385,8 @@ describe('beforeSend', () => {
 			['a non-string message', [{ message: { detail: repoUrl } }]],
 			['a non-string stack', [{ message: 'x', stack: [repoUrl] }]],
 			['a non-string type', [{ message: 'x', type: { name: 'SSEOperationError' } }]],
+			['a non-string source', [{ message: 'x', source: { url: repoUrl } }]],
+			['an entry with a field the SDK does not record', [{ message: 'x', detail: repoUrl }]],
 		])('drops, without throwing, an event whose causes are %s', (_shape, causes) => {
 			const event = withCauses(causes);
 			expect(() => beforeSend(event)).not.toThrow();

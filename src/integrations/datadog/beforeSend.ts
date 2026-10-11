@@ -67,6 +67,9 @@ function redactErrorAndParams(text: string) {
 	return redactCredentialParams(redactErrorText(text));
 }
 
+/** What browser-core's `computeErrorBase` records per cause. A field added later has no rule here. */
+const CAUSE_FIELDS = new Set(['source', 'type', 'message', 'stack']);
+
 /**
  * `error.causes` is off the SDK's modifiable-field allowlist (`MODIFIABLE_FIELD_PATHS_BY_EVENT`,
  * browser-rum-core `domain/assembly.ts`): a rewrite here is silently undone and the cause ships as
@@ -82,14 +85,13 @@ function causesNeedNoRedaction(causes: unknown, type: string | undefined) {
 		if (typeof cause !== 'object' || cause === null) {
 			return false;
 		}
-		const { message, stack, type: causeType } = cause as Record<string, unknown>;
-		if (typeof message !== 'string') {
-			return false;
+		for (const [field, value] of Object.entries(cause)) {
+			if (!CAUSE_FIELDS.has(field) || (value !== undefined && typeof value !== 'string')) {
+				return false;
+			}
 		}
-		if (stack !== undefined && typeof stack !== 'string') {
-			return false;
-		}
-		if (causeType !== undefined && typeof causeType !== 'string') {
+		const { message, stack, type: causeType } = cause as Record<string, string | undefined>;
+		if (message === undefined) {
 			return false;
 		}
 		relayed ||= isRelayed(causeType);
