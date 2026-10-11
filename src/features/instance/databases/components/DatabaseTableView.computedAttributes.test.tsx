@@ -121,6 +121,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	csvRequests.length = 0;
+	vi.restoreAllMocks();
 });
 
 describe('DatabaseTableView on a table with a @computed attribute', { timeout: 30_000 }, () => {
@@ -154,6 +155,5 @@ describe('DatabaseTableView on a table with a @computed attribute', { timeout: 3
 		expect(csvRequests.map((body) => [body.operation, body.get_attributes])).toEqual([
 			['search_by_value', ['id', 'price', 'taxRate', 'totalPrice']],
 		]);
-		click.mockRestore();
 	});
 });
