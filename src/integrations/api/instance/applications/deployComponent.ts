@@ -4,6 +4,7 @@ import { ReplicatedResponse } from '@/integrations/api/replication';
 import { SSEInconclusiveError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { useMutation } from '@tanstack/react-query';
 import { DeployComponentResult, deployComponentStream, DeployStreamEvent } from './deployComponentStream';
+import { explainDeployFailure } from './explainDeployFailure';
 import { DeployRolloutError, followRestartJob } from './restartJob';
 
 /**
@@ -54,7 +55,15 @@ function refusedBeforeRunning({ status }: SSEUnsupportedError): boolean {
 	return status !== undefined && status >= 400 && status < 500;
 }
 
-export async function onDeployComponentSubmit({
+export async function onDeployComponentSubmit(args: DeployComponentArgs): Promise<DeployComponentResult> {
+	try {
+		return await deployComponent(args);
+	} catch (error) {
+		throw explainDeployFailure(error);
+	}
+}
+
+async function deployComponent({
 	request,
 	entityType,
 	entityId,
