@@ -36,6 +36,20 @@ describe(ErrorComponent, () => {
 		expect(screen.queryByText(/Request failed with status code/)).toBeNull();
 	});
 
+	it('should fall back rather than throw for a value whose properties throw when read', async () => {
+		const hostile = new Proxy({}, {
+			get() {
+				throw new Error('getter trap');
+			},
+			has() {
+				throw new Error('has trap');
+			},
+		});
+		await renderError(hostile);
+		expect(screen.getByRole('heading', { name: 'Component Error' })).toBeTruthy();
+		expect(screen.getByText(FALLBACK)).toBeTruthy();
+	});
+
 	it('should read a bare status as well as an axios response', async () => {
 		await renderError({ status: 404, message: 'raw' });
 		expect(screen.getByRole('heading', { name: 'Not Found' })).toBeTruthy();

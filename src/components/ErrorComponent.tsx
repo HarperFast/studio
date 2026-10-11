@@ -74,17 +74,22 @@ function isRenderable(value: unknown): value is ReactNode {
  * including an object whose own `message` is another object. Handing that
  * straight to React throws "Objects are not valid as a React child" *inside the
  * boundary*, turning a handled error into a white screen. Everything that is
- * not verifiably renderable becomes the fallback string.
+ * not verifiably renderable becomes the fallback string, and so does a value
+ * whose properties throw when read, which would white-screen the same way.
  */
 function getErrorMessage(error: unknown): ReactNode {
-	if (error instanceof Error) {
-		return error.message.length > 0 ? error.message : FALLBACK_ERROR_MESSAGE;
+	try {
+		if (error instanceof Error) {
+			return error.message.length > 0 ? error.message : FALLBACK_ERROR_MESSAGE;
+		}
+		if (typeof error === 'object' && error !== null && 'message' in error) {
+			const message = (error as { message: unknown }).message;
+			return isRenderable(message) ? message : FALLBACK_ERROR_MESSAGE;
+		}
+		if (isRenderable(error)) { return error; }
+	} catch {
+		return FALLBACK_ERROR_MESSAGE;
 	}
-	if (typeof error === 'object' && error !== null && 'message' in error) {
-		const message = (error as { message: unknown }).message;
-		return isRenderable(message) ? message : FALLBACK_ERROR_MESSAGE;
-	}
-	if (isRenderable(error)) { return error; }
 	return FALLBACK_ERROR_MESSAGE;
 }
 
