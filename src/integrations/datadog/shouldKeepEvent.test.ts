@@ -324,6 +324,126 @@ describe('shouldKeepEvent', () => {
 		});
 	});
 
+	// Regression tests for #1696, on the stacks RUM recorded for GTM's LinkedIn Insight tag. The guard
+	// frame is `installBrowserTranslationDomGuard`'s `insertBefore`, which `vite.config.ts` builds into
+	// the Datadog chunk; each browser names it differently.
+	describe('vendor tags injected through the DOM guard', () => {
+		const gtm = 'https://www.googletagmanager.com/gtm.js?id=GTM-5QQX432';
+		const guardChunk = 'https://fabric.harper.fast/assets/vendor-datadog-CLUcJXOo.js:3:3191';
+		const lintrk = (guardFrame: string, inlineFrame = '  at <anonymous> @ <anonymous>:1:8') =>
+			errorEvent({
+				type: 'TypeError',
+				source: 'source',
+				message: 'window.lintrk is not a function',
+				stack: [
+					'TypeError: window.lintrk is not a function',
+					inlineFrame,
+					guardFrame,
+					`  at <anonymous> @ ${gtm}:546:207`,
+					`  at WS @ ${gtm}:552:412`,
+					`  at Qd.VS @ ${gtm}:552:96`,
+				].join('\n'),
+			});
+
+		it.each([
+			`  at Node.insertBefore @ ${guardChunk}`,
+			`  at QI.Node.insertBefore @ ${guardChunk}`,
+			`  at <anonymous> @ ${guardChunk}`,
+		])('discards a tag that throws while GTM inserts it (%s)', (guardFrame) => {
+			expect(shouldKeepEvent(lintrk(guardFrame))).toBe(false);
+		});
+
+		// Firefox names the inline script after the page, in a form that carries no parseable URL.
+		it('discards the Firefox shape', () => {
+			expect(
+				shouldKeepEvent(
+					lintrk(
+						`  at QI/Node.prototype.insertBefore @ ${guardChunk}`,
+						'  at <anonymous> @ https://fabric.harper.fast/#/sign-in line 829 > injectedScript:1:8',
+					),
+				),
+			).toBe(false);
+		});
+
+		// The neutral frame is what the build placement buys: in the app entry it is a Studio frame.
+		it('keeps the same stack while the guard is built into the app entry', () => {
+			expect(
+				shouldKeepEvent(
+					lintrk('  at QI.Node.insertBefore @ https://fabric.harper.fast/assets/index-BmfggGwq.js:829:50787'),
+				),
+			).toBe(true);
+		});
+
+		it('keeps a Studio error that passes through the guard', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						type: 'HierarchyRequestError',
+						source: 'source',
+						message: "Failed to execute 'insertBefore' on 'Node': The new child element contains the parent.",
+						stack: [
+							"HierarchyRequestError: Failed to execute 'insertBefore' on 'Node': The new child element contains the parent.",
+							`  at QI.Node.insertBefore @ ${guardChunk}`,
+							'  at Ua @ https://fabric.harper.fast/assets/vendor-react-B2kMp9xQ.js:8:41022',
+							'  at Gs @ https://fabric.harper.fast/assets/vendor-react-B2kMp9xQ.js:8:47135',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'TypeError: Boom',
+							'  at <anonymous> @ <anonymous>:1:8',
+							`  at QI.Node.insertBefore @ ${guardChunk}`,
+							'  at useGTM @ https://fabric.harper.fast/assets/index-BmfggGwq.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('keeps a stack whose only located frame is the guard', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: ['TypeError: Boom', `  at QI.Node.insertBefore @ ${guardChunk}`].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('discards a stack of nothing but GTM frames', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to fetch',
+						stack: [
+							'TypeError: Failed to fetch',
+							`  at <anonymous> @ ${guardChunk}`,
+							`  at wp.sendRequest @ ${gtm}:463:308`,
+							`  at Qu @ ${gtm}:470:87`,
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps a frame on a host that merely starts with the GTM host', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: ['TypeError: Boom', '  at x @ https://www.googletagmanager.com.example.net/gtm.js:1:1'].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+	});
+
 	// Regression tests for #1645. Stacks below are the real ones RUM recorded, truncated.
 	describe('browser extension content scripts', () => {
 		it('discards errors whose stack is nothing but extension frames', () => {
