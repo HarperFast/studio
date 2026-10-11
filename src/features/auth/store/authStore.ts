@@ -82,6 +82,9 @@ class AuthStore {
 	// An entity can be disconnected and reconnected as a different user while a mint is in flight, so
 	// `mode === 'direct'` alone cannot tell one connection's credential from the next one's.
 	private readonly directConnectionGeneration = new Map<EntityIds, number>();
+	// Sign-outs per entity plus a global `'*'` slot. Memory only, unlike the explorer's epoch below: a
+	// storage clear at sign-out would otherwise reset it to a value an in-flight resolution already holds.
+	private readonly signOutGenerations = new Map<EntityIds | '*', number>();
 
 	// Sign-out generations for the API explorer, per entity plus a global `'*'` slot. The explorer keeps
 	// its credential per browser tab (sessionStorage), which SURVIVES a reload — so an event-only signal
@@ -349,6 +352,18 @@ class AuthStore {
 		return value === 'fabric' || value === 'direct' ? value : undefined;
 	}
 
+	/**
+	 * Moves on every sign-out of `id`, and of everything. An auth resolution reads it before its first
+	 * await and commits only if it has not moved, so a result that outlived its session is dropped.
+	 */
+	public getSignOutGeneration(id: EntityIds): number {
+		return (this.signOutGenerations.get(id) ?? 0) + (this.signOutGenerations.get('*') ?? 0);
+	}
+
+	private bumpSignOutGeneration(id: EntityIds | '*'): void {
+		this.signOutGenerations.set(id, (this.signOutGenerations.get(id) ?? 0) + 1);
+	}
+
 	public getConnectionGeneration(id: EntityIds): number {
 		return this.directConnectionGeneration.get(id) ?? 0;
 	}
@@ -488,34 +503,48 @@ class AuthStore {
 		}
 		const promise = this.resolveFabricConnectAuth(id, operationsUrl);
 		this.fabricConnectInFlight.set(id, promise);
-		return promise.finally(() => this.fabricConnectInFlight.delete(id));
+		return promise.finally(() => {
+			// A sign-out empties the map, so a replacement may already be registered under this id.
+			if (this.fabricConnectInFlight.get(id) === promise) {
+				this.fabricConnectInFlight.delete(id);
+			}
+		});
 	}
 
 	private async resolveFabricConnectAuth(
 		id: EntityIds,
 		operationsUrl: string | null | undefined,
 	): Promise<LocalUser> {
+		const signOutGeneration = this.getSignOutGeneration(id);
+		const throwIfSignedOut = () => {
+			if (this.getSignOutGeneration(id) !== signOutGeneration) {
+				throw new SignedOutWhileConnectingError();
+			}
+		};
+		let claimedGeneration: number | undefined;
+		const claim = (auth: { mode: 'direct'; token: string; refreshToken?: string } | { mode: 'proxy' }) => {
+			this.bumpConnectionGeneration(id);
+			claimedGeneration = this.getConnectionGeneration(id);
+			this.fabricConnectAuth.set(id, auth);
+		};
 		try {
 			const { operationToken, refreshToken } = await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
+			throwIfSignedOut();
 
 			// Only attempt a direct Bearer connection when we have a concrete DIRECT operations URL.
 			// Without one, getInstanceClient would fall back to the stored connection key, and if that
 			// (or the passed URL) is a proxy URL we'd send the instance JWT to the central-manager origin.
 			// In that case skip straight to the proxy fallback.
 			if (isDirectOperationsUrl(operationsUrl)) {
-				this.bumpConnectionGeneration(id);
-				this.fabricConnectAuth.set(id, { mode: 'direct', token: operationToken, refreshToken });
+				claim({ mode: 'direct', token: operationToken, refreshToken });
+				let directUser: LocalUser | undefined;
 				try {
 					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we
 					// just minted (basic auth otherwise wins in getInstanceClient).
 					const directClient = getInstanceClient({ id, operationsUrl, forceOperationToken: true });
-					const user = await getInstanceUserInfo({ instanceClient: directClient });
-					this.flagForFabricConnect(id, true);
-					this.setLastConnectMode(id, 'fabric');
-					this.setUserForIdAndKey(id, operationsUrl, user);
-					return user;
+					directUser = await getInstanceUserInfo({ instanceClient: directClient });
 				} catch (directErr) {
 					// Direct connect unreachable — fall back to the proxy. Log only the message: the full
 					// axios error carries the Bearer token in error.config.headers.
@@ -524,21 +553,34 @@ class AuthStore {
 						directErr instanceof Error ? directErr.message : directErr,
 					);
 				}
+				throwIfSignedOut();
+				if (directUser) {
+					this.flagForFabricConnect(id, true);
+					this.setLastConnectMode(id, 'fabric');
+					this.setUserForIdAndKey(id, operationsUrl, directUser);
+					return directUser;
+				}
 			}
 
 			// Proxy fallback: route every operation through the central-manager proxy.
-			this.bumpConnectionGeneration(id);
-			this.fabricConnectAuth.set(id, { mode: 'proxy' });
+			claim({ mode: 'proxy' });
 			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
 			const user = await getInstanceUserInfo({ instanceClient: proxyClient });
+			throwIfSignedOut();
 			this.flagForFabricConnect(id, true);
 			this.setLastConnectMode(id, 'fabric');
 			this.setUserForIdAndKey(id, operationsUrl || proxyClient.defaults.baseURL!, user);
 			return user;
 		} catch (err) {
-			// Couldn't establish either mode — clear the half-resolved state so we retry next time.
-			this.fabricConnectAuth.delete(id);
-			this.bumpConnectionGeneration(id);
+			// Couldn't establish either mode — clear the half-resolved state so we retry next time. Only
+			// this resolution's own: after a sign-out, a newer one for the same id may have claimed it.
+			const ownsState = claimedGeneration === undefined
+				? this.getSignOutGeneration(id) === signOutGeneration
+				: this.getConnectionGeneration(id) === claimedGeneration;
+			if (ownsState) {
+				this.fabricConnectAuth.delete(id);
+				this.bumpConnectionGeneration(id);
+			}
 			throw err;
 		}
 	}
@@ -553,6 +595,8 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
+		// Also reaches resolutions for entities not yet in `potentiallyAuthenticated`, which the loop skips.
+		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
 		const logouts: Array<Promise<void>> = [];
 		for (const entityId of Object.keys(this.potentiallyAuthenticated)) {
@@ -605,6 +649,9 @@ class AuthStore {
 	}
 
 	private clearSignIn(id: EntityIds): void {
+		this.bumpSignOutGeneration(id);
+		// That attempt will now reject; the next connect for this id must not join it.
+		this.fabricConnectInFlight.delete(id);
 		this.updateConnectionIfChanged(id, false, null);
 		this.flagKeyAsSignedOut(id);
 		forgetEntitySettings(id);
@@ -621,6 +668,7 @@ class AuthStore {
 	 * per-instance logouts.
 	 */
 	public signOutAllLocally(): void {
+		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
 		// Snapshot keys first — signOutLocally mutates the flags as it goes.
 		for (const id of Object.keys(this.potentiallyAuthenticated)) {
@@ -730,6 +778,7 @@ class AuthStore {
 
 	private async loadUser(id: EntityIds): Promise<AuthenticatedConnection['user']> {
 		const key = this.potentiallyAuthenticated[id];
+		const signOutGeneration = this.getSignOutGeneration(id);
 		this.updateConnectionIfChanged(id, true, null);
 		let user: AuthenticatedConnection['user'] = null;
 		try {
@@ -747,6 +796,10 @@ class AuthStore {
 			console.error(error);
 			user = null;
 		}
+		if (this.getSignOutGeneration(id) !== signOutGeneration) {
+			// The sign-out already settled this entity's state; this answer belongs to the session it ended.
+			return null;
+		}
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
@@ -754,6 +807,13 @@ class AuthStore {
 		}
 		this.updateConnectionIfChanged(id, false, user);
 		return user;
+	}
+}
+
+class SignedOutWhileConnectingError extends Error {
+	constructor() {
+		super('Signed out before Fabric Connect finished connecting.');
+		this.name = 'SignedOutWhileConnectingError';
 	}
 }
 
