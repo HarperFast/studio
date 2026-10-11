@@ -434,6 +434,36 @@ describe('useRollingConfigUpdate outcome reporting', () => {
 		expect(options?.description).toContain('Only 1 "RUNNING" instance was restarted of 2 instances.');
 		expect(options?.description).not.toContain('may already have the new configuration saved');
 	});
+
+	it('says the RUNNING instances failed to restart, not that none were RUNNING', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockRejectedValue(new Error('did not come back'));
+
+		await save();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain('Only 0 "RUNNING" instances were restarted of 2 instances.');
+		expect(options?.description).not.toContain('No instances were in a "RUNNING" state');
+	});
+});
+
+describe('useRollingConfigUpdate cancellation', () => {
+	it('does not write or restart an instance when Cancel is clicked while it is being checked', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(getInstanceUserInfo).mockImplementation(async ({ instanceClient }) => {
+			events.push(`check ${targetOf(instanceClient)}`);
+			cancel();
+			return {} as never;
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b']);
+		expect(toast.error).toHaveBeenCalledWith(
+			'Cancelled',
+			expect.objectContaining({ description: 'The config update was partially cancelled.' }),
+		);
+	});
 });
 
 describe('useRollingConfigUpdate when the cluster cannot be loaded', () => {

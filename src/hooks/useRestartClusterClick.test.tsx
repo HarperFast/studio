@@ -96,6 +96,34 @@ describe('useRestartClusterClick', () => {
 		expect(getRestartState('clu-1')).toBeUndefined();
 	});
 
+	it('does not restart an instance when Cancel is clicked while it is being checked', async () => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b')] } as Cluster,
+		);
+		vi.mocked(getInstanceUserInfo).mockImplementation(async () => {
+			cancel();
+			return {} as never;
+		});
+
+		await clickRestart();
+
+		expect(restartInstance).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledWith('Cancelled', expect.anything());
+	});
+
+	it('says the RUNNING instances failed to restart, not that none were RUNNING', async () => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b')] } as Cluster,
+		);
+		vi.mocked(restartInstance).mockRejectedValue(new Error('did not come back'));
+
+		await clickRestart();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain('Only 0 "RUNNING" instances were restarted of 2 instances.');
+		expect(options?.description).not.toContain('No instances were in a "RUNNING" state');
+	});
+
 	it('reports a cluster with no instances as a failure, not a success', async () => {
 		vi.mocked(getClusterInfo).mockResolvedValue({ id: 'clu-1', instances: [] } as unknown as Cluster);
 
@@ -136,3 +164,8 @@ describe('useRestartClusterClick', () => {
 		});
 	});
 });
+
+function cancel() {
+	const [, options] = vi.mocked(toast.loading).mock.calls.at(-1)!;
+	(options as unknown as { action: { onClick: () => void } }).action.onClick();
+}
