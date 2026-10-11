@@ -24,14 +24,13 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { detectEntityId } from '@/lib/string/entityId';
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, Navigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 export function OrganizationsIndex() {
-	const queryClient = useQueryClient();
 	const { data: user } = useSuspenseQuery(getCurrentUserQueryOptions());
 	const { mutate: deleteOrg, isPending: isDeletingOrgPending } = useDeleteOrganizationMutation();
 
@@ -141,14 +140,13 @@ export function OrganizationsIndex() {
 								onClick: () => toast.dismiss(),
 							},
 						});
-						void queryClient.invalidateQueries({ queryKey: [] });
 						setIsDeleteOrgModalOpen(false);
 					},
 					onError: () => setIsDeleteOrgModalOpen(false),
 				});
 			}
 		},
-		[deleteOrg, queryClient, setIsDeleteOrgModalOpen],
+		[deleteOrg, setIsDeleteOrgModalOpen],
 	);
 
 	const onDeleteOrgModal = useCallback((orgRole: { organizationId: string; organizationName?: string }) => {
