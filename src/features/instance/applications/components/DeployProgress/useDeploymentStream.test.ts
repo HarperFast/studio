@@ -51,6 +51,22 @@ describe('useDeploymentStream', () => {
 		});
 	});
 
+	it('keeps the warnings a result carries when none streamed, without repeating streamed ones', () => {
+		const { result } = renderHook(() => useDeploymentStream());
+		act(() => {
+			result.current.markStarted();
+			result.current.markSettled('success', undefined, { result: { message: 'ok', warnings: ['drift'] } });
+		});
+		expect(result.current.state.warnings).toEqual(['drift']);
+
+		act(() => {
+			result.current.markStarted();
+			result.current.onEvent({ type: 'warning', data: { message: 'drift' } });
+			result.current.markSettled('success', undefined, { result: { message: 'ok', warnings: ['drift'] } });
+		});
+		expect(result.current.state.warnings).toEqual(['drift']);
+	});
+
 	it('starts each deploy clean', () => {
 		const { result } = renderHook(() => useDeploymentStream());
 		act(() => {

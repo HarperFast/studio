@@ -15,11 +15,13 @@ export interface HarperJob {
 	job_body?: unknown;
 }
 
-export async function getJob({ jobId, instanceClient }: { jobId: string } & InstanceClientConfig) {
+export async function getJob(
+	{ jobId, instanceClient, signal }: { jobId: string; signal?: AbortSignal } & InstanceClientConfig,
+) {
 	const { data } = await instanceClient.post<HarperJob[]>('/', {
 		operation: 'get_job',
 		id: jobId,
-	});
+	}, signal ? { signal } : undefined);
 	return data?.[0];
 }
 

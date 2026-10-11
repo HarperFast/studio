@@ -4,7 +4,7 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.
 vi.mock('sonner', () => ({ toast }));
 
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
-import { deployNotes, reportDeployOutcome } from './reportDeployHealth';
+import { deployNotes, reportDeployOutcome, reportDeployResult } from './reportDeployHealth';
 
 afterEach(() => {
 	vi.clearAllMocks();
@@ -40,6 +40,45 @@ describe('reportDeployOutcome', () => {
 	it('still verifies a deploy whose stream ended without saying', async () => {
 		expect(await reportDeployOutcome('web', undefined, healthy)).toBe(true);
 		expect(healthy).toHaveBeenCalledWith('web');
+	});
+});
+
+describe('reportDeployResult', () => {
+	const success = { title: 'Application web redeployed successfully' };
+	const action = { label: 'View record', onClick: () => {} };
+
+	it("replaces the loading toast with the caller's success, and links the record", () => {
+		reportDeployResult('web', { message: 'ok', rollout: { jobId: 'j', state: 'complete', nodes: [] } }, success, {
+			id: 't1',
+			action,
+		});
+		expect(toast.success).toHaveBeenCalledWith(success.title, { id: 't1', action, description: undefined });
+	});
+
+	it('does not call a legacy rollout that left a node unconfirmed a success', () => {
+		reportDeployResult('web', {
+			message: 'ok',
+			rollout: {
+				jobId: 'j',
+				state: 'complete',
+				nodes: [{ node: 'node-c', outcome: 'unconfirmed', detail: 'connect ECONNREFUSED' }],
+			},
+		}, success);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(toast.warning).toHaveBeenCalledWith('web deployed with warnings', {
+			description: 'The restart was not confirmed on node-c.',
+		});
+	});
+
+	it('does not call a rollout it could not follow a success', () => {
+		reportDeployResult('web', {
+			message: 'ok',
+			rollout: { jobId: 'j', state: 'unfollowable', nodes: [], unfollowable: 'refused' },
+		}, success);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(toast.warning).toHaveBeenCalledWith('web deployed on the node that received it', {
+			description: expect.stringContaining("couldn't read this deploy's restart job"),
+		});
 	});
 });
 
