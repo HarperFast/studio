@@ -1,6 +1,10 @@
 /** @vitest-environment jsdom */
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_UNCONFIRMED_MESSAGE,
+	RESTART_UNCONFIRMED_TITLE,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
 import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { isRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { mutationErrorHandler } from '@/react-query/queryClient';
@@ -24,10 +28,39 @@ vi.mock('sonner', () => ({
 	toast: { loading: vi.fn(() => 'restart-toast'), error: vi.fn(), success: vi.fn(), dismiss: vi.fn() },
 }));
 
+vi.mock('@/lib/sleep', () => ({
+	sleep: vi.fn().mockResolvedValue(true),
+}));
+
 function restartAnswering(failure: (config: InternalAxiosRequestConfig) => AxiosError) {
 	const post = vi.fn((_url: string, data: unknown) => Promise.reject(failure({ method: 'post', data } as never)));
 	return { post } as unknown as AxiosInstance;
 }
+
+function probeTimeout(config: InternalAxiosRequestConfig) {
+	return new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED, config);
+}
+
+/**
+ * Harper accepts the restart (bin/restart.ts answers before it tears down), then each `user_info`
+ * probe gets what `userInfo` returns for its 1-based attempt number.
+ */
+function restartAccepted(userInfo: (attempt: number, config: InternalAxiosRequestConfig) => Promise<unknown>) {
+	let attempts = 0;
+	const post = vi.fn((_url: string, data: { operation: string }) => {
+		if (data.operation === 'restart') {
+			return Promise.resolve({ data: { message: 'Restarting Harper. This may take up to 60 seconds.' } });
+		}
+		attempts += 1;
+		return userInfo(attempts, { method: 'post', data } as InternalAxiosRequestConfig).then((answer) => ({
+			data: answer,
+		}));
+	});
+	const count = (operation: string) => post.mock.calls.filter(([, data]) => data.operation === operation).length;
+	return { post, restarts: () => count('restart'), probes: () => count('user_info') };
+}
+
+const neverAnswers = (_attempt: number, config: InternalAxiosRequestConfig) => Promise.reject(probeTimeout(config));
 
 function render(instanceClient: AxiosInstance) {
 	const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
@@ -104,5 +137,76 @@ describe('useRestartInstanceClick', () => {
 		expect(errorTitles().map(([title]) => title)).not.toContain(OUTCOME_UNKNOWN_TITLE);
 		expect(isRestarting('ins-1')).toBe(false);
 		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
+	});
+
+	describe('a restart Harper accepted', () => {
+		it('says it is not back yet, never that it failed, when the target does not answer again', async () => {
+			const client = restartAccepted(neverAnswers);
+			const result = render(client as unknown as AxiosInstance);
+
+			await act(() => result.current.onRestartClick());
+
+			expect(errorTitles()).toEqual([[RESTART_UNCONFIRMED_TITLE, RESTART_UNCONFIRMED_MESSAGE]]);
+			expect(toast.success).not.toHaveBeenCalled();
+			expect(client.restarts()).toBe(1);
+			expect(client.probes()).toBe(24);
+			// Held until the watch gave up, then released: the errors that follow are real.
+			expect(isRestarting('ins-1')).toBe(false);
+		});
+
+		it('keeps the target marked and the button pending while it is slow to come back', async () => {
+			let answer: (() => void) | undefined;
+			const client = restartAccepted((attempt, config) =>
+				attempt <= 12
+					? neverAnswers(attempt, config)
+					: new Promise((resolve) => {
+						answer = () => resolve({ username: 'admin' });
+					})
+			);
+			const result = render(client as unknown as AxiosInstance);
+
+			let click: Promise<void> | undefined;
+			act(() => {
+				click = result.current.onRestartClick() as unknown as Promise<void>;
+			});
+			await vi.waitFor(() => expect(answer).toBeDefined());
+
+			expect(isRestarting('ins-1')).toBe(true);
+			expect(result.current.isRestartPending).toBe(true);
+			expect(toast.loading).toHaveBeenLastCalledWith('Still restarting', {
+				id: 'restart-toast',
+				description:
+					"Harper accepted the restart, but the instance hasn't answered yet. Still waiting for it to come back.",
+			});
+			expect(toast.error).not.toHaveBeenCalled();
+
+			await act(async () => {
+				answer!();
+				await click;
+			});
+
+			expect(isRestarting('ins-1')).toBe(false);
+			expect(toast.error).not.toHaveBeenCalled();
+			expect(toast.success).toHaveBeenCalledWith(
+				'Success',
+				expect.objectContaining({ description: 'Instance restarted!' }),
+			);
+			expect(client.restarts()).toBe(1);
+		});
+
+		it('says it restarted, with no slow-return notice, when the target answers right away', async () => {
+			const client = restartAccepted(() => Promise.resolve({ username: 'admin' }));
+			const result = render(client as unknown as AxiosInstance);
+
+			await act(() => result.current.onRestartClick());
+
+			expect(toast.error).not.toHaveBeenCalled();
+			expect(toast.loading).not.toHaveBeenCalledWith('Still restarting', expect.anything());
+			expect(toast.success).toHaveBeenCalledWith(
+				'Success',
+				expect.objectContaining({ description: 'Instance restarted!' }),
+			);
+			expect(isRestarting('ins-1')).toBe(false);
+		});
 	});
 });

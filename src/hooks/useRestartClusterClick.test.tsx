@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import type { Cluster, Instance } from '@/integrations/api/api.patch';
+import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { getRestartState, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { act, renderHook } from '@testing-library/react';
@@ -20,6 +21,7 @@ vi.mock('@/features/auth/store/authStore', () => ({
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({ getClusterInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/restartInstance', () => ({
+	RESTART_MARK_TTL_MS: 600_000,
 	restartInstance: vi.fn(),
 	waitUntilAnsweringAfterRestart: vi.fn(),
 }));
@@ -215,15 +217,40 @@ function answeredWith(status: number) {
 	});
 }
 
-function restartsEndingIn(outcomes: Record<string, Error>) {
-	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+function refused() {
+	return answeredWith(403);
+}
+
+function notBackYet() {
+	return new RestartUnconfirmedError(new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED));
+}
+
+/**
+ * Each member's restart outcome, keyed by instance id: an error it rejects with, or a promise it is slow
+ * to come back until. A member not listed restarts and comes back. `restarted` records the order.
+ */
+function restartsEndingIn(outcomes: Record<string, Error | Promise<void>>) {
+	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
 		const target = targetOf(instanceClient);
 		restarted.push(target);
-		if (outcomes[target]) {
-			throw outcomes[target];
+		const outcome = outcomes[target];
+		if (outcome instanceof RestartUnconfirmedError) {
+			onSlowToReturn?.();
+		}
+		if (outcome instanceof Error) {
+			throw outcome;
+		}
+		if (outcome) {
+			onSlowToReturn?.();
+			await outcome;
 		}
 		return { message: 'Restarting Harper. This may take up to 60 seconds.' };
 	});
+}
+
+function finalError() {
+	const [title, options] = vi.mocked(toast.error).mock.calls.at(-1) ?? [];
+	return { title, description: (options as { description?: string } | undefined)?.description };
 }
 
 describe('useRestartClusterClick, for a member whose restart got no answer', () => {
@@ -268,5 +295,83 @@ describe('useRestartClusterClick, for a member whose restart got no answer', () 
 		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
 		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
 		expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe('Error');
+	});
+});
+
+describe('useRestartClusterClick, for a member that accepted the restart but has not answered since', () => {
+	beforeEach(() => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b'), instance('ins-c')] } as Cluster,
+		);
+	});
+
+	it('stops there rather than restart another member, and never says the cluster failed', async () => {
+		// Last member first: ins-c restarts, ins-b accepts and never comes back, ins-a is left alone.
+		restartsEndingIn({ 'ins-b': notBackYet() });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(toast.loading).toHaveBeenCalledWith(
+			'Waiting On Instance 2 of 3',
+			expect.objectContaining({ description: "It accepted the restart but hasn't answered yet." }),
+		);
+		expect(finalError()).toEqual({
+			title: 'Not back yet',
+			description: 'Only 1 "RUNNING" instance was confirmed restarted of 3 instances. '
+				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ '1 other instance was not restarted, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(getRestartState('ins-b')).toBeUndefined();
+		expect(getRestartState('clu-1')).toBeUndefined();
+	});
+
+	it('names no members left alone when the last one is the one not back', async () => {
+		restartsEndingIn({ 'ins-a': notBackYet() });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
+		expect(finalError().description).toBe(
+			'Only 2 "RUNNING" instances were confirmed restarted of 3 instances. '
+				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ 'Check its status before you restart it again.',
+		);
+	});
+
+	it('goes on to the next member once a slow one answers, holding it down until then', async () => {
+		let answer: (() => void) | undefined;
+		restartsEndingIn({ 'ins-b': new Promise<void>((resolve) => (answer = resolve)) });
+		const { result } = renderHook(() => useRestartClusterClick());
+
+		let click: Promise<void> | undefined;
+		act(() => {
+			click = result.current.onRestartClick() as unknown as Promise<void>;
+		});
+		await vi.waitFor(() => expect(restarted).toEqual(['ins-c', 'ins-b']));
+
+		expect(getRestartState('ins-b')?.reach).toBe('down');
+
+		await act(async () => {
+			answer!();
+			await click;
+		});
+
+		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
+		expect(toast.success).toHaveBeenCalledWith('Success', expect.objectContaining({ id: 'toast-1' }));
+		expect(getRestartState('ins-b')).toBeUndefined();
+	});
+
+	it('still carries on past a member that refused, and says it failed', async () => {
+		restartsEndingIn({ 'ins-b': refused() });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
+		expect(toast.loading).toHaveBeenCalledWith('Failed Restarting Instance 2 of 3', expect.anything());
+		expect(finalError().title).toBe('Error');
+		expect(finalError().description).toContain('Only 2 "RUNNING" instances were restarted');
 	});
 });

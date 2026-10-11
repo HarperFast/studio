@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import type { Cluster, Instance } from '@/integrations/api/api.patch';
+import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
@@ -509,3 +510,104 @@ function cancel() {
 	const [, options] = vi.mocked(toast.loading).mock.calls.at(-1)!;
 	(options as unknown as { action: { onClick: () => void } }).action.onClick();
 }
+
+/**
+ * Restarts record `restart <target>` as usual; the targets listed accept the restart but are never
+ * confirmed back, after saying once that they are slow.
+ */
+function notBackAfterRestart(...targets: string[]) {
+	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+		events.push(`restart ${targetOf(instanceClient)}`);
+		if (targets.includes(targetOf(instanceClient))) {
+			onSlowToReturn?.();
+			throw new RestartUnconfirmedError(new AxiosError('Network Error', AxiosError.ERR_NETWORK));
+		}
+		return { message: 'Restarting http' };
+	});
+}
+
+function finalError() {
+	const [title, options] = vi.mocked(toast.error).mock.calls.at(-1) ?? [];
+	return { title, description: (options as { description?: string } | undefined)?.description };
+}
+
+describe('useRollingConfigUpdate, for a member that accepted the restart but has not answered since', () => {
+	it('stops there rather than update another member, and never says the update failed', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		notBackAfterRestart('ins-b');
+
+		await save();
+
+		// Last member first: ins-b took the config and never came back, so ins-a was not touched.
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
+		expect(toast.loading).toHaveBeenCalledWith(
+			'Waiting On Instance 1 of 2',
+			expect.objectContaining({ description: "It accepted the restart but hasn't answered yet." }),
+		);
+		expect(finalError()).toEqual({
+			title: 'Not back yet',
+			description: 'Only 0 "RUNNING" instances were confirmed updated of 2 instances. '
+				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ '1 other instance was not updated, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('still carries on past a member that refused the update, and says it failed', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient }) => {
+			events.push(`write ${targetOf(instanceClient)}`);
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new Error('Invalid configuration');
+			}
+			return { message: 'ok' };
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'check ins-a', 'write ins-a', 'restart ins-a']);
+		expect(finalError().title).toBe('Error');
+		expect(finalError().description).toContain('Failed to fully update cluster.');
+	});
+
+	it('never fans the configuration out from a canary that is not back', async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		notBackAfterRestart('ins-c');
+
+		await save();
+
+		expect(events).toEqual(['check ins-c', 'write ins-c', 'restart ins-c']);
+		expect(finalError().title).toBe('Not back yet');
+		expect(finalError().description).not.toContain('may already have the new configuration saved');
+	});
+
+	it('stops at a later member that is not back, and says the members it left may have the new configuration', async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			return changes.replicated ? acknowledging('ins-a-repl.example.com', 'ins-b-repl.example.com') : { message: 'ok' };
+		});
+		notBackAfterRestart('ins-b');
+
+		await save();
+
+		expect(events).toEqual([
+			'check ins-c',
+			'write ins-c',
+			'restart ins-c',
+			'replicate ins-c',
+			'check ins-b',
+			'restart ins-b',
+		]);
+		expect(finalError()).toEqual({
+			title: 'Not back yet',
+			description: 'Only 1 "RUNNING" instance was confirmed updated of 3 instances. '
+				+ "1 instance accepted the restart but hasn't answered since, so it may still be starting. "
+				+ '1 other instance was not updated, to keep the cluster available. '
+				+ 'Check its status before you restart it again.\n'
+				+ 'Instances that were not restarted may already have the new configuration saved, and will apply it '
+				+ 'the next time they restart.',
+		});
+	});
+});

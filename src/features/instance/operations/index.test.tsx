@@ -42,6 +42,7 @@ vi.mock('@/lib/restart/restartTracker', async (importOriginal) => ({
 	markRestarting,
 }));
 vi.mock('@/integrations/api/instance/status/restartInstance', () => ({
+	RESTART_MARK_TTL_MS: 600_000,
 	waitUntilAnsweringAfterRestart: () => restartSettles.promise,
 }));
 vi.mock('@tanstack/react-router', () => ({

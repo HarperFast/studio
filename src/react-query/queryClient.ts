@@ -1,3 +1,8 @@
+import {
+	RESTART_UNCONFIRMED_MESSAGE,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
 import { isUnansweredWrite, OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { errorText } from '@/lib/errorText';
 import { isRestartNoise } from '@/lib/restart/restartGate';
@@ -19,10 +24,18 @@ import { toast } from 'sonner';
  *
  * A write that got no verdict ({@link isUnansweredWrite}) gets our own copy instead, chosen by status
  * and never by body: a gateway's body describes the gateway, and "failed" is exactly what it can't claim.
+ * So does a restart Harper accepted whose target has not answered since ({@link RestartUnconfirmedError}).
  */
 export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
 	if (isUnansweredWrite(rawErr)) {
 		return { title: OUTCOME_UNKNOWN_TITLE, description: UNANSWERED_WRITE_MESSAGE, message: UNANSWERED_WRITE_MESSAGE };
+	}
+	if (rawErr instanceof RestartUnconfirmedError) {
+		return {
+			title: RESTART_UNCONFIRMED_TITLE,
+			description: RESTART_UNCONFIRMED_MESSAGE,
+			message: RESTART_UNCONFIRMED_MESSAGE,
+		};
 	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
@@ -71,11 +84,11 @@ export function describeError(rawErr: unknown): { title: string; description: st
 
 /**
  * For a mutation's caller that toasts its own failure on top of the global toast: whether it should.
- * Not for an unanswered write, whose global toast already says the outcome is unknown — a second one
- * saying "failed" would contradict it and invite the retry it warns against.
+ * Not for an unanswered write or an unconfirmed restart, whose global toast already says what is known —
+ * a second one saying "failed" would contradict it and invite the retry it warns against.
  */
 export function shouldToastOwnFailure(rawErr: unknown): boolean {
-	return !isUnansweredWrite(rawErr);
+	return !isUnansweredWrite(rawErr) && !(rawErr instanceof RestartUnconfirmedError);
 }
 
 export function errorHandler(rawErr: unknown) {

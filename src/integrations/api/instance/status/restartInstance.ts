@@ -1,17 +1,43 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
+import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { axiosRetry } from '@/lib/axiosRetry';
 import { sleep } from '@/lib/sleep';
 import { useMutation } from '@tanstack/react-query';
 
+const SETTLE_MS = 10_000;
+const PROBE_TIMEOUT_MS = 3_000;
+const PROBE_INTERVAL_MS = 15_000;
+const PROBES = 24;
+/** After this many unanswered probes the target is slow to return, and still watched. */
+const SLOW_AFTER_PROBES = 12;
+const RESTART_REQUEST_TIMEOUT_MS = 60_000;
+
+const LONGEST_RESTART_MS = RESTART_REQUEST_TIMEOUT_MS + SETTLE_MS + PROBES * PROBE_TIMEOUT_MS
+	+ (PROBES - 1) * PROBE_INTERVAL_MS;
+
+/**
+ * For marking a restart's target: longer than the longest restart, so the mark lapses only if its
+ * owner never releases it, never while the watch below still expects the target back.
+ */
+export const RESTART_MARK_TTL_MS = LONGEST_RESTART_MS + 60_000;
+
 interface RestartInstanceParams {
 	operation: 'restart_service' | 'restart';
 	replicated: boolean;
+	/** Called once the target has stayed unanswered past the usual recovery time; the watch goes on. */
+	onSlowToReturn?: () => void;
 }
 
+/**
+ * Rejects with the restart request's own error when Harper refused it or never answered it, and with
+ * {@link RestartUnconfirmedError} when Harper accepted it but the target never answered again. A 2xx is
+ * the only verdict Harper gives: `restart` answers before it tears down, `restart_service` once its job
+ * has started.
+ */
 export async function restartInstance(
-	{ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig,
+	{ operation, replicated, instanceClient, onSlowToReturn }: RestartInstanceParams & InstanceClientConfig,
 ): Promise<ReplicatedResponse> {
 	// Both calls skip the restart gate: the caller may already have marked this instance as
 	// restarting, and these are the requests driving and watching that restart.
@@ -19,19 +45,30 @@ export async function restartInstance(
 		operation,
 		service: operation === 'restart_service' ? 'http' : undefined,
 		replicated,
-	}, { skipRestartGate: true });
-	await waitUntilAnsweringAfterRestart({ instanceClient });
+	}, { skipRestartGate: true, timeout: RESTART_REQUEST_TIMEOUT_MS });
+	try {
+		await waitUntilAnsweringAfterRestart({ instanceClient, onSlowToReturn });
+	} catch (cause) {
+		throw new RestartUnconfirmedError(cause);
+	}
 	return data;
 }
 
-/** Resolves once a just-restarted target answers again; rejects if it never does within ~3 minutes. */
-export async function waitUntilAnsweringAfterRestart({ instanceClient }: InstanceClientConfig): Promise<void> {
-	await sleep(10_000);
-	await axiosRetry(
-		() => getInstanceUserInfo({ instanceClient, timeout: 3_000, skipRestartGate: true }),
-		12,
-		15_000,
-	);
+/** Resolves once a just-restarted target answers again; rejects with the last probe's error if it never does. */
+export async function waitUntilAnsweringAfterRestart(
+	{ instanceClient, onSlowToReturn }: InstanceClientConfig & Pick<RestartInstanceParams, 'onSlowToReturn'>,
+): Promise<void> {
+	// Not replayed on a gateway error: these probes are the retry, and a replay would outlast the mark.
+	const probe = () =>
+		getInstanceUserInfo({ instanceClient, timeout: PROBE_TIMEOUT_MS, skipRestartGate: true, skipGatewayRetry: true });
+	await sleep(SETTLE_MS);
+	try {
+		await axiosRetry(probe, SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);
+	} catch {
+		onSlowToReturn?.();
+		await sleep(PROBE_INTERVAL_MS);
+		await axiosRetry(probe, PROBES - SLOW_AFTER_PROBES, PROBE_INTERVAL_MS);
+	}
 }
 
 export function useRestartInstance() {
