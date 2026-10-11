@@ -64,7 +64,8 @@ Central manager only ever sends the boolean, never the other organizations' ids;
 - **Routing**: TanStack Router, file-based, lazy-loaded. Build a link to another org/cluster/instance
   with `buildAbsoluteLinkToPage`. A relative `../…` is only safe from a component that unmounts with
   its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
-  navigation re-resolves its href one level too deep (HarperFast/studio#1710).
+  navigation re-resolves its href one level too deep (HarperFast/studio#1710, #1711).
+  `EntityMenuItem.to` accepts only the helper's `AbsolutePath`, so a relative menu target fails `tsc`.
 - **Remembered instance/cluster sign-ins are checked on demand**: `Studio:PotentiallyAuthenticated` spans every
   organization ever visited, so the root auth subscription checks only the app sign-in; an entity is checked by
   `useInstanceAuth`/`listenToEntity` or the instance-layout guard (`entityAuthCheckScope.test.ts`, HarperFast/studio#1329).
