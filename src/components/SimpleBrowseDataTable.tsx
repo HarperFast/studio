@@ -13,7 +13,7 @@ interface BrowseDataTableProps<TData extends RowData> {
 	data: TData[];
 	isFetching?: boolean;
 	onRowClick?: (row: Row<TData>) => void;
-	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
+	onColumnClick?: (accessorKey: string, isAscending: boolean) => void;
 	sortingState?: SortingState;
 	children?: React.ReactNode;
 }

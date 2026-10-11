@@ -93,7 +93,7 @@ interface BrowseDataTableProps<TData extends RowData> {
 	/** Shown instead of the rows once a result set has arrived empty. See `EmptyResultSet`. */
 	emptyState?: ReactNode;
 	isFetching?: boolean;
-	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
+	onColumnClick?: (accessorKey: string, isAscending: boolean) => void;
 	filtersToggled: boolean;
 	onRowClick?: (row: Row<TData>) => void;
 	pageIndex: number;

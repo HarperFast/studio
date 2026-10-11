@@ -82,8 +82,9 @@ export function TableHeadSortable<TData extends RowData>({
 	onColumnClick?: (accessorKey: string, willSortByAscending: boolean) => void;
 }) {
 	const onClickSort = useCallback(() => {
-		header.column.toggleSorting(header.column.getIsSorted() === 'asc');
-		const willSortByAscending = header.column.getIsSorted() === false || header.column.getIsSorted() !== 'asc';
+		// Read before toggling: v9's table store applies the toggle synchronously.
+		const willSortByAscending = header.column.getIsSorted() !== 'asc';
+		header.column.toggleSorting(!willSortByAscending);
 		// @ts-expect-error The accessorKey isn't accessible.
 		onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 	}, [header, onColumnClick]);

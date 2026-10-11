@@ -354,13 +354,13 @@ export function DatabaseTableView({
 	// would read that "no data" as rows still in flight (#1748). True until the schema arrives without
 	// one, so the spinner still covers the schema load.
 	const hasPrimaryKey = !instanceTable || !!primaryKey;
-	const [sort, setSort] = useEffectedState(
-		{
-			attribute: primaryKey,
-			descending: false,
-		},
+	// Null until the user picks a column, so the default follows the primary key, which on a fresh
+	// load only arrives after mount.
+	const [chosenSort, setSort] = useEffectedState<{ attribute: string; descending: boolean } | null>(
+		null,
 		allParams,
 	);
+	const sort = useMemo(() => chosenSort ?? { attribute: primaryKey, descending: false }, [chosenSort, primaryKey]);
 
 	// Reset to the first page when the table changes OR the applied filter changes. Without the
 	// filter dependency a stale page (e.g. page 3 -> offset 40) would be sent with the new filter,
