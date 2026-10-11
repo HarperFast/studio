@@ -99,7 +99,11 @@ export function getEditableDatabaseNames(instanceDatabaseMap: InstanceDatabaseMa
 
 export function getTablePrimaryKey(table: InstanceTable): string | undefined {
 	return table.primary_key ?? table.hash_attribute
-		?? table.attributes.find((attribute) => attribute.is_primary_key)?.attribute;
+		?? table.attributes?.find((attribute) => attribute.is_primary_key)?.attribute;
+}
+
+export function getTableAttributeNames(table: InstanceTable): string[] {
+	return (table.attributes ?? []).map((attribute) => attribute.attribute);
 }
 
 /** Keys of the document that name databases rather than role flags or the allowlist. */
@@ -189,6 +193,12 @@ function getTableEntryBlockers(entry: unknown, label: string): string[] {
 	}
 	const attributePermissions = ownValue(entry, 'attribute_permissions');
 	if (attributePermissions === null) {
+		return blockers;
+	}
+	if (attributePermissions === undefined) {
+		blockers.push(
+			`"${label}" needs an "attribute_permissions" list ([] applies the table's access to every attribute).`,
+		);
 		return blockers;
 	}
 	if (!Array.isArray(attributePermissions)) {
@@ -295,7 +305,7 @@ export function getPreservedEntries(
 			if (!Array.isArray(attributePermissions)) {
 				continue;
 			}
-			const schemaAttributes = new Set(schemaTable.attributes.map((attribute) => attribute.attribute));
+			const schemaAttributes = new Set(getTableAttributeNames(schemaTable));
 			for (const attributeEntry of attributePermissions) {
 				if (!isPlainRecord(attributeEntry)) {
 					continue;
@@ -528,10 +538,11 @@ export function getAttributeViews(
 			update: !timestamp && attribute?.update === true,
 		};
 	};
+	// Every listed attribute counts, including ones describe_all does not show (`@computed`, or
+	// relationships on 5.x): Harper only stores an entry for an attribute its schema has.
 	const derivedPrimaryKey = { read: false, insert: false, update: false };
-	for (const name of attributeNames) {
-		const attribute = listed.get(name);
-		if (name !== primaryKey && attribute) {
+	for (const [name, attribute] of listed) {
+		if (name !== primaryKey) {
 			const access = effective(name, attribute);
 			for (const action of ATTRIBUTE_ACTIONS) {
 				derivedPrimaryKey[action] ||= access[action];

@@ -93,6 +93,8 @@ export function ConfigRolesIndex() {
 			{isAddModalOpen && <AddRoleModal onChangesSaved={onRoleAdded} closeModal={closeAddModal} />}
 			{isEditModalOpen && (
 				<EditRoleModal
+					// Its draft is seeded once, so another role must get a fresh instance rather than reuse it.
+					key={selectedRole.id}
 					instanceId={instanceId}
 					clusterId={clusterId}
 					isModalOpen={isEditModalOpen}

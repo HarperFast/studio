@@ -38,9 +38,16 @@ beside `super_user` / `cluster_user`, which is everything, `structure_user` incl
 type in the GUI keeps everything else in the draft until then, so switching back within a session
 loses nothing.
 
+The draft is seeded once per modal instance. The roles list polls, so a refetch must never replace
+an open draft. Selecting another role must therefore mount a new modal, which is why `index.tsx`
+keys the modal on the role id. `alter_role` replaces the whole permission with no revision check,
+so the modal compares the role's `__updatedtime__` with the one it loaded. A newer one blocks Save
+until the author loads that version or chooses to keep their own.
+
 A visual edit keeps the object it produced instead of re-parsing its own text. That keeps object
 identity for every untouched database and table, so the memoized `DatabaseSection` / `TableRows`
-re-render only what changed, which matters on a schema with hundreds of tables.
+re-render only what changed, which matters on a schema with hundreds of tables. For the same reason
+only one database section opens by default, because an open section mounts its whole table grid.
 
 The Harper semantics the editor shows are written down where they are encoded. The effective
 attribute access, including the derived primary key and timestamps being read-only, is in

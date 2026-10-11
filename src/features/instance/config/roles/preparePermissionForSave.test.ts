@@ -102,6 +102,8 @@ describe('preparePermissionForSave', () => {
 		expect(preparePermissionForSave({ cluster_user: true, structure_user: ['data'], ...tablePerms })).toEqual({
 			cluster_user: true,
 		});
+		// The shape the editor's role-type switch leaves behind: the other flag written as false.
+		expect(preparePermissionForSave({ super_user: false, cluster_user: true })).toEqual({ cluster_user: true });
 	});
 
 	it('keeps the allowlist for a structure_user role, which Harper does accept and enforce', () => {
