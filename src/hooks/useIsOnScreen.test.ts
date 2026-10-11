@@ -19,7 +19,8 @@ describe('useIsOnScreen', () => {
 
 	it('is false until the observer reports the element, then follows it in and out of view', () => {
 		vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-		const { result } = renderHook(() => useIsOnScreen(document.createElement('div')));
+		const element = document.createElement('div');
+		const { result } = renderHook(() => useIsOnScreen(element));
 		expect(result.current).toBe(false);
 
 		act(() => FakeIntersectionObserver.setIntersecting(true));
@@ -39,6 +40,21 @@ describe('useIsOnScreen', () => {
 
 		unmount();
 		expect(observer.targets.size).toBe(0);
+	});
+
+	it("does not carry a removed element's visibility over to its replacement", () => {
+		vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+		const { result, rerender } = renderHook(({ element }) => useIsOnScreen(element), {
+			initialProps: { element: document.createElement('div') as Element | null },
+		});
+		act(() => FakeIntersectionObserver.setIntersecting(true));
+		expect(result.current).toBe(true);
+
+		rerender({ element: null });
+		expect(result.current).toBe(false);
+
+		rerender({ element: document.createElement('div') });
+		expect(result.current).toBe(false);
 	});
 
 	it('waits for an element before observing anything', () => {
