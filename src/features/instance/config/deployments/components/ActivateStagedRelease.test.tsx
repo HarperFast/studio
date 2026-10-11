@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 	reportDeployOutcome: vi.fn(),
 	reportDeployFailure: vi.fn(),
 	warning: vi.fn(),
+	useDeployComponentMutation: vi.fn(),
 }));
 vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ entityId: 'clu-a', entityType: 'cluster', instanceClient: {} }),
@@ -33,7 +34,10 @@ vi.mock('@/features/instance/applications/modals/reportDeployHealth', () => ({
 	reportDeployFailure: state.reportDeployFailure,
 }));
 vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
-	useDeployComponentMutation: () => ({ mutateAsync: state.mutateAsync }),
+	useDeployComponentMutation: (...args: unknown[]) => {
+		state.useDeployComponentMutation(...args);
+		return { mutateAsync: state.mutateAsync };
+	},
 }));
 vi.mock('sonner', () => ({ toast: { warning: state.warning } }));
 
@@ -113,6 +117,23 @@ describe('ActivateStagedRelease', () => {
 		confirm();
 		await vi.waitFor(() => expect(state.warning).toHaveBeenCalledWith('web may not be activated', expect.anything()));
 		expect(state.reportDeployFailure).not.toHaveBeenCalled();
+	});
+
+	it('reports every failure itself, instead of also through the global toast, and still to Datadog', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const failure = new Error('No deployment found with id a1b2c3d4');
+		state.mutateAsync.mockRejectedValue(failure);
+		renderButton();
+		expect(state.useDeployComponentMutation).toHaveBeenCalledWith(
+			activationMutationKey('clu-a', staged.deployment_id),
+			{ skipGlobalErrorToast: true },
+		);
+		confirm();
+		await vi.waitFor(() =>
+			expect(state.reportDeployFailure).toHaveBeenCalledWith('web', failure, 'activate', { action: undefined })
+		);
+		expect(consoleError).toHaveBeenCalledWith(failure);
+		consoleError.mockRestore();
 	});
 
 	it('offers nothing where staging is not known to exist', () => {

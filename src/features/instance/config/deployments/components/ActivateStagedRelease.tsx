@@ -49,7 +49,8 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 		instanceParams.entityId,
 		deploymentId,
 	]);
-	const { mutateAsync } = useDeployComponentMutation(mutationKey);
+	// Every outcome is reported below, so the global toast would only contradict an unknown one.
+	const { mutateAsync } = useDeployComponentMutation(mutationKey, { skipGlobalErrorToast: true });
 	const isPending = useIsMutating({ mutationKey }) > 0;
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
@@ -74,6 +75,8 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
 		} catch (error) {
+			// What the skipped global handler would have done for Datadog; RUM reports `console.error` (AGENTS.md).
+			console.error(error);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			if (error instanceof SSEInconclusiveError) {
 				stream.markSettled('inconclusive');
