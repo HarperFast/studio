@@ -7,13 +7,14 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { activeClusterStatuses, isDeletedClusterStatus } from '@/config/clusterStatuses';
 import { isLocalStudio } from '@/config/constants';
 import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useClusterInstanceSignIn } from '@/features/auth/hooks/useClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
+import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
@@ -39,6 +40,7 @@ export function ClusterInstanceSignIn() {
 		[cluster, instanceId],
 	);
 	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
+	const isTerminated = isDeletedClusterStatus(cluster?.status);
 
 	const properNoun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
 	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';
@@ -82,9 +84,10 @@ export function ClusterInstanceSignIn() {
 		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
 		[operationsUrl],
 	);
-	const { data: healthy } = useQuery(
-		getInstanceHealthQueryOptions(instanceParams),
-	);
+	const { data: healthy } = useQuery({
+		...getInstanceHealthQueryOptions(instanceParams),
+		enabled: !isTerminated,
+	});
 
 	const methods = useForm({
 		resolver: zodResolver(UsernameSignInSchema),
@@ -100,6 +103,14 @@ export function ClusterInstanceSignIn() {
 		instance,
 		instanceParams,
 	});
+
+	if (cluster && isTerminated) {
+		return (
+			<div className="flex flex-col items-center mt-24">
+				<ClusterTerminated cluster={cluster} />
+			</div>
+		);
+	}
 
 	if (!instanceId && cluster && !cluster?.fqdn) {
 		return <Navigate to="../instances" replace={true} />;

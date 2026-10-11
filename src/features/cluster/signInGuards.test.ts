@@ -48,6 +48,17 @@ describe('redirectAwayFromSignInIfConnected (cluster)', () => {
 		expect(() => redirectAwayFromSignInIfConnected({ params: { clusterId: CLUSTER_ID } })).not.toThrow();
 	});
 
+	it('stays on the sign-in page of a terminated cluster even with a leftover direct connection', () => {
+		setConnectedUser(CLUSTER_ID);
+		expect(() =>
+			redirectAwayFromSignInIfConnected({
+				context: { cluster: { status: 'TERMINATED' } },
+				params: { clusterId: CLUSTER_ID },
+				location: { search: { redirect: '/some/path' } },
+			})
+		).not.toThrow();
+	});
+
 	it('honors an absolute redirect target', () => {
 		setConnectedUser(CLUSTER_ID);
 		try {
@@ -90,6 +101,16 @@ describe('redirectAwayFromInstanceSignInIfConnected (instance)', () => {
 		expect(() =>
 			redirectAwayFromInstanceSignInIfConnected({ params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID } })
 		).toThrow();
+	});
+
+	it('stays on the sign-in page of an instance whose cluster was terminated, even when connected', () => {
+		setConnectedUser(INSTANCE_ID);
+		expect(() =>
+			redirectAwayFromInstanceSignInIfConnected({
+				context: { cluster: { status: 'TERMINATED' } },
+				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
+			})
+		).not.toThrow();
 	});
 
 	it('honors an absolute redirect target', () => {

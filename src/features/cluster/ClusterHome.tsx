@@ -1,11 +1,12 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
-import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
+import { activeClusterStatuses, deletedClusterStatuses, isDeletedClusterStatus } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
+import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
 import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -100,6 +101,13 @@ export function ClusterHome() {
 	}
 	if (!view) {
 		return <Navigate to={`/${cluster.organizationId}`} replace />;
+	}
+	if (isDeletedClusterStatus(cluster.status)) {
+		return (
+			<ClusterHomeShell>
+				<ClusterTerminated cluster={cluster} />
+			</ClusterHomeShell>
+		);
 	}
 	if (clusterIsSelfManaged(cluster)) {
 		return <SelfHostedClusterHome cluster={cluster} />;
