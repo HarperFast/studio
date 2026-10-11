@@ -1,4 +1,5 @@
 import { apiClient } from '@/config/apiClient';
+import { watchChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
@@ -33,6 +34,7 @@ export function useSetDomainIdsOnCluster() {
 			const { queryKey } = getClusterInfoQueryOptions(clusterId);
 			queryClient.setQueryData(queryKey, (cluster) => cluster && { ...cluster, domainIds });
 			void queryClient.invalidateQueries({ queryKey, exact: true });
+			void watchChallengeCertificates(queryClient, clusterId);
 		},
 	});
 	const { mutate } = mutation;
