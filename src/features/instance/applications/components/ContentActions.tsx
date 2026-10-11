@@ -77,7 +77,6 @@ export function ContentActions({
 	const { openedEntryContents, openedEntry, isSavingFile, restrictPackageModification } = useEditorView();
 	const { content: updatedFileContent } = useEditorFileContent(openedEntry?.path);
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
-	// The Deployments page itself needs super-user and Harper 5.1.
 	const canManageInstance = useInstanceManagePermission();
 	const deploymentsAvailable = useDeploymentsAvailable();
 	const canViewDeployments = canManageInstance && deploymentsAvailable;

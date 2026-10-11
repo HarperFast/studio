@@ -109,6 +109,17 @@ describe('ConfigDeploymentsIndex filters and paging', () => {
 		state.search = { status: 'staged' };
 		renderPage('5.2.15');
 		expect(state.listParams.at(-1)).toMatchObject({ status: undefined });
+		// …and drops it from the URL, which would otherwise claim a filter the list is not applying.
+		const update = state.navigate.mock.calls.at(-1)?.[0] as { search: (prev: object) => object; replace: boolean };
+		expect(update.replace).toBe(true);
+		expect(update.search({ status: 'staged', project: 'web' })).toEqual({ status: undefined, project: 'web' });
+	});
+
+	it('keeps a staged filter where staging exists', () => {
+		state.search = { status: 'staged' };
+		renderPage('5.3.0');
+		expect(state.listParams.at(-1)).toMatchObject({ status: 'staged' });
+		expect(state.navigate).not.toHaveBeenCalled();
 	});
 
 	it('applies the component filter on Enter only, so leaving the field does not move the page', () => {
