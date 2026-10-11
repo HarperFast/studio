@@ -26,11 +26,12 @@ export interface DatadogErrorEvent {
 }
 
 /**
- * Scripts we embed but do not ship or control — currently only the Reo.dev analytics
- * bundle (`src/integrations/reo/reo.ts` loads it from this CDN). Errors thrown inside
- * them are vendor bugs we can neither reproduce nor fix.
+ * Scripts we embed but do not ship or control: the Reo.dev analytics bundle
+ * (`src/integrations/reo/reo.ts`) and Google Tag Manager (`src/integrations/google/gtm.ts`), whose
+ * container injects the marketing tags. Errors thrown inside them are vendor bugs we can neither
+ * reproduce nor fix.
  */
-const THIRD_PARTY_SCRIPT_FRAME = /^https?:\/\/static\.reo\.dev\//;
+const THIRD_PARTY_SCRIPT_FRAME = /^https?:\/\/(?:static\.reo\.dev|www\.googletagmanager\.com)\//;
 
 /**
  * A content script the user's own browser extension injected into the page. Matched on the
@@ -82,6 +83,9 @@ const NESTED_ORIGIN_PREFIX = /^blob:/;
  * The Datadog browser SDK monkey-patches `fetch`/XHR, so its own bundle sits at the top
  * of every stack it instruments — including stacks whose real origin is third-party.
  * Treat it as instrumentation rather than as a Studio frame when attributing an error.
+ * `vite.config.ts` puts `installBrowserTranslationDomGuard` in this chunk for the same reason:
+ * every script that inserts a node runs through its `insertBefore`, so a vendor tag that throws
+ * while GTM injects it would otherwise carry a Studio frame (#1696).
  */
 const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
 

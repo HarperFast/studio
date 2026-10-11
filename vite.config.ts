@@ -205,6 +205,12 @@ export default defineConfig(({ mode }) => ({
 				// Forcing them into manual chunks does the opposite — it promotes them to
 				// eager — so leave them to auto-split.
 				manualChunks(id) {
+					// The translation DOM guard wraps `Node.prototype.insertBefore`, so it is on the stack of
+					// every script that inserts a node, vendor tags included. `shouldKeepEvent` treats frames
+					// from this chunk as neutral instrumentation; in the app entry they would read as Studio's.
+					if (id.replace(/\\/g, '/').endsWith('/src/lib/installBrowserTranslationDomGuard.ts')) {
+						return 'vendor-datadog';
+					}
 					if (!id.includes('node_modules')) { return; }
 
 					// Resolve the npm package name from the module path so rules match on
