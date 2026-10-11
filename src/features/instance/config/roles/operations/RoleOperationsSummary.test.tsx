@@ -2,17 +2,20 @@
  * @vitest-environment jsdom
  */
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
+import type { AllowlistVersion } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The component reads the instance version to tell an allowlist from a pre-5.0 database record.
-const { allowlistSupported } = vi.hoisted(() => ({ allowlistSupported: vi.fn<() => boolean | undefined>() }));
+const { allowlistVersion } = vi.hoisted(() => ({ allowlistVersion: vi.fn<() => AllowlistVersion | undefined>() }));
 vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSupported', () => ({
-	useOperationsAllowlistSupported: () => allowlistSupported(),
+	useAllowlistVersion: () => allowlistVersion(),
 }));
 
-beforeEach(() => allowlistSupported.mockReturnValue(true));
+const ON_5_3: AllowlistVersion = { supported: true, band: '5.3' };
+
+beforeEach(() => allowlistVersion.mockReturnValue(ON_5_3));
 
 afterEach(() => cleanup());
 
@@ -82,23 +85,35 @@ describe('RoleOperationsSummary', () => {
 		expect(summary.getAttribute('title')).toContain('user_info');
 	});
 
+	it('counts a deploy-only CI role by what its instance version grants', () => {
+		const deployRole = role({ operations: ['deploy_component', 'get_job'] });
+		render(<RoleOperationsSummary role={deployRole} />);
+		expect(screen.getByText(/restricted to 2 operations/)).toBeTruthy();
+
+		cleanup();
+		allowlistVersion.mockReturnValue({ supported: true, band: 'pre-5.3' });
+		render(<RoleOperationsSummary role={deployRole} />);
+		// Before 5.3 the gate cannot match deploy_component, so only get_job is reachable.
+		expect(screen.getByText(/restricted to 1 operation/)).toBeTruthy();
+	});
+
 	it('says nothing while the instance version is still loading', () => {
 		// Collapsing "unknown" into "unsupported" would briefly describe a restricted role as
 		// unrestricted — and is the shape that let a write path replace a real allowlist.
-		allowlistSupported.mockReturnValue(undefined);
+		allowlistVersion.mockReturnValue(undefined);
 		const { container } = render(<RoleOperationsSummary role={role({ operations: ['read_only'] })} />);
 		expect(container.textContent).toBe('');
 	});
 
 	it('treats a record under operations as a database below the allowlist floor', () => {
-		allowlistSupported.mockReturnValue(false);
+		allowlistVersion.mockReturnValue({ supported: false, band: 'pre-5.3' });
 		const v4 = role({ operations: { tables: {} } } as unknown as LocalRole['permission']);
 		expect(render(<RoleOperationsSummary role={v4} />).container.textContent).toBe('');
 
 		// …and as an unmanageable collision once the instance reserves the key — described, never
 		// presented as something to "fix", since replacing it breaks permission translation.
 		cleanup();
-		allowlistSupported.mockReturnValue(true);
+		allowlistVersion.mockReturnValue(ON_5_3);
 		render(<RoleOperationsSummary role={v4} />);
 		expect(screen.getByText(/breaks authentication for every user/)).toBeTruthy();
 		// Never describe the grants as live: Harper never gets far enough to honor them.
