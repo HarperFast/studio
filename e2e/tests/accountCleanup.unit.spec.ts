@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { apiBaseFromSignupUrl, deleteSessionAccount } from './accountCleanup';
+import { deleteSessionAccount, signupApiBase } from './accountCleanup';
 
-test.describe('apiBaseFromSignupUrl', () => {
+test.describe('signupApiBase', () => {
 	for (
 		const [signupUrl, apiBase] of [
 			['https://stage.example.test/User/', 'https://stage.example.test/'],
@@ -12,13 +12,22 @@ test.describe('apiBaseFromSignupUrl', () => {
 		]
 	) {
 		test(`${signupUrl} -> ${apiBase}`, () => {
-			expect(apiBaseFromSignupUrl(signupUrl).href).toBe(apiBase);
+			expect(signupApiBase(signupUrl)?.href).toBe(apiBase);
 		});
 	}
 
-	test('refuses a request that is not a signup', () => {
-		expect(() => apiBaseFromSignupUrl('https://cm.example.test/Login/')).toThrow(/cannot tell where its API is/);
-	});
+	for (
+		const url of [
+			'https://cm.example.test/Login/',
+			'https://cm.example.test/Users/track',
+			'https://cm.example.test/OrganizationUser/',
+			'https://cm.example.test/User/usr-1/resend',
+		]
+	) {
+		test(`${url} is not a signup`, () => {
+			expect(signupApiBase(url)).toBeUndefined();
+		});
+	}
 });
 
 test.describe('deleteSessionAccount', () => {
