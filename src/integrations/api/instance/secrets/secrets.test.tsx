@@ -76,7 +76,6 @@ async function expectSecretsOperationError(pending: Promise<unknown>, message: s
 	expect(error).toMatchObject({ name: 'SecretsOperationError', message });
 }
 
-/** What axios rejects with when the request never got a response. */
 function networkError() {
 	return Object.assign(new Error('Network Error'), { name: 'AxiosError', code: 'ERR_NETWORK' });
 }
@@ -238,6 +237,19 @@ describe('useDeleteSecret', () => {
 		const failure = networkError();
 		post.mockRejectedValueOnce(failure);
 		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(failure);
+	});
+
+	it('takes the string message when the error field is structured', async () => {
+		const { post, wrapper, params } = harness();
+		post.mockRejectedValueOnce({
+			response: { data: { error: { code: 'NOT_FOUND' }, message: "No secret found with name 'NOPE'" } },
+		});
+
+		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
+		await expectSecretsOperationError(
+			result.current.mutateAsync({ ...params, name: 'NOPE' }),
+			"No secret found with name 'NOPE'",
+		);
 	});
 });
 
