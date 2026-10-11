@@ -21,14 +21,13 @@ import { toast } from 'sonner';
 
 const DOCS_URL = 'https://docs.harperdb.io/reference/v5/operations-api/operations#add_oidc_trust';
 
-/**
- * The cluster's OIDC trust policies (HarperFast/studio#1788): list, disable or enable, and drop. Creating
- * one is left to `add_oidc_trust` until the setup flow Studio should share with the CLI is settled.
- */
+/** The cluster's OIDC trust policies: list, disable or enable, and drop. */
 export function ConfigTrustPoliciesIndex() {
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const { data: registrationInfo, isError: isVersionError } = useQuery(
+		getRegistrationInfoQueryOptions(instanceParams),
+	);
 	const supported = registrationInfo === undefined ? undefined : supportsTrustPolicies(registrationInfo.version);
 	const { data: policies, isFetching, isError, refetch } = useQuery(
 		listOidcTrustQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
@@ -37,14 +36,17 @@ export function ConfigTrustPoliciesIndex() {
 
 	const { mutateAsync: setEnabled, isPending: isSetEnabledPending } = useSetTrustPolicyEnabled();
 	const { mutateAsync: dropPolicy, isPending: isDropPending } = useDropTrustPolicy();
-	const [dropTarget, setDropTarget] = useState<string>();
-	const busy = isSetEnabledPending || isDropPending;
+	const [dropTarget, setDropTarget] = useState<OidcTrustPolicy>();
+	// Held through the refetch too, so a second click never acts on the row the write just replaced.
+	const busy = isSetEnabledPending || isDropPending || isFetching;
 
 	if (!canManage) {
 		return <PageNotice>Only super users can view or change trust policies.</PageNotice>;
 	}
 	if (supported === undefined) {
-		return <Loading text="Loading..." />;
+		return isVersionError
+			? <PageNotice>This instance's Harper version could not be read, so its trust policies are not shown.</PageNotice>
+			: <Loading text="Loading..." />;
 	}
 	if (!supported) {
 		return (
@@ -70,10 +72,10 @@ export function ConfigTrustPoliciesIndex() {
 			return;
 		}
 		try {
-			await dropPolicy({ ...instanceParams, id: dropTarget });
-			toast.success(`Dropped trust policy '${dropTarget}'`);
-			setDropTarget(undefined);
+			await dropPolicy({ ...instanceParams, loaded: dropTarget });
+			toast.success(`Dropped trust policy '${dropTarget.id}'`);
 		} finally {
+			setDropTarget(undefined);
 			await refetch();
 		}
 	};
@@ -121,15 +123,14 @@ export function ConfigTrustPoliciesIndex() {
 								policy={policy}
 								disabled={busy}
 								onToggle={(enabled) => void onToggle(policy, enabled).catch(() => undefined)}
-								onDrop={() => setDropTarget(policy.id)}
+								onDrop={() => setDropTarget(policy)}
 							/>
 						))}
 					</ul>
 				)}
 
 			<ConfirmDeletionModal
-				typeOfThingBeingDeleted="trust policy"
-				nameOfThingBeingDeleted={dropTarget}
+				typeOfThingBeingDeleted={`trust policy '${dropTarget?.id ?? ''}'`}
 				isModalOpen={dropTarget !== undefined}
 				setIsModalOpen={(open) => !open && setDropTarget(undefined)}
 				deletionConfirmed={() => void onDropConfirmed().catch(() => undefined)}

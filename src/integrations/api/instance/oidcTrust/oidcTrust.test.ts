@@ -1,7 +1,13 @@
 import type { EntityIds } from '@/features/auth/store/authStore';
 import type { AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
-import { OidcTrustPolicy, setTrustPolicyEnabled, supportsTrustPolicies, trustPolicyResaveRequest } from './oidcTrust';
+import {
+	dropTrustPolicy,
+	OidcTrustPolicy,
+	setTrustPolicyEnabled,
+	supportsTrustPolicies,
+	trustPolicyResaveRequest,
+} from './oidcTrust';
 
 function policy(overrides: Partial<OidcTrustPolicy> = {}): OidcTrustPolicy {
 	return {
@@ -65,6 +71,11 @@ describe('trustPolicyResaveRequest', () => {
 		expect(request.enabled).toBe(true);
 	});
 
+	it('carries a field a newer Harper stores, which a fixed field list would erase on re-save', () => {
+		const withNewField = { ...policy(), max_token_lifetime: 900 } as OidcTrustPolicy;
+		expect(trustPolicyResaveRequest(withNewField, false)).toMatchObject({ max_token_lifetime: 900, enabled: false });
+	});
+
 	it('refuses a malformed scope rather than dropping it, which would widen the token', () => {
 		expect(() => trustPolicyResaveRequest(policy({ operations: 'deploy_component' }), false)).toThrow(
 			/malformed operations scope/,
@@ -102,11 +113,32 @@ describe('setTrustPolicyEnabled', () => {
 		expect(post).toHaveBeenCalledTimes(1);
 	});
 
+	it('accepts the same row with its claims listed in another order', async () => {
+		const reordered = policy({ claims: Object.fromEntries(Object.entries(policy().claims).reverse()) });
+		const { post, params } = clientListing([reordered]);
+		await setTrustPolicyEnabled({ ...params, loaded: policy(), enabled: false });
+		expect(post).toHaveBeenCalledTimes(2);
+	});
+
 	it('refuses when the policy has been dropped, rather than recreating it', async () => {
 		const { post, params } = clientListing([]);
 		await expect(setTrustPolicyEnabled({ ...params, loaded: policy(), enabled: true })).rejects.toThrow(
 			/no longer exists/,
 		);
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('dropTrustPolicy', () => {
+	it('drops the policy by id once it reads back unchanged', async () => {
+		const { post, params } = clientListing([policy()]);
+		await dropTrustPolicy({ ...params, loaded: policy() });
+		expect(post.mock.calls[1][1]).toEqual({ operation: 'drop_oidc_trust', id: 'github-actions-my-app' });
+	});
+
+	it('refuses to drop a policy that was replaced under the same id after the page loaded it', async () => {
+		const { post, params } = clientListing([policy({ user: 'someone-else', __updatedtime__: 9 })]);
+		await expect(dropTrustPolicy({ ...params, loaded: policy() })).rejects.toThrow(/changed since this page loaded it/);
 		expect(post).toHaveBeenCalledTimes(1);
 	});
 });

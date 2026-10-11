@@ -12,6 +12,8 @@ const { state, setEnabled, dropPolicy, refetch, queryOptionsSeen } = vi.hoisted(
 		version: '5.3.0' as string | undefined,
 		policies: [] as unknown[] | undefined,
 		isError: false,
+		isFetching: false,
+		versionError: false,
 	},
 	setEnabled: vi.fn(async () => ({ message: 'ok' })),
 	dropPolicy: vi.fn(async () => ({ message: 'ok' })),
@@ -24,9 +26,12 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	useQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean }) => {
 		queryOptionsSeen.push(options);
 		if (options.queryKey[0] === 'registration_info') {
-			return { data: state.version === undefined ? undefined : { version: state.version } };
+			return {
+				data: state.version === undefined ? undefined : { version: state.version },
+				isError: state.versionError,
+			};
 		}
-		return { data: state.policies, isFetching: false, isError: state.isError, refetch };
+		return { data: state.policies, isFetching: state.isFetching, isError: state.isError, refetch };
 	},
 }));
 vi.mock('@/config/useInstanceClient', () => ({
@@ -63,6 +68,8 @@ beforeEach(() => {
 	state.version = '5.3.0';
 	state.policies = [];
 	state.isError = false;
+	state.isFetching = false;
+	state.versionError = false;
 });
 
 afterEach(() => {
@@ -159,10 +166,26 @@ describe('ConfigTrustPoliciesIndex', () => {
 		expect(dropPolicy).not.toHaveBeenCalled();
 		const dialog = await screen.findByRole('dialog');
 		fireEvent.click(within(dialog).getByRole('button', { name: /Drop/ }));
-		await waitFor(() =>
-			expect(dropPolicy).toHaveBeenCalledWith(expect.objectContaining({ id: 'github-actions-my-app' }))
-		);
+		// The row as shown, so the drop can refuse one replaced under the same id since.
+		await waitFor(() => expect(dropPolicy).toHaveBeenCalledWith(expect.objectContaining({ loaded: policy() })));
 		await waitFor(() => expect(refetch).toHaveBeenCalled());
+	});
+
+	it('holds the actions while the list is refetching, so a click never acts on a replaced row', () => {
+		state.policies = [policy()];
+		state.isFetching = true;
+		render(<ConfigTrustPoliciesIndex />);
+		const item = within(card('github-actions-my-app'));
+		expect((item.getByRole('button', { name: 'Disable' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((item.getByRole('button', { name: 'Drop' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('says so when the instance version cannot be read, instead of loading forever', () => {
+		state.version = undefined;
+		state.versionError = true;
+		render(<ConfigTrustPoliciesIndex />);
+		expect(screen.getByText(/version could not be read/)).toBeTruthy();
+		expect(listQueryEnabled()).toBe(false);
 	});
 
 	it('says when there are no policies, and when they could not be loaded', () => {
