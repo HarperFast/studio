@@ -40,6 +40,7 @@ import { getOrganizationDomainsQueryOptions } from '@/features/organization/quer
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationDomain } from '@/integrations/api/api.patch';
+import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { pluralize } from '@/lib/pluralize';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -235,6 +236,7 @@ export function DomainsManagement() {
 		const id = 'validatingDomains';
 		let checked = 0;
 		let failed = 0;
+		let unanswered = 0;
 		for (const pendingDomain of pendingDomains) {
 			try {
 				toast.loading(message, {
@@ -242,11 +244,24 @@ export function DomainsManagement() {
 					id,
 				});
 				await validateDomainInOrganization(pendingDomain.id);
-			} catch {
-				failed += 1;
+			} catch (error) {
+				if (isUnansweredWrite(error)) {
+					unanswered += 1;
+				} else {
+					failed += 1;
+				}
 			}
 		}
-		if (failed > 0) {
+		if (unanswered > 0) {
+			await refetch();
+			toast.error(OUTCOME_UNKNOWN_TITLE, {
+				description: [
+					describeUnansweredWrites(unanswered),
+					failed > 0 && `${pluralize(failed, 'other domain', 'other domains')} failed to validate.`,
+				].filter(Boolean).join(' '),
+				id,
+			});
+		} else if (failed > 0) {
 			toast.error('Validation failed!', {
 				description:
 					`Please make sure the TXT record has been put in place. You may need to wait a bit for the DNS change to propagate.`,
