@@ -73,3 +73,8 @@ manager then upserts a `ChallengeCertificate` row per added domain, and Studio r
 after a domain change (`watchChallengeCertificates`, which the mutation calls), and once a minute otherwise. A cluster
 without the table answers 404, which `getSearchByValue` reads as an empty result, so an idle poll never errors and
 nothing else stops it ([HarperFast/studio#1630](https://github.com/HarperFast/studio/issues/1630)).
+
+The Bind selection is page state that outlives its rows, so Bind counts and sends only the ticked domains the current
+list still offers for binding (`canBindDomain`, the same predicate that renders the checkbox). A removal takes its row
+out of the cached list as soon as it succeeds, rather than when the refetch lands, and Bind waits while one is in flight
+([HarperFast/studio#1800](https://github.com/HarperFast/studio/issues/1800)).

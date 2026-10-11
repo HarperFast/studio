@@ -1,18 +1,24 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AssociateDomainWithCluster } from '@/features/cluster/domains/AssociateDomainWithCluster';
+import { canBindDomain } from '@/features/cluster/domains/canBindDomain';
 import { CertificateProgress } from '@/features/cluster/domains/components/CertificateProgress';
 import {
 	isGeneratingCertificate,
 	useChallengeCertificates,
 } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
-import { useIsSettingDomainIds, useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import {
+	isSettingDomainIds,
+	useIsSettingDomainIds,
+	useSetDomainIdsOnCluster,
+} from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { queryClient } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -33,17 +39,23 @@ export function useDataTableColumns(
 	const settingDomainIds = useIsSettingDomainIds();
 	const { mutate: deleteDomain, isPending: deletePending } = useDeleteDomain();
 	const isPending = settingDomainIds || deletePending;
+	const activeQueryClient = useQueryClient();
 
 	const deleteDomainById = useCallback((domainId: string) => {
+		// A Bind sending this domain disables Remove only once React re-renders.
+		if (isSettingDomainIds(activeQueryClient)) {
+			return;
+		}
 		deleteDomain({
 			domainId: domainId,
+			organizationId: cluster.organizationId,
 		}, {
 			onSuccess: () => {
 				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId, 'domains'], refetchType: 'active' });
 				toast.success('Domain removed!');
 			},
 		});
-	}, [deleteDomain, cluster.organizationId]);
+	}, [activeQueryClient, deleteDomain, cluster.organizationId]);
 
 	const unbindDomainById = useCallback((domainId: string) => {
 		// No `generateDomainCerts`: the flag is cluster-wide, so restating it here would decide cert
@@ -66,8 +78,7 @@ export function useDataTableColumns(
 			size: 50,
 			cell: (props) => {
 				const domain = props.row.original;
-				const canBind = domain.status === 'ACTIVE' && !domain.clusterId && !clusterIsSelfManaged(cluster);
-				if (!canBind) {
+				if (!canBindDomain(domain, cluster)) {
 					return null;
 				}
 				return (
