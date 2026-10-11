@@ -1,5 +1,6 @@
 import { getInstanceClientIdFromParams } from '@/config/useInstanceClient';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { ensureRouteQueryData } from '@/router/ensureRouteQueryData';
 import { QueryClient } from '@tanstack/react-query';
 
 export function registrationInfoLoader({
@@ -10,5 +11,5 @@ export function registrationInfoLoader({
 	params: { organizationId?: string; clusterId?: string; instanceId?: string };
 }) {
 	const operationsParams = getInstanceClientIdFromParams(params);
-	return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
+	return ensureRouteQueryData(context.queryClient, getRegistrationInfoQueryOptions(operationsParams));
 }
