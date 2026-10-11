@@ -31,7 +31,7 @@ async function onInstanceResetPassword({
 	let instanceClient = initialInstanceClient;
 	try {
 		// Sign in with the temporary password,
-		const loginResponse = await onInstanceLoginSubmit({
+		let loginResponse = await onInstanceLoginSubmit({
 			username: initialUsername,
 			password: tempPassword,
 			instanceClient,
@@ -57,7 +57,7 @@ async function onInstanceResetPassword({
 				instanceClient,
 			});
 			// since we created a new user, we should log in with the new one
-			await onInstanceLoginSubmit({
+			loginResponse = await onInstanceLoginSubmit({
 				username: desiredUsername,
 				password: newPassword,
 				instanceClient,
