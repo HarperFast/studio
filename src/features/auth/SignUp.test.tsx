@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,11 +47,14 @@ import {
 	SERVER_UNAVAILABLE_MESSAGE,
 	TOO_MANY_ATTEMPTS_MESSAGE,
 } from './describeAuthFailure';
+import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
 	return { isAxiosError: true, response: { status, data } } as AxiosError;
 }
+
+type Settlers = { resolve: (value: unknown) => void; reject: (reason: unknown) => void };
 
 // Fresh per test, so nothing leaks between them.
 const UNPAIRED_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -89,6 +92,7 @@ beforeEach(() => {
 	captchaState.configured = true;
 	captchaState.token = undefined;
 	captchaState.mints = [];
+	clearCaptchaFailures();
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -347,9 +351,8 @@ describe('SignUp — reCAPTCHA', () => {
 		fillValidForm();
 		submit();
 
-		await waitFor(() =>
-			expect(screen.getByRole('alert').textContent).toContain('Verification failed. Please try again.')
-		);
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHALLENGE_FAILED));
+		expect(screen.getByRole('alert').textContent).toContain('sign up with Google or GitHub above');
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
@@ -367,8 +370,8 @@ describe('SignUp — reCAPTCHA', () => {
 		submit();
 		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
 		expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toContain('mailto:');
-		// Pins the space a formatter can silently eat, producing "again.Contact us".
-		expect(screen.getByRole('alert').textContent).toContain('again. Contact us if this keeps happening.');
+		// Pins the space a formatter can silently eat, producing "check.Contact us".
+		expect(screen.getByRole('alert').textContent).toContain('check. Contact us if this keeps happening.');
 	});
 
 	it('drops the support offer once a failure is not the CAPTCHA', async () => {
@@ -417,5 +420,38 @@ describe('SignUp — reCAPTCHA', () => {
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
 		expect(captchaState.mints).toEqual(['signup', 'signup']);
 		expect(post.mock.calls[1][1]).toMatchObject({ captchaToken: 'second-token' });
+	});
+
+	it.each([
+		['a success', 'success', (settle: Settlers) => settle.resolve({ data: 'Check your email to continue signing up' })],
+		['a non-CAPTCHA failure', 'error', (settle: Settlers) => settle.reject(axiosError(500))],
+	])('starts the shared refusal count over after %s that lands once the form unmounted', async (
+		_label,
+		status,
+		settleWith,
+	) => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+
+		const { unmount } = renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+		let settlers: Settlers | undefined;
+		post.mockReturnValueOnce(new Promise((resolve, reject) => (settlers = { resolve, reject })));
+		submit();
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		unmount();
+		settleWith(settlers!);
+		await waitFor(() => expect(queryClient.getMutationCache().getAll().at(-1)?.state.status).toBe(status));
+		consoleError.mockRestore();
+
+		const nextForm = renderHook(() => useCaptchaChallenge('forgot_password'));
+		act(() => {
+			nextForm.result.current.describeCaptchaError(axiosError(403, 'Verification failed'));
+		});
+		expect(nextForm.result.current.supportSuggested).toBe(false);
 	});
 });

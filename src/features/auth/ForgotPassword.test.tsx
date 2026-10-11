@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,9 +41,17 @@ vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
 
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
 import { ForgotPassword } from './ForgotPassword';
+import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
+
+const captchaRejection = { isAxiosError: true, response: { status: 403, data: 'Verification failed' } } as AxiosError;
+const serverError = { isAxiosError: true, response: { status: 500 } } as AxiosError;
+
+type Settlers = { resolve: (value: unknown) => void; reject: (reason: unknown) => void };
+
+let queryClient: QueryClient;
 
 function wrapper() {
-	const queryClient = new QueryClient({
+	queryClient = new QueryClient({
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
@@ -66,6 +74,7 @@ beforeEach(() => {
 	captchaState.configured = true;
 	captchaState.token = undefined;
 	captchaState.mints = [];
+	clearCaptchaFailures();
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -99,7 +108,7 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		expect(post.mock.calls[0][1]).not.toHaveProperty('captchaToken');
 	});
 
-	it('on a 403 shows the try-again notice inline', async () => {
+	it('on a 403 says what to change, inline', async () => {
 		captchaState.token = 'rejected-token';
 		post.mockRejectedValue(
 			{ isAxiosError: true, response: { status: 403, data: 'Verification failed' } } as AxiosError,
@@ -109,7 +118,7 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		await submitWith(container, 'user@example.com');
 
 		const alert = await findByRole('alert');
-		expect(alert.textContent).toContain('Verification failed. Please try again.');
+		expect(alert.textContent).toBe(CHALLENGE_FAILED);
 	});
 
 	it('names the real problem when the check never ran (script blocked, key configured)', async () => {
@@ -147,6 +156,57 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		expect(captchaState.mints).toEqual(['forgot_password', 'forgot_password']);
 	});
 
+	it('offers support on its first refusal when sign-up was already refused twice', async () => {
+		const signUp = renderHook(() => useCaptchaChallenge('signup'));
+		act(() => {
+			signUp.result.current.describeCaptchaError(captchaRejection);
+			signUp.result.current.describeCaptchaError(captchaRejection);
+		});
+		signUp.unmount();
+
+		captchaState.token = 'rejected-token';
+		post.mockRejectedValue(captchaRejection);
+		const { container, findByRole, getByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		await findByRole('alert');
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(getByRole('link', { name: 'Contact us' })).toBeTruthy();
+	});
+
+	it.each([
+		['a sent reset link', 'success', (settle: Settlers) => settle.resolve({ data: 'If an account exists...' })],
+		['a non-CAPTCHA failure', 'error', (settle: Settlers) => settle.reject(serverError)],
+	])('starts the shared refusal count over after %s that lands once the form unmounted', async (
+		_label,
+		status,
+		settleWith,
+	) => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValueOnce(captchaRejection);
+		const { container, findByRole, unmount } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+		await findByRole('alert');
+
+		let settlers: Settlers | undefined;
+		post.mockReturnValueOnce(new Promise((resolve, reject) => (settlers = { resolve, reject })));
+		await submitWith(container, 'user@example.com');
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		unmount();
+		settleWith(settlers!);
+		await waitFor(() => expect(queryClient.getMutationCache().getAll().at(-1)?.state.status).toBe(status));
+		consoleError.mockRestore();
+
+		const nextForm = renderHook(() => useCaptchaChallenge('signup'));
+		act(() => {
+			nextForm.result.current.describeCaptchaError(captchaRejection);
+		});
+		expect(nextForm.result.current.supportSuggested).toBe(false);
+	});
+
 	it('shows a CAPTCHA 403 inline only — never also as a toast', async () => {
 		captchaState.token = 'rejected-token';
 		post.mockRejectedValue(
@@ -174,7 +234,7 @@ describe('ForgotPassword — reCAPTCHA', () => {
 
 		await submitWith(container, 'user@example.com');
 
-		expect((await findByRole('alert')).textContent).toContain('Verification failed. Please try again.');
+		expect((await findByRole('alert')).textContent).toBe(CHALLENGE_FAILED);
 	});
 
 	it('renders a non-retryable 4xx inline in the server’s words, never as a toast', async () => {

@@ -2,17 +2,29 @@ import { getCaptchaToken, isCaptchaConfigured, warmCaptcha } from '@/lib/recaptc
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 
-const CHALLENGE_FAILED = 'Verification failed. Please try again.';
-const CHALLENGE_UNAVAILABLE =
+// A low score comes from network and browser signals that an unchanged resubmit carries again, so
+// the copy names what the person can change rather than inviting a plain retry (#1722).
+export const CHALLENGE_FAILED =
+	"We couldn't verify this request. A VPN, proxy, or strict browser privacy setting can cause this — turn it off for this page, then try again.";
+export const CHALLENGE_UNAVAILABLE =
 	'We could not run the verification check. Disable any ad blocker for this page, then reload and try again.';
 
-// A low score can't be fixed by retrying — the signals behind it don't change —
-// so a second failure offers a human instead of repeating "try again" forever.
 const SUPPORT_AFTER_FAILURES = 2;
 
+// Module scope, not per mount: sign-up and forgot-password are separate routes, and a person refused
+// on one often tries the other next (#1722), so the count follows the person, not the form.
+let consecutiveFailures = 0;
+
+/** Ends the streak on a success or a non-CAPTCHA failure. Call it from the mutation's own
+ *  callbacks, which still run after the form unmounts. */
+export function clearCaptchaFailures() {
+	consecutiveFailures = 0;
+}
+
 /** reCAPTCHA plumbing for the public auth forms (central-manager#627). Fresh
- *  single-use token per submit, so there is no reset or expiry handling. */
-export function useCaptchaChallenge(action: string) {
+ *  single-use token per submit, so there is no reset or expiry handling.
+ *  `alternative` is appended to a rejection: a way forward this form offers that skips the check. */
+export function useCaptchaChallenge(action: string, alternative?: string) {
 	// Google's terms require the badge to be visible where reCAPTCHA is in use.
 	useEffect(() => {
 		warmCaptcha();
@@ -36,19 +48,19 @@ export function useCaptchaChallenge(action: string) {
 		}
 	}, [action]);
 
-	const consecutiveFailures = useRef(0);
 	const [supportSuggested, setSupportSuggested] = useState(false);
 
 	const describeCaptchaError = useCallback((error: unknown): string | undefined => {
 		if (!isCaptchaVerificationError(error)) {
-			consecutiveFailures.current = 0;
+			consecutiveFailures = 0;
 			setSupportSuggested(false);
 			return undefined;
 		}
-		consecutiveFailures.current += 1;
-		setSupportSuggested(consecutiveFailures.current >= SUPPORT_AFTER_FAILURES);
-		return mintFailed.current ? CHALLENGE_UNAVAILABLE : CHALLENGE_FAILED;
-	}, []);
+		consecutiveFailures += 1;
+		setSupportSuggested(consecutiveFailures >= SUPPORT_AFTER_FAILURES);
+		const message = mintFailed.current ? CHALLENGE_UNAVAILABLE : CHALLENGE_FAILED;
+		return alternative ? `${message} ${alternative}` : message;
+	}, [alternative]);
 
 	return { getToken, describeCaptchaError, minting, supportSuggested };
 }
