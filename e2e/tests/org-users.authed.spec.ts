@@ -83,7 +83,6 @@ test.describe('authenticated app', () => {
 
 		// Wait for EITHER the users table or the app's error boundary.
 		const table = page.getByRole('table');
-		// By test id, not title: the title names the failure (a 403 reads "Access Denied").
 		const errorBoundary = page.getByTestId('error-component');
 		await expect(table.or(errorBoundary).first()).toBeVisible();
 

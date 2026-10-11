@@ -2,10 +2,9 @@ import { ErrorComponent } from '@/components/ErrorComponent';
 import { errorStatus } from '@/lib/errorStatus';
 
 /**
- * The org route loads the organization before any page under it renders. Central manager refuses a
- * non-member with 403 before it looks the id up, so for anyone but staff a missing organization and
- * someone else's read the same — the copy must not confirm which. Only staff, who skip that check,
- * can get a 404.
+ * Central manager refuses a non-member with 403 before it looks the id up, so for anyone but staff a
+ * missing organization and someone else's read the same — the copy must not confirm which. Only staff,
+ * who skip that check, can get a 404.
  */
 export function OrgRouteError({ error }: { error: unknown }) {
 	switch (errorStatus(error)) {
