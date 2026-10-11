@@ -77,6 +77,7 @@ import { ColumnSizingState, ColumnVisibilityState } from '@tanstack/react-table'
 import {
 	BrushCleaningIcon,
 	CircleCheckBigIcon,
+	CircleHelpIcon,
 	CircleIcon,
 	CloudDownloadIcon,
 	CloudUploadIcon,
@@ -95,6 +96,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
 import { EmptyResultSet } from './EmptyResultSet';
+import { FilterSyntaxHelp } from './FilterSyntaxHelp';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
 import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
@@ -228,6 +230,7 @@ export function DatabaseTableView({
 	);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
+	const { toggled: filterHelpToggled, toggle: toggleFilterHelp } = useToggler(false);
 	const columnFiltersForm = useForm({
 		resolver: zodResolver(ColumnFiltersSchema),
 	});
@@ -993,6 +996,18 @@ export function DatabaseTableView({
 						</Button>
 					)}
 
+					{filtersToggled && (
+						<Button
+							variant="ghost"
+							onClick={toggleFilterHelp}
+							aria-expanded={filterHelpToggled}
+							aria-controls="filter-syntax-help"
+						>
+							<CircleHelpIcon className="inline-block " />
+							Filter Syntax
+						</Button>
+					)}
+
 					{!filtersToggled && hasPrimaryKey && (
 						<Button variant="ghost" onClick={showFilters} accessKey="f">
 							<FunnelIcon className="inline-block " />
@@ -1082,6 +1097,7 @@ export function DatabaseTableView({
 					</DropdownMenu>
 				</div>
 			</div>
+			{filtersToggled && filterHelpToggled && <FilterSyntaxHelp id="filter-syntax-help" />}
 
 			<TableView<Record<string, unknown>>
 				primaryKey={primaryKey}

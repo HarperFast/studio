@@ -213,6 +213,24 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 		fireEvent.click(screen.getByRole('button', { name: /show filters/i }));
 		expect(filterInput('name').title).toContain('*hn ends with');
 		expect(filterInput('note').title).toContain('Not indexed');
+		expect(screen.getByRole('textbox', { name: 'Filter name' })).toBe(filterInput('name'));
+	});
+
+	// A title only shows on hover, so the same syntax is one tap away for keyboard and touch.
+	it('shows every kind’s syntax from a toggle next to the filters', async () => {
+		renderView();
+		await findCell('t1');
+		fireEvent.click(screen.getByRole('button', { name: /show filters/i }));
+		const toggle = screen.getByRole('button', { name: /filter syntax/i });
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('region', { name: 'Filter syntax' })).toBeNull();
+
+		fireEvent.click(toggle);
+		const help = screen.getByRole('region', { name: 'Filter syntax' });
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		for (const line of ['*hn ends with', '*oh* contains', '>5  >=5  <5  <=5', 'true or false']) {
+			expect(help.textContent).toContain(line);
+		}
 	});
 
 	it('asks once for a deep link’s filter, and runs it on yes', async () => {

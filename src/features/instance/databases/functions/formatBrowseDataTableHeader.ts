@@ -20,7 +20,6 @@ declare module '@tanstack/react-table' {
 		relationshipInfo?: RelationshipAttributeInfo;
 		/** Set on a filterable column no index covers, whose filter alone reads every record. */
 		unindexed?: boolean;
-		/** The filter syntax for a plain filterable column, shown on its input. */
 		filterHint?: string;
 	}
 }
@@ -79,7 +78,7 @@ export function formatBrowseDataTableHeader(
 			meta: relationshipInfo
 				? { relationshipInfo }
 				: isPlainFilter
-				? { filterHint: filterSyntaxHint(type, isUnindexedFilter), ...(isUnindexedFilter && { unindexed: true }) }
+				? { filterHint: filterSyntaxHint(type, isUnindexedFilter), unindexed: isUnindexedFilter || undefined }
 				: undefined,
 		};
 		if (is_primary_key) {
