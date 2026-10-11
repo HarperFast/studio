@@ -122,11 +122,11 @@ describe('OrgRouteError on the organization route', () => {
 		expect(screen.queryByText(/isn't a member of it/)).toBeNull();
 	});
 
-	it('leaves any other failure to the generic error page', async () => {
+	it('leaves any other failure to the generic error page, with the retry a route error gets', async () => {
 		rejectWith(500);
 		const heading = await openOrganization('org-broken');
 
-		expect(heading.textContent).not.toMatch(/Organization/);
-		expect(screen.getByText('Request failed with status code 500')).toBeTruthy();
+		expect(heading.textContent).toBe('Something Went Wrong');
+		expect(screen.getByRole('button', { name: /Try Again/ })).toBeTruthy();
 	});
 });

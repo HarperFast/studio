@@ -8,9 +8,8 @@
 // only caught by manually watching a real browser console.
 //
 // The match is deliberately narrow (this one React message), NOT a blanket
-// console.error ban: intentional error paths (PanelErrorBoundary's
-// `[panel:x] render failed`, the query-cache toast handler) log through
-// console.error legitimately.
+// console.error ban: intentional error paths (the query-cache toast handler)
+// log through console.error legitimately.
 //
 // A test that MUST assert this warning fires (e.g. proving a repro against a
 // known-bad implementation) can capture console.error itself; replacing the

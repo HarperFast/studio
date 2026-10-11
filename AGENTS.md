@@ -830,6 +830,14 @@ The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.
 
+Error boundaries are the same trap from the other side. React's root `onCaughtError` already reports
+every error any boundary catches, through
+[`reportReactError`](src/integrations/datadog/reportReactError.ts), so a `componentDidCatch` that
+`console.error`s files a second, console-sourced copy of each one. Log there with `console.warn`
+(not collected either, but visible in devtools by default). That reporter also collapses repeats: a
+TanStack route re-throws its stored error on every match update and every reload throws a fresh
+identical one, so one failed load used to reach Error Tracking up to 14 times (#1695).
+
 ## A 5xx body never reaches an auth form
 
 `describeError` renders whatever the server sent, and before #1676 that reached the sign-in and

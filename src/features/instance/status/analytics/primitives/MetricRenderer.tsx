@@ -87,7 +87,8 @@ class MetricErrorBoundary extends Component<MetricErrorBoundaryProps, { failed: 
 		return { failed: true };
 	}
 	componentDidCatch(error: Error) {
-		console.error('[MetricRenderer] render failed; falling back:', error);
+		// Not `console.error`: the root `onCaughtError` already reports this to RUM, which would count that as a second error.
+		console.warn('[MetricRenderer] render failed; falling back:', error);
 	}
 	render() {
 		return this.state.failed ? this.props.fallback : this.props.children;
