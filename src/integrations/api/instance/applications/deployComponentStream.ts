@@ -7,7 +7,6 @@ import { RolloutSnapshot } from './restartJob';
 
 /** Lifecycle phases Harper's `deploy_component` emits, in order. */
 export const DEPLOY_PHASE_ORDER = ['prepare', 'load', 'replicate', 'restart', 'success'] as const;
-/** A stage (5.3.0+) restarts nothing, and ends `staged` where a deploy ends `success`. */
 export const STAGE_PHASE_ORDER = ['prepare', 'load', 'replicate', 'staged'] as const;
 
 export interface DeployPhaseEvent {
@@ -52,7 +51,6 @@ export interface DeployComponentResult extends ReplicatedResponse {
 	deployment_id?: string;
 	phase?: string;
 	certification?: DeployCertification;
-	/** Set by every node that staged the release rather than making it live (5.3.0+). */
 	staged?: boolean;
 	/** The `restart_service` job a rolling restart hands the other nodes to. */
 	restartJobId?: string;
@@ -83,7 +81,6 @@ export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | un
 
 export interface DeployComponentStreamParams {
 	connection: ResolveInstanceConnectionParams;
-	/** The `deploy_component` operation, as `deployRequestBody` builds it. */
 	body: Record<string, unknown>;
 	signal?: AbortSignal;
 	/** Called for each live deploy event so the UI can render progress. */

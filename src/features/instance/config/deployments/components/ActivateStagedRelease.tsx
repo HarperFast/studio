@@ -24,15 +24,17 @@ import { useDeployComponentMutation } from '@/integrations/api/instance/applicat
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
-/**
- * Make a staged release live (Harper 5.3.0+), restarting each node in turn: `deploy_component` with its
- * `deployment_id`, followed like any other rolling deploy.
- */
+export function activationMutationKey(entityId: string | undefined, deploymentId: string) {
+	return ['activate_deployment', entityId, deploymentId] as const;
+}
+
 export function ActivateStagedRelease({ deployment }: { deployment: Deployment }) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -41,42 +43,65 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 	const stream = useDeploymentStream();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
-	const { mutate, isPending } = useDeployComponentMutation();
+	const { project, deployment_id: deploymentId } = deployment;
+	// Keyed so a detail closed and reopened mid-rollout still knows this release is being activated.
+	const mutationKey = useMemo(() => activationMutationKey(instanceParams.entityId, deploymentId), [
+		instanceParams.entityId,
+		deploymentId,
+	]);
+	const { mutateAsync } = useDeployComponentMutation(mutationKey);
+	const isPending = useIsMutating({ mutationKey }) > 0;
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
-	const { project, deployment_id: deploymentId } = deployment;
 
-	const activate = useCallback(() => {
+	const activate = useCallback(async () => {
 		setConfirming(false);
 		setStarted(true);
 		stream.reset();
 		stream.markStarted();
-		mutate({
-			request: { kind: 'activate', project, deploymentId },
-			useSSE: sseDeploy,
-			onEvent: stream.onEvent,
-			...instanceParams,
-		}, {
-			onSuccess: async (result) => {
-				stream.markSettled(result?.rollout?.state === 'unfollowable' ? 'inconclusive' : 'success', undefined, {
-					result,
+		// Awaited here rather than in `mutate` callbacks, which React Query drops once this detail unmounts: the
+		// report and the invalidation still belong to an activation someone closed the dialog on.
+		try {
+			const result = await mutateAsync({
+				request: { kind: 'activate', project, deploymentId },
+				useSSE: sseDeploy,
+				onEvent: stream.onEvent,
+				...instanceParams,
+			});
+			stream.markSettled(result?.rollout?.state === 'unfollowable' ? 'inconclusive' : 'success', undefined, {
+				result,
+			});
+			void invalidateEntityQueries(queryClient, instanceParams.entityId);
+			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
+		} catch (error) {
+			void invalidateEntityQueries(queryClient, instanceParams.entityId);
+			if (error instanceof SSEInconclusiveError) {
+				stream.markSettled('inconclusive');
+				toast.warning(`${project} may not be activated`, {
+					description: 'Live updates ended before the activation finished. Check Deployments for its record.',
 				});
-				void invalidateEntityQueries(queryClient, instanceParams.entityId);
-				await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
-			},
-			onError: (error) => {
-				stream.markSettled(
-					'error',
-					error instanceof DeployRolloutError ? undefined : error instanceof Error ? error.message : String(error),
-					{ failure: error },
-				);
-				void invalidateEntityQueries(queryClient, instanceParams.entityId);
-				reportDeployFailure(project, error, 'activate', {
-					action: recordAction(deployFailureDetails(error).deploymentId),
-				});
-			},
-		});
-	}, [mutate, project, deploymentId, sseDeploy, stream, instanceParams, queryClient, runHealthCheck, recordAction]);
+				return;
+			}
+			stream.markSettled(
+				'error',
+				error instanceof DeployRolloutError ? undefined : error instanceof Error ? error.message : String(error),
+				{ failure: error },
+			);
+			reportDeployFailure(project, error, 'activate', {
+				action: recordAction(deployFailureDetails(error).deploymentId),
+			});
+		}
+	}, [
+		mutateAsync,
+		project,
+		deploymentId,
+		sseDeploy,
+		stream,
+		instanceParams,
+		queryClient,
+		runHealthCheck,
+		recordAction,
+	]);
 
 	if (!canActivate) {
 		return null;
@@ -110,7 +135,7 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={activate}>Activate</AlertDialogAction>
+						<AlertDialogAction onClick={() => void activate()}>Activate</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
