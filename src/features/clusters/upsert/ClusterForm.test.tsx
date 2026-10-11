@@ -57,6 +57,7 @@ function renderVersionForm() {
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId="clu-1"
+				currentRegions={[]}
 				defaultValues={{
 					clusterName: 'my-cluster',
 					abbreviatedName: '',

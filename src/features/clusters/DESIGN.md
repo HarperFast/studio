@@ -20,3 +20,11 @@ which includes the moment a second region is removed. A custom region is never c
 the catalog. The correction keeps the chosen region, matching the catalog entry's name for the stored region id, and
 moves only its latency when the tier offers that region at all. It falls back to the default region only when the tier
 offers nothing there (#1275).
+
+Central manager refuses a cluster update that leaves every region the cluster runs in while adding another, so moving a
+cluster takes two saves. It matches a catalog region by name, whatever its latency tier, and a custom region by id
+(`regionCohortKey`). `lib/describeRegionSwap.ts` blocks that selection on an edit with the steps instead of letting the
+update fail (#1311). It mirrors only the case the server is certain to refuse, so it can never block an update the
+server would accept. The server also counts shrinking a kept region as leaving it (a smaller tier of a catalog region,
+or fewer units of a custom one); a selection that shrinks every current region while adding one is not mirrored and
+still gets the server's error.
