@@ -20,7 +20,6 @@ vi.mock('sonner', () => ({
 
 const GATEWAY_BODY = '<html><head><title>504 Gateway Time-out</title></head></html>';
 
-/** A real instance client whose transport fails every request the way `fail` says. */
 function instanceClient(fail: (config: InternalAxiosRequestConfig) => never) {
 	const client = getInstanceClient({ id: 'ins-123', operationsUrl: 'https://ins-123.example.com:9925/' });
 	client.defaults.adapter = async (config: InternalAxiosRequestConfig) => fail(config);
@@ -56,7 +55,7 @@ describe('a write that got no verdict, through a real instance client', () => {
 	});
 
 	afterEach(() => {
-		consoleMock.mockRestore();
+		consoleMock?.mockRestore();
 	});
 
 	it.each([
