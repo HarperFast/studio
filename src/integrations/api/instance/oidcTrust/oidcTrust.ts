@@ -63,62 +63,69 @@ export function isTrustPolicyScoped(policy: OidcTrustPolicy): boolean {
 	return policy.operations != null;
 }
 
+/** Reported by `list_oidc_trust` but set by Harper, never taken from the request. */
+const REPORTED_ONLY = new Set(['invalid_reason', 'updated_by', '__createdtime__', '__updatedtime__']);
+
 /**
  * The `add_oidc_trust` request that stores `policy` again with only `enabled` changed. The operation
- * replaces the whole row, so every stored field goes back; absent ones are omitted because its
- * validator takes no nulls. A scope that is neither absent nor a list of names is refused rather than
- * omitted, since omitting it would store the policy unscoped and widen what its token can do.
+ * replaces the whole row, so every stored field goes back — including any this file does not know —
+ * except nulls, which its validator rejects and which mean absent. A scope that is neither absent nor
+ * a list of names is refused rather than dropped, since dropping it would store the policy unscoped
+ * and widen what its token can do.
  */
 export function trustPolicyResaveRequest(policy: OidcTrustPolicy, enabled: boolean) {
-	const { operations, description } = policy;
+	const { operations } = policy;
 	if (operations != null && !(Array.isArray(operations) && operations.every((name) => typeof name === 'string'))) {
 		throw new Error(`Trust policy '${policy.id}' has a malformed operations scope, so it cannot be re-saved.`);
 	}
-	return {
-		operation: 'add_oidc_trust',
-		id: policy.id,
-		issuer: policy.issuer,
-		audience: policy.audience,
-		claims: policy.claims,
-		user: policy.user,
-		...(operations != null ? { operations } : {}),
-		enabled,
-		...(typeof description === 'string' ? { description } : {}),
-	};
+	const stored: Record<string, unknown> = {};
+	for (const [field, value] of Object.entries(policy)) {
+		if (value != null && !REPORTED_ONLY.has(field)) {
+			stored[field] = value;
+		}
+	}
+	return { ...stored, operation: 'add_oidc_trust', enabled };
 }
 
-function storedShape(policy: OidcTrustPolicy): string {
-	return JSON.stringify([
-		policy.__updatedtime__ ?? null,
-		policy.issuer,
-		policy.audience,
-		policy.claims,
-		policy.user,
-		policy.operations ?? null,
-		policy.enabled,
-		policy.description ?? null,
-	]);
-}
-
-export interface SetTrustPolicyEnabledArgs extends InstanceClientIdConfig {
-	/** The row as the page last showed it. */
-	loaded: OidcTrustPolicy;
-	enabled: boolean;
+function stableJson(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map(stableJson).join(',')}]`;
+	}
+	if (value !== null && typeof value === 'object') {
+		const record = value as Record<string, unknown>;
+		return `{${
+			Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')
+		}}`;
+	}
+	return JSON.stringify(value) ?? 'null';
 }
 
 /**
- * Re-reads the policy first and refuses if it changed since `loaded`: the write replaces the row, so
- * re-saving a stale copy would undo whatever another administrator changed in between. A change
- * landing within this one round trip still loses; closing that needs a conditional write in Harper.
+ * The policy as Harper holds it now, refused if anything differs from `loaded`: both writes act on a
+ * row the reader last saw, and acting on a stale copy would undo, or drop, whatever another
+ * administrator changed in between. A change landing within this one round trip still wins the race;
+ * closing that needs a conditional write in Harper.
  */
-export async function setTrustPolicyEnabled({ loaded, enabled, ...params }: SetTrustPolicyEnabledArgs) {
+async function rereadUnchanged(params: InstanceClientIdConfig, loaded: OidcTrustPolicy): Promise<OidcTrustPolicy> {
 	const current = (await listOidcTrust(params)).find((policy) => policy.id === loaded.id);
 	if (!current) {
 		throw new Error(`Trust policy '${loaded.id}' no longer exists.`);
 	}
-	if (storedShape(current) !== storedShape(loaded)) {
+	if (stableJson(current) !== stableJson(loaded)) {
 		throw new Error(`Trust policy '${loaded.id}' changed since this page loaded it. Review it and try again.`);
 	}
+	return current;
+}
+
+export interface TrustPolicyWriteArgs extends InstanceClientIdConfig {
+	/** The row as the page last showed it. */
+	loaded: OidcTrustPolicy;
+}
+
+export async function setTrustPolicyEnabled(
+	{ loaded, enabled, ...params }: TrustPolicyWriteArgs & { enabled: boolean },
+) {
+	const current = await rereadUnchanged(params, loaded);
 	const { data } = await params.instanceClient.post<{ message: string }>(
 		'/',
 		trustPolicyResaveRequest(current, enabled),
@@ -130,15 +137,15 @@ export function useSetTrustPolicyEnabled() {
 	return useMutation({ mutationFn: setTrustPolicyEnabled });
 }
 
-export interface DropTrustPolicyArgs extends InstanceClientIdConfig {
-	id: string;
-}
-
-async function dropOidcTrust({ instanceClient, id }: DropTrustPolicyArgs) {
-	const { data } = await instanceClient.post<{ message: string }>('/', { operation: 'drop_oidc_trust', id });
+export async function dropTrustPolicy({ loaded, ...params }: TrustPolicyWriteArgs) {
+	await rereadUnchanged(params, loaded);
+	const { data } = await params.instanceClient.post<{ message: string }>('/', {
+		operation: 'drop_oidc_trust',
+		id: loaded.id,
+	});
 	return data;
 }
 
 export function useDropTrustPolicy() {
-	return useMutation({ mutationFn: dropOidcTrust });
+	return useMutation({ mutationFn: dropTrustPolicy });
 }
