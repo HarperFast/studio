@@ -16,14 +16,10 @@ import {
 	operationMatchesFilter,
 } from '@/features/instance/apis/explorer/spec';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
-import {
-	maxSidebarWidth,
-	MIN_SIDEBAR_WIDTH,
-	useResizableSidebar,
-} from '@/features/instance/apis/explorer/useResizableSidebar';
+import { useResizableApiExplorerSidebar } from '@/features/instance/apis/explorer/useResizableApiExplorerSidebar';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/cn';
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // Stable reference for "no explicit credential" so downstream memoized children don't re-render when a
 // credential is withheld (server mismatch).
@@ -245,8 +241,8 @@ export function ApiExplorer(
 	const authorized = isAuthorized(effectiveAuth);
 
 	// Width drives a CSS variable applied only at lg+; below that the sidebar stacks full-width.
-	const { width: sidebarWidth, isResizing, startResizing, handleKeyDown } = useResizableSidebar();
-	const sidebarWidthVar = { '--api-sidebar-width': `${sidebarWidth}px` } as CSSProperties;
+	const { width: sidebarWidth, minWidth, maxWidth, isResizing, sidebarRef, startResizing, handleKeyDown } =
+		useResizableApiExplorerSidebar();
 
 	const filteredOperations = useMemo(
 		() => allOperations.filter(op => operationMatchesFilter(op, filter)),
@@ -283,7 +279,7 @@ export function ApiExplorer(
 				: (
 					<div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
 						<aside
-							style={sidebarWidthVar}
+							ref={sidebarRef}
 							// overflow-y-clip (not -hidden) so a broken min-h-0 chain can't paint the tree over the
 							// detail pane, while the resize handle still extends horizontally into the gap.
 							className="relative w-full shrink-0 overflow-y-clip lg:h-full lg:min-h-0 lg:w-[var(--api-sidebar-width)]"
@@ -314,11 +310,11 @@ export function ApiExplorer(
 								aria-orientation="vertical"
 								aria-label="Resize sidebar"
 								aria-valuenow={sidebarWidth}
-								aria-valuemin={MIN_SIDEBAR_WIDTH}
-								aria-valuemax={maxSidebarWidth(window.innerWidth)}
-								onMouseDown={startResizing}
+								aria-valuemin={minWidth}
+								aria-valuemax={maxWidth}
+								onPointerDown={startResizing}
 								onKeyDown={handleKeyDown}
-								className="group absolute top-0 right-0 bottom-0 z-40 hidden w-4 translate-x-1/2 cursor-col-resize outline-none lg:block"
+								className="group absolute top-0 right-0 bottom-0 z-40 hidden w-4 translate-x-1/2 cursor-col-resize touch-none outline-none lg:block"
 							>
 								<div
 									className={cn(
