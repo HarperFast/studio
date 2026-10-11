@@ -231,8 +231,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		databaseName,
 		tableName,
 	]);
-	// Whether the user agreed that the applied filter may read every record. Only
-	// `applySearchConditions` sets the two, together.
 	const [fullScanAllowed, setFullScanAllowed] = useEffectedState(false, [
 		allParams.clusterId,
 		allParams.instanceId,
@@ -262,20 +260,19 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return conditions;
 	}, [attributesMap, relationshipInfoMap]);
 
-	// Every filter that runs comes through here, typed or deep-linked, so one that no index can answer
-	// never runs without the user agreeing to a scan of the whole table. False when they decline.
+	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
+	// without the user agreeing to read the whole table.
 	const applySearchConditions = useCallback((conditions: SearchCondition[]) => {
-		const scanned = fullScanAttributes(conditions, attributesMap);
+		const scanned = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
 		if (scanned.length && !confirm(fullScanWarning(tableName, scanned))) {
 			return false;
 		}
 		setFullScanAllowed(scanned.length > 0);
 		setAppliedSearchConditions(conditions.length ? conditions : null);
 		return true;
-	}, [attributesMap, tableName, setFullScanAllowed, setAppliedSearchConditions]);
+	}, [attributesMap, relationshipInfoMap, tableName, setFullScanAllowed, setAppliedSearchConditions]);
 
 	const applyFilters = useCallback(() => {
-		// Declined, the inputs stay as typed and unapplied, so Apply Filters is still on offer.
 		if (applySearchConditions(translateFilterValues(columnFiltersValues))) {
 			resetFiltersForm({ ...columnFiltersValues });
 		}
@@ -312,8 +309,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			if (applySearchConditions(translateFilterValues(urlFilters))) {
 				resetFiltersForm({ ...urlFilters });
 			} else {
-				// Declined: the link's filter stays in the inputs, unapplied (so still dirty), for the user to
-				// edit or apply.
+				// Kept dirty, so Apply Filters stays on offer.
 				resetFiltersForm({ ...urlFilters }, { keepDefaultValues: true });
 			}
 			showFilters();
