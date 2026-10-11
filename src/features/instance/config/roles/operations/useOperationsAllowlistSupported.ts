@@ -9,9 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 export interface AllowlistVersion {
-	/** Whether the instance accepts `permission.operations` at all. */
 	supported: boolean;
-	/** Which names the instance's allowlist gate can match. */
 	band: GrantBand;
 }
 
@@ -39,7 +37,6 @@ export function useAllowlistVersion(): AllowlistVersion | undefined {
 	);
 }
 
-/** {@link useAllowlistVersion}'s support verdict alone, for readers that never count grants. */
 export function useOperationsAllowlistSupported(): boolean | undefined {
 	return useAllowlistVersion()?.supported;
 }

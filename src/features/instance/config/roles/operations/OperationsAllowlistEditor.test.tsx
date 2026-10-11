@@ -157,7 +157,7 @@ describe('OperationsAllowlistEditor', () => {
 		openPicker();
 		filterPicker('deploy_component');
 		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
-		expect(within(item).getByText('needs Harper 5.3')).toBeTruthy();
+		expect(within(item).getByText('needs newer Harper')).toBeTruthy();
 		expect(within(item).queryByText('super_user')).toBeNull();
 	});
 
@@ -171,7 +171,7 @@ describe('OperationsAllowlistEditor', () => {
 		filterPicker('deploy_component');
 		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
 		expect(within(item).getByText('super_user')).toBeTruthy();
-		expect(within(item).queryByText('needs Harper 5.3')).toBeNull();
+		expect(within(item).queryByText('needs newer Harper')).toBeNull();
 	});
 
 	it('stops offering catchup on 5.3, where no allowlist can reach it, and says so on a saved one', () => {
