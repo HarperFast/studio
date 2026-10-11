@@ -8,7 +8,12 @@ vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 vi.mock('@/components/ErrorComponent', () => ({
-	ErrorComponent: ({ error }: { error: Error }) => <p>generic error: {error.message}</p>,
+	ErrorComponent: ({ error, reset }: { error: Error; reset?: () => void }) => (
+		<p>
+			generic error: {error.message}
+			{reset && ' (retryable)'}
+		</p>
+	),
 }));
 
 import { ClusterRouteError } from './ClusterRouteError';
@@ -32,5 +37,10 @@ describe('ClusterRouteError', () => {
 		render(<ClusterRouteError error={httpError(500)} />);
 		expect(screen.getByText('generic error: Request failed with status code 500')).toBeTruthy();
 		expect(screen.queryByText('Pending Owner Setup')).toBeNull();
+	});
+
+	it("hands the router's reset to the generic error page so it can offer a retry", () => {
+		render(<ClusterRouteError error={httpError(503)} reset={() => {}} />);
+		expect(screen.getByText('generic error: Request failed with status code 503 (retryable)')).toBeTruthy();
 	});
 });

@@ -9,10 +9,10 @@ import { ArrowLeft } from 'lucide-react';
  * The cluster route loads the cluster before any page under it renders. Central manager answers 403 to members who
  * aren't org admins until a new cluster's setup is finished; its other per-cluster refusals read as 404.
  */
-export function ClusterRouteError({ error }: { error: unknown }) {
+export function ClusterRouteError({ error, reset }: { error: unknown; reset?: () => void }) {
 	const { organizationId }: { organizationId?: string } = useParams({ strict: false });
 	if (!isForbiddenError(error)) {
-		return <ErrorComponent error={error} />;
+		return <ErrorComponent error={error} reset={reset} />;
 	}
 	return (
 		<div className="flex flex-col items-center mt-24">
