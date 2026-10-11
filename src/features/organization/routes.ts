@@ -7,6 +7,7 @@ import { OrgConfigRolesIndex } from '@/features/organization/roles';
 import { OrgSettingsIndex } from '@/features/organization/settings';
 import { OrgConfigUsersIndex } from '@/features/organization/users';
 import { orgsLayoutRoute } from '@/features/organizations/routes';
+import { ensureRouteQueryData } from '@/router/ensureRouteQueryData';
 import { createRoute, redirect } from '@tanstack/react-router';
 
 export const orgLayoutRoute = createRoute({
@@ -23,7 +24,8 @@ export const orgLayoutRoute = createRoute({
 			throw redirect({ to: '/' });
 		}
 		return {
-			organization: await opts.context.queryClient.ensureQueryData(
+			organization: await ensureRouteQueryData(
+				opts.context.queryClient,
 				getOrganizationQueryOptions(organizationId),
 			),
 		};
