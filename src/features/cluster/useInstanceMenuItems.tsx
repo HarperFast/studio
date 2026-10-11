@@ -11,7 +11,11 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceContainerOps } from '@/hooks/useInstanceContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
-import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
+import {
+	getStatusQueryOptions,
+	getSystemStatusById,
+	supportsGetStatus,
+} from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -60,7 +64,10 @@ export function useInstanceMenuItems(
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
 	const { data: statusResponse } = useQuery(
-		getStatusQueryOptions(statusParams, enabled && canManage && !isOperationsProxyRefused(instance.status)),
+		getStatusQueryOptions(
+			statusParams,
+			enabled && canManage && !isOperationsProxyRefused(instance.status) && supportsGetStatus(instance.version),
+		),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';

@@ -5,7 +5,11 @@ import { isOperationsProxyRefused, isStoppedOrTransitioning } from '@/components
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
-import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
+import {
+	getStatusQueryOptions,
+	getSystemStatusById,
+	supportsGetStatus,
+} from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
@@ -33,7 +37,8 @@ export function InstanceStatusCell(
 	}, [index]);
 
 	const notProxied = isOperationsProxyRefused(instance.status);
-	const statusPollEnabled = ready && canManage && !notProxied;
+	const statusSupported = supportsGetStatus(instance.version);
+	const statusPollEnabled = ready && canManage && !notProxied && statusSupported;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
@@ -46,10 +51,13 @@ export function InstanceStatusCell(
 		return null;
 	}
 
-	// Availability and rotation are N/A while central manager refuses the instance's operations. Show
-	// a muted dot rather than a stale green "Available" (cached from before) or an endless spinner.
-	if (notProxied) {
-		const label = isStoppedOrTransitioning(instance.status) ? 'Not running' : 'Status unavailable';
+	// Availability and rotation are N/A while central manager refuses the instance's operations, or on
+	// a Harper too old to have them. Show a muted dot rather than a stale green "Available" (cached
+	// from before) or an endless spinner.
+	if (notProxied || !statusSupported) {
+		const label = notProxied
+			? isStoppedOrTransitioning(instance.status) ? 'Not running' : 'Status unavailable'
+			: 'Status needs Harper 4.6 or later';
 		return (
 			<div className="flex items-center gap-2">
 				<Tooltip>
