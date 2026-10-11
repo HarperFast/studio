@@ -27,6 +27,9 @@ import { useSignUpMutation } from './hooks/useSignUp';
 
 // The account may already exist: sending them to the inbox beats a resubmit that 409s (#1668).
 const SIGN_UP_OUTCOME_UNKNOWN_RECOVERY = 'Check your email for a verification link before signing up again.';
+// OAuth sign-up never reaches central-manager's CAPTCHA check: only email sign-up and
+// forgot-password call it.
+const CAPTCHA_ALTERNATIVE = 'You can also sign up with Google or GitHub above, which skips this check.';
 
 const SignUpSchema = z.object({
 	email: zodRequireEmail
@@ -88,7 +91,7 @@ export function SignUp() {
 	}, [setFocus]);
 
 	const { mutate: submitSignUpData, isPending } = useSignUpMutation();
-	const captcha = useCaptchaChallenge('signup');
+	const captcha = useCaptchaChallenge('signup', CAPTCHA_ALTERNATIVE);
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
