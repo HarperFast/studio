@@ -12,6 +12,7 @@ describe('isTerminalDeploymentStatus', () => {
 		['success', true],
 		['failed', true],
 		['rolled_back', true],
+		['staged', true],
 	])('%s -> terminal=%s', (status, expected) => {
 		expect(isTerminalDeploymentStatus(status)).toBe(expected);
 	});

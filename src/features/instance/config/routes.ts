@@ -1,5 +1,6 @@
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
+import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
@@ -76,12 +77,14 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceConfigDeploymentsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'deployments',
+		validateSearch: validateDeploymentsSearch,
 		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
 		component: ConfigDeploymentsIndex,
 	});
 	const instanceConfigDeploymentRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'deployments/$deploymentId',
+		validateSearch: validateDeploymentsSearch,
 		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
 		component: ConfigDeploymentsIndex,
 	});
