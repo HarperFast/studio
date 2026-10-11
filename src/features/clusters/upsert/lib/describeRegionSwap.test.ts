@@ -1,5 +1,7 @@
+import type { SchemaRegion } from '@/integrations/api/api.gen';
 import { describe, expect, it } from 'vitest';
-import { describeRegionSwap, RegionCohort } from './describeRegionSwap';
+import { describeRegionSwap, RegionCohort, regionCohortsOfPlans } from './describeRegionSwap';
+import { buildRegionLookup } from './regionLookup';
 
 // A catalog region's cohort is its name.
 const catalog = (names: string[]): RegionCohort[] => names.map(name => ({ key: name, name }));
@@ -9,6 +11,35 @@ const swap = (currentRegionNames: string[], selectedRegionNames: string[], singl
 		selectedRegions: catalog(selectedRegionNames),
 		singleRegionTier,
 	});
+
+describe('regionCohortsOfPlans', () => {
+	const lookup = buildRegionLookup(
+		[
+			{ id: 'us-1', region: 'US', latencyDescription: '83ms', instanceCount: 2 },
+			{ id: 'eu-1', region: 'Europe', latencyDescription: '58ms', instanceCount: 2 },
+		] as SchemaRegion[],
+		[{ id: 'oreg-1', organizationId: 'org-a', name: 'Edge', placement: { gcp: ['us-east1', 'us-west1'] } }],
+		undefined,
+	);
+
+	it('keys a catalog plan by its region name and a custom region by its id', () => {
+		expect(regionCohortsOfPlans([
+			{ planId: 'shared', regionId: 'eu-1' },
+			{ planId: 'shared', regionId: 'oreg-1', quantity: 2 },
+		], lookup)).toEqual([{ key: 'Europe', name: 'Europe' }, { key: 'oreg-1', name: 'Edge' }]);
+	});
+
+	it('falls back to what a plan the lookup lacks carries', () => {
+		expect(regionCohortsOfPlans([
+			{ planId: 'shared', regionId: 'retired-1', region: 'Asia' },
+			{ planId: 'shared', regionId: 'oreg-gone', region: 'Old edge' },
+		], lookup)).toEqual([{ key: 'Asia', name: 'Asia' }, { key: 'oreg-gone', name: 'Old edge' }]);
+	});
+
+	it('skips plans with no region, such as self-hosted instances', () => {
+		expect(regionCohortsOfPlans([{ planId: 'self-hosted-0' }], lookup)).toEqual([]);
+	});
+});
 
 describe('describeRegionSwap', () => {
 	it('stays quiet for a new cluster, which has no current regions', () => {
@@ -32,9 +63,9 @@ describe('describeRegionSwap', () => {
 		);
 	});
 
-	it('asks to keep one of several current regions', () => {
+	it('asks to keep at least one of several current regions', () => {
 		expect(swap(['US', 'Asia', 'US'], ['Europe', 'Canada'])).toBe(
-			"A cluster can't move out of all its current regions in one update. Keep one of US and Asia, add Europe as an additional region and save, then remove the others once that update has finished.",
+			"A cluster can't move out of all its current regions in one update. Keep at least one of US and Asia, add Europe as an additional region and save, then remove the old regions that are left once that update has finished.",
 		);
 	});
 

@@ -30,9 +30,9 @@ import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
-import { RegionCohort } from './lib/describeRegionSwap';
+import { regionCohortsOfPlans } from './lib/describeRegionSwap';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
-import { buildRegionLookup, isOrganizationRegionId, regionCohortKey } from './lib/regionLookup';
+import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
 import { RegionPlanEntry, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -140,26 +140,20 @@ export function UpsertCluster() {
 		return false;
 	}, [cluster?.id, organization?.clusters, planTypes]);
 
-	const currentRegions = useMemo<RegionCohort[]>(() => {
-		if (!clusterId) {
-			return [];
-		}
-		const lookup = buildRegionLookup(
-			[...(regionLocationsColocated ?? []), ...(regionLocationsDedicated ?? [])],
-			organizationRegions,
-			cloudProvider,
-		);
-		return (cluster?.plans ?? []).flatMap(plan => {
-			const region = plan.regionId ? lookup.get(plan.regionId) : undefined;
-			if (region) {
-				return [{ key: regionCohortKey(region), name: region.name }];
-			}
-			if (isOrganizationRegionId(plan.regionId)) {
-				return [{ key: plan.regionId!, name: plan.region ?? plan.regionId! }];
-			}
-			return plan.region ? [{ key: plan.region, name: plan.region }] : [];
-		});
-	}, [cloudProvider, cluster, clusterId, organizationRegions, regionLocationsColocated, regionLocationsDedicated]);
+	const currentRegions = useMemo(
+		() =>
+			clusterId
+				? regionCohortsOfPlans(
+					cluster?.plans ?? [],
+					buildRegionLookup(
+						[...(regionLocationsColocated ?? []), ...(regionLocationsDedicated ?? [])],
+						organizationRegions,
+						cloudProvider,
+					),
+				)
+				: [],
+		[cloudProvider, cluster, clusterId, organizationRegions, regionLocationsColocated, regionLocationsDedicated],
+	);
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
 		() =>
