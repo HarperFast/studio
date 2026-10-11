@@ -220,6 +220,41 @@ describe('SignUp', () => {
 		consoleError.mockRestore();
 	});
 
+	it('does not report a CAPTCHA rejection, which the form states inline', async () => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(consoleError).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	// central-manager answers an existing address with the uniform 202 now (#630), so a 409 here
+	// is no longer the expected conflict.
+	it.each([
+		[403, 'Sign-up is not available for this email domain'],
+		[400, 'First name is invalid'],
+		[409, 'User already exists'],
+		[500, undefined],
+	])('still reports a %i to telemetry exactly once', async (status, data) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(axiosError(status, data));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(consoleError).toHaveBeenCalledTimes(1);
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ response: { status, data } }));
+		consoleError.mockRestore();
+	});
+
 	// Documents a real defect (#1677), not desired behavior: the server failure outlives a resubmit
 	// the resolver rejected, so it sits next to a contradicting field error. `post` is asserted at
 	// one call to prove the second submit really was rejected client-side rather than re-failing.

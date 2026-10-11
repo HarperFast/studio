@@ -5,7 +5,6 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { zodRequireEmail } from '@/lib/zod/email';
-import { errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,7 +13,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
-import { describeRetryableAuthFailure } from './describeAuthFailure';
+import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
 
@@ -63,19 +62,7 @@ export function ForgotPassword() {
 				navigate({ to: '/sign-in', search: { me: email } });
 			},
 			onError: (error) => {
-				const captchaMessage = captcha.describeCaptchaError(error);
-				if (captchaMessage) {
-					setSubmitError(captchaMessage);
-					return;
-				}
-				const retryableMessage = describeRetryableAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY);
-				if (retryableMessage) {
-					// The RUM channel for a handled rejection; nothing else on this path reports it.
-					console.error(error);
-					setSubmitError(retryableMessage);
-					return;
-				}
-				errorHandler(error);
+				setSubmitError(captcha.describeCaptchaError(error) ?? describeAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY));
 			},
 		});
 	};

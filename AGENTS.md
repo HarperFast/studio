@@ -845,9 +845,13 @@ That matters when replacing a toast with inline form copy: drop the `errorHandle
 failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)` for exactly this
 reason — **at mutation level, in the `useMutation({ onError })`, not in the caller's `mutate(…, {
 onError })` callback**. React Query skips the latter when the component unmounted mid-flight, which
-is precisely when someone gave up on a slow sign-in and navigated away. Exclude control flow from it —
-`SignIn` skips the unverified-email rejection there, because `submitForm` redirects into the
-verification flow on it and reporting it would file every unverified sign-in.
+is precisely when someone gave up on a slow sign-in and navigated away. All three auth forms
+(sign-in, sign-up, forgot-password) report this way. Exclude control flow and expected answers
+from it — `SignIn` skips the unverified-email rejection there, because `submitForm` redirects into
+the verification flow on it and reporting it would file every unverified sign-in; sign-up and
+forgot-password skip a CAPTCHA rejection, the check's expected verdict, which they state inline
+(#1688). Reported, it arrives only as a generic `Request failed with status code 403`; count
+CAPTCHA refusals from `@type:resource` 403s on `POST /User/` and `/ForgotPassword/` instead.
 
 A related trap when reasoning about these forms: **a minimal `useForm` probe does not reproduce them.**
 react-hook-form clears a `root` error on a resolver-rejected resubmit in isolation, but `SignUp`
@@ -855,10 +859,7 @@ demonstrably does not (#1677), and `handleSubmit(fn, () => clearErrors('root'))`
 that. Reproduce against the real component, and assert the request count so a "stale" alert cannot
 actually be a second identical rejection. **Keeping the failure in component state, outside
 react-hook-form, is the model that clears correctly** — sign-in has always done this and
-forgot-password moved to it; sign-up is the remaining `root` user. (`ForgotPassword` keeps
-its report in the caller because it reports conditionally: its CAPTCHA branch is deliberately silent
-per #1658, and its non-retryable branch routes through `errorHandler`. The consequence is that a
-forgot-password failure is reported only if the form is still mounted when it settles.)
+forgot-password moved to it; sign-up is the remaining `root` user.
 The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.

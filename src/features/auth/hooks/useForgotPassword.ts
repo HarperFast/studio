@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 
 export type ForgotPasswordCredential = {
 	email: string;
@@ -28,8 +29,15 @@ export async function onResetPasswordSubmit(
 export function useForgotPasswordMutation() {
 	return useMutation<ForgotPasswordResponse, Error, ForgotPasswordCredential>({
 		mutationFn: (loginData) => onResetPasswordSubmit(loginData),
-		// The form renders CAPTCHA and retryable failures inline and re-raises the rest through
-		// errorHandler, so the global toast would double up here.
 		meta: { skipGlobalErrorToast: true },
+		// At mutation level, not in the caller's `mutate` callback: React Query skips those when
+		// the component unmounts mid-flight, and this is the only thing reporting the rejection
+		// now that `skipGlobalErrorToast` keeps `errorHandler` out of the path. A CAPTCHA rejection
+		// is the check's expected verdict, which the form states inline.
+		onError: (error) => {
+			if (!isCaptchaVerificationError(error)) {
+				console.error(error);
+			}
+		},
 	});
 }
