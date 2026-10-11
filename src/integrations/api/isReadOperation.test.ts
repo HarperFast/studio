@@ -1,4 +1,4 @@
-import { isReadOperation } from '@/integrations/api/isReadOperation';
+import { isReadOperation, isReadRequest } from '@/integrations/api/isReadOperation';
 import { describe, expect, it } from 'vitest';
 
 describe('isReadOperation', () => {
@@ -42,4 +42,27 @@ describe('isReadOperation', () => {
 			expect(isReadOperation(operation)).toBe(false);
 		},
 	);
+});
+
+describe('isReadRequest', () => {
+	it.each([
+		['a GET', { method: 'get' }],
+		['an upper-case GET', { method: 'GET' }],
+		['a read body', { method: 'post', data: { operation: 'describe_all' } }],
+		['a read body axios already serialized', { method: 'post', data: JSON.stringify({ operation: 'get_job' }) }],
+	])('reads %s as a read', (_, config) => {
+		expect(isReadRequest(config)).toBe(true);
+	});
+
+	it.each([
+		['a write body', { method: 'post', data: { operation: 'insert' } }],
+		['a serialized write body', { method: 'post', data: JSON.stringify({ operation: 'drop_table' }) }],
+		['a body that is not JSON', { method: 'post', data: 'describe_all' }],
+		['a JSON null body', { method: 'post', data: 'null' }],
+		['no body', { method: 'post' }],
+		['a DELETE', { method: 'delete' }],
+		['a method that is not a string', { method: 42 }],
+	])('treats %s as able to change something', (_, config) => {
+		expect(isReadRequest(config)).toBe(false);
+	});
 });

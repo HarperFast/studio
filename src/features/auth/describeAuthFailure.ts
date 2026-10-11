@@ -15,9 +15,9 @@ export const OUTCOME_UNKNOWN_MESSAGE =
 	"We didn't get an answer from the server, so we can't tell whether that went through.";
 
 // 503 alone: the server is declining requests, so it very likely never processed this one and a
-// plain retry is honest. (`curryRetryGatewayErrors` also classes 502/504 as retryable, but it is
-// installed on instance clients only, never on `apiClient` — nothing retries these calls
-// automatically, and the retry this copy invites is the user's own.)
+// plain retry is honest. (`curryRetryGatewayErrors` replays 502/503/504, but only for reads and
+// only on instance clients, never on `apiClient` — nothing retries these calls automatically, and
+// the retry this copy invites is the user's own.)
 const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([503]);
 // Every form using this submits a non-idempotent POST, and each of these means the request had
 // already been handed upstream, so the write may have applied (RFC 9110 §9.2.2 — a retry is only
