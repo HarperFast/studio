@@ -5,7 +5,7 @@ import { getTableEntry } from '@/features/instance/config/roles/editor/rolePermi
 import { RoleVisualEditor } from '@/features/instance/config/roles/editor/RoleVisualEditor';
 import { InstanceDatabaseMap, LocalRolePermission } from '@/integrations/api/api.patch';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 const schema = {
@@ -31,7 +31,7 @@ beforeAll(() => {
 
 afterEach(cleanup);
 
-/** Holds the document like the modal does, and exposes the latest one to the test. */
+/** Holds the document like the modal does, and exposes the latest one to the test. StrictMode as in main.tsx. */
 function renderEditor(initial: unknown, version = '5.3.1') {
 	const latest = { current: initial as LocalRolePermission };
 	function Harness() {
@@ -48,7 +48,11 @@ function renderEditor(initial: unknown, version = '5.3.1') {
 			/>
 		);
 	}
-	render(<Harness />);
+	render(
+		<StrictMode>
+			<Harness />
+		</StrictMode>,
+	);
 	return latest;
 }
 
@@ -136,6 +140,22 @@ describe('RoleVisualEditor', () => {
 		expect(latest.current.structure_user).toEqual(['data']);
 		expect(screen.getByText('full access (structure user)')).toBeTruthy();
 		expect(screen.queryByRole('checkbox', { name: 'Read on data.dog' })).toBeNull();
+	});
+
+	it('restores the selected databases after switching structure_user to another mode and back', () => {
+		const latest = renderEditor({ structure_user: ['data'], data: { tables: {} } });
+
+		fireEvent.click(screen.getByRole('radio', { name: /All databases/ }));
+		expect(latest.current.structure_user).toBe(true);
+		fireEvent.click(screen.getByRole('radio', { name: /^No/ }));
+		expect(latest.current.structure_user).toBe(false);
+		fireEvent.click(screen.getByRole('radio', { name: /Selected databases/ }));
+		expect(latest.current.structure_user).toEqual(['data']);
+
+		fireEvent.click(checkbox('Structure user on dev'));
+		fireEvent.click(screen.getByRole('radio', { name: /All databases/ }));
+		fireEvent.click(screen.getByRole('radio', { name: /Selected databases/ }));
+		expect(latest.current.structure_user).toEqual(['data', 'dev']);
 	});
 
 	it('offers the cluster user type on Harper 4, and to a role that already has it', () => {

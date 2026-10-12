@@ -263,13 +263,13 @@ function StructureUserSection({
 	const selected = Array.isArray(structureUser) ? structureUser : [];
 	// Lets "Selected databases" → another mode → back restore the picks instead of starting empty.
 	const lastSelectionRef = useRef<string[]>(selected);
-	if (Array.isArray(structureUser)) {
-		lastSelectionRef.current = structureUser;
-	}
 	const listed = [...databaseNames, ...selected.filter((name) => !databaseNames.includes(name))];
 	const hasTablePermissions = Object.keys(permission).some((key) => !RESERVED_PERMISSION_KEYS.has(key));
 
 	const onModeChange = (next: string) => {
+		if (Array.isArray(structureUser)) {
+			lastSelectionRef.current = structureUser;
+		}
 		onChange(
 			setStructureUser(permission, next === 'all' ? true : next === 'selected' ? lastSelectionRef.current : false),
 		);
