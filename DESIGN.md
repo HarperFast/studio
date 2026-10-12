@@ -64,7 +64,7 @@ The wide hero artwork spans both columns beneath the form card in three independ
 
 ## Instance clients replay only reads
 
-Every `getInstanceClient` client replays a 502/503/504 up to three times (5s/10s/20s), but only for a request [`isReadRequest`](src/integrations/api/isReadOperation.ts) accepts: a GET, or a body whose `operation` is a read by Harper's naming — the restart gate's rule, one predicate for both ([`retryGatewayErrors.ts`](src/integrations/api/retryGatewayErrors.ts)). A write is sent once and its first 5xx is final, because no gateway status proves the write was not applied: Harper itself answers 503 after handing an operation to a worker that exits or overruns. Do not add an exemption for a "usually safe" status or a write that looks idempotent; a caller whose write is safe to repeat retries it itself, where it can say why.
+Every `getInstanceClient` client replays a 502/503/504 up to three times (5s/10s/20s), but only for a request [`isReadRequest`](src/integrations/api/isReadOperation.ts) accepts: a GET, or a POST whose body's `operation` is a read by Harper's naming — the restart gate's rule, one predicate for both ([`retryGatewayErrors.ts`](src/integrations/api/retryGatewayErrors.ts)). A write is sent once and its first 5xx is final, because no gateway status proves the write was not applied: Harper itself answers 503 after handing an operation to a worker that exits or overruns. Do not add an exemption for a "usually safe" status or a write that looks idempotent; a caller whose write is safe to repeat retries it itself, where it can say why.
 
 ## Cluster upgrade picker — which versions an existing cluster is offered
 
