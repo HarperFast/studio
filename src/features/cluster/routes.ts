@@ -1,4 +1,4 @@
-import { isDeletedClusterStatus } from '@/config/clusterStatuses';
+import { isDeletedCluster } from '@/config/clusterStatuses';
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
@@ -54,14 +54,14 @@ const clusterUsageRoute = createRoute({
 
 export function redirectAwayFromSignInIfConnected(
 	{ context, location, params }: {
-		context?: { cluster?: { status?: string } };
+		context?: { cluster?: { status?: string; terminatedAt?: string } };
 		location?: { search?: { redirect?: string } };
 		params: { clusterId: string };
 	},
 ) {
 	// A terminated cluster's sign-in page explains that it is gone; a stale connection must not bounce
 	// the user past that into pages that would call the deleted host.
-	if (isDeletedClusterStatus(context?.cluster?.status)) {
+	if (isDeletedCluster(context?.cluster)) {
 		return;
 	}
 	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
@@ -75,12 +75,12 @@ export function redirectAwayFromSignInIfConnected(
 
 export function redirectAwayFromInstanceSignInIfConnected(
 	{ context, location, params }: {
-		context?: { cluster?: { status?: string } };
+		context?: { cluster?: { status?: string; terminatedAt?: string } };
 		location?: { search?: { redirect?: string } };
 		params: { clusterId: string; instanceId: string };
 	},
 ) {
-	if (isDeletedClusterStatus(context?.cluster?.status)) {
+	if (isDeletedCluster(context?.cluster)) {
 		return;
 	}
 	// Key off the instance's OWN state, mirroring the cluster guard. The parent cluster's Fabric Connect

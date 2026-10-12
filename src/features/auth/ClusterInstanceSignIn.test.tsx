@@ -89,6 +89,22 @@ describe(ClusterInstanceSignIn, () => {
 		expect(instanceClient.get).not.toHaveBeenCalled();
 	});
 
+	it('treats a failed build that central manager rolled back (FAILED with terminatedAt) as terminated', async () => {
+		await renderSignIn(clusterWith({ status: 'FAILED', terminatedAt: '2026-08-13T00:00:00.000Z' }));
+		expect(screen.getByRole('heading', { name: 'Cluster Terminated' })).toBeTruthy();
+		expect(screen.queryByLabelText('Password')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Sign In' })).toBeNull();
+		expect(instanceClient.get).not.toHaveBeenCalled();
+	});
+
+	it('still offers the sign-in form for a FAILED cluster without terminatedAt, which may still be serving', async () => {
+		instanceClient.get.mockResolvedValue({ data: {} });
+		await renderSignIn(clusterWith({ status: 'FAILED' }));
+		expect(screen.getByRole('button', { name: 'Sign In' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
+		expect(instanceClient.get).toHaveBeenCalledWith('/health');
+	});
+
 	it('calls a removed self-managed cluster removed, not terminated', async () => {
 		await renderSignIn(
 			clusterWith({ status: 'TERMINATED', plans: [{ planId: 'self-hosted-basic' }] as Cluster['plans'] }),
