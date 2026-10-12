@@ -11,7 +11,6 @@ import {
 import { toUSD } from '@/lib/toUSD';
 import { Loader2 } from 'lucide-react';
 
-/** The cluster's billing cycles that have ended, newest first, a page at a time (studio#1916). */
 export function PastCycles({ clusterId }: { clusterId: string }) {
 	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useClusterUsageHistory(clusterId);
 	const cycles = data?.pages.flatMap((page) => page.cycles) ?? [];
@@ -27,10 +26,11 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 				)
 				: !data
 				? <p className="mt-2 text-sm text-destructive">Couldn&rsquo;t load past cycles — refresh to try again.</p>
-				: cycles.length === 0
-				? <p className="mt-2 text-sm text-muted-foreground">No billing cycle has ended yet.</p>
 				: (
 					<div className="mt-3 space-y-3">
+						{cycles.length === 0 && !hasNextPage && (
+							<p className="text-sm text-muted-foreground">No billing cycle has ended yet.</p>
+						)}
 						{cycles.map((cycle) => <PastCycleCard key={cycle.endsAt} cycle={cycle} />)}
 						{hasNextPage && (
 							<Button
@@ -88,10 +88,12 @@ function PastRegion({ region }: { region: PastCycleRegion }) {
 	);
 }
 
+const CYCLE_DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
 function cycleRange({ startsAt, endsAt }: PastCycle): string {
-	const format = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 	const end = new Date(endsAt);
-	if (!startsAt) { return `Ended ${format.format(end)}`; }
-	const start = new Date(startsAt);
-	return start < end ? format.formatRange(start, end) : format.format(end);
+	if (Number.isNaN(end.getTime())) { return 'Billing cycle'; }
+	const start = startsAt ? new Date(startsAt) : null;
+	if (!start || Number.isNaN(start.getTime()) || start >= end) { return `Ended ${CYCLE_DATE.format(end)}`; }
+	return CYCLE_DATE.formatRange(start, end);
 }

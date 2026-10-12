@@ -150,6 +150,20 @@ describe('PastCycles', () => {
 		expect(screen.queryByRole('button', { name: 'Show older cycles' })).toBeNull();
 	});
 
+	it('keeps Show older cycles when a page comes back empty but older cycles remain', () => {
+		history([], { hasNextPage: true });
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByRole('button', { name: 'Show older cycles' })).toBeTruthy();
+		expect(screen.queryByText('No billing cycle has ended yet.')).toBeNull();
+	});
+
+	it('names a cycle whose dates will not parse instead of failing to render', () => {
+		history([cycle({ startsAt: 'garbage', endsAt: '2026-08-12T12:00:00.000Z' }), cycle({ endsAt: 'not a date' })]);
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByRole('button', { name: /Ended Aug 12, 2026/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Billing cycle/ })).toBeTruthy();
+	});
+
 	it('says so when no cycle has ended, and when history could not load', () => {
 		history([]);
 		render(<PastCycles clusterId="clu-1" />);
