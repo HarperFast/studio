@@ -37,7 +37,6 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { unique } from '@/lib/arrays/unique';
 import { pluralize } from '@/lib/pluralize';
-import { queryClient } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { onlineManager, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -125,7 +124,7 @@ export function DomainsManagement() {
 			generateDomainCerts: true,
 		}, {
 			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
+				void activeQueryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
 				toast.success('Domain(s) bound! Certificates are being generated in the background now.');
 				setSelectedDomainIds([]);
 			},
