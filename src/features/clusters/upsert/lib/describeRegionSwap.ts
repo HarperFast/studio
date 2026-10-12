@@ -28,7 +28,7 @@ export function regionCohortsOfPlans(plans: readonly RegionPlan[], lookup: Regio
 
 /**
  * Central manager refuses an update that leaves every region a cluster runs in while adding a new one, so moving a
- * cluster takes two saves. Returns guidance for a selection it would refuse, or null.
+ * cluster takes two saves.
  */
 export function describeRegionSwap({ currentRegions, selectedRegions, singleRegionTier }: {
 	currentRegions: readonly RegionCohort[];
@@ -44,12 +44,15 @@ export function describeRegionSwap({ currentRegions, selectedRegions, singleRegi
 		return null;
 	}
 	const from = regionList.format([...current.values()]);
-	const to = selected[0].name;
+	const added = [...new Map(selected.map(({ key, name }) => [key, name])).values()];
 	const rule = "A cluster can't move out of all its current regions in one update";
 	if (singleRegionTier) {
+		const [to] = added;
 		return `${rule}, and this tier allows only one region, so it can't move from ${from} to ${to}. Create a new cluster in ${to} instead.`;
 	}
+	const additional = added.length === 1 ? 'an additional region' : 'additional regions';
+	const add = `add ${regionList.format(added)} as ${additional}`;
 	return current.size === 1
-		? `${rule}. Keep ${from}, add ${to} as an additional region and save, then remove ${from} once that update has finished.`
-		: `${rule}. Keep at least one of ${from}, add ${to} as an additional region and save, then remove the old regions that are left once that update has finished.`;
+		? `${rule}. Keep ${from}, ${add} and save, then remove ${from} once that update has finished.`
+		: `${rule}. Keep at least one of ${from}, ${add} and save, then remove the old regions that are left once that update has finished.`;
 }
