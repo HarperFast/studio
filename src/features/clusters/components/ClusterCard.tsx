@@ -263,7 +263,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		},
 		!!upgradeHref && update && {
 			key: 'upgrade',
-			to: `${cluster.id}/edit`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'edit'),
 			// Same as the banner and the strip: land on the conversion target, not on the plan that
 			// just expired — without it the editor opens on the dead trial with submit disabled.
 			search: { upgrade: HOBBYIST_UPGRADE },
