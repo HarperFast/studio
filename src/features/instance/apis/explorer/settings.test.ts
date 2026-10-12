@@ -82,14 +82,26 @@ describe('explorer credential removal when the rewrite fails', () => {
 		expect(sessionStorage.getItem(KEY)).toBeNull();
 	});
 
-	it('forgetEntitySettings does not throw when the fallback removal is refused too', () => {
+	it('stops reading the map when the fallback removal is refused too, until a write replaces it', () => {
 		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
 		failEveryStorageWrite();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
 		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-			throw new DOMException('Storage refused.', 'SecurityError');
+			throw refusal;
 		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 		expect(() => forgetEntitySettings('ins-a')).not.toThrow();
+
+		expect(sessionStorage.getItem(KEY)).toContain('"token":"A"');
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+
+		vi.restoreAllMocks();
+		writeEntitySettings('ins-b', { server: 'http://b' });
+
+		expect(readEntitySettings('ins-b')).toEqual({ server: 'http://b' });
+		expect(sessionStorage.getItem(KEY)).not.toContain('"token":"A"');
 	});
 
 	it('pruneStaleEntitySettings gives up every entity rather than keep a revoked credential', () => {
