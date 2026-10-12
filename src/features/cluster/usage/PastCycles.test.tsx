@@ -121,6 +121,16 @@ describe('PastCycles', () => {
 		expect(within(charges).queryByText(/billed/i)).toBeNull();
 	});
 
+	it('leaves out a meter name it does not know, and an empty extra-capacity list', () => {
+		history([
+			cycle({}, [{ ...WITH_OVERAGE, topUps: [], overageCause: { metric: 'tlsHandshakes' as never, ranOutAt: null } }]),
+		]);
+		render(<PastCycles clusterId="clu-1" />);
+		fireEvent.click(card(/Aug 12, 2026/));
+		expect(screen.getByText(/Your plan’s allowance ran out\./)).toBeTruthy();
+		expect(screen.queryByRole('list', { name: 'Extra capacity' })).toBeNull();
+	});
+
 	it('marks an estimate, and a charge not on an invoice yet', () => {
 		history([cycle({}, [region({ estimated: true, uninvoicedBlockCount: 1 })])]);
 		render(<PastCycles clusterId="clu-1" />);

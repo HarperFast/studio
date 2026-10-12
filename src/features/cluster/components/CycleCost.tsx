@@ -41,7 +41,7 @@ export function RegionCycleCost({ region }: { region: ClusterUsageRegion }) {
 
 function OverageExplained({ region }: { region: ClusterUsageRegion }) {
 	const cause = region.overageCause;
-	const meter = cause?.metric ? `${METRIC_LABEL[cause.metric]} ` : '';
+	const meter = cause?.metric && METRIC_LABEL[cause.metric] ? `${METRIC_LABEL[cause.metric]} ` : '';
 	const ranOutAt = cause?.ranOutAt ?? region.overageSince ?? null;
 	return (
 		<div className="mt-2 text-xs text-muted-foreground">
@@ -60,6 +60,7 @@ function OverageExplained({ region }: { region: ClusterUsageRegion }) {
 type TopUp = { createdAt: string | null; usedShare: number; chargeUsd: number };
 
 function TopUpList({ topUps }: { topUps: TopUp[] }) {
+	if (topUps.length === 0) { return null; }
 	return (
 		<ul aria-label="Extra capacity" className="mt-1.5 space-y-0.5">
 			{topUps.map((topUp, index) => (
@@ -82,7 +83,7 @@ function TopUpList({ topUps }: { topUps: TopUp[] }) {
 export function PastRegionCost({ region }: { region: PastCycleRegion }) {
 	if (!(region.cycleUsd > 0)) { return null; }
 	const cause = region.overageCause;
-	const meter = cause?.metric ? `${METRIC_LABEL[cause.metric]} ` : '';
+	const meter = cause?.metric && METRIC_LABEL[cause.metric] ? `${METRIC_LABEL[cause.metric]} ` : '';
 	return (
 		<dl className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
 			<div className="flex items-baseline justify-between gap-3">
