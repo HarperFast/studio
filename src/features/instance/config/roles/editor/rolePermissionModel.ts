@@ -234,7 +234,9 @@ export interface PreservedEntries {
 /**
  * What the document holds that the visual editor does not render. `notInSchema` is separated
  * because Harper's role validation rejects a role naming a database or table that does not exist
- * (`role_validation.ts` SCHEMA_NOT_FOUND / TABLE_NOT_FOUND), so those block a save until removed.
+ * (`role_validation.ts` SCHEMA_NOT_FOUND / TABLE_NOT_FOUND), so Harper refuses a save until they are
+ * removed. The editor warns and offers to remove them but does not block Save: describe_all is
+ * cached, so a database created a moment ago can read as missing here.
  * Attribute entries the schema does not list are only "not shown": describe_all omits `@computed`
  * attributes unless asked for them, so a missing name may well be a real attribute.
  */
@@ -560,9 +562,10 @@ export function getAttributeViews(
 }
 
 /**
- * Turns attribute scoping on or off for one table. Turning it on lists every attribute with the
- * table's own read/insert/update, so the role's current access does not change at the moment of
- * switching — only attributes added to the table later stay unreadable until granted. Turning it
+ * Turns attribute scoping on or off for one table. Turning it on lists every attribute in
+ * `attributeNames` with the table's own read/insert/update, so their access does not change at the
+ * moment of switching. An attribute describe_all omits (`@computed`, a relationship) is not listed
+ * and loses access until granted in the JSON, as do attributes added to the table later. Turning it
  * off writes `[]`; `restore` brings back a list the author turned off this session, less any action
  * the table has lost since, which role validation would reject on the attribute.
  */
