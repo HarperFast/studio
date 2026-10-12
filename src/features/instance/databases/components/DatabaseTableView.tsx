@@ -152,7 +152,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
 	// Newer Harper servers omit relationship attributes from describe entirely; the component
 	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
-	const { data: schemaRelationshipMap } = useQuery(getSchemaRelationshipsQueryOptions(instanceParams));
+	const { data: schemaRelationshipMap, isLoading: schemaRelationshipsLoading } = useQuery(
+		getSchemaRelationshipsQueryOptions(instanceParams),
+	);
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
@@ -292,7 +294,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	// Deep links can carry filters (?filters={column: "value"}) — relationship cell chips use this
 	// to land on the related table filtered to the linked record. Applied once per distinct search,
-	// after the schema arrives (translation needs attribute types). When the URL filters go away
+	// after the schema and its component relationships arrive: translation needs attribute types, and
+	// a column only the component schema declares as a relationship would otherwise go out once as an
+	// unknown attribute, behind a full-scan warning that names it. When the URL filters go away
 	// (navigating to another table, or back to the bare table), the filter inputs are cleared too
 	// so they don't linger stale — `appliedSearchConditions` already resets on table change, and
 	// the visible inputs should stay in step with it.
@@ -300,7 +304,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
 	const appliedUrlFiltersKey = useRef<string | null>(null);
 	useEffect(function syncFiltersFromUrl() {
-		if (!instanceTable || appliedUrlFiltersKey.current === urlFiltersKey) {
+		if (
+			!instanceTable
+			|| appliedUrlFiltersKey.current === urlFiltersKey
+			|| (urlFilters && schemaRelationshipsLoading)
+		) {
 			return;
 		}
 		const isInitialSync = appliedUrlFiltersKey.current === null;
@@ -322,6 +330,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		urlFilters,
 		urlFiltersKey,
 		instanceTable,
+		schemaRelationshipsLoading,
 		resetFiltersForm,
 		translateFilterValues,
 		applySearchConditions,
