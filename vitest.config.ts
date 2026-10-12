@@ -26,7 +26,6 @@ export default defineConfig({
 		],
 		setupFiles: [
 			'./src/testSetup/jsdomPolyfills.ts',
-			'./src/testSetup/inertWebSocket.ts',
 			'./src/testSetup/failOnRenderPhaseUpdate.ts',
 			'./src/testSetup/failOnRealWebSocket.ts',
 			'./src/features/instance/status/analytics/__tests__/setup.ts',
