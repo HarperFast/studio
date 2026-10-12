@@ -5,6 +5,7 @@ import { EditRoleModal } from '@/features/instance/config/roles/modals/EditRoleM
 import { InstanceDatabaseMap, LocalRole } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /*
@@ -123,14 +124,16 @@ function modal(data: LocalRole) {
 	);
 }
 
+/** StrictMode as in main.tsx, so every render-phase decision is also exercised twice. */
 function renderModal(permission: unknown) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	const result = render(<QueryClientProvider client={queryClient}>{modal(roleData(permission))}</QueryClientProvider>);
-	return {
-		...result,
-		rerenderWith: (data: LocalRole) =>
-			result.rerender(<QueryClientProvider client={queryClient}>{modal(data)}</QueryClientProvider>),
-	};
+	const tree = (data: LocalRole) => (
+		<StrictMode>
+			<QueryClientProvider client={queryClient}>{modal(data)}</QueryClientProvider>
+		</StrictMode>
+	);
+	const result = render(tree(roleData(permission)));
+	return { ...result, rerenderWith: (data: LocalRole) => result.rerender(tree(data)) };
 }
 
 function save() {
@@ -251,6 +254,20 @@ describe('EditRoleModal visual editor', () => {
 
 		expect(await screen.findByRole('textbox', { name: 'Role permission JSON' })).toBeTruthy();
 		expect(screen.queryByRole('checkbox', { name: 'Read on data.dog' })).toBeNull();
+	});
+
+	it('stays in the JSON view once the author fixes it, until they choose the visual editor', async () => {
+		renderModal({ data: { tables: { dog: { read: 1 } } } });
+
+		const editor = await screen.findByRole('textbox', { name: 'Role permission JSON' }) as HTMLTextAreaElement;
+		fireEvent.change(editor, { target: { value: JSON.stringify({ data: readOnlyDog([]) }) } });
+		// Switching on its own would unmount the editor under the author's cursor.
+		expect(screen.getByRole('textbox', { name: 'Role permission JSON' })).toBe(editor);
+		const visual = screen.getByRole('button', { name: /Visual editor/ });
+		expect(visual.hasAttribute('disabled')).toBe(false);
+
+		fireEvent.click(visual);
+		expect((screen.getByRole('checkbox', { name: 'Read on data.dog' }) as HTMLInputElement).checked).toBe(true);
 	});
 
 	it('hides per-table permissions for a structure user of every database and drops them on save', async () => {
