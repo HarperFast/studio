@@ -3,7 +3,7 @@
  */
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseOverview } from './DatabaseOverview';
@@ -77,7 +77,8 @@ function renderOverview() {
 	);
 }
 
-const recordsStat = () => screen.getByText('Records', { selector: 'div' }).nextElementSibling!.textContent;
+const recordsStatValue = () => screen.getByText('Records', { selector: 'div' }).nextElementSibling as HTMLElement;
+const recordsStat = () => recordsStatValue().textContent;
 const rowCells = (tableName: string) =>
 	within(document.querySelector<HTMLElement>(`tr[data-table-name="${tableName}"]`)!)
 		.getAllByRole('cell')
@@ -99,8 +100,41 @@ describe('DatabaseOverview record counts', () => {
 
 		await act(async () => counts.answers.dogs.resolve({ record_count: 250_000, estimated_record_range: [1, 2] }));
 		await act(async () => counts.answers.eels.reject(new Error('Request failed with status code 500')));
-		await vi.waitFor(() => expect(recordsStat()).toBe('~251,200'));
+		await vi.waitFor(() => expect(recordsStat()).toBe('≥251,200'));
 		expect(rowCells('dogs')[1]).toBe('~250,000');
 		expect(rowCells('eels')[1]).toBe('…');
+
+		const total = within(recordsStatValue()).getByRole('button', {
+			name: 'At least 251,200 records: one or more tables’ counts couldn’t be loaded, and some are estimates',
+		});
+		// Radix opens the tooltip on focus (delayDuration is 0).
+		fireEvent.focus(total);
+		expect(screen.getAllByRole('tooltip')[0].textContent).toContain('At least 251,200 records');
+	});
+
+	it('marks a total of settled counts ~ when one is an estimate, and explains it', async () => {
+		renderOverview();
+		await vi.waitFor(() => expect(Object.keys(counts.answers)).toHaveLength(3));
+		await act(async () => {
+			counts.answers.cats.resolve({ record_count: 1200 });
+			counts.answers.dogs.resolve({ record_count: 250_000, estimated_record_range: [1, 2] });
+			counts.answers.eels.resolve({ record_count: 34 });
+		});
+
+		await vi.waitFor(() => expect(recordsStat()).toBe('~251,234'));
+		within(recordsStatValue()).getByRole('button', { name: 'Approximately 251,234 records (estimated)' });
+	});
+
+	it('shows an exact total plainly, with no marker to explain', async () => {
+		renderOverview();
+		await vi.waitFor(() => expect(Object.keys(counts.answers)).toHaveLength(3));
+		await act(async () => {
+			counts.answers.cats.resolve({ record_count: 1200 });
+			counts.answers.dogs.resolve({ record_count: 30 });
+			counts.answers.eels.resolve({ record_count: 4 });
+		});
+
+		await vi.waitFor(() => expect(recordsStat()).toBe('1,234'));
+		expect(within(recordsStatValue()).queryByRole('button')).toBeNull();
 	});
 });
