@@ -154,7 +154,7 @@ describe('OperationsAllowlistEditor', () => {
 
 	describe('from 5.3.0-alpha.1, where the list runs ahead of the structure_user and SQL paths', () => {
 		// 5.3.0-beta.2 is the last build that gates first without naming every entry, so it pins the
-		// gate-order boundary apart from #1884's naming boundary.
+		// gate-order boundary apart from the beta.3 naming boundary.
 		const GATE_FIRST_VERSIONS = ['5.3.0-alpha.1', '5.3.0-beta.2', '5.3.0'];
 
 		it('tells a structure user its DDL needs listing, and names what is missing', () => {

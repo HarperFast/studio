@@ -9,8 +9,8 @@ import { RESERVED_PERMISSION_KEYS, rolePreventsOperationsAllowlist } from '@/int
  * `validateNoSUPerms` rejects any multi-key permission setting `super_user: true` or
  * `cluster_user: true`, so such a role is sent with nothing beside its flag: the allowlist and a
  * `structure_user` value (even `true`) would each fail the save outright. A `structure_user` role
- * may carry an allowlist (the gate still runs for everything but DDL), and it survives only as an
- * actual array: any other shape under that key is not an allowlist.
+ * may carry an allowlist (Harper gates it, and from 5.3.0-alpha.1 its DDL too), and it survives
+ * only as an actual array: any other shape under that key is not an allowlist.
  *
  * `structure_user` may also be an array of database names, which grants DDL on *those* databases
  * only — such a role still relies on its explicit table permissions elsewhere, so it keeps them.
