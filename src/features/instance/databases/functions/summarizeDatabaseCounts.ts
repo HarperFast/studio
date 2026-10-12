@@ -11,13 +11,24 @@ function countLabel(recordCount: number, estimated: boolean) {
 	return `${estimated ? '~' : ''}${recordCount.toLocaleString()}`;
 }
 
-function describeTotal(totalRecords: number, incomplete: boolean, estimated: boolean) {
+interface TotalNote {
+	spoken: string;
+	reason: string;
+}
+
+const LEFT_OUT = 'One or more tables’ counts couldn’t be loaded and are left out';
+
+function noteTotal(totalRecords: number, incomplete: boolean, estimated: boolean): TotalNote | undefined {
 	const records = `${totalRecords.toLocaleString()} ${totalRecords === 1 ? 'record' : 'records'}`;
-	if (incomplete) {
-		const alsoEstimated = estimated ? ', and some are estimates' : '';
-		return `At least ${records}: one or more tables’ counts couldn’t be loaded${alsoEstimated}`;
+	if (incomplete && estimated) {
+		return { spoken: `At least about ${records}`, reason: `${LEFT_OUT}, and some counts are estimates.` };
 	}
-	return estimated ? `Approximately ${records} (estimated)` : undefined;
+	if (incomplete) {
+		return { spoken: `At least ${records}`, reason: `${LEFT_OUT}.` };
+	}
+	return estimated
+		? { spoken: `Approximately ${records} (estimated)`, reason: 'One or more tables’ counts are estimates.' }
+		: undefined;
 }
 
 /**
@@ -27,12 +38,11 @@ function describeTotal(totalRecords: number, incomplete: boolean, estimated: boo
  *
  * A total missing a table's count is marked `≥`, and `~` is left to mean Harper reported an estimate.
  * With both, `≥` still wins, though an estimate in the sum means it is not a strict bound.
- * `totalDescription` explains whichever marker the total carries.
  */
 export function summarizeDatabaseCounts(
 	tableNames: readonly string[],
 	countQueries: readonly CountQueryResult[],
-): { totalLabel: string; totalDescription?: string; recordLabels: string[] } {
+): { totalLabel: string; totalNote?: TotalNote; recordLabels: string[] } {
 	let totalRecords = 0;
 	let anyEstimated = false;
 	let anyMissing = false;
@@ -53,7 +63,7 @@ export function summarizeDatabaseCounts(
 	const marker = anyMissing ? '≥' : anyEstimated ? '~' : '';
 	return {
 		totalLabel: `${marker}${totalRecords.toLocaleString()}`,
-		totalDescription: describeTotal(totalRecords, anyMissing, anyEstimated),
+		totalNote: noteTotal(totalRecords, anyMissing, anyEstimated),
 		recordLabels,
 	};
 }

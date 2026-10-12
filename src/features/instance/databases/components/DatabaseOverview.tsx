@@ -18,25 +18,24 @@ import { useCallback } from 'react';
 /** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
-/** A `description` explains a marked value (`~`, `≥`), as a tooltip and as the value's accessible name. */
-function Stat({ label, value, description }: { label: string; value: string; description?: string }) {
+function Stat({ label, value, note }: { label: string; value: string; note?: { spoken: string; reason: string } }) {
 	return (
 		<div className="rounded-md border border-border dark:border-grey-700 p-4">
 			<div className="text-sm text-muted-foreground">{label}</div>
 			<div className="text-2xl font-medium">
-				{description
+				{note
 					? (
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<button
 									type="button"
 									className="cursor-help underline decoration-dotted underline-offset-4"
-									aria-label={description}
+									aria-label={note.spoken}
 								>
 									{value}
 								</button>
 							</TooltipTrigger>
-							<TooltipContent side="top" align="start" className="max-w-60">{description}</TooltipContent>
+							<TooltipContent side="top" align="start" className="max-w-60">{note.reason}</TooltipContent>
 						</Tooltip>
 					)
 					: value}
@@ -71,7 +70,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 			getDescribeTableQueryOptions({ ...instanceParams, databaseName, tableName })
 		),
 	});
-	const { totalLabel, totalDescription, recordLabels } = summarizeDatabaseCounts(tableNames, countQueries);
+	const { totalLabel, totalNote, recordLabels } = summarizeDatabaseCounts(tableNames, countQueries);
 
 	// Every table in a database shares the same underlying store, so db_size/db_audit_size are the same
 	// on each -- read them off any table.
@@ -129,7 +128,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 
 			<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-6">
 				<Stat label="Tables" value={tableNames.length.toLocaleString()} />
-				<Stat label="Records" value={totalLabel} description={totalDescription} />
+				<Stat label="Records" value={totalLabel} note={totalNote} />
 				<Stat label="Size" value={formatBytes(dbSize)} />
 				<Stat label="Audit Size" value={formatBytes(auditSize)} />
 			</div>
