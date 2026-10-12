@@ -75,7 +75,7 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 						instanceClient,
 					});
 					if (canceled) {
-						continue;
+						break;
 					}
 					// Then install the usage license to it.
 					await installUsageLicense({
