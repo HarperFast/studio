@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
+import { waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
-import { resetRestartTracker } from '@/lib/restart/restartTracker';
+import { isRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
@@ -12,6 +13,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ clusterId: 'clu-1', instanceId: 'ins-1' }),
+}));
+
+vi.mock(import('@/integrations/api/instance/status/restartInstance'), async (importOriginal) => ({
+	...await importOriginal(),
+	waitUntilAnsweringAfterRestart: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -39,6 +45,7 @@ describe('useRestartInstanceClick', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		resetRestartTracker();
+		vi.mocked(waitUntilAnsweringAfterRestart).mockResolvedValue(undefined);
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	});
 	afterEach(() => {
@@ -54,6 +61,28 @@ describe('useRestartInstanceClick', () => {
 
 		expect(errorTitles()).toEqual([[OUTCOME_UNKNOWN_TITLE, expect.stringContaining("couldn't confirm whether")]]);
 		expect(toast.dismiss).toHaveBeenCalledWith('restart-toast');
+	});
+
+	it('keeps a restart that got no answer marked until its target answers again', async () => {
+		let answered = () => {};
+		vi.mocked(waitUntilAnsweringAfterRestart).mockReturnValueOnce(new Promise<void>((resolve) => (answered = resolve)));
+		const result = render(
+			restartAnswering((config) =>
+				new AxiosError('Request failed with status code 504', AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+					status: 504,
+					statusText: '',
+					data: 'Proxied operation timed out after 30s on instance ins-1',
+					headers: {},
+					config,
+				})
+			),
+		);
+
+		await act(() => result.current.onRestartClick());
+
+		expect(isRestarting('ins-1')).toBe(true);
+		await act(async () => answered());
+		expect(isRestarting('ins-1')).toBe(false);
 	});
 
 	it('still says a refused restart failed', async () => {
@@ -73,5 +102,7 @@ describe('useRestartInstanceClick', () => {
 
 		expect(errorTitles()).toContainEqual(['Error', 'Failed to restart instance.']);
 		expect(errorTitles().map(([title]) => title)).not.toContain(OUTCOME_UNKNOWN_TITLE);
+		expect(isRestarting('ins-1')).toBe(false);
+		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
 	});
 });

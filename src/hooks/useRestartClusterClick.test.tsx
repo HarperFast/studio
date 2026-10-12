@@ -3,7 +3,7 @@
  */
 import type { Cluster, Instance } from '@/integrations/api/api.patch';
 import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
-import { getRestartState } from '@/lib/restart/restartTracker';
+import { getRestartState, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { act, renderHook } from '@testing-library/react';
 import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,10 @@ vi.mock('@/features/auth/store/authStore', () => ({
 }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({ getClusterInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo: vi.fn() }));
-vi.mock('@/integrations/api/instance/status/restartInstance', () => ({ restartInstance: vi.fn() }));
+vi.mock('@/integrations/api/instance/status/restartInstance', () => ({
+	restartInstance: vi.fn(),
+	waitUntilAnsweringAfterRestart: vi.fn(),
+}));
 vi.mock('@/lib/sleep', () => ({ sleep: vi.fn(() => Promise.resolve()) }));
 vi.mock('sonner', () => ({
 	toast: { loading: vi.fn(() => 'toast-1'), error: vi.fn(), success: vi.fn(), dismiss: vi.fn() },
@@ -28,7 +31,7 @@ vi.mock('sonner', () => ({
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import { toast } from 'sonner';
 import { useRestartClusterClick } from './useRestartClusterClick';
 
@@ -59,7 +62,9 @@ async function clickRestart() {
 
 beforeEach(() => {
 	restarted = [];
+	resetRestartTracker();
 	vi.mocked(getInstanceUserInfo).mockResolvedValue({} as never);
+	vi.mocked(waitUntilAnsweringAfterRestart).mockResolvedValue(undefined);
 	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
 		restarted.push(targetOf(instanceClient));
 		return { message: 'ok' };
@@ -197,3 +202,71 @@ function cancel() {
 	const [, options] = vi.mocked(toast.loading).mock.calls.at(-1)!;
 	(options as unknown as { action: { onClick: () => void } }).action.onClick();
 }
+
+function answeredWith(status: number) {
+	const config = { method: 'post', data: { operation: 'restart' } } as never;
+	const code = status >= 500 ? AxiosError.ERR_BAD_RESPONSE : AxiosError.ERR_BAD_REQUEST;
+	return new AxiosError(`Request failed with status code ${status}`, code, config, undefined, {
+		status,
+		statusText: '',
+		data: status === 504 ? 'Proxied operation timed out after 30s on instance ins-b' : { error: 'Not allowed' },
+		headers: {},
+		config,
+	});
+}
+
+function restartsEndingIn(outcomes: Record<string, Error>) {
+	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+		const target = targetOf(instanceClient);
+		restarted.push(target);
+		if (outcomes[target]) {
+			throw outcomes[target];
+		}
+		return { message: 'Restarting Harper. This may take up to 60 seconds.' };
+	});
+}
+
+describe('useRestartClusterClick, for a member whose restart got no answer', () => {
+	beforeEach(() => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b'), instance('ins-c')] } as Cluster,
+		);
+	});
+
+	it('holds it down, and waits for it to answer, before restarting the next member', async () => {
+		let answer: (() => void) | undefined;
+		vi.mocked(waitUntilAnsweringAfterRestart).mockReturnValueOnce(new Promise<void>((resolve) => (answer = resolve)));
+		// Last member first: ins-c restarts, then ins-b's restart gets a 504.
+		restartsEndingIn({ 'ins-b': answeredWith(504) });
+		const { result } = renderHook(() => useRestartClusterClick());
+
+		let click: Promise<void> | undefined;
+		act(() => {
+			click = result.current.onRestartClick() as unknown as Promise<void>;
+		});
+		await vi.waitFor(() => expect(waitUntilAnsweringAfterRestart).toHaveBeenCalledTimes(1));
+
+		expect(targetOf(vi.mocked(waitUntilAnsweringAfterRestart).mock.calls[0][0].instanceClient)).toBe('ins-b');
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(getRestartState('ins-b')?.reach).toBe('down');
+
+		await act(async () => {
+			answer!();
+			await click;
+		});
+
+		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
+		expect(getRestartState('ins-b')).toBeUndefined();
+		expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe(OUTCOME_UNKNOWN_TITLE);
+	});
+
+	it('does not wait on a member that refused the restart', async () => {
+		restartsEndingIn({ 'ins-b': answeredWith(403) });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b', 'ins-a']);
+		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
+		expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe('Error');
+	});
+});

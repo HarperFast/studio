@@ -1,7 +1,7 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { ClusterRestartTargets, getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
@@ -121,6 +121,16 @@ export function useRestartClusterClick(
 						} catch (error) {
 							const unanswered = isUnansweredWrite(error);
 							instancesUnanswered += unanswered ? 1 : 0;
+							if (unanswered) {
+								// A gateway can lose the answer to a restart that ran and took this member down, so it
+								// stays marked, and the next one waits, until it answers again or the watch gives up.
+								toast.loading(`Could Not Confirm Instance ${i + 1} of ${targets.length}`, {
+									...toastConfig,
+									id: toastId,
+									description: 'Waiting for it to answer before carrying on.',
+								});
+								await waitUntilAnsweringAfterRestart({ instanceClient }).catch(() => undefined);
+							}
 							if (i + 1 !== targets.length) {
 								// If it fails to restart, or wasn't available, warn for a bit then move on.
 								const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
