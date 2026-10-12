@@ -228,6 +228,18 @@ describe('followRestartJob', () => {
 		expect((await pending).state).toBe('complete');
 	});
 
+	it('does not count the time no node answered toward a missing job', async () => {
+		const { client } = makeClient([
+			{ rows: [] },
+			...Array.from({ length: 12 }, () => ({ reject: httpError(503) }) as Answer),
+			{ rows: [] },
+			{ job: certifiedActivation },
+		]);
+		const pending = followRestartJob({ instanceClient: client, jobId: 'job-1' });
+		await vi.advanceTimersByTimeAsync(40_000);
+		expect((await pending).state).toBe('complete');
+	});
+
 	it('stops at its ceiling without claiming the job ended', async () => {
 		const { client } = makeClient([{ job: { id: 'job-1', status: 'IN_PROGRESS' } }]);
 		const pending = followRestartJob({ instanceClient: client, jobId: 'job-1', timeoutMs: 120_000 });

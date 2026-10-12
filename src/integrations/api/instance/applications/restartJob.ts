@@ -171,6 +171,9 @@ export async function followRestartJob({
 			if (isDeterministicRejection(error)) {
 				return unfollowable('refused');
 			}
+			// An answer that never came is not a miss, so the grace needs an unbroken run of misses. The
+			// receiving node restarts its own workers first, while another node can still answer.
+			missingSince = undefined;
 		}
 		const elapsed = Date.now() - startedAt;
 		if (elapsed >= timeoutMs) {
