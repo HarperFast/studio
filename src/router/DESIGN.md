@@ -9,6 +9,15 @@
   background refetch, an imperative fetch, a load the user navigated away from, and any preload.
   [`routeLoadFailureReporting.test.tsx`](__tests__/routeLoadFailureReporting.test.tsx) pins each case
   against the real router.
+- **Guards read the app sign-in through [`guardedAppSignIn`](guardedAppSignIn.ts).** The store learns of a
+  sign-out at once and clears the query cache; the router context hears a tick later, through the store's
+  listeners. A load that starts in between (Back, a preload) would pass the dashboard guard on the old
+  context and fetch on the ended session, and the redirect that then abandons it would leave the failure to
+  the global toast. So a sign-out the store knows of overrides the context, for the dashboard guard and the
+  sign-in guards alike: if only one of them heard, they would redirect a load back and forth until the
+  router gave up ("Too many redirects").
+  [`endedSessionRouteFailures.test.tsx`](__tests__/endedSessionRouteFailures.test.tsx) starts such a load
+  from a pending and from a signed-in context.
 - **Preloads never claim, so no failure goes unreported.** A navigation runs `beforeLoad` again and
   claims a read its preload left in flight. It does not run a `loader` its preload has in flight —
   it adopts it — so that one failure is still reported twice (toast and console, then the boundary).

@@ -228,6 +228,15 @@ class AuthStore {
 		return this.allConnections[id];
 	}
 
+	/**
+	 * Whether this page load already knows `id` is signed out: its check came back with no user, or a sign-out
+	 * cleared it.
+	 */
+	public isKnownSignedOut(id: EntityIds): boolean {
+		const connection = this.allConnections[id];
+		return !!this.checkedAuthentication[id] && !!connection && !connection.isLoading && !connection.user;
+	}
+
 	public listenToAllEntities(
 		listener: (connection: AuthenticatedConnection, id: EntityIds) => void,
 	): AuthStoreListenerCleanup | undefined {

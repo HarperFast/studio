@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { QueryClientProvider } from '@tanstack/react-query';
+import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
@@ -32,6 +32,12 @@ vi.mock('@/components/ErrorComponent', () => ({
 		return <p>route error</p>;
 	},
 }));
+// The real sign-in route and its guard; only what it renders is a stand-in.
+vi.mock('@/features/auth/AuthLayout', async () => {
+	const { Outlet } = await import('@tanstack/react-router');
+	return { AuthLayout: () => <Outlet /> };
+});
+vi.mock('@/features/auth/SignIn', () => ({ SignIn: () => <p>sign-in page</p> }));
 
 /**
  * Mocks whose factories import app modules. A `vi.mock` factory's result outlives `resetModules`, so
@@ -54,12 +60,13 @@ function mockAppModules() {
 			},
 		};
 	});
-	// The real root, dashboard and organization routes; only the leaf pages are stand-ins.
+	// The real root, sign-in, dashboard and organization routes; only the leaf pages are stand-ins.
 	vi.doMock('@/router/rootRouteTree', async () => {
 		const { createRoute } = await import('@tanstack/react-router');
 		const { useQuery } = await import('@tanstack/react-query');
 		const { useCloudAuth } = await import('@/hooks/useAuth');
 		const { rootRoute } = await import('@/router/rootRoute');
+		const { authRouteTree } = await import('@/features/auth/routes');
 		const { dashboardLayout } = await import('@/router/dashboardRoute');
 		const { orgsLayoutRoute } = await import('@/features/organizations/routes');
 		const { orgLayoutRoute } = await import('@/features/organization/routes');
@@ -75,19 +82,19 @@ function mockAppModules() {
 			path: '/settings',
 			component: SettingsPage,
 		});
-		const signInRoute = createRoute({
-			getParentRoute: () => rootRoute,
-			path: '/sign-in',
-			component: () => <p>sign-in page</p>,
-		});
 		return {
 			rootRouteTree: rootRoute.addChildren([
-				signInRoute,
+				authRouteTree,
 				dashboardLayout.addChildren([orgsLayoutRoute.addChildren([orgLayoutRoute.addChildren([settingsRoute])])]),
 			]),
 		};
 	});
 }
+
+// Transformed here, while the file is collected, which has no timeout, rather than inside the first test's 5s.
+// Each test still evaluates a fresh copy.
+mockAppModules();
+await Promise.all([import('@/lib/installApiUnauthorizedRedirect'), import('@/AppRouted')]);
 
 function respond(config: InternalAxiosRequestConfig, status: number, data: unknown) {
 	const response = { status, statusText: String(status), data, headers: {}, config };
@@ -106,9 +113,13 @@ function respond(config: InternalAxiosRequestConfig, status: number, data: unkno
 /**
  * A page load on `DEEP_LINK` with a remembered app sign-in, through the real `AppRouted` and wired as
  * `main.tsx` wires it, against a central manager whose answers the test chooses. The store reads its
- * markers at construction, so the modules are fresh.
+ * markers at construction, so the modules are fresh. `afterSignOut` runs once a 401 has cleared the session,
+ * before the router context hears of it.
  */
-async function openDeepLink(answers: { userCurrent: Promise<number>; organization: number | Promise<number> }) {
+async function openDeepLink(
+	answers: { userCurrent: Promise<number>; organization: number | Promise<number> },
+	{ afterSignOut }: { afterSignOut?: () => void } = {},
+) {
 	vi.resetModules();
 	mockAppModules();
 	const [{ apiClient }, { installApiUnauthorizedRedirect }, { queryClient }, { AppRouted }] = await Promise.all([
@@ -129,12 +140,26 @@ async function openDeepLink(answers: { userCurrent: Promise<number>; organizatio
 		throw new Error(`unexpected request ${config.url}`);
 	};
 	installApiUnauthorizedRedirect();
+	if (afterSignOut) {
+		// Behind the 401 handler, and before any request: axios fixes a request's interceptors when it is sent.
+		apiClient.interceptors.response.use(undefined, (error: unknown) => {
+			if (error instanceof AxiosError && error.response?.status === 401) {
+				afterSignOut();
+			}
+			return Promise.reject(error);
+		});
+	}
 	render(
 		<QueryClientProvider client={queryClient}>
 			<AppRouted />
 		</QueryClientProvider>,
 	);
-	return { requests };
+	return { queryClient, requests };
+}
+
+/** Every read the page load started has settled, so none can still fail into a toast or a report. */
+async function settled(queryClient: QueryClient) {
+	await waitFor(() => expect(queryClient.isFetching()).toBe(0));
 }
 
 /** Whether the page load has recorded a route's failure, which is what a route error page renders from. */
@@ -153,7 +178,10 @@ beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
 	localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn' }));
-	window.location.hash = `#${DEEP_LINK}`;
+	// Not `location.hash =`: jsdom dispatches its popstate a task later, and a render that beats it gets a second
+	// router load wherever that lands. Between the sign-out and the router hearing of it, that is the load the
+	// last case starts on purpose.
+	window.history.replaceState(null, '', `#${DEEP_LINK}`);
 	pageQueryFn.mockResolvedValue('page data');
 	consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	vi.spyOn(console, 'debug').mockImplementation(() => undefined);
@@ -187,7 +215,7 @@ describe('route data that fails on a session that has ended', () => {
 
 	it('reports nothing when the sign-in check 401s first and the data 403s after the sign-out', async () => {
 		let answerOrganization: (status: number) => void = () => undefined;
-		const { requests } = await openDeepLink({
+		const { queryClient, requests } = await openDeepLink({
 			userCurrent: Promise.resolve(401),
 			organization: new Promise((resolve) => (answerOrganization = resolve)),
 		});
@@ -195,7 +223,7 @@ describe('route data that fails on a session that has ended', () => {
 		expect(requests).toContain(`/Organization/${ORGANIZATION_ID}`);
 
 		answerOrganization(403);
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await settled(queryClient);
 
 		expect(errorPageRendered).not.toHaveBeenCalled();
 		expect(toast.error).not.toHaveBeenCalled();
@@ -228,5 +256,41 @@ describe('route data that fails on a session that has ended', () => {
 		await screen.findByText('sign-in page');
 		expect(pageQueryFn).toHaveBeenCalledOnce();
 		expect(errorPageRendered).not.toHaveBeenCalled();
+	});
+
+	it('fetches nothing for a load that starts after the sign-out, before the router hears of it', async () => {
+		let answerUserCurrent: (status: number) => void = () => undefined;
+		let answerOrganization: (status: number) => void = () => undefined;
+		const { queryClient, requests } = await openDeepLink({
+			userCurrent: new Promise((resolve) => (answerUserCurrent = resolve)),
+			organization: new Promise((resolve) => (answerOrganization = resolve)),
+		}, {
+			// Anything that starts a load there — Back, a preload, the popstate jsdom queues for a hash change.
+			afterSignOut: () => window.dispatchEvent(new PopStateEvent('popstate')),
+		});
+		await waitFor(() => expect(requests).toContain(`/Organization/${ORGANIZATION_ID}`));
+
+		answerUserCurrent(401);
+		await screen.findByText('sign-in page');
+		answerOrganization(403);
+		await settled(queryClient);
+
+		expect(requests.filter((url) => url === `/Organization/${ORGANIZATION_ID}`)).toHaveLength(1);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(reportedAuthorizationFailures()).toEqual([]);
+	});
+
+	it('lands on sign-in for a load in that gap from a signed-in page, without bouncing back', async () => {
+		const { requests } = await openDeepLink({ userCurrent: Promise.resolve(200), organization: 200 });
+		await screen.findByText('page data');
+		const { clearAuthStateLocally } = await import('@/features/auth/handlers/clearAuthStateLocally');
+
+		// The router context keeps the signed-in user until the store's listeners run, a tick from now.
+		clearAuthStateLocally();
+		window.dispatchEvent(new PopStateEvent('popstate'));
+
+		await screen.findByText('sign-in page');
+		expect(errorPageRendered).not.toHaveBeenCalled();
+		expect(requests.filter((url) => url === `/Organization/${ORGANIZATION_ID}`)).toHaveLength(1);
 	});
 });
