@@ -23,6 +23,11 @@ vi.mock('./promoCodeAdminApi', async (importOriginal) => ({
 		retry: false,
 	}),
 	useSetPromoCodeDisabled: () => ({ mutate: setDisabled, isPending: false }),
+	getPromoCodeQueryOptions: (id: string) => ({
+		queryKey: ['test-promo-code', id],
+		queryFn: async () => ({ id, redemptionList: [] }),
+		retry: false,
+	}),
 }));
 
 afterEach(() => {
@@ -113,5 +118,15 @@ describe('PromoCodesAdminIndex', () => {
 		renderPage();
 		fireEvent.click(await screen.findByRole('button', { name: 'Copy DEMO-CREDIT-100' }));
 		expect(writeText).toHaveBeenCalledWith('DEMO-CREDIT-100');
+	});
+
+	it('opens who redeemed a code from its count, and offers nothing to open for an unredeemed one', async () => {
+		granted = ['billing:read'];
+		codes = [code({ id: 'USED-CODE1', redemptions: 2 }), code({ id: 'FRESH-CODE1', redemptions: 0 })];
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'See who redeemed USED-CODE1' }));
+		expect(await screen.findByRole('dialog')).toBeTruthy();
+		expect(screen.getByText('Redemptions of')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'See who redeemed FRESH-CODE1' })).toBeNull();
 	});
 });
