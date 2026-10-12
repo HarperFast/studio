@@ -52,8 +52,8 @@ export function extraRecordAttributes(
 }
 
 export function sameExtraRecordAttributes(a: readonly ExtraRecordAttribute[], b: readonly ExtraRecordAttribute[]) {
-	return a === b || a.length === b.length
-			&& a.every((extra, index) => extra.attribute === b[index].attribute && extra.type === b[index].type);
+	return a === b || (a.length === b.length
+		&& a.every((extra, index) => extra.attribute === b[index].attribute && extra.type === b[index].type));
 }
 
 function typeOfValue(value: unknown): InstanceAttribute['type'] {
