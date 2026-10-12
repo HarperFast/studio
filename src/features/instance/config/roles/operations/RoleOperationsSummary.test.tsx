@@ -87,6 +87,17 @@ describe('RoleOperationsSummary', () => {
 		}
 	});
 
+	it("keeps a scoped structure user's databases in the note where the list gates its DDL", () => {
+		// verifyPerms still applies the structure_user array after gate 1, so a listed DDL op reaches only these.
+		for (const band of ['5.3-early', '5.3'] as const) {
+			allowlistVersion.mockReturnValue({ supported: true, band });
+			render(<RoleOperationsSummary role={role({ structure_user: ['dev', 'qa'], operations: ['read_only'] })} />);
+			const text = screen.getByText(/restricted to 13 operations/).textContent ?? '';
+			expect(text, band).toContain('its structure-user DDL on dev, qa needs listing too');
+			cleanup();
+		}
+	});
+
 	it('says the entries are inert rather than claiming the list is empty', () => {
 		// A directly granted alias is listed but grants nothing, so "is empty" would contradict the JSON.
 		render(<RoleOperationsSummary role={role({ operations: ['describe_database'] })} />);
