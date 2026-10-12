@@ -185,7 +185,10 @@ export function forgetAllEntitySettings(): void {
 		sessionStorage.removeItem(KEY);
 		storedMapUnremoved = false;
 	} catch (error) {
-		storedMapUnremoved = true;
 		console.error(error);
+		// An empty map outlives a reload, which the in-memory flag does not.
+		if (!writeMap({})) {
+			storedMapUnremoved = true;
+		}
 	}
 }
