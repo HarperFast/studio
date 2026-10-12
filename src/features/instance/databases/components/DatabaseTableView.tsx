@@ -104,8 +104,15 @@ const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
 const NO_ROWS: Record<string, unknown>[] = [];
 const NO_EXTRA_ATTRIBUTES: ExtraRecordAttribute[] = [];
 
-export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
+export function DatabaseTableView({
+	instanceDatabaseMap,
+	instanceDatabaseMapLoading = false,
+	databaseName,
+	tableName,
+}: {
 	instanceDatabaseMap?: InstanceDatabaseMap;
+	/** `describe_all` is on its first fetch, so `instanceDatabaseMap` is missing for now rather than for good. */
+	instanceDatabaseMapLoading?: boolean;
 	databaseName: string;
 	tableName: string;
 }) {
@@ -294,12 +301,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	// Deep links can carry filters (?filters={column: "value"}) — relationship cell chips use this
 	// to land on the related table filtered to the linked record. Applied once per distinct search,
-	// after the schema and its component relationships arrive: translation needs attribute types, and
-	// a column only the component schema declares as a relationship would otherwise go out once as an
-	// unknown attribute, behind a full-scan warning that names it. When the URL filters go away
-	// (navigating to another table, or back to the bare table), the filter inputs are cleared too
-	// so they don't linger stale — `appliedSearchConditions` already resets on table change, and
-	// the visible inputs should stay in step with it.
+	// after describe, the database map and the component relationships arrive: translation needs
+	// attribute types, and a relationship only the component schema declares resolves from the last two,
+	// so it would otherwise go out once as an unknown attribute, behind a full-scan warning naming it.
+	// When the URL filters go away (navigating to another table, or back to the bare table), the filter
+	// inputs are cleared too so they don't linger stale — `appliedSearchConditions` already resets on
+	// table change, and the visible inputs should stay in step with it.
 	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
 	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
 	const appliedUrlFiltersKey = useRef<string | null>(null);
@@ -307,7 +314,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		if (
 			!instanceTable
 			|| appliedUrlFiltersKey.current === urlFiltersKey
-			|| (urlFilters && schemaRelationshipsLoading)
+			|| (urlFilters && (schemaRelationshipsLoading || instanceDatabaseMapLoading))
 		) {
 			return;
 		}
@@ -331,6 +338,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		urlFiltersKey,
 		instanceTable,
 		schemaRelationshipsLoading,
+		instanceDatabaseMapLoading,
 		resetFiltersForm,
 		translateFilterValues,
 		applySearchConditions,

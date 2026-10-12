@@ -25,7 +25,7 @@ export function Databases() {
 	// and the selected table's count is fetched separately (see DatabaseTableView / DatabaseOverview) so
 	// a slow count never blocks the database tree or the first page of records from appearing.
 	// Computed attributes too, so the grid's first render from this map already has their columns.
-	const { data: instanceDatabaseMap } = useQuery(
+	const { data: instanceDatabaseMap, isLoading: instanceDatabaseMapLoading } = useQuery(
 		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true, includeComputed: true }),
 	);
 
@@ -98,6 +98,7 @@ export function Databases() {
 						? (
 							<DatabaseTableView
 								instanceDatabaseMap={instanceDatabaseMap}
+								instanceDatabaseMapLoading={instanceDatabaseMapLoading}
 								databaseName={params.databaseName}
 								tableName={params.tableName}
 							/>
