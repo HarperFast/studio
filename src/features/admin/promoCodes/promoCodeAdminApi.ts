@@ -51,9 +51,9 @@ export function useCreatePromoCode() {
 			const { data } = await apiClient.post(PROMO_CODES_PATH, body as never);
 			return data as unknown as AdminPromoCode;
 		},
-		// The dialog shows the failure itself.
+		// The dialog shows the failure itself. The list reloads either way: a create that timed out may have landed.
 		meta: { skipGlobalErrorToast: true },
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: promoCodesQueryKey }),
+		onSettled: () => queryClient.invalidateQueries({ queryKey: promoCodesQueryKey }),
 	});
 }
 

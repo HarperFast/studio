@@ -54,4 +54,29 @@ describe('CreatePromoCodeModal cancel', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		expect(onClose).not.toHaveBeenCalled();
 	});
+
+	it('closes on a create it could not confirm, so a generated code is not made twice, but stays open on a refusal', async () => {
+		const onClose = vi.fn();
+		const submitWith = async (error: unknown) => {
+			create.mockImplementation(
+				(_body: unknown, options: { onError: (err: unknown) => void; onSettled: () => void }) => {
+					options.onError(error);
+					options.onSettled();
+				},
+			);
+			renderModal(onClose);
+			fireEvent.change(await screen.findByLabelText('Credit (USD)'), { target: { value: '100' } });
+			fireEvent.change(screen.getByLabelText('Redeem by'), { target: { value: '2099-01-01' } });
+			fireEvent.click(screen.getByRole('button', { name: 'Create code' }));
+			await waitFor(() => expect(create).toHaveBeenCalled());
+		};
+
+		await submitWith({ response: { status: 409, data: { title: 'That code already exists' } } });
+		expect(onClose).not.toHaveBeenCalled();
+		cleanup();
+		create.mockReset();
+
+		await submitWith(new Error('timeout of 60000ms exceeded'));
+		expect(onClose).toHaveBeenCalled();
+	});
 });
