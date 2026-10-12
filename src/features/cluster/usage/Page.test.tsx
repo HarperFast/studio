@@ -11,7 +11,7 @@ import type {
 	UsageValue,
 } from '@/integrations/api/cluster/getClusterUsage';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ clusterId: 'clu-1' }) }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', async (importOriginal) => ({
@@ -31,9 +31,21 @@ vi.mock('@/integrations/api/cluster/getClusterUsage', async (importOriginal) => 
 	useClusterUsage: mockUseClusterUsage,
 }));
 
+const mockUseHistory = vi.hoisted(() => vi.fn());
+vi.mock('@/integrations/api/cluster/getClusterUsageHistory', () => ({ useClusterUsageHistory: mockUseHistory }));
+
+beforeEach(() => {
+	mockUseHistory.mockReturnValue({
+		data: { pages: [{ clusterId: 'clu-1', selfManaged: false, cycles: [], nextBefore: null, unplacedBlockCount: 0 }] },
+		isLoading: false,
+		hasNextPage: false,
+	});
+});
+
 afterEach(() => {
 	cleanup();
 	mockUseClusterUsage.mockReset();
+	mockUseHistory.mockReset();
 });
 
 const v = (used: number, limit: number | null, over: Partial<UsageValue> = {}): UsageValue => ({
@@ -294,6 +306,23 @@ describe('UsagePage', () => {
 		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [] }), isLoading: false });
 		render(<UsagePage />);
 		expect(screen.getByText(/No usage has been recorded/)).toBeTruthy();
+	});
+
+	it('lists past cycles below the current one, even with no region running now, but not for a self-hosted cluster', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage(), isLoading: false });
+		render(<UsagePage />);
+		expect(screen.getByRole('region', { name: 'Past cycles' })).toBeTruthy();
+		cleanup();
+
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [] }), isLoading: false });
+		render(<UsagePage />);
+		expect(screen.getByRole('region', { name: 'Past cycles' })).toBeTruthy();
+		cleanup();
+
+		mockUseClusterUsage.mockReturnValue({ data: usage({ selfManaged: true, regions: [] }), isLoading: false });
+		render(<UsagePage />);
+		expect(screen.queryByRole('region', { name: 'Past cycles' })).toBeNull();
+		expect(mockUseHistory).toHaveBeenCalledTimes(2);
 	});
 
 	it('distinguishes a failed fetch from an empty cycle', () => {
