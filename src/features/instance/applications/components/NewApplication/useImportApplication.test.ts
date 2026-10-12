@@ -8,7 +8,11 @@ const mocks = vi.hoisted(() => {
 	return {
 		post,
 		sse: { enabled: false },
-		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } },
+		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } } as {
+			entityId: string;
+			entityType: string;
+			instanceClient: { post: typeof post };
+		},
 		editorView: {
 			reloadRootEntries: vi.fn(),
 			setFocusedItem: vi.fn(),
@@ -16,15 +20,29 @@ const mocks = vi.hoisted(() => {
 			setSelectedItems: vi.fn(),
 		},
 		runHealthCheck: vi.fn(),
+		canStage: { enabled: false },
+		recordAction: vi.fn((deploymentId: string | undefined) =>
+			deploymentId ? { label: 'View record', onClick: () => undefined } : undefined
+		),
 	};
 });
 
 vi.mock('sonner', () => ({
-	toast: { loading: vi.fn(() => 'loading-toast'), dismiss: vi.fn(), error: vi.fn(), success: vi.fn() },
+	toast: {
+		loading: vi.fn(() => 'loading-toast'),
+		dismiss: vi.fn(),
+		error: vi.fn(),
+		success: vi.fn(),
+		warning: vi.fn(),
+	},
 }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => mocks.sse.enabled,
+	useStagedDeploymentsAvailable: () => mocks.canStage.enabled,
+}));
+vi.mock('@/features/instance/applications/hooks/useDeploymentRecordAction', () => ({
+	useDeploymentRecordAction: () => mocks.recordAction,
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => mocks.runHealthCheck,
@@ -78,6 +96,8 @@ let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
 	consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	mocks.sse.enabled = false;
+	mocks.canStage.enabled = false;
+	mocks.instanceParams = { ...mocks.instanceParams, entityId: 'ins-1' };
 });
 
 afterEach(() => {
@@ -95,7 +115,7 @@ describe('useImportApplication', () => {
 
 		await waitFor(() =>
 			expect(result.current.importFailure).toEqual({
-				project: 'my-app',
+				title: 'Failed to import my-app',
 				message: 'Component my-app could not be loaded',
 			})
 		);
@@ -167,5 +187,134 @@ describe('useImportApplication', () => {
 		await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', {}));
 		expect(result.current.importFailure).toBeUndefined();
 		expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+	});
+
+	it("keeps a failure off another instance's form, and toasts it with its own record", async () => {
+		const pending = deferred();
+		mocks.post.mockReturnValue(pending.promise);
+		const { result, rerender } = renderImport();
+		act(() => result.current.importApplication({ contents, project: 'my-app' }));
+
+		mocks.instanceParams = { ...mocks.instanceParams, entityId: 'ins-2' };
+		rerender();
+		await act(async () =>
+			pending.reject(serverFailure({ error: 'Component my-app could not be loaded', deployment_id: 'd1' }))
+		);
+
+		await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
+		expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to import my-app', {
+			description: 'Component my-app could not be loaded',
+			action: { label: 'View record', onClick: expect.any(Function) },
+		});
+		expect(result.current.importFailure).toBeUndefined();
+	});
+
+	it("leaves another instance's editor selection alone when the import finishes there", async () => {
+		let succeed!: (value: unknown) => void;
+		mocks.post.mockReturnValue(
+			new Promise((resolve) => {
+				succeed = resolve;
+			}),
+		);
+		const { result, rerender } = renderImport();
+		act(() => result.current.importApplication({ contents, project: 'my-app' }));
+
+		mocks.instanceParams = { ...mocks.instanceParams, entityId: 'ins-2' };
+		rerender();
+		await act(async () => succeed({ data: { message: 'Successfully deployed: my-app' } }));
+
+		await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledOnce());
+		expect(mocks.editorView.setSelectedItems).not.toHaveBeenCalled();
+	});
+
+	it("shows an instance's failure on its own form only", async () => {
+		mocks.post.mockRejectedValue(serverFailure({ error: 'Component my-app could not be loaded' }));
+		const { result, rerender } = renderImport();
+		act(() => result.current.importApplication({ contents, project: 'my-app' }));
+		await waitFor(() => expect(result.current.importFailure).toBeDefined());
+
+		const first = mocks.instanceParams;
+		mocks.instanceParams = { ...first, entityId: 'ins-2' };
+		rerender();
+		expect(result.current.importFailure).toBeUndefined();
+
+		mocks.instanceParams = first;
+		rerender();
+		expect(result.current.importFailure?.title).toBe('Failed to import my-app');
+	});
+
+	it('names a failed stage as a stage, and keeps the record it left', async () => {
+		mocks.canStage.enabled = true;
+		mocks.post.mockRejectedValue(serverFailure({ error: 'Not every node staged it', deployment_id: 'd1' }));
+		const { result } = renderImport();
+
+		act(() => result.current.importApplication({ contents: { ...contents, stageOnly: true }, project: 'my-app' }));
+
+		await waitFor(() =>
+			expect(result.current.importFailure).toEqual({
+				title: 'Failed to stage my-app',
+				message: 'Not every node staged it',
+				deploymentId: 'd1',
+			})
+		);
+		expect(mocks.post).toHaveBeenCalledWith('/', expect.objectContaining({ activate: false }), expect.anything());
+	});
+
+	describe('a rollout that settles after the form has gone', () => {
+		function deployThenFollow(job: () => Promise<unknown>) {
+			mocks.post.mockImplementation((_url: string, body: { operation: string }) =>
+				body.operation === 'deploy_component'
+					? Promise.resolve({ data: { message: 'ok', deployment_id: 'd1', restartJobId: 'job-1' } })
+					: job()
+			);
+		}
+
+		it('still replaces the progress toast with the outcome', async () => {
+			let finish!: () => void;
+			deployThenFollow(() =>
+				new Promise((resolve) => {
+					finish = () =>
+						resolve({
+							data: [{ id: 'job-1', status: 'COMPLETE', result: { replicated: [] } }],
+						});
+				})
+			);
+			mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
+			const { result, unmount } = renderImport();
+			act(() => result.current.importApplication({ contents, project: 'my-app' }));
+			await waitFor(() => expect(finish).toBeDefined());
+
+			unmount();
+			finish();
+
+			await waitFor(() =>
+				expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', expect.anything())
+			);
+			expect(vi.mocked(toast.dismiss)).toHaveBeenCalledWith('loading-toast');
+			expect(mocks.editorView.setSelectedItems).not.toHaveBeenCalled();
+		});
+
+		it('still says which nodes did not take it, once', async () => {
+			let fail!: () => void;
+			deployThenFollow(() =>
+				new Promise((resolve) => {
+					fail = () => resolve({ data: [{ id: 'job-1', status: 'ERROR', message: 'node-c did not restart' }] });
+				})
+			);
+			const { result, unmount } = renderImport();
+			act(() => result.current.importApplication({ contents, project: 'my-app' }));
+			await waitFor(() => expect(fail).toBeDefined());
+
+			unmount();
+			fail();
+
+			await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
+			expect(vi.mocked(toast.error)).toHaveBeenCalledWith('my-app did not reach every node', {
+				description: 'node-c did not restart',
+				action: { label: 'View record', onClick: expect.any(Function) },
+			});
+			expect(vi.mocked(toast.dismiss)).toHaveBeenCalledWith('loading-toast');
+			expect(consoleError).toHaveBeenCalledOnce();
+		});
 	});
 });
