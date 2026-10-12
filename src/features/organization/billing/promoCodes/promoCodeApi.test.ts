@@ -16,6 +16,11 @@ describe('redeemPromoCode', () => {
 		expect(mockedPost).toHaveBeenCalledWith('/PromoRedemption/', params, expect.anything());
 	});
 
+	it('passes on the amount a credit applied', async () => {
+		mockedPost.mockResolvedValue({ status: 200, data: { kind: 'credit', status: 'APPLIED', creditCents: 10_000 } });
+		await expect(redeemPromoCode(params)).resolves.toEqual({ ok: true, kind: 'credit', creditCents: 10_000 });
+	});
+
 	it('throws when a success answer is not an applied redemption, so it is not shown as one', async () => {
 		mockedPost.mockResolvedValue({ status: 200, data: { kind: 'voucher', status: 'CLAIMED' } });
 		await expect(redeemPromoCode(params)).rejects.toThrow(/status CLAIMED/);

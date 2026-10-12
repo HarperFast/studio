@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import {
+	formatCents,
 	getPromoRedemptionsQueryOptions,
 	redeemPromoCode,
 	useRedeemPromoCode,
@@ -148,7 +149,13 @@ export function ClusterPromoCode({
 			void refreshOrganization().catch(() => {});
 			setOutcome({
 				tone: 'success',
-				message: <>Credit added. It comes off your next invoices automatically; see {promoCodesPage}.</>,
+				message: (
+					<>
+						Credit added.{' '}
+						{result.creditCents != null && `${formatCents(result.creditCents)} was just applied to your organization. `}
+						It comes off your next invoices automatically; see {promoCodesPage}.
+					</>
+				),
 			});
 			return;
 		}
