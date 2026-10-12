@@ -583,6 +583,54 @@ describe('DomainsManagement — binding and unbinding', () => {
 		expect(sentBody()).toEqual({ domainIds: ['dom-c'], generateDomainCerts: true });
 	});
 
+	describe("refetches the domain list through the page's own query client", () => {
+		const unboundC = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
+
+		async function expectListRefetchedAfter(landed: string, fetchesBefore: number) {
+			await waitFor(() => expect(toast.success).toHaveBeenCalledWith(landed));
+			await waitFor(() => expect(domainListFetches()).toBeGreaterThan(fetchesBefore));
+		}
+
+		it('once a bind lands', async () => {
+			put.mockResolvedValue({ data: {} });
+			serve([unboundC], () => []);
+			const { findByText, getByRole } = renderManagement();
+			fireEvent.click(within((await findByText('c.example.com')).closest('tr')!).getByRole('checkbox'));
+			const fetchesBefore = domainListFetches();
+
+			fireEvent.click(getByRole('button', { name: /Bind 1 Domain/ }));
+
+			await expectListRefetchedAfter(
+				'Domain(s) bound! Certificates are being generated in the background now.',
+				fetchesBefore,
+			);
+		});
+
+		it('once an unbind lands', async () => {
+			put.mockResolvedValue({ data: {} });
+			serve(boundDomains, () => ['dom-a', 'dom-b']);
+			const { findByText } = renderManagement();
+			await findByText('a.example.com');
+			const fetchesBefore = domainListFetches();
+
+			await unbind(findByText, 'a.example.com');
+
+			await expectListRefetchedAfter('Domain unbound!', fetchesBefore);
+		});
+
+		it('once a removal lands', async () => {
+			del.mockResolvedValue({ data: undefined });
+			serve([unboundC], () => []);
+			const { findByText } = renderManagement();
+			const row = (await findByText('c.example.com')).closest('tr')!;
+			const fetchesBefore = domainListFetches();
+
+			fireEvent.click(within(row).getByRole('button', { name: 'Remove Domain' }));
+
+			await expectListRefetchedAfter('Domain removed!', fetchesBefore);
+		});
+	});
+
 	describe('a ticked domain the list no longer offers', () => {
 		const unboundC = { id: 'dom-c', domain: 'c.example.com', status: 'ACTIVE', organizationId: 'org-1' };
 		const unboundD = { id: 'dom-d', domain: 'd.example.com', status: 'ACTIVE', organizationId: 'org-1' };

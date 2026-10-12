@@ -17,7 +17,6 @@ import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain'
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
-import { queryClient } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -51,7 +50,10 @@ export function useDataTableColumns(
 			organizationId: cluster.organizationId,
 		}, {
 			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId, 'domains'], refetchType: 'active' });
+				void activeQueryClient.invalidateQueries({
+					queryKey: [cluster.organizationId, 'domains'],
+					refetchType: 'active',
+				});
 				toast.success('Domain removed!');
 			},
 		});
@@ -65,11 +67,11 @@ export function useDataTableColumns(
 			domainIds: (cluster.domainIds ?? []).filter((id) => id !== domainId),
 		}, {
 			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
+				void activeQueryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
 				toast.success('Domain unbound!');
 			},
 		});
-	}, [setDomainIds, cluster]);
+	}, [activeQueryClient, setDomainIds, cluster]);
 
 	return useMemo(() => [
 		columnHelper.display({
