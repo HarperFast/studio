@@ -180,7 +180,6 @@ export function ClusterPromoCode({
 					value={code}
 					onChange={(event) => setCode(event.target.value)}
 					onKeyDown={onKeyDown}
-					placeholder="e.g. WELCOME100"
 					autoComplete="off"
 					disabled={busy}
 					maxLength={64}
