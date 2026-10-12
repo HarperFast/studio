@@ -56,15 +56,16 @@ export function JobsTab({ instanceParams }: Props) {
 	const range = jobWindow(search.range);
 	const windowMs = getPreset(range).durationMs;
 
+	// `jobsRefresh`, not the charts' `refresh`: Jobs polls only on an interval chosen here (see statusSearch.ts).
 	const query = useQuery(getSearchJobsQueryOptions({
 		...instanceParams,
 		windowMs,
-		refreshMs: search.refresh,
+		refreshMs: search.jobsRefresh,
 		enabled: allowed === true,
 	}));
 
 	const setRange = (range: TimePresetId) => void navigate({ to: '.', search: { ...search, range } });
-	const setRefresh = (refresh: number) => void navigate({ to: '.', search: { ...search, refresh } });
+	const setRefresh = (jobsRefresh: number) => void navigate({ to: '.', search: { ...search, jobsRefresh } });
 
 	return (
 		<Card>
@@ -82,7 +83,7 @@ export function JobsTab({ instanceParams }: Props) {
 					<JobsToolbar
 						range={range}
 						onRangeChange={setRange}
-						refreshMs={search.refresh}
+						refreshMs={search.jobsRefresh}
 						onRefreshChange={setRefresh}
 						onRefreshNow={() => void query.refetch()}
 						isFetching={query.isFetching}

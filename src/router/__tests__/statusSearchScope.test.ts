@@ -28,20 +28,20 @@ describe('status route search-param scoping', () => {
 		const router = makeRouter(`${STATUS_PATH}?tab=traffic&range=6h`);
 		const leaf = router.matchRoutes(router.state.location).at(-1)!;
 		expect(leaf.routeId).toContain('/status');
-		expect(leaf.search).toEqual({ tab: 'traffic', range: '6h', refresh: 60_000 });
+		expect(leaf.search).toEqual({ tab: 'traffic', range: '6h', refresh: 60_000, jobsRefresh: 0 });
 	});
 
 	it('normalizes invalid deep-link values to defaults instead of erroring', () => {
 		const router = makeRouter(`${STATUS_PATH}?tab=garbage&range=999y&refresh=17`);
 		const leaf = router.matchRoutes(router.state.location).at(-1)!;
-		expect(leaf.search).toEqual({ tab: 'health', range: '1h', refresh: 60_000 });
+		expect(leaf.search).toEqual({ tab: 'health', range: '1h', refresh: 60_000, jobsRefresh: 0 });
 	});
 
 	it('strips default values from status URLs', () => {
 		const router = makeRouter(STATUS_PATH);
 		const loc = router.buildLocation({
 			to: STATUS_PATH,
-			search: { tab: 'health', range: '1h', refresh: 60_000 },
+			search: { tab: 'health', range: '1h', refresh: 60_000, jobsRefresh: 0 },
 		});
 		expect(loc.searchStr).toBe('');
 	});
@@ -50,9 +50,27 @@ describe('status route search-param scoping', () => {
 		const router = makeRouter(STATUS_PATH);
 		const loc = router.buildLocation({
 			to: STATUS_PATH,
-			search: { tab: 'traffic', range: '1h', refresh: 60_000 },
+			search: { tab: 'traffic', range: '1h', refresh: 60_000, jobsRefresh: 0 },
 		});
 		expect(loc.searchStr).toBe('?tab=traffic');
+	});
+
+	it("opens a Jobs link with Jobs' auto-refresh off and the charts' at 60s", () => {
+		const router = makeRouter(`${STATUS_PATH}?tab=jobs`);
+		const leaf = router.matchRoutes(router.state.location).at(-1)!;
+		expect(leaf.search).toEqual({ tab: 'jobs', range: '1h', refresh: 60_000, jobsRefresh: 0 });
+	});
+
+	it("keeps a chosen Jobs interval in the URL, including one equal to the charts' default", () => {
+		const router = makeRouter(STATUS_PATH);
+		const at = (jobsRefresh: number) =>
+			router.buildLocation({ to: STATUS_PATH, search: { tab: 'jobs', range: '1h', refresh: 60_000, jobsRefresh } })
+				.searchStr;
+		expect(at(0)).toBe('?tab=jobs');
+		expect(at(60_000)).toBe('?tab=jobs&jobsRefresh=60000');
+
+		const linked = makeRouter(`${STATUS_PATH}?tab=jobs&jobsRefresh=60000`);
+		expect(linked.matchRoutes(linked.state.location).at(-1)!.search).toMatchObject({ jobsRefresh: 60_000 });
 	});
 
 	it('does not carry status params onto sibling routes', () => {

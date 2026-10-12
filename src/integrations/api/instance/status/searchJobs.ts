@@ -64,6 +64,10 @@ export function getSearchJobsQueryOptions({
 		queryKey: [SEARCH_JOBS_OPERATION, entityId, windowMs] as const,
 		queryFn: () => searchJobs({ instanceClient, windowMs, now: Date.now() }),
 		refetchInterval: pollUnlessForbidden(refreshMs > 0 ? refreshMs : false),
+		// With auto-refresh off, a refocus or reconnect does not refetch either: each fetch reads the whole
+		// window on the server.
+		refetchOnWindowFocus: refreshMs > 0,
+		refetchOnReconnect: refreshMs > 0,
 		retry: retryUnlessRejected(),
 		placeholderData: keepPreviousData,
 		staleTime: 5_000,
