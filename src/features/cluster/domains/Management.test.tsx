@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, onlineManager, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren, Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1039,10 +1039,10 @@ describe('DomainsManagement — a domain change central manager would refuse', (
 });
 
 describe('DomainsManagement — the Remove Domain tooltip', () => {
-	it.each([
-		{ state: 'bound', clusterId: 'clu-1', tip: 'To delete this domain, please unbind it from all clusters first.' },
-		{ state: 'unbound', clusterId: undefined, tip: 'Remember to clean up your DNS records!' },
-	])('opens over a $state domain', async ({ clusterId, tip }) => {
+	const boundTip = 'To delete this domain, please unbind it from all clusters first.';
+	const unboundTip = 'Remember to clean up your DNS records!';
+
+	async function renderRemove(clusterId: string | undefined) {
 		const domain = { id: 'dom-a', domain: 'a.example.com', status: 'ACTIVE', organizationId: 'org-1', clusterId };
 		get.mockImplementation((url: string) =>
 			url.startsWith('/Domain/')
@@ -1051,9 +1051,17 @@ describe('DomainsManagement — the Remove Domain tooltip', () => {
 					data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: clusterId ? ['dom-a'] : [] },
 				})
 		);
-		const { findByText, findByRole, queryByRole } = renderManagement();
-		const name = await findByText('a.example.com');
+		const rendered = renderManagement();
+		const name = await rendered.findByText('a.example.com');
 		const remove = within(name.closest('tr')!).getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement;
+		return { ...rendered, name, remove };
+	}
+
+	it.each([
+		{ state: 'bound', clusterId: 'clu-1', tip: boundTip },
+		{ state: 'unbound', clusterId: undefined, tip: unboundTip },
+	])('opens over a $state domain', async ({ clusterId, tip }) => {
+		const { name, remove, findByRole, queryByRole } = await renderRemove(clusterId);
 		expect(remove.disabled).toBe(!!clusterId);
 
 		fireEvent.pointerMove(name);
@@ -1062,5 +1070,25 @@ describe('DomainsManagement — the Remove Domain tooltip', () => {
 
 		fireEvent.pointerMove(remove.parentElement!);
 		expect((await findByRole('tooltip')).textContent).toBe(tip);
+	});
+
+	it('opens on keyboard focus while Remove is disabled', async () => {
+		const { remove, findByRole } = await renderRemove('clu-1');
+		const wrapper = remove.parentElement!;
+
+		act(() => wrapper.focus());
+
+		expect(document.activeElement).toBe(wrapper);
+		expect((await findByRole('tooltip')).textContent).toBe(boundTip);
+	});
+
+	it('adds no second tab stop while Remove is enabled, and still opens when it takes focus', async () => {
+		const { remove, findByRole } = await renderRemove(undefined);
+		expect(remove.parentElement!.hasAttribute('tabindex')).toBe(false);
+
+		act(() => remove.focus());
+
+		expect(document.activeElement).toBe(remove);
+		expect((await findByRole('tooltip')).textContent).toBe(unboundTip);
 	});
 });

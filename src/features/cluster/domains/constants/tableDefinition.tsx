@@ -84,18 +84,19 @@ export function useDataTableColumns(
 			size: 150,
 			cell: (props) => {
 				const domain = props.row.original;
+				const removeDisabled = isPending || !!domain.clusterId;
 				return (
 					<>
 						<div>{domain.domain}</div>
 						<Tooltip>
-							{/* A disabled button takes no pointer events, so the hover has to land on a wrapper. */}
+							{/* A disabled button takes no pointer events or focus, so hover and Tab land on a wrapper. */}
 							<TooltipTrigger asChild>
-								<div className="w-fit">
+								<div className="w-fit" tabIndex={removeDisabled ? 0 : undefined}>
 									<Button
 										type="button"
 										variant="destructiveGhost"
 										className="text-muted-foreground text-xs"
-										disabled={isPending || !!domain.clusterId}
+										disabled={removeDisabled}
 										onClick={() => deleteDomainById(domain.id)}
 									>
 										Remove Domain
