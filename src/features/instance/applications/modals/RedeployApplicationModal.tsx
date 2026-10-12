@@ -135,8 +135,9 @@ export function RedeployApplicationModal() {
 					return;
 				}
 				const rolloutFailed = error instanceof DeployRolloutError;
-				if (rolloutFailed) {
-					// Live on the node that received it.
+				// Live on the node that received it, or, with no verdict, it may have deployed: either way the
+				// list the message says to check must be current.
+				if (rolloutFailed || isUnansweredWrite(error)) {
 					invalidateComponents();
 				}
 				const { message } = describeError(error);
@@ -204,6 +205,10 @@ export function RedeployApplicationModal() {
 					toast.error(`${project} did not reach every node`, { id: toastId, description: error.message, action });
 					invalidateComponents();
 					return;
+				}
+				if (isUnansweredWrite(error)) {
+					// It may have deployed, so the list the message says to check must be current.
+					invalidateComponents();
 				}
 				toast.error(redeployFailureTitle(error, project, stage), {
 					id: toastId,

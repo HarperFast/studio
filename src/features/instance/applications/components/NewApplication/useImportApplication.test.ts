@@ -278,6 +278,18 @@ describe('useImportApplication', () => {
 
 		await waitFor(() => expect(result.current.importFailure).toEqual({ title, message: UNANSWERED_WRITE_MESSAGE }));
 		expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+		// It may have imported, so the tree the message says to check is reloaded.
+		expect(mocks.editorView.reloadRootEntries).toHaveBeenCalledOnce();
+	});
+
+	it('reloads nothing after an import Harper refused', async () => {
+		mocks.post.mockRejectedValue(serverFailure({ error: 'Component my-app could not be loaded' }));
+		const { result } = renderImport();
+
+		act(() => result.current.importApplication({ contents, project: 'my-app' }));
+
+		await waitFor(() => expect(result.current.importFailure).toBeDefined());
+		expect(mocks.editorView.reloadRootEntries).not.toHaveBeenCalled();
 	});
 
 	describe('a rollout that settles after the form has gone', () => {

@@ -202,8 +202,13 @@ describe('RedeployApplicationModal', () => {
 					data: JSON.stringify({ operation: 'deploy_component' }),
 				} as InternalAxiosRequestConfig,
 			);
+		const COMPONENTS = { queryKey: ['ins-1', 'get_components'], refetchType: 'active' };
+		let invalidate: ReturnType<typeof vi.spyOn>;
+		beforeEach(() => {
+			invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+		});
 
-		it("replaces a buffered redeploy's progress toast without calling it failed", async () => {
+		it("replaces a buffered redeploy's progress toast without calling it failed, and refreshes the list", async () => {
 			mocks.sse.enabled = false;
 			mocks.post.mockRejectedValue(unanswered());
 			await renderOpenModal();
@@ -215,6 +220,28 @@ describe('RedeployApplicationModal', () => {
 				id: 'loading-toast',
 				description: UNANSWERED_WRITE_MESSAGE,
 			});
+			expect(invalidate).toHaveBeenCalledWith(COMPONENTS);
+		});
+
+		it('says so in the open progress panel, and refreshes the list', async () => {
+			vi.mocked(deployComponentStream).mockRejectedValue(unanswered());
+			await renderOpenModal();
+
+			await submit();
+
+			expect((await screen.findByRole('alert')).textContent).toContain(UNANSWERED_WRITE_MESSAGE);
+			expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+			expect(invalidate).toHaveBeenCalledWith(COMPONENTS);
+		});
+
+		it('refreshes nothing after a redeploy Harper refused', async () => {
+			vi.mocked(deployComponentStream).mockRejectedValue(new SSEOperationError(FAILURE, { phase: 'load' }));
+			await renderOpenModal();
+
+			await submit();
+
+			expect((await screen.findByRole('alert')).textContent).toContain(FAILURE);
+			expect(invalidate).not.toHaveBeenCalledWith(COMPONENTS);
 		});
 
 		it('toasts a streamed one that lands after the modal was closed without calling it failed', async () => {
