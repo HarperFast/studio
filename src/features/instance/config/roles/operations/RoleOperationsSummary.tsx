@@ -58,7 +58,7 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	const ddlNote = !ddlScope
 		? ''
 		: gatesEveryPath
-		? ' (its structure-user DDL needs listing too)'
+		? ` (its structure-user DDL${ddlScope === true ? '' : ` on ${ddlScope.join(', ')}`} needs listing too)`
 		: ddlScope === true
 		? ', except that it is a structure user: table and attribute DDL — and create/drop database — apply on any'
 			+ ' database regardless of the list.'
