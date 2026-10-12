@@ -88,7 +88,7 @@ function appendCommentLines(lines: string[], comment: string, indent: string): v
 	let margin: string | undefined;
 	for (const [index, line] of commentLines.entries()) {
 		if (!BLANK_LINE.test(line) && !isOutsideMargin(line, index)) {
-			const lineIndent = line.slice(0, line.search(/[^ \t]/));
+			const lineIndent = line.match(LEADING_WHITESPACE)?.[0] ?? '';
 			margin = margin === undefined ? lineIndent : commonPrefix(margin, lineIndent);
 		}
 	}
