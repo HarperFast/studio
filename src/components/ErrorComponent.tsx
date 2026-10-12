@@ -97,7 +97,7 @@ function RetryButton() {
 				void router.invalidate().finally(() => setRetrying(false));
 			}}
 		>
-			<RotateCw /> {retrying ? 'Trying Again…' : 'Try Again'}
+			<RotateCw className={retrying ? 'animate-spin' : undefined} /> {retrying ? 'Trying Again…' : 'Try Again'}
 		</Button>
 	);
 }
