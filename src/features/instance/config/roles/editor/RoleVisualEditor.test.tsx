@@ -141,11 +141,25 @@ describe('RoleVisualEditor', () => {
 	it('offers the cluster user type on Harper 4, and to a role that already has it', () => {
 		renderEditor({}, '4.7.40');
 		// Harper 4 stores such a user's password reversibly encrypted (harperdb security/user.ts).
-		expect(screen.getByRole('radio', { name: /Cluster user.*recoverable form/ })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: /Cluster user.*list every database.*recoverable form/ })).toBeTruthy();
 		cleanup();
 		renderEditor({ cluster_user: true });
 		const radio = screen.getByRole('radio', { name: /Cluster user.*Harper 5 doesn't use this role type/ });
 		expect(radio.getAttribute('aria-checked')).toBe('true');
+	});
+
+	it.each(['5.0.0-alpha.8', 'not-a-version'])('does not offer the cluster user type to a new role on %s', (version) => {
+		renderEditor({}, version);
+		expect(screen.queryByRole('radio', { name: /Cluster user/ })).toBeNull();
+	});
+
+	it('says before limiting a table that the list may leave out computed and relationship attributes', () => {
+		renderEditor({ data: { tables: { dog: table(true) } } });
+
+		fireEvent.click(screen.getByRole('button', { name: 'Attribute permissions for data.dog' }));
+		expect(screen.getByRole('switch', { name: 'Limit data.dog to specific attributes' }).getAttribute('aria-checked'))
+			.toBe('false');
+		expect(screen.getByText(/can leave out computed and relationship attributes/)).toBeTruthy();
 	});
 
 	it('opens only one database on a role that grants several, so a large schema stays cheap to open', () => {

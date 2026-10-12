@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { Switch } from '@/components/ui/switch';
 import {
 	ATTRIBUTE_ACTIONS,
+	AttributeView,
 	getAttributeViews,
 	getDatabaseRecord,
 	getEditableDatabaseNames,
@@ -44,7 +45,7 @@ import {
 	withOperations,
 } from '@/integrations/api/localRolePermission';
 import { cn } from '@/lib/cn';
-import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
+import { compareVersions } from '@/lib/string/wasAReleasedBeforeB';
 import { ChevronDownIcon, ChevronRightIcon, TriangleAlertIcon } from 'lucide-react';
 import {
 	type ComponentProps,
@@ -191,9 +192,12 @@ function RoleTypeSection({
 }) {
 	const id = useId();
 	// Only Harper 4 gives this flag a meaning: it marks the user clustering connects as, and that user's
-	// password is then stored reversibly encrypted (harperdb security/user.ts). Nothing in Harper 5 reads
-	// it, so it is offered there only to a role that already has it.
-	const harper4 = !wasAReleasedBeforeB('5.0.0', version);
+	// password is then stored reversibly encrypted (harperdb security/user.ts). Its describe_all lists
+	// everything (dataLayer/schemaDescribe.js:36), but it gets no table access: the operations gate and
+	// REST short-circuit only on super_user (utility/operation_authorization.js:370,499,
+	// resources/Table.ts:3643). Nothing in Harper 5 reads it, so it is offered there only to a role that
+	// already has it. A 5.0.0 prerelease is Harper 5; an unparseable version is not taken for Harper 4.
+	const harper4 = compareVersions(version, '0.0.0') >= 0 && compareVersions(version, '5.0.0-0') < 0;
 	const offerClusterUser = roleType === 'cluster_user' || harper4;
 	const dropsOthers = roleType !== 'standard' && carriesOtherPermissions(permission, roleType);
 	return (
@@ -214,7 +218,7 @@ function RoleTypeSection({
 				{offerClusterUser && (
 					<RadioOption id={`${id}-cluster`} value="cluster_user" label="Cluster user">
 						{harper4
-							? 'For the user that connects cluster nodes. Harper keeps the password of a user with this role in a recoverable form so clustering can use it.'
+							? 'For the user that connects cluster nodes. A user with this role can list every database, table and attribute, and Harper keeps its password in a recoverable form so clustering can use it.'
 							: "Harper 5 doesn't use this role type. Harper 4 used it for the user that connects cluster nodes."}
 					</RadioOption>
 				)}
@@ -604,7 +608,7 @@ function AttributePanel({
 }: {
 	label: string;
 	scoped: boolean;
-	views: ReturnType<typeof getAttributeViews>;
+	views: AttributeView[];
 	disabled?: boolean;
 	onScopingChanged: (scoped: boolean) => void;
 	onActionChanged: (attributeName: string, action: (typeof ATTRIBUTE_ACTIONS)[number], value: boolean) => void;
@@ -626,7 +630,7 @@ function AttributePanel({
 			<p className="text-xs text-muted-foreground">
 				{scoped
 					? 'Only the access checked here applies. An attribute with nothing checked has no access, including attributes added to the table later. Computed and relationship attributes may be missing from this list; grant those in the JSON.'
-					: "The table's read, insert and update apply to every attribute."}
+					: "The table's read, insert and update apply to every attribute. Limiting lists only the attributes this instance's schema shows, which can leave out computed and relationship attributes, and those then have no access until granted in the JSON."}
 			</p>
 			{scoped && (
 				<table className="w-full max-w-md text-xs">
