@@ -1,7 +1,8 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
-import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { useRestartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { markRestarting } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { shouldToastOwnFailure } from '@/react-query/queryClient';
@@ -48,6 +49,7 @@ export function useRestartInstanceClick({
 		// dropped if the component unmounts before the restart finishes (e.g. the user navigates to
 		// another tab while the instance comes back up), which would orphan the loading toast forever
 		// since sonner never auto-dismisses a loading toast. The awaited continuation runs regardless.
+		let holdUntilAnswering = false;
 		try {
 			await restartInstance({
 				operation,
@@ -72,6 +74,9 @@ export function useRestartInstanceClick({
 			onRestartedSuccessfully?.();
 		} catch (error) {
 			toast.dismiss(toastId);
+			// A gateway can lose the answer to a restart that ran and took the target down mid-reply, so the
+			// mark holds until the target answers again, as it would after an accepted restart.
+			holdUntilAnswering = isUnansweredWrite(error);
 			if (shouldToastOwnFailure(error)) {
 				toast.error('Error', {
 					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
@@ -82,8 +87,12 @@ export function useRestartInstanceClick({
 				});
 			}
 		} finally {
-			// Released on failure too: once the restart has failed, the errors that follow are real.
-			releaseTarget?.();
+			if (releaseTarget && holdUntilAnswering) {
+				void waitUntilAnsweringAfterRestart({ instanceClient }).then(releaseTarget, releaseTarget);
+			} else {
+				// Released on failure too: once the restart has failed, the errors that follow are real.
+				releaseTarget?.();
+			}
 		}
 	}, [
 		clusterId,
