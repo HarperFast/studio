@@ -189,7 +189,7 @@ export function LogsFiltersForm({
 												max={logDateMax}
 												onFocus={refreshLogDateMax}
 												className={FIELD_SURFACE}
-												value={field.value ?? undefined}
+												value={field.value ?? ''}
 												onChange={field.onChange}
 											/>
 										</FormControl>
