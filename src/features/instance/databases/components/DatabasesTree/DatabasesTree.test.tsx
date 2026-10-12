@@ -8,6 +8,7 @@ import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToD
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabasesTree } from './index';
+import { createTableId } from './specialItems';
 
 const route = vi.hoisted(() => ({
 	params: {} as { databaseName?: string; tableName?: string },
@@ -126,7 +127,7 @@ describe('DatabasesTree navigation', () => {
 
 	it('asks to create a table in the open database from the Create a Table row', () => {
 		renderTree({ databaseName: 'solo' });
-		fireEvent.click(row('__create_table__')!);
+		fireEvent.click(row(createTableId)!);
 		expect(fired).toHaveBeenCalledExactlyOnceWith('ShowCreateTable', { databaseName: 'solo' });
 		expect(route.navigate).not.toHaveBeenCalled();
 	});
@@ -134,7 +135,7 @@ describe('DatabasesTree navigation', () => {
 	it('offers no Create a Table row to a role that cannot manage', () => {
 		permission.canManage = false;
 		renderTree();
-		expect(row('__create_table__')).toBeNull();
+		expect(row(createTableId)).toBeNull();
 		expect(row('data')).not.toBeNull();
 	});
 });
@@ -209,7 +210,7 @@ describe('DatabasesTree context menus', () => {
 
 	it('opens no menu on the Create a Table row', () => {
 		renderTree();
-		rightClick('__create_table__');
+		rightClick(createTableId);
 		expect(screen.queryByRole('menu')).toBeNull();
 	});
 
