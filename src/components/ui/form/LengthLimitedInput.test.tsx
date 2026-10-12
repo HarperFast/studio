@@ -6,16 +6,26 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { LengthLimitedInput } from './LengthLimitedInput';
 
-function NameForm(
-	{ type = 'text', name = '', maxLength = 10 }: { type?: 'text' | 'email'; name?: string; maxLength?: number },
-) {
+function NameForm({ type = 'text', name = '', maxLength = 10, focus = false }: {
+	type?: 'text' | 'email';
+	name?: string;
+	maxLength?: number;
+	focus?: boolean;
+}) {
 	const form = useForm({ defaultValues: { name } });
+	const { setFocus } = form;
+	useEffect(() => {
+		if (focus) {
+			setFocus('name');
+		}
+	}, [focus, setFocus]);
 	return (
 		<Form {...form}>
 			<FormField
@@ -62,6 +72,12 @@ describe('LengthLimitedInput', () => {
 		expect(hint().textContent).toBe('Maximum 10 characters reached.');
 		expect(description()).toBe('Maximum 10 characters reached.');
 		expect(hint().getAttribute('aria-live')).toBe('polite');
+	});
+
+	it("passes react-hook-form the input's ref, so a refused field can still be focused", async () => {
+		render(<NameForm focus />);
+
+		await waitFor(() => expect(document.activeElement).toBe(input()));
 	});
 
 	it('says nothing below the limit, from a live region that is already in place', () => {
@@ -150,14 +166,12 @@ describe('LengthLimitedInput', () => {
 		expect(document.querySelector('[data-slot="form-length-hint"]')).toBeNull();
 	});
 
-	it('says when a paste into an email field was cut, though that field hides its selection', async () => {
+	it('makes no claim about a paste into a field that hides its selection, as type="email" does', async () => {
 		render(<NameForm type="email" />);
 		expect(input().selectionStart).toBeNull();
 		type('a@b.co');
 		await paste(`bob@${'e'.repeat(40)}.com`, `bob@${'e'.repeat(6)}`);
 
-		expect(hint().textContent).toBe(
-			'Maximum 10 characters reached. Pasted text was 48 characters; only the first 10 fit.',
-		);
+		expect(hint().textContent).toBe('Maximum 10 characters reached.');
 	});
 });

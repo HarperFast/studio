@@ -8,12 +8,11 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useCreateTableMutation } from '@/integrations/api/instance/database/createTable';
 import { databaseNameSchema } from '@/integrations/api/instance/database/databaseNameSchema';
@@ -108,17 +107,15 @@ export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName,
 							render={({ field }) => (
 								<FormItem className="">
 									<FormLabel className="pb-1">Table Name</FormLabel>
-									<FormControl>
-										<Input
-											{...field}
-											type="text"
-											maxLength={CreateTableSchema.shape.tableName.maxLength!}
-											autoFocus={true}
-											autoCapitalize="off"
-											autoComplete="off"
-											autoCorrect="off"
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										{...field}
+										type="text"
+										maxLength={CreateTableSchema.shape.tableName.maxLength!}
+										autoFocus={true}
+										autoCapitalize="off"
+										autoComplete="off"
+										autoCorrect="off"
+									/>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -129,17 +126,15 @@ export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName,
 							render={({ field }) => (
 								<FormItem className="">
 									<FormLabel className="pb-1">Primary Key</FormLabel>
-									<FormControl>
-										<Input
-											{...field}
-											placeholder="id"
-											type="text"
-											maxLength={CreateTableSchema.shape.primaryKey.maxLength!}
-											autoCapitalize="off"
-											autoComplete="off"
-											autoCorrect="off"
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										{...field}
+										placeholder="id"
+										type="text"
+										maxLength={CreateTableSchema.shape.primaryKey.maxLength!}
+										autoCapitalize="off"
+										autoComplete="off"
+										autoCorrect="off"
+									/>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -150,17 +145,15 @@ export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName,
 							render={({ field }) => (
 								<FormItem className="">
 									<FormLabel className="pb-1">Database Name</FormLabel>
-									<FormControl>
-										<Input
-											{...field}
-											type="text"
-											placeholder="data"
-											maxLength={CreateTableSchema.shape.databaseName.maxLength!}
-											autoCapitalize="off"
-											autoComplete="off"
-											autoCorrect="off"
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										{...field}
+										type="text"
+										placeholder="data"
+										maxLength={CreateTableSchema.shape.databaseName.maxLength!}
+										autoCapitalize="off"
+										autoComplete="off"
+										autoCorrect="off"
+									/>
 									<FormMessage />
 								</FormItem>
 							)}

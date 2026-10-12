@@ -2,13 +2,12 @@ import { HostnamePreview } from '@/components/HostnamePreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
@@ -97,16 +96,14 @@ export function NewOrgForm() {
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel className="pb-1">Name</FormLabel>
-										<FormControl>
-											<Input
-												type="text"
-												className="bg-background/60"
-												maxLength={NewOrganizationSchema.shape.name.maxLength!}
-												autoCapitalize="words"
-												placeholder={defaultName}
-												{...field}
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											type="text"
+											className="bg-background/60"
+											maxLength={NewOrganizationSchema.shape.name.maxLength!}
+											autoCapitalize="words"
+											placeholder={defaultName}
+											{...field}
+										/>
 										<FormDescription>Use a name your team will recognize.</FormDescription>
 										<FormMessage />
 									</FormItem>
@@ -119,16 +116,14 @@ export function NewOrgForm() {
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel className="pb-1">Subdomain</FormLabel>
-										<FormControl>
-											<Input
-												type="text"
-												className="bg-background/60"
-												maxLength={specifiedSubdomain.maxLength!}
-												autoCapitalize="none"
-												placeholder={calculatedNames.suggestedSubdomain}
-												{...field}
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											type="text"
+											className="bg-background/60"
+											maxLength={specifiedSubdomain.maxLength!}
+											autoCapitalize="none"
+											placeholder={calculatedNames.suggestedSubdomain}
+											{...field}
+										/>
 										<FormDescription>
 											Lowercase letters, numbers, and dashes. Leave blank to use the suggested subdomain.
 										</FormDescription>
