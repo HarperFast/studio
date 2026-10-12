@@ -132,7 +132,7 @@ export function useRollingConfigUpdate(
 						instanceClient,
 					});
 					if (canceled) {
-						continue;
+						break;
 					}
 
 					if (!replicationFqdn || !acknowledged.has(replicationFqdn.toLowerCase())) {

@@ -103,7 +103,7 @@ export function useRestartClusterClick(
 								skipRestartGate: true,
 							});
 							if (canceled) {
-								continue;
+								break;
 							}
 							releaseInstance = markRestarting([instance.id], {
 								reach: 'down',
