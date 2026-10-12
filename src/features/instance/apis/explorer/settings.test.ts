@@ -1,12 +1,13 @@
 /** @vitest-environment jsdom */
 import {
+	forgetAllEntitySettings,
 	forgetEntitySettings,
 	pruneStaleEntitySettings,
 	readEntitySettings,
 	scrubLegacySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const KEY = 'ApiExplorerSettings';
 
@@ -53,6 +54,88 @@ describe('explorer settings persistence (sessionStorage)', () => {
 			method: 'basic',
 			auth: { type: 'basic', username: 'u', password: '' },
 		});
+	});
+});
+
+describe('explorer credential removal when the rewrite fails', () => {
+	beforeEach(() => {
+		sessionStorage.clear();
+		localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function failEveryStorageWrite() {
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+	}
+
+	it('forgetEntitySettings gives up every entity rather than keep the credential', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		writeEntitySettings('ins-b', { server: 'http://b' });
+		failEveryStorageWrite();
+
+		forgetEntitySettings('ins-a');
+
+		expect(sessionStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('forgetAllEntitySettings empties the map when storage refuses only the removal', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		forgetAllEntitySettings();
+
+		expect(sessionStorage.getItem(KEY)).toBe('{}');
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+	});
+
+	it('stops reading the map when the fallback removal is refused too, until a write replaces it', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		failEveryStorageWrite();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		expect(() => forgetEntitySettings('ins-a')).not.toThrow();
+
+		expect(sessionStorage.getItem(KEY)).toContain('"token":"A"');
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+
+		vi.restoreAllMocks();
+		writeEntitySettings('ins-b', { server: 'http://b' });
+
+		expect(readEntitySettings('ins-b')).toEqual({ server: 'http://b' });
+		expect(sessionStorage.getItem(KEY)).not.toContain('"token":"A"');
+	});
+
+	it('pruneStaleEntitySettings gives up every entity rather than keep a revoked credential', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'revoked' }, authGeneration: 1 });
+		failEveryStorageWrite();
+
+		pruneStaleEntitySettings(() => 2);
+
+		expect(sessionStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('leaves the stored map alone when an ordinary settings write fails', () => {
+		writeEntitySettings('ins-a', { server: 'http://a' });
+		failEveryStorageWrite();
+
+		writeEntitySettings('ins-a', { server: 'http://a2' });
+
+		expect(readEntitySettings('ins-a')).toEqual({ server: 'http://a' });
 	});
 });
 

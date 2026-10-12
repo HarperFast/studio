@@ -182,36 +182,32 @@ size containment.)
 
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
-This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,
-`allowBuilds`, `onlyBuiltDependencies`) live in `pnpm-workspace.yaml`, NOT in a `pnpm`
-field in `package.json` — pnpm 11 no longer reads that field. It only logs
-`[WARN] The "pnpm" field in package.json is no longer read` and the install otherwise
-"succeeds", so the override is silently ignored.
+This repo uses pnpm 12 (`packageManager` in `package.json`). `overrides` (and other
+settings like `minimumReleaseAge`, `allowBuilds`, `onlyBuiltDependencies`) live in
+`pnpm-workspace.yaml`, NOT in a `pnpm` field in `package.json` — pnpm stopped reading that
+field in 11. It only logs `[WARN] The "pnpm" field in package.json is no longer read` and
+the install otherwise "succeeds", so the override is silently ignored.
 
-Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Scoped keys work too (e.g.
-`'undici@>=7.0.0': '^7.28.0'`). After editing, run `pnpm install --lockfile-only` and
-grep the lockfile to confirm the stale versions are gone.
+Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Version-range keys
+(`'undici@>=7.0.0'`) and parent-scoped keys (`'parent>child'`) work too. After
+editing, run `pnpm install --lockfile-only` and grep the lockfile to confirm the stale
+versions are gone.
 
-## vitest/jsdom requires undici 7
+A `pkg@range` override replaces the range each matching dependent declares, so it can hold
+a package _below_ the floor that package asks for, and nothing warns. jsdom 30.1.1 declares
+undici `^8.10.2`, but the override turns that into `^8.9.0` and the lockfile keeps it on
+8.10.0 (#1847). When a dependency bump raises its floor above an override's, raise the
+override with it.
 
-`undici` is a transitive dev/CI-only dep (jsdom for vitest; semantic-release /
-`@actions/http-client` for CI). jsdom imports the internal
-`undici/lib/handler/wrap-handler.js`, which **undici 8 removed**. So a broad
-`undici@>=7.0.0: ^8.0.0` override force-upgrades jsdom to undici 8 and every vitest
-worker crashes at import with `Cannot find module 'undici/lib/handler/wrap-handler.js'`
-(other test files "pass" only because the crashing ones never run).
+## vitest/jsdom runs on undici 8 — don't restore the `jsdom>undici` carve-out
 
-Keep a scoped override so jsdom stays on 7 while everything else moves to 8 (landed in
-PR #1358):
-
-```yaml
-'undici@>=7.0.0': '^8.0.0'
-'jsdom>undici': '^7.28.0' # newest 7.x (the `seven` dist-tag)
-```
-
-The `parent>child` scoped override wins over the broad `pkg@range` selector. Renovate
-may reopen this on the next undici bump — keep the `jsdom>undici` line. Revisit when a
-jsdom release supports undici 8 (none as of 2026-06).
+jsdom 29 imported the internal `undici/lib/handler/wrap-handler.js`, which undici 8
+removed, so PR #1358 held it on undici 7 with a scoped `'jsdom>undici': '^7.28.0'`
+override. jsdom 30 declares undici 8 itself and imports only its public exports
+(`getGlobalDispatcher`, `WebSocket`, `Dispatcher`, `DecoratorHandler`). `aa385532` (merged
+as #1597) deleted the carve-out: it was holding jsdom on undici 7.28.0, below both jsdom's
+own declared range and the CVE-2026-13697 (GHSA-4cwx-7wf7-3272) fix. The tree now resolves
+a single undici 8 for jsdom and CI alike; there is nothing to keep jsdom on 7 for.
 
 ## OAuth sign-in links belong to the central-manager origin, not Studio's
 
@@ -829,6 +825,14 @@ forgot-password failure is reported only if the form is still mounted when it se
 The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.
+
+Error boundaries are the same trap from the other side. React's root `onCaughtError` already reports
+every error any boundary catches, through
+[`reportReactError`](src/integrations/datadog/reportReactError.ts), so a `componentDidCatch` that
+`console.error`s files a second, console-sourced copy of each one. Log there with `console.warn`
+(not collected either, but visible in devtools by default). That reporter also collapses repeats: a
+TanStack route re-throws its stored error on every match update and every reload throws a fresh
+identical one, so one failed load used to reach Error Tracking up to 14 times (#1695).
 
 ## A 5xx body never reaches an auth form
 

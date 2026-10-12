@@ -343,7 +343,7 @@ export function useInstanceSchemaTableAttributePermission(
 		return false;
 	}
 	// attribute_permissions can be null (its declared shape) with no legacy attribute_restrictions
-	// fallback present — a table entry exactly as defaultCalculator writes it with attributes off.
+	// fallback present — a table entry exactly as earlier Studio builds saved it with attributes off.
 	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions
 		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions
 		|| []).find(a => a.attribute_name === attributeName);

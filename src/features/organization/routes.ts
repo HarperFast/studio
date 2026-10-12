@@ -1,4 +1,5 @@
 import { createBillingRouteTree } from '@/features/organization/billing/routes';
+import { OrgRouteError } from '@/features/organization/components/OrgRouteError';
 import {
 	getOrganizationQueryOptions,
 	isValidOrganizationId,
@@ -7,11 +8,13 @@ import { OrgConfigRolesIndex } from '@/features/organization/roles';
 import { OrgSettingsIndex } from '@/features/organization/settings';
 import { OrgConfigUsersIndex } from '@/features/organization/users';
 import { orgsLayoutRoute } from '@/features/organizations/routes';
+import { ensureRouteQueryData } from '@/router/ensureRouteQueryData';
 import { createRoute, redirect } from '@tanstack/react-router';
 
 export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '$organizationId',
+	errorComponent: OrgRouteError,
 	beforeLoad: async (opts) => {
 		const { organizationId } = opts.params;
 		// A stray `/undefined` URL would otherwise fetch `/Organization/undefined`
@@ -23,9 +26,7 @@ export const orgLayoutRoute = createRoute({
 			throw redirect({ to: '/' });
 		}
 		return {
-			organization: await opts.context.queryClient.ensureQueryData(
-				getOrganizationQueryOptions(organizationId),
-			),
+			organization: await ensureRouteQueryData(opts, getOrganizationQueryOptions(organizationId)),
 		};
 	},
 });

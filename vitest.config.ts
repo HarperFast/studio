@@ -3,6 +3,9 @@ import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	// Tests never read a developer's gitignored .env.local, which points VITE_CENTRAL_MANAGER_API_URL at
+	// live stage (#1689); only VITE_* exported in the shell reaches them, and CI exports none.
+	envDir: false,
 	test: {
 		environment: 'node',
 		// Worker threads spin up faster than forked processes, trimming
@@ -23,6 +26,7 @@ export default defineConfig({
 		],
 		setupFiles: [
 			'./src/testSetup/failOnRenderPhaseUpdate.ts',
+			'./src/testSetup/failOnRealWebSocket.ts',
 			'./src/features/instance/status/analytics/__tests__/setup.ts',
 			'./src/lib/monaco/__tests__/setup.ts',
 		],
