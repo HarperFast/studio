@@ -124,10 +124,14 @@ describe(ErrorComponent, () => {
 		fireEvent.click(button);
 		fireEvent.click(button);
 		expect(invalidate).toHaveBeenCalledTimes(1);
-		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Trying Again/ }).disabled).toBe(true);
+		const pending = screen.getByRole<HTMLButtonElement>('button', { name: /Trying Again/ });
+		expect(pending.disabled).toBe(true);
+		expect(pending.querySelector('svg')?.classList.contains('animate-spin')).toBe(true);
 
 		await act(async () => finishReload());
-		expect(screen.getByRole<HTMLButtonElement>('button', { name: /Try Again/ }).disabled).toBe(false);
+		const settled = screen.getByRole<HTMLButtonElement>('button', { name: /Try Again/ });
+		expect(settled.disabled).toBe(false);
+		expect(settled.querySelector('svg')?.classList.contains('animate-spin')).toBe(false);
 	});
 
 	it('should render the message of a thrown Error', async () => {
