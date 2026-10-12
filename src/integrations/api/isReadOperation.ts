@@ -26,10 +26,9 @@ function operationOf(data: unknown): unknown {
 }
 
 /**
- * A GET, or a POST whose operations-API body names a read. Only these are safe to send late (the
- * restart gate) or twice (the gateway retry); anything unrecognized counts as a write. Harper and
- * central manager's proxy take an operation only from a POST body, so on any other method an
- * `operation` field is just data.
+ * Whether a request is safe to send late (the restart gate) or twice (the gateway retry); anything
+ * unrecognized counts as a write. Harper and central manager's proxy take an operation only from a
+ * POST body, so on any other method an `operation` field is just data.
  */
 export function isReadRequest({ method, data }: { method?: unknown; data?: unknown }): boolean {
 	const verb = typeof method === 'string' ? method.toLowerCase() : undefined;
