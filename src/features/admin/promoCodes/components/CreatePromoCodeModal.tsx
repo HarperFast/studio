@@ -75,7 +75,18 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 				onCreated(created);
 				onClose();
 			},
-			onError: (error) => toast.error('Could not create the code', { description: describeError(error).message }),
+			onError: (error) => {
+				const status = (error as { response?: { status?: number } }).response?.status;
+				if (status != null && status < 500) {
+					toast.error('Could not create the code', { description: describeError(error).message });
+					return;
+				}
+				// A timeout or 5xx may have created it, and a retry with a generated code would make a second one.
+				toast.error('Could not confirm the code was created', {
+					description: 'Check the list before trying again.',
+				});
+				onClose();
+			},
 			onSettled: () => {
 				inFlight.current = false;
 			},
