@@ -282,9 +282,8 @@ class AuthStore {
 			this.flagKeyAsSignedIn(id, key);
 			this.updateConnectionIfChanged(id, false, user);
 		} else {
-			// Every per-entity disconnect funnels through here (ClusterHome/ClusterCard call
-			// setUserForEntity(entity, null)), so it clears the API explorer's stored credentials too —
-			// otherwise the next user to sign into the same entity would inherit them.
+			// Clears the API explorer's stored credentials too, or the next user to sign into this entity
+			// would inherit them.
 			this.clearSignIn(id);
 		}
 	}
@@ -347,17 +346,19 @@ class AuthStore {
 		this.unremovedKeys.delete(key);
 	}
 
-	/**
-	 * Reported, never thrown: a sign-out must still reach its in-memory steps, and a credential storage
-	 * kept is worth an Error Tracking entry.
-	 */
+	/** `console.error`, not `debug`: a credential storage kept is worth an Error Tracking entry. */
 	private removeStoredItem(key: string): void {
 		try {
 			localStorage.removeItem(key);
 			this.unremovedKeys.delete(key);
 		} catch (error) {
-			this.unremovedKeys.add(key);
 			console.error(error);
+			try {
+				// Every reader treats an empty value as absent, and unlike the in-memory set it outlives a reload.
+				this.writeStoredItem(key, '');
+			} catch {
+				this.unremovedKeys.add(key);
+			}
 		}
 	}
 

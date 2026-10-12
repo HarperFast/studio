@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import {
+	forgetAllEntitySettings,
 	forgetEntitySettings,
 	pruneStaleEntitySettings,
 	readEntitySettings,
@@ -80,6 +81,21 @@ describe('explorer credential removal when the rewrite fails', () => {
 		forgetEntitySettings('ins-a');
 
 		expect(sessionStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('forgetAllEntitySettings empties the map when storage refuses only the removal', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		forgetAllEntitySettings();
+
+		expect(sessionStorage.getItem(KEY)).toBe('{}');
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(consoleError).toHaveBeenCalledWith(refusal);
 	});
 
 	it('stops reading the map when the fallback removal is refused too, until a write replaces it', () => {
