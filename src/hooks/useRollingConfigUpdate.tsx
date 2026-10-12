@@ -126,7 +126,7 @@ export function useRollingConfigUpdate(
 			for (let i = 0; i < targets.length; i++) {
 				const { instanceClient, replicationFqdn } = targets[i];
 				if (canceled) {
-					continue;
+					break;
 				}
 				toast.loading(`Updating Instance ${i + 1} of ${targets.length}`, {
 					...toastConfig,
