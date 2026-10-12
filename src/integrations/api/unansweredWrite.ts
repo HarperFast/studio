@@ -28,10 +28,7 @@ export const NO_RESPONSE_CODES: ReadonlySet<string> = new Set([
 // operation to exits or overruns. The same reasoning stops the gateway retry from replaying a write.
 const NO_VERDICT_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
 
-/**
- * A request that may have been applied although it failed: not a read, and answered by a 502/503/504
- * or not at all. Its failure must not read as a plain failure, since a retry can apply it twice.
- */
+/** Its failure must not read as a plain failure: it may have been applied, so a retry can apply it twice. */
 export function isUnansweredWrite(rawErr: unknown): rawErr is AxiosError {
 	if (!isAxiosError(rawErr) || !rawErr.config) {
 		return false;

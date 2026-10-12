@@ -38,8 +38,8 @@ function wrapper() {
 	</QueryClientProvider>;
 }
 
-async function applyLicenses() {
-	const { result } = renderHook(() => useApplyLicensesClick({ licenses: LICENSES }), { wrapper: wrapper() });
+async function applyLicenses(licenses = LICENSES) {
+	const { result } = renderHook(() => useApplyLicensesClick({ licenses }), { wrapper: wrapper() });
 	await act(async () => {
 		await (result.current.onApplyLicensesClick() as unknown as Promise<void>);
 	});
@@ -86,6 +86,22 @@ describe('useApplyLicensesClick', () => {
 		expect(options?.description).toBe(
 			"1 of 2 licenses confirmed applied. 1 request couldn't be confirmed, so it may have gone through. "
 				+ 'Check before you try again, or it may run twice.',
+		);
+	});
+
+	it('still counts a refused license when another got no answer', async () => {
+		vi.mocked(installUsageLicense)
+			.mockResolvedValueOnce({} as never)
+			.mockRejectedValueOnce(new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, installSent))
+			.mockRejectedValueOnce(new Error('License is expired'));
+
+		await applyLicenses([...LICENSES, { license: 'lic-3' }] as SchemaLicense[]);
+
+		const [title, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(title).toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(options?.description).toBe(
+			"1 of 3 licenses confirmed applied. 1 request couldn't be confirmed, so it may have gone through. "
+				+ 'Check before you try again, or it may run twice. 1 other license failed to apply.',
 		);
 	});
 

@@ -151,9 +151,15 @@ export function useImportApplication(
 				return;
 			}
 			// No verdict: it may have gone through, so the title can't say it failed; the message says to check.
-			const title = isUnansweredWrite(error)
+			const unanswered = isUnansweredWrite(error);
+			const title = unanswered
 				? `Couldn't confirm ${project} was ${stage ? 'staged' : 'imported'}`
 				: `Failed to ${stage ? 'stage' : 'import'} ${project}`;
+			if (unanswered) {
+				// It may have imported, so what the message says to check must be current.
+				void invalidateEntityQueries(queryClient, entityId);
+				void reloadRootEntries();
+			}
 			const { message } = describeError(error);
 			if (formEntity.current === entityId) {
 				setImportFailure({ entityId, failure: { title, message, deploymentId } });
@@ -178,7 +184,17 @@ export function useImportApplication(
 				duration: 5_000,
 			});
 		}
-	}, [mutateAsync, sseDeploy, canStage, instanceParams, runHealthCheck, onImported, recordAction]);
+	}, [
+		mutateAsync,
+		sseDeploy,
+		canStage,
+		instanceParams,
+		runHealthCheck,
+		onImported,
+		recordAction,
+		queryClient,
+		reloadRootEntries,
+	]);
 
 	const importApplication = useCallback((args: ImportArgs) => void runImport(args), [runImport]);
 
