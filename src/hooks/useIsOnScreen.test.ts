@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useIsOnScreen } from './useIsOnScreen';
 
-/** Hands the hook an element that no test variable holds, returning whether it has been collected. */
+/** Builds the element out of the test's scope, so only the hook can keep it alive. */
 function showFreshElement(rerender: (props: { element: Element | null }) => void) {
 	const element = document.createElement('div');
 	const reference = new WeakRef(element);

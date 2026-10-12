@@ -114,7 +114,6 @@ describe('InstanceStatusCell off-screen gating', () => {
 	it('shows a spinner rather than an unknown status for a row that has not loaded yet', async () => {
 		await renderCell('RUNNING');
 		expect(screen.queryByText('Offline')).toBeNull();
-		// The icon itself is hidden from screen readers, so the text is all they get.
 		expect(document.querySelector('.animate-spin')?.getAttribute('aria-hidden')).toBe('true');
 		expect(screen.getByText('Loading status')).toBeTruthy();
 	});
