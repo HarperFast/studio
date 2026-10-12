@@ -342,6 +342,29 @@ export interface AdminPromoCode {
 	overCap: boolean;
 }
 
+/** One organization's redemption of a code, as `GET /Admin/PromoCode/:code` lists them in `redemptionList`. */
+export interface AdminPromoRedemption {
+	id: string;
+	organizationId: string;
+	organizationName: string | null;
+	redeemedByUserId: string | null;
+	redeemedByEmail: string | null;
+	redeemedAt: string;
+	status: PromoRedemptionView['status'];
+	creditCents?: number | null;
+	creditExpiresAt?: string | null;
+	/** Credit removed at its use-by date, net of corrections; set once the redemption is EXPIRED. */
+	expiredCents?: number | null;
+	grantId?: string | null;
+	voucherEndsAt?: string | null;
+	/** The cluster that claimed the voucher; null while it is unclaimed. */
+	clusterId?: string | null;
+}
+
+export interface AdminPromoCodeDetail extends AdminPromoCode {
+	redemptionList: AdminPromoRedemption[];
+}
+
 /**
  * A cluster's commercial terms, as projected for customers by central-manager. Returned on
  * `GET /Cluster/:id` and on each cluster in `GET /Organization/:id`. Not in the generated OpenAPI
