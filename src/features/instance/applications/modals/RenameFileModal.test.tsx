@@ -52,10 +52,13 @@ function renameButton() {
 }
 
 describe('RenameFileModal', () => {
-	it('stops the name at the 50 characters the form accepts', () => {
+	it('stops the name at the 50 characters the form accepts, and says so there', () => {
 		render(<RenameFileModal />);
+		const name = screen.getByLabelText('Name') as HTMLInputElement;
+		expect(name.maxLength).toBe(50);
 
-		expect((screen.getByLabelText('Name') as HTMLInputElement).maxLength).toBe(50);
+		fireEvent.change(name, { target: { value: 'a'.repeat(50) } });
+		expect(screen.getByText('Maximum 50 characters reached.')).toBeTruthy();
 	});
 
 	it('shows the reason when Enter is pressed, then clears it once the name is fixed', async () => {

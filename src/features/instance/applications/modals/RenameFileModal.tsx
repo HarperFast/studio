@@ -8,13 +8,12 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
-import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
@@ -180,16 +179,14 @@ export function RenameFileModal() {
 							render={({ field }) => (
 								<FormItem className="my-2">
 									<FormLabel>Name</FormLabel>
-									<FormControl>
-										<Input
-											disabled={isPending}
-											type="text"
-											autoComplete="off"
-											autoCapitalize="off"
-											maxLength={RenameFileSchema.shape.name.maxLength!}
-											{...field}
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										disabled={isPending}
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										maxLength={RenameFileSchema.shape.name.maxLength!}
+										{...field}
+									/>
 									<FormMessage />
 								</FormItem>
 							)}

@@ -128,4 +128,25 @@ describe('ProfileIndex', () => {
 		await waitFor(() => expect(screen.queryByText('Passwords do not match')).toBeNull());
 		expect(saveButton().disabled).toBe(false);
 	});
+
+	it('says when a name reaches its limit, but never on a password', async () => {
+		render(<ProfileIndex />);
+		const descriptionOf = (label: string) =>
+			screen.getByLabelText(label).getAttribute('aria-describedby')!.split(' ')
+				.map(id => document.getElementById(id)?.textContent).join(' ').trim();
+
+		await type('First Name', 'A'.repeat(40));
+		await type('Last Name', 'L'.repeat(80));
+		await type('New Password', 'p'.repeat(300));
+		await type('Confirm New Password', 'p'.repeat(300));
+
+		expect(descriptionOf('First Name')).toBe('Maximum 40 characters reached.');
+		expect(descriptionOf('Last Name')).toBe('Maximum 80 characters reached.');
+		expect(descriptionOf('New Password')).not.toContain('Maximum');
+		expect(descriptionOf('Confirm New Password')).not.toContain('Maximum');
+		expect(document.querySelectorAll('[data-slot="form-length-hint"]')).toHaveLength(2);
+
+		await type('Last Name', 'L'.repeat(79));
+		expect(descriptionOf('Last Name')).toBe('');
+	});
 });

@@ -7,6 +7,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
@@ -105,15 +106,13 @@ export function ProfileIndex() {
 									render={({ field }) => (
 										<FormItem>
 											<FormLabel className="pb-1">First Name</FormLabel>
-											<FormControl>
-												<Input
-													type="text"
-													className="bg-background/60"
-													autoCapitalize="words"
-													maxLength={UpdateUserSchema.shape.firstname.maxLength!}
-													{...field}
-												/>
-											</FormControl>
+											<LengthLimitedInput
+												type="text"
+												className="bg-background/60"
+												autoCapitalize="words"
+												maxLength={UpdateUserSchema.shape.firstname.maxLength!}
+												{...field}
+											/>
 											<FormMessage />
 										</FormItem>
 									)}
@@ -125,15 +124,13 @@ export function ProfileIndex() {
 									render={({ field }) => (
 										<FormItem>
 											<FormLabel className="pb-1">Last Name</FormLabel>
-											<FormControl>
-												<Input
-													type="text"
-													className="bg-background/60"
-													autoCapitalize="words"
-													maxLength={UpdateUserSchema.shape.lastname.maxLength!}
-													{...field}
-												/>
-											</FormControl>
+											<LengthLimitedInput
+												type="text"
+												className="bg-background/60"
+												autoCapitalize="words"
+												maxLength={UpdateUserSchema.shape.lastname.maxLength!}
+												{...field}
+											/>
 											<FormMessage />
 										</FormItem>
 									)}

@@ -98,10 +98,13 @@ describe('NewApplication', () => {
 		expect(screen.queryByText('Please enter a URL or package reference.')).toBeNull();
 	});
 
-	it('stops the application name at the 75 characters the form accepts', () => {
+	it('stops the application name at the 75 characters the form accepts, and says so there', () => {
 		render(<NewApplication />);
+		const name = screen.getByLabelText('Name') as HTMLInputElement;
+		expect(name.maxLength).toBe(75);
 
-		expect((screen.getByLabelText('Name') as HTMLInputElement).maxLength).toBe(75);
+		fireEvent.change(name, { target: { value: 'a'.repeat(75) } });
+		expect(screen.getByText('Maximum 75 characters reached.')).toBeTruthy();
 	});
 
 	it('explains a refused application name when Enter is pressed in it', async () => {

@@ -3,7 +3,7 @@
  */
 import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { LocalRolePermission } from '@/integrations/api/api.patch';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Only the auth store and the router are stubbed, so these run the real
@@ -131,10 +131,16 @@ describe('ImportDataModal requested method', () => {
 });
 
 describe('ImportDataModal name fields', () => {
-	it('stops the database and table names at the lengths the form accepts', () => {
+	it('stops the database and table names at the lengths the form accepts, and says so there', () => {
 		renderModal({ super_user: true });
+		const database = screen.getByLabelText('Database') as HTMLInputElement;
+		const table = screen.getByLabelText('Table') as HTMLInputElement;
+		expect(database.maxLength).toBe(75);
+		expect(table.maxLength).toBe(250);
 
-		expect((screen.getByLabelText('Database') as HTMLInputElement).maxLength).toBe(75);
-		expect((screen.getByLabelText('Table') as HTMLInputElement).maxLength).toBe(250);
+		fireEvent.change(database, { target: { value: 'd'.repeat(75) } });
+		fireEvent.change(table, { target: { value: 't'.repeat(250) } });
+		expect(screen.getByText('Maximum 75 characters reached.')).toBeTruthy();
+		expect(screen.getByText('Maximum 250 characters reached.')).toBeTruthy();
 	});
 });

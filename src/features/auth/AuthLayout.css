@@ -542,7 +542,7 @@
 	padding-inline: 0;
 }
 
-.auth-form:not(.fabric-sign-in) p:not([role="alert"]):not([data-slot="form-message"]) {
+.auth-form:not(.fabric-sign-in) p:not([role="alert"]):not([data-slot="form-message"]):not([data-slot="form-length-hint"]) {
 	color: var(--signin-muted);
 	line-height: 1.6;
 }

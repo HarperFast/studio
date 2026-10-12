@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -31,9 +31,12 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe('AddUserModal', () => {
-	it('stops the email at the 80 characters the form accepts', () => {
+	it('stops the email at the 80 characters the form accepts, and says so there', () => {
 		render(<AddUserModal isModalOpen onChangesSaved={() => {}} setIsModalOpen={() => {}} />);
+		const email = screen.getByLabelText('Email') as HTMLInputElement;
+		expect(email.maxLength).toBe(80);
 
-		expect((screen.getByLabelText('Email') as HTMLInputElement).maxLength).toBe(80);
+		fireEvent.change(email, { target: { value: 'a'.repeat(80) } });
+		expect(screen.getByText('Maximum 80 characters reached.')).toBeTruthy();
 	});
 });
