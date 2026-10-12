@@ -11,7 +11,7 @@ import {
 	Outlet,
 	RouterProvider,
 } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/usePermissions', () => ({
@@ -103,15 +103,7 @@ function renderRouter(initialPath: string) {
 
 async function openOptions(name: string) {
 	const trigger = await screen.findByRole('button', { name });
-	await act(async () => {
-		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
-	});
-}
-
-async function click(element: HTMLElement) {
-	await act(async () => {
-		fireEvent.click(element);
-	});
+	fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 }
 
 beforeAll(() => {
@@ -131,17 +123,17 @@ describe('a card clicked again while its first navigation is still loading (#130
 		const router = renderRouter('/');
 		const card = await screen.findByRole('link', { name: 'Open Acme' });
 
-		await click(card);
+		fireEvent.click(card);
 		await waitFor(() => expect(router.latestLocation.pathname).toBe('/org-a'));
 		// Still the organizations page: the organization has not finished loading.
-		await click(screen.getByRole('link', { name: 'Open Acme' }));
+		fireEvent.click(screen.getByRole('link', { name: 'Open Acme' }));
 
 		expect(router.latestLocation.pathname).toBe('/org-a');
 	});
 
 	it('links every organization menu item to that organization, from the pending location', async () => {
 		const router = renderRouter('/');
-		await click(await screen.findByRole('link', { name: 'Open Acme' }));
+		fireEvent.click(await screen.findByRole('link', { name: 'Open Acme' }));
 		await waitFor(() => expect(router.latestLocation.pathname).toBe('/org-a'));
 
 		await openOptions('Options');
@@ -153,12 +145,12 @@ describe('a card clicked again while its first navigation is still loading (#130
 	it('signs in to the same cluster, not a sign-in page nested under the first', async () => {
 		const router = renderRouter('/org-a');
 		await openOptions('Cluster options');
-		await click(await screen.findByRole('menuitem', { name: 'Direct Sign In' }));
+		fireEvent.click(await screen.findByRole('menuitem', { name: 'Direct Sign In' }));
 		await waitFor(() => expect(router.latestLocation.pathname).toBe('/org-a/clu-b/sign-in'));
 
 		// Still the cluster list: the cluster has not finished loading.
 		await openOptions('Cluster options');
-		await click(await screen.findByRole('menuitem', { name: 'Direct Sign In' }));
+		fireEvent.click(await screen.findByRole('menuitem', { name: 'Direct Sign In' }));
 
 		expect(router.latestLocation.pathname).toBe('/org-a/clu-b/sign-in');
 	});
