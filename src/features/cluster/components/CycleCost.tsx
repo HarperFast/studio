@@ -1,5 +1,6 @@
 import { METRIC_LABEL } from '@/features/cluster/components/UsageMeter';
 import { type ClusterUsageRegion, formatCycleDate } from '@/integrations/api/cluster/getClusterUsage';
+import type { PastCycleRegion } from '@/integrations/api/cluster/getClusterUsageHistory';
 import { toUSD } from '@/lib/toUSD';
 
 /**
@@ -51,18 +52,70 @@ function OverageExplained({ region }: { region: ClusterUsageRegion }) {
 					? ` on ${formatCycleDate(region.expiresAt)}`
 					: ''}.
 			</p>
-			<ul aria-label="Extra capacity" className="mt-1.5 space-y-0.5">
-				{(region.topUps ?? []).map((topUp, index) => (
-					<li key={`${topUp.createdAt}-${index}`} className="flex items-baseline justify-between gap-3">
-						<span>
-							{topUp.createdAt ? `${formatCycleDate(topUp.createdAt)} · ` : ''}extra capacity,{' '}
-							{shareUsed(topUp.usedShare)}
-						</span>
-						<span className="tabular-nums">{toUSD(topUp.chargeUsd)}</span>
-					</li>
-				))}
-			</ul>
+			<TopUpList topUps={region.topUps ?? []} />
 		</div>
+	);
+}
+
+type TopUp = { createdAt: string | null; usedShare: number; chargeUsd: number };
+
+function TopUpList({ topUps }: { topUps: TopUp[] }) {
+	return (
+		<ul aria-label="Extra capacity" className="mt-1.5 space-y-0.5">
+			{topUps.map((topUp, index) => (
+				<li key={`${topUp.createdAt}-${index}`} className="flex items-baseline justify-between gap-3">
+					<span>
+						{topUp.createdAt ? `${formatCycleDate(topUp.createdAt)} · ` : ''}extra capacity,{' '}
+						{shareUsed(topUp.usedShare)}
+					</span>
+					<span className="tabular-nums">{toUSD(topUp.chargeUsd)}</span>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+/**
+ * What a region was charged in a cycle that has ended. Nothing for a region that was never billed, as
+ * for the current cycle. Never "billed" or "paid": CM records what it charged, not what was collected.
+ */
+export function PastRegionCost({ region }: { region: PastCycleRegion }) {
+	if (!(region.cycleUsd > 0)) { return null; }
+	const cause = region.overageCause;
+	const meter = cause?.metric ? `${METRIC_LABEL[cause.metric]} ` : '';
+	return (
+		<dl className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+			<div className="flex items-baseline justify-between gap-3">
+				<dt className="font-medium text-foreground">Charges</dt>
+				<dd className="font-medium text-foreground tabular-nums">{toUSD(region.cycleUsd)}</dd>
+			</div>
+			<div className="mt-1.5 flex items-baseline justify-between gap-3 text-muted-foreground">
+				<dt>Plan</dt>
+				<dd className="tabular-nums">{toUSD(region.planUsd)}</dd>
+			</div>
+			{region.topUpCount > 0 && (
+				<>
+					<div className="mt-1 flex items-baseline justify-between gap-3 text-muted-foreground">
+						<dt>Overage</dt>
+						<dd className="tabular-nums">{toUSD(region.overageUsd)}</dd>
+					</div>
+					<div className="mt-2 text-xs text-muted-foreground">
+						<p>
+							Your plan&rsquo;s{' '}
+							{meter}allowance ran out{cause?.ranOutAt ? ` on ${formatCycleDate(cause.ranOutAt)}` : ''}. Your cluster
+							kept running on extra capacity, charged at your plan&rsquo;s rate for the share of it used.
+						</p>
+						<TopUpList topUps={region.topUps} />
+					</div>
+				</>
+			)}
+			{region.estimated && (
+				<p className="mt-2 text-xs text-muted-foreground">
+					Estimated at the plan&rsquo;s current price: some of this cycle&rsquo;s charges weren&rsquo;t recorded.
+				</p>
+			)}
+			{region.uninvoicedBlockCount > 0 && <p className="mt-2 text-xs text-muted-foreground">Not on an invoice yet.</p>}
+		</dl>
 	);
 }
 
