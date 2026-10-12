@@ -4,6 +4,7 @@
 import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const { addRoleMutate } = vi.hoisted(() => ({ addRoleMutate: vi.fn() }));
@@ -53,9 +54,11 @@ afterEach(() => {
 function renderModal() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
-		<QueryClientProvider client={queryClient}>
-			<AddRoleModal onChangesSaved={() => {}} closeModal={() => {}} />
-		</QueryClientProvider>,
+		<StrictMode>
+			<QueryClientProvider client={queryClient}>
+				<AddRoleModal onChangesSaved={() => {}} closeModal={() => {}} />
+			</QueryClientProvider>
+		</StrictMode>,
 	);
 }
 
