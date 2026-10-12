@@ -67,6 +67,18 @@ describe(ClusterHome, () => {
 		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
 	});
 
+	it('shows a failed build that central manager rolled back (FAILED with terminatedAt) as gone', async () => {
+		await renderHome({ ...base, status: 'FAILED', terminatedAt: '2026-08-13T00:00:00.000Z' });
+		expect(screen.getByRole('heading', { name: 'Cluster Terminated' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
+	});
+
+	it('still offers to connect to a FAILED cluster without terminatedAt, which may still be serving', async () => {
+		await renderHome({ ...base, status: 'FAILED' });
+		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
+	});
+
 	it('still offers to connect to a running cluster', async () => {
 		await renderHome({ ...base, status: 'RUNNING' });
 		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();

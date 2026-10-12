@@ -7,7 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { activeClusterStatuses, isDeletedClusterStatus } from '@/config/clusterStatuses';
+import { activeClusterStatuses, isDeletedCluster } from '@/config/clusterStatuses';
 import { isLocalStudio } from '@/config/constants';
 import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
@@ -40,7 +40,7 @@ export function ClusterInstanceSignIn() {
 		[cluster, instanceId],
 	);
 	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
-	const isTerminated = isDeletedClusterStatus(cluster?.status);
+	const isTerminated = isDeletedCluster(cluster);
 
 	const properNoun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
 	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';

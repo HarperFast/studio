@@ -1,7 +1,7 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
-import { activeClusterStatuses, deletedClusterStatuses, isDeletedClusterStatus } from '@/config/clusterStatuses';
+import { activeClusterStatuses, deletedClusterStatuses, isDeletedCluster } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
@@ -102,7 +102,7 @@ export function ClusterHome() {
 	if (!view) {
 		return <Navigate to={`/${cluster.organizationId}`} replace />;
 	}
-	if (isDeletedClusterStatus(cluster.status)) {
+	if (isDeletedCluster(cluster)) {
 		return (
 			<ClusterHomeShell>
 				<ClusterTerminated cluster={cluster} />
