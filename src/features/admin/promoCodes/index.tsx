@@ -5,10 +5,11 @@ import { CreatePromoCodeModal } from '@/features/admin/promoCodes/components/Cre
 import { getPromoCodesQueryOptions, useSetPromoCodeDisabled } from '@/features/admin/promoCodes/promoCodeAdminApi';
 import { formatCents, formatDay } from '@/features/organization/billing/promoCodes/promoCodeApi';
 import { useStaffPermission } from '@/hooks/useAuth';
+import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { AdminPromoCode, PromoKind } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
-import { PlusIcon } from 'lucide-react';
+import { CopyIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -48,6 +49,7 @@ export function PromoCodesAdminIndex() {
 	const { data: codes, isLoading, isError } = useQuery(getPromoCodesQueryOptions());
 	const [creating, setCreating] = useState(0);
 	const { mutate: setDisabled, isPending: switching } = useSetPromoCodeDisabled();
+	const copyCode = useCopyTextToClipboard();
 
 	const canWrite = (code: AdminPromoCode) => (code.kind === 'credit' ? canWriteCredit : canWriteVoucher);
 	const toggle = (code: AdminPromoCode) =>
@@ -101,7 +103,19 @@ export function PromoCodesAdminIndex() {
 								{codes.map((code) => (
 									<TableRow key={code.id}>
 										<TableCell className="font-mono">
-											{code.id}
+											<div className="flex items-center gap-1.5">
+												{code.id}
+												<Button
+													type="button"
+													size="sm"
+													variant="ghost"
+													className="h-6 w-6 p-0 shrink-0"
+													aria-label={`Copy ${code.id}`}
+													onClick={() => copyCode(code.id)}
+												>
+													<CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
+												</Button>
+											</div>
 											{code.campaign && <div className="text-xs text-muted-foreground font-sans">{code.campaign}</div>}
 										</TableCell>
 										<TableCell>{gives(code)}</TableCell>
