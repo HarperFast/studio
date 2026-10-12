@@ -7,6 +7,10 @@ import { useEffect, useState } from 'react';
  */
 export function useIsOnScreen(element: Element | null, rootMargin = '0px'): boolean {
 	const [observed, setObserved] = useState<{ element: Element; onScreen: boolean } | null>(null);
+	// Drop a report about an element that is gone, so a detached element is not kept alive in state.
+	if (observed !== null && observed.element !== element) {
+		setObserved(null);
+	}
 
 	useEffect(() => {
 		if (!element || typeof IntersectionObserver === 'undefined') {

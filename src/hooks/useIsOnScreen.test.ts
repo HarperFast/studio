@@ -1,8 +1,18 @@
 /** @vitest-environment jsdom */
 import { FakeIntersectionObserver } from '@/test/fakeIntersectionObserver';
 import { act, cleanup, renderHook } from '@testing-library/react';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useIsOnScreen } from './useIsOnScreen';
+
+/** Hands the hook an element that no test variable holds, returning whether it has been collected. */
+function showFreshElement(rerender: (props: { element: Element | null }) => void) {
+	const element = document.createElement('div');
+	const reference = new WeakRef(element);
+	rerender({ element });
+	return () => reference.deref() === undefined;
+}
 
 afterEach(() => {
 	cleanup();
@@ -55,6 +65,28 @@ describe('useIsOnScreen', () => {
 
 		rerender({ element: document.createElement('div') });
 		expect(result.current).toBe(false);
+	});
+
+	it('lets go of an element once it is gone, so the detached node can be collected', async () => {
+		vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+		setFlagsFromString('--expose-gc');
+		const collectGarbage = runInNewContext('gc') as () => void;
+		// Testing Library holds on to the initial props, so the element has to arrive by rerender.
+		const { rerender } = renderHook(({ element }) => useIsOnScreen(element), {
+			initialProps: { element: null } as { element: Element | null },
+		});
+		const collected = showFreshElement(rerender);
+		act(() => FakeIntersectionObserver.setIntersecting(true));
+
+		rerender({ element: null });
+		// React keeps the previous render's props on the alternate fiber until the next render.
+		rerender({ element: null });
+		// The disconnected fake still holds its callback, which closes over the element.
+		FakeIntersectionObserver.reset();
+		await new Promise(resolve => setTimeout(resolve, 0));
+		collectGarbage();
+
+		expect(collected()).toBe(true);
 	});
 
 	it('waits for an element before observing anything', () => {
