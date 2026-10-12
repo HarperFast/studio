@@ -18,9 +18,9 @@ export function useGenerateApiTokenMutation() {
 		mutationFn: generateApiToken,
 		// The result is a bearer credential. Don't let it linger in the shared
 		// MutationCache: that's readable via queryClient.getMutationCache() and
-		// shows in the mutation inspector until sign-out clears the cache.
-		// gcTime:0 discards it the moment the observer unmounts; the page also
-		// reset()s right after copying it into local state.
+		// shows in the mutation inspector. gcTime:0 discards it the moment the
+		// observer unmounts; the page also reset()s right after copying it into
+		// local state.
 		gcTime: 0,
 	});
 }
