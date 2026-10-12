@@ -7,7 +7,7 @@ import { useWatch } from 'react-hook-form';
 
 type PasteState = 'pending' | (PasteCut & { value: string }) | null;
 
-/** The browser cuts a paste to `maxLength` without a word, so this says when it has, and when the limit is reached. */
+/** The browser cuts a paste to `maxLength` without a word. */
 export function useLengthLimit(
 	maxLength: number | null | undefined,
 	onPaste?: ClipboardEventHandler<HTMLInputElement>,
@@ -35,12 +35,14 @@ export function useLengthLimit(
 		onPaste?.(event);
 		const input = event.currentTarget;
 		const text = event.clipboardData?.getData('text/plain') ?? '';
-		if (event.defaultPrevented || input.readOnly || !text) {
+		const { selectionStart: start, selectionEnd: end } = input;
+		// `type="email"` hides its selection, so there is no cut to measure. Email fields are left uncapped
+		// anyway, since a cut address can still be a valid one, just not the user's.
+		if (event.defaultPrevented || input.readOnly || !text || start === null || end === null) {
 			return;
 		}
 		const before = input.value;
-		const { selectionStart: start, selectionEnd: end } = input;
-		const selection = start === null || end === null ? null : [start, end] as const;
+		const selection = [start, end] as const;
 		setPaste('pending');
 		clearTimeout(timer.current);
 		// The browser inserts the paste after this handler returns, so measure once it has.

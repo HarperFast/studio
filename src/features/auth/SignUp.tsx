@@ -262,7 +262,6 @@ export function SignUp() {
 									disabled={!!searchEmail}
 									autoComplete="email"
 									autoCapitalize="none"
-									maxLength={SignUpSchema.shape.email.maxLength!}
 									{...field}
 								/>
 								<FormMessage />

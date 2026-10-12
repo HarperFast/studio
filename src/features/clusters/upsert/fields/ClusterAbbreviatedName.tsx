@@ -1,10 +1,9 @@
 import { HostnamePreview } from '@/components/HostnamePreview';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { specifiedAbbreviatedName, UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { useId } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -28,18 +27,16 @@ export function ClusterAbbreviatedName({
 				render={({ field }) => (
 					<FormItem className="col-span-3">
 						<FormLabel className="pb-1">Host Name</FormLabel>
-						<FormControl>
-							<Input
-								{...field}
-								type="text"
-								maxLength={specifiedAbbreviatedName.maxLength!}
-								autoCapitalize="none"
-								autoComplete="off"
-								autoCorrect="off"
-								placeholder={calculatedNames.suggestedAbbreviatedName}
-								disabled={disabled}
-							/>
-						</FormControl>
+						<LengthLimitedInput
+							{...field}
+							type="text"
+							maxLength={specifiedAbbreviatedName.maxLength!}
+							autoCapitalize="none"
+							autoComplete="off"
+							autoCorrect="off"
+							placeholder={calculatedNames.suggestedAbbreviatedName}
+							disabled={disabled}
+						/>
 						<FormMessage />
 					</FormItem>
 				)}

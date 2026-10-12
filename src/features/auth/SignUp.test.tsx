@@ -98,13 +98,13 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
-	it('stops names and email at their limits but lets a password run long', () => {
+	it('stops names at their limits but lets an email or a password run long', () => {
 		renderSignUp();
 		const maxLengthOf = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).maxLength;
 
 		expect(maxLengthOf('First Name')).toBe(40);
 		expect(maxLengthOf('Last Name')).toBe(80);
-		expect(maxLengthOf('Email')).toBe(80);
+		expect(maxLengthOf('Email')).toBe(-1);
 		expect(maxLengthOf('Password')).toBe(-1);
 		expect(maxLengthOf('Confirm Password')).toBe(-1);
 	});
@@ -325,29 +325,44 @@ describe('SignUp', () => {
 		await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
 	});
 
-	it('says when a name or the email reaches its limit, and when a paste was cut, but never on a password', async () => {
+	it('says when a name reaches its limit, and when a paste was cut, but never on the email or a password', async () => {
 		renderSignUp();
 		const descriptionOf = (label: string) =>
 			screen.getByLabelText(label).getAttribute('aria-describedby')!.split(' ')
 				.map(id => document.getElementById(id)?.textContent).join(' ').trim();
 
-		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(40) } });
-		fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'L'.repeat(79) } });
-		fireEvent.paste(screen.getByLabelText('Email'), { clipboardData: { getData: () => 'e'.repeat(312) } });
-		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'e'.repeat(80) } });
+		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(39) } });
+		fireEvent.paste(screen.getByLabelText('Last Name'), { clipboardData: { getData: () => 'l'.repeat(312) } });
+		fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'l'.repeat(80) } });
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: `${'e'.repeat(300)}@example.com` } });
 		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(300) } });
 		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(300) } });
 
+		expect(descriptionOf('First Name')).toBe('');
+		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(40) } });
 		expect(descriptionOf('First Name')).toBe('Maximum 40 characters reached.');
-		expect(descriptionOf('Last Name')).toBe('');
 		await waitFor(() =>
-			expect(descriptionOf('Email')).toBe(
+			expect(descriptionOf('Last Name')).toBe(
 				'Maximum 80 characters reached. Pasted text was 312 characters; only the first 80 fit.',
 			)
 		);
+		expect(descriptionOf('Email')).toBe('');
 		expect(descriptionOf('Password')).toBe('');
 		expect(descriptionOf('Confirm Password')).toBe('');
-		expect(document.querySelectorAll('[data-slot="form-length-hint"]')).toHaveLength(3);
+		expect(document.querySelectorAll('[data-slot="form-length-hint"]')).toHaveLength(2);
+	});
+
+	it('lets an over-long email be typed in full and refuses it before sending, as it does a password', async () => {
+		renderSignUp();
+		fillValidForm();
+		const email = screen.getByLabelText('Email') as HTMLInputElement;
+		const address = `${'u'.repeat(69)}@example.com`;
+		fireEvent.change(email, { target: { value: address } });
+		submit();
+
+		expect(email.value).toHaveLength(81);
+		expect(await screen.findByText('Email cannot be longer than 80 characters.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
 	});
 });
 
