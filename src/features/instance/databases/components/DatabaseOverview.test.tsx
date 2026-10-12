@@ -104,12 +104,12 @@ describe('DatabaseOverview record counts', () => {
 		expect(rowCells('dogs')[1]).toBe('~250,000');
 		expect(rowCells('eels')[1]).toBe('…');
 
-		const total = within(recordsStatValue()).getByRole('button', {
-			name: 'At least 251,200 records: one or more tables’ counts couldn’t be loaded, and some are estimates',
-		});
+		const total = within(recordsStatValue()).getByRole('button', { name: 'At least about 251,200 records' });
 		// Radix opens the tooltip on focus (delayDuration is 0).
 		fireEvent.focus(total);
-		expect(screen.getAllByRole('tooltip')[0].textContent).toContain('At least 251,200 records');
+		expect(screen.getAllByRole('tooltip')[0].textContent).toBe(
+			'One or more tables’ counts couldn’t be loaded and are left out, and some counts are estimates.',
+		);
 	});
 
 	it('marks a total of settled counts ~ when one is an estimate, and explains it', async () => {
