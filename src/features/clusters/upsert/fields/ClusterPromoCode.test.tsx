@@ -167,14 +167,25 @@ describe('ClusterPromoCode', () => {
 		expect(invalidateRoute).not.toHaveBeenCalled();
 	});
 
-	it('confirms a credit without touching the grant', async () => {
+	it('confirms a credit with the amount it applied, without touching the grant', async () => {
+		redeem.mockReturnValue({ ok: true, kind: 'credit', creditCents: 10_000 });
+		const input = await mountOpen();
+		fireEvent.change(input, { target: { value: 'WELCOME100' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		expect((await screen.findByRole('status')).textContent).toMatch(
+			/^Credit added\. \$100\.00 was just applied to your organization\. It comes off/,
+		);
+		expect(form.getValues('grantId')).toBe('');
+	});
+
+	it('still confirms a credit when central manager does not say how much', async () => {
 		redeem.mockReturnValue({ ok: true, kind: 'credit' });
 		const input = await mountOpen();
 		fireEvent.change(input, { target: { value: 'WELCOME100' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
-		expect((await screen.findByRole('status')).textContent).toMatch(/Credit added/);
-		expect(form.getValues('grantId')).toBe('');
+		expect((await screen.findByRole('status')).textContent).toMatch(/^Credit added\. It comes off/);
 	});
 
 	it('asks for a check before a retry when the redemption could not be confirmed', async () => {
