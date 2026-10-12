@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Transformed here, while the file is collected, which has no timeout, rather than inside the first test's 5s.
+// Each test still evaluates a fresh copy.
+import '@/router/rootRouteTree';
 
 const { get, getInstanceUserInfo, registrationInfo } = vi.hoisted(() => ({
 	get: vi.fn(),
