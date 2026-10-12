@@ -164,7 +164,7 @@ export function ClusterPromoCode({
 	if (!open) {
 		return (
 			<div className={className}>
-				<Button type="button" variant="link" className="h-auto p-0 text-foreground" onClick={() => setOpen(true)}>
+				<Button type="button" variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => setOpen(true)}>
 					Have a promo code?
 				</Button>
 			</div>
