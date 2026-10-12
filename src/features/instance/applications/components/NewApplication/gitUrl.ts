@@ -77,8 +77,11 @@ export function usesNonSSHTransport(ref: string): boolean {
  */
 export function toSSHGitUrl(ref: string, sshHost: string): string | null {
 	const url = parseNonSSHGitUrl(ref);
-	const path = url?.pathname.replace(/^\/+|\/+$/g, '');
-	if (!url || !path || !MIRRORED_SSH_PATH_HOSTS.has(url.hostname.toLowerCase())) {
+	if (!url) {
+		return null;
+	}
+	const path = url.pathname.replace(/^\/+|\/+$/g, '');
+	if (!path || !MIRRORED_SSH_PATH_HOSTS.has(url.hostname.toLowerCase())) {
 		return null;
 	}
 	return `git@${sshHost}:${path}${url.hash}`;
