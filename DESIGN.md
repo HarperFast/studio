@@ -72,7 +72,7 @@ The same rule decides what a failure says. [`isUnansweredWrite`](src/integration
 
 - **A caller that adds its own failure toast to a mutation** asks [`shouldToastOwnFailure`](src/react-query/queryClient.ts) first, so "Failed to …" never sits beside the global warning. A caller with no mutation behind it (rename, the chat tools) shows `describeError`'s text itself, and a loop that tallies one write per target (cluster restart, rolling config, licenses) counts these apart from failures.
 - **Do not re-wrap an AxiosError into a plain `Error`** for a write: the predicate needs its `config`. `secrets.ts` passes an unanswered one through as is.
-- **A restart with no verdict stays marked until its target answers again**, as an accepted one does, because a gateway can lose the answer to a restart that ran. The Restart button holds the mark while it watches, and the cluster loop waits on that member before restarting the next.
+- **A restart with no verdict stays marked until its target answers again or the watch gives up**, as an accepted one does, because a gateway can lose the answer to a restart that ran. The Restart button holds the mark while it watches, and the cluster loop waits on that member before restarting the next.
 - **These toasts are never collapsed** onto a shared id: each warns about a different write, and a read timing out alongside one must not replace it through `request-timeout`.
 - **A read that is costly to repeat** stays a read here and opts out of the replay instead (`package_component`, `skipGatewayRetry`).
 
