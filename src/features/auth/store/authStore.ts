@@ -622,7 +622,7 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
-		// Also reaches resolutions for entities not yet in `potentiallyAuthenticated`, which the loop skips.
+		// Dooms connects for entities not yet in `potentiallyAuthenticated`, which the loop skips.
 		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
 		const logouts: Array<Promise<void>> = [];
@@ -639,6 +639,9 @@ class AuthStore {
 				);
 			}
 		}
+		// After the logout clients are built, which carry their credential in a header of their own. A
+		// failed CM logout skips `signOutAllLocally`, so this is the only clear those connects get.
+		this.dropFabricConnectState();
 		await Promise.all(logouts);
 	}
 
@@ -685,6 +688,16 @@ class AuthStore {
 		this.bumpExplorerAuthEpoch(id);
 	}
 
+	/** Every in-memory Fabric Connect token and in-flight connect, for all entities. */
+	private dropFabricConnectState(): void {
+		for (const id of this.fabricConnectAuth.keys()) {
+			this.bumpConnectionGeneration(id);
+		}
+		this.fabricConnectAuth.clear();
+		this.fabricConnectInFlight.clear();
+		this.operationTokenRefreshInFlight.clear();
+	}
+
 	/**
 	 * Local-only full sign-out: clears every in-memory connection, Fabric token,
 	 * and flag for ALL entities, plus the cloud slot — WITHOUT posting a logout to
@@ -701,12 +714,7 @@ class AuthStore {
 		for (const id of Object.keys(this.potentiallyAuthenticated)) {
 			this.signOutLocally(id);
 		}
-		for (const id of this.fabricConnectAuth.keys()) {
-			this.bumpConnectionGeneration(id);
-		}
-		this.fabricConnectAuth.clear();
-		this.fabricConnectInFlight.clear();
-		this.operationTokenRefreshInFlight.clear();
+		this.dropFabricConnectState();
 		this.setUserForEntity(OverallAppSignIn, null);
 		// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
 		// in this tab's potentiallyAuthenticated set.
@@ -824,7 +832,6 @@ class AuthStore {
 			user = null;
 		}
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
-			// The sign-out already settled this entity's state; this answer belongs to the session it ended.
 			return null;
 		}
 		if (user) {
