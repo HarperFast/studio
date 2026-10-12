@@ -6,6 +6,7 @@ import {
 	explainDeployFailureText,
 	MISSING_ROOT_PACKAGE_JSON_MESSAGE,
 } from './explainDeployFailure';
+import { DeployRolloutError } from './restartJob';
 
 const LINUX = "ENOENT: no such file or directory, open '/tmp/harper-git-clone-oXPS7c/package.json'";
 const MAC = "ENOENT: no such file or directory, open '/var/folders/qs/x/T/harper-git-clone-AbC123/package.json'";
@@ -58,7 +59,8 @@ describe('explainDeployFailureText', () => {
 
 describe('explainDeployFailure', () => {
 	it('swaps a streamed failure for one carrying the guidance, keeping its type and details', () => {
-		const raw = new SSEOperationError(LINUX, { code: 'ENOENT', phase: 'prepare', deploymentId: 'd1' });
+		const certification = { status: 'rejected', reason: 'canary failed', restored: null, failed_closed: true };
+		const raw = new SSEOperationError(LINUX, { code: 'ENOENT', phase: 'prepare', deploymentId: 'd1', certification });
 		const explained = explainDeployFailure(raw);
 
 		expect(explained).toBeInstanceOf(SSEOperationError);
@@ -69,6 +71,7 @@ describe('explainDeployFailure', () => {
 			phase: 'prepare',
 			deploymentId: 'd1',
 		});
+		expect((explained as SSEOperationError).certification).toBe(certification);
 	});
 
 	it.each([
@@ -97,7 +100,7 @@ describe('explainDeployFailure', () => {
 		expect(message).toBe(MISSING_ROOT_PACKAGE_JSON_MESSAGE);
 		expect(status).toBe(500);
 		expect(config).toBe(raw.config);
-		expect(response?.data).toEqual(expected);
+		expect(response?.data).toStrictEqual(expected);
 		expect(JSON.stringify(response?.data)).not.toContain('harper-git-clone');
 	});
 
@@ -105,6 +108,7 @@ describe('explainDeployFailure', () => {
 		const others = [
 			new SSEOperationError('Failed to clone package acme/widgets: fatal: repository not found'),
 			new SSEInconclusiveError('stream ended'),
+			new DeployRolloutError({ jobId: 'j1', state: 'failed', nodes: [], message: 'node-2 did not restart' }, 'd1'),
 			axiosFailure({ error: 'Error', message: 'Component not found' }),
 			new Error(LINUX),
 		];
