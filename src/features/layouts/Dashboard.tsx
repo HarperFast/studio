@@ -20,7 +20,9 @@ export function Dashboard() {
 		}
 	}, [createCluster, setSavedClusterState]);
 
-	if (isUserLoading) {
+	// Signed out, the guard is about to redirect. Until it does, a mounted page would render a route
+	// error or re-fetch on the ended session.
+	if (isUserLoading || !user) {
 		return <Loading className="fixed z-50 translate-1/2" />;
 	}
 
@@ -34,7 +36,7 @@ export function Dashboard() {
 			</main>
 		</div>
 	);
-	return user && !isLocalStudio && !isLocalUser(user)
+	return !isLocalStudio && !isLocalUser(user)
 		? <GlobalSearch key={user.id} user={user}>{content}</GlobalSearch>
 		: content;
 }
