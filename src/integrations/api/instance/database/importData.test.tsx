@@ -17,7 +17,7 @@ function progressListener() {
 function csvClient(statuses: string[]) {
 	let poll = 0;
 	const post = vi.fn(async (_url: string, body: { operation: string }) => {
-		if (body.operation === 'csv_url_load') {
+		if (body.operation === 'csv_url_load' || body.operation === 'csv_data_load') {
 			return { data: { message: 'Starting job', job_id: 'job-1' } };
 		}
 		const status = statuses[Math.min(poll, statuses.length - 1)];
@@ -50,6 +50,18 @@ describe('importData', () => {
 
 		await expect(pending).resolves.toEqual({ message: 'loaded 5 of 5' });
 		expect(progress.onJobUpdate.mock.calls.map(([job]) => job.status)).toEqual(['CREATED', 'IN_PROGRESS', 'COMPLETE']);
+	});
+
+	it('does the same for an uploaded CSV', async () => {
+		const progress = progressListener();
+		const pending = importData({
+			...params(csvClient(['IN_PROGRESS', 'COMPLETE']), progress),
+			source: { kind: 'csv-data', data: 'name\nRex' },
+		});
+		await vi.advanceTimersByTimeAsync(5_000);
+
+		await expect(pending).resolves.toEqual({ message: 'loaded 5 of 5' });
+		expect(progress.onJobUpdate.mock.calls.map(([job]) => job.status)).toEqual(['IN_PROGRESS', 'COMPLETE']);
 	});
 });
 

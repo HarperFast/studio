@@ -90,6 +90,30 @@ describe('JobsTab', () => {
 		expect(document.getElementById(toggle.getAttribute('aria-controls')!)).toBeNull();
 	});
 
+	it('leaves a row as it is when a click ends a text selection inside it', async () => {
+		permission.current = superUser;
+		renderTab(async () => ({ data: [{ id: 'job-1', type: 'csv_data_load', status: 'COMPLETE', user: 'admin' }] }));
+
+		const toggle = await screen.findByRole('button', { name: 'Show details for job job-1' });
+		const row = toggle.closest('tr')!;
+		const select = (node: Node) => {
+			const range = document.createRange();
+			range.selectNodeContents(node);
+			window.getSelection()!.removeAllRanges();
+			window.getSelection()!.addRange(range);
+		};
+
+		select(within(row).getByText('admin'));
+		fireEvent.click(row);
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+		// A selection elsewhere on the page is not this row's drag, so the click still toggles.
+		select(screen.getByText('Jobs'));
+		fireEvent.click(row);
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		window.getSelection()!.removeAllRanges();
+	});
+
 	it('never asks Harper when the role certainly cannot list jobs', () => {
 		permission.current = { super_user: false } as unknown as LocalRolePermission;
 		const post = vi.fn(async () => ({ data: [] }));
@@ -98,6 +122,51 @@ describe('JobsTab', () => {
 		expect(screen.getByText("Your role can't list jobs on this instance.")).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Auto-refresh' })).toBeNull();
 		expect(post).not.toHaveBeenCalled();
+	});
+
+	describe('a role whose operations allowlist lists search_jobs_by_start_date', () => {
+		const listing = { operations: ['read_only', 'search_jobs_by_start_date'] } as unknown as LocalRolePermission;
+
+		function answer(version: string | Error) {
+			return vi.fn(async (_url: string, body: Record<string, unknown>) => {
+				if (body.operation === 'registration_info') {
+					if (version instanceof Error) {
+						throw version;
+					}
+					return { data: { version } };
+				}
+				return { data: [{ id: 'job-1', type: 'csv_url_load', status: 'COMPLETE', start_datetime: 1_000 }] };
+			});
+		}
+
+		const searched = (post: ReturnType<typeof answer>) =>
+			post.mock.calls.filter(([, body]) => body.operation === 'search_jobs_by_start_date');
+
+		it('lists jobs on Harper 5.3, which honours the grant', async () => {
+			permission.current = listing;
+			const post = answer('5.3.2');
+			renderTab(post);
+
+			expect(await screen.findByText('csv_url_load')).toBeTruthy();
+			expect(searched(post)).toHaveLength(1);
+		});
+
+		it('explains, without asking for jobs, on a version that ignores the grant', async () => {
+			permission.current = listing;
+			const post = answer('5.2.9');
+			renderTab(post);
+
+			expect(await screen.findByText("Your role can't list jobs on this instance.")).toBeTruthy();
+			expect(searched(post)).toHaveLength(0);
+		});
+
+		it('tries the grant when reading the version fails', async () => {
+			permission.current = listing;
+			const post = answer(forbidden());
+			renderTab(post);
+
+			expect(await screen.findByText('csv_url_load')).toBeTruthy();
+		});
 	});
 
 	it('waits for the role to load before asking Harper', () => {
