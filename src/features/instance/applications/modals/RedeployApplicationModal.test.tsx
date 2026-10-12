@@ -12,19 +12,29 @@ const mocks = vi.hoisted(() => {
 		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } },
 		editorView: { openedEntry: { name: 'my-app', path: 'my-app', project: 'my-app', package: 'npm:my-app' } },
 		runHealthCheck: vi.fn(),
+		routeParams: { organizationId: 'org-1', instanceId: 'ins-1' },
+		navigate: vi.fn(),
 	};
 });
 
 vi.mock('sonner', () => ({
-	toast: { loading: vi.fn(() => 'loading-toast'), dismiss: vi.fn(), error: vi.fn(), success: vi.fn() },
+	toast: {
+		loading: vi.fn(() => 'loading-toast'),
+		dismiss: vi.fn(),
+		error: vi.fn(),
+		success: vi.fn(),
+		warning: vi.fn(),
+	},
 }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children }: { children?: ReactNode }) => <a>{children}</a>,
-	useParams: () => ({ organizationId: 'org-1', instanceId: 'ins-1' }),
+	useParams: () => mocks.routeParams,
+	useNavigate: () => mocks.navigate,
 }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => mocks.sse.enabled,
+	useStagedDeploymentsAvailable: () => false,
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => mocks.runHealthCheck,
@@ -150,7 +160,9 @@ describe('RedeployApplicationModal', () => {
 
 		await act(async () => succeed({ message: 'Successfully deployed: my-app', deployment_id: 'd1' }));
 
-		await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', {}));
+		await waitFor(() =>
+			expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', expect.anything())
+		);
 		expect(screen.getByRole('dialog')).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Redeploy Application/ })).toBeTruthy();
 	});
@@ -175,6 +187,73 @@ describe('RedeployApplicationModal', () => {
 		expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to redeploy my-app', {
 			id: 'loading-toast',
 			description: FAILURE,
+		});
+	});
+
+	describe('a rollout that settles after the modal was closed', () => {
+		function deployThenFollow(job: () => Promise<unknown>) {
+			vi.mocked(deployComponentStream).mockResolvedValue({ message: 'ok', deployment_id: 'd1', restartJobId: 'job-1' });
+			mocks.post.mockImplementation(job);
+		}
+
+		async function closeModal() {
+			await act(async () => {
+				fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+			});
+			expect(screen.queryByRole('dialog')).toBeNull();
+		}
+
+		it('still reports the outcome', async () => {
+			let finish!: () => void;
+			deployThenFollow(() =>
+				new Promise((resolve) => {
+					finish = () => resolve({ data: [{ id: 'job-1', status: 'COMPLETE', result: { replicated: [] } }] });
+				})
+			);
+			mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
+			await renderOpenModal();
+			await submit();
+			await waitFor(() => expect(finish).toBeDefined());
+
+			await closeModal();
+			await act(async () => finish());
+
+			await waitFor(() =>
+				expect(vi.mocked(toast.success)).toHaveBeenCalledWith('my-app deployed and healthy', expect.anything())
+			);
+		});
+
+		it('says which nodes did not take it in a toast, once', async () => {
+			let fail!: () => void;
+			deployThenFollow(() =>
+				new Promise((resolve) => {
+					fail = () => resolve({ data: [{ id: 'job-1', status: 'ERROR', message: 'node-c did not restart' }] });
+				})
+			);
+			await renderOpenModal();
+			await submit();
+			await waitFor(() => expect(fail).toBeDefined());
+
+			await closeModal();
+			await act(async () => fail());
+
+			await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledOnce());
+			expect(vi.mocked(toast.error)).toHaveBeenCalledWith('my-app did not reach every node', {
+				description: 'node-c did not restart',
+				action: { label: 'View record', onClick: expect.any(Function) },
+			});
+		});
+
+		it('shows a failed rollout in the open panel only, while the modal is still open', async () => {
+			deployThenFollow(() =>
+				Promise.resolve({ data: [{ id: 'job-1', status: 'ERROR', message: 'node-c did not restart' }] })
+			);
+			await renderOpenModal();
+
+			await submit();
+
+			expect(await screen.findByText('node-c did not restart')).toBeTruthy();
+			expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
 		});
 	});
 });

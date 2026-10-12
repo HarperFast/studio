@@ -6,7 +6,7 @@ import { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const importState = vi.hoisted(() => ({
-	importFailure: undefined as { project: string; message: string } | undefined,
+	importFailure: undefined as { title: string; message: string; deploymentId?: string } | undefined,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -129,7 +129,10 @@ describe('NewApplication', () => {
 	});
 
 	it("keeps a failed import's reason beside the Import button", async () => {
-		importState.importFailure = { project: 'acme', message: 'This repository has no package.json in its root folder.' };
+		importState.importFailure = {
+			title: 'Failed to import acme',
+			message: 'This repository has no package.json in its root folder.',
+		};
 		render(<NewApplication />);
 
 		await switchTo(/Import/);
@@ -142,7 +145,7 @@ describe('NewApplication', () => {
 
 	it('links a failed private-repository import to SSH keys', async () => {
 		importState.importFailure = {
-			project: 'acme',
+			title: 'Failed to import acme',
 			message: 'Failed to deploy private repository ssh://github.com/acme/widgets.git: SSH access failed.',
 		};
 		render(<NewApplication />);
@@ -151,5 +154,20 @@ describe('NewApplication', () => {
 
 		expect((await screen.findByRole('link', { name: 'Manage SSH keys' })).getAttribute('href'))
 			.toBe('/org-1/instance/ins-1/config/ssh-keys');
+	});
+
+	it('links a failed import to the deployment record it left', async () => {
+		importState.importFailure = {
+			title: 'Failed to stage acme',
+			message: 'Not every node staged it',
+			deploymentId: 'd1',
+		};
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		expect((await screen.findByRole('alert')).textContent).toContain('Failed to stage acme');
+		expect(screen.getByRole('link', { name: "View this deployment's record" }).getAttribute('href'))
+			.toBe('/org-1/instance/ins-1/config/deployments/d1');
 	});
 });
