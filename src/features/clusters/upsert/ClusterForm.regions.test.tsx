@@ -262,6 +262,17 @@ describe('ClusterForm editing regions', () => {
 		expect(submitButton().disabled).toBe(false);
 	});
 
+	it('treats a tier missing from the catalog as one region, as the form does', async () => {
+		renderForm({ ...runningInUs, deploymentDescription: 'Retired', performanceDescription: 'Retired tier' }, editing);
+
+		await pickOption('US', 'Europe');
+
+		expect(screen.queryByRole('button', { name: 'Add Additional Region Usage' })).toBeNull();
+		expect(swapGuidance()?.textContent).toBe(
+			"A cluster can't move out of all its current regions in one update, and this tier allows only one region, so it can't move from US to Europe. Create a new cluster in Europe instead.",
+		);
+	});
+
 	it('never applies to a new cluster', async () => {
 		renderForm(runningInUs);
 
