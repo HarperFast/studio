@@ -80,6 +80,23 @@ describe('reportReactError', () => {
 		expect(addReactError).toHaveBeenCalledTimes(3);
 	});
 
+	it('keeps thrown plain objects with different contents apart', () => {
+		reportReactError({ error: 'Unauthorized' }, info);
+		reportReactError({ error: 'Forbidden' }, info);
+		reportReactError({ error: 'Forbidden' }, info);
+
+		expect(addReactError).toHaveBeenCalledTimes(2);
+	});
+
+	it('still deduplicates a thrown object that cannot be serialized', () => {
+		const cyclic: Record<string, unknown> = { error: 'Unauthorized' };
+		cyclic.self = cyclic;
+		reportReactError(cyclic, info);
+		reportReactError(cyclic, info);
+
+		expect(addReactError).toHaveBeenCalledTimes(1);
+	});
+
 	it('still reports, without deduplicating, a value whose fields throw when read', () => {
 		const hostile = new Proxy({}, {
 			get() {

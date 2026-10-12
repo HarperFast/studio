@@ -13,6 +13,16 @@ function text(value: unknown): string | null {
 	return value == null ? null : typeof value;
 }
 
+/** A thrown non-Error carries none of the fields an Error is told apart by, so its contents stand in. */
+function contentsOf(error: object): string | null {
+	if (error instanceof Error) { return null; }
+	try {
+		return JSON.stringify(error) ?? null;
+	} catch {
+		return Object.keys(error).join(',');
+	}
+}
+
 /**
  * The endpoint fields keep two different requests that failed the same way from collapsing into one;
  * the signature never leaves memory.
@@ -36,6 +46,7 @@ function signatureOf(error: unknown, componentStack: string | null | undefined):
 		text(config?.method),
 		text(config?.baseURL),
 		text(config?.url),
+		contentsOf(error),
 	]);
 }
 
