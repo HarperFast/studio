@@ -4,7 +4,7 @@
 import { LOG_DATE_MIN, LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
+import { useForm, UseFormReturn } from 'react-hook-form';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { LogsFiltersForm } from './LogsFiltersForm';
@@ -21,12 +21,15 @@ afterEach(() => {
 
 type Filters = z.infer<typeof LogFiltersFormSchema>;
 
-function Harness({ onSubmit }: { onSubmit: (data: Filters) => void }) {
+function Harness(
+	{ onSubmit, onForm }: { onSubmit: (data: Filters) => void; onForm?: (form: UseFormReturn<Filters>) => void },
+) {
 	const form = useForm<Filters>({
 		resolver: zodResolver(LogFiltersFormSchema),
 		defaultValues: { log_name: 'hdb.log', limit: '100', level: 'undefined', from: '', until: '', filter: '' },
 		mode: 'onChange',
 	});
+	onForm?.(form);
 	return (
 		<LogsFiltersForm
 			form={form}
@@ -83,6 +86,21 @@ describe('LogsFiltersForm date inputs', () => {
 			fireEvent.submit(container.querySelector('form')!);
 		});
 		expect(onSubmit).not.toHaveBeenCalled();
+	});
+
+	it('clears the input when the form value is nulled, rather than going uncontrolled', async () => {
+		let form: UseFormReturn<Filters> | undefined;
+		const { container } = render(<Harness onSubmit={() => undefined} onForm={(f) => (form = f)} />);
+		const [from] = dateInputs(container);
+		await act(async () => {
+			fireEvent.change(from, { target: { value: '2026-01-01T10:30:15' } });
+		});
+		expect(from.value).toBe('2026-01-01T10:30:15');
+
+		await act(async () => {
+			form!.setValue('from', null);
+		});
+		expect(from.value).toBe('');
 	});
 
 	it('applies a valid second-precision range', async () => {
