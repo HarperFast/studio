@@ -1053,42 +1053,71 @@ describe('DomainsManagement — the Remove Domain tooltip', () => {
 		);
 		const rendered = renderManagement();
 		const name = await rendered.findByText('a.example.com');
-		const remove = within(name.closest('tr')!).getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement;
-		return { ...rendered, name, remove };
+		const cell = name.parentElement!;
+		const remove = within(cell).getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement;
+		// Radix marks its trigger with `data-state`, whichever element that turns out to be.
+		const trigger = cell.querySelector<HTMLElement>('[data-state]')!;
+		return { ...rendered, name, cell, remove, trigger };
+	}
+
+	async function expectDescribes(
+		element: HTMLElement,
+		tip: string,
+		findByRole: (role: 'tooltip') => Promise<HTMLElement>,
+	) {
+		const tooltip = await findByRole('tooltip');
+		expect(tooltip.textContent).toBe(tip);
+		expect(element.getAttribute('aria-describedby')).toBe(tooltip.id);
 	}
 
 	it.each([
 		{ state: 'bound', clusterId: 'clu-1', tip: boundTip },
 		{ state: 'unbound', clusterId: undefined, tip: unboundTip },
 	])('opens over a $state domain', async ({ clusterId, tip }) => {
-		const { name, remove, findByRole, queryByRole } = await renderRemove(clusterId);
+		const { name, remove, trigger, findByRole, queryByRole } = await renderRemove(clusterId);
 		expect(remove.disabled).toBe(!!clusterId);
 
 		fireEvent.pointerMove(name);
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(queryByRole('tooltip')).toBeNull();
 
-		fireEvent.pointerMove(remove.parentElement!);
+		fireEvent.pointerMove(trigger);
 		expect((await findByRole('tooltip')).textContent).toBe(tip);
 	});
 
-	it('opens on keyboard focus while Remove is disabled', async () => {
-		const { remove, findByRole } = await renderRemove('clu-1');
-		const wrapper = remove.parentElement!;
+	it('describes a disabled Remove from a wrapper that keyboard focus can reach', async () => {
+		const { remove, trigger, findByRole } = await renderRemove('clu-1');
+		expect(trigger).not.toBe(remove);
 
-		act(() => wrapper.focus());
+		act(() => trigger.focus());
 
-		expect(document.activeElement).toBe(wrapper);
-		expect((await findByRole('tooltip')).textContent).toBe(boundTip);
+		expect(document.activeElement).toBe(trigger);
+		await expectDescribes(trigger, boundTip, findByRole);
 	});
 
-	it('adds no second tab stop while Remove is enabled, and still opens when it takes focus', async () => {
-		const { remove, findByRole } = await renderRemove(undefined);
-		expect(remove.parentElement!.hasAttribute('tabindex')).toBe(false);
+	it('describes an enabled Remove on the button itself, with no extra tab stop', async () => {
+		const { cell, remove, findByRole } = await renderRemove(undefined);
+		expect(cell.querySelectorAll('[tabindex]')).toHaveLength(0);
 
 		act(() => remove.focus());
 
 		expect(document.activeElement).toBe(remove);
-		expect((await findByRole('tooltip')).textContent).toBe(unboundTip);
+		await expectDescribes(remove, unboundTip, findByRole);
+	});
+
+	it('adds no tab stop to an unbound domain while another domain change is in flight', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const { cell, getByRole, getByText } = await renderRemove(undefined);
+		fireEvent.click(within(cell.closest('tr')!).getByRole('checkbox'));
+
+		fireEvent.click(getByRole('button', { name: /Bind 1 Domain/ }));
+
+		// Re-queried: the row's cells re-render once the change is pending.
+		const pendingCell = await waitFor(() => {
+			const current = getByText('a.example.com').parentElement!;
+			expect((within(current).getByRole('button', { name: 'Remove Domain' }) as HTMLButtonElement).disabled).toBe(true);
+			return current;
+		});
+		expect(pendingCell.querySelectorAll('[tabindex]')).toHaveLength(0);
 	});
 });
