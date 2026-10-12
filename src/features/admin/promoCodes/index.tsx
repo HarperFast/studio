@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreatePromoCodeModal } from '@/features/admin/promoCodes/components/CreatePromoCodeModal';
+import { PromoCodeRedemptionsModal } from '@/features/admin/promoCodes/components/PromoCodeRedemptionsModal';
 import { getPromoCodesQueryOptions, useSetPromoCodeDisabled } from '@/features/admin/promoCodes/promoCodeAdminApi';
 import { formatCents, formatDay } from '@/features/organization/billing/promoCodes/promoCodeApi';
 import { useStaffPermission } from '@/hooks/useAuth';
@@ -48,6 +49,7 @@ export function PromoCodesAdminIndex() {
 	];
 	const { data: codes, isLoading, isError } = useQuery(getPromoCodesQueryOptions());
 	const [creating, setCreating] = useState(0);
+	const [viewing, setViewing] = useState<AdminPromoCode | null>(null);
 	const { mutate: setDisabled, isPending: switching } = useSetPromoCodeDisabled();
 	const copyCode = useCopyTextToClipboard();
 
@@ -121,7 +123,18 @@ export function PromoCodesAdminIndex() {
 										<TableCell>{gives(code)}</TableCell>
 										<TableCell>{formatDay(code.redeemBy)}</TableCell>
 										<TableCell>
-											{redeemed(code)}
+											{code.redemptions > 0
+												? (
+													<Button
+														variant="link"
+														className="h-auto p-0"
+														aria-label={`See who redeemed ${code.id}`}
+														onClick={() => setViewing(code)}
+													>
+														{redeemed(code)}
+													</Button>
+												)
+												: redeemed(code)}
 											{code.overCap && (
 												<Badge
 													variant="destructive"
@@ -152,6 +165,8 @@ export function PromoCodesAdminIndex() {
 						</Table>
 					)}
 			</div>
+
+			{viewing && <PromoCodeRedemptionsModal code={viewing.id} kind={viewing.kind} onClose={() => setViewing(null)} />}
 
 			{creating > 0 && (
 				<CreatePromoCodeModal
