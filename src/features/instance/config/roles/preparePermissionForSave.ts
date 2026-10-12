@@ -9,7 +9,7 @@ import { RESERVED_PERMISSION_KEYS, rolePreventsOperationsAllowlist } from '@/int
  * `operations` survives only where Harper accepts it: `validateNoSUPerms` rejects any multi-key
  * permission setting `super_user: true` or `cluster_user: true`, so keeping the allowlist there
  * would fail the save outright — it is dropped alongside the table permissions instead. A
- * `structure_user` role may carry one (the gate still runs for everything but DDL), and it
+ * `structure_user` role may carry one (Harper gates it, and from 5.3.0-alpha.1 its DDL too), and it
  * survives only as an actual array: any other shape under that key is not an allowlist.
  *
  * `structure_user` may also be an array of database names, which grants DDL on *those* databases
