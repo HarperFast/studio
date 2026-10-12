@@ -37,6 +37,11 @@ describe('getLogDateError', () => {
 		expect(getLogDateError('2026-10-10T22:00', NOW)).toBeUndefined();
 	});
 
+	it('accepts milliseconds inside the last second of today', () => {
+		expect(getLogDateError('2026-10-10T23:59:59.5', NOW)).toBeUndefined();
+		expect(getLogDateError('2026-10-10T23:59:59.999', NOW)).toBeUndefined();
+	});
+
 	it('rejects the 5- and 6-digit years the native input lets a user type', () => {
 		expect(getLogDateError('40999-01-01T00:00', NOW)).toBe(INVALID);
 		expect(getLogDateError('202555-01-01T10:30:45', NOW)).toBe(INVALID);
