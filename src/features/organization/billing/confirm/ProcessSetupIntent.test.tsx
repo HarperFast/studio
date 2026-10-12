@@ -6,7 +6,6 @@ import { ProcessSetupIntent } from './ProcessSetupIntent';
 const state = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	saved: null as unknown,
-	setupIntent: {} as { status: string; payment_method: string | null },
 	stripe: { retrieveSetupIntent: vi.fn() },
 }));
 vi.mock('@stripe/react-stripe-js', () => ({ useStripe: () => state.stripe }));
@@ -26,6 +25,7 @@ afterEach(() => {
 	state.navigate.mockReset();
 	state.stripe.retrieveSetupIntent.mockReset();
 	state.saved = null;
+	window.history.replaceState(null, '', '/');
 });
 
 function returnFromStripe(setupIntent: { status: string; payment_method: string | null }) {
