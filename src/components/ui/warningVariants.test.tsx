@@ -8,7 +8,7 @@ import { Button } from './button';
 
 afterEach(cleanup);
 
-const classesOf = (element: Element) => element.className.split(/\s+/);
+const classesOf = (element: Element) => Array.from(element.classList);
 
 // Amber or yellow text, and white on yellow, fail WCAG AA on these surfaces, so the hue has to live in
 // the border, icon and fill.
