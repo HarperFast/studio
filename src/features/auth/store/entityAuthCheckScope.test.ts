@@ -2,6 +2,9 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Transformed here, while the file is collected, which has no timeout, rather than inside the first test's 5s.
+// Each test still evaluates a fresh copy.
+import '@/features/instance/instanceLayoutRoute';
 
 const { get, getInstanceUserInfo, createInstanceAuthenticationTokens, onInstanceLogoutSubmit, routeParams } = vi
 	.hoisted(() => ({
