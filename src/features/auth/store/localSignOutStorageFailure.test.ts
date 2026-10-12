@@ -83,6 +83,47 @@ describe('authStore local sign-out when storage writes throw', () => {
 		expect(authStore.getConnectionById('ins-direct').user).toBeNull();
 	});
 
+	it('stops reading credentials storage refused to remove, until a sign-in writes new ones', () => {
+		signIn('ins-a');
+		authStore.flagForBasicAuth('ins-a', { username: 'a', password: 'pa' });
+		authStore.flagForFabricConnect('ins-a', true);
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		const removeItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		authStore.signOutLocally('ins-a');
+
+		expect(localStorage.getItem('Studio:BasicAuth:ins-a')).not.toBeNull();
+		expect(authStore.checkForBasicAuth('ins-a')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('ins-a')).toBe(false);
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+
+		removeItem.mockRestore();
+		authStore.flagForBasicAuth('ins-a', { username: 'b', password: 'pb' });
+		authStore.flagForFabricConnect('ins-a', true);
+
+		expect(authStore.checkForBasicAuth('ins-a')).toEqual({ username: 'b', password: 'pb' });
+		expect(authStore.checkForFabricConnect('ins-a')).toBe(true);
+	});
+
+	it('reports a marker record it could neither rewrite nor remove', () => {
+		signIn('ins-a');
+		signIn('ins-b');
+		failEveryStorageWrite();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		expect(() => authStore.signOutLocally('ins-a')).not.toThrow();
+
+		expect(JSON.parse(localStorage.getItem(MARKERS) ?? '{}')).toHaveProperty('ins-a');
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+	});
+
 	it('lets signOutAllLocally reach every entity and the cloud slot', () => {
 		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, { id: 'usr_a' } as SetArgs[2]);
 		signIn('ins-a');

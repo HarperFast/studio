@@ -4,14 +4,9 @@ import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { queryClient } from '@/react-query/queryClient';
 
 /**
- * Full LOCAL sign-out: clears all in-memory auth connections/tokens/flags,
- * persisted storage, and BOTH React Query caches — WITHOUT posting a logout to
- * CM or instances. On its own for a session already known-dead (e.g. a 401
- * from CM, where a network logout would only fail); after the network logouts
- * for a user sign-out.
- *
- * This closes the cross-user gap where A's stale in-memory entity connections /
- * Fabric tokens / cached queries and mutations survived a same-tab re-login as B.
+ * Full LOCAL sign-out: clears all in-memory auth connections/tokens/flags, persisted storage, and BOTH
+ * React Query caches, WITHOUT posting a logout to CM or instances. None of it may survive into a
+ * same-tab sign-in as another user.
  */
 export function clearAuthStateLocally(): void {
 	for (
@@ -26,8 +21,7 @@ export function clearAuthStateLocally(): void {
 		try {
 			step();
 		} catch (error) {
-			// Reported, never thrown: the remaining steps must still run, and no caller can finish a
-			// half-done sign-out for it.
+			// Not thrown: no caller can finish a half-done sign-out.
 			console.error(error);
 		}
 	}

@@ -64,6 +64,9 @@ class AuthStore {
 	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
 	private readonly fabricConnectKeyPrefix = 'Studio:FabricConnect:';
 	private readonly lastConnectModeKeyPrefix = 'Studio:LastConnectMode:';
+	// Storage can refuse a removal yet still answer reads, so a credential it kept belongs to the session
+	// that ended. This tab reads such a key as absent until a write replaces it.
+	private readonly unremovedKeys = new Set<string>();
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -319,19 +322,42 @@ class AuthStore {
 
 	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string }) {
 		if (credentials !== null) {
-			localStorage.setItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
+			this.writeStoredItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
 		} else {
-			removeStoredItem(this.basicAuthKeyPrefix + id);
+			this.removeStoredItem(this.basicAuthKeyPrefix + id);
 		}
 	}
 
 	public flagForFabricConnect(id: EntityIds, toggled: boolean) {
 		if (toggled) {
-			localStorage.setItem(this.fabricConnectKeyPrefix + id, 'true');
+			this.writeStoredItem(this.fabricConnectKeyPrefix + id, 'true');
 		} else {
 			this.fabricConnectAuth.delete(id);
 			this.bumpConnectionGeneration(id);
-			removeStoredItem(this.fabricConnectKeyPrefix + id);
+			this.removeStoredItem(this.fabricConnectKeyPrefix + id);
+		}
+	}
+
+	private readStoredItem(key: string): string | null {
+		return this.unremovedKeys.has(key) ? null : localStorage.getItem(key);
+	}
+
+	private writeStoredItem(key: string, value: string): void {
+		localStorage.setItem(key, value);
+		this.unremovedKeys.delete(key);
+	}
+
+	/**
+	 * Reported, never thrown: a sign-out must still reach its in-memory steps, and a credential storage
+	 * kept is worth an Error Tracking entry.
+	 */
+	private removeStoredItem(key: string): void {
+		try {
+			localStorage.removeItem(key);
+			this.unremovedKeys.delete(key);
+		} catch (error) {
+			this.unremovedKeys.add(key);
+			console.error(error);
 		}
 	}
 
@@ -544,12 +570,12 @@ class AuthStore {
 	}
 
 	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string } {
-		const value = localStorage.getItem(this.basicAuthKeyPrefix + id);
+		const value = this.readStoredItem(this.basicAuthKeyPrefix + id);
 		return value ? JSON.parse(atob(value)) : undefined;
 	}
 
 	public checkForFabricConnect(id: EntityIds | undefined): boolean {
-		return localStorage.getItem(this.fabricConnectKeyPrefix + id) === 'true';
+		return this.readStoredItem(this.fabricConnectKeyPrefix + id) === 'true';
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
@@ -680,7 +706,7 @@ class AuthStore {
 				// Fail closed. A marker left behind makes the next page load probe this entity with its
 				// cookies, and a session that outlived the sign-out would sign it back in; losing every
 				// marker only makes the other entities look signed out on that load.
-				removeStoredItem(this.potentiallyAuthenticatedKey);
+				this.removeStoredItem(this.potentiallyAuthenticatedKey);
 			}
 		}
 	}
@@ -754,14 +780,6 @@ class AuthStore {
 		}
 		this.updateConnectionIfChanged(id, false, user);
 		return user;
-	}
-}
-
-function removeStoredItem(key: string): void {
-	try {
-		localStorage.removeItem(key);
-	} catch {
-		// A sign-out must still reach its in-memory steps when storage refuses access.
 	}
 }
 
