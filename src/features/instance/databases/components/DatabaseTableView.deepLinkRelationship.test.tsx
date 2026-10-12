@@ -3,7 +3,7 @@
  */
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
@@ -25,6 +25,7 @@ interface SearchBody {
 
 const instance = vi.hoisted(() => ({
 	searches: [] as SearchBody[],
+	holdComponents: true,
 	releaseComponents: () => {},
 }));
 
@@ -74,10 +75,12 @@ vi.mock('@/config/useInstanceClient', () => {
 				case 'registration_info':
 					return { data: { version: '5.1.0' }, status: 200 };
 				case 'get_components':
-					// Held until the test lets it go, the way a cold deep link lands before the schema files do.
-					await new Promise<void>((resolve) => {
-						instance.releaseComponents = resolve;
-					});
+					if (instance.holdComponents) {
+						// Held until the test lets it go, the way a cold deep link lands before the schema files do.
+						await new Promise<void>((resolve) => {
+							instance.releaseComponents = resolve;
+						});
+					}
 					return {
 						data: { name: 'components', entries: [{ name: 'app', entries: [{ name: 'schema.graphql' }] }] },
 						status: 200,
@@ -149,14 +152,27 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	confirm.mockClear();
 	instance.searches = [];
+	instance.holdComponents = true;
 });
+
+const newQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+async function expectForeignKeySearch() {
+	await vi.waitFor(() => expect(instance.searches).toHaveLength(1), { timeout: 10_000 });
+	expect(instance.searches[0].conditions).toEqual([
+		{ search_attribute: 'authorId', search_type: 'equals', search_value: 'a1' },
+	]);
+	expect(confirm).not.toHaveBeenCalled();
+	await screen.findByRole('cell', { name: 'b1' }, { timeout: 10_000 });
+	expect(screen.queryByRole('cell', { name: 'b2' })).toBeNull();
+}
 
 describe('DatabaseTableView deep-linked filter on a relationship only the component schema declares', {
 	timeout: 30_000,
 }, () => {
 	it('waits for the component schema, then filters by the foreign key without a full-scan warning', async () => {
 		render(
-			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+			<QueryClientProvider client={newQueryClient()}>
 				<DatabaseTableView instanceDatabaseMap={databaseMap} databaseName="data" tableName="Book" />
 			</QueryClientProvider>,
 		);
@@ -166,12 +182,31 @@ describe('DatabaseTableView deep-linked filter on a relationship only the compon
 
 		instance.releaseComponents();
 
-		await vi.waitFor(() => expect(instance.searches).toHaveLength(1), { timeout: 10_000 });
-		expect(instance.searches[0].conditions).toEqual([
-			{ search_attribute: 'authorId', search_type: 'equals', search_value: 'a1' },
-		]);
+		await expectForeignKeySearch();
+	});
+
+	it('waits for the database map when describe_table answers first', async () => {
+		instance.holdComponents = false;
+		const queryClient = newQueryClient();
+		const view = (map: InstanceDatabaseMap | undefined) => (
+			<QueryClientProvider client={queryClient}>
+				<DatabaseTableView
+					instanceDatabaseMap={map}
+					instanceDatabaseMapLoading={!map}
+					databaseName="data"
+					tableName="Book"
+				/>
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view(undefined));
+		await screen.findByRole('cell', { name: 'b2' }, { timeout: 10_000 });
+		await vi.waitFor(() => expect(queryClient.getQueryData(['instance-1', 'schema-relationships'])).toBeDefined());
+		await act(async () => {});
+		expect(instance.searches).toEqual([]);
 		expect(confirm).not.toHaveBeenCalled();
-		await screen.findByRole('cell', { name: 'b1' }, { timeout: 10_000 });
-		expect(screen.queryByRole('cell', { name: 'b2' })).toBeNull();
+
+		rerender(view(databaseMap));
+
+		await expectForeignKeySearch();
 	});
 });
