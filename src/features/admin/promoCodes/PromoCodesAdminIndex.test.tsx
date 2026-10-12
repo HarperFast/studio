@@ -105,4 +105,13 @@ describe('PromoCodesAdminIndex', () => {
 		expect(await screen.findByText('Disabled')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Create code/ })).toBeNull();
 	});
+
+	it('copies a code exactly as it is shared', async () => {
+		const writeText = vi.fn(async () => undefined);
+		Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+		codes = [code({ id: 'DEMO-CREDIT-100' })];
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Copy DEMO-CREDIT-100' }));
+		expect(writeText).toHaveBeenCalledWith('DEMO-CREDIT-100');
+	});
 });
