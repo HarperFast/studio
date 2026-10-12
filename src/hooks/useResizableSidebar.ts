@@ -50,15 +50,17 @@ export function clampSidebarWidth(
 export function useResizableSidebar({ storageKey, defaultWidth, minWidth, cssVariable }: ResizableSidebarOptions) {
 	const [persistedWidth, setPersistedWidth] = useLocalStorage(storageKey, defaultWidth);
 	const persistedWidthRef = useRef(persistedWidth);
-	persistedWidthRef.current = persistedWidth;
+	useLayoutEffect(() => {
+		persistedWidthRef.current = persistedWidth;
+	}, [persistedWidth]);
 
 	const bounds = useMemo(() => ({ minWidth, defaultWidth }), [minWidth, defaultWidth]);
 	const clamp = useCallback((value: number) => clampSidebarWidth(value, window.innerWidth, bounds), [bounds]);
 
 	const [width, setWidth] = useState(() => clamp(persistedWidth));
 	const widthRef = useRef(width);
-	widthRef.current = width;
-	// The next press or key can arrive before React renders, so the ref leads the state.
+	// The next press or key can arrive before React renders, so the ref leads the state. This is the only
+	// writer of both, which is what keeps them equal without writing the ref during render.
 	const showWidth = useCallback((next: number) => {
 		widthRef.current = next;
 		setWidth(next);
