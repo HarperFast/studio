@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError } from 'axios';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JobsTab, MAX_RENDERED_JOBS } from './JobsTab';
 
 const permission = vi.hoisted(() => ({ current: undefined as LocalRolePermission | undefined }));
@@ -40,8 +40,16 @@ function forbidden(): AxiosError {
 	return err;
 }
 
+beforeAll(() => {
+	// Radix Select relies on DOM APIs jsdom doesn't implement.
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 beforeEach(() => {
-	search.current = { tab: 'jobs', range: '24h', refresh: 0 };
+	search.current = { tab: 'jobs', range: '24h' };
 });
 
 afterEach(() => {
@@ -217,7 +225,7 @@ describe('JobsTab', () => {
 
 	it('reads a window wider than 7 days as 7 days, since every poll fetches the whole window', async () => {
 		permission.current = superUser;
-		search.current = { tab: 'jobs', range: '30d', refresh: 0 };
+		search.current = { tab: 'jobs', range: '30d' };
 		const post = vi.fn(async (_url: string, _body: Record<string, unknown>) => ({ data: [] }));
 		renderTab(post);
 		await screen.findByText('No jobs started in the selected time range.');
@@ -237,5 +245,78 @@ describe('JobsTab', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+	});
+
+	describe('auto-refresh', () => {
+		const interval = () => screen.getByRole('combobox', { name: 'Auto-refresh interval' });
+
+		beforeEach(() => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+			focusManager.setFocused(undefined);
+			onlineManager.setOnline(true);
+		});
+
+		async function openWith(searchParams: Record<string, unknown>) {
+			permission.current = superUser;
+			search.current = { tab: 'jobs', range: '24h', ...searchParams };
+			const post = vi.fn(async () => ({ data: [] }));
+			renderTab(post);
+			await screen.findByText('No jobs started in the selected time range.');
+			return post;
+		}
+
+		async function wait(ms: number) {
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(ms);
+			});
+		}
+
+		it('fetches once when Jobs opens and then only when asked', async () => {
+			const post = await openWith({});
+			expect(interval().textContent).toBe('Off');
+
+			await wait(10 * 60_000);
+			// Long past staleTime, so a refocus or reconnect would refetch if either were allowed to.
+			act(() => {
+				focusManager.setFocused(false);
+				focusManager.setFocused(true);
+				onlineManager.setOnline(false);
+				onlineManager.setOnline(true);
+			});
+			await wait(0);
+			expect(post).toHaveBeenCalledTimes(1);
+		});
+
+		it("does not poll on the charts' auto-refresh interval", async () => {
+			const post = await openWith({ refresh: 30_000 });
+			expect(interval().textContent).toBe('Off');
+
+			await wait(10 * 60_000);
+			expect(post).toHaveBeenCalledTimes(1);
+		});
+
+		it('polls on an interval chosen for Jobs', async () => {
+			const post = await openWith({ refresh: 0, jobsRefresh: 30_000 });
+			expect(interval().textContent).toBe('30s');
+
+			await wait(30_000);
+			await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		});
+
+		it("records a picked interval as Jobs' own, leaving the charts' interval as it was", async () => {
+			await openWith({ refresh: 300_000 });
+
+			fireEvent.pointerDown(interval(), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+			fireEvent.click(await screen.findByRole('option', { name: '30s' }));
+
+			expect(navigateMock).toHaveBeenLastCalledWith({
+				to: '.',
+				search: { tab: 'jobs', range: '24h', refresh: 300_000, jobsRefresh: 30_000 },
+			});
+		});
 	});
 });

@@ -139,7 +139,7 @@ describe('StatusTabs capability gating (#1442)', () => {
 			isFetching: false,
 			retry: vi.fn(),
 		};
-		currentSearch = { tab: 'health' };
+		currentSearch = { tab: 'health', refresh: 300_000, jobsRefresh: 30_000 };
 		await act(async () => {
 			mount();
 		});
@@ -147,7 +147,8 @@ describe('StatusTabs capability gating (#1442)', () => {
 		const lastCall = navigateMock.mock.calls.at(-1)?.[0] as
 			| { search?: Record<string, unknown>; replace?: boolean }
 			| undefined;
-		expect(lastCall?.search).toMatchObject({ tab: 'overview' });
+		// Both auto-refresh choices survive the redirect.
+		expect(lastCall?.search).toEqual({ tab: 'overview', range: '1h', refresh: 300_000, jobsRefresh: 30_000 });
 		expect(lastCall?.replace).toBe(true);
 	});
 

@@ -111,7 +111,10 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 	// only narrows the `strict: false` typing to the same single source of
 	// truth (statusSearch.ts) instead of hand-rolled casts.
 	const raw = useSearch({ strict: false });
-	const { tab, range: presetId, refresh: refreshMs } = validateStatusSearch(raw as Record<string, unknown>);
+	// `jobsRefresh` is only Jobs' own interval; every navigation here passes it through unchanged.
+	const { tab, range: presetId, refresh: refreshMs, jobsRefresh } = validateStatusSearch(
+		raw as Record<string, unknown>,
+	);
 
 	// The analytics window is a fixed [start, end] snapshot baked into every
 	// panel's query key, so "refresh" means sliding the window forward to a
@@ -160,16 +163,16 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 	}, [refreshMs, refresh, queryClient, tick, instanceParams.entityId]);
 
 	const updatePreset = useCallback((id: TimePresetId) => {
-		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs } });
-	}, [navigate, tab, refreshMs]);
+		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs, jobsRefresh } });
+	}, [navigate, tab, refreshMs, jobsRefresh]);
 
 	const updateTab = useCallback((id: TabId) => {
-		void navigate({ to: '.', search: { tab: id, range: presetId, refresh: refreshMs } });
-	}, [navigate, presetId, refreshMs]);
+		void navigate({ to: '.', search: { tab: id, range: presetId, refresh: refreshMs, jobsRefresh } });
+	}, [navigate, presetId, refreshMs, jobsRefresh]);
 
 	const updateRefreshMs = useCallback((ms: number) => {
-		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms } });
-	}, [navigate, tab, presetId]);
+		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms, jobsRefresh } });
+	}, [navigate, tab, presetId, jobsRefresh]);
 
 	// When the probe fails while a chart tab is selected, land on Overview so
 	// the page opens on live data instead of an error. One-shot per failure —
@@ -185,9 +188,13 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		if (landedOnOverviewRef.current) { return; }
 		landedOnOverviewRef.current = true;
 		if (!ANALYTICS_FREE_TABS.has(tab)) {
-			void navigate({ to: '.', search: { tab: 'overview', range: presetId, refresh: refreshMs }, replace: true });
+			void navigate({
+				to: '.',
+				search: { tab: 'overview', range: presetId, refresh: refreshMs, jobsRefresh },
+				replace: true,
+			});
 		}
-	}, [capability.error, tab, navigate, presetId, refreshMs]);
+	}, [capability.error, tab, navigate, presetId, refreshMs, jobsRefresh]);
 
 	// The window snapshot lives in its own memo keyed ONLY on the preset and
 	// the refresh tick. Nothing else may mint a new window: it is baked into
