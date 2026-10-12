@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { describeRegionSwap, RegionCohort, regionCohortsOfPlans } from './describeRegionSwap';
 import { buildRegionLookup } from './regionLookup';
 
-// A catalog region's cohort is its name.
 const catalog = (names: string[]): RegionCohort[] => names.map(name => ({ key: name, name }));
 const swap = (currentRegionNames: string[], selectedRegionNames: string[], singleRegionTier = false) =>
 	describeRegionSwap({
@@ -65,7 +64,7 @@ describe('describeRegionSwap', () => {
 
 	it('asks to keep at least one of several current regions', () => {
 		expect(swap(['US', 'Asia', 'US'], ['Europe', 'Canada'])).toBe(
-			"A cluster can't move out of all its current regions in one update. Keep at least one of US and Asia, add Europe as an additional region and save, then remove the old regions that are left once that update has finished.",
+			"A cluster can't move out of all its current regions in one update. Keep at least one of US and Asia, add Europe and Canada as additional regions and save, then remove the old regions that are left once that update has finished.",
 		);
 	});
 
