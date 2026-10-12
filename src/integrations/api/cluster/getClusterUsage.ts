@@ -175,6 +175,9 @@ export function usageSubtitle(data: ClusterUsage, { trial = false }: { trial?: b
 	].filter(Boolean).join(' · ');
 }
 
+const CYCLE_DAY = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+
 export function formatCycleDate(iso: string): string {
-	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
+	const date = new Date(iso);
+	return Number.isNaN(date.getTime()) ? '—' : CYCLE_DAY.format(date);
 }

@@ -12,7 +12,8 @@ import { toUSD } from '@/lib/toUSD';
 import { Loader2 } from 'lucide-react';
 
 export function PastCycles({ clusterId }: { clusterId: string }) {
-	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useClusterUsageHistory(clusterId);
+	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } =
+		useClusterUsageHistory(clusterId);
 	const cycles = data?.pages.flatMap((page) => page.cycles) ?? [];
 
 	return (
@@ -42,6 +43,9 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 							>
 								{isFetchingNextPage ? 'Loading…' : 'Show older cycles'}
 							</Button>
+						)}
+						{isFetchNextPageError && !isFetchingNextPage && (
+							<p className="text-sm text-destructive">Couldn&rsquo;t load older cycles — try again.</p>
 						)}
 					</div>
 				)}

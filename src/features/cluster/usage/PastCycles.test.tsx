@@ -164,6 +164,20 @@ describe('PastCycles', () => {
 		expect(screen.getByRole('button', { name: /Billing cycle/ })).toBeTruthy();
 	});
 
+	it('says so when an older page fails to load, and keeps the button to retry', () => {
+		history([cycle()], { hasNextPage: true, isFetchNextPageError: true });
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByText(/Couldn’t load older cycles/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show older cycles' })).toBeTruthy();
+	});
+
+	it('shows a dash for a ran-out date that will not parse', () => {
+		history([cycle({}, [{ ...WITH_OVERAGE, overageCause: { metric: 'reads', ranOutAt: 'never' } }])]);
+		render(<PastCycles clusterId="clu-1" />);
+		fireEvent.click(card(/Aug 12, 2026/));
+		expect(screen.getByText(/ran out —/)).toBeTruthy();
+	});
+
 	it('says so when no cycle has ended, and when history could not load', () => {
 		history([]);
 		render(<PastCycles clusterId="clu-1" />);

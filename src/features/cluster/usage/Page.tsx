@@ -7,6 +7,7 @@ import { PastCycles } from '@/features/cluster/usage/PastCycles';
 import { isOrganizationRegionId } from '@/features/clusters/upsert/lib/regionLookup';
 import {
 	ClusterUsageRegion,
+	formatCycleDate,
 	UsageRateLimit,
 	UsageRateLimits,
 	UsageResourcesPerInstance,
@@ -92,7 +93,7 @@ function RegionSection(
 	const cause = region.overageCause;
 	const meters = METERED_ORDER.map((key) => ({
 		...toMeter(key, region.metrics[key]),
-		note: cause?.metric === key && cause.ranOutAt ? `ran out ${fmtDate(cause.ranOutAt)}` : undefined,
+		note: cause?.metric === key && cause.ranOutAt ? `ran out ${formatCycleDate(cause.ranOutAt)}` : undefined,
 	}));
 	const meta = [
 		region.planName ? `${region.planName} plan` : null,
@@ -101,7 +102,7 @@ function RegionSection(
 			: region.status === 'lapsed'
 			? 'not renewed'
 			: region.expiresAt
-			? `${trial ? 'ends' : 'renews'} ${fmtDate(region.expiresAt)}`
+			? `${trial ? 'ends' : 'renews'} ${formatCycleDate(region.expiresAt)}`
 			: null,
 	].filter(Boolean).join(' · ');
 
@@ -180,10 +181,6 @@ function PlanInfo(
 			)}
 		</>
 	);
-}
-
-function fmtDate(iso: string): string {
-	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
 
 // True (with the shared rate/per-instance) only when every region declares the same, non-empty plan info.
