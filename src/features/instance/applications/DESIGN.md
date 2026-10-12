@@ -55,3 +55,15 @@ tell it from a gateway's. So [`onDeployComponentSubmit`](../../../integrations/a
 turns those into `SSEInconclusiveError`, which every deploy caller already answers by checking rather than resending.
 `streamOperation` stays neutral: it puts the `status` on `SSEUnsupportedError` and leaves the decision to the caller,
 because a read (`get_deployment`) may fall back on anything.
+
+## Who reports a failed deploy
+
+Every caller of [`useDeployComponentMutation`](../../../integrations/api/instance/applications/deployComponent.ts)
+shows its own failure. The mutation opts out of the global error toast and reports the failure to RUM itself, with a
+mutation-level `console.error` that still runs after the caller unmounts. A new caller has to render or toast the
+rejection, or the person sees nothing.
+
+Callers await `mutateAsync` rather than reporting from `mutate()` callbacks, which React Query drops once the caller
+unmounts. Following a rollout keeps a deploy pending for up to 30 minutes, so its outcome often lands after the form
+or modal that started it is gone. A failure that lands while its progress panel or import form is still on screen is
+shown there only; one that lands later goes to a toast, with the deployment record when the failure named one.
