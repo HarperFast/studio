@@ -73,7 +73,7 @@ describe('AddUserModal', () => {
 	});
 
 	it('renders the invitation notice as a readable warning, not white text on solid amber', async () => {
-		const notice = (await showInviteNotice()).closest('p')!;
+		const notice = (await showInviteNotice()).closest('[data-slot="dialog-description"]')!;
 		const classes = notice.className.split(/\s+/);
 		expect(classes).toEqual(expect.arrayContaining(['text-foreground', 'bg-amber-500/10', 'border-amber-600']));
 		expect(classes).not.toContain('text-white');
