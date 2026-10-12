@@ -113,6 +113,21 @@ describe('waitForJob', () => {
 		expect(onUpdate.mock.calls.map(([job]) => job.status)).toEqual(['CREATED', 'IN_PROGRESS', 'COMPLETE']);
 	});
 
+	it('shows the observer a structured failure as sent, then rejects with it as text', async () => {
+		const report = { error: 'not authorized', unauthorized_access: [{ table: 'dog' }] };
+		const instanceClient = makeClient([{ status: 'IN_PROGRESS' }, { status: 'ERROR', message: report }]);
+		const onUpdate = vi.fn();
+		const pending = waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100, onUpdate });
+		pending.catch(() => {});
+		await vi.advanceTimersByTimeAsync(500);
+
+		await expect(pending).rejects.toThrow(JSON.stringify(report));
+		expect(onUpdate.mock.calls.map(([job]) => [job.status, job.message])).toEqual([
+			['IN_PROGRESS', undefined],
+			['ERROR', report],
+		]);
+	});
+
 	it('still resolves when the observer throws, so a completed load is never reported as failed', async () => {
 		const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
 		const instanceClient = makeClient([{ status: 'IN_PROGRESS' }, { status: 'COMPLETE', message: 'done' }]);

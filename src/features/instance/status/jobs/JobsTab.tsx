@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getSearchJobsQueryOptions, type JobRecord } from '@/integrations/api/instance/status/searchJobs';
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
@@ -18,7 +19,7 @@ import { getPreset, REFRESH_OPTIONS, TIME_PRESETS, type TimePresetId } from '../
 import { PanelErrorBoundary } from '../analytics/tabs/PanelErrorBoundary';
 import { PanelStateOrChart } from '../analytics/tabs/PanelShell';
 import { validateStatusSearch } from '../statusSearch';
-import { canListJobs } from './canListJobs';
+import { canListJobs, listsJobsGrant } from './canListJobs';
 import { describeJobStatus, formatJobTime, jobDurationMs } from './jobFormat';
 
 interface Props {
@@ -40,7 +41,18 @@ export function JobsTab({ instanceParams }: Props) {
 	const navigate = useNavigate();
 	const search = validateStatusSearch(useSearch({ strict: false }) as Record<string, unknown>);
 	const { user } = useInstanceAuth(instanceParams.entityId);
-	const allowed = canListJobs(user?.role?.permission);
+	const permission = user?.role?.permission;
+	// Only a listed grant depends on the version, which the instance route has already loaded.
+	const registrationInfo = useQuery({
+		...getRegistrationInfoQueryOptions(instanceParams),
+		enabled: !!permission && permission.super_user !== true && listsJobsGrant(permission),
+	});
+	const version = registrationInfo.data
+		? registrationInfo.data.version || null
+		: registrationInfo.isError
+		? null
+		: undefined;
+	const allowed = canListJobs(permission, version);
 	const range = jobWindow(search.range);
 	const windowMs = getPreset(range).durationMs;
 
@@ -94,7 +106,7 @@ function JobsBody({ allowed, query }: { allowed: boolean | undefined; query: Use
 				<p className="mb-1 font-medium text-foreground">Your role can't list jobs on this instance.</p>
 				<p>
 					Listing jobs needs a super user role. Harper reserves <code>search_jobs_by_start_date</code>{' '}
-					for super users unless an operations allowlist grants it, and not every Harper version honours that grant.
+					for super users unless an operations allowlist grants it, which Harper honours from 5.3.
 				</p>
 			</div>
 		);
@@ -119,6 +131,13 @@ function JobsBody({ allowed, query }: { allowed: boolean | undefined; query: Use
 			)}
 		</PanelStateOrChart>
 	);
+}
+
+/** Drag-selecting a cell's text still ends in a click on the row, which must not toggle it. */
+function isSelectingTextIn(element: Element): boolean {
+	const selection = window.getSelection();
+	return !!selection && !selection.isCollapsed
+		&& (element.contains(selection.anchorNode) || element.contains(selection.focusNode));
 }
 
 function JobsTable({ jobs }: { jobs: JobRecord[] }) {
@@ -156,7 +175,14 @@ function JobsTable({ jobs }: { jobs: JobRecord[] }) {
 					const detailsId = `job-details-${job.id}`;
 					return (
 						<Fragment key={job.id}>
-							<TableRow className="cursor-pointer hover:bg-muted/30" onClick={() => toggle(job.id)}>
+							<TableRow
+								className="cursor-pointer hover:bg-muted/30"
+								onClick={(event) => {
+									if (!isSelectingTextIn(event.currentTarget)) {
+										toggle(job.id);
+									}
+								}}
+							>
 								<TableCell>
 									<Button
 										type="button"
