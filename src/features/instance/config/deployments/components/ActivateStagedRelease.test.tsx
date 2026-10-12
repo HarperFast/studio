@@ -119,20 +119,18 @@ describe('ActivateStagedRelease', () => {
 		expect(state.reportDeployFailure).not.toHaveBeenCalled();
 	});
 
-	it('reports every failure itself, instead of also through the global toast, and still to Datadog', async () => {
+	// The mutation files the Datadog report (deployComponent.test.ts); a second one here would double it.
+	it('reports every failure itself, and leaves the Datadog report to the mutation', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const failure = new Error('No deployment found with id a1b2c3d4');
 		state.mutateAsync.mockRejectedValue(failure);
 		renderButton();
-		expect(state.useDeployComponentMutation).toHaveBeenCalledWith(
-			activationMutationKey('clu-a', staged.deployment_id),
-			{ skipGlobalErrorToast: true },
-		);
+		expect(state.useDeployComponentMutation).toHaveBeenCalledWith(activationMutationKey('clu-a', staged.deployment_id));
 		confirm();
 		await vi.waitFor(() =>
 			expect(state.reportDeployFailure).toHaveBeenCalledWith('web', failure, 'activate', { action: undefined })
 		);
-		expect(consoleError).toHaveBeenCalledWith(failure);
+		expect(consoleError).not.toHaveBeenCalledWith(failure);
 		consoleError.mockRestore();
 	});
 

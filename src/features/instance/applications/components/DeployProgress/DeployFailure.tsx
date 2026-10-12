@@ -1,22 +1,21 @@
+import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, useParams } from '@tanstack/react-router';
 import { CircleIcon } from 'lucide-react';
 
-/**
- * The instance failing to reach a private repository over SSH is fixed in its Config > SSH Keys.
- * Nothing else reports it: it is instance configuration, not a Studio bug, so `shouldKeepEvent`
- * drops the RUM event (keeping the private repository URL out of Error Tracking too).
- */
+// The instance's own SSH keys fix this, so the failure links to them.
 const SSH_ACCESS_FAILURE = /Failed to deploy private repository\b|SSH access failed/i;
 
-/** A failed deploy's message, persistent beside the form that started it. */
 export function DeployFailure({
 	title,
 	message,
+	deploymentId,
 	onNavigateAway,
 }: {
 	title?: string;
 	message: string;
+	/** Only where the host shows no record link of its own. */
+	deploymentId?: string;
 	/** Called when a guidance link navigates away — lets a hosting modal close itself first. */
 	onNavigateAway?: () => void;
 }) {
@@ -38,6 +37,15 @@ export function DeployFailure({
 					className="self-start pl-6 underline"
 				>
 					Manage SSH keys
+				</Link>
+			)}
+			{deploymentId && (
+				<Link
+					to={deploymentRecordPath(params, deploymentId)}
+					onClick={onNavigateAway}
+					className="self-start pl-6 underline"
+				>
+					View this deployment's record
 				</Link>
 			)}
 		</div>
