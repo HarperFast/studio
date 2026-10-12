@@ -10,15 +10,15 @@ function toDateTimeLocalValue(date: Date): string {
 	}:${pad(date.getSeconds())}`;
 }
 
-function lastSecondOfDay(now: Date): Date {
-	return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+function endOfDay(now: Date): Date {
+	return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 }
 
 /** The Unix epoch, as a local `datetime-local` value. */
 export const LOG_DATE_MIN = toDateTimeLocalValue(new Date(0));
 
 export function getLogDateMax(now: Date = new Date()): string {
-	return toDateTimeLocalValue(lastSecondOfDay(now));
+	return toDateTimeLocalValue(endOfDay(now));
 }
 
 /** Why `value` cannot bound a log query, or `undefined` when it can. */
@@ -33,7 +33,7 @@ export function getLogDateError(value: string | null | undefined, now: Date = ne
 	if (time < 0) {
 		return 'Date cannot be before 1970 (UTC)';
 	}
-	if (time > lastSecondOfDay(now).getTime()) {
+	if (time > endOfDay(now).getTime()) {
 		return 'Date cannot be after today';
 	}
 	return undefined;
