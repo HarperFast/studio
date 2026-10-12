@@ -24,7 +24,7 @@ export function getPromoRedemptionsQueryOptions(organizationId: string | undefin
 }
 
 type RedeemResult =
-	| { ok: true; kind: PromoRedemptionView['kind']; grantId?: string }
+	| { ok: true; kind: PromoRedemptionView['kind']; grantId?: string; creditCents?: number }
 	| { ok: false; status: number; message: string };
 
 /**
@@ -44,15 +44,21 @@ export async function redeemPromoCode(
 	if (response.status >= 400) {
 		return { ok: false, status: response.status, message: describeError({ response }).message };
 	}
-	const { kind, status, grantId } = response.data as unknown as {
+	const { kind, status, grantId, creditCents } = response.data as unknown as {
 		kind: PromoRedemptionView['kind'];
 		status: PromoRedemptionView['status'];
 		grantId?: string;
+		creditCents?: number;
 	};
 	if (status !== 'APPLIED') {
 		throw new Error(`Promo redemption answered ${response.status} with status ${status}`);
 	}
-	return { ok: true, kind, ...(grantId ? { grantId } : {}) };
+	return {
+		ok: true,
+		kind,
+		...(grantId ? { grantId } : {}),
+		...(typeof creditCents === 'number' ? { creditCents } : {}),
+	};
 }
 
 export function useRedeemPromoCode() {
