@@ -61,7 +61,6 @@ describe('authStore local sign-out when storage writes throw', () => {
 		authStore.signOutLocally('ins-a');
 
 		expect(localStorage.getItem(MARKERS)).toBeNull();
-		// Only the persisted record is lost; this tab still knows it is signed into the other entity.
 		expect(authStore.getOperationsUrl('ins-b')).toBe('https://ins-b');
 	});
 
@@ -76,11 +75,71 @@ describe('authStore local sign-out when storage writes throw', () => {
 		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
 			throw new DOMException('Storage refused.', 'SecurityError');
 		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 		expect(() => authStore.signOutLocally('ins-direct')).not.toThrow();
 
 		expect(authStore.getOperationToken('ins-direct')).toBeUndefined();
 		expect(authStore.getConnectionById('ins-direct').user).toBeNull();
+	});
+
+	it('blanks credentials storage refused to remove, so a reload reads them as absent too', () => {
+		signIn('ins-a');
+		authStore.flagForBasicAuth('ins-a', { username: 'a', password: 'pa' });
+		authStore.flagForFabricConnect('ins-a', true);
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		authStore.signOutLocally('ins-a');
+
+		expect(localStorage.getItem('Studio:BasicAuth:ins-a')).toBe('');
+		expect(localStorage.getItem('Studio:FabricConnect:ins-a')).toBe('');
+		expect(authStore.checkForBasicAuth('ins-a')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('ins-a')).toBe(false);
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+	});
+
+	it('stops reading credentials storage would neither remove nor overwrite, until a sign-in writes new ones', () => {
+		signIn('ins-a');
+		authStore.flagForBasicAuth('ins-a', { username: 'a', password: 'pa' });
+		authStore.flagForFabricConnect('ins-a', true);
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		authStore.signOutLocally('ins-a');
+
+		expect(localStorage.getItem('Studio:BasicAuth:ins-a')).toBeTruthy();
+		expect(authStore.checkForBasicAuth('ins-a')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('ins-a')).toBe(false);
+
+		vi.restoreAllMocks();
+		authStore.flagForBasicAuth('ins-a', { username: 'b', password: 'pb' });
+		authStore.flagForFabricConnect('ins-a', true);
+
+		expect(authStore.checkForBasicAuth('ins-a')).toEqual({ username: 'b', password: 'pb' });
+		expect(authStore.checkForFabricConnect('ins-a')).toBe(true);
+	});
+
+	it('reports a marker record it could neither rewrite nor remove', () => {
+		signIn('ins-a');
+		signIn('ins-b');
+		failEveryStorageWrite();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		expect(() => authStore.signOutLocally('ins-a')).not.toThrow();
+
+		expect(JSON.parse(localStorage.getItem(MARKERS) ?? '{}')).toHaveProperty('ins-a');
+		expect(consoleError).toHaveBeenCalledWith(refusal);
 	});
 
 	it('lets signOutAllLocally reach every entity and the cloud slot', () => {

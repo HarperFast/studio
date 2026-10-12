@@ -195,4 +195,32 @@ describe('auth resolutions that outlive a sign-out', () => {
 		await expect(prior).rejects.toThrow('401');
 		expect(authStore.getOperationToken('ins-race')).toBe('next-jwt');
 	});
+
+	it('drops a first connect the sweep never visits before it waits on any logout', async () => {
+		authStore.setUserForIdAndKey('ins-marked', 'https://ins-marked', { username: 'prior' } as SetArgs[2]);
+		const logout = deferred<{ message: string }>();
+		onInstanceLogoutSubmit.mockReturnValueOnce(logout.promise);
+		createInstanceAuthenticationTokens.mockResolvedValueOnce({ operationToken: 'prior-jwt', refreshToken: 'r' });
+		const probe = deferred<{ username: string }>();
+		getInstanceUserInfo.mockReturnValueOnce(probe.promise);
+
+		const prior = authStore.establishFabricConnectAuth({ id: 'ins-race', operationsUrl: DIRECT_URL });
+		await flush();
+		expect(authStore.getOperationToken('ins-race')).toBe('prior-jwt');
+		const sweep = authStore.signOutFromPotentiallyAuthenticatedInstances();
+
+		expect(authStore.getOperationToken('ins-race')).toBeUndefined();
+		expect(authStore.hasResolvedFabricConnect('ins-race')).toBe(false);
+
+		createInstanceAuthenticationTokens.mockResolvedValueOnce({ operationToken: 'next-jwt', refreshToken: 'r2' });
+		getInstanceUserInfo.mockResolvedValueOnce({ username: 'next' });
+		await expect(authStore.establishFabricConnectAuth({ id: 'ins-race', operationsUrl: DIRECT_URL })).resolves
+			.toEqual({ username: 'next' });
+
+		probe.resolve({ username: 'prior' });
+		logout.resolve({ message: 'ok' });
+		await sweep;
+		await expect(prior).rejects.toThrow('Signed out before Fabric Connect finished connecting.');
+		expect(authStore.getOperationToken('ins-race')).toBe('next-jwt');
+	});
 });

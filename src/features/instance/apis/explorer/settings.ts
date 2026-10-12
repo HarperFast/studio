@@ -4,6 +4,10 @@ import { setSessionStorage } from '@/lib/storage/setSessionStorage';
 
 const KEY = 'ApiExplorerSettings' as const;
 
+// Set when storage refused to drop the map: what it still holds belongs to a signed-out session, so this
+// tab reads it as empty until a write replaces it.
+let storedMapUnremoved = false;
+
 /**
  * Per-entity Authorize selections. `method` is the UI credential source; `auth` is the wire
  * credential the request builder consumes. They are stored together (rather than deriving one from
@@ -94,6 +98,9 @@ export function scrubLegacySettings(): void {
 
 /** The whole persisted map, guarded so disabled/corrupted storage reads as empty rather than throwing. */
 function readMap(): Record<string, ExplorerEntitySettings> {
+	if (storedMapUnremoved) {
+		return {};
+	}
 	let raw: Record<string, unknown> = {};
 	try {
 		const stored = getSessionStorage<unknown, typeof KEY>(KEY, {});
@@ -113,6 +120,7 @@ function readMap(): Record<string, ExplorerEntitySettings> {
 function writeMap(map: Record<string, ExplorerEntitySettings>): boolean {
 	try {
 		setSessionStorage<Record<string, ExplorerEntitySettings>, typeof KEY>(KEY, map);
+		storedMapUnremoved = false;
 		return true;
 	} catch {
 		// Storage disabled/full — the in-memory state still drives the current session's requests.
@@ -175,7 +183,12 @@ export function pruneStaleEntitySettings(currentGeneration: (entityId: string) =
 export function forgetAllEntitySettings(): void {
 	try {
 		sessionStorage.removeItem(KEY);
-	} catch {
-		// Storage disabled — nothing to clear.
+		storedMapUnremoved = false;
+	} catch (error) {
+		console.error(error);
+		// An empty map outlives a reload, which the in-memory flag does not.
+		if (!writeMap({})) {
+			storedMapUnremoved = true;
+		}
 	}
 }
