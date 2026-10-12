@@ -85,7 +85,12 @@ export function InstanceStatusCell(
 				<TooltipTrigger asChild>
 					<div className="flex items-center">
 						{isLoading || !ready || ((isFetching || !onScreen) && !statusResponse)
-							? <LoaderCircleIcon className="animate-spin size-5 text-muted-foreground" />
+							? (
+								<>
+									<LoaderCircleIcon className="animate-spin size-5 text-muted-foreground" />
+									<span className="sr-only">Loading status</span>
+								</>
+							)
 							: (
 								<Badge
 									variant={isAvailable ? 'success' : isUnavailable ? 'destructive' : 'default'}
