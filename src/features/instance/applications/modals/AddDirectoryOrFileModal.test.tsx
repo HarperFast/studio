@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const openedEntry: FileEntry = { name: 'index.js', path: 'my-app/index.js', project: 'my-app' } as FileEntry;
@@ -42,9 +42,12 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe('AddDirectoryOrFileModal', () => {
-	it('stops the name at the 50 characters the form accepts', () => {
+	it('stops the name at the 50 characters the form accepts, and says so there', () => {
 		render(<AddDirectoryOrFileModal />);
+		const name = screen.getByLabelText('Name') as HTMLInputElement;
+		expect(name.maxLength).toBe(50);
 
-		expect((screen.getByLabelText('Name') as HTMLInputElement).maxLength).toBe(50);
+		fireEvent.change(name, { target: { value: 'a'.repeat(50) } });
+		expect(screen.getByText('Maximum 50 characters reached.')).toBeTruthy();
 	});
 });

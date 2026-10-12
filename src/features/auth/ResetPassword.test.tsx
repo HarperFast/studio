@@ -38,3 +38,14 @@ describe('ResetPassword', () => {
 		expect(mutate).not.toHaveBeenCalled();
 	});
 });
+
+describe('ResetPassword password fields', () => {
+	it('never carry a length hint, however long the password runs', () => {
+		render(<ResetPassword />);
+		fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'p'.repeat(300) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(300) } });
+
+		expect(document.querySelector('[data-slot="form-length-hint"]')).toBeNull();
+		expect(screen.queryByText(/^Maximum/)).toBeNull();
+	});
+});

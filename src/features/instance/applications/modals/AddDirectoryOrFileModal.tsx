@@ -8,12 +8,11 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -165,16 +164,14 @@ export function AddDirectoryOrFileModal() {
 							render={({ field }) => (
 								<FormItem className="my-2">
 									<FormLabel>Name</FormLabel>
-									<FormControl>
-										<Input
-											disabled={isPending}
-											type="text"
-											autoComplete="off"
-											autoCapitalize="off"
-											maxLength={NewFileFolderSchema.shape.name.maxLength!}
-											{...field}
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										disabled={isPending}
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										maxLength={NewFileFolderSchema.shape.name.maxLength!}
+										{...field}
+									/>
 									<FormMessage />
 								</FormItem>
 							)}

@@ -6,6 +6,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { useAddOrganizationRole } from '@/features/organization/mutations/addOrganizationRole';
@@ -124,14 +125,12 @@ export function AddOrganizationRoleModal({
 								render={({ field }) => (
 									<FormItem className="col-span-2">
 										<FormLabel className="pb-1">Role Name</FormLabel>
-										<FormControl>
-											<Input
-												type="text"
-												className=""
-												maxLength={OrganizationRoleOverviewSchema.shape.name.maxLength!}
-												{...field}
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											type="text"
+											className=""
+											maxLength={OrganizationRoleOverviewSchema.shape.name.maxLength!}
+											{...field}
+										/>
 										<FormMessage />
 									</FormItem>
 								)}

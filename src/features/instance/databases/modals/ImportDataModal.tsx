@@ -14,6 +14,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import {
@@ -525,17 +526,15 @@ export function ImportDataModal({
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>Database</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												type="text"
-												placeholder="data"
-												maxLength={ImportDataFormSchema.shape.database.maxLength!}
-												autoCapitalize="off"
-												autoComplete="off"
-												autoCorrect="off"
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											{...field}
+											type="text"
+											placeholder="data"
+											maxLength={ImportDataFormSchema.shape.database.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -546,16 +545,14 @@ export function ImportDataModal({
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>Table</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												type="text"
-												maxLength={ImportDataFormSchema.shape.table.maxLength!}
-												autoCapitalize="off"
-												autoComplete="off"
-												autoCorrect="off"
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											{...field}
+											type="text"
+											maxLength={ImportDataFormSchema.shape.table.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 										<FormMessage />
 									</FormItem>
 								)}

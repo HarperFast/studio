@@ -52,10 +52,13 @@ describe('AddOrganizationRoleModal', () => {
 		expect(await screen.findByText('Role must contain only letters and underscores.')).toBeTruthy();
 	});
 
-	it('stops the role name at the 30 characters the form accepts', () => {
+	it('stops the role name at the 30 characters the form accepts, and says so there', () => {
 		render(<AddOrganizationRoleModal isModalOpen setIsModalOpen={() => {}} />);
+		const name = screen.getByLabelText('Role Name') as HTMLInputElement;
+		expect(name.maxLength).toBe(30);
 
-		expect((screen.getByLabelText('Role Name') as HTMLInputElement).maxLength).toBe(30);
+		fireEvent.change(name, { target: { value: 'a'.repeat(30) } });
+		expect(screen.getByText('Maximum 30 characters reached.')).toBeTruthy();
 	});
 
 	it.each([

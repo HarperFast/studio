@@ -324,6 +324,31 @@ describe('SignUp', () => {
 		settle!();
 		await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
 	});
+
+	it('says when a name or the email reaches its limit, and when a paste was cut, but never on a password', async () => {
+		renderSignUp();
+		const descriptionOf = (label: string) =>
+			screen.getByLabelText(label).getAttribute('aria-describedby')!.split(' ')
+				.map(id => document.getElementById(id)?.textContent).join(' ').trim();
+
+		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(40) } });
+		fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'L'.repeat(79) } });
+		fireEvent.paste(screen.getByLabelText('Email'), { clipboardData: { getData: () => 'e'.repeat(312) } });
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'e'.repeat(80) } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(300) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(300) } });
+
+		expect(descriptionOf('First Name')).toBe('Maximum 40 characters reached.');
+		expect(descriptionOf('Last Name')).toBe('');
+		await waitFor(() =>
+			expect(descriptionOf('Email')).toBe(
+				'Maximum 80 characters reached. Pasted text was 312 characters; only the first 80 fit.',
+			)
+		);
+		expect(descriptionOf('Password')).toBe('');
+		expect(descriptionOf('Confirm Password')).toBe('');
+		expect(document.querySelectorAll('[data-slot="form-length-hint"]')).toHaveLength(3);
+	});
 });
 
 describe('SignUp — reCAPTCHA', () => {

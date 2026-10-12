@@ -15,7 +15,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import {
 	Select,
 	SelectContent,
@@ -119,15 +119,13 @@ export function AddUserModal({
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel className="pb-1">Email</FormLabel>
-									<FormControl>
-										<Input
-											type="email"
-											enterKeyHint="next"
-											autoComplete="email"
-											maxLength={AddOrganizationRoleSchema.shape.email.maxLength!}
-											{...field}
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										type="email"
+										enterKeyHint="next"
+										autoComplete="email"
+										maxLength={AddOrganizationRoleSchema.shape.email.maxLength!}
+										{...field}
+									/>
 									<FormMessage />
 								</FormItem>
 							)}
