@@ -11,7 +11,7 @@ describe('MethodBadge', () => {
 	// `--yellow` text on its own tint is 1.84:1 in light mode; it only reads on the dark surfaces.
 	it('sets PUT in amber-800 on the yellow tint, keeping yellow for dark mode', () => {
 		render(<MethodBadge method="put" />);
-		const classes = screen.getByText('put').className.split(/\s+/);
+		const classes = Array.from(screen.getByText('put').classList);
 		expect(classes).toEqual(expect.arrayContaining(['text-amber-800', 'dark:text-yellow', 'bg-yellow/10']));
 		expect(classes).not.toContain('text-yellow');
 	});

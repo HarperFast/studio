@@ -8,7 +8,7 @@ import { Button } from './button';
 
 afterEach(cleanup);
 
-const classesOf = (element: Element) => element.className.split(/\s+/);
+const classesOf = (element: Element) => Array.from(element.classList);
 
 // White text fails WCAG AA on `--green` (2.13:1) and on `--destructive` (3.73:1) in both themes, since
 // the text sits on the fill rather than the page.
