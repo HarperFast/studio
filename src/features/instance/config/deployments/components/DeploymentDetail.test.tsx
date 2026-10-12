@@ -14,6 +14,10 @@ vi.mock('@/config/useInstanceClient', () => {
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => false,
 }));
+vi.mock('@tanstack/react-router', () => {
+	const params = {};
+	return { useParams: () => params, Link: () => null };
+});
 
 afterEach(cleanup);
 
