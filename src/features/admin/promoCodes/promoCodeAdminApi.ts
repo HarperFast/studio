@@ -1,6 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import type { paths } from '@/integrations/api/api.gen';
-import { AdminPromoCode, GrantShapeEntry, PromoKind } from '@/integrations/api/api.patch';
+import { AdminPromoCode, AdminPromoCodeDetail, GrantShapeEntry, PromoKind } from '@/integrations/api/api.patch';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 /** Served by central-manager but not yet in the generated spec; shapes declared in api.patch.d.ts. */
@@ -15,6 +15,17 @@ export function getPromoCodesQueryOptions() {
 		queryFn: async () => {
 			const { data } = await apiClient.get(PROMO_CODES_PATH);
 			return data as unknown as AdminPromoCode[];
+		},
+		retry: false,
+	});
+}
+
+export function getPromoCodeQueryOptions(id: string) {
+	return queryOptions({
+		queryKey: [...promoCodesQueryKey, id],
+		queryFn: async () => {
+			const { data } = await apiClient.get(promoCodePath(id));
+			return data as unknown as AdminPromoCodeDetail;
 		},
 		retry: false,
 	});
