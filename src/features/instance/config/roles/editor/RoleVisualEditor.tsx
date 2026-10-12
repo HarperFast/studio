@@ -51,6 +51,7 @@ import {
 	type ComponentProps,
 	Fragment,
 	memo,
+	type RefObject,
 	useCallback,
 	useId,
 	useLayoutEffect,
@@ -328,6 +329,7 @@ function StructureUserSection({
 }
 
 type PermissionPatch = (permission: LocalRolePermission) => LocalRolePermission;
+type ScopingRestore = RefObject<Map<string, LocalRoleAttributePermissionTable[]>>;
 
 function TablePermissionsSection({
 	permission,
@@ -361,7 +363,9 @@ function TablePermissionsSection({
 	// One stable updater for every row, applied to the latest document: rows are memoized on their
 	// own database record, so on a large schema an edit re-renders only the database it touched.
 	const latestRef = useRef({ permission, onChange });
-	latestRef.current = { permission, onChange };
+	useLayoutEffect(() => {
+		latestRef.current = { permission, onChange };
+	}, [permission, onChange]);
 	const update = useCallback((patch: PermissionPatch) => {
 		latestRef.current.onChange(patch(latestRef.current.permission));
 	}, []);
@@ -383,7 +387,7 @@ function TablePermissionsSection({
 						structureScoped={structureDatabases.includes(databaseName)}
 						readOnly={readOnly}
 						update={update}
-						scopingRestore={scopingRestoreRef.current}
+						scopingRestore={scopingRestoreRef}
 					/>
 				))}
 			</Accordion>
@@ -406,7 +410,7 @@ const DatabaseSection = memo(function DatabaseSection({
 	structureScoped: boolean;
 	readOnly?: boolean;
 	update: (patch: PermissionPatch) => void;
-	scopingRestore: Map<string, LocalRoleAttributePermissionTable[]>;
+	scopingRestore: ScopingRestore;
 }) {
 	const tableNames = Object.keys(tables);
 	const entries = tableNames.map((tableName) => getTableEntryInRecord(record, tableName));
@@ -511,7 +515,7 @@ const TableRows = memo(function TableRows({
 	entry: LocalRolePermissionTable | undefined;
 	readOnly?: boolean;
 	update: (patch: PermissionPatch) => void;
-	scopingRestore: Map<string, LocalRoleAttributePermissionTable[]>;
+	scopingRestore: ScopingRestore;
 }) {
 	const attributeNames = useMemo(() => getTableAttributeNames(schemaTable), [schemaTable]);
 	const primaryKey = getTablePrimaryKey(schemaTable);
@@ -524,7 +528,7 @@ const TableRows = memo(function TableRows({
 
 	const onScopingChanged = (next: boolean) => {
 		if (!next && entry?.attribute_permissions) {
-			scopingRestore.set(restoreKey, entry.attribute_permissions);
+			scopingRestore.current.set(restoreKey, entry.attribute_permissions);
 		}
 		update((permission) =>
 			setAttributeScoping(
@@ -533,7 +537,7 @@ const TableRows = memo(function TableRows({
 				tableName,
 				next,
 				attributeNames,
-				next ? scopingRestore.get(restoreKey) : undefined,
+				next ? scopingRestore.current.get(restoreKey) : undefined,
 			)
 		);
 	};
