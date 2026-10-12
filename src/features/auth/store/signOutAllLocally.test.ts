@@ -32,4 +32,15 @@ describe('authStore.signOutAllLocally', () => {
 		expect(authStore.getConnectionById('inst_1' as SetArgs[0]).user).toBeNull();
 		expect(authStore.checkForFabricConnect('inst_1' as SetArgs[0])).toBe(false);
 	});
+
+	it('drops stored explorer credentials for entities this tab never signed into', () => {
+		sessionStorage.setItem(
+			'ApiExplorerSettings',
+			JSON.stringify({ 'ins-unmarked': { auth: { type: 'bearer', token: 'not-in-this-tab' } } }),
+		);
+
+		authStore.signOutAllLocally();
+
+		expect(sessionStorage.getItem('ApiExplorerSettings')).toBeNull();
+	});
 });

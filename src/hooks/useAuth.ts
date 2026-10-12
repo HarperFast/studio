@@ -60,11 +60,13 @@ export function useStaffPermission(permission: StaffPermission): boolean {
 }
 
 export function useInstanceAuth(entityId?: EntityIds): AuthenticatedInstanceConnection {
-	const key = isLocalStudio ? OverallAppSignIn : entityId;
 	const { clusterId, instanceId }: { instanceId?: string; clusterId: string } = useParams({ strict: false });
-	const [connection, setConnection] = useState<AuthenticatedConnection>(
-		authStore.getConnectionById(key ?? instanceId ?? clusterId),
+	const key = isLocalStudio ? OverallAppSignIn : entityId ?? instanceId ?? clusterId;
+	const [observed, setObserved] = useState<{ key: typeof key; connection: AuthenticatedConnection }>(
+		() => ({ key, connection: authStore.getConnectionById(key) }),
 	);
-	useEffect(() => authStore.listenToEntity(key, setConnection), [key]);
+	useEffect(() => authStore.listenToEntity(key, (connection) => setObserved({ key, connection })), [key]);
+	// Until the new entity's first update arrives, read it from the store rather than return the last one's.
+	const connection = observed.key === key ? observed.connection : authStore.getConnectionById(key);
 	return connection as AuthenticatedInstanceConnection;
 }

@@ -1,4 +1,5 @@
 import { clustersLayoutRoute } from '@/features/clusters/routes';
+import { ensureRouteQueryData } from '@/router/ensureRouteQueryData';
 import { createRoute } from '@tanstack/react-router';
 import { ClusterLayout } from './ClusterLayout';
 import { ClusterRouteError } from './components/ClusterRouteError';
@@ -9,9 +10,9 @@ export const clusterLayoutRoute = createRoute({
 	path: '$clusterId',
 	component: ClusterLayout,
 	errorComponent: ClusterRouteError,
-	beforeLoad: async ({ context, params }) => {
+	beforeLoad: async (opts) => {
 		return {
-			cluster: await context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId)),
+			cluster: await ensureRouteQueryData(opts, getClusterInfoQueryOptions(opts.params.clusterId)),
 		};
 	},
 });
