@@ -1,8 +1,10 @@
 /** @vitest-environment jsdom */
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
@@ -27,7 +29,7 @@ vi.mock('@/features/instance/applications/hooks/useDeploymentRecordAction', () =
 	useDeploymentRecordAction: () => () => undefined,
 }));
 vi.mock('@/features/instance/applications/components/DeployProgress/DeployProgress', () => ({
-	DeployProgress: () => <div>progress</div>,
+	DeployProgress: ({ state }: { state: { error?: string } }) => <div>{state.error ?? 'progress'}</div>,
 }));
 vi.mock('@/features/instance/applications/modals/reportDeployHealth', () => ({
 	reportDeployOutcome: state.reportDeployOutcome,
@@ -132,6 +134,16 @@ describe('ActivateStagedRelease', () => {
 		);
 		expect(consoleError).not.toHaveBeenCalledWith(failure);
 		consoleError.mockRestore();
+	});
+
+	it('says in its progress panel that an activation with no verdict may have gone through', async () => {
+		const sent = { method: 'post', data: '{"operation":"deploy_component"}' } as InternalAxiosRequestConfig;
+		const unanswered = new AxiosError('timeout of 300000ms exceeded', AxiosError.ECONNABORTED, sent);
+		state.mutateAsync.mockRejectedValue(unanswered);
+		renderButton();
+		confirm();
+		expect(await screen.findByText(UNANSWERED_WRITE_MESSAGE)).toBeTruthy();
+		expect(state.reportDeployFailure).toHaveBeenCalledWith('web', unanswered, 'activate', { action: undefined });
 	});
 
 	it('offers nothing where staging is not known to exist', () => {

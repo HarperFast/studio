@@ -6,7 +6,11 @@ import {
 	useStagedDeploymentsAvailable,
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
-import { reportDeployOutcome, reportStaged } from '@/features/instance/applications/modals/reportDeployHealth';
+import {
+	deployFailureTitle,
+	reportDeployOutcome,
+	reportStaged,
+} from '@/features/instance/applications/modals/reportDeployHealth';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
@@ -150,12 +154,8 @@ export function useImportApplication(
 				});
 				return;
 			}
-			// No verdict: it may have gone through, so the title can't say it failed; the message says to check.
-			const unanswered = isUnansweredWrite(error);
-			const title = unanswered
-				? `Couldn't confirm ${project} was ${stage ? 'staged' : 'imported'}`
-				: `Failed to ${stage ? 'stage' : 'import'} ${project}`;
-			if (unanswered) {
+			const title = deployFailureTitle(error, project, stage ? 'stage' : 'import');
+			if (isUnansweredWrite(error)) {
 				// It may have imported, so what the message says to check must be current.
 				void invalidateEntityQueries(queryClient, entityId);
 				void reloadRootEntries();

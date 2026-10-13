@@ -25,6 +25,7 @@ import { deployFailureDetails } from '@/integrations/api/instance/applications/d
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
@@ -84,7 +85,13 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			}
 			stream.markSettled(
 				'error',
-				error instanceof DeployRolloutError ? undefined : error instanceof Error ? error.message : String(error),
+				error instanceof DeployRolloutError
+					? undefined
+					: isUnansweredWrite(error)
+					? UNANSWERED_WRITE_MESSAGE
+					: error instanceof Error
+					? error.message
+					: String(error),
 				{ failure: error },
 			);
 			reportDeployFailure(project, error, 'activate', {
