@@ -170,15 +170,15 @@ export function ActivateStagedRelease({
 								? (
 									<>
 										Deployment <span className="font-mono">{deploymentId}</span>{' '}
-										goes live again on every node, which restart one at a time. Nothing is installed: each node swaps
-										back the copy it kept when this release was replaced. A node that no longer keeps it refuses.
+										goes live again on all nodes, which restart one at a time. Each node kept this release installed
+										when it was replaced, so it just switches back. A node that no longer keeps it refuses.
 									</>
 								)
 								: (
 									<>
 										Deployment <span className="font-mono">{deploymentId}</span>{' '}
-										goes live on every node, which restart one at a time. Nothing is installed: each node swaps in the
-										release it staged.{shownIntent === 'again'
+										goes live on all nodes, which restart one at a time. Everything was installed when this release was
+										staged, so each node just switches to it.{shownIntent === 'again'
 											&& ' A node already running it restarts without changing anything.'}
 									</>
 								)}

@@ -41,7 +41,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			<div className="text-sm text-muted-foreground">
 				{!release && 'Staged. Checking whether it has been activated…'}
 				{release?.kind === 'waiting'
-					&& 'Staged: built and installed, but not live. Activating it makes it live with nothing to install.'}
+					&& 'Staged: built and installed, but not live. Activating it just switches each node to it.'}
 				{release?.kind === 'unknown'
 					&& "Staged. Couldn't read the deployments since, so it may already be live: activating a live release restarts every node without changing anything."}
 				{release?.kind === 'activating' && (

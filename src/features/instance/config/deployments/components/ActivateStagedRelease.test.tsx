@@ -77,6 +77,9 @@ describe('ActivateStagedRelease', () => {
 		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
 		expect(state.mutateAsync).not.toHaveBeenCalled();
 		expect(screen.getByText('Activate this release of web?')).toBeTruthy();
+		const description = screen.getByText(/Everything was installed when this release was staged/);
+		expect(description.textContent).toMatch(/goes live on all nodes, which restart one at a time\./);
+		expect(description.textContent).toMatch(/so each node just switches to it\.$/);
 
 		fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
 		expect(state.mutateAsync).toHaveBeenCalledOnce();
@@ -84,6 +87,20 @@ describe('ActivateStagedRelease', () => {
 			request: { kind: 'activate', project: 'web', deploymentId: staged.deployment_id },
 			entityType: 'cluster',
 		});
+	});
+
+	it('adds, when activating it again, that a node already running it only restarts', () => {
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateStagedRelease deployment={staged} intent="again" />
+			</QueryClientProvider>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Activate again' }));
+		expect(screen.getByText('Activate this release of web again?')).toBeTruthy();
+		const description = screen.getByText(/Everything was installed when this release was staged/);
+		expect(description.textContent).toMatch(
+			/so each node just switches to it\. A node already running it restarts without changing anything\.$/,
+		);
 	});
 
 	it('still reports an activation whose detail was closed before it settled', async () => {
