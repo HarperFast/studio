@@ -50,6 +50,16 @@ export function useRestartClusterClick(
 			},
 		};
 
+		// Once Cancel is clicked its toast is gone, and a progress toast offering Cancel again would read as if
+		// it had not landed: say so instead.
+		const progress = (description: string, onceCanceled = description) =>
+			canceled
+				? {
+					duration: toastConfig.duration,
+					description: `${onceCanceled} Cancelled: no other instance will be restarted.`.trim(),
+				}
+				: { ...toastConfig, description };
+
 		const toastId = toast.loading('Restarting', {
 			...toastConfig,
 			description: (
@@ -126,12 +136,8 @@ export function useRestartClusterClick(
 								instanceClient,
 								onSlowToReturn: () =>
 									toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
-										// A Cancel already closed the toast and stopped the loop: no second Cancel to offer.
-										...(canceled ? { duration: toastConfig.duration } : toastConfig),
 										id: toastId,
-										description: canceled
-											? "It accepted the restart but isn't back yet. Cancelled: no other instance will be restarted."
-											: "It accepted the restart but isn't back yet.",
+										...progress("It accepted the restart but isn't back yet."),
 									}),
 							});
 							instancesRestarted += 1;
@@ -148,9 +154,8 @@ export function useRestartClusterClick(
 								// A gateway can lose the answer to a restart that ran and took this member down, so it
 								// stays marked, and the next one waits, until it answers again or the watch gives up.
 								toast.loading(`Could Not Confirm Instance ${i + 1} of ${targets.length}`, {
-									...toastConfig,
 									id: toastId,
-									description: 'Waiting for it to answer before carrying on.',
+									...progress('Waiting for it to answer before carrying on.', 'Waiting for it to answer.'),
 								});
 								const back = await waitUntilAnsweringAfterRestart({ instanceClient }).then(() => true, () => false);
 								if (!back) {
@@ -164,9 +169,8 @@ export function useRestartClusterClick(
 								// If it fails to restart, or wasn't available, warn for a bit then move on.
 								const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
 								toast.loading(`${verdict} Instance ${i + 1} of ${targets.length}`, {
-									...toastConfig,
 									id: toastId,
-									description: 'We will carry on momentarily.',
+									...progress('We will carry on momentarily.', ''),
 								});
 								await sleep(3000);
 							}
