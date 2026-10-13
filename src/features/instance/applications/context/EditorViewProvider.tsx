@@ -10,6 +10,7 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import {
 	getComponentFileQueryKey,
 	getComponentFileQueryOptions,
+	GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
 import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
@@ -34,8 +35,8 @@ interface LoadedContents {
 	contents: string | undefined;
 }
 
-// The instance as well as the path: the router keeps this page mounted across a switch to another
-// instance, where the same path is common.
+// The router keeps this page mounted across a switch to another instance, so a path alone can name
+// two files.
 function entryKeyOf(entityId: string, path: string | undefined) {
 	return path === undefined ? undefined : `${entityId}:${path}`;
 }
@@ -47,9 +48,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const openedEntryKey = entryKeyOf(instanceParams.entityId, openedEntry?.path);
 	const openedEntryKeyRef = useRef(openedEntryKey);
 	openedEntryKeyRef.current = openedEntryKey;
-	// Contents are handed out only with the entry they were loaded for. They load in an effect, which
-	// runs after the children's effects, so the first render after a switch still holds the previous
-	// entry's contents, and an editor mounting then took them for its own (#1929).
+	// Contents are handed out only with the entry they were loaded for: they load in an effect, which
+	// runs after the children's, so for a render after a switch they still describe the previous entry.
 	const [loadedContents, setLoadedContents] = useState<LoadedContents>({ entryKey: undefined, contents: undefined });
 	const openedEntryContents = loadedContents.entryKey === openedEntryKey ? loadedContents.contents : undefined;
 	const setOpenedEntryContents = useCallback<EditorViewContextValue['setOpenedEntryContents']>(contents => {
@@ -207,9 +207,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 					if (payload === undefined) {
 						return;
 					}
-					queryClient.setQueryData(fileQueryKey, { ...getComponentFileQueryData, message: payload });
-					// The entry open now, not when the save started: once another is open, the buffer
-					// setter below is that entry's.
+					// With the file's identity, which a cache entry that was never read lacks.
+					queryClient.setQueryData<GetComponentFileResponse>(
+						fileQueryKey,
+						previous =>
+							({ ...previous, project: data.project, file: data.file, message: payload }) as GetComponentFileResponse,
+					);
+					// Only if still open: once another entry is, the buffer setter below is that entry's.
 					if (openedEntryKeyRef.current === savedKey) {
 						// Edits made while the save was in flight aren't saved yet, so they stay.
 						setUpdatedEntryContents(current => current === payload ? undefined : current);
@@ -224,7 +228,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		},
 		[
 			fileQueryKey,
-			getComponentFileQueryData,
 			instanceParams.entityId,
 			queryClient,
 			saveComponentFile,
