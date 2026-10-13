@@ -154,6 +154,14 @@ describe('StagedReleaseDetail', () => {
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
 
+	it('says when someone else is activating it, and what another activation would do', async () => {
+		renderDetail([{ ...activation, status: 'restarting' }, staged]);
+		expect(await screen.findByText(/Being activated by/)).toBeTruthy();
+		expect(screen.getByText(/starts a second rolling restart/)).toBeTruthy();
+		expect(screen.queryByText(/but not live/)).toBeNull();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
 	it('offers nothing until it knows, rather than an Activate that may restart the cluster for nothing', () => {
 		renderDetail('pending');
 		expect(screen.getByText(/Checking whether it has been activated/)).toBeTruthy();

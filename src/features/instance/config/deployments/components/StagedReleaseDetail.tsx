@@ -41,6 +41,13 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 					&& 'Staged: built and installed, but not live. Activating it makes it live with nothing to install.'}
 				{release?.kind === 'unknown'
 					&& "Staged. Couldn't read the deployments since, so it may already be live: activating a live release restarts every node without changing anything."}
+				{release?.kind === 'activating' && (
+					<>
+						Being activated by{' '}
+						<DeploymentLink deployment={release.activation} />, which has not finished. Activating it again before then
+						starts a second rolling restart.
+					</>
+				)}
 				{release?.kind === 'live' && (
 					<>
 						Live: activated by <DeploymentLink deployment={release.activation} />, and nothing has been deployed to{' '}
@@ -59,7 +66,11 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
 			<ActivateStagedRelease
 				deployment={deployment}
-				intent={release?.kind === 'replaced' ? 'rollback' : release?.kind === 'uncertain' ? 'again' : 'activate'}
+				intent={release?.kind === 'replaced'
+					? 'rollback'
+					: release?.kind === 'uncertain' || release?.kind === 'activating'
+					? 'again'
+					: 'activate'}
 				offer={release !== undefined && release.kind !== 'live'}
 			/>
 		</>

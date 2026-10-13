@@ -45,6 +45,24 @@ describe('stagedReleaseState', () => {
 		});
 	});
 
+	it('is being activated while an activation of it has not finished', () => {
+		const running = {
+			...activation,
+			deployment_id: 'c0c0c0c0-0000-4000-8000-000000000008',
+			status: 'restarting',
+		} as Deployment;
+		expect(stagedReleaseState(staged, [staged, running])).toEqual({ kind: 'activating', activation: running });
+		expect(stagedReleaseState(staged, [staged, activation, { ...running, started_at: 300 }])).toEqual({
+			kind: 'activating',
+			activation: { ...running, started_at: 300 },
+		});
+	});
+
+	it('ignores an unfinished activation that a later deploy has already come after', () => {
+		const stranded = { ...activation, status: 'replicating', started_at: 150 } as Deployment;
+		expect(stagedReleaseState(staged, [staged, stranded, activation])).toEqual({ kind: 'live', activation });
+	});
+
 	it('is replaced by a later successful deploy, which a re-activation would roll back', () => {
 		const later = record('9f00aa11-0000-4000-8000-000000000002', 300);
 		expect(stagedReleaseState(staged, [later, staged, activation])).toEqual({

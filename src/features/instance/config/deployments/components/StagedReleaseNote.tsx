@@ -26,6 +26,11 @@ export function StagedReleaseNote({ release }: { release: StagedReleaseState | u
 	return (
 		<span className="text-xs text-muted-foreground">
 			{release.kind === 'waiting' && 'waiting to be activated'}
+			{release.kind === 'activating' && (
+				<>
+					being activated by <DeploymentLink deployment={release.activation} />
+				</>
+			)}
 			{release.kind === 'live' && (
 				<>
 					live, activated by <DeploymentLink deployment={release.activation} />
