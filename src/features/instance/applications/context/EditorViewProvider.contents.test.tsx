@@ -14,46 +14,50 @@ import type { AxiosInstance } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => {
-	const files: Record<string, string> = {};
-	/** While set, file writes wait on it, so a test can act while a save is in flight. */
+	const reads = { pending: undefined as Promise<void> | undefined };
 	const writes = { pending: undefined as Promise<void> | undefined };
-	const instanceClient = {
-		post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
-			if (body.operation === 'get_component_file') {
-				return { data: { message: files[body.file!], size: files[body.file!].length } };
-			}
-			if (body.operation === 'set_component_file') {
-				await writes.pending;
-				files[body.file!] = body.payload ?? '';
-				return { data: { message: 'Successfully set component' } };
-			}
-			return { data: { name: 'components', entries: [] } };
-		},
-	};
-	return {
-		files,
-		writes,
-		params: {
-			entityId: 'instance-1',
+	function instance(entityId: string) {
+		const files: Record<string, string> = {};
+		const instanceClient = {
+			post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
+				if (body.operation === 'get_component_file') {
+					await reads.pending;
+					return { data: { message: files[body.file!], size: files[body.file!].length } };
+				}
+				if (body.operation === 'set_component_file') {
+					await writes.pending;
+					files[body.file!] = body.payload ?? '';
+					return { data: { message: 'Successfully set component' } };
+				}
+				return { data: { name: 'components', entries: [] } };
+			},
+		};
+		const params = {
+			entityId,
 			entityType: 'instance' as const,
 			instanceClient: instanceClient as unknown as AxiosInstance,
-		},
-	};
+		};
+		return { files, params, route: { instanceId: entityId } };
+	}
+	const instances = { 'instance-1': instance('instance-1'), 'instance-2': instance('instance-2') };
+	return { reads, writes, instances, current: instances['instance-1'] };
 });
 
-vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => server.params }));
+vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => server.current.params }));
 vi.mock('@/config/useEntityRestURL', () => ({ useEntityRestURL: () => 'https://instance.example.com:9925' }));
 vi.mock('@tanstack/react-router', () => {
 	const navigate = () => {};
 	const search = {};
-	const params = { instanceId: 'instance-1' };
-	return { useNavigate: () => navigate, useSearch: () => search, useParams: () => params };
+	return { useNavigate: () => navigate, useSearch: () => search, useParams: () => server.current.route };
 });
 
 import { EditorViewProvider } from './EditorViewProvider';
 
 const README = '# Schemas\n\nYour schemas are defined in `.graphql` files.\n';
 const SCRIPT = 'export const answer = 42;\n';
+const OTHER_SCRIPT = 'export const answer = 7;\n';
+const SAVED_SCRIPT = 'export const answer = 43;\n';
+const DRAFT = 'type Draft @table {\n\tid: ID @primaryKey\n}\n';
 
 const readme: FileEntry = { name: 'README.md', path: 'punch/schemas/README.md', project: 'punch' };
 const schemasFolder: DirectoryEntry = {
@@ -66,30 +70,39 @@ const schemasFolder: DirectoryEntry = {
 const script: FileEntry = { name: 'resources.js', path: 'punch/resources.js', project: 'punch' };
 const newSchema: FileEntry = { name: 'thing.graphql', path: 'punch/schemas/thing.graphql', project: 'punch' };
 
-/** Every render's opened entry and the contents handed out with it. */
-let renders: Array<{ path: string | undefined; contents: string | undefined }>;
+let renders: Array<{ entityId: string; path: string | undefined; contents: string | undefined }>;
 let editorView: ReturnType<typeof useEditorView>;
 let buffer: ReturnType<typeof useEditorFileContent>;
 
 function Probe() {
 	editorView = useEditorView();
 	buffer = useEditorFileContent(editorView.openedEntry?.path);
-	renders.push({ path: editorView.openedEntry?.path, contents: editorView.openedEntryContents });
+	renders.push({
+		entityId: server.current.params.entityId,
+		path: editorView.openedEntry?.path,
+		contents: editorView.openedEntryContents,
+	});
 	return null;
 }
 
 function renderProvider() {
-	server.files['schemas/README.md'] = README;
-	server.files['resources.js'] = SCRIPT;
-	server.files['schemas/thing.graphql'] = '';
+	Object.assign(server.instances['instance-1'].files, {
+		'schemas/README.md': README,
+		'resources.js': SCRIPT,
+		'schemas/thing.graphql': '',
+	});
+	server.instances['instance-2'].files['resources.js'] = OTHER_SCRIPT;
+	server.current = server.instances['instance-1'];
 	renders = [];
-	render(
+	const tree = (
 		<QueryClientProvider client={new QueryClient()}>
 			<EditorViewProvider>
 				<Probe />
 			</EditorViewProvider>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
+	const view = render(tree);
+	return { rerender: () => view.rerender(tree) };
 }
 
 async function openEntry(entry: DirectoryEntry | FileEntry, contents: string) {
@@ -97,9 +110,24 @@ async function openEntry(entry: DirectoryEntry | FileEntry, contents: string) {
 	await waitFor(() => expect(editorView.openedEntryContents).toBe(contents));
 }
 
+function startSave(payload: string) {
+	let finishWrite!: () => void;
+	server.writes.pending = new Promise(resolve => (finishWrite = resolve));
+	const { files, params } = server.current;
+	const entry = editorView.openedEntry!;
+	const file = entry.path.split('/').slice(1).join('/');
+	act(() => editorView.saveFile({ ...params, file, payload, project: entry.project }, entry.path));
+	return async () => {
+		await act(async () => finishWrite());
+		await waitFor(() => expect(files[file]).toBe(payload));
+		await act(async () => {});
+	};
+}
+
 afterEach(() => {
 	cleanup();
 	sessionStorage.clear();
+	server.reads.pending = undefined;
 	server.writes.pending = undefined;
 });
 
@@ -120,35 +148,57 @@ describe('EditorViewProvider openedEntryContents', () => {
 		await openEntry(script, SCRIPT);
 		const before = renders.length;
 
-		act(() =>
-			editorView.saveFile({ ...server.params, file: 'resources.js', payload: '', project: 'punch' }, script.path)
-		);
-		await waitFor(() => expect(editorView.openedEntryContents).toBe(''));
+		await startSave('')();
 
+		expect(editorView.openedEntryContents).toBe('');
 		expect(renders.slice(before).map(r => r.contents).filter(contents => contents !== SCRIPT)).not.toContain(undefined);
 	});
 
 	it('leaves the entry opened while a save was in flight alone when the save lands', async () => {
 		renderProvider();
 		await openEntry(script, SCRIPT);
-		let finishWrite!: () => void;
-		server.writes.pending = new Promise(resolve => (finishWrite = resolve));
-		act(() =>
-			editorView.saveFile({
-				...server.params,
-				file: 'resources.js',
-				payload: 'export const answer = 43;\n',
-				project: 'punch',
-			}, script.path)
-		);
+		const finishSave = startSave(SAVED_SCRIPT);
 
 		await openEntry(newSchema, '');
-		act(() => buffer.setContent('type Draft @table {\n\tid: ID @primaryKey\n}\n'));
-		await act(async () => finishWrite());
-		await waitFor(() => expect(server.files['resources.js']).toBe('export const answer = 43;\n'));
-		await act(async () => {});
+		act(() => buffer.setContent(DRAFT));
+		await finishSave();
 
 		expect(editorView.openedEntryContents).toBe('');
-		expect(buffer.content).toBe('type Draft @table {\n\tid: ID @primaryKey\n}\n');
+		expect(buffer.content).toBe(DRAFT);
+
+		// The saved file's cached contents took the save anyway: reopened before any refetch answers, it
+		// shows what was saved rather than what was there before.
+		server.reads.pending = new Promise(() => {});
+		const before = renders.length;
+		await openEntry(script, SAVED_SCRIPT);
+		expect(renders.slice(before).map(r => r.contents)).not.toContain(SCRIPT);
+	});
+
+	it('ignores a contents setter kept from an entry that is no longer open', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		const setScriptContents = editorView.setOpenedEntryContents;
+		await openEntry(newSchema, '');
+
+		act(() => setScriptContents('export const answer = 0;\n'));
+
+		expect(editorView.openedEntryContents).toBe('');
+	});
+
+	it('keeps the same path on another instance apart, through a switch and a save landing after it', async () => {
+		const { rerender } = renderProvider();
+		await openEntry(script, SCRIPT);
+		const finishSave = startSave(SAVED_SCRIPT);
+
+		// The router keeps the page mounted when another instance is picked, so the open path carries over.
+		server.current = server.instances['instance-2'];
+		rerender();
+		await waitFor(() => expect(editorView.openedEntryContents).toBe(OTHER_SCRIPT));
+		act(() => buffer.setContent(DRAFT));
+		await finishSave();
+
+		const onSecond = new Set(renders.filter(r => r.entityId === 'instance-2').map(r => r.contents));
+		expect(onSecond).toEqual(new Set([undefined, OTHER_SCRIPT]));
+		expect(buffer.content).toBe(DRAFT);
 	});
 });
