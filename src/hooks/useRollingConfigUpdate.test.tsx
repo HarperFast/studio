@@ -538,7 +538,6 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 
 		await save();
 
-		// Last member first: ins-b took the config and never came back, so ins-a was not touched.
 		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
 		expect(toast.loading).toHaveBeenCalledWith(
 			'Waiting On Instance 1 of 2',
@@ -649,6 +648,28 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
 		expect(finalError().title).toBe('Not back yet');
 		expect(vi.mocked(toast.error).mock.calls.map(([title]) => title)).not.toContain('Cancelled');
+	});
+
+	it('names the members a Cancel left alone, beside the warning, after a restart that got no verdict', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			cancel();
+			throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: '{"operation":"restart_service"}',
+			} as InternalAxiosRequestConfig);
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
+		expect(finalError()).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: 'Only 0 "RUNNING" instances were confirmed updated of 2 instances. '
+				+ `${describeUnansweredWrites(1)} `
+				+ '1 other instance was not updated: Cancel stopped it there.',
+		});
 	});
 
 	it('keeps the pending-configuration note when Cancel lands while waiting on a member after the fan-out', async () => {
