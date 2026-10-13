@@ -12,11 +12,12 @@ export interface ExtraRecordAttribute {
 /**
  * Properties the loaded records carry that the table's columns don't cover. Describe lists only what
  * the schema declares, and a table that isn't `@sealed` stores whatever else a record brings. The
- * most common come first, as hdbms ordered them.
+ * most common come first, as hdbms ordered them, and at most `limit` of them.
  */
 export function extraRecordAttributes(
 	rows: readonly Record<string, unknown>[],
 	knownAttributes: ReadonlySet<string>,
+	limit = MAX_EXTRA_COLUMNS,
 ): ExtraRecordAttribute[] {
 	const seen = new Map<string, { count: number; sample: unknown }>();
 	for (const row of rows) {
@@ -40,9 +41,9 @@ export function extraRecordAttributes(
 		(byCount[count] ??= []).push(attribute);
 	}
 	const extras: ExtraRecordAttribute[] = [];
-	for (let count = byCount.length - 1; count > 0 && extras.length < MAX_EXTRA_COLUMNS; count--) {
+	for (let count = byCount.length - 1; count > 0 && extras.length < limit; count--) {
 		for (const attribute of byCount[count] ?? []) {
-			if (extras.length === MAX_EXTRA_COLUMNS) {
+			if (extras.length === limit) {
 				break;
 			}
 			extras.push({ attribute, type: typeOfValue(seen.get(attribute)!.sample) });
