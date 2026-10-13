@@ -353,6 +353,11 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 		await vi.waitFor(() => expect(restarted).toEqual(['ins-c', 'ins-b']));
 
 		expect(getRestartState('ins-b')?.reach).toBe('down');
+		// Still held past the old five-minute mark: each mark lasts as long as its member's watch can.
+		const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60_000);
+		expect(getRestartState('ins-b')?.reach).toBe('down');
+		expect(getRestartState('clu-1')).toBeDefined();
+		clock.mockRestore();
 
 		await act(async () => {
 			answer!();
