@@ -43,23 +43,51 @@ and [`TablePagination`](components/TablePagination.tsx) pages by whether it came
 stated only once the page that ends the result set is on screen (`uncountedTotal`). The unfiltered
 list keeps paging by the table count.
 
-## A CSV export's `get_attributes` never contains `'*'` after a name
+## Export CSV writes the file itself, from JSON
 
-The grid resolves `@computed` attributes by naming them ahead of a trailing `'*'`
-(`buildSyntheticGetAttributes`). The CSV export must not copy that. Harper builds a CSV's header
-from the select, with the `'*'` expanded to every attribute, so each name ahead of it shows up twice.
-On harperdb 4.7.40, `search_by_conditions` with `['totalPrice', '*']` answers with the header
-`"totalPrice","id","price","taxRate","totalPrice"`. Harper 5's `Table.search` `getColumns` expands
-it the same way for both search operations (`resources/Table.ts:5638-5650`, traced in source, not
-run). So a table with a computed attribute
-exports with an explicit list of what describe reports, relationships left out
-([`buildExportGetAttributes`](functions/relationshipAttributes.ts)), and any other table keeps
-`['*']` (#1820).
+The export reads every matching record as JSON in one request, with the grid's select minus its
+relationships ([`buildExportGetAttributes`](functions/tableCsv.ts): each `@computed` name, then
+`'*'`), and writes the CSV in the browser ([`tableCsvColumns`](functions/tableCsv.ts),
+[`tableCsvLines`](functions/tableCsv.ts)). The columns are what describe lists, in describe order,
+minus relationships, then every property an exported record carries that describe doesn't list,
+most common first as the grid orders its extra columns. They are counted over the whole result, not
+the loaded page, and not capped at `MAX_EXTRA_COLUMNS`: a column left out of a file is data lost
+from it. A `@sealed` table refuses undeclared properties, so its file is its described attributes.
+Cells are written as harper 5.3.2's own CSV writer writes them (`escapeCsvRow`), except that a `Date`
+holds its ISO text, where 5.3.2 put a second pair of quotes around it (#1932). 4.7.40's writer left
+booleans unquoted, which Import reads the same: Harper's CSV load parses every cell as text and casts
+it afterwards (`dataLayer/bulkLoad.ts:62-67`, `590-594`).
 
-The cost is limited to tables with a computed attribute. An undeclared property that the first
-exported record carries is no longer a column of an unfiltered 4.7 export. A filtered 4.7 export
-already left such properties out, because its `['*']` header lists only declared attributes, and so
-does a Harper 5 export of a schema-defined table (the same `getColumns`, with no select).
+Harper's own `text/csv` answer can't carry undeclared properties, whatever the select. Its writer
+takes the header from the result's `getColumns()`, or failing that from the first record's keys,
+and fixes it before the first row (harper `v5.3.2`, `server/serverHelpers/contentTypes.ts:106-116`
+and `858-868`). `search_by_conditions` keeps `getColumns`, which lists only declared attributes and
+expands a `'*'` in the select to all of them, so a name ahead of the `'*'` shows up twice
+(`resources/Table.ts:5531-5544`). `search_by_value` collects its results into a plain array first
+(`dataLayer/search.ts:21-31`), so its header is the first record's keys: a property that record
+lacks, declared or not, is no column. With `Thing` records `a1 {tags, color, owners, size}`,
+`a2 {note, color}` and `a3 {weight}`, every form of the request lost columns on 5.3.2 (and the same
+ones, in another order, on harperdb 4.7.40):
+
+| Request (`Accept: text/csv`)                  | Header                                                   |
+| --------------------------------------------- | -------------------------------------------------------- |
+| `search_by_value`, `['*']`                    | `id, price, taxRate, tags, color, owners, size`          |
+| `search_by_value`, the declared names (#1836) | `id, note, price, tags, taxRate, totalPrice`             |
+| `search_by_conditions`, `['*']`               | `id, note, price, tags, taxRate`                         |
+| `search_by_conditions`, `['totalPrice', '*']` | `totalPrice, id, note, price, tags, taxRate, totalPrice` |
+
+The JSON answer to the grid's select carries everything: Harper resolves each name, then copies
+every key of the stored record for the `'*'` (`resources/Table.ts:6569-6583`). The computed names
+go first because a select that starts with `'*'` is dropped on a schema-defined table
+(`dataLayer/harperBridge/ResourceBridge.ts:735-750`). On both versions it returned `note`, `color`,
+`owners`, `size` and `weight` with `totalPrice`, and the export wrote them all.
+
+The JSON is read as text and parsed with [`parseJsonKeepingLargeIntegers`](functions/tableCsv.ts).
+Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. Where the
+browser hands a reviver the source text, such an integer keeps its digits (`JSON.rawJSON`).
+
+It all sits in memory at once, as the `text/csv` answer did: the export is one request of up to
+1,000,000 records, and the header can't be written until every record has been read.
 
 ## Columns for undeclared properties come from the rows on screen
 

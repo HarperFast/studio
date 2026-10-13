@@ -7,6 +7,7 @@ import { InstanceAttribute } from '@/integrations/api/api.patch';
 import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
 import { autoCast } from '@/lib/casting/autoCast';
 import { queryOptions } from '@tanstack/react-query';
+import { ResponseType } from 'axios';
 
 interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	enabled: boolean;
@@ -21,7 +22,8 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	getAttributes?: GetAttribute[];
 	/** Set only once the user has agreed to a filter no index can answer (see `fullScanAttributes`). */
 	allowFullScan?: boolean;
-	headers?: Record<string, any>;
+	/** `'text'` hands back the body unparsed. */
+	responseType?: ResponseType;
 }
 
 type Comparator =
@@ -124,7 +126,7 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	onlyIfCached,
 	getAttributes,
 	allowFullScan,
-	headers,
+	responseType,
 }: Omit<GetSearchByConditionsParams, 'enabled'> & { limit?: number }) {
 	return instanceClient.post<T[]>(
 		'/',
@@ -143,7 +145,7 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByConditionsRequest,
-		{ timeout: 0, headers },
+		{ timeout: 0, responseType },
 	);
 }
 
