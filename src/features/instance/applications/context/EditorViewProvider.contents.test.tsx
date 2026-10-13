@@ -94,7 +94,6 @@ function Probe() {
 
 const neverSettles = new Promise<never>(() => {});
 
-/** Suspends whenever `path` is the open entry, so a transition opening it renders but never commits. */
 function SuspendWhileOpen({ path }: { path: string }) {
 	if (useEditorView().openedEntry?.path === path) {
 		throw neverSettles;

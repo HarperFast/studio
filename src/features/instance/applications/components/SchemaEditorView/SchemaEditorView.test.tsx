@@ -345,7 +345,10 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		);
 	});
 
-	it('keeps edits made while a save is in flight, and saves them next', async () => {
+	it.each([
+		['once they are stored', false],
+		['while session storage still holds what was saved', true],
+	])('keeps edits made while a save is in flight %s, and saves them next', async (_, storageTrails) => {
 		renderEditor();
 		await openEntry(newSchema, 'No tables yet.');
 		fireEvent.click(screen.getByRole('button', { name: /add table/i }));
@@ -356,11 +359,17 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		await waitFor(() => expect(screen.getByLabelText('Database')).toBeTruthy());
 
 		type('Database', 'punch');
+		if (storageTrails) {
+			const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${newSchema.path}`))!;
+			sessionStorage.setItem(key, JSON.stringify('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n'));
+		}
+		const buffer = watchBuffer(newSchema.path);
 		await act(async () => finishWrite());
 		await waitFor(() => expect(server.state.saves).toHaveLength(1));
 		await waitFor(() => expect(buffered(newSchema.path)).toContain('database: "punch"'));
 
 		expect(server.state.saves[0].payload).toBe('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n');
+		expect(buffer.removed() > 0).toBe(storageTrails);
 		expect(screen.getByLabelText<HTMLInputElement>('Database').value).toBe('punch');
 		expect((await save()).payload).toBe(
 			'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',
