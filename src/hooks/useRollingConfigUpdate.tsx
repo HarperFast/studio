@@ -213,6 +213,10 @@ export function useRollingConfigUpdate(
 				failed: instancesFailed,
 				unanswered: instancesUnanswered,
 				untouched: instancesUntouched,
+				// Every member Cancel reached first lands in none of the counts.
+				canceled: canceled && instancesUntouched === undefined
+					? targets.length - instancesRestarted - instancesFailed - instancesUnanswered
+					: 0,
 			}, 'updated');
 			if (canceled && !uncertain) {
 				toast.error('Cancelled', {

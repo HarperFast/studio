@@ -296,6 +296,39 @@ describe('useRestartClusterClick, for a member whose restart got no answer', () 
 		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
 		expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe('Error');
 	});
+
+	it('stops there when Studio cannot confirm it came back either, rather than restart the next member', async () => {
+		vi.mocked(waitUntilAnsweringAfterRestart).mockRejectedValueOnce(new Error('timeout of 3000ms exceeded'));
+		restartsEndingIn({ 'ins-b': answeredWith(504) });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(getRestartState('ins-b')).toBeUndefined();
+		expect(finalError()).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: 'Only 1 "RUNNING" instance was confirmed restarted of 3 instances. '
+				+ `${describeUnansweredWrites(1)} `
+				+ "Studio couldn't confirm it came back either, so it may still be starting. "
+				+ '1 other instance was not restarted, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+	});
+
+	it('names the members a Cancel left alone, beside the warning, when Cancel lands while waiting on it', async () => {
+		vi.mocked(waitUntilAnsweringAfterRestart).mockImplementationOnce(async () => cancel());
+		restartsEndingIn({ 'ins-b': answeredWith(504) });
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+		expect(finalError()).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: 'Only 1 "RUNNING" instance was confirmed restarted of 3 instances. '
+				+ `${describeUnansweredWrites(1)} `
+				+ '1 other instance was not restarted: Cancel stopped it there.',
+		});
+	});
 });
 
 describe('useRestartClusterClick, for a member that accepted the restart but was never confirmed back', () => {
@@ -306,7 +339,6 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 	});
 
 	it('stops there rather than restart another member, and never says the cluster failed', async () => {
-		// Last member first: ins-c restarts, ins-b accepts and never comes back, ins-a is left alone.
 		restartsEndingIn({ 'ins-b': notBackYet() });
 
 		await clickRestart();
@@ -353,7 +385,6 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 		await vi.waitFor(() => expect(restarted).toEqual(['ins-c', 'ins-b']));
 
 		expect(getRestartState('ins-b')?.reach).toBe('down');
-		// Still held past the old five-minute mark: each mark lasts as long as its member's watch can.
 		const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60_000);
 		expect(getRestartState('ins-b')?.reach).toBe('down');
 		expect(getRestartState('clu-1')).toBeDefined();

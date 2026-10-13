@@ -30,6 +30,10 @@ interface RollingOutcome {
 	unanswered: number;
 	/** Set when a member never came back and the loop stopped there: the members after it, left alone. */
 	untouched?: number;
+	/** The member the loop stopped at got no verdict on its restart, rather than accepting it. */
+	stoppedOnNoVerdict?: boolean;
+	/** Members a Cancel left alone. */
+	canceled?: number;
 }
 
 /**
@@ -37,7 +41,7 @@ interface RollingOutcome {
  * known; undefined when every outcome is.
  */
 export function describeUncertainRollingOutcome(
-	{ total, confirmed, failed, unanswered, untouched }: RollingOutcome,
+	{ total, confirmed, failed, unanswered, untouched, stoppedOnNoVerdict, canceled = 0 }: RollingOutcome,
 	verb: 'restarted' | 'updated',
 ): { title: string; description: string } | undefined {
 	if (!unanswered && untouched === undefined) {
@@ -52,14 +56,21 @@ export function describeUncertainRollingOutcome(
 			failed > 0
 			&& `${pluralize(failed, 'instance', 'instances')} failed to ${verb === 'restarted' ? 'restart' : 'update'}.`,
 			unanswered > 0 && describeUnansweredWrites(unanswered),
-			untouched !== undefined && describeNoReturn(untouched, verb),
+			untouched !== undefined && describeNoReturn(untouched, verb, stoppedOnNoVerdict ? unanswered : 0),
+			canceled > 0
+			&& `${pluralize(canceled, 'other instance was', 'other instances were')} not ${verb}: Cancel stopped it there.`,
 		].filter(excludeFalsy).join(' '),
 	};
 }
 
-function describeNoReturn(untouched: number, verb: 'restarted' | 'updated'): string {
+/** `unanswered` is non-zero when the member it stopped at got no verdict, and counts those requests. */
+function describeNoReturn(untouched: number, verb: 'restarted' | 'updated', unanswered: number): string {
 	const leftAlone = pluralize(untouched, 'other instance was', 'other instances were');
-	return "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
+	const notBack = !unanswered
+		? "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
+		: `Studio couldn't confirm ${unanswered === 1 ? 'it' : 'the last of them'} came back either, so it may still be `
+			+ 'starting. ';
+	return notBack
 		+ (untouched > 0 ? `${leftAlone} not ${verb}, to keep the cluster available. ` : '')
 		+ 'Check its status before you restart it again.';
 }

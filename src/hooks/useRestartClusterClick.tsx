@@ -81,6 +81,7 @@ export function useRestartClusterClick(
 			let instancesUnanswered = 0;
 			let instancesFailed = 0;
 			let instancesUntouched: number | undefined;
+			let instancesStoppedOnNoVerdict = false;
 
 			// One instance at a time, so the cluster stays reachable through the others unless it has only
 			// one. The TTLs only matter if this loop dies without reaching `finally`.
@@ -148,7 +149,13 @@ export function useRestartClusterClick(
 									id: toastId,
 									description: 'Waiting for it to answer before carrying on.',
 								});
-								await waitUntilAnsweringAfterRestart({ instanceClient }).catch(() => undefined);
+								const back = await waitUntilAnsweringAfterRestart({ instanceClient }).then(() => true, () => false);
+								if (!back) {
+									// As down as a member that accepted the restart and is not back: stop here too.
+									instancesUntouched = targets.length - i - 1;
+									instancesStoppedOnNoVerdict = true;
+									break;
+								}
 							}
 							if (i + 1 !== targets.length) {
 								// If it fails to restart, or wasn't available, warn for a bit then move on.
@@ -176,6 +183,11 @@ export function useRestartClusterClick(
 				failed: instancesFailed,
 				unanswered: instancesUnanswered,
 				untouched: instancesUntouched,
+				stoppedOnNoVerdict: instancesStoppedOnNoVerdict,
+				// Every member Cancel reached first lands in none of the counts.
+				canceled: canceled && instancesUntouched === undefined
+					? targets.length - instancesRestarted - instancesFailed - instancesUnanswered
+					: 0,
 			}, 'restarted');
 			if (canceled && !uncertain) {
 				toast.error('Cancelled', {

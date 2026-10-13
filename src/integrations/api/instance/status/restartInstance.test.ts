@@ -119,7 +119,6 @@ describe('restartInstance', () => {
 		expect(error).toBeInstanceOf(RestartUnconfirmedError);
 		expect((error as RestartUnconfirmedError).cause).toBeInstanceOf(AxiosError);
 		expect((error as RestartUnconfirmedError).cause).toMatchObject({ code: AxiosError.ECONNABORTED });
-		// Sent once: Harper accepted it, so nothing here may send it again.
 		expect(sent.filter((operation) => operation === 'restart')).toHaveLength(1);
 		expect(probesSent()).toBe(24);
 		// One settle, then every probe 15s after the last: the schedule RESTART_MARK_TTL_MS is derived from.
@@ -128,7 +127,6 @@ describe('restartInstance', () => {
 
 	it('fits its request, every probe and every wait inside RESTART_MARK_TTL_MS', async () => {
 		const client = instanceClient({ restart: ok(ACCEPTED), userInfo: timingOut });
-		// Whatever the client's own default, the restart request carries its own bound.
 		client.defaults.timeout = 0;
 		const timeouts: number[] = [];
 		const adapter = client.defaults.adapter as (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>;
