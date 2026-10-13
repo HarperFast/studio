@@ -4,7 +4,11 @@ import {
 	calculateRootEntries,
 } from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
 import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
-import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
+import {
+	discardEditorFileContentIfSaved,
+	editorFileContentKey,
+	useEditorFileContentId,
+} from '@/features/instance/applications/context/editorFileContent';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import {
@@ -22,7 +26,7 @@ import { setWatchedValue } from '@/lib/events/watcher';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
@@ -46,10 +50,12 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const instanceParams = useInstanceClientIdParams();
 	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | undefined>(undefined);
 	const openedEntryKey = entryKeyOf(instanceParams.entityId, openedEntry?.path);
+	// Committed entries only: a render can be discarded before it commits.
 	const openedEntryKeyRef = useRef(openedEntryKey);
-	openedEntryKeyRef.current = openedEntryKey;
-	// Contents are handed out only with the entry they were loaded for: they load in an effect, which
-	// runs after the children's, so for a render after a switch they still describe the previous entry.
+	useLayoutEffect(() => {
+		openedEntryKeyRef.current = openedEntryKey;
+	}, [openedEntryKey]);
+	// Contents are scoped to the entry (instance and path) they were loaded for.
 	const [loadedContents, setLoadedContents] = useState<LoadedContents>({ entryKey: undefined, contents: undefined });
 	const openedEntryContents = loadedContents.entryKey === openedEntryKey ? loadedContents.contents : undefined;
 	const setOpenedEntryContents = useCallback<EditorViewContextValue['setOpenedEntryContents']>(contents => {
@@ -63,7 +69,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				: contents,
 		}));
 	}, [openedEntryKey]);
-	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntry?.path);
+	const editorFileContentId = useEditorFileContentId();
 	const baseURL = useEntityRestURL();
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
@@ -169,7 +175,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		project: projectToLoad,
 		...instanceParams,
 	});
-	const { data: getComponentFileQueryData } = useQuery(
+	const { data: getComponentFileQueryData, isError: openedEntryReadFailed } = useQuery(
 		getComponentFileQueryOptions(
 			{
 				file: fileToLoad,
@@ -201,6 +207,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const saveFile = useCallback(
 		(data: SetComponentFileRequest, filePath: string) => {
 			const savedKey = entryKeyOf(instanceParams.entityId, filePath);
+			const bufferKey = editorFileContentKey(editorFileContentId, filePath);
 			saveComponentFile(data, {
 				onSuccess: () => {
 					const { payload } = data;
@@ -213,11 +220,10 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 						previous =>
 							({ ...previous, project: data.project, file: data.file, message: payload }) as GetComponentFileResponse,
 					);
-					// Only if still open: once another entry is, the buffer setter below is that entry's.
+					// Edits made while the save was in flight are newer than it, so they stay.
+					discardEditorFileContentIfSaved(bufferKey, payload);
 					if (openedEntryKeyRef.current === savedKey) {
-						// Edits made while the save was in flight aren't saved yet, so they stay.
-						setUpdatedEntryContents(current => current === payload ? undefined : current);
-						// An emptied file is still loaded: its contents are '', not unknown.
+						// '' included: an emptied file is loaded, not unknown.
 						setLoadedContents({ entryKey: savedKey, contents: payload });
 					}
 				},
@@ -226,13 +232,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[
-			fileQueryKey,
-			instanceParams.entityId,
-			queryClient,
-			saveComponentFile,
-			setUpdatedEntryContents,
-		],
+		[editorFileContentId, fileQueryKey, instanceParams.entityId, queryClient, saveComponentFile],
 	);
 
 	const restrictPackageModification = useMemo(() => isProtectedEntry(openedEntry), [openedEntry]);
@@ -259,6 +259,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 
 			openedEntryContents,
 			setOpenedEntryContents,
+			openedEntryReadFailed,
 
 			saveFile,
 			isSavingFile,
@@ -281,6 +282,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 
 		openedEntryContents,
 		setOpenedEntryContents,
+		openedEntryReadFailed,
 
 		saveFile,
 		isSavingFile,

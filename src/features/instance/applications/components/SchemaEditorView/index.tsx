@@ -29,15 +29,17 @@ import { documentTables, hasUnmodeledContent, parseDocument, schemaEditorReducer
 import { TableCard } from './TableCard';
 
 export function SchemaEditorView() {
-	const { openedEntry, openedEntryContents } = useEditorView();
+	const { openedEntry, openedEntryContents, openedEntryReadFailed } = useEditorView();
 	const path = !!openedEntry && !openedEntry.package && openedEntry.path;
 	const { content: updatedFileContent, setContent } = useEditorFileContent(path);
 
-	// The editor needs the saved contents as its baseline, unsaved edits or not: against an unknown one
-	// an emptied draft reads as unchanged and is dropped, and an early table replaces the file. A draft
-	// waits in session storage until a read succeeds.
-	if (!openedEntry || openedEntryContents === undefined) {
+	if (!openedEntry) {
 		return null;
+	}
+	// The visual editor needs the saved contents as its baseline: against an unknown one, an emptied
+	// draft reads as unchanged and is dropped. When the read failed, an unsaved draft is still shown as text.
+	if (openedEntryContents === undefined) {
+		return openedEntryReadFailed && updatedFileContent !== undefined ? <TextEditorView /> : null;
 	}
 	return (
 		<LoadedSchemaEditorView
@@ -73,11 +75,9 @@ function LoadedSchemaEditorView({
 	const [showSource, setShowSource] = useState(() => !canUseVisual);
 	const [pendingAddTable, setPendingAddTable] = useState(false);
 
-	// Re-derive the doc from the buffer on return from the text editor, and when the saved contents
-	// change (a save lands, or a refetch) under a doc with no edits of its own: edits made during a
-	// save are newer than it. Not on `updatedFileContent`, or our own visual edits would be re-parsed
-	// away. This must happen during render, so the buffer sync below never pairs an old doc with new
-	// contents.
+	// Reconciled during render, before the buffer sync below can see the doc, and never on our own
+	// buffer writes. A doc with edits of its own keeps them when the saved contents change: edits made
+	// during a save are newer than it.
 	const [derivedFrom, setDerivedFrom] = useState({ savedContents, showSource });
 	if (derivedFrom.savedContents !== savedContents || derivedFrom.showSource !== showSource) {
 		setDerivedFrom({ savedContents, showSource });
@@ -105,8 +105,7 @@ function LoadedSchemaEditorView({
 	useListener(
 		'SaveFile',
 		() => {
-			// The schema on screen, not the buffer, is what is saved: another subscriber to the buffer
-			// can echo back a value that trails it.
+			// The schema on screen is what is saved, not the shared buffer, which can trail it.
 			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === savedContents) {
 				return;
 			}

@@ -9,7 +9,9 @@ vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ entityId: 'instance-1', entityType: 'instance' }),
 }));
 vi.mock('@/features/instance/applications/context/editorFileContent', () => ({
-	useEditorFileContent: () => ({ setContent: vi.fn() }),
+	useEditorFileContentId: () => 'instance-1',
+	editorFileContentKey: (id: string, path: string) => `EditorFileContent/${id}}/${path}`,
+	discardEditorFileContentIfSaved: vi.fn(),
 }));
 vi.mock('@/hooks/useSessionStorage', async () => {
 	const { useState } = await import('react');

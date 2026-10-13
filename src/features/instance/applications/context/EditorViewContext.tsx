@@ -18,6 +18,8 @@ export type EditorViewContextValue = {
 	setOpenedEntryContents: (
 		contents: (string | undefined) | ((existingContents: string | undefined) => string | undefined),
 	) => void;
+	/** Reading the opened entry's contents failed: `openedEntryContents` stays unknown until a read succeeds. */
+	openedEntryReadFailed: boolean;
 
 	focusedItem: TreeItemIndex | undefined;
 	setFocusedItem: (
