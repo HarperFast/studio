@@ -173,6 +173,10 @@ describe('useRestartInstanceClick', () => {
 			await vi.waitFor(() => expect(answer).toBeDefined());
 
 			expect(isRestarting('ins-1')).toBe(true);
+			// Still held past the old five-minute mark: the mark lasts as long as the watch can.
+			const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60_000);
+			expect(isRestarting('ins-1')).toBe(true);
+			clock.mockRestore();
 			expect(result.current.isRestartPending).toBe(true);
 			expect(toast.loading).toHaveBeenLastCalledWith('Still restarting', {
 				id: 'restart-toast',

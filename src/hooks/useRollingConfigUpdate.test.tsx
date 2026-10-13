@@ -571,6 +571,30 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 		expect(finalError().description).toContain('Failed to fully update cluster.');
 	});
 
+	it('names a member that refused the update alongside the one not back', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29'), instance('ins-c', '5.1.29')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient }) => {
+			events.push(`write ${targetOf(instanceClient)}`);
+			if (targetOf(instanceClient) === 'ins-c') {
+				throw new Error('Invalid configuration');
+			}
+			return { message: 'ok' };
+		});
+		notBackAfterRestart('ins-b');
+
+		await save();
+
+		expect(events).toEqual(['check ins-c', 'write ins-c', 'check ins-b', 'write ins-b', 'restart ins-b']);
+		expect(finalError()).toEqual({
+			title: 'Not back yet',
+			description: 'Only 0 "RUNNING" instances were confirmed updated of 3 instances. '
+				+ '1 instance failed to update. '
+				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
+				+ '1 other instance was not updated, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+	});
+
 	it('never fans the configuration out from a canary that is not back', async () => {
 		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
 		notBackAfterRestart('ins-c');

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { getInstanceClient } from '@/config/getInstanceClient';
-import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { RESTART_MARK_TTL_MS, restartInstance } from '@/integrations/api/instance/status/restartInstance';
 import { RestartUnconfirmedError } from '@/integrations/api/instance/status/restartUnconfirmed';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { shouldKeepEvent } from '@/integrations/datadog/shouldKeepEvent';
@@ -124,6 +124,25 @@ describe('restartInstance', () => {
 		expect(probesSent()).toBe(24);
 		// One settle, then every probe 15s after the last: the schedule RESTART_MARK_TTL_MS is derived from.
 		expect(vi.mocked(sleep).mock.calls.map(([ms]) => ms)).toEqual([10_000, ...Array(23).fill(15_000)]);
+	});
+
+	it('fits its request, every probe and every wait inside RESTART_MARK_TTL_MS', async () => {
+		const client = instanceClient({ restart: ok(ACCEPTED), userInfo: timingOut });
+		// Whatever the client's own default, the restart request carries its own bound.
+		client.defaults.timeout = 0;
+		const timeouts: number[] = [];
+		const adapter = client.defaults.adapter as (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>;
+		client.defaults.adapter = (config: InternalAxiosRequestConfig) => {
+			timeouts.push(config.timeout ?? Number.POSITIVE_INFINITY);
+			return adapter(config);
+		};
+
+		await failureOf(restartInstance({ operation: 'restart', replicated: false, instanceClient: client }));
+
+		expect(timeouts[0]).toBe(60_000);
+		expect(timeouts).toHaveLength(25);
+		const waited = vi.mocked(sleep).mock.calls.reduce((total, [ms = 1000]) => total + ms, 0);
+		expect(timeouts.reduce((total, ms) => total + ms, 0) + waited).toBeLessThan(RESTART_MARK_TTL_MS);
 	});
 
 	it('sends each probe once, even when a gateway answers it', async () => {
