@@ -1,4 +1,4 @@
-import { getSessionStorage } from '@/lib/storage/getSessionStorage';
+import { readSessionValue } from '@/lib/storage/sessionStorageStore';
 import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { inputSchema } from '@harperfast/agent-tools/tools/getUserContext/inputSchema';
 import { z } from 'zod';
@@ -57,15 +57,15 @@ export async function execute(
 		};
 	}
 
-	const focusedItem = getSessionStorage(
+	const focusedItem = readSessionValue(
 		`FileFocused/${instanceClientParams.entityId}` as 'FileFocused/{entityId}',
 		undefined,
 	);
-	const expandedItems = getSessionStorage(
+	const expandedItems = readSessionValue(
 		`FolderOpened/${instanceClientParams.entityId}` as 'FolderOpened/{entityId}',
 		[],
 	);
-	const selectedItems = getSessionStorage(
+	const selectedItems = readSessionValue(
 		`FileSelected/${instanceClientParams.entityId}` as 'FileSelected/{entityId}',
 		[],
 	);

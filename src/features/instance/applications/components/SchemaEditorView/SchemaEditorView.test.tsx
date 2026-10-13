@@ -8,6 +8,8 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { emitToListeners } from '@/lib/events/listener';
+import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
+import { readSessionValue, writeSessionValue } from '@/lib/storage/sessionStorageStore';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
@@ -181,7 +183,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
-	sessionStorage.clear();
+	clearSessionStorage();
 	server.state.pendingRead = undefined;
 	server.state.failReads = false;
 	server.state.pendingWrite = undefined;
@@ -336,9 +338,8 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		type('Table (type) name', 'Thing');
 		type('Database', 'punch');
 
-		// Another subscriber to the buffer echoes back a value from before the edits above.
 		const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${newSchema.path}`))!;
-		act(() => emitToListeners(`Session:${key}` as 'Session:{key}', trailing));
+		act(() => writeSessionValue(key as 'EditorFileContent/{entityId}/{path}', undefined, trailing));
 
 		expect((await save()).payload).toBe(
 			'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',
@@ -358,18 +359,31 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		act(() => emitToListeners('SaveFile', true));
 		await waitFor(() => expect(screen.getByLabelText('Database')).toBeTruthy());
 
-		type('Database', 'punch');
+		const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${newSchema.path}`))!;
 		if (storageTrails) {
-			const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${newSchema.path}`))!;
-			sessionStorage.setItem(key, JSON.stringify('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n'));
+			// A full quota refuses the edit, so session storage keeps what is being saved.
+			const refused = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+				throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+			});
+			vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+			type('Database', 'punch');
+			refused.mockRestore();
+			expect(buffered(newSchema.path)).toBe('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n');
+		} else {
+			type('Database', 'punch');
 		}
 		const buffer = watchBuffer(newSchema.path);
 		await act(async () => finishWrite());
 		await waitFor(() => expect(server.state.saves).toHaveLength(1));
-		await waitFor(() => expect(buffered(newSchema.path)).toContain('database: "punch"'));
+		await waitFor(() =>
+			expect(readSessionValue(key as 'EditorFileContent/{entityId}/{path}', undefined)).toContain('database: "punch"')
+		);
 
 		expect(server.state.saves[0].payload).toBe('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n');
-		expect(buffer.removed() > 0).toBe(storageTrails);
+		expect(buffer.removed()).toBe(0);
+		if (!storageTrails) {
+			expect(buffered(newSchema.path)).toContain('database: "punch"');
+		}
 		expect(screen.getByLabelText<HTMLInputElement>('Database').value).toBe('punch');
 		expect((await save()).payload).toBe(
 			'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',

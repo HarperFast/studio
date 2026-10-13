@@ -3,6 +3,7 @@
  */
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { useListener } from '@/lib/events/listener';
+import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { WatchedValuesTypeMap } from '@/lib/storage/watchedValueKeys';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -70,7 +71,7 @@ beforeAll(() => {
 
 afterEach(() => {
 	cleanup();
-	sessionStorage.clear();
+	clearSessionStorage();
 	route.params = {};
 	route.navigate.mockReset();
 	permission.canManage = true;
