@@ -9,15 +9,31 @@ import { queryClient } from '@/react-query/queryClient';
  * same-tab sign-in as another user.
  */
 export function clearAuthStateLocally(): void {
-	for (
-		const step of [
-			() => authStore.signOutAllLocally(),
-			() => queryClient.getMutationCache().clear(),
-			() => queryClient.getQueryCache().clear(),
-			clearLocalStorage,
-			clearSessionStorage,
-		]
-	) {
+	runEvery([
+		() => authStore.signOutAllLocally(),
+		() => queryClient.getMutationCache().clear(),
+		() => queryClient.getQueryCache().clear(),
+		clearLocalStorage,
+		clearSessionStorage,
+	]);
+}
+
+/**
+ * This tab's half of a sign-out another tab made: the same clears as {@link clearAuthStateLocally}, except
+ * the `localStorage` both tabs share, which the tab that signed out clears and this one must not write
+ * (`authStore.forgetAppSignInEndedElsewhere`).
+ */
+export function clearAuthStateAfterSignOutElsewhere(): void {
+	runEvery([
+		() => authStore.forgetAppSignInEndedElsewhere(),
+		() => queryClient.getMutationCache().clear(),
+		() => queryClient.getQueryCache().clear(),
+		clearSessionStorage,
+	]);
+}
+
+function runEvery(steps: Array<() => void>): void {
+	for (const step of steps) {
 		try {
 			step();
 		} catch (error) {
