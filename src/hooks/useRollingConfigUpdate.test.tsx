@@ -34,7 +34,10 @@ vi.mock('@/features/auth/store/authStore', () => ({
 }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({ getClusterInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo: vi.fn() }));
-vi.mock('@/integrations/api/instance/status/restartInstance', () => ({ restartInstance: vi.fn() }));
+vi.mock('@/integrations/api/instance/status/restartInstance', () => ({
+	restartInstance: vi.fn(),
+	waitUntilAnsweringAfterRestart: vi.fn(),
+}));
 vi.mock('@/integrations/api/instance/status/setConfiguration', async (importOriginal) => ({
 	...await importOriginal<typeof import('@/integrations/api/instance/status/setConfiguration')>(),
 	setConfiguration: vi.fn(),
@@ -46,7 +49,7 @@ vi.mock('sonner', () => ({
 
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import { setConfiguration } from '@/integrations/api/instance/status/setConfiguration';
 import { toast } from 'sonner';
 import { useRollingConfigUpdate } from './useRollingConfigUpdate';
@@ -119,6 +122,7 @@ beforeEach(() => {
 		events.push(`restart ${targetOf(instanceClient)}`);
 		return { message: 'ok' };
 	});
+	vi.mocked(waitUntilAnsweringAfterRestart).mockResolvedValue(undefined);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -511,10 +515,6 @@ function cancel() {
 	(options as unknown as { action: { onClick: () => void } }).action.onClick();
 }
 
-/**
- * Restarts record `restart <target>` as usual; the targets listed accept the restart but are never
- * confirmed back, after saying once that they are slow.
- */
 function notBackAfterRestart(...targets: string[]) {
 	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
 		events.push(`restart ${targetOf(instanceClient)}`);
@@ -670,6 +670,83 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 				+ `${describeUnansweredWrites(1)} `
 				+ '1 other instance was not updated: Cancel stopped it there.',
 		});
+	});
+
+	it('stops at a member whose restart got no verdict when Studio cannot confirm it came back either', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: '{"operation":"restart_service"}',
+			} as InternalAxiosRequestConfig);
+		});
+		vi.mocked(waitUntilAnsweringAfterRestart).mockRejectedValueOnce(new Error('timeout of 3000ms exceeded'));
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
+		expect(finalError()).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: 'Only 0 "RUNNING" instances were confirmed updated of 2 instances. '
+				+ `${describeUnansweredWrites(1)} `
+				+ "Studio couldn't confirm it came back either, so it may still be starting. "
+				+ '1 other instance was not updated, to keep the cluster available. '
+				+ 'Check its status before you restart it again.',
+		});
+	});
+
+	it('does not wait on a member whose configuration write got no verdict, since nothing restarted it', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient }) => {
+			events.push(`write ${targetOf(instanceClient)}`);
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+					method: 'post',
+					data: '{"operation":"set_configuration"}',
+				} as InternalAxiosRequestConfig);
+			}
+			return { message: 'ok' };
+		});
+
+		await save();
+
+		expect(waitUntilAnsweringAfterRestart).not.toHaveBeenCalled();
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'check ins-a', 'write ins-a', 'restart ins-a']);
+	});
+
+	it('honors a Cancel clicked during the configuration write before restarting, and says it may be pending', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient }) => {
+			events.push(`write ${targetOf(instanceClient)}`);
+			cancel();
+			return { message: 'ok' };
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b']);
+		expect(finalError()).toEqual({
+			title: 'Cancelled',
+			description: 'The config update was partially cancelled. Instances that were not restarted may already '
+				+ 'have the new configuration saved, and will apply it the next time they restart.',
+		});
+	});
+
+	it('brings its waiting toast back without a second Cancel once Cancel was clicked', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			cancel();
+			onSlowToReturn?.();
+			return { message: 'Restarting http' };
+		});
+
+		await save();
+
+		const [, options] = vi.mocked(toast.loading).mock.calls.find(([title]) => title === 'Waiting On Instance 1 of 2')!;
+		expect(options).not.toHaveProperty('action');
+		expect(options?.description).toContain('Cancelled: no other instance will be updated.');
 	});
 
 	it('keeps the pending-configuration note when Cancel lands while waiting on a member after the fan-out', async () => {

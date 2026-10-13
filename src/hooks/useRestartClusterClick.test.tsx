@@ -225,10 +225,6 @@ function notBackYet() {
 	return new RestartUnconfirmedError(new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED));
 }
 
-/**
- * Each member's restart outcome, keyed by instance id: an error it rejects with, or a promise it is slow
- * to come back until. A member not listed restarts and comes back. `restarted` records the order.
- */
 function restartsEndingIn(outcomes: Record<string, Error | Promise<void>>) {
 	vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
 		const target = targetOf(instanceClient);
@@ -263,7 +259,6 @@ describe('useRestartClusterClick, for a member whose restart got no answer', () 
 	it('holds it down, and waits for it to answer, before restarting the next member', async () => {
 		let answer: (() => void) | undefined;
 		vi.mocked(waitUntilAnsweringAfterRestart).mockReturnValueOnce(new Promise<void>((resolve) => (answer = resolve)));
-		// Last member first: ins-c restarts, then ins-b's restart gets a 504.
 		restartsEndingIn({ 'ins-b': answeredWith(504) });
 		const { result } = renderHook(() => useRestartClusterClick());
 
@@ -443,6 +438,24 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 		expect(restarted).toEqual(['ins-c', 'ins-b']);
 		expect(finalError().title).toBe('Not back yet');
 		expect(vi.mocked(toast.error).mock.calls.map(([title]) => title)).not.toContain('Cancelled');
+	});
+
+	it('brings its waiting toast back without a second Cancel once Cancel was clicked', async () => {
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient, onSlowToReturn }) => {
+			restarted.push(targetOf(instanceClient));
+			if (targetOf(instanceClient) === 'ins-b') {
+				cancel();
+				onSlowToReturn?.();
+			}
+			return { message: 'Restarting Harper. This may take up to 60 seconds.' };
+		});
+
+		await clickRestart();
+
+		const [, options] = vi.mocked(toast.loading).mock.calls.find(([title]) => title === 'Waiting On Instance 2 of 3')!;
+		expect(options).not.toHaveProperty('action');
+		expect(options?.description).toContain('Cancelled: no other instance will be restarted.');
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
 	});
 
 	it('still says Cancelled when nothing was left uncertain', async () => {

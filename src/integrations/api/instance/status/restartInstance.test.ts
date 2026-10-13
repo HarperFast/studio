@@ -121,7 +121,6 @@ describe('restartInstance', () => {
 		expect((error as RestartUnconfirmedError).cause).toMatchObject({ code: AxiosError.ECONNABORTED });
 		expect(sent.filter((operation) => operation === 'restart')).toHaveLength(1);
 		expect(probesSent()).toBe(24);
-		// One settle, then every probe 15s after the last: the schedule RESTART_MARK_TTL_MS is derived from.
 		expect(vi.mocked(sleep).mock.calls.map(([ms]) => ms)).toEqual([10_000, ...Array(23).fill(15_000)]);
 	});
 

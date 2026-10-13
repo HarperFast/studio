@@ -4,7 +4,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import {
 	describeUncertainRollingOutcome,
 	RestartUnconfirmedError,
@@ -117,6 +117,9 @@ export function useRollingConfigUpdate(
 			let instancesUnanswered = 0;
 			let instancesFailed = 0;
 			let instancesUntouched: number | undefined;
+			let instancesStoppedOnNoVerdict = false;
+			// Saved on a member Cancel then kept from restarting, so pending there as after a fan-out.
+			let writtenBeforeCancel = false;
 
 			for (let i = 0; i < targets.length; i++) {
 				const { instanceClient, replicationFqdn } = targets[i];
@@ -134,6 +137,7 @@ export function useRollingConfigUpdate(
 					),
 				});
 				let restarted = false;
+				let restartSent = false;
 				try {
 					// Make sure the instance is responding.
 					await getInstanceUserInfo({
@@ -148,17 +152,25 @@ export function useRollingConfigUpdate(
 							...params,
 							instanceClient,
 						});
+						if (canceled) {
+							writtenBeforeCancel = true;
+							break;
+						}
 					}
 					// Then restart it.
+					restartSent = true;
 					await restartInstance({
 						operation: 'restart_service',
 						replicated: false,
 						instanceClient,
 						onSlowToReturn: () =>
 							toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
-								...toastConfig,
+								// A Cancel already closed the toast and stopped the loop: no second Cancel to offer.
+								...(canceled ? { duration: toastConfig.duration } : toastConfig),
 								id: toastId,
-								description: "It accepted the restart but isn't back yet.",
+								description: canceled
+									? "It accepted the restart but isn't back yet. Cancelled: no other instance will be updated."
+									: "It accepted the restart but isn't back yet.",
 							}),
 					});
 					instancesRestarted += 1;
@@ -173,6 +185,20 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
+					if (unanswered && restartSent) {
+						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
+						toast.loading(`Could Not Confirm Instance ${i + 1} of ${targets.length}`, {
+							...toastConfig,
+							id: toastId,
+							description: 'Waiting for it to answer before carrying on.',
+						});
+						const back = await waitUntilAnsweringAfterRestart({ instanceClient }).then(() => true, () => false);
+						if (!back) {
+							instancesUntouched = targets.length - i - 1;
+							instancesStoppedOnNoVerdict = true;
+							break;
+						}
+					}
 					if (i + 1 !== targets.length) {
 						// If it fails to restart, or wasn't available, warn for a bit then move on.
 						const verdict = unanswered ? 'Could Not Confirm' : 'Failed Restarting';
@@ -213,6 +239,7 @@ export function useRollingConfigUpdate(
 				failed: instancesFailed,
 				unanswered: instancesUnanswered,
 				untouched: instancesUntouched,
+				stoppedOnNoVerdict: instancesStoppedOnNoVerdict,
 				// Every member Cancel reached first lands in none of the counts.
 				canceled: canceled && instancesUntouched === undefined
 					? targets.length - instancesRestarted - instancesFailed - instancesUnanswered
@@ -221,7 +248,9 @@ export function useRollingConfigUpdate(
 			if (canceled && !uncertain) {
 				toast.error('Cancelled', {
 					id: toastId,
-					description: `The config update was partially cancelled.${fanOutAttempted ? ` ${MAY_BE_PENDING}` : ''}`,
+					description: `The config update was partially cancelled.${
+						fanOutAttempted || writtenBeforeCancel ? ` ${MAY_BE_PENDING}` : ''
+					}`,
 					duration: 10_000,
 					action: {
 						label: 'Dismiss',
@@ -256,7 +285,7 @@ export function useRollingConfigUpdate(
 								allInstances.length !== instancesRestarted
 								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 							].filter(excludeFalsy).shift() || ''))
-						+ (fanOutAttempted ? '\n' + MAY_BE_PENDING : ''),
+						+ (fanOutAttempted || writtenBeforeCancel ? '\n' + MAY_BE_PENDING : ''),
 					duration: 10_000,
 					action: {
 						label: 'Dismiss',
