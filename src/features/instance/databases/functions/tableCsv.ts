@@ -6,8 +6,8 @@ import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.
 /**
  * `get_attributes` for a CSV export: the grid's select without its relationships, whose resolved
  * records don't fit a CSV cell. Naming each `@computed` attribute ahead of the `'*'` resolves it, and
- * the `'*'` brings every property a record stores, declared or not. Returns undefined (so `['*']`)
- * when the table has no computed attribute. Why the CSV is written here and not by Harper: DESIGN.md.
+ * the `'*'` brings every property a record stores, declared or not. Why the CSV is written here and
+ * not by Harper: DESIGN.md.
  */
 export function buildExportGetAttributes(instanceTable: InstanceTable | undefined): GetAttribute[] | undefined {
 	const computed = (instanceTable?.attributes ?? [])
@@ -103,15 +103,16 @@ const MAY_HOLD_LARGE_INTEGER = /[[,:]\s*-?\d{16,}/;
 const INTEGER_SOURCE = /^-?\d+$/;
 
 /**
- * `JSON.parse`, except that an integer a double can't hold is read as a string of its digits. Harper
- * writes a `BigInt` as bare digits, which a plain parse rounds (98765432109876543210 reads as
- * 98765432109876540000), while its own CSV wrote them exactly, as a quoted cell.
+ * `JSON.parse`, except that an integer literal whose digits a double would change is read as a string
+ * of them. Harper writes a `BigInt` as bare digits, which a plain parse rounds (98765432109876543210
+ * reads as 98765432109876540000), while its own CSV wrote them exactly, as a quoted cell. A double
+ * Harper wrote (`1e17` as 100000000000000000) reads back with the same digits, so stays a number.
  */
 export function parseJsonKeepingLargeIntegers(text: string): unknown {
 	return JSON.parse(MAY_HOLD_LARGE_INTEGER.test(text) ? quoteUnsafeIntegers(text) : text);
 }
 
-/** Wraps in quotes each integer literal, outside any string, that a double can't hold. */
+// Only outside a string: digits inside one are already exact.
 function quoteUnsafeIntegers(text: string): string {
 	let quoted = '';
 	let copiedTo = 0;
@@ -133,7 +134,7 @@ function quoteUnsafeIntegers(text: string): string {
 			}
 			if (end - index >= 16) {
 				const token = text.slice(index, end);
-				if (INTEGER_SOURCE.test(token) && !Number.isSafeInteger(Number(token))) {
+				if (INTEGER_SOURCE.test(token) && String(Number(token)) !== token) {
 					quoted += `${text.slice(copiedTo, index)}"${token}"`;
 					copiedTo = end;
 				}

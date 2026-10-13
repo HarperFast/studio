@@ -241,6 +241,8 @@ describe('parseJsonKeepingLargeIntegers', () => {
 			'[{"note":"ref: 98765432109876543210"}]',
 			String.raw`[{"note":"say \"x\": 98765432109876543210"}]`,
 			'[{"micros":1760356800000000}]',
+			// Doubles past 2^53 that Harper writes as integer digits: a parse gives them back exactly.
+			'[{"float":100000000000000000,"rounded":12345678901234567000,"neg":-12345678901234567000}]',
 			'[{"ratio":0.12345678901234567890,"e":1.5e1234567890123456,"tiny":12345678901234567890e-30}]',
 		];
 		for (const text of bodies) {
