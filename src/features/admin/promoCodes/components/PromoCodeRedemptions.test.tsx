@@ -5,7 +5,7 @@ import { AdminPromoRedemption } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PromoCodeRedemptionsModal } from './PromoCodeRedemptionsModal';
+import { PromoCodeRedemptions } from './PromoCodeRedemptions';
 
 let redemptionList: AdminPromoRedemption[] = [];
 let fails = false;
@@ -41,13 +41,13 @@ const redemption = (overrides: Partial<AdminPromoRedemption>): AdminPromoRedempt
 const open = (kind: 'credit' | 'voucher') =>
 	render(
 		<TestProvider>
-			<PromoCodeRedemptionsModal code="CODE" kind={kind} onClose={() => {}} />
+			<PromoCodeRedemptions code="CODE" kind={kind} />
 		</TestProvider>,
 	);
 
 const rowFor = async (text: string) => (await screen.findByText(text)).closest('tr') as HTMLElement;
 
-describe('PromoCodeRedemptionsModal', () => {
+describe('PromoCodeRedemptions', () => {
 	it('names each organization and who redeemed, with a credit’s amount and what expired', async () => {
 		redemptionList = [
 			redemption({ creditCents: 10_000, creditExpiresAt: '2099-12-31T00:00:00.000Z' }),
