@@ -1,8 +1,8 @@
+import { breadcrumbTrail } from '@/components/breadcrumbTrail';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
 import { Cluster, Instance, Organization } from '@/integrations/api/api.patch';
-import { capitalizeWords } from '@/lib/string/capitalizeWords';
-import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
+import { Link, useLocation, useMatches, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -16,10 +16,14 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	} = useRouteContext({ strict: false });
 	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
 
-	const breadcrumbs = useMemo(() => {
-		const routeHistory = location.pathname.split('/')
-			.filter((x) => x && x.length > 0);
+	// The leaf match's own pathname, not `useLocation`'s, so the route template and the path it is read against always
+	// belong to the same navigation.
+	const leaf = useMatches({ select: (matches) => matches[matches.length - 1] });
+	const pathname = leaf?.pathname ?? location.pathname;
+	const routePath: string | undefined = leaf?.fullPath;
+	const params = leaf?.params as Record<string, unknown> | undefined;
 
+	const breadcrumbs = useMemo(() => {
 		const breadcrumbs = [
 			<Link key="home" to="/">
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
@@ -27,30 +31,12 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 			</Link>,
 		];
 
-		for (let index = 0; index < routeHistory.length; index++) {
-			const route = routeHistory[index];
-			if (route === 'instance') {
-				continue;
-			}
-
-			let path = `/${routeHistory.slice(0, index + 1).join('/')}`;
-			let name = capitalizeWords(route);
-			if (route === 'databases' && routeHistory.length === index + 3) {
-				name = routeHistory[index + 2];
-				index += 2;
-			} else if (name.startsWith('Org ')) {
-				name = organization?.name || 'Org';
-			} else if (name.startsWith('Clu ')) {
-				name = cluster?.name || 'Cluster';
-				if (routeHistory[index + 1] === 'instance') {
-					path += '/instances';
-				}
-			} else if (name.startsWith('Ins ')) {
-				name = instance?.name?.split('.')?.shift() || 'Instance';
-			} else if (name === 'Apis') {
-				name = 'APIs';
-			}
-
+		const trail = breadcrumbTrail(pathname, routePath, params ?? {}, {
+			organization: organization?.name,
+			cluster: cluster?.name,
+			instance: instance?.name,
+		});
+		for (const { path, label, title } of trail) {
 			breadcrumbs.push(
 				<svg
 					key={breadcrumbs.length + '-dash'}
@@ -64,15 +50,16 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 				<Link
 					key={path}
 					to={path}
+					title={title}
 					className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 				>
-					{name}
+					{label}
 				</Link>,
 			);
 		}
 
 		return breadcrumbs;
-	}, [location.pathname, cluster?.name, instance?.name, organization?.name]);
+	}, [pathname, routePath, params, cluster?.name, instance?.name, organization?.name]);
 
 	return (
 		<div role="list" className="flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
