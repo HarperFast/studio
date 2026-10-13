@@ -174,6 +174,18 @@ describe('EditorViewProvider openedEntryContents', () => {
 		expect(renders.slice(before).map(r => r.contents)).not.toContain(SCRIPT);
 	});
 
+	it('takes in a save that lands before the file was ever read', async () => {
+		renderProvider();
+		server.reads.pending = new Promise(() => {});
+		act(() => editorView.setOpenedEntry(script));
+		await act(async () => {});
+		expect(editorView.openedEntryContents).toBeUndefined();
+
+		await startSave(SAVED_SCRIPT)();
+
+		expect(editorView.openedEntryContents).toBe(SAVED_SCRIPT);
+	});
+
 	it('ignores a contents setter kept from an entry that is no longer open', async () => {
 		renderProvider();
 		await openEntry(script, SCRIPT);

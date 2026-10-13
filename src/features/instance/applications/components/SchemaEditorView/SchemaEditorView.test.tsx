@@ -17,6 +17,7 @@ const server = vi.hoisted(() => {
 	const state = {
 		files: {} as Record<string, string>,
 		pendingRead: undefined as Promise<void> | undefined,
+		failReads: false,
 		pendingWrite: undefined as Promise<void> | undefined,
 		saves: [] as Array<{ file: string; payload: string | undefined }>,
 	};
@@ -24,6 +25,9 @@ const server = vi.hoisted(() => {
 		post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
 			if (body.operation === 'get_component_file') {
 				await state.pendingRead;
+				if (state.failReads) {
+					throw new Error('Request failed with status code 503');
+				}
 				const message = state.files[body.file!];
 				return { data: { message, size: message.length } };
 			}
@@ -180,6 +184,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	sessionStorage.clear();
 	server.state.pendingRead = undefined;
+	server.state.failReads = false;
 	server.state.pendingWrite = undefined;
 	server.state.saves = [];
 });
@@ -271,6 +276,28 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 
 		expect(screen.queryByText('Dog')).toBeNull();
 		expect(buffered(dogSchema.path)).toBe('');
+	});
+
+	it('keeps an unsaved draft through a failed read, and shows it once a read succeeds', async () => {
+		renderEditor();
+		await openEntry(dogSchema, 'Dog');
+		fireEvent.click(screen.getByRole('button', { name: /edit as text/i }));
+		fireEvent.change(screen.getByLabelText('Source'), { target: { value: CAT } });
+		await openEntry(schemasFolder, /Your schemas are defined in/);
+		const dogQuery = ['instance-1', 'get_component_file', 'punch', 'schemas/schema.graphql', undefined];
+		queryClient.removeQueries({ queryKey: dogQuery });
+
+		server.state.failReads = true;
+		act(() => open(dogSchema));
+		await waitFor(() => expect(queryClient.getQueryState(dogQuery)?.status).toBe('error'));
+		expect(screen.queryByRole('button', { name: /add table/i })).toBeNull();
+		expect(buffered(dogSchema.path)).toBe(CAT);
+
+		server.state.failReads = false;
+		await act(() => queryClient.refetchQueries({ queryKey: dogQuery }));
+		expect(await screen.findByText('Cat')).toBeTruthy();
+		expect(screen.queryByText('Dog')).toBeNull();
+		expect(buffered(dogSchema.path)).toBe(CAT);
 	});
 
 	it('takes in refetched contents without writing the old schema into the buffer', async () => {

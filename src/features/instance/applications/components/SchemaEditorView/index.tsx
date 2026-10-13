@@ -33,9 +33,9 @@ export function SchemaEditorView() {
 	const path = !!openedEntry && !openedEntry.package && openedEntry.path;
 	const { content: updatedFileContent, setContent } = useEditorFileContent(path);
 
-	// Seed the editor only once this file's contents are known, unsaved edits or not. Until then, not
-	// loaded passes for empty: an emptied draft looks unchanged and is dropped, and a table added early
-	// replaces the file.
+	// The editor needs the saved contents as its baseline, unsaved edits or not: against an unknown one
+	// an emptied draft reads as unchanged and is dropped, and an early table replaces the file. A draft
+	// waits in session storage until a read succeeds.
 	if (!openedEntry || openedEntryContents === undefined) {
 		return null;
 	}
@@ -76,8 +76,8 @@ function LoadedSchemaEditorView({
 	// Re-derive the doc from the buffer on return from the text editor, and when the saved contents
 	// change (a save lands, or a refetch) under a doc with no edits of its own: edits made during a
 	// save are newer than it. Not on `updatedFileContent`, or our own visual edits would be re-parsed
-	// away. During render, because from an effect the buffer sync below ran once in between, with the
-	// old doc against the new contents, and wrote the old doc into the buffer.
+	// away. This must happen during render, so the buffer sync below never pairs an old doc with new
+	// contents.
 	const [derivedFrom, setDerivedFrom] = useState({ savedContents, showSource });
 	if (derivedFrom.savedContents !== savedContents || derivedFrom.showSource !== showSource) {
 		setDerivedFrom({ savedContents, showSource });
@@ -105,8 +105,8 @@ function LoadedSchemaEditorView({
 	useListener(
 		'SaveFile',
 		() => {
-			// The schema on screen decides, not the buffer: another subscriber to the buffer can echo
-			// back a value that trails the edits shown.
+			// The schema on screen, not the buffer, is what is saved: another subscriber to the buffer
+			// can echo back a value that trails it.
 			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === savedContents) {
 				return;
 			}
