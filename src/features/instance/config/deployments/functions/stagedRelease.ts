@@ -6,11 +6,12 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  * records that came after it.
  *
  * - `waiting`: nothing activated it.
- * - `activating`: an activation of it has not finished. Another one now would start a second rolling restart.
+ * - `activating`: an activation of it has not finished. Another one now would start a second rolling restart, unless
+ *   the first stopped without recording an end, which nothing here can tell apart.
  * - `live`: its newest activation is the component's newest successful deploy, every node it reached took it, and
- *   no deploy after it failed. Activating it again swaps nothing and only restarts every worker (harper
- *   `components/Application.ts:4812-4821`, `operations.js:956`). The record cannot say whether the rolling restart
- *   that followed finished (`src/features/instance/applications/DESIGN.md`).
+ *   no deploy after it failed. A deploy still running does not count. Activating it again swaps nothing and only
+ *   restarts every worker (harper `components/Application.ts:4812-4821`, `operations.js:956`). The record cannot say
+ *   whether the rolling restart that followed finished (`src/features/instance/applications/DESIGN.md`).
  * - `replaced`: a later deploy succeeded. Each node keeps the release it displaced, so activating this one again is a
  *   rollback, for as long as retention keeps it.
  * - `uncertain`: a deploy that touched it failed somewhere: its activation (`activation` absent, or `failed` is the

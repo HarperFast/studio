@@ -1,9 +1,12 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { useMemo } from 'react';
 import { StagedReleaseState } from '../functions/stagedRelease';
 import { useStagedReleases } from '../hooks/useStagedReleases';
 import { ActivateStagedRelease } from './ActivateStagedRelease';
 import { DeploymentLink } from './StagedReleaseNote';
+
+const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
 
 function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { kind: 'uncertain' }> }) {
 	const { activation, failed } = release;
@@ -43,15 +46,16 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 					&& "Staged. Couldn't read the deployments since, so it may already be live: activating a live release restarts every node without changing anything."}
 				{release?.kind === 'activating' && (
 					<>
-						Being activated by{' '}
-						<DeploymentLink deployment={release.activation} />, which has not finished. Activating it again before then
-						starts a second rolling restart.
+						Being activated by <DeploymentLink deployment={release.activation} />, which{' '}
+						{release.activation.started_at ? `started ${ago(release.activation.started_at)} and ` : ''}has not finished.
+						While it runs, activating it again starts a second rolling restart. If it stopped without finishing,
+						activate it again.
 					</>
 				)}
 				{release?.kind === 'live' && (
 					<>
-						Live: activated by <DeploymentLink deployment={release.activation} />, and nothing has been deployed to{' '}
-						{deployment.project} since, so there is nothing to activate.
+						Live: activated by <DeploymentLink deployment={release.activation} />, and no other deploy of{' '}
+						{deployment.project} has finished since, so there is nothing to activate.
 					</>
 				)}
 				{release?.kind === 'replaced' && (
