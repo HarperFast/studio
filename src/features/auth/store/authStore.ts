@@ -100,8 +100,8 @@ class AuthStore {
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 
 	private readonly appSignOutKey = 'Studio:AppSignOut';
-	// The last app user central manager confirmed, kept through the blanking a sweep or a check does until a
-	// sign-out announces them: the session that ends is theirs.
+	// The last app user this tab held, kept through the blanking a sweep or a check does until a sign-out
+	// announces them or a follower drops them: the session that ends is theirs.
 	private heldAppUser: string | null = null;
 	private signOutHeardDuringCheck: string | null = null;
 
@@ -946,10 +946,8 @@ class SignedOutWhileConnectingError extends Error {
 }
 
 function userIdentity(user: AuthenticatedConnection['user'] | undefined): string | null {
-	if (!user) {
-		return null;
-	}
-	return 'id' in user ? user.id : user.username;
+	const identity: unknown = !user ? null : 'id' in user ? user.id : user.username;
+	return typeof identity === 'string' && identity ? identity : null;
 }
 
 function signedOutUser(announcement: string): unknown {

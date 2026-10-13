@@ -125,7 +125,7 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   would sign the other tabs out of a live session, and one signed back in meanwhile would be ended by that `/Logout/`.
   The value names the user whose session ended: the tab's last app user, since the sweep and a sign-in check both blank
   the user first. A page load whose own check 401s never knew its user and announces nothing; the other tabs find out
-  from their next request. A tab follows only when the name is its own app user: a late 401 or event from U's session must not sign out a
+  from their next request. A tab follows only when the name is its own app user: a late 401 or event from user U's session must not sign out a
   tab that has since signed in as V. A tab whose check is still out remembers the user, and if the check comes back as
   them, asks again: central manager may have confirmed them just before the session ended.
   Tabs follow that key, not the marker record, because a tab also drops the app sign-in from the record when its own
