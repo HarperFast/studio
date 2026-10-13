@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { failFastOffline, toastsAuthFailures } from '../failFastOffline';
 
 type VerifyEmailToken = {
 	token: string;
@@ -20,7 +21,8 @@ const onVerifyEmailTokenSubmit = async (token: VerifyEmailToken): Promise<Verify
 
 function useVerifyEmailMutation() {
 	return useMutation<VerifyEmailResponse, Error, VerifyEmailToken>({
-		mutationFn: (emailToken) => onVerifyEmailTokenSubmit(emailToken),
+		...failFastOffline(onVerifyEmailTokenSubmit),
+		...toastsAuthFailures,
 	});
 }
 

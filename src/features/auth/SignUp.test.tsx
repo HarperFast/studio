@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
@@ -47,6 +47,7 @@ import {
 	SERVER_UNAVAILABLE_MESSAGE,
 	TOO_MANY_ATTEMPTS_MESSAGE,
 } from './describeAuthFailure';
+import { OFFLINE_MESSAGE } from './failFastOffline';
 import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { SignUp } from './SignUp';
 
@@ -527,5 +528,34 @@ describe('SignUp — reCAPTCHA', () => {
 			nextForm.result.current.describeCaptchaError(axiosError(403, 'Verification failed'));
 		});
 		expect(nextForm.result.current.supportSuggested).toBe(false);
+	});
+});
+
+describe('SignUp — offline', () => {
+	afterEach(() => {
+		onlineManager.setOnline(true);
+		vi.restoreAllMocks();
+	});
+
+	// The default `networkMode` paused the mutation: the button stayed disabled with nothing sent (#1930).
+	it('says it is offline and re-enables the form instead of hanging, without blaming a VPN', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError);
+		onlineManager.setOnline(false);
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+		expect(screen.getByRole('alert').textContent).not.toMatch(/VPN|proxy|ad blocker/);
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Sign Up For Free' }).hasAttribute('disabled')).toBe(false)
+		);
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
 	});
 });

@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { failFastOffline, toastsAuthFailures } from '../failFastOffline';
 
 export type ResendEmailVerificationRequest = {
 	email: string;
@@ -21,6 +22,7 @@ const onResendEmailVerificationSubmit = async ({
 
 export function useResendEmailVerification() {
 	return useMutation<ResendVerificationEmailResponse, Error, ResendEmailVerificationRequest>({
-		mutationFn: (loginData) => onResendEmailVerificationSubmit(loginData),
+		...failFastOffline(onResendEmailVerificationSubmit),
+		...toastsAuthFailures,
 	});
 }

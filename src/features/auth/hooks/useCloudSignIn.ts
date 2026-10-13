@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { describeAuthFailure } from '@/features/auth/describeAuthFailure';
+import { failFastOffline, reportAuthFailure } from '@/features/auth/failFastOffline';
 import { isEmailNotVerifiedError } from '@/features/auth/isEmailNotVerifiedError';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -82,7 +83,7 @@ export function useCloudSignIn() {
 
 function useLoginMutation() {
 	return useMutation<User, Error, z.infer<typeof EmailSignInSchema>>({
-		mutationFn: (loginData) => onLoginSubmit(loginData),
+		...failFastOffline(onLoginSubmit),
 		// submitForm renders the login-error UX itself (redirecting unverified users into the
 		// email-verification flow), so suppress the default global error toast for this mutation.
 		meta: { skipGlobalErrorToast: true },
@@ -93,7 +94,7 @@ function useLoginMutation() {
 		// into the verification flow on it, and reporting it would file every unverified sign-in.
 		onError: (error) => {
 			if (!isEmailNotVerifiedError(error)) {
-				console.error(error);
+				reportAuthFailure(error);
 			}
 		},
 	});

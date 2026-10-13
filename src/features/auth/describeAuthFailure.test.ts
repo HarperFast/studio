@@ -8,6 +8,7 @@ import {
 	SERVER_UNAVAILABLE_MESSAGE,
 	TOO_MANY_ATTEMPTS_MESSAGE,
 } from './describeAuthFailure';
+import { OFFLINE_MESSAGE, OfflineSubmitError } from './failFastOffline';
 
 const RECOVERY = 'Check your inbox.';
 const OUTCOME_UNKNOWN = `${OUTCOME_UNKNOWN_MESSAGE} ${RECOVERY}`;
@@ -74,6 +75,15 @@ describe('describeRetryableAuthFailure', () => {
 	it('treats a network failure as an unknown outcome, not an unreachable server', () => {
 		expect(describeRetryableAuthFailure(transportFailure(AxiosError.ERR_NETWORK), RECOVERY))
 			.toBe(OUTCOME_UNKNOWN);
+	});
+
+	// The exception: sent while the browser reported offline, so the connection is what to check.
+	it('says the device is offline when the request was sent offline, with no unknown-outcome hedge', () => {
+		const message = describeAuthFailure(new OfflineSubmitError(transportFailure(AxiosError.ERR_NETWORK)), RECOVERY);
+
+		expect(message).toBe(OFFLINE_MESSAGE);
+		expect(message).toMatch(/check your connection/i);
+		expect(message).not.toContain(RECOVERY);
 	});
 
 	// The classifier states the uncertainty; the caller says what to do about it.
