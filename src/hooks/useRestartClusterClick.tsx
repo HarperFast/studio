@@ -126,9 +126,12 @@ export function useRestartClusterClick(
 								instanceClient,
 								onSlowToReturn: () =>
 									toast.loading(`Waiting On Instance ${i + 1} of ${targets.length}`, {
-										...toastConfig,
+										// A Cancel already closed the toast and stopped the loop: no second Cancel to offer.
+										...(canceled ? { duration: toastConfig.duration } : toastConfig),
 										id: toastId,
-										description: "It accepted the restart but isn't back yet.",
+										description: canceled
+											? "It accepted the restart but isn't back yet. Cancelled: no other instance will be restarted."
+											: "It accepted the restart but isn't back yet.",
 									}),
 							});
 							instancesRestarted += 1;
