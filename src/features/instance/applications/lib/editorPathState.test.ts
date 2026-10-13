@@ -5,7 +5,7 @@ import {
 } from '@/features/instance/applications/context/editorFileContent';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
-import { readSessionValue } from '@/lib/storage/sessionStorageStore';
+import { readSessionValue, writeSessionValue } from '@/lib/storage/sessionStorageStore';
 import { QueryClient } from '@tanstack/react-query';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -143,6 +143,31 @@ describe('forgetDeletedPath', () => {
 		expect(bufferAt('app/lib.js')).toBe('lib');
 		expect(queryClient.getQueryData(nested)).toBeUndefined();
 		expect(queryClient.getQueryData(sibling)).toBeDefined();
+	});
+
+	it('covers a buffer under the folder that session storage refused and only memory holds', () => {
+		const nested = editorFileContentKey(entityId, 'app/lib/x.js');
+		const setItem = Storage.prototype.setItem;
+		const full = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(
+			function(this: Storage, key: string, value: string) {
+				if (key === nested) {
+					throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+				}
+				setItem.call(this, key, value);
+			},
+		);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		try {
+			writeSessionValue(nested, undefined as string | undefined, 'edits held in memory');
+		} finally {
+			full.mockRestore();
+		}
+		expect(sessionStorage.getItem(nested)).toBeNull();
+		expect(bufferAt('app/lib/x.js')).toBe('edits held in memory');
+
+		forgetDeletedPath(queryClient, entityId, 'app/lib');
+
+		expect(bufferAt('app/lib/x.js')).toBeUndefined();
 	});
 
 	it('covers a whole project, and leaves other projects and other instances alone', () => {

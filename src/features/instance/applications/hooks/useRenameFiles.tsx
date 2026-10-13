@@ -3,9 +3,15 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	copyEditorFileContent,
 	discardEditorFileContent,
+	editorFileContentKey,
+	readEditorFileContent,
 } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { forgetReplacedPath, moveEditedPath } from '@/features/instance/applications/lib/editorPathState';
+import {
+	forgetDeletedPath,
+	forgetReplacedPath,
+	moveEditedPath,
+} from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
@@ -98,6 +104,7 @@ export function useRenameFiles() {
 				stepForward();
 
 				copyEditorFileContent(instanceParams.entityId, change.from, change.to);
+				const copied = readEditorFileContent(editorFileContentKey(instanceParams.entityId, change.to));
 				try {
 					await dropComponent({
 						...instanceParams,
@@ -110,7 +117,12 @@ export function useRenameFiles() {
 					}
 					throw error;
 				}
-				moveEditedPath(queryClient, instanceParams.entityId, change.from, change.to);
+				// Edits typed into the destination while the drop was in flight are newer than the copy.
+				if (readEditorFileContent(editorFileContentKey(instanceParams.entityId, change.to)) === copied) {
+					moveEditedPath(queryClient, instanceParams.entityId, change.from, change.to);
+				} else {
+					forgetDeletedPath(queryClient, instanceParams.entityId, change.from);
+				}
 				if (canceled) {
 					break;
 				}

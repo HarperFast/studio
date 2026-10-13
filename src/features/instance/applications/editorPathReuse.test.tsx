@@ -152,7 +152,8 @@ vi.mock('@/features/instance/applications/modals/confirmOverwrite', () => ({
 vi.mock('@monaco-editor/react', () => ({ loader: { __getMonacoInstance: () => harness.monaco } }));
 // A textarea over the path's model, with @monaco-editor/react's rules: an existing model is reused as
 // it is, `value` seeds a new model and is applied only once it changes, never when undefined, and as
-// an undoable edit unless the editor is read-only. Typing and Ctrl+Z are refused while read-only.
+// an undoable edit unless the editor is read-only. Typing and Ctrl+Z are refused while read-only, and
+// changes reach the last `onChange` subscribed, which a read-only editor's undefined prop doesn't drop.
 vi.mock('@/lib/monaco/MonacoEditor', async () => {
 	const { useEffect, useReducer, useRef } = await import('react');
 	function Editor({ path, value, onChange, onMount, options }: {
@@ -171,6 +172,7 @@ vi.mock('@/lib/monaco/MonacoEditor', async () => {
 		const shownModel = model;
 		const live = useRef({ model: shownModel, onChange, readOnly: !!options?.readOnly });
 		live.current = { model: shownModel, onChange, readOnly: !!options?.readOnly };
+		const subscribed = useRef(onChange);
 		harness.editor.undo = () => {
 			if (!live.current.readOnly) {
 				live.current.model.undo();
@@ -181,7 +183,7 @@ vi.mock('@/lib/monaco/MonacoEditor', async () => {
 			const subscription = shownModel.onDidChangeContent(fromEdit => {
 				rerender();
 				if (fromEdit) {
-					live.current.onChange?.(shownModel.text);
+					subscribed.current?.(shownModel.text);
 				}
 			});
 			return () => {
@@ -212,6 +214,13 @@ vi.mock('@/lib/monaco/MonacoEditor', async () => {
 				}
 			}
 		}, [value, shownModel]);
+		// Declared after the `value` effect, as in @monaco-editor/react, so a commit that changes both hands
+		// the change from `value` to the previous subscription.
+		useEffect(() => {
+			if (onChange) {
+				subscribed.current = onChange;
+			}
+		}, [onChange]);
 		harness.shown.push({ path, value: model.text, incoming: value, readOnly: !!options?.readOnly });
 		return (
 			<textarea
@@ -768,6 +777,22 @@ describe('a save that lands after another file was opened', () => {
 	});
 });
 
+describe('a file opened while another is saving', () => {
+	it('is not marked unsaved when its contents load', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+
+		save();
+		await open('app/b.js');
+		await waitFor(() => expect(editor().value).toBe('saved b'));
+		expect(bufferAt('app/b.js')).toBeUndefined();
+		await landed();
+	});
+});
+
 describe('a renamed file', () => {
 	it('takes its unsaved edits to the new name and leaves none at the old one', async () => {
 		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
@@ -907,6 +932,30 @@ describe('a file with unsaved edits moved onto the open file', () => {
 		expect(editor().value).toBe('unsaved edits to lib a');
 		save();
 		await waitFor(() => expect(files.get('app/a.js')).toBe('unsaved edits to lib a'));
+	});
+});
+
+describe('a destination edited while the move that replaced it is in flight', () => {
+	it('keeps the edits typed into it', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/lib/a.js': 'saved lib a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('unsaved edits to a');
+		const dropped = hold('drop_component', 'app/a.js');
+
+		let move: Promise<unknown> | undefined;
+		act(() => {
+			move = harness.tree.onDrop!([{ index: 'app/a.js' }], { targetType: 'item', targetItem: 'app/lib' });
+		});
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+		await openFile('app/lib/a.js', 'unsaved edits to a');
+		type('typed into the destination');
+		await dropped();
+		await act(() => move!);
+
+		await waitFor(() => expect(view.entryExists('app/a.js')).toBe(false));
+		expect(bufferAt('app/lib/a.js')).toBe('typed into the destination');
+		expect(bufferAt('app/a.js')).toBeUndefined();
 	});
 });
 
