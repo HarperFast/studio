@@ -48,7 +48,7 @@ list keeps paging by the table count.
 The export reads every matching record as JSON in one request, with the grid's select minus its
 relationships ([`buildExportGetAttributes`](functions/tableCsv.ts): each `@computed` name, then
 `'*'`), and writes the CSV in the browser ([`tableCsvColumns`](functions/tableCsv.ts),
-[`tableCsvLines`](functions/tableCsv.ts)). The columns are what describe lists, in describe order,
+[`tableCsvBlob`](functions/tableCsv.ts)). The columns are what describe lists, in describe order,
 minus relationships, then every property an exported record carries that describe doesn't list,
 most common first as the grid orders its extra columns. They are counted over the whole result, not
 the loaded page, and not capped at `MAX_EXTRA_COLUMNS`: a column left out of a file is data lost
@@ -76,6 +76,9 @@ ones, in another order, on harperdb 4.7.40):
 | `search_by_conditions`, `['*']`               | `id, note, price, tags, taxRate`                         |
 | `search_by_conditions`, `['totalPrice', '*']` | `totalPrice, id, note, price, tags, taxRate, totalPrice` |
 
+Naming the undeclared properties doesn't help either: 5.3.2 refuses an undeclared name in
+`get_attributes` (`unknown attribute 'bigs'`).
+
 The JSON answer to the grid's select carries everything: Harper resolves each name, then copies
 every key of the stored record for the `'*'` (`resources/Table.ts:6569-6583`). The computed names
 go first because a select that starts with `'*'` is dropped on a schema-defined table
@@ -83,18 +86,21 @@ go first because a select that starts with `'*'` is dropped on a schema-defined 
 `owners`, `size` and `weight` with `totalPrice`, and the export wrote them all.
 
 The JSON is read as text and parsed with [`parseJsonKeepingLargeIntegers`](functions/tableCsv.ts).
-Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. Such an
-integer keeps its digits as a `JSON.rawJSON` value. A browser without `JSON.rawJSON` refuses an
-export that holds one (outside a string) rather than write it rounded.
+Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. So before
+the parse, each integer literal outside a string that a double can't hold is quoted, and it reads as
+a string of its digits. Its cell is then quoted, as 5.3.2's writer quotes a `BigInt`. Inside an array
+or object cell it is a JSON string. This needs nothing of the browser, unlike a `JSON.parse` reviver
+reading the source text.
 
 The export costs more memory than the `text/csv` answer did, which was one string the size of the
 file. The header can't be written until every record has been read, so the whole result is parsed at
 once: one request of up to 1,000,000 records. The response text is dropped once parsed, and the file
-is written into `Blob` parts 10,000 rows at a time, each part's records let go as it's written. So
-the peak is the JSON text plus the parsed records. For 500,000 records of `Thing`'s ten columns that
-was about 355MB of heap (78M characters of JSON, 277MB of records), for a 46MB file, in Node 24.
-Paging the read would bound it, at the cost of two reads (one for the columns, one for the rows) that
-no longer see one snapshot.
+is written into `Blob` parts of at most 10,000 rows or 16M characters, each part's records let go as
+it's written. So the peak is the JSON text plus the parsed records. For 500,000 records of `Thing`'s
+ten columns that was about 355MB of heap (78M characters of JSON, 277MB of records), for a 46MB file,
+in Node 24. The JSON text is also one string, and longer than the CSV was, so the largest result that
+can be exported is smaller than before. Paging the read would bound both, at the cost of two reads
+(one for the columns, one for the rows) that no longer see one snapshot.
 
 ## Columns for undeclared properties come from the rows on screen
 

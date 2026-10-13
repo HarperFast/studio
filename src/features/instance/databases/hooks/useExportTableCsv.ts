@@ -63,15 +63,14 @@ export function useExportTableCsv() {
 					// Parsed here, so an integer too large for a double keeps its digits.
 					responseType: 'text' as const,
 				};
-				const request = conditions?.length
-					? getSearchByConditions<unknown>({ ...base, conditions, allowFullScan })
-					: getSearchByValue<unknown>({ ...base, searchAttribute: primaryKey });
 				const [records, schemaRelationshipMap] = await Promise.all([
 					// Parsed where it arrives, so nothing holds the response text once the records exist.
-					request.then(({ data }) => {
-						toast.loading('Preparing CSV...', { id });
-						return exportedRecords(data);
-					}),
+					(conditions?.length
+						? getSearchByConditions<unknown>({ ...base, conditions, allowFullScan })
+						: getSearchByValue<unknown>({ ...base, searchAttribute: primaryKey })).then(({ data }) => {
+							toast.loading('Preparing CSV...', { id });
+							return exportedRecords(data);
+						}),
 					// Describe can report a declared relationship as a plain attribute; it stays out of the file.
 					queryClient.fetchQuery(getSchemaRelationshipsQueryOptions(instanceParams)),
 				]);
