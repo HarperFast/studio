@@ -382,7 +382,6 @@ describe('ForgotPassword — reCAPTCHA', () => {
 	});
 });
 
-// #1930: offline, the submit paused, then went out on a stale token and was refused as a VPN problem.
 describe('ForgotPassword — offline', () => {
 	const networkError = { isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError;
 	const submitButton = (container: HTMLElement) => container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
@@ -399,7 +398,7 @@ describe('ForgotPassword — offline', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('says it is offline and frees the form at once, then sends nothing when the connection returns', async () => {
+	it('says it is offline and frees the form instead of hanging, then sends nothing when the connection returns', async () => {
 		captchaState.token = 'human-token';
 		post.mockRejectedValue(networkError);
 		onlineManager.setOnline(false);
@@ -418,6 +417,29 @@ describe('ForgotPassword — offline', () => {
 		onlineManager.setOnline(true);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(post).toHaveBeenCalledTimes(1);
+	});
+
+	// The mutation's own `onError` clears the count too, so this covers both places it could reset.
+	it('keeps the refusal count across an offline submit, so the next refusal still offers support', async () => {
+		captchaState.token = 'human-token';
+		post.mockRejectedValueOnce(captchaRejection);
+		const { container, getByRole, queryByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+		await waitFor(() => expect(getByRole('alert').textContent).toBe(CHALLENGE_FAILED));
+
+		onlineManager.setOnline(false);
+		post.mockRejectedValueOnce(networkError);
+		await submitWith(container, 'user@example.com');
+		await waitFor(() => expect(getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+
+		onlineManager.setOnline(true);
+		post.mockRejectedValueOnce(captchaRejection);
+		await submitWith(container, 'user@example.com');
+
+		await waitFor(() => expect(getByRole('alert').textContent).toContain(CHALLENGE_FAILED));
+		expect(post).toHaveBeenCalledTimes(3);
+		expect(queryByRole('link', { name: 'Contact us' })).toBeTruthy();
 	});
 
 	it('mints a fresh token for the resubmit once back online', async () => {

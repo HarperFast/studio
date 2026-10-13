@@ -39,7 +39,7 @@ export function useForgotPasswordMutation() {
 		// is the check's expected verdict, which the form states inline.
 		onError: (error) => {
 			if (!isCaptchaVerificationError(error)) {
-				clearCaptchaFailures();
+				clearCaptchaFailures(error);
 				reportAuthFailure(error);
 			}
 		},

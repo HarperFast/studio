@@ -1,6 +1,7 @@
 import { getCaptchaToken, isCaptchaConfigured, warmCaptcha } from '@/lib/recaptcha/recaptchaScript';
 import { onlineManager } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { OfflineSubmitError } from '../failFastOffline';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 
 // A low score comes from network and browser signals that an unchanged resubmit carries again, so
@@ -25,13 +26,14 @@ const SUPPORT_AFTER_FAILURES = 2;
 // on one often tries the other next (#1722), so the count follows the person, not the form.
 let consecutiveFailures = 0;
 
-/** Ends the streak on a success or a non-CAPTCHA failure. Call it from the mutation's own
- *  callbacks, which still run after the form unmounts. */
-export function clearCaptchaFailures() {
-	consecutiveFailures = 0;
+/** Ends the streak on a success or a non-CAPTCHA failure, except an offline one, which never reached
+ *  the check. Call it from the mutation's own callbacks, which still run after the form unmounts. */
+export function clearCaptchaFailures(failure?: unknown) {
+	if (!(failure instanceof OfflineSubmitError)) {
+		consecutiveFailures = 0;
+	}
 }
 
-// `undefined` when no key is configured.
 type LastMint = { minted: true; at: number } | { minted: false; offline: boolean };
 
 function uncountedRefusal(mint: LastMint | undefined): string | undefined {
@@ -55,8 +57,8 @@ export function useCaptchaChallenge(action: string, alternative?: string) {
 		warmCaptcha();
 	}, []);
 
-	// Mint came back empty with a key configured: a later 403 should say the
-	// check couldn't run, not ask the user to retry something that can't succeed.
+	// What the last mint produced, for the refusal that follows it: `undefined` before any mint and
+	// when no key is configured.
 	const lastMint = useRef<LastMint>(undefined);
 	// Disabling submit during the mint also stops concurrent submits racing
 	// lastMint to the wrong message.
@@ -83,7 +85,7 @@ export function useCaptchaChallenge(action: string, alternative?: string) {
 
 	const describeCaptchaError = useCallback((error: unknown): string | undefined => {
 		if (!isCaptchaVerificationError(error)) {
-			consecutiveFailures = 0;
+			clearCaptchaFailures(error);
 			setSupportSuggested(false);
 			return undefined;
 		}

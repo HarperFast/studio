@@ -176,7 +176,6 @@ describe('SignIn — offline', () => {
 		vi.restoreAllMocks();
 	});
 
-	// Under the default `networkMode` the sign-in paused, then went out whenever the connection returned.
 	it('says it is offline at once and sends nothing more when the connection returns', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		vi.spyOn(console, 'debug').mockImplementation(() => {});

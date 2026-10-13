@@ -23,6 +23,7 @@ vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
 	},
 }));
 
+import { OfflineSubmitError } from '../failFastOffline';
 import {
 	CAPTCHA_TOKEN_LIFETIME_MS,
 	CHALLENGE_EXPIRED,
@@ -60,7 +61,6 @@ async function mint(hook: { current: ReturnType<typeof useCaptchaChallenge> }) {
 	await act(() => hook.current.getToken());
 }
 
-/** Moves the clock past (or short of) the token's lifetime, as of the mint just made. */
 function elapse(ms: number) {
 	vi.setSystemTime(Date.now() + ms);
 }
@@ -106,6 +106,18 @@ describe('useCaptchaChallenge', () => {
 		failWith(result, captchaRejection);
 		expect(result.current.supportSuggested).toBe(false);
 		failWith(result, captchaRejection);
+		expect(result.current.supportSuggested).toBe(true);
+	});
+
+	it('keeps the count across an offline failure, which never reached the check', () => {
+		const { result } = renderHook(() => useCaptchaChallenge('forgot_password'));
+
+		failWith(result, captchaRejection);
+		failWith(result, new OfflineSubmitError(new Error('Network Error')));
+		expect(result.current.supportSuggested).toBe(false);
+		clearCaptchaFailures(new OfflineSubmitError(new Error('Network Error')));
+		failWith(result, captchaRejection);
+
 		expect(result.current.supportSuggested).toBe(true);
 	});
 
