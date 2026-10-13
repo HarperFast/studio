@@ -31,3 +31,62 @@ records into a new table that has a primary key.
 - `update` is rejected.
 - A record written with a `$id` field keeps it as ordinary data, which shadows the real key in
   reads.
+
+## A filtered result set has no count
+
+`search_by_conditions` answers with a bare array -- nothing says how many records the filter matched
+-- and the table's own count (`describe_table`, or the exact count) describes the whole table. So
+the footer must never page a filtered list by that count: under a filter it read "Page 1 of 3" for
+15 matches and offered empty pages (#1253). Instead the filtered query asks for one record past the
+page ([`getSearchByConditionsPage`](../../../integrations/api/instance/database/getSearchByConditions.ts))
+and [`TablePagination`](components/TablePagination.tsx) pages by whether it came back. The total is
+stated only once the page that ends the result set is on screen (`uncountedTotal`). The unfiltered
+list keeps paging by the table count.
+
+## A CSV export's `get_attributes` never contains `'*'` after a name
+
+The grid resolves `@computed` attributes by naming them ahead of a trailing `'*'`
+(`buildSyntheticGetAttributes`). The CSV export must not copy that. Harper builds a CSV's header
+from the select, with the `'*'` expanded to every attribute, so each name ahead of it shows up twice.
+On harperdb 4.7.40, `search_by_conditions` with `['totalPrice', '*']` answers with the header
+`"totalPrice","id","price","taxRate","totalPrice"`. Harper 5's `Table.search` `getColumns` expands
+it the same way for both search operations (`resources/Table.ts:5638-5650`, traced in source, not
+run). So a table with a computed attribute
+exports with an explicit list of what describe reports, relationships left out
+([`buildExportGetAttributes`](functions/relationshipAttributes.ts)), and any other table keeps
+`['*']` (#1820).
+
+The cost is limited to tables with a computed attribute. An undeclared property that the first
+exported record carries is no longer a column of an unfiltered 4.7 export. A filtered 4.7 export
+already left such properties out, because its `['*']` header lists only declared attributes, and so
+does a Harper 5 export of a schema-defined table (the same `getColumns`, with no select).
+
+## Columns for undeclared properties come from the rows on screen
+
+`describe_table` lists only what a schema declares, and a table that isn't `@sealed` stores whatever
+else a record brings. So [`DatabaseTableView`](components/DatabaseTableView.tsx) adds a column for
+each property the loaded page carries that no column covers
+([`extraRecordAttributes`](functions/extraRecordAttributes.ts)), most common first and capped at
+`MAX_EXTRA_COLUMNS` (#1314). Those columns only display. On harperdb 4.7.40, Harper refuses an
+undeclared attribute in a condition (`unknown attribute 'color'`) and in a sort
+(`color is not a defined attribute`), so they offer neither a filter nor a sort.
+
+They describe one page, so they can change when the page does. Neither list query keeps the previous
+page's rows, so while the next page loads, the view keeps the last page's extra columns instead of
+dropping them from the header and putting them back.
+
+## A filter no index can answer runs only after the user agrees
+
+Every described column takes a filter, indexed or not (except binary ones). Harper's operations API
+answers a condition on an unindexed attribute by reading every record. It needs no flag for that:
+Harper 5's `ResourceBridge` passes `allowFullScan: true` itself, and 4.7.40 runs it unasked. So the
+safeguard is Studio's. [`fullScanAttributes`](functions/fullScanFilter.ts) decides whether a filter
+needs a scan of the whole table: it does when no condition can be served by an index. Harper runs an
+`and` search from its narrowest condition and filters the rest (`resources/Table.ts`
+`orderConditions`), so one indexed condition is enough. `ne`, and the `*hn` (ends with) and `*oh*`
+(contains) wildcards (#1549), scan even on an indexed attribute (`resources/search.ts`
+`searchByIndex`). A relationship filter is a join that Harper answers by searching the related table,
+so it is judged by that table's attribute. Typed filters and deep-linked ones both reach the server only through `applySearchConditions` in
+[`DatabaseTableView`](components/DatabaseTableView.tsx), which asks first (#1285). The request then
+carries `allowFullScan: true`, and so does a CSV export of that filter. A new way to apply a filter
+has to go through that function.

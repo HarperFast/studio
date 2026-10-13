@@ -1,14 +1,9 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { EntityIds } from '@/features/auth/store/authStore';
-import {
-	DeployInstallEvent,
-	DeployPeerEvent,
-	DeployPhaseEvent,
-	DeployStreamEvent,
-} from '@/integrations/api/instance/applications/deployComponentStream';
-import { parseSSEData } from '@/integrations/api/sse/parseSSEStream';
+import { DeployStreamEvent, toDeployStreamEvent } from '@/integrations/api/instance/applications/deployComponentStream';
 import { ResolveInstanceConnectionParams } from '@/integrations/api/sse/resolveInstanceConnection';
 import { streamOperation } from '@/integrations/api/sse/streamOperation';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 import { Deployment, isTerminalDeploymentStatus } from './types';
 
@@ -33,9 +28,12 @@ export function getDeploymentQueryOptions(params: GetDeploymentParams & { pollWh
 		queryFn: () => getDeployment(params),
 		retry: false,
 		// While the detail view falls back to polling (no SSE), keep refetching until the
-		// deployment reaches a terminal status, then stop.
+		// deployment reaches a terminal status, then stop. A failed fetch has no status to end
+		// on, so the shared policy is what stops or slows it.
 		refetchInterval: (query) =>
-			params.pollWhileActive && !isTerminalDeploymentStatus(query.state.data?.status) ? 2_000 : false,
+			pollUnlessForbidden(
+				params.pollWhileActive && !isTerminalDeploymentStatus(query.state.data?.status) ? 2_000 : false,
+			)(query),
 	});
 }
 
@@ -66,19 +64,9 @@ export async function getDeploymentStream({
 		body: { operation: 'get_deployment', deployment_id: deploymentId },
 		signal,
 		onMessage: (message) => {
-			if (!onEvent) {
-				return;
-			}
-			switch (message.event) {
-				case 'phase':
-					onEvent({ type: 'phase', data: parseSSEData(message) as DeployPhaseEvent });
-					break;
-				case 'install':
-					onEvent({ type: 'install', data: parseSSEData(message) as DeployInstallEvent });
-					break;
-				case 'peer':
-					onEvent({ type: 'peer', data: parseSSEData(message) as DeployPeerEvent });
-					break;
+			const event = onEvent && toDeployStreamEvent(message);
+			if (event) {
+				onEvent(event);
 			}
 		},
 	});

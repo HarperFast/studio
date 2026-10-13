@@ -1,13 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStagedDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-form';
@@ -29,6 +32,7 @@ export function ImportInstructions({
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
 }) {
 	const importSource = watch('contents.source');
+	const canStage = useStagedDeploymentsAvailable();
 	const setImportSource = useCallback((source: string) => {
 		setValue('contents.source', source as 'git' | 'npm' | 'tarball');
 	}, [setValue]);
@@ -154,6 +158,26 @@ export function ImportInstructions({
 
 				{importSource === 'git' && <ImportAuthorization control={control} setValue={setValue} watch={watch} />}
 
+				{canStage && (
+					<FormField
+						control={control}
+						name="contents.stageOnly"
+						render={({ field }) => (
+							<FormItem className="flex flex-row items-start gap-3">
+								<FormControl>
+									<Switch checked={!!field.value} onCheckedChange={field.onChange} />
+								</FormControl>
+								<div className="flex flex-col gap-1">
+									<FormLabel>Stage only</FormLabel>
+									<FormDescription>
+										Install it on every node without making it live. Activate it later from Deployments.
+									</FormDescription>
+								</div>
+							</FormItem>
+						)}
+					/>
+				)}
+
 				<Separator className="bg-border" />
 
 				<Button
@@ -161,7 +185,7 @@ export function ImportInstructions({
 					disabled={!formState.isValid || isImportingApplication}
 				>
 					<RocketIcon className="w-4 h-4 mr-2" />
-					Import Application
+					{canStage && watch('contents.stageOnly') ? 'Stage Application' : 'Import Application'}
 				</Button>
 			</CardContent>
 		</>

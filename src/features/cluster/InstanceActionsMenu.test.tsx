@@ -8,7 +8,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { InstanceActionsMenu } from './InstanceActionsMenu';
 
 const ORG = 'org-a';
-const state = vi.hoisted(() => ({ user: null as unknown, run: vi.fn() }));
+const state = vi.hoisted(() => ({
+	user: null as unknown,
+	run: vi.fn(),
+	statusEnabled: [] as (boolean | undefined)[],
+	availability: undefined as string | undefined,
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-a', clusterId: 'clu-b' }),
 	Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
@@ -26,9 +31,13 @@ vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClient: () => ({}),
 	useInstanceClientIdParams: () => ({}),
 }));
-vi.mock('@/integrations/api/instance/status/getStatus', () => ({
-	getStatusQueryOptions: () => ({ queryKey: ['status'], queryFn: () => null, enabled: false }),
-	getSystemStatusById: () => undefined,
+vi.mock('@/integrations/api/instance/status/getStatus', async importOriginal => ({
+	...await importOriginal<typeof import('@/integrations/api/instance/status/getStatus')>(),
+	getStatusQueryOptions: (_params: unknown, enabled?: boolean) => {
+		state.statusEnabled.push(enabled);
+		return { queryKey: ['status'], queryFn: () => null, enabled: false };
+	},
+	getSystemStatusById: () => state.availability,
 }));
 vi.mock('@/integrations/api/instance/status/setStatus', () => ({ useSetStatus: () => ({ mutate: vi.fn() }) }));
 vi.mock('@/hooks/useInstanceContainerOps', () => ({ useInstanceContainerOps: () => ({ run: state.run }) }));
@@ -47,9 +56,17 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	state.run.mockClear();
+	state.statusEnabled = [];
+	state.availability = undefined;
 });
 
-const instance = { id: 'ins-c', name: 'primary', status: 'RUNNING', instanceFqdn: 'ins-c.example.com' } as Instance;
+const instance = {
+	id: 'ins-c',
+	name: 'primary',
+	status: 'RUNNING',
+	instanceFqdn: 'ins-c.example.com',
+	version: '4.7.3',
+} as Instance;
 const member = (role: string) =>
 	({
 		fabricRole: 'least_privileged',
@@ -95,6 +112,34 @@ describe('InstanceActionsMenu container ops', () => {
 		expect(screen.getByRole('menuitem', { name: 'Restart in safe mode' })).toBeTruthy();
 		fireEvent.click(screen.getByRole('menuitem', { name: 'Stop' }));
 		expect(state.run).toHaveBeenCalledWith('stop');
+	});
+});
+
+describe('InstanceActionsMenu availability status', () => {
+	it('asks for it while the menu is open', () => {
+		state.user = member('admin');
+		openMenu();
+		expect(state.statusEnabled.at(-1)).toBe(true);
+	});
+
+	it('never asks a Harper older than 4.6, which has no get_status', () => {
+		state.user = member('admin');
+		openMenu({ ...instance, version: '4.5.12' });
+		expect(state.statusEnabled.at(-1)).toBe(false);
+	});
+
+	it('offers rotation from a known availability', () => {
+		state.user = member('admin');
+		state.availability = 'Available';
+		openMenu();
+		expect(screen.getByRole('menuitem', { name: 'Bring out of rotation' })).toBeTruthy();
+	});
+
+	it('never offers rotation on a Harper older than 4.6, even from a cached availability', () => {
+		state.user = member('admin');
+		state.availability = 'Available';
+		openMenu({ ...instance, version: '4.5.12' });
+		expect(screen.queryByRole('menuitem', { name: 'Bring out of rotation' })).toBeNull();
 	});
 });
 

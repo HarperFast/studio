@@ -1,11 +1,13 @@
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
+import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
+import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
@@ -76,12 +78,14 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceConfigDeploymentsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'deployments',
+		validateSearch: validateDeploymentsSearch,
 		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
 		component: ConfigDeploymentsIndex,
 	});
 	const instanceConfigDeploymentRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'deployments/$deploymentId',
+		validateSearch: validateDeploymentsSearch,
 		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
 		component: ConfigDeploymentsIndex,
 	});
@@ -97,6 +101,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: 'secrets/$secretName',
 		head: () => ({ meta: [{ title: 'Secrets — Harper Fabric' }] }),
 		component: ConfigSecretsIndex,
+	});
+
+	const instanceConfigTrustPoliciesRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'trust-policies',
+		head: () => ({ meta: [{ title: 'Trust Policies — Harper Fabric' }] }),
+		component: ConfigTrustPoliciesIndex,
 	});
 
 	const instanceConfigCertificatesRoute = createRoute({
@@ -131,6 +142,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,
+
+		instanceConfigTrustPoliciesRoute,
 
 		instanceConfigCertificatesRoute,
 		instanceConfigCertificateRoute,

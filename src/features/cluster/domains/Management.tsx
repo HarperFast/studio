@@ -7,7 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { isRunning } from '@/components/ui/utils/badgeStatus';
+import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import {
 	addDomainsSequentially,
 	describeDomainFailures,
@@ -20,30 +20,42 @@ import {
 	unresolvedFailures,
 	withinReconcileWindow,
 } from '@/features/cluster/domains/addDomainsSequentially';
+import { bindableDomainIds } from '@/features/cluster/domains/canBindDomain';
 import { useDataTableColumns } from '@/features/cluster/domains/constants/tableDefinition';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import { DomainChangeRefusal } from '@/features/clusters/mutations/describeDomainChangeRefusal';
+import {
+	DomainChangeRefusedError,
+	useIsSettingDomainIds,
+	useSetDomainIdsOnCluster,
+} from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import {
 	AddOrganizationDomainSchema,
 	DOMAIN_REQUIRED_MESSAGE,
 	useAddDomainToOrganization,
 } from '@/features/organization/mutations/addDomainToOrganization';
+import { isDeletingDomain, useIsDeletingDomain } from '@/features/organization/mutations/deleteDomain';
 import { validateDomainInOrganization } from '@/features/organization/mutations/validateDomainInOrganization';
 import { getOrganizationDomainsQueryOptions } from '@/features/organization/queries/getOrganizationDomains';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationDomain } from '@/integrations/api/api.patch';
-import { unique } from '@/lib/arrays/unique';
 import { pluralize } from '@/lib/pluralize';
-import { queryClient } from '@/react-query/queryClient';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { onlineManager, useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { onlineManager, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ListTodoIcon, PlusIcon, RefreshCwIcon, Save } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
+
+function describeDomainChangeFailure(error: Error): DomainChangeRefusal {
+	return error instanceof DomainChangeRefusedError
+		? { message: error.message, needsSupport: error.needsSupport }
+		: { message: `The domain change didn't go through: ${describeError(error).message}`, needsSupport: false };
+}
 
 export function DomainsManagement() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId: string } = useParams({ strict: false });
@@ -88,26 +100,60 @@ export function DomainsManagement() {
 		);
 	}, []);
 
-	const { mutate: setDomainIds, isPending: isBindPending } = useSetDomainIdsOnCluster();
+	const domainIdsToBind = useMemo(
+		() => bindableDomainIds(selectedDomainIds, organizationDomains, cluster),
+		[cluster, organizationDomains, selectedDomainIds],
+	);
+
+	const domainChange = useSetDomainIdsOnCluster();
+	const { mutate: setDomainIds } = domainChange;
+	const settingDomainIds = useIsSettingDomainIds();
+	const deletingDomain = useIsDeletingDomain();
+	const activeQueryClient = useQueryClient();
 
 	const onBindClick = useCallback(() => {
-		if (!isRunning(cluster.status)) {
-			toast.error('Cluster is currently ' + cluster.status, { description: 'To bind a domain, it must be running.' });
+		// From the query client, not this render: a removal reaches the button a render after it
+		// starts or lands, and a click in between would still send the domain being removed.
+		if (isDeletingDomain(activeQueryClient)) {
+			return;
+		}
+		const toBind = bindableDomainIds(
+			selectedDomainIds,
+			activeQueryClient.getQueryData(getOrganizationDomainsQueryOptions(organizationId).queryKey),
+			cluster,
+		);
+		if (toBind.length === 0) {
 			return;
 		}
 
 		setDomainIds({
 			clusterId: cluster.id,
-			domainIds: unique((cluster.domainIds?.slice() || []).concat(selectedDomainIds)),
+			organizationId,
+			add: toBind,
 			generateDomainCerts: true,
 		}, {
 			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
+				void activeQueryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
 				toast.success('Domain(s) bound! Certificates are being generated in the background now.');
 				setSelectedDomainIds([]);
 			},
 		});
-	}, [cluster, selectedDomainIds, setDomainIds]);
+	}, [activeQueryClient, cluster, organizationId, selectedDomainIds, setDomainIds]);
+
+	const onUnbindClick = useCallback((domainId: string) => {
+		// No `generateDomainCerts`: the flag is cluster-wide, so restating it here would decide cert
+		// intent for every domain that stays bound.
+		setDomainIds({ clusterId: cluster.id, organizationId, remove: domainId }, {
+			onSuccess: () => {
+				void activeQueryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
+				toast.success('Domain unbound!');
+			},
+		});
+	}, [activeQueryClient, cluster.id, cluster.organizationId, organizationId, setDomainIds]);
+
+	const domainChangeFailure = domainChange.error && domainChange.variables?.clusterId === cluster.id
+		? describeDomainChangeFailure(domainChange.error)
+		: undefined;
 
 	const { mutateAsync: addDomain } = useAddDomainToOrganization();
 	const form = useForm({
@@ -215,7 +261,7 @@ export function DomainsManagement() {
 		}
 	}, [pendingDomains]);
 
-	const dataTableColumns = useDataTableColumns(cluster, selectedDomainIds, onToggleDomainSelection);
+	const dataTableColumns = useDataTableColumns(cluster, selectedDomainIds, onToggleDomainSelection, onUnbindClick);
 
 	const domainValue = form.watch('domain');
 	const isApex = useMemo(() => {
@@ -237,103 +283,106 @@ export function DomainsManagement() {
 			columns={dataTableColumns}
 			sortingState={sortingState}
 		>
-			<div className="w-full flex flex-col md:flex-row items-center md:justify-between md:space-x-2 space-y-2 md:space-y-0">
-				{update && (
-					<Form {...form}>
-						<form
-							id="cluster-add-domain-form"
-							name="cluster-add-domain-form"
-							onSubmit={form.handleSubmit(onSubmitClick)}
-							className="flex gap-1 flex-col md:flex-row"
-						>
-							<FormField
-								control={form.control}
-								name="domain"
-								render={({ field }) => (
-									<FormItem className="flex-1">
-										<FormLabel className="pb-1">New Domain Name</FormLabel>
-										<FormControl>
-											<Input
-												type="text"
-												enterKeyHint="done"
-												autoComplete="off"
-												disabled={formLocked}
-												{...field}
-											/>
-										</FormControl>
-										{isApex && (
-											<div className="mt-1 flex gap-4">
-												Adding an apex domain?
-												<Button
-													variant="positiveOutline"
-													type="button"
+			<div className="w-full flex flex-col gap-2">
+				<div className="w-full flex flex-col md:flex-row items-center md:justify-between md:space-x-2 space-y-2 md:space-y-0">
+					{update && (
+						<Form {...form}>
+							<form
+								id="cluster-add-domain-form"
+								name="cluster-add-domain-form"
+								onSubmit={form.handleSubmit(onSubmitClick)}
+								className="flex gap-1 flex-col md:flex-row"
+							>
+								<FormField
+									control={form.control}
+									name="domain"
+									render={({ field }) => (
+										<FormItem className="flex-1">
+											<FormLabel className="pb-1">New Domain Name</FormLabel>
+											<FormControl>
+												<Input
+													type="text"
+													enterKeyHint="done"
+													autoComplete="off"
 													disabled={formLocked}
-													onClick={suggestWww}
-												>
-													Add www as well
-												</Button>
-											</div>
-										)}
-										<FormMessage>
-											<span className="text-muted-foreground italic">
-												Type in a domain like example.com or your.example.com, and you'll be guided through validating
-												and binding your cluster to it.
-											</span>
-										</FormMessage>
-									</FormItem>
-								)}
-							/>
-							<div className="flex-0 self-start flex gap-1 md:pt-6.5">
-								<Button
-									type="submit"
-									variant="submit"
-									disabled={formLocked}
-								>
-									<PlusIcon /> Add
-								</Button>
-
-								{pendingDomains.length > 0 && (
+													{...field}
+												/>
+											</FormControl>
+											{isApex && (
+												<div className="mt-1 flex gap-4">
+													Adding an apex domain?
+													<Button
+														variant="positiveOutline"
+														type="button"
+														disabled={formLocked}
+														onClick={suggestWww}
+													>
+														Add www as well
+													</Button>
+												</div>
+											)}
+											<FormMessage>
+												<span className="text-muted-foreground italic">
+													Type in a domain like example.com or your.example.com, and you'll be guided through validating
+													and binding your cluster to it.
+												</span>
+											</FormMessage>
+										</FormItem>
+									)}
+								/>
+								<div className="flex-0 self-start flex gap-1 md:pt-6.5">
 									<Button
-										variant="positiveOutline"
-										onClick={onValidateClick}
+										type="submit"
+										variant="submit"
+										disabled={formLocked}
+									>
+										<PlusIcon /> Add
+									</Button>
+
+									{pendingDomains.length > 0 && (
+										<Button
+											variant="positiveOutline"
+											onClick={onValidateClick}
+											accessKey="r"
+											type="button"
+											disabled={isFetching || isRefetching}
+										>
+											<ListTodoIcon />{' '}
+											<span>
+												<u>V</u>alidate
+											</span>
+										</Button>
+									)}
+									<Button
+										variant="defaultOutline"
+										onClick={onRefreshClick}
 										accessKey="r"
 										type="button"
 										disabled={isFetching || isRefetching}
 									>
-										<ListTodoIcon />{' '}
-										<span>
-											<u>V</u>alidate
+										<RefreshCwIcon />{' '}
+										<span className="hidden lg:inline-block">
+											<u>R</u>efresh
 										</span>
 									</Button>
-								)}
-								<Button
-									variant="defaultOutline"
-									onClick={onRefreshClick}
-									accessKey="r"
-									type="button"
-									disabled={isFetching || isRefetching}
-								>
-									<RefreshCwIcon />{' '}
-									<span className="hidden lg:inline-block">
-										<u>R</u>efresh
-									</span>
-								</Button>
-							</div>
-						</form>
-					</Form>
-				)}
+								</div>
+							</form>
+						</Form>
+					)}
 
-				{selectedDomainIds.length > 0 && (
-					<div className="flex-0 self-start md:pt-6.5">
-						<Button
-							variant="submit"
-							onClick={onBindClick}
-							disabled={isBindPending}
-						>
-							<Save /> Bind {pluralize(selectedDomainIds.length, 'Domain', 'Domains')}
-						</Button>
-					</div>
-				)}
+					{domainIdsToBind.length > 0 && (
+						<div className="flex-0 self-start md:pt-6.5">
+							<Button
+								variant="submit"
+								onClick={onBindClick}
+								disabled={settingDomainIds || deletingDomain}
+							>
+								<Save /> Bind {pluralize(domainIdsToBind.length, 'Domain', 'Domains')}
+							</Button>
+						</div>
+					)}
+				</div>
+				<SubmitErrorMessage message={domainChangeFailure?.message} suggestSupport={domainChangeFailure?.needsSupport} />
 			</div>
 		</SimpleBrowseDataTable>
 	);

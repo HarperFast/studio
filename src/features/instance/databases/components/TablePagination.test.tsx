@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { TablePagination } from './TablePagination';
+import { TablePagination, uncountedTotal } from './TablePagination';
 
 // Radix's tooltip relies on a handful of DOM APIs that jsdom doesn't implement.
 beforeAll(() => {
@@ -99,5 +99,88 @@ describe('TablePagination record count', () => {
 		// The action becomes a retry that re-invokes the fetch.
 		fireEvent.click(screen.getAllByRole('button', { name: /try again/i })[0]);
 		expect(onRequestExactCount).toHaveBeenCalledTimes(1);
+	});
+});
+
+// A filtered search reports no count, and the whole table's describes a different result set (#1253).
+describe('TablePagination on an uncounted result set', () => {
+	const pageText = () => screen.getByText(/^Page \d/).textContent;
+	const nextButton = () => screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement;
+
+	it("ignores the whole table's count and offers nothing past a page that ends the matches", () => {
+		render(
+			<TablePagination
+				{...baseProps}
+				totalPages={50}
+				totalRecords={1000}
+				uncountedPage={{ rowCount: 7, hasNextPage: false }}
+			/>,
+		);
+
+		expect(screen.getByText('7 matching records')).toBeTruthy();
+		expect(screen.queryByText(/1,000/)).toBeNull();
+		expect(pageText()).toBe('Page 1 of 1');
+		expect(nextButton().disabled).toBe(true);
+	});
+
+	it('pages forward without claiming a page count while more matches follow', () => {
+		const setPageIndex = vi.fn();
+		render(
+			<TablePagination
+				{...baseProps}
+				pageIndex={1}
+				setPageIndex={setPageIndex}
+				uncountedPage={{ rowCount: 20, hasNextPage: true }}
+			/>,
+		);
+
+		expect(screen.getByText('More than 40 matching records')).toBeTruthy();
+		expect(pageText()).toBe('Page 2');
+		// Only the pages known to exist are numbered; the ellipsis says more may follow.
+		expect(screen.getAllByRole('button', { name: /^Page \d/ }).map((button) => button.textContent)).toEqual([
+			'1',
+			'2',
+			'3',
+		]);
+		expect(screen.getByText('…')).toBeTruthy();
+
+		fireEvent.click(nextButton());
+		expect(setPageIndex).toHaveBeenCalledWith(2);
+	});
+
+	it('counts the matches exactly on a full last page', () => {
+		render(<TablePagination {...baseProps} pageIndex={2} uncountedPage={{ rowCount: 20, hasNextPage: false }} />);
+
+		expect(screen.getByText('60 matching records')).toBeTruthy();
+		expect(pageText()).toBe('Page 3 of 3');
+		expect(nextButton().disabled).toBe(true);
+	});
+
+	it('waits for the page before saying anything about its size', () => {
+		render(<TablePagination {...baseProps} totalPages={50} totalRecords={1000} uncountedPage={{}} />);
+
+		expect(pageText()).toBe('Page 1 of …');
+		expect(screen.queryByText(/records/)).toBeNull();
+		expect(nextButton().disabled).toBe(true);
+	});
+
+	it('does not count an empty page past the first as the end of the matches', () => {
+		// Only reachable when matches vanish between pages: the result set ends somewhere before here.
+		render(<TablePagination {...baseProps} pageIndex={3} uncountedPage={{ rowCount: 0, hasNextPage: false }} />);
+
+		expect(screen.getByText('No matching records on this page')).toBeTruthy();
+		expect(pageText()).toBe('Page 4');
+		expect(nextButton().disabled).toBe(true);
+	});
+});
+
+describe('uncountedTotal', () => {
+	it('is exact only once the page that ends the result set is on screen', () => {
+		expect(uncountedTotal(0, 20, { rowCount: 0, hasNextPage: false })).toBe(0);
+		expect(uncountedTotal(0, 20, { rowCount: 1, hasNextPage: false })).toBe(1);
+		expect(uncountedTotal(2, 20, { rowCount: 5, hasNextPage: false })).toBe(45);
+		expect(uncountedTotal(2, 20, { rowCount: 20, hasNextPage: true })).toBeUndefined();
+		expect(uncountedTotal(2, 20, { rowCount: 0, hasNextPage: false })).toBeUndefined();
+		expect(uncountedTotal(0, 20, {})).toBeUndefined();
 	});
 });

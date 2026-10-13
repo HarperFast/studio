@@ -35,6 +35,7 @@ import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInsta
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -77,6 +78,7 @@ const PILL_DATE = 'text-sm text-muted-foreground dark:text-foreground/70';
 
 export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const { cluster } = summary;
+	const clusterIds = { organizationId: cluster.organizationId, clusterId: cluster.id };
 	const syncLabel = describeSyncSummary(summary.syncSummary);
 	const router = useRouter();
 	const queryClient = useQueryClient();
@@ -245,7 +247,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		{ type: 'separator' as const, key: 'label-separator' },
 		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && {
 			key: 'sign-in',
-			to: `${cluster.id}/sign-in`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'sign-in'),
 			disabled: signingOut,
 			icon: <KeyIcon className="text-green" />,
 			label: 'Direct Sign In',
@@ -258,7 +260,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		},
 		!!upgradeHref && update && {
 			key: 'upgrade',
-			to: `${cluster.id}/edit`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'edit'),
 			// Same as the banner and the strip: land on the conversion target, not on the plan that
 			// just expired — without it the editor opens on the dead trial with submit disabled.
 			search: { upgrade: HOBBYIST_UPGRADE },
@@ -268,35 +270,35 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		},
 		isActive && update && {
 			key: 'edit',
-			to: `${cluster.id}/edit`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'edit'),
 			disabled: signingOut,
 			icon: <ScaleIcon className="text-purple-600" />,
 			label: isSelfManaged ? 'Edit' : 'Edit Scaling',
 		},
 		canEditVersion && {
 			key: 'edit-version',
-			to: `${cluster.id}/edit/version`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'edit/version'),
 			disabled: signingOut,
 			icon: <GitGraphIcon className="text-fuchsia-300" />,
 			label: 'Edit Version',
 		},
 		isActive && update && !isLocalStudio && !clusterIsSelfManaged(cluster) && {
 			key: 'domains',
-			to: `${cluster.id}/domains`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'domains'),
 			disabled: signingOut,
 			icon: <GlobeIcon className="text-cyan-400" />,
 			label: 'Domains',
 		},
 		isActive && view && {
 			key: 'instances',
-			to: `${cluster.id}/instances`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'instances'),
 			disabled: signingOut,
 			icon: <ServerIcon className="text-orange-300" />,
 			label: 'Instances',
 		},
 		isActive && view && !!auth.user && {
 			key: 'deployments',
-			to: `${cluster.id}/config/deployments`,
+			to: buildAbsoluteLinkToPage(clusterIds, 'config/deployments'),
 			disabled: signingOut,
 			icon: <RocketIcon className="text-sky-400" />,
 			label: 'Deployments',

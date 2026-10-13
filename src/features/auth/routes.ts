@@ -1,5 +1,6 @@
 import { defaultInstanceRoute } from '@/config/constants';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { guardedAppSignIn } from '@/router/guardedAppSignIn';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { AuthLayout } from './AuthLayout';
@@ -9,7 +10,6 @@ import { ForgotPassword } from './ForgotPassword';
 import { ResetPassword } from './ResetPassword';
 import { SignIn } from './SignIn';
 import { SignUp } from './SignUp';
-import { OverallAppSignIn } from './store/authStore';
 import { VerifyEmail } from './VerifyEmail';
 import { Verifying } from './Verifying';
 
@@ -25,7 +25,7 @@ const signInRoute = createRoute({
 	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: SignIn,
 	beforeLoad: ({ context, location }) => {
-		const user = context.authentication[OverallAppSignIn]?.user;
+		const user = guardedAppSignIn(context)?.user;
 		if (user) {
 			const search: Record<string, string> = location?.search;
 			const defaultRoute = getDefaultSignedInCloudRouteForUser(user);
@@ -40,7 +40,7 @@ const localSignInRoute = createRoute({
 	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location }) => {
-		if (context.authentication[OverallAppSignIn]?.user) {
+		if (guardedAppSignIn(context)?.user) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : defaultInstanceRoute });
 		}

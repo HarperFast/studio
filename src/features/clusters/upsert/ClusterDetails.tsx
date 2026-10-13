@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { DialogFooter } from '@/components/ui/dialog';
 import { hobbyistPlanId } from '@/config/constants';
+import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
@@ -9,13 +10,14 @@ import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterGrantId } from '@/features/clusters/upsert/fields/ClusterGrantId';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
+import { ClusterPromoCode } from '@/features/clusters/upsert/fields/ClusterPromoCode';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ClusterGrant } from '@/integrations/api/api.patch';
 import { ArrowRight, Layers3, Server } from 'lucide-react';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
@@ -44,6 +46,8 @@ interface ClusterDetailsProps {
 	planLevelFloor?: number;
 	/** The organization's unclaimed vouchers, offered on create. */
 	unboundGrants?: ClusterGrant[];
+	/** Set when this user may redeem a promo code for the organization from the create form. */
+	promoCodeOrganizationId?: string;
 	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
 	lockedByGrant?: boolean;
 	/** A trial voucher's allowed plans all share one deployment, so that picker has nothing to offer. */
@@ -59,6 +63,7 @@ interface ClusterDetailsProps {
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
+	submitError?: string;
 	totalPrice: number;
 }
 
@@ -80,6 +85,7 @@ export function ClusterDetails({
 	currentPlanId,
 	planLevelFloor,
 	unboundGrants,
+	promoCodeOrganizationId,
 	lockedByGrant,
 	deploymentLockedByGrant,
 	grantPlanIds,
@@ -89,9 +95,11 @@ export function ClusterDetails({
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
+	submitError,
 	totalPrice,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
+	const [redeemingPromoCode, setRedeemingPromoCode] = useState(false);
 	// Hobbyist is colocated-only, so the deployment picker has nothing to offer while it is selected.
 	// Only when editing: on the create page Hobbyist can be the default selection for an org that
 	// already holds a free cluster, and locking deployment there would strand someone who wanted a
@@ -209,12 +217,14 @@ export function ClusterDetails({
 	const allowUpgradeResubmit = !!clusterId && !!currentPlanId && selectedPlan?.id !== currentPlanId;
 
 	const footer = (
-		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6">
+		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6 sm:items-center">
+			<SubmitErrorMessage message={submitError} />
 			<Button
 				className="w-full sm:w-auto"
 				type="submit"
 				variant="submit"
 				disabled={isPending
+					|| redeemingPromoCode
 					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
 					|| !isValid}
 			>
@@ -315,6 +325,14 @@ export function ClusterDetails({
 									unboundGrants={unboundGrants}
 									planNameById={planNameById}
 									regionNameById={regionNameById}
+								/>
+							)}
+							{!clusterId && promoCodeOrganizationId && (
+								<ClusterPromoCode
+									className="col-span-3 md:col-span-6"
+									form={form}
+									organizationId={promoCodeOrganizationId}
+									onBusyChange={setRedeemingPromoCode}
 								/>
 							)}
 							<ClusterDeploymentDescription

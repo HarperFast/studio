@@ -1,16 +1,22 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
 import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
-import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
+import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
+import { getDescribeTable } from '@/integrations/api/instance/database/getDescribeTable';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { WatchedValuesTypeMap } from '@/lib/storage/watchedValueKeys';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
-import { useQueryClient } from '@tanstack/react-query';
+import { describeError } from '@/react-query/queryClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
+type AddTarget = Exclude<WatchedValuesTypeMap['ShowAddTableRecords'], false>;
 
 /**
  * Single, always-mounted home for every database/table action modal. The tree context menu and the
@@ -40,18 +46,49 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	const { value: addTarget } = useWatchedValue('ShowAddTableRecords', false);
 	const { value: importTarget } = useWatchedValue('ShowImportData', false);
 
-	const addInstanceTable = addTarget
+	// A schema-declared relationship can be reported by describe as a plain attribute, and a record
+	// that assigns it is refused. Fetched only while a modal that writes records is open: the crawl
+	// reads every component schema file, and the open table view has usually cached it already.
+	const { data: schemaRelationshipMap } = useQuery(
+		getSchemaRelationshipsQueryOptions({ ...instanceParams, enabled: !!addTarget || !!importTarget }),
+	);
+
+	const addTableFromMap = addTarget
 		? instanceDatabaseMap?.[addTarget.databaseName]?.[addTarget.tableName]
 		: undefined;
-	// The Add Records modal needs the table's schema from the fast map. If the target isn't there
-	// (e.g. a stale map after the table was dropped elsewhere), tell the user instead of silently
-	// doing nothing, and clear the trigger.
+	const [describedAddTable, setDescribedAddTable] = useState<{ target: AddTarget; table: InstanceTable }>();
+	const addInstanceTable = addTableFromMap
+		?? (addTarget && describedAddTable?.target === addTarget ? describedAddTable.table : undefined);
+	// A target the map lacks may only mean the map is stale. Described directly, not through the cached
+	// query, so a copy from before a drop can't open it and a failure is reported once, here, rather
+	// than again by the global query-error toast.
 	useEffect(() => {
-		if (addTarget && !addInstanceTable) {
-			toast.error(`Couldn't open "${addTarget.tableName}" — it may have just been removed. Try refreshing.`);
-			setWatchedValue('ShowAddTableRecords', false);
+		if (!addTarget || addTableFromMap) {
+			return;
 		}
-	}, [addTarget, addInstanceTable]);
+		const { databaseName, tableName } = addTarget;
+		let isCurrent = true;
+		const loadingToast = toast.loading(`Opening "${tableName}"…`);
+		getDescribeTable({ ...instanceParams, databaseName, tableName, includeComputed: true }).then(
+			(table) => {
+				if (isCurrent) {
+					toast.dismiss(loadingToast);
+					setDescribedAddTable({ target: addTarget, table });
+				}
+			},
+			(error: unknown) => {
+				if (isCurrent) {
+					toast.dismiss(loadingToast);
+					toast.error(`Couldn't open "${tableName}"`, { description: describeError(error).message });
+					setWatchedValue('ShowAddTableRecords', false);
+				}
+			},
+		);
+		return () => {
+			isCurrent = false;
+			toast.dismiss(loadingToast);
+		};
+	}, [addTarget, addTableFromMap, instanceParams]);
 
 	const onImported = useCallback(async (databaseName: string, tableName: string) => {
 		// The import may have created a new table (or even database), so refresh the tree too.
@@ -90,6 +127,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
 					databaseTables={instanceDatabaseMap?.[addTarget.databaseName]}
+					schemaRelationships={schemaRelationshipMap?.[addTarget.databaseName]?.[addTarget.tableName]}
 					isModalOpen
 					setIsModalOpen={open => {
 						if (!open) {
@@ -111,6 +149,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				isModalOpen={!!importTarget}
 				setIsModalOpen={open => setWatchedValue('ShowImportData', open ? (importTarget || {}) : false)}
 				instanceDatabaseMap={instanceDatabaseMap}
+				schemaRelationshipMap={schemaRelationshipMap}
 				databaseName={importTarget ? importTarget.databaseName : undefined}
 				tableName={importTarget ? importTarget.tableName : undefined}
 				initialMethod={importTarget ? importTarget.method : undefined}

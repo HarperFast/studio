@@ -8,9 +8,13 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope, and when the cluster form may terminate a cluster.
 
-- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, and where the cluster card's sync chip gets its data.
+- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, where the cluster card's sync chip gets its data, how custom-domain cert intent, certificate progress and the Bind selection work, and why a domain change is built from a fresh read.
 
-- [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, and why a table without a primary key can't be listed.
+- [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, why a table without a primary key can't be listed, why a filtered list pages without a count, why a table with a computed attribute exports by naming its columns, where columns for undeclared properties come from, and why a filter no index can answer asks first.
+
+- [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again.
+- [`src/features/instance/config/roles/DESIGN.md`](src/features/instance/config/roles/DESIGN.md) — why the role editor's JSON text is the only source of truth, what forces the JSON view, and what Save changes on purpose.
+- [`src/router/DESIGN.md`](src/router/DESIGN.md) — why a failed route load is reported and shown only by its route, and why a preload still toasts.
 
 - [`docs/status-redesign.md`](docs/status-redesign.md) — port of analytics-viz visualizations + spec system into the instance Status tab. Covers: 7-tab IA, the data-path adapter (no SQL — `get_analytics` only), bucket-by-window clamps, chart-surface CSS tokens, feature-flag rollback, testing strategy. Read before touching `src/features/instance/status/**`.
 
@@ -60,9 +64,29 @@ Central manager only ever sends the boolean, never the other organizations' ids;
 - **Routing**: TanStack Router, file-based, lazy-loaded. Build a link to another org/cluster/instance
   with `buildAbsoluteLinkToPage`. A relative `../…` is only safe from a component that unmounts with
   its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
-  navigation re-resolves its href one level too deep (HarperFast/studio#1710).
+  navigation re-resolves its href one level too deep (HarperFast/studio#1710, #1711).
+  `EntityMenuItem.to` accepts only the helper's `AbsolutePath`, so a relative menu target fails `tsc`.
+- **Remembered instance/cluster sign-ins are checked on demand**: `Studio:PotentiallyAuthenticated` spans every
+  organization ever visited, so the root auth subscription checks only the app sign-in; an entity is checked by
+  `useInstanceAuth`/`listenToEntity` or the instance-layout guard (`entityAuthCheckScope.test.ts`, HarperFast/studio#1329).
+- **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
+  `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
+  answers a request with no session with 403, so a deep link on an expired session has its route data fail before the
+  check says the session is gone. Rendering the outlet then would show that route's error page — "no access" for what is
+  an expired session — and let still-mounted pages rebuild their queries after the sign-out's cache clear and fetch
+  again on the dead session. The guard redirects every signed-out dashboard load, so the spinner only covers the moment
+  before it does (`endedSessionRouteFailures.test.tsx`, HarperFast/studio#1546).
 - **Data fetching**: TanStack React Query 5. Query keys must be instance-scoped when the request targets a specific instance.
+- **Polling**: every `refetchInterval` on a query that can reject against an instance or a cluster goes through [`pollUnlessForbidden`](src/react-query/pollUnlessForbidden.ts), which stops the timer on a 403 and backs off a sustained 400 or 5xx; a raw number polls a failing endpoint at full rate for as long as the page is open. When the interval depends on the data, compute it and hand it over per tick: `(query) => pollUnlessForbidden(base(query))(query)` (the back-off state is per query, not per wrapper).
 - **Forms**: react-hook-form with a zod `zodResolver`. A form whose submit button waits on `formState.isValid` must not use the default `onSubmit` mode, which keeps `isValid` current but shows errors only after a submit the disabled button never allows, so the user is blocked with no reason given (HarperFast/studio#1550). Use `mode: 'onTouched'`: a field's error appears once it is first left and then follows each change, while `isValid` still tracks every keystroke (`onBlur` recomputes `isValid` only on blur, so the button lags the text). Enter neither submits past a disabled button nor leaves the field, so give the `<form>` `onKeyDown={revealFieldErrorOnEnter(form)}`, which treats Enter in a text input as leaving it. A refine that compares two fields reports on one of them; re-check that field from the other's `onChange` once it has been touched (`getFieldState(name).isTouched`, then `trigger(name)`), because `rules={{ deps }}` fires on the other field's first blur, before the user reaches it. react-hook-form only updates the `formState` fields a render has read, and `disabled={!isDirty || !isValid}` skips `isValid` while the form is pristine, so where one change can complete the form (a single field, a paste, a checkbox) the button stays disabled on a valid form. Read the fields before the JSX (`const { isDirty, isValid } = form.formState;`) and pin it with a test that makes one change and checks the button.
 - **Cloud permission gates** ([`usePermissions.ts`](src/hooks/usePermissions.ts)) must mirror the check the central manager endpoint runs, not the nearest role flag. An org admin appears in `/User/current` as `roles[orgId].role === 'admin'`; central manager builds every org role with `permission.super_user: false`, so the member helpers' `super_user` short-circuits never identify one — an admin gets full access there from its all-true flags. Container lifecycle ops are where the two diverge: their endpoints admit only org admins and staff holding `instance:update`, so gate them on `useContainerOpsPermission`, never on cluster `update`.
+- **Unit tests never read `.env` files and never open a real WebSocket.** `vitest.config.ts` sets
+  `envDir: false`, so a developer's `.env.local` (which points `VITE_CENTRAL_MANAGER_API_URL` at
+  live stage) never reaches `import.meta.env` — only `VITE_*` exported in the shell does, as in CI,
+  which exports none; and [`failOnRealWebSocket.ts`](src/testSetup/failOnRealWebSocket.ts)
+  replaces `WebSocket` with an inert stand-in that fails any test constructing one. A test that
+  needs a socket stubs it with `vi.stubGlobal('WebSocket', …)`. Under jsdom a real socket cannot
+  work anyway — its `open` event throws an uncaught realm-mismatch `TypeError` that fails a run of
+  green tests (HarperFast/studio#1689).
 
 - [`src/features/search/DESIGN.md`](src/features/search/DESIGN.md) — global search loading, shared-query ownership, session isolation, and shortcut behavior.

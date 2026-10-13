@@ -1,4 +1,14 @@
-import { DeployPeerEvent, DeployStreamEvent } from '@/integrations/api/instance/applications/deployComponentStream';
+import {
+	DeployComponentResult,
+	DeployPeerEvent,
+	DeployStreamEvent,
+} from '@/integrations/api/instance/applications/deployComponentStream';
+import {
+	CertificationDecision,
+	DeployCertification,
+	deployFailureDetails,
+} from '@/integrations/api/instance/applications/deployOutcome';
+import { RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
 import { useCallback, useMemo, useReducer } from 'react';
 
 export type DeploymentLifecycle = 'idle' | 'streaming' | 'success' | 'error' | 'inconclusive';
@@ -18,6 +28,13 @@ export interface DeploymentStreamState {
 	currentPhase?: string;
 	installLog: InstallLine[];
 	peers: DeployPeerEvent[];
+	warnings?: string[];
+	rollout?: RolloutSnapshot;
+	/** How the node that received the deploy checked the release, once it answered. */
+	certification?: DeployCertification;
+	/** Why that node's canary refused the release. */
+	decision?: CertificationDecision;
+	deploymentId?: string;
 	error?: string;
 }
 
@@ -32,11 +49,39 @@ const INITIAL_STATE: DeploymentStreamState = {
 // limit; the server already aggregates, this is a UI safety net.
 const MAX_INSTALL_LINES = 1000;
 
+type Settled = Extract<DeploymentLifecycle, 'success' | 'error' | 'inconclusive'>;
+
 type Action =
 	| { kind: 'reset' }
 	| { kind: 'start' }
 	| { kind: 'event'; event: DeployStreamEvent }
-	| { kind: 'settled'; lifecycle: Extract<DeploymentLifecycle, 'success' | 'error' | 'inconclusive'>; error?: string };
+	| { kind: 'settled'; lifecycle: Settled; error?: string; outcome?: SettledOutcome };
+
+interface SettledOutcome {
+	result?: DeployComponentResult;
+	failure?: unknown;
+}
+
+function settledDetails(
+	state: DeploymentStreamState,
+	outcome: SettledOutcome | undefined,
+): Partial<DeploymentStreamState> {
+	if (outcome?.result) {
+		const { certification, deployment_id, rollout, warnings } = outcome.result;
+		return {
+			certification: typeof certification === 'string' ? certification : undefined,
+			deploymentId: deployment_id,
+			...(rollout ? { rollout } : {}),
+			// The streamed events already put them here; a result that did not stream still carries them.
+			...(!state.warnings?.length && warnings?.length ? { warnings } : {}),
+		};
+	}
+	if (outcome?.failure !== undefined) {
+		const { deploymentId, certification } = deployFailureDetails(outcome.failure);
+		return { deploymentId, decision: certification };
+	}
+	return {};
+}
 
 function reducer(state: DeploymentStreamState, action: Action): DeploymentStreamState {
 	switch (action.kind) {
@@ -64,11 +109,20 @@ function reducer(state: DeploymentStreamState, action: Action): DeploymentStream
 					installLog: next.length > MAX_INSTALL_LINES ? next.slice(-MAX_INSTALL_LINES) : next,
 				};
 			}
+			if (event.type === 'warning') {
+				const { message } = event.data;
+				return typeof message === 'string' && message
+					? { ...state, warnings: (state.warnings ?? []).concat(message) }
+					: state;
+			}
+			if (event.type === 'rollout') {
+				return { ...state, rollout: event.data };
+			}
 			// peer
 			return { ...state, peers: state.peers.concat(event.data) };
 		}
 		case 'settled':
-			return { ...state, lifecycle: action.lifecycle, error: action.error };
+			return { ...state, ...settledDetails(state, action.outcome), lifecycle: action.lifecycle, error: action.error };
 	}
 }
 
@@ -87,8 +141,8 @@ export function useDeploymentStream() {
 	const markStarted = useCallback(() => dispatch({ kind: 'start' }), []);
 	const reset = useCallback(() => dispatch({ kind: 'reset' }), []);
 	const markSettled = useCallback(
-		(lifecycle: 'success' | 'error' | 'inconclusive', error?: string) =>
-			dispatch({ kind: 'settled', lifecycle, error }),
+		(lifecycle: Settled, error?: string, outcome?: SettledOutcome) =>
+			dispatch({ kind: 'settled', lifecycle, error, outcome }),
 		[],
 	);
 

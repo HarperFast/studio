@@ -2,6 +2,7 @@ import { errorText } from '@/lib/errorText';
 import { isRestartNoise } from '@/lib/restart/restartGate';
 import { onRestartSettled } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
+import { isClaimedByRoute } from '@/react-query/routeQueryClaims';
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
@@ -112,10 +113,16 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  * already in flight when it went down, and those to a cluster restarting one member at a time, still
  * fail even though new ones are held (`installRestartGate`). `console.debug`, not `console.error`:
  * the RUM SDK reports the latter.
+ *
+ * A failure a route load is awaiting is the route's: its error page is the message and its error
+ * boundary the RUM report (`ensureRouteQueryData`).
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
 	if (isRestartNoise(error, query.queryKey)) {
 		console.debug('Suppressed a failure from a restarting entity', error);
+		return;
+	}
+	if (isClaimedByRoute(query)) {
 		return;
 	}
 	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {

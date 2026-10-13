@@ -8,6 +8,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link } from '@tanstack/react-router';
 import {
 	ArrowRight,
@@ -33,6 +34,8 @@ export function OrgCard({
 }) {
 	const { organizationId, organizationName, roleName } = organizationRole;
 	const name = organizationName || organizationId;
+	const orgIds = { organizationId };
+	const orgHref = buildAbsoluteLinkToPage(orgIds);
 	const [copyId] = useCopyToClipboard(organizationId);
 	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const showBilling = canUpdateOrganization;
@@ -50,31 +53,31 @@ export function OrgCard({
 		{ type: 'separator' as const, key: 'sep-top' },
 		{
 			key: 'clusters',
-			to: `${organizationId}`,
+			to: orgHref,
 			icon: <ServerIcon className="size-4 mr-2 text-blue-500" />,
 			label: 'Clusters',
 		},
 		showOrgUsersAndRoles && {
 			key: 'roles',
-			to: `${organizationId}/roles`,
+			to: buildAbsoluteLinkToPage(orgIds, 'roles'),
 			icon: <ShieldCheckIcon className="size-4 mr-2 text-purple" />,
 			label: 'Roles',
 		},
 		showOrgUsersAndRoles && {
 			key: 'users',
-			to: `${organizationId}/users`,
+			to: buildAbsoluteLinkToPage(orgIds, 'users'),
 			icon: <UsersIcon className="size-4 mr-2 text-orange-500" />,
 			label: 'Users',
 		},
 		showBilling && {
 			key: 'billing',
-			to: `${organizationId}/billing`,
+			to: buildAbsoluteLinkToPage(orgIds, 'billing'),
 			icon: <CreditCardIcon className="size-4 mr-2 text-green-500" />,
 			label: 'Billing',
 		},
 		canUpdateOrganization && {
 			key: 'settings',
-			to: `${organizationId}/settings`,
+			to: buildAbsoluteLinkToPage(orgIds, 'settings'),
 			icon: <KeyRoundIcon className="size-4 mr-2 text-yellow-500" />,
 			label: 'Settings',
 		},
@@ -102,7 +105,7 @@ export function OrgCard({
 		<EntityContextMenu items={showMenu ? menuItems : []}>
 			<Card className="group relative gap-0 py-0 h-full cursor-pointer justify-between overflow-hidden border border-primary/15 transition-[border-color,box-shadow] duration-200 hover:border-primary/60 hover:shadow-lg hover:ring-2 hover:ring-primary/40 dark:hover:ring-violet-400/60">
 				<Link
-					to={organizationId}
+					to={orgHref}
 					aria-label={`Open ${name}`}
 					className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 				/>

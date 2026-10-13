@@ -3,7 +3,7 @@ import { ImportJobError, waitForJob } from './getJob';
 
 type InstanceClient = Parameters<typeof waitForJob>[0]['instanceClient'];
 
-function makeClient(responses: ({ status: string; message?: string } | { reject: true })[]) {
+function makeClient(responses: ({ status: string; message?: unknown } | { reject: true })[]) {
 	let call = 0;
 	const post = vi.fn(() => {
 		const job = responses[Math.min(call, responses.length - 1)];
@@ -55,6 +55,19 @@ describe('waitForJob', () => {
 		await vi.advanceTimersByTimeAsync(500);
 		await expect(pending).rejects.toThrow('CSV was malformed');
 		await expect(pending).rejects.toBeInstanceOf(ImportJobError);
+	});
+
+	// harper `server/jobs/jobProcess.ts:86` (5.3.0+) records a refused load's permission report as the message.
+	it('reads a structured job message as text, never "[object Object]"', async () => {
+		const report = {
+			error: 'This operation is not authorized due to role restrictions and/or invalid database items',
+			unauthorized_access: [{ database: 'data', table: 'dog', required_table_permissions: ['insert'] }],
+		};
+		const instanceClient = makeClient([{ status: 'ERROR', message: report }]);
+		const pending = waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100 });
+		pending.catch(() => {});
+		await vi.advanceTimersByTimeAsync(100);
+		await expect(pending).rejects.toThrow(JSON.stringify(report));
 	});
 
 	it('tolerates transient get_job failures and keeps polling', async () => {

@@ -3,14 +3,19 @@ import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
+import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { getDeploymentQueryOptions, getDeploymentStream } from '@/integrations/api/instance/deployments/getDeployment';
 import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
+import { describePeerInstall } from '../functions/describePeerInstall';
+import { ActivateStagedRelease } from './ActivateStagedRelease';
 import { DeploymentStatusBadge } from './deploymentStatusBadge';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -31,6 +36,7 @@ function timestamp(ms?: number) {
 
 export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 	const instanceParams = useInstanceClientIdParams();
+	const params: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({ strict: false });
 	const sseSupported = useSupportsDeploymentSSE();
 	const queryClient = useQueryClient();
 	const stream = useDeploymentStream();
@@ -113,16 +119,34 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 						: undefined}
 				/>
 				<Field
-					label="Restorable"
-					value={deployment.restorable === undefined ? undefined : deployment.restorable ? 'Yes' : 'No'}
+					label="Installed from"
+					value={deployment.install_fingerprint?.source
+						? <span className="break-all font-mono text-xs">{deployment.install_fingerprint.source}</span>
+						: undefined}
 				/>
 				<Field
-					label="Rollback of"
-					value={deployment.rollback_of
-						? <span className="font-mono text-xs">{deployment.rollback_of}</span>
+					label="Activation of"
+					value={deployment.activated_from
+						? (
+							<Link
+								to={deploymentRecordPath(params, deployment.activated_from)}
+								className="font-mono text-xs underline"
+							>
+								{deployment.activated_from}
+							</Link>
+						)
 						: undefined}
 				/>
 			</div>
+
+			{deployment.status === 'staged' && (
+				<>
+					<div className="text-sm text-muted-foreground">
+						Staged: built and installed, but not live. Activating it makes it live with nothing to install.
+					</div>
+					<ActivateStagedRelease deployment={deployment} />
+				</>
+			)}
 
 			{showLiveProgress && (
 				<>
@@ -152,17 +176,30 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 				<>
 					<Separator />
 					<div>
-						<div className="mb-1 text-xs font-medium text-muted-foreground">Replication</div>
-						<ul className="flex flex-col gap-1 text-sm">
+						<div className="mb-1 text-xs font-medium text-muted-foreground">Other nodes</div>
+						<ul className="flex flex-col gap-2 text-sm">
 							{deployment.peer_results.map((peer, i) => {
 								const peerError = errorText(peer.error);
+								const install = describePeerInstall(peer);
 								return (
-									<li key={peer.node ?? i} className="flex items-center justify-between gap-2">
-										<span className="truncate">{peer.node}</span>
-										<span className={peer.status === 'failed' ? 'text-destructive' : 'text-success'}>
-											{peer.status ?? 'ok'}
-											{peerError ? `: ${peerError}` : ''}
+									<li key={peer.node ?? i} className="flex flex-col gap-0.5">
+										<span className="flex items-center justify-between gap-2">
+											<span className="truncate">{peer.node}</span>
+											<span className={peer.status === 'failed' ? 'text-destructive' : 'text-success'}>
+												{peer.status ?? 'ok'}
+												{peerError ? `: ${peerError}` : ''}
+											</span>
 										</span>
+										{install && (
+											<span
+												className={cn(
+													'text-xs',
+													install.matches === false ? 'text-amber-600' : 'text-muted-foreground',
+												)}
+											>
+												{install.label}
+											</span>
+										)}
 									</li>
 								);
 							})}

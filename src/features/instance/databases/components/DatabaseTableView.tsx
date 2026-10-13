@@ -7,10 +7,19 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import {
+	ExtraRecordAttribute,
+	extraRecordAttributes,
+	sameExtraRecordAttributes,
+} from '@/features/instance/databases/functions/extraRecordAttributes';
+import {
+	browsePrimaryKey,
+	formatBrowseDataTableHeader,
+} from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import { fullScanAttributes, fullScanWarning } from '@/features/instance/databases/functions/fullScanFilter';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
 import {
-	buildRelationshipGetAttributes,
+	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
 	getRelationshipInfoMap,
 	syntheticAttributeNames,
@@ -68,6 +77,7 @@ import { ColumnSizingState, ColumnVisibilityState } from '@tanstack/react-table'
 import {
 	BrushCleaningIcon,
 	CircleCheckBigIcon,
+	CircleHelpIcon,
 	CircleIcon,
 	CloudDownloadIcon,
 	CloudUploadIcon,
@@ -86,15 +96,25 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
 import { EmptyResultSet } from './EmptyResultSet';
+import { FilterSyntaxHelp } from './FilterSyntaxHelp';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
+import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 
 // Stable so `useEffectedState` can reset to it without rebuilding a set on every render.
 const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
 const NO_ROWS: Record<string, unknown>[] = [];
+const NO_EXTRA_ATTRIBUTES: ExtraRecordAttribute[] = [];
 
-export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
+export function DatabaseTableView({
+	instanceDatabaseMap,
+	instanceDatabaseMapLoading = false,
+	databaseName,
+	tableName,
+}: {
 	instanceDatabaseMap?: InstanceDatabaseMap;
+	/** `describe_all` is on its first fetch, so `instanceDatabaseMap` is missing for now rather than for good. */
+	instanceDatabaseMapLoading?: boolean;
 	databaseName: string;
 	tableName: string;
 }) {
@@ -138,20 +158,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const canImportFile = canImportData && importCapabilities.methods.file;
 	const canImportUrl = canImportData && importCapabilities.methods.url;
 	const canSeedSample = canImportData && importCapabilities.allowsSource('csv-data');
-	// Read the attributes from the same map the modal's Random Data option reads (NOT the
-	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
-	// dead end this gate exists to close.
-	const fillableAttributes = useMemo(
-		() => randomizableAttributes(tableFromMap?.attributes, databaseTables),
-		[tableFromMap, databaseTables],
-	);
-	const canSeedRandom = canImportData
-		&& importCapabilities.allowsSource('json-records')
-		&& fillableAttributes.length > 0;
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
 	// Newer Harper servers omit relationship attributes from describe entirely; the component
 	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
-	const { data: schemaRelationshipMap } = useQuery(getSchemaRelationshipsQueryOptions(instanceParams));
+	const { data: schemaRelationshipMap, isLoading: schemaRelationshipsLoading } = useQuery(
+		getSchemaRelationshipsQueryOptions(instanceParams),
+	);
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
@@ -162,6 +174,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
 	const canReplaceRecords = replaceBlockedReason === undefined;
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
+	// Read the attributes from the same map the modal's Random Data option reads (NOT the
+	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
+	// dead end this gate exists to close.
+	const fillableAttributes = useMemo(
+		() => randomizableAttributes(tableFromMap?.attributes, databaseTables, schemaRelationships),
+		[tableFromMap, databaseTables, schemaRelationships],
+	);
+	const canSeedRandom = canImportData
+		&& importCapabilities.allowsSource('json-records')
+		&& fillableAttributes.length > 0;
 	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
 	// they are also excluded from record add/edit JSON since the server rejects writes that
 	// assign them.
@@ -169,13 +191,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		() => getRelationshipInfoMap(instanceTable, databaseTables, schemaRelationships),
 		[instanceTable, databaseTables, schemaRelationships],
 	);
-	const relationshipGetAttributes = useMemo(
-		() => buildRelationshipGetAttributes(instanceTable, databaseTables),
+	const syntheticGetAttributes = useMemo(
+		() => buildSyntheticGetAttributes(instanceTable, databaseTables),
 		[instanceTable, databaseTables],
 	);
 	const syntheticAttributes = useMemo(
-		() => syntheticAttributeNames(instanceTable?.attributes, databaseTables),
-		[instanceTable, databaseTables],
+		() => syntheticAttributeNames(instanceTable?.attributes, databaseTables, schemaRelationships),
+		[instanceTable, databaseTables, schemaRelationships],
 	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -208,6 +230,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
+	const { toggled: filterHelpToggled, toggle: toggleFilterHelp } = useToggler(false);
 	const columnFiltersForm = useForm({
 		resolver: zodResolver(ColumnFiltersSchema),
 	});
@@ -215,6 +238,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const columnFiltersValues = columnFiltersForm.watch();
 
 	const [appliedSearchConditions, setAppliedSearchConditions] = useEffectedState<SearchCondition[] | null>(null, [
+		allParams.clusterId,
+		allParams.instanceId,
+		databaseName,
+		tableName,
+	]);
+	const [fullScanAllowed, setFullScanAllowed] = useEffectedState(false, [
 		allParams.clusterId,
 		allParams.instanceId,
 		databaseName,
@@ -228,7 +257,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			if (value?.length) {
 				try {
 					conditions.push(
-						...translateColumnFilterToSearchConditions(key, value, attributesMap[key], relationshipInfoMap[key]),
+						...translateColumnFilterToSearchConditions(
+							key,
+							value,
+							attributesMap[key],
+							Object.hasOwn(relationshipInfoMap, key) ? relationshipInfoMap[key] : undefined,
+						),
 					);
 				} catch (err) {
 					toast.error(String(err));
@@ -238,18 +272,31 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return conditions;
 	}, [attributesMap, relationshipInfoMap]);
 
-	const applyFilters = useCallback(() => {
-		const conditions = translateFilterValues(columnFiltersValues);
+	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
+	// without the user agreeing to read the whole table.
+	const applySearchConditions = useCallback((conditions: SearchCondition[]) => {
+		const scanned = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
+		if (scanned.length && !confirm(fullScanWarning(tableName, scanned))) {
+			return false;
+		}
+		setFullScanAllowed(scanned.length > 0);
 		setAppliedSearchConditions(conditions.length ? conditions : null);
-		resetFiltersForm({ ...columnFiltersValues });
-	}, [translateFilterValues, resetFiltersForm, columnFiltersValues]);
+		return true;
+	}, [attributesMap, relationshipInfoMap, tableName, setFullScanAllowed, setAppliedSearchConditions]);
+
+	const applyFilters = useCallback(() => {
+		if (applySearchConditions(translateFilterValues(columnFiltersValues))) {
+			resetFiltersForm({ ...columnFiltersValues });
+		}
+	}, [applySearchConditions, translateFilterValues, resetFiltersForm, columnFiltersValues]);
 	const clearFilters = useCallback(() => {
 		// Note sure why we need to resetFiltersForm twice here...
 		resetFiltersForm({}, { keepValues: false, keepDirtyValues: false, keepDefaultValues: false });
 		resetFiltersForm();
 		setAppliedSearchConditions(null);
+		setFullScanAllowed(false);
 		hideFilters();
-	}, [hideFilters, resetFiltersForm]);
+	}, [hideFilters, resetFiltersForm, setAppliedSearchConditions, setFullScanAllowed]);
 
 	useEffect(function clearFiltersWhenParamsChange() {
 		return clearFilters();
@@ -257,23 +304,32 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	// Deep links can carry filters (?filters={column: "value"}) — relationship cell chips use this
 	// to land on the related table filtered to the linked record. Applied once per distinct search,
-	// after the schema arrives (translation needs attribute types). When the URL filters go away
-	// (navigating to another table, or back to the bare table), the filter inputs are cleared too
-	// so they don't linger stale — `appliedSearchConditions` already resets on table change, and
-	// the visible inputs should stay in step with it.
+	// after describe, the database map and the component relationships arrive: translation needs
+	// attribute types, and a relationship only the component schema declares resolves from the last two,
+	// so it would otherwise go out once as an unknown attribute, behind a full-scan warning naming it.
+	// When the URL filters go away (navigating to another table, or back to the bare table), the filter
+	// inputs are cleared too so they don't linger stale — `appliedSearchConditions` already resets on
+	// table change, and the visible inputs should stay in step with it.
 	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
 	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
 	const appliedUrlFiltersKey = useRef<string | null>(null);
 	useEffect(function syncFiltersFromUrl() {
-		if (!instanceTable || appliedUrlFiltersKey.current === urlFiltersKey) {
+		if (
+			!instanceTable
+			|| appliedUrlFiltersKey.current === urlFiltersKey
+			|| (urlFilters && (schemaRelationshipsLoading || instanceDatabaseMapLoading))
+		) {
 			return;
 		}
 		const isInitialSync = appliedUrlFiltersKey.current === null;
 		appliedUrlFiltersKey.current = urlFiltersKey;
 		if (urlFilters) {
-			resetFiltersForm({ ...urlFilters });
-			const conditions = translateFilterValues(urlFilters);
-			setAppliedSearchConditions(conditions.length ? conditions : null);
+			if (applySearchConditions(translateFilterValues(urlFilters))) {
+				resetFiltersForm({ ...urlFilters });
+			} else {
+				// Kept dirty, so Apply Filters stays on offer.
+				resetFiltersForm({ ...urlFilters }, { keepDefaultValues: true });
+			}
 			showFilters();
 		} else if (!isInitialSync) {
 			// Skip the initial mount (nothing to clear yet); otherwise drop the stale inputs a
@@ -284,25 +340,27 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		urlFilters,
 		urlFiltersKey,
 		instanceTable,
+		schemaRelationshipsLoading,
+		instanceDatabaseMapLoading,
 		resetFiltersForm,
 		translateFilterValues,
-		setAppliedSearchConditions,
+		applySearchConditions,
 		showFilters,
 		clearFilters,
 	]);
 
-	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
+	const primaryKey = browsePrimaryKey(instanceTable);
 	// Both list queries need a primary key, so for a table without one neither ever runs, and the grid
 	// would read that "no data" as rows still in flight (#1748). True until the schema arrives without
 	// one, so the spinner still covers the schema load.
 	const hasPrimaryKey = !instanceTable || !!primaryKey;
-	const [sort, setSort] = useEffectedState(
-		{
-			attribute: primaryKey,
-			descending: false,
-		},
+	// Null until the user picks a column, so the default follows the primary key, which on a fresh
+	// load only arrives after mount.
+	const [chosenSort, setSort] = useEffectedState<{ attribute: string; descending: boolean } | null>(
+		null,
 		allParams,
 	);
+	const sort = useMemo(() => chosenSort ?? { attribute: primaryKey, descending: false }, [chosenSort, primaryKey]);
 
 	// Reset to the first page when the table changes OR the applied filter changes. Without the
 	// filter dependency a stale page (e.g. page 3 -> offset 40) would be sent with the new filter,
@@ -310,9 +368,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName, appliedSearchConditions]);
 	const [pageSize, setPageSize] = useState(20);
 
-	// The index of a page a step has proven to be the last one. A full page can't say whether more
-	// records follow, so the step probes; an empty answer is the only proof, and remembering it
-	// keeps the Next button from offering that same dead probe again.
+	// The index of a page a step has proven to be the last one. A full unfiltered page can't say
+	// whether more records follow, so the step probes; an empty answer is the only proof, and
+	// remembering it keeps the Next button from offering that same dead probe again.
 	const [knownLastPage, setKnownLastPage] = useEffectedState<number | null>(null, [
 		databaseName,
 		tableName,
@@ -422,7 +480,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
-		getAttributes: relationshipGetAttributes,
+		getAttributes: syntheticGetAttributes,
 	};
 	const searchByValueOptions = getSearchByValueOptions(searchByValueParams);
 	const { data: fullTableData, isFetching: tableDataFetching, isError: isFullTableError } = useQuery(
@@ -440,7 +498,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
-		getAttributes: relationshipGetAttributes,
+		getAttributes: syntheticGetAttributes,
+		allowFullScan: fullScanAllowed,
 	};
 	const searchByConditionsOptions = getSearchByConditionsOptions(searchByConditionsParams);
 	const { data: filteredTableData, isFetching: tableConditionsDataFetching, isError: isFilteredTableError } = useQuery(
@@ -457,6 +516,45 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// the previous page's data -- which is what tells a pending record step that its page hasn't
 	// arrived yet.
 	const pageRows = tableData?.data;
+
+	const columnAttributes = useMemo(
+		() =>
+			new Set([
+				...(instanceTable?.attributes ?? []).map(({ attribute }) => attribute),
+				...Object.keys(relationshipInfoMap),
+			]),
+		[instanceTable, relationshipInfoMap],
+	);
+	const pageExtraAttributes = useMemo(
+		() => pageRows && extraRecordAttributes(pageRows, columnAttributes),
+		[pageRows, columnAttributes],
+	);
+	// While the next page loads there are no rows to read them from, so the last page's extra columns
+	// stay up rather than dropping out of the header and coming back.
+	const extraAttributesKey = JSON.stringify([instanceParams.entityId, databaseName, tableName]);
+	const [heldExtraAttributes, setHeldExtraAttributes] = useState({
+		key: extraAttributesKey,
+		extras: NO_EXTRA_ATTRIBUTES,
+	});
+	if (
+		pageExtraAttributes
+		&& (heldExtraAttributes.key !== extraAttributesKey
+			|| !sameExtraRecordAttributes(heldExtraAttributes.extras, pageExtraAttributes))
+	) {
+		setHeldExtraAttributes({ key: extraAttributesKey, extras: pageExtraAttributes });
+	}
+	const extraAttributes = pageExtraAttributes
+		?? (heldExtraAttributes.key === extraAttributesKey ? heldExtraAttributes.extras : NO_EXTRA_ATTRIBUTES);
+	const { dataTableColumns } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap, extraAttributes);
+	// The table's count doesn't describe a filtered result set, and a search reports no count of its own.
+	const uncountedPage: UncountedPage | undefined = useFilteredList
+		? { rowCount: filteredTableData?.data.length, hasNextPage: filteredTableData?.hasNextPage }
+		: undefined;
+	// Unfiltered, a page shorter than `pageSize` is the last (both lists page by offset/limit), but a
+	// full one is only proven terminal by a step that found nothing past it.
+	const hasNextPage = uncountedPage
+		? !!uncountedPage.hasNextPage
+		: !!pageRows && pageRows.length === pageSize && knownLastPage !== pageIndex;
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -553,8 +651,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);
 
 	// The toolbar exports what's on screen (active filters + sort); the tree/overview export the whole
-	// table. Both go through the shared hook, which fetches raw records (no relationship get_attributes)
-	// -- resolved relationship objects don't serialize usefully into CSV cells.
+	// table. Both go through the shared hook, which never names a relationship attribute -- resolved
+	// relationship objects don't serialize usefully into CSV cells.
 	const { exportCsv, isExporting: isExportingCSV } = useExportTableCsv();
 	const onExportCSVClicked = useCallback(() => {
 		void exportCsv({
@@ -563,8 +661,22 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			primaryKey,
 			sort,
 			conditions: useFilteredList ? appliedSearchConditions : null,
+			allowFullScan: useFilteredList && fullScanAllowed,
+			instanceTable,
+			databaseTables,
 		});
-	}, [exportCsv, databaseName, tableName, primaryKey, sort, useFilteredList, appliedSearchConditions]);
+	}, [
+		exportCsv,
+		databaseName,
+		tableName,
+		primaryKey,
+		sort,
+		useFilteredList,
+		appliedSearchConditions,
+		fullScanAllowed,
+		instanceTable,
+		databaseTables,
+	]);
 
 	// One policy for both write paths, deliberately shared: every asymmetry between them so far has
 	// come from changing one and not the other.
@@ -819,17 +931,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// the buttons wait for that page rather than describing the record the user stepped away from.
 	const recordNavigation: RecordNavigation | undefined = openRowIndex === null ? undefined : {
 		position: isStepPending ? undefined : pageIndex * pageSize + openRowIndex + 1,
-		// The count describes the whole table, so it only counts the result set when nothing filters it.
-		total: useFilteredList ? undefined : totalRecords,
-		isTotalEstimated: isEstimatedCount,
+		total: uncountedPage ? uncountedTotal(pageIndex, pageSize, uncountedPage) : totalRecords,
+		isTotalEstimated: !uncountedPage && isEstimatedCount,
 		hasPrevious: !isStepPending && (openRowIndex > 0 || pageIndex > 0),
-		// A page shorter than `pageSize` is the last page: both list queries page by offset/limit, so
-		// a short page means the server had no more rows. That is exact, where `totalRecords` is a
-		// whole-table estimate that says nothing about a filtered result set -- using it offered a
-		// next record that wasn't there and left the grid on an empty page.
-		hasNext: !isStepPending && !!pageRows
-			&& (openRowIndex + 1 < pageRows.length
-				|| (pageRows.length === pageSize && knownLastPage !== pageIndex)),
+		hasNext: !isStepPending && !!pageRows && (openRowIndex + 1 < pageRows.length || hasNextPage),
 		onPrevious: () => stepToRecord(-1),
 		onNext: () => stepToRecord(1),
 	};
@@ -888,6 +993,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 							<span>
 								Hide <u>F</u>ilters
 							</span>
+						</Button>
+					)}
+
+					{filtersToggled && (
+						<Button
+							variant="ghost"
+							onClick={toggleFilterHelp}
+							aria-expanded={filterHelpToggled}
+							aria-controls="filter-syntax-help"
+						>
+							<CircleHelpIcon className="inline-block " />
+							Filter Syntax
 						</Button>
 					)}
 
@@ -980,6 +1097,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					</DropdownMenu>
 				</div>
 			</div>
+			{filtersToggled && filterHelpToggled && <FilterSyntaxHelp id="filter-syntax-help" />}
 
 			<TableView<Record<string, unknown>>
 				primaryKey={primaryKey}
@@ -1013,6 +1131,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				rowSelection={rowSelection}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
+				uncountedPage={uncountedPage}
 				isEstimatedCount={isEstimatedCount}
 				estimatedRange={estimatedRange}
 				isExactCountFetching={isExactCountFetching}

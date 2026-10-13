@@ -1,17 +1,19 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { isRunning } from '@/components/ui/utils/badgeStatus';
 import { AssociateDomainWithCluster } from '@/features/cluster/domains/AssociateDomainWithCluster';
+import { canBindDomain } from '@/features/cluster/domains/canBindDomain';
 import { CertificateProgress } from '@/features/cluster/domains/components/CertificateProgress';
-import { useChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
+import {
+	isGeneratingCertificate,
+	useChallengeCertificates,
+} from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
-import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
+import { isSettingDomainIds, useIsSettingDomainIds } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
-import { unique } from '@/lib/arrays/unique';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
-import { queryClient } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -21,61 +23,37 @@ export function useDataTableColumns(
 	cluster: Cluster,
 	selectedDomainIds: string[],
 	onToggleDomainSelection: (domainId: string) => void,
+	onUnbindClick: (domainId: string) => void,
 ): Array<ColumnDef<SchemaOrganizationDomain>> {
 	const { data: challengeCertificates } = useChallengeCertificates(cluster.id);
 	const isGeneratingCert = useMemo(
-		() => !!challengeCertificates?.some((cert) => !cert.issueDate || cert.inProgress),
+		() => !!challengeCertificates?.some(isGeneratingCertificate),
 		[challengeCertificates],
 	);
 
-	const { mutate: setDomainIds, isPending: addPending } = useSetDomainIdsOnCluster();
+	const settingDomainIds = useIsSettingDomainIds();
 	const { mutate: deleteDomain, isPending: deletePending } = useDeleteDomain();
-	const isPending = addPending || deletePending;
-
-	const bindDomainToThisCluster = useCallback((domainId: string, generateDomainCerts: boolean) => {
-		if (!isRunning(cluster.status)) {
-			toast.error('Cluster is currently ' + cluster.status, { description: 'To bind a domain, it must be running.' });
-			return;
-		}
-		setDomainIds({
-			clusterId: cluster.id,
-			domainIds: unique((cluster.domainIds?.slice() || []).concat([domainId])),
-			generateDomainCerts,
-		}, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
-				toast.success(
-					'Domain bound!' + (generateDomainCerts
-						? ' Certificates are being generated in the background now.'
-						: ''),
-				);
-			},
-		});
-	}, [setDomainIds, cluster]);
+	const isPending = settingDomainIds || deletePending;
+	const activeQueryClient = useQueryClient();
 
 	const deleteDomainById = useCallback((domainId: string) => {
+		// A Bind sending this domain disables Remove only once React re-renders.
+		if (isSettingDomainIds(activeQueryClient)) {
+			return;
+		}
 		deleteDomain({
 			domainId: domainId,
+			organizationId: cluster.organizationId,
 		}, {
 			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId, 'domains'], refetchType: 'active' });
+				void activeQueryClient.invalidateQueries({
+					queryKey: [cluster.organizationId, 'domains'],
+					refetchType: 'active',
+				});
 				toast.success('Domain removed!');
 			},
 		});
-	}, [deleteDomain]);
-
-	const unbindDomainById = useCallback((domainId: string) => {
-		setDomainIds({
-			clusterId: cluster.id,
-			domainIds: (cluster.domainIds?.slice() || []).filter((id) => id !== domainId),
-			generateDomainCerts: false,
-		}, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
-				toast.success('Domain unbound!');
-			},
-		});
-	}, [deleteDomain]);
+	}, [activeQueryClient, deleteDomain, cluster.organizationId]);
 
 	return useMemo(() => [
 		columnHelper.display({
@@ -84,8 +62,7 @@ export function useDataTableColumns(
 			size: 50,
 			cell: (props) => {
 				const domain = props.row.original;
-				const canBind = domain.status === 'ACTIVE' && !domain.clusterId && !clusterIsSelfManaged(cluster);
-				if (!canBind) {
+				if (!canBindDomain(domain, cluster)) {
 					return null;
 				}
 				return (
@@ -107,31 +84,35 @@ export function useDataTableColumns(
 			size: 150,
 			cell: (props) => {
 				const domain = props.row.original;
+				const removeButton = (
+					<Button
+						type="button"
+						variant="destructiveGhost"
+						className="text-muted-foreground text-xs"
+						disabled={isPending || !!domain.clusterId}
+						onClick={() => deleteDomainById(domain.id)}
+					>
+						Remove Domain
+					</Button>
+				);
 				return (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<>
-								<div>{domain.domain}</div>
-								<Button
-									type="button"
-									variant="destructiveGhost"
-									className="text-muted-foreground text-xs"
-									disabled={isPending || !!domain.clusterId}
-									onClick={() => deleteDomainById(domain.id)}
-								>
-									Remove Domain
-								</Button>
-							</>
-						</TooltipTrigger>
-						<TooltipContent
-							side="bottom"
-							align="center"
-						>
-							{domain.clusterId
-								? 'To delete this domain, please unbind it from all clusters first.'
-								: 'Remember to clean up your DNS records!'}
-						</TooltipContent>
-					</Tooltip>
+					<>
+						<div>{domain.domain}</div>
+						<Tooltip>
+							{/* A disabled button takes no pointer events or focus, so a bound domain's reason hangs on a wrapper. */}
+							<TooltipTrigger asChild>
+								{domain.clusterId ? <div className="w-fit" tabIndex={0}>{removeButton}</div> : removeButton}
+							</TooltipTrigger>
+							<TooltipContent
+								side="bottom"
+								align="center"
+							>
+								{domain.clusterId
+									? 'To delete this domain, please unbind it from all clusters first.'
+									: 'Remember to clean up your DNS records!'}
+							</TooltipContent>
+						</Tooltip>
+					</>
 				);
 			},
 		}),
@@ -150,7 +131,7 @@ export function useDataTableColumns(
 						return (
 							<>
 								<div>Bound to this cluster</div>
-								{certForDomain && (!certForDomain.issueDate || certForDomain.inProgress) && (
+								{certForDomain && isGeneratingCertificate(certForDomain) && (
 									<div className="py-2">
 										<CertificateProgress certificate={certForDomain} domain={domain} cluster={cluster} />
 									</div>
@@ -160,7 +141,7 @@ export function useDataTableColumns(
 									variant="destructiveGhost"
 									className="text-muted-foreground text-xs"
 									disabled={isPending}
-									onClick={() => unbindDomainById(domain.id)}
+									onClick={() => onUnbindClick(domain.id)}
 								>
 									Unbind Domain
 								</Button>
@@ -194,7 +175,8 @@ export function useDataTableColumns(
 		}),
 	], [
 		cluster,
-		bindDomainToThisCluster,
+		deleteDomainById,
+		onUnbindClick,
 		isPending,
 		challengeCertificates,
 		isGeneratingCert,

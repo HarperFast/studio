@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 import { DeploymentStatus, isTerminalDeploymentStatus, ListDeploymentsResponse } from './types';
 
@@ -55,7 +56,7 @@ export function getDeploymentsQueryOptions(params: ListDeploymentsParams) {
 			? (query) => {
 				const deployments = query.state.data?.deployments ?? [];
 				const anyActive = deployments.some((d) => !isTerminalDeploymentStatus(d.status));
-				return anyActive ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+				return pollUnlessForbidden(anyActive ? ACTIVE_POLL_MS : IDLE_POLL_MS)(query);
 			}
 			: false,
 	});

@@ -8,12 +8,16 @@
  * The server did not (or could not) speak SSE for this request: the response was not OK,
  * arrived without a `text/event-stream` content-type (e.g. an older Harper that ignores
  * the `Accept` header, or a proxy that rewrote it), or the connection failed before any
- * bytes streamed. The caller should fall back to the classic buffered operation.
+ * bytes streamed. A read can fall back to the classic buffered operation; a write only when
+ * `status` shows the server refused it (see `onDeployComponentSubmit`).
  */
 export class SSEUnsupportedError extends Error {
-	constructor(message: string, options?: { cause?: unknown }) {
+	readonly status?: number;
+
+	constructor(message: string, options?: { cause?: unknown; status?: number }) {
 		super(message, options);
 		this.name = 'SSEUnsupportedError';
+		this.status = options?.status;
 	}
 }
 
@@ -38,12 +42,18 @@ export class SSEOperationError extends Error {
 	readonly code?: string | number;
 	readonly phase?: string;
 	readonly deploymentId?: string;
+	/** A deploy its canary refused carries the decision here, as sent (Harper 5.4.0+). */
+	readonly certification?: unknown;
 
-	constructor(message: string, details?: { code?: string | number; phase?: string; deploymentId?: string }) {
+	constructor(
+		message: string,
+		details?: { code?: string | number; phase?: string; deploymentId?: string; certification?: unknown },
+	) {
 		super(message);
 		this.name = 'SSEOperationError';
 		this.code = details?.code;
 		this.phase = details?.phase;
 		this.deploymentId = details?.deploymentId;
+		this.certification = details?.certification;
 	}
 }

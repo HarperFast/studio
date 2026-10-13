@@ -1,18 +1,27 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { errorText } from '@/lib/errorText';
 
 export interface HarperJob {
 	id: string;
 	/** Lifecycle: CREATED → IN_PROGRESS → COMPLETE | ERROR. */
 	status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETE' | 'ERROR' | string;
-	message?: string;
+	/**
+	 * Usually text. From Harper 5.3.0 a job that fails with a structured report — a refused bulk load's
+	 * permission report, a rolling activation's per-node outcomes — records the report object here.
+	 */
+	message?: unknown;
+	/** What a job that returned an object finished with; its `message` is then a generic sentence. */
+	result?: unknown;
 	job_body?: unknown;
 }
 
-export async function getJob({ jobId, instanceClient }: { jobId: string } & InstanceClientConfig) {
+export async function getJob(
+	{ jobId, instanceClient, signal }: { jobId: string; signal?: AbortSignal } & InstanceClientConfig,
+) {
 	const { data } = await instanceClient.post<HarperJob[]>('/', {
 		operation: 'get_job',
 		id: jobId,
-	});
+	}, signal ? { signal } : undefined);
 	return data?.[0];
 }
 
@@ -60,7 +69,7 @@ export async function waitForJob({
 		// CREATED (no worker picked it up yet), so anything else means keep polling.
 		const status = job?.status?.toUpperCase();
 		if (status === 'ERROR') {
-			throw new ImportJobError(job?.message || 'The import job failed.');
+			throw new ImportJobError(errorText(job?.message) ?? 'The import job failed.');
 		}
 		if (status === 'COMPLETE' && job) {
 			return job;

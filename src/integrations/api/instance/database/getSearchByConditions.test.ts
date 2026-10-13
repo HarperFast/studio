@@ -1,11 +1,13 @@
 import type { InstanceAttribute } from '@/integrations/api/api.patch';
 import {
+	getSearchByConditionsPage,
 	parseComparator,
 	translateColumnFilterToSearchCondition,
 	translateColumnFilterToSearchConditions,
 } from '@/integrations/api/instance/database/getSearchByConditions';
 import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
-import { describe, expect, it } from 'vitest';
+import type { AxiosInstance } from 'axios';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('parseComparator', () => {
 	it('understand greater than equal', () => {
@@ -136,6 +138,20 @@ describe('parseComparator', () => {
 			comparator: 'starts_with',
 			value: 'foo',
 		});
+	});
+
+	// The same wildcard positions Harper's search_by_value reads (`ResourceBridge.searchByValue`).
+	it('reads a leading * as ends-with and one at each end as contains', () => {
+		expect(parseComparator('*hn')).toEqual({ comparator: 'ends_with', value: 'hn' });
+		expect(parseComparator('*oh*')).toEqual({ comparator: 'contains', value: 'oh' });
+		expect(parseComparator('*Jo Hn*')).toEqual({ comparator: 'contains', value: 'Jo Hn' });
+		expect(parseComparator('**')).toEqual({ comparator: 'contains', value: '' });
+	});
+
+	it('keeps a lone * matching everything, and an exact match literal', () => {
+		expect(parseComparator('*')).toEqual({ comparator: 'starts_with', value: '' });
+		expect(parseComparator('== *hn')).toEqual({ comparator: 'eq', value: '*hn' });
+		expect(parseComparator('!= *hn')).toEqual({ comparator: 'ne', value: '*hn' });
 	});
 
 	it('can compare booleans', () => {
@@ -434,5 +450,43 @@ describe('translateColumnFilterToSearchCondition for relationship columns', () =
 			search_type: 'equals',
 			search_value: 'Anvil',
 		});
+	});
+});
+
+describe('getSearchByConditionsPage', () => {
+	function clientAnswering(rows: Record<string, unknown>[]) {
+		const post = vi.fn(async () => ({ data: rows, status: 200 }));
+		return { post, instanceClient: { post } as unknown as AxiosInstance };
+	}
+	const params = {
+		entityId: 'instance-1',
+		databaseName: 'data',
+		tableName: 'pets',
+		conditions: [{ search_attribute: 'kind', search_type: 'equals' as const, search_value: 'cat' }],
+		sort: { attribute: 'id', descending: false },
+		pageIndex: 2,
+		pageSize: 20,
+		onlyIfCached: false,
+	};
+	const rows = (count: number) => Array.from({ length: count }, (_, index) => ({ id: index }));
+
+	it("asks for one record past the page, at the page's own offset", async () => {
+		const { post, instanceClient } = clientAnswering([]);
+		await getSearchByConditionsPage({ ...params, instanceClient });
+		expect(post).toHaveBeenCalledWith('/', expect.objectContaining({ offset: 40, limit: 21 }), expect.anything());
+	});
+
+	it('reports a next page when the extra record came back, without showing it', async () => {
+		const { instanceClient } = clientAnswering(rows(21));
+		const page = await getSearchByConditionsPage({ ...params, instanceClient });
+		expect(page.data).toEqual(rows(20));
+		expect(page.hasNextPage).toBe(true);
+	});
+
+	it('reports no next page for an exactly full last page', async () => {
+		const { instanceClient } = clientAnswering(rows(20));
+		const page = await getSearchByConditionsPage({ ...params, instanceClient });
+		expect(page.data).toHaveLength(20);
+		expect(page.hasNextPage).toBe(false);
 	});
 });

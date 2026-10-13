@@ -150,6 +150,12 @@ export function useContainerOpsPermission(orgId?: string): boolean {
 	return getContainerOpsPermission(user, orgId ?? orgIdFromRoute);
 }
 
+/** Central manager's `POST /PromoRedemption` requires `isSuperUser || isOrgAdmin()`; no staff permission opens it. */
+export function useIsOrganizationAdmin(orgId: string): boolean {
+	const { user } = useCloudAuth();
+	return memberIsOrganizationAdmin(user, orgId);
+}
+
 export function getContainerOpsPermission(user: User | null, orgId: string): boolean {
 	// `/User/current` reports every staff permission for the core super user, so this covers it too.
 	return hasStaffPermission(user, 'instance:update') || memberIsOrganizationAdmin(user, orgId);
@@ -225,7 +231,8 @@ export function useInstanceManagePermission(entityId?: EntityIds): boolean {
 		// (We're probably still loading the user.)
 		return false;
 	}
-	// Not gated on `operations`: verifyPerms clears a super_user before reaching the allowlist.
+	// Not gated on `operations`: before 5.3 verifyPerms clears a super_user ahead of the allowlist, and
+	// from 5.3.0-alpha.1, where the list runs first, validateNoSUPerms refuses to store one on a super_user.
 	return permission.super_user === true;
 }
 
@@ -238,7 +245,8 @@ export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean
 		// (We're probably still loading the user.)
 		return false;
 	}
-	// Not gated on `operations` either: structure_user is cleared for every DDL operation this covers.
+	// Not gated on `operations` either, though only pre-5.3 clears a structure user's DDL ahead of the list:
+	// this hook cannot see the version, and gating here would hide DDL that works on 5.2 (HarperFast/studio#1894).
 	return permission.super_user === true || permission.structure_user === true;
 }
 
@@ -343,7 +351,7 @@ export function useInstanceSchemaTableAttributePermission(
 		return false;
 	}
 	// attribute_permissions can be null (its declared shape) with no legacy attribute_restrictions
-	// fallback present — a table entry exactly as defaultCalculator writes it with attributes off.
+	// fallback present — a table entry exactly as earlier Studio builds saved it with attributes off.
 	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions
 		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions
 		|| []).find(a => a.attribute_name === attributeName);

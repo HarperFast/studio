@@ -3,9 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isOperationsProxyRefused, isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useIsOnScreen } from '@/hooks/useIsOnScreen';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
-import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
+import {
+	getStatusQueryOptions,
+	getSystemStatusById,
+	predatesGetStatus,
+	supportsGetStatus,
+} from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +31,10 @@ export function InstanceStatusCell(
 	const { mutate: setStatus, isPending: isSettingStatus } = useSetStatus();
 
 	const [ready, setReady] = useState(false);
+	const [cellElement, setCellElement] = useState<HTMLDivElement | null>(null);
+	// A row scrolled out of view stops polling, so a large cluster costs what is on screen rather than
+	// one request per instance every 10s. The margin starts a row's fetch just before it scrolls in.
+	const onScreen = useIsOnScreen(cellElement, '200px');
 
 	// Spread the status requests out.
 	useEffect(() => {
@@ -33,7 +43,8 @@ export function InstanceStatusCell(
 	}, [index]);
 
 	const notProxied = isOperationsProxyRefused(instance.status);
-	const statusPollEnabled = ready && canManage && !notProxied;
+	const statusSupported = supportsGetStatus(instance.version);
+	const statusPollEnabled = ready && onScreen && canManage && !notProxied && statusSupported;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
@@ -46,10 +57,16 @@ export function InstanceStatusCell(
 		return null;
 	}
 
-	// Availability and rotation are N/A while central manager refuses the instance's operations. Show
-	// a muted dot rather than a stale green "Available" (cached from before) or an endless spinner.
-	if (notProxied) {
-		const label = isStoppedOrTransitioning(instance.status) ? 'Not running' : 'Status unavailable';
+	// Availability and rotation are N/A while central manager refuses the instance's operations, or on
+	// a Harper too old to have them. Show a muted dot rather than a stale green "Available" (cached
+	// from before) or an endless spinner.
+	if (notProxied || !statusSupported) {
+		let label = 'Status unavailable';
+		if (notProxied && isStoppedOrTransitioning(instance.status)) {
+			label = 'Not running';
+		} else if (!notProxied && predatesGetStatus(instance.version)) {
+			label = 'Status needs Harper 4.6 or later';
+		}
 		return (
 			<div className="flex items-center gap-2">
 				<Tooltip>
@@ -63,12 +80,17 @@ export function InstanceStatusCell(
 	}
 
 	return (
-		<div className="flex items-center gap-2">
+		<div ref={setCellElement} className="flex items-center gap-2">
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<div className="flex items-center">
-						{isLoading || !ready || (isFetching && !statusResponse)
-							? <LoaderCircleIcon className="animate-spin size-5 text-muted-foreground" />
+						{isLoading || !ready || ((isFetching || !onScreen) && !statusResponse)
+							? (
+								<>
+									<LoaderCircleIcon className="animate-spin size-5 text-muted-foreground" />
+									<span className="sr-only">Loading status</span>
+								</>
+							)
 							: (
 								<Badge
 									variant={isAvailable ? 'success' : isUnavailable ? 'destructive' : 'default'}

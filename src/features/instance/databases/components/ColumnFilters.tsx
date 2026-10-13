@@ -52,6 +52,7 @@ export function ColumnFilters<TData extends RowData>({
 						)}
 						{headerGroup.headers.map((header) => {
 							const relationshipInfo = header.column.columnDef.meta?.relationshipInfo;
+							const unindexed = header.column.columnDef.meta?.unindexed;
 							return (
 								<TableCell
 									key={header.id}
@@ -85,7 +86,11 @@ export function ColumnFilters<TData extends RowData>({
 																value={field.value ?? ''}
 																placeholder={relationshipInfo
 																	? `.${relationshipInfo.relatedPrimaryKey} value`
+																	: unindexed
+																	? 'not indexed'
 																	: undefined}
+																aria-label={`Filter ${header.column.id}`}
+																title={header.column.columnDef.meta?.filterHint}
 															/>
 														</FormControl>
 													</div>

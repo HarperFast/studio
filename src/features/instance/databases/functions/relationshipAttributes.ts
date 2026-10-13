@@ -19,8 +19,7 @@ export interface RelationshipAttributeInfo {
 	/** True for one-to-many/many-to-many (the value is an array of related records). */
 	isToMany: boolean;
 	/** False when the server can't resolve the values via a nested select (the attribute is
-	 * missing from describe, or describe carried no element type): cells fall back to the
-	 * stored foreign key or the reverse-key link. */
+	 * missing from describe): cells fall back to the stored foreign key or the reverse-key link. */
 	resolvable: boolean;
 	/** Attribute on the related table pointing back at this row's primary key (e.g. Tracks.albumId
 	 * for Albums.tracks). Lets cells link to the related table filtered to this row's records. */
@@ -32,30 +31,17 @@ export interface RelationshipAttributeInfo {
 	foreignKeyAttribute?: string;
 }
 
-/** The table another attribute's type points at, if any: `type` for to-one, `elements` for to-many. */
+/**
+ * The table another attribute's type points at, if any: `type` for to-one, `elements` for to-many.
+ * An array with no `elements` is never a relationship, whatever it is named: describe types every
+ * to-many relationship it reports, and the rest come from `schemaRelationships`.
+ */
 function relatedTableNameOf(
 	attribute: InstanceAttribute,
 	databaseTables: InstanceDatabaseTableMap,
 ): string | undefined {
-	if (attribute.type === 'array') {
-		if (attribute.elements) {
-			return databaseTables[attribute.elements] ? attribute.elements : undefined;
-		}
-		// Tables created before Harper 5 can carry legacy relationship attributes whose describe
-		// output is just {type: 'array'} with no element type. Fall back to matching the attribute
-		// name against sibling table names (tracks → Tracks / Track).
-		return findSiblingTableByName(databaseTables, attribute.attribute);
-	}
-	return attribute.type && databaseTables[attribute.type] ? attribute.type : undefined;
-}
-
-function findSiblingTableByName(
-	databaseTables: InstanceDatabaseTableMap,
-	attributeName: string,
-): string | undefined {
-	const lowered = attributeName.toLowerCase();
-	const variants = new Set([lowered, `${lowered}s`, lowered.replace(/s$/, '')]);
-	return Object.keys(databaseTables).find((tableName) => variants.has(tableName.toLowerCase()));
+	const relatedTableName = attribute.type === 'array' ? attribute.elements : attribute.type;
+	return relatedTableName && Object.hasOwn(databaseTables, relatedTableName) ? relatedTableName : undefined;
 }
 
 export function getRelationshipInfo(
@@ -87,7 +73,7 @@ export function getRelationshipInfo(
 		relatedPrimaryKey,
 		relatedAttributes: joinableAttributes(relatedTable, databaseTables),
 		isToMany,
-		resolvable: !isToMany || Boolean(attribute.elements),
+		resolvable: true,
 		reverseForeignKey: isToMany && ownerTable
 			? inferReverseForeignKey(ownerTable, relatedTable, databaseTables)
 			: undefined,
@@ -191,20 +177,28 @@ export function getRelationshipInfoMap(
  * Attributes the server computes and refuses to accept in writes: `@computed` attributes and
  * relationship attributes. Including one in an insert/update — even as `null` — fails with
  * "Computed property X may not be directly assigned a value".
+ *
+ * A relationship can also be one only the component schema declares, while describe reports the
+ * same name as a plain attribute (an untyped array a legacy attribute registry kept), so the
+ * table's `schemaRelationships` count too.
  */
 export function isSyntheticAttribute(
 	attribute: InstanceAttribute,
 	databaseTables: InstanceDatabaseTableMap | undefined,
+	schemaRelationships?: SchemaRelationship[],
 ): boolean {
-	return Boolean(attribute.computed) || getRelationshipInfo(attribute, databaseTables) !== undefined;
+	return Boolean(attribute.computed)
+		|| getRelationshipInfo(attribute, databaseTables) !== undefined
+		|| !!schemaRelationships?.some((declared) => declared.attribute === attribute.attribute);
 }
 
 export function syntheticAttributeNames(
 	attributes: InstanceAttribute[] | undefined,
 	databaseTables: InstanceDatabaseTableMap | undefined,
+	schemaRelationships?: SchemaRelationship[],
 ): string[] {
 	return (attributes ?? [])
-		.filter((attribute) => isSyntheticAttribute(attribute, databaseTables))
+		.filter((attribute) => isSyntheticAttribute(attribute, databaseTables, schemaRelationships))
 		.map((attribute) => attribute.attribute);
 }
 
@@ -251,22 +245,48 @@ export function collapsedForeignKeyNames(
 export type GetAttribute = string | { name: string; select: string[] };
 
 /**
- * `get_attributes` list that resolves relationship attributes to their related records' primary
- * keys. Plain `['*']` returns raw records with relationship attributes missing (blank cells);
- * naming them with a nested select resolves them. The `'*'` must come last: a leading `'*'`
- * makes the server return raw records and ignore the rest of the list.
- * Returns undefined when the table has no relationship attributes (callers fall back to `['*']`).
+ * `get_attributes` list that resolves the attributes Harper computes at read time: relationship
+ * attributes to their related records' primary keys, and `@computed` attributes by name. Plain
+ * `['*']` returns only what is stored, so both read as blank cells; naming them resolves them.
+ * The `'*'` must come last: a leading `'*'` makes the server return stored records and ignore the
+ * rest of the list.
+ * Returns undefined when the table has neither (callers fall back to `['*']`).
  */
-export function buildRelationshipGetAttributes(
+export function buildSyntheticGetAttributes(
 	instanceTable: InstanceTable | undefined,
 	databaseTables: InstanceDatabaseTableMap | undefined,
 ): GetAttribute[] | undefined {
 	const selects: GetAttribute[] = [];
 	for (const attribute of instanceTable?.attributes ?? []) {
+		if (attribute.computed) {
+			selects.push(attribute.attribute);
+			continue;
+		}
 		const info = getRelationshipInfo(attribute, databaseTables);
 		if (info?.resolvable) {
 			selects.push({ name: attribute.attribute, select: [info.relatedPrimaryKey] });
 		}
 	}
 	return selects.length ? [...selects, '*'] : undefined;
+}
+
+/**
+ * `get_attributes` for a CSV export: every attribute describe lists except relationships, whose
+ * resolved records don't fit a CSV cell. Only a table with a `@computed` attribute needs one, since
+ * only naming it resolves it. The list can't end in `'*'` the way `buildSyntheticGetAttributes`
+ * does: a CSV's columns come from the select with its `'*'` expanded to every attribute, so any name
+ * ahead of the `'*'` becomes a duplicate column.
+ */
+export function buildExportGetAttributes(
+	instanceTable: InstanceTable | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+	schemaRelationships?: SchemaRelationship[],
+): string[] | undefined {
+	const attributes = instanceTable?.attributes ?? [];
+	if (!attributes.some((attribute) => attribute.computed)) {
+		return undefined;
+	}
+	return attributes
+		.filter((attribute) => attribute.computed || !isSyntheticAttribute(attribute, databaseTables, schemaRelationships))
+		.map((attribute) => attribute.attribute);
 }

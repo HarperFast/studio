@@ -182,88 +182,32 @@ size containment.)
 
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
-This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,
-`allowBuilds`, `onlyBuiltDependencies`) live in `pnpm-workspace.yaml`, NOT in a `pnpm`
-field in `package.json` — pnpm 11 no longer reads that field. It only logs
-`[WARN] The "pnpm" field in package.json is no longer read` and the install otherwise
-"succeeds", so the override is silently ignored.
+This repo uses pnpm 12 (`packageManager` in `package.json`). `overrides` (and other
+settings like `minimumReleaseAge`, `allowBuilds`, `onlyBuiltDependencies`) live in
+`pnpm-workspace.yaml`, NOT in a `pnpm` field in `package.json` — pnpm stopped reading that
+field in 11. It only logs `[WARN] The "pnpm" field in package.json is no longer read` and
+the install otherwise "succeeds", so the override is silently ignored.
 
-Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Scoped keys work too (e.g.
-`'undici@>=7.0.0': '^7.28.0'`). After editing, run `pnpm install --lockfile-only` and
-grep the lockfile to confirm the stale versions are gone.
+Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Version-range keys
+(`'undici@>=7.0.0'`) and parent-scoped keys (`'parent>child'`) work too. After
+editing, run `pnpm install --lockfile-only` and grep the lockfile to confirm the stale
+versions are gone.
 
-## Testing a Radix Select — an absent option proves nothing unless you opened it
+A `pkg@range` override replaces the range each matching dependent declares, so it can hold
+a package _below_ the floor that package asks for, and nothing warns. jsdom 30.1.1 declares
+undici `^8.10.2`, but the override turns that into `^8.9.0` and the lockfile keeps it on
+8.10.0 (#1847). When a dependency bump raises its floor above an override's, raise the
+override with it.
 
-`src/testSetup/jsdomPolyfills.ts` supplies `scrollIntoView`, `hasPointerCapture` and
-`releasePointerCapture`, which jsdom lacks and Radix calls while opening a Select. Without them
-the test dies inside Radix with `candidate?.scrollIntoView is not a function`, which reads like a
-library bug.
+## vitest/jsdom runs on undici 8 — don't restore the `jsdom>undici` carve-out
 
-**The quieter trap is the one that matters.** A Radix Select renders its options ONLY while open,
-and in jsdom **`pointerDown` does not open one — `keyDown` with `ArrowDown` does** (unlike
-DropdownMenu, which pointerDown opens). So:
-
-```ts
-expect(screen.queryByText(/30-day trial/)).toBeNull(); // passes even if the filter does nothing
-```
-
-That assertion is green whether or not the code under test removes the option, because the option
-was never in the DOM. The cluster editor's plan filter survived a mutation pass for exactly this
-reason. Open the select first, then assert over `getAllByRole('option')` — and assert something is
-still _present_ alongside the absence, so an empty menu can't pass either:
-
-```ts
-fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-await act(() => null);
-const options = screen.getAllByRole('option').map(o => o.textContent ?? '');
-```
-
-`ClusterDetails.test.tsx` has the working pattern, including looking a field's trigger up by its
-label via `[data-slot="form-item"]`.
-
-## vitest — no test may open a real WebSocket (undici 8 cross-realm `Event`)
-
-`src/testSetup/inertWebSocket.ts` replaces the global `WebSocket` for the whole suite. Keep
-it wired in `vitest.config.ts`, and don't "restore" the real one in a test.
-
-Anything that mounts the app shell starts the SystemStatus socket — `TestProvider` mounts the
-real router, so a component test that never mentions sockets still opens one. Under jsdom that
-resolves to **undici 8's** WebSocket, whose `Event` comes from a different realm than jsdom's,
-so connecting throws
-
-```
-TypeError: The "event" argument must be an instance of Event. Received an instance of Event
-```
-
-as an **unhandled** error. The trap is that every test still passes — vitest prints
-`2741 passed | 1 error` and exits non-zero. So CI and the pre-commit hook reject a commit
-whose tests are all green, and because it depends on whether the socket connects before the
-run ends, it's racy: the same tree commits on one attempt and is rejected on the next.
-
-This is **not** the undici-7 pin below. That one is jsdom importing a module undici 8 removed
-(`wrap-handler.js`), fixed by pinning `jsdom>undici`. This is a realm mismatch in code that
-reaches undici's WebSocket directly, which that pin does not touch.
-
-## vitest/jsdom requires undici 7
-
-`undici` is a transitive dev/CI-only dep (jsdom for vitest; semantic-release /
-`@actions/http-client` for CI). jsdom imports the internal
-`undici/lib/handler/wrap-handler.js`, which **undici 8 removed**. So a broad
-`undici@>=7.0.0: ^8.0.0` override force-upgrades jsdom to undici 8 and every vitest
-worker crashes at import with `Cannot find module 'undici/lib/handler/wrap-handler.js'`
-(other test files "pass" only because the crashing ones never run).
-
-Keep a scoped override so jsdom stays on 7 while everything else moves to 8 (landed in
-PR #1358):
-
-```yaml
-'undici@>=7.0.0': '^8.0.0'
-'jsdom>undici': '^7.28.0' # newest 7.x (the `seven` dist-tag)
-```
-
-The `parent>child` scoped override wins over the broad `pkg@range` selector. Renovate
-may reopen this on the next undici bump — keep the `jsdom>undici` line. Revisit when a
-jsdom release supports undici 8 (none as of 2026-06).
+jsdom 29 imported the internal `undici/lib/handler/wrap-handler.js`, which undici 8
+removed, so PR #1358 held it on undici 7 with a scoped `'jsdom>undici': '^7.28.0'`
+override. jsdom 30 declares undici 8 itself and imports only its public exports
+(`getGlobalDispatcher`, `WebSocket`, `Dispatcher`, `DecoratorHandler`). `aa385532` (merged
+as #1597) deleted the carve-out: it was holding jsdom on undici 7.28.0, below both jsdom's
+own declared range and the CVE-2026-13697 (GHSA-4cwx-7wf7-3272) fix. The tree now resolves
+a single undici 8 for jsdom and CI alike; there is nothing to keep jsdom on 7 for.
 
 ## OAuth sign-in links belong to the central-manager origin, not Studio's
 
@@ -506,10 +450,11 @@ Four things worth knowing before changing the record editor:
   save that 403s. Check both `attribute_permissions` (v5) and `attribute_restrictions` (translated
   v4). Only `super_user` short-circuits; `structure_user` covers DDL, not DML.
 - **Version-gated, but an unreadable version does NOT block the save.** Harper denies
-  `registration_info` to any role carrying an `operations` allowlist — it is in the gate-inert list in
-  `config/roles/operations/operationsCatalog.ts` — which is exactly the shape of role
-  `checkTablePutPermission` exists to accept. Blocking on an unread version therefore made the
-  feature permanently unavailable for those roles, behind a "reload and try again" that never helps.
+  `registration_info` to any role whose `operations` allowlist does not list it (and before 5.3 to one
+  that does — `gate: 'from-5.3'` in `config/roles/operations/operationsCatalog.ts`), which is exactly
+  the shape of role `checkTablePutPermission` exists to accept. Blocking on an unread version therefore
+  made the feature permanently unavailable for those roles, behind a "reload and try again" that never
+  helps.
   Allowing it is safe because the fallback isn't silent: `put` is a distinct operation name, so a
   pre-5.3 instance rejects the request outright rather than merging and keeping the attribute. A
   version that IS readable and predates the operation still blocks, for the clearer message, and
@@ -600,9 +545,15 @@ What `describe_table` reports differs by server version (verified empirically, J
 - **Harper 4.7**: relationship attrs ARE listed — to-one as `{attribute, type: '<RelatedTable>',
   properties: [...]}`, to-many as `{type: 'array', elements: '<RelatedTable>'}` — but there is
   NO explicit relationship flag: the only signal is that `type`/`elements` names a sibling
-  table. `@computed` attrs are omitted.
+  table. `@computed` attrs are omitted unless describe is sent `include_computed: true` (4.7.40,
+  Oct 2026), and then carry `computed: true`.
 - **Harper 5.1**: relationship attrs are omitted from describe entirely; `@computed` attrs appear
   only with `include_computed: true`, and carry `computed: true`.
+
+Browse sends `include_computed` (describe_table, and its describe_all) and names each computed
+attribute ahead of the `'*'` in `get_attributes`. A `['*']` search omits them on 4.7.40, and Harper
+5 strips them from an expanded `'*'` (`dataLayer/harperBridge/ResourceBridge.ts` `getSelect`), so
+without both the column is missing or blank (#1256).
 
 The 5.1 omission is an **unintentional regression**, not a deliberate change (traced in the Harper
 source, Jul 2026). describe's `pushAtt` never filtered relationships and hasn't changed; what
@@ -633,21 +584,39 @@ execute relationship joins).
 
 Harper 5.0+ roles accept an `operations` allowlist. Almost every intuitive reading of it is wrong,
 and each of these cost a review round on #1628 — verify against the Harper source before changing
-`src/features/instance/config/roles/operations/**` or `src/integrations/api/localRolePermission.ts`.
+`src/features/instance/config/roles/operations/**` or `src/integrations/api/localRolePermission.ts`,
+**at the tag you mean**. Harper changed gate 1 twice in 5.3, and `resolveGrantBand` turns a version
+into one of three bands (`pre-5.3`, `5.3-early`, `5.3`) so callers don't parse SemVer per operation:
+from v5.3.0-alpha.1 (harper `f8a5aa90a`) `verifyPerms` runs the gate ahead of every privilege
+early-return and `chooseOperation` runs it on `sql`; from v5.3.0-beta.3 every entry names its grant.
+`allowlistGatesEveryPath(band)` is the first change.
 
-- **It does not restrict super users.** `verifyPerms` returns early for `super_user`
-  ("admins can do (almost) anything") _before_ the allowlist gate. The allowlist is a way to scope
-  a NON-super role (gate 2 then lets it hold otherwise-SU operations), not a way to narrow an admin.
+- **The list never narrows a stored super user, for a different reason on each side.** Through 5.2.x
+  `verifyPerms` returns early for `super_user` ("admins can do (almost) anything") _before_ the gate.
+  From v5.3.0-alpha.1 the gate comes first ("must run before EVERY privilege early-return"), and a
+  list beside `super_user` would be enforced, but `validateNoSUPerms` (next bullet) refuses to store
+  one. Either way the allowlist scopes a NON-super role (gate 2 then lets it hold otherwise-SU
+  operations).
 - **`super_user`/`cluster_user` + `operations` cannot even be saved.** `validateNoSUPerms` rejects
   any permission with more than one key that sets either flag, so the combination 400s. Strip the
   allowlist for those roles rather than sending it.
-- **`structure_user` is different and IS gated** — only `create_table`/`create_attribute`/
-  `drop_table`/`drop_attribute` (plus create/drop database for the boolean form) short-circuit. The
-  array form scopes that carve-out to its listed databases and never reaches create/drop database.
-- **~23 operations are inert when granted.** Their `requiredPermissions` entry omits `api_name`, so
-  the gate compares a camelCase handler name against a snake_case grant and never matches
-  (`deploy_component`, `get_status`, `registration_info`, …). Filed as HarperFast/harper#2175.
-  `sql` is worse: it routes to `verifyPermsAST`, which never consults the allowlist at all.
+- **`structure_user` DDL skips the list only before 5.3.** Through 5.2.x `create_table`/
+  `create_attribute`/`drop_table`/`drop_attribute` (plus create/drop database for the boolean form)
+  return before the gate. From v5.3.0-alpha.1 the gate runs first, so an allowlisted structure user
+  runs that DDL only when it is listed. On both, the array form keeps the DDL to its listed databases
+  (listing `drop_table` cannot reach another one), and its flag never covers create/drop database.
+  `structureUserDdlScope` reads the shape only; the editor's copy takes the band.
+- **Which names the gate matches depends on the version.** Before v5.3.0-beta.3, 20 entries omit `api_name`,
+  so the gate compares a camelCase handler name against a snake_case grant and never matches
+  (`deploy_component`, `get_status`, `registration_info`, …; HarperFast/harper#2175). From
+  v5.3.0-beta.3 every entry names its grant, and `get_backup`, `read_transaction_log` and `catchup`
+  name `null` on purpose, so no allowlist reaches them. The catalog records this per entry (`gate`), and
+  callers resolve the instance version into a `GrantBand` once.
+- **`sql` ignores the list before 5.3 and needs it from v5.3.0-alpha.1.** Through 5.2.x
+  `chooseOperation` sends it straight to `checkASTPermissions`, which never consults the allowlist,
+  so listing or omitting it changes nothing. From alpha.1 it calls `verifyOperationsAllowlist` on
+  `sql` first, so a list without `sql` (or a group carrying it, like `read_only`) denies every SQL
+  statement. Table permissions apply on both. The catalog marks it `outOfGate: 'pre-5.3'`.
 - **Alias spellings are inert too** (`describe_database`, `search_by_id`, `create_schema`, …): both
   spellings dispatch to one handler whose entry carries only the canonical `api_name`.
 - **A non-iterable value takes the instance down.** `listUsers` expands every assigned role's
@@ -663,22 +632,28 @@ and each of these cost a review round on #1628 — verify against the Harper sou
 Practical consequence for the UI: never describe a restriction the server does not enforce, and
 never advise "fixing" an `operations` value in place — both mistakes shipped and were caught in
 review. `classifyOperationsValue` needs the instance version because the same shape means different
-things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0).
+things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0). The
+editor's structure-user and SQL sentences need the band for the same reason: each is true on one side
+of v5.3.0-alpha.1 only.
 
 ### Which of those the UI gating turns on
 
 The two facts that decide Studio's permission hooks (`src/hooks/checkOperationPermission.ts`):
 
-- **Gate admin chrome on the allowlist and you hide UI that works.** Because super users never reach
-  the gate, `useInstanceManagePermission` and `useInstanceBrowseManagePermission` are deliberately NOT
-  gated. Note browse-manage is only half short-circuited: its DDL half is, but the application-editor
-  operations behind it (`set_component_file`, `drop_component`, `deploy_component`, `set_env_value`,
-  `restart_service`) are not in `STRUCTURE_USER_OPS`, so for a non-super role they do reach the gate —
-  where an allowlist listing them _grants_ them via gate 2. Denying that half on the allowlist would
-  therefore hide UI a scoped role can legitimately use.
-- **`isElevatedRole` is the wrong question for a specific operation.** It answers "is the list
-  unenforceable anywhere for this role", which is what the editor warns about. For DML,
-  `structure_user` and `cluster_user` are still gated.
+- **Gate admin chrome on the allowlist and you hide UI that works.** No stored super user fails the
+  gate on any version (see above), so `useInstanceManagePermission` is deliberately NOT gated.
+  `useInstanceBrowseManagePermission` isn't either, but only pre-5.3 makes that exact: there its DDL
+  half returns before the gate for a structure user. From v5.3.0-alpha.1 nothing does, so an
+  allowlisted structure user is offered DDL the server refuses unless the list names it. The hooks
+  can't see the version, and gating them on the list would hide DDL that works on 5.2, so they stay
+  open and the server's 403 names the operation (HarperFast/studio#1894 tracks per-operation checks).
+  The application-editor operations behind browse-manage (`set_component_file`, `drop_component`,
+  `deploy_component`, `set_env_value`, `restart_service`) are not in `STRUCTURE_USER_OPS`, so for a
+  non-super role they reach the gate on every version — where an allowlist listing them _grants_ them
+  via gate 2. Denying that half on the allowlist would hide UI a scoped role can legitimately use.
+- **Only `super_user` short-circuits a specific operation.** For DML, `structure_user` and
+  `cluster_user` are gated on every version, so `checkTableOperationsAllowed` exempts the first flag
+  alone. Asking whether a role carries an elevating flag is the editor's question, not this one.
 
 Also two different expansions are correct for two different questions, and sharing one silently broke
 the second once: `expandEffectiveOperations` folds alias spellings together to describe a role's
@@ -696,6 +671,12 @@ denied. `testUtils.preTestPrep()` + `testUtils.setGlobalSchema(...)` provide the
 `verifyPermsAST` (to show SQL skipping the gate). Run with `npx mocha unitTests/utility/<file>`, read
 the verdicts, delete the file. Measured this way: `super_user` + `operations: []` still ALLOWS insert,
 search, restart and get_configuration, while `super_user: false` + `operations: []` DENIES insert.
+Those are 5.2 verdicts. A built `dist` answers too, without touching a checkout — a checkout's, or an
+installed `harper` package's, which is how to compare versions: `require` its
+`utility/operation_authorization.js`, set `global.hdb_schema`, and call `verifyPerms` (or
+`verifyOperationsAllowlist(requestJson, 'sql')` for the SQL gate). Run that way on 5.2.3, 5.3.0-beta.2
+and 5.3.1, `structure_user: true` + `operations: ['read_only']` ALLOWS `create_table` on the first and
+DENIES it on the other two, and so does `super_user: true` + `operations: []`.
 
 ## Datadog RUM — `beforeSend` fails open, so nothing in it may throw
 
@@ -881,6 +862,14 @@ forgot-password failure is reported only if the form is still mounted when it se
 The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.
+
+Error boundaries are the same trap from the other side. React's root `onCaughtError` already reports
+every error any boundary catches, through
+[`reportReactError`](src/integrations/datadog/reportReactError.ts), so a `componentDidCatch` that
+`console.error`s files a second, console-sourced copy of each one. Log there with `console.warn`
+(not collected either, but visible in devtools by default). That reporter also collapses repeats: a
+TanStack route re-throws its stored error on every match update and every reload throws a fresh
+identical one, so one failed load used to reach Error Tracking up to 14 times (#1695).
 
 ## A 5xx body never reaches an auth form
 

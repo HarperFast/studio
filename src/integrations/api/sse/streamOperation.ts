@@ -25,8 +25,8 @@ export interface StreamOperationOptions {
  *
  * Failure modes are explicit (see `./errors`):
  * - {@link SSEUnsupportedError} — couldn't establish a stream (bad response, wrong
- *   content-type, or connection error before any bytes). Caller should fall back to the
- *   buffered axios path.
+ *   content-type, or connection error before any bytes). A read can fall back to the buffered
+ *   axios path; the request may still have reached the server, so a write must check `status`.
  * - {@link SSEOperationError} — a terminal `error` event arrived.
  * - {@link SSEInconclusiveError} — the stream ended (or idled out) without a terminal
  *   event. The outcome is unknown; caller must poll to determine it, never assume success.
@@ -70,8 +70,8 @@ export async function streamOperation({
 			if (signal?.aborted) {
 				throw error;
 			}
-			// Anything else (network error, DNS, idle before headers) means we never got a
-			// stream going; let the caller fall back to the buffered request.
+			// Anything else (network error, DNS, idle before headers) means we never got a stream
+			// going, though the request may have been sent: there is no `status` to say otherwise.
 			throw new SSEUnsupportedError('Failed to open the SSE stream.', { cause: error });
 		}
 
@@ -81,6 +81,7 @@ export async function streamOperation({
 			await response.body?.cancel().catch(() => {});
 			throw new SSEUnsupportedError(
 				`Server did not return an event stream (status ${response.status}, content-type "${contentType}").`,
+				{ status: response.status },
 			);
 		}
 
@@ -104,7 +105,13 @@ export async function streamOperation({
 					if (!data || typeof data !== 'object') {
 						throw new SSEOperationError(typeof data === 'string' && data ? data : 'The operation failed.');
 					}
-					const err = data as { message?: string; code?: string | number; phase?: string; deployment_id?: string };
+					const err = data as {
+						message?: string;
+						code?: string | number;
+						phase?: string;
+						deployment_id?: string;
+						certification?: unknown;
+					};
 					// A non-string message (a structured/nested error object) would stringify to
 					// "[object Object]" in every toast that renders it — extract its nested
 					// message (or JSON) instead of discarding the detail (#1426).
@@ -112,6 +119,7 @@ export async function streamOperation({
 						code: err.code,
 						phase: err.phase,
 						deploymentId: err.deployment_id,
+						certification: err.certification,
 					});
 				}
 			}

@@ -11,21 +11,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
+	allowlistGatesEveryPath,
 	expandEffectiveOperations,
+	GATE_NAMES_EVERY_ENTRY_FROM,
+	gateVerdict,
 	getAvailableGroups,
 	getGrantableOperations,
 	getOperationInfo,
 	GrantableOperation,
-	isGrantGateInert,
+	GrantBand,
 	isInertGrant,
 	isOperationGroupName,
+	isOutOfGate,
 	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
 	OPERATION_GROUPS,
 	OperationGroup,
+	resolveGrantBand,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
-import { STRUCTURE_USER_DDL_OPERATIONS } from '@/integrations/api/localRolePermission';
+import {
+	STRUCTURE_USER_DATABASE_OPERATIONS,
+	STRUCTURE_USER_DDL_OPERATIONS,
+} from '@/integrations/api/localRolePermission';
+import { cn } from '@/lib/cn';
 import { groupBy } from '@/lib/groupBy';
 import { pluralize } from '@/lib/pluralize';
 import { ChevronDown, PlusIcon, XIcon } from 'lucide-react';
@@ -51,7 +60,7 @@ export function OperationsAllowlistEditor({
 	version: string;
 	/** super_user/cluster_user: Harper refuses to store an allowlist alongside the flag. */
 	allowlistRejected?: boolean;
-	/** structure_user DDL carve-out: `true` everywhere, an array for those databases only. */
+	/** The role's `structure_user` scope (`structureUserDdlScope`): `true` everywhere, an array for those databases. */
 	structureUserDdl?: true | string[] | false;
 	disabled?: boolean;
 }) {
@@ -64,9 +73,11 @@ export function OperationsAllowlistEditor({
 		(group) => !offeredGroups.includes(group) && value?.includes(group.name),
 	);
 	const grantable = getGrantableOperations(version);
+	const band = resolveGrantBand(version);
+	const gatesEveryPath = allowlistGatesEveryPath(band);
 	const selectedSet = new Set(value ?? []);
 	const selectedOperations = (value ?? []).filter((entry) => !isOperationGroupName(entry));
-	const effective = value ? expandEffectiveOperations(value) : [];
+	const effective = value ? expandEffectiveOperations(value, band) : [];
 	// expandEffectiveOperations already drops grants the server cannot honor, so anything left that
 	// is su-only is a delegation the role really receives.
 	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su);
@@ -115,12 +126,16 @@ export function OperationsAllowlistEditor({
 				<span className="font-medium">Restrict operations</span>
 			</Label>
 			<p className="text-xs text-muted-foreground">
-				{restricted
-					? 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
+				{!restricted
+					? 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
+						+ '(for example a deploy-only CI role).'
+					: gatesEveryPath
+					? 'Only the operations below are allowed — anything unlisted is denied, SQL included: SQL statements '
+						+ 'need sql (or a group with it) listed here, and are then checked against table permissions as '
+						+ 'well. Listing an operation that normally requires super_user deliberately grants it to this role.'
+					: 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
 						+ 'normally requires super_user deliberately grants it to this role. SQL statements are authorized '
-						+ 'against table permissions instead, so this list does not restrict them.'
-					: 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
-						+ '(for example a deploy-only CI role).'}
+						+ 'against table permissions instead, so this list does not restrict them.'}
 			</p>
 			{allowlistRejected && (
 				// validateNoSUPerms rejects any multi-key permission setting super_user/cluster_user, so
@@ -131,20 +146,22 @@ export function OperationsAllowlistEditor({
 					removed when you save.
 				</p>
 			)}
-			{structureUserDdl && restricted && (
-				<p className="text-xs text-warning">
-					This role is a structure user, so it reaches{' '}
-					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
-					{structureUserDdl === true
-						? ' (and create/drop database) on any database regardless of the list below.'
-						: (
-							<>
-								{' '}on <span className="font-mono">{structureUserDdl.join(', ')}</span>{' '}
-								regardless of the list below — and listing them here cannot reach another database.
-							</>
-						)} Every other operation is still gated by the list.
-				</p>
-			)}
+			{structureUserDdl && restricted && (gatesEveryPath
+				? <GatedStructureUserNote scope={structureUserDdl} effective={effective} />
+				: (
+					<p className="text-xs text-warning">
+						This role is a structure user, so it reaches{' '}
+						<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
+						{structureUserDdl === true
+							? ' (and create/drop database) on any database regardless of the list below.'
+							: (
+								<>
+									{' '}on <span className="font-mono">{structureUserDdl.join(', ')}</span>{' '}
+									regardless of the list below — and listing them here cannot reach another database.
+								</>
+							)} Every other operation is still gated by the list.
+					</p>
+				))}
 
 			{restricted && (
 				<>
@@ -172,6 +189,7 @@ export function OperationsAllowlistEditor({
 
 					<OperationsPicker
 						grantable={grantable}
+						band={band}
 						selectedSet={selectedSet}
 						onToggle={toggle}
 						disabled={disabled}
@@ -183,6 +201,7 @@ export function OperationsAllowlistEditor({
 								<OperationChip
 									key={name}
 									name={name}
+									band={band}
 									onRemove={() => toggle(name)}
 									disabled={disabled}
 								/>
@@ -194,9 +213,10 @@ export function OperationsAllowlistEditor({
 						? (
 							<p className="text-xs text-destructive">
 								{value?.length ? 'Every entry here is inert' : 'Nothing selected'}{' '}
-								— this role cannot run any Operations API call{structureUserDdl ? ', except the DDL noted above' : ''}
-								{' '}
-								(SQL is gated by table permissions, not this list).
+								— this role cannot run any Operations API call{gatesEveryPath
+									? `, not even SQL${structureUserDdl ? ' or its structure-user DDL' : ''}.`
+									: `${structureUserDdl ? ', except the DDL noted above' : ''}`
+										+ ' (SQL is gated by table permissions, not this list).'}
 							</p>
 						)
 						: (
@@ -209,6 +229,32 @@ export function OperationsAllowlistEditor({
 				</>
 			)}
 		</div>
+	);
+}
+
+/** The flag still scopes which databases its DDL may touch, but that DDL no longer skips the list. */
+function GatedStructureUserNote({ scope, effective }: { scope: true | string[]; effective: readonly string[] }) {
+	const covered = scope === true
+		? [...STRUCTURE_USER_DDL_OPERATIONS, ...STRUCTURE_USER_DATABASE_OPERATIONS]
+		: STRUCTURE_USER_DDL_OPERATIONS;
+	const unlisted = covered.filter((name) => !effective.includes(name));
+	return (
+		<p className={cn('text-xs', unlisted.length > 0 ? 'text-warning' : 'text-muted-foreground')}>
+			This role is a structure user{scope === true ? '' : (
+				<>
+					{' '}on <span className="font-mono">{scope.join(', ')}</span>
+				</>
+			)}, but on this Harper version the list below gates its DDL too: it can run{' '}
+			<span className="font-mono">{covered.join(', ')}</span>
+			{scope === true
+				? ' only when they are listed.'
+				: ' on those databases only when they are listed, and listing them cannot reach another database.'}
+			{unlisted.length > 0 && (
+				<>
+					{' '}Not listed, so Harper refuses them: <span className="font-mono">{unlisted.join(', ')}</span>.
+				</>
+			)}
+		</p>
 	);
 }
 
@@ -242,6 +288,10 @@ function GroupCheckbox({
 	);
 }
 
+const NEEDS_5_3_TITLE = "This instance's Harper checks this operation under its internal handler name, so listing "
+	+ 'it has no effect here (HarperFast/harper#2175). Harper 5.3.0 and later grant it, as do prereleases from '
+	+ `${GATE_NAMES_EVERY_ENTRY_FROM}.`;
+
 // Component-registered operation names are exact strings, not identifiers — camelCase, hyphens,
 // dots, and colons are all legal (`deploy-v2`, `acme.deploy`) — so keep the case and only rule
 // out whitespace/quote garbage that could never be an operation name.
@@ -254,11 +304,13 @@ const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
  */
 function OperationsPicker({
 	grantable,
+	band,
 	selectedSet,
 	onToggle,
 	disabled,
 }: {
 	grantable: GrantableOperation[];
+	band: GrantBand;
 	selectedSet: Set<string>;
 	onToggle: (name: string) => void;
 	disabled?: boolean;
@@ -308,6 +360,7 @@ function OperationsPicker({
 			&& !caseVariantOfKnownName
 			&& !knownInfo?.nonDelegable
 			&& !knownInfo?.aliasOf
+			&& gateVerdict(rawQuery, band) !== 'never'
 			&& !grantable.some((operation) => operation.name === rawQuery)
 			&& !selectedSet.has(rawQuery)
 		? rawQuery
@@ -373,15 +426,10 @@ function OperationsPicker({
 								onSelect={(event) => event.preventDefault()}
 							>
 								<span className="flex-1 truncate font-mono text-xs">{operation.name}</span>
-								{isGrantGateInert(operation.name)
+								{gateVerdict(operation.name, band) === 'needs-5.3'
 									? (
-										<Badge
-											variant="outline"
-											title={'Harper authorizes this operation under its internal handler name, so listing it has '
-												+ 'no effect on current 5.x releases (HarperFast/harper#2175). Kept available so the role '
-												+ 'is ready once that lands.'}
-										>
-											not yet enforced
+										<Badge variant="outline" title={NEEDS_5_3_TITLE}>
+											needs newer Harper
 										</Badge>
 									)
 									: operation.su && (
@@ -417,29 +465,32 @@ function OperationsPicker({
 
 function OperationChip({
 	name,
+	band,
 	onRemove,
 	disabled,
 }: {
 	name: string;
+	band: GrantBand;
 	onRemove: () => void;
 	disabled?: boolean;
 }) {
 	const info = getOperationInfo(name);
-	const inert = isInertGrant(name);
+	const inert = isInertGrant(name, band);
+	const verdict = gateVerdict(name, band);
 	const variant = inert ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
 	const title = info?.aliasOf
 		? `Legacy alias: Harper authorizes this operation under '${info.aliasOf}', so this entry grants nothing. `
 			+ `Grant '${info.aliasOf}' instead.`
-		: isGrantGateInert(name)
-		? 'Harper authorizes this operation under its internal handler name, so this grant has no effect on '
-			+ 'current 5.x releases (HarperFast/harper#2175).'
+		: verdict === 'needs-5.3'
+		? NEEDS_5_3_TITLE
+		: verdict === 'never'
+		? "This instance's Harper version never lets an operations allowlist grant this operation, so this entry "
+			+ 'has no effect; only a super_user role can run it.'
 		: info?.nonDelegable
 		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
 			+ 'non-super_user role.'
-		: info?.outOfGate
-		? info.caveat
-		: info?.caveat
-		? info.caveat
+		: isOutOfGate(name, band)
+		? info?.caveat
 		: info?.su
 		? 'Normally requires super_user; listing it grants it to this role.'
 		: info

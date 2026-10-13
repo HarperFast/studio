@@ -1,5 +1,7 @@
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 
+export type AbsolutePath = `/${string}`;
+
 export function buildAbsoluteLinkToPage({
 	clusterId,
 	instanceId,
@@ -8,12 +10,7 @@ export function buildAbsoluteLinkToPage({
 	clusterId?: string;
 	instanceId?: string;
 	organizationId?: string;
-}, page?: string): string {
-	return '/' + [
-		organizationId,
-		clusterId,
-		instanceId && 'instance',
-		instanceId,
-		page,
-	].filter(excludeFalsy).join('/');
+}, page?: string): AbsolutePath {
+	const segments = [organizationId, clusterId, instanceId && 'instance', instanceId, page].filter(excludeFalsy);
+	return `/${segments.join('/')}`;
 }

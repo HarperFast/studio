@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
-import { getStatusQueryOptions } from '@/integrations/api/instance/status/getStatus';
+import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -37,7 +37,7 @@ export function InstanceNavBar() {
 	const params = useParams({ strict: false });
 
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const statusAvailable = wasAReleasedBeforeB('4.6.0', version) && canManage;
+	const statusAvailable = supportsGetStatus(version) && canManage;
 	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
 
 	const instanceParams = useInstanceClientIdParams();

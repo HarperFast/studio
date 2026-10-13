@@ -32,6 +32,7 @@ import {
 	randomizableAttributes,
 } from '@/features/instance/databases/functions/generateRandomRecords';
 import { parseJsonRecords } from '@/features/instance/databases/functions/parseJsonRecords';
+import { SchemaRelationshipMap } from '@/features/instance/databases/functions/schemaRelationships';
 import { sampleDatasets } from '@/features/instance/databases/sampleDatasets';
 import type { ImportMethod } from '@/hooks/checkOperationPermission';
 import { useInstanceImportCapabilities } from '@/hooks/usePermissions';
@@ -118,6 +119,7 @@ export function ImportDataModal({
 	isModalOpen,
 	setIsModalOpen,
 	instanceDatabaseMap,
+	schemaRelationshipMap,
 	databaseName,
 	tableName,
 	initialMethod,
@@ -126,6 +128,7 @@ export function ImportDataModal({
 	readonly isModalOpen: boolean;
 	readonly setIsModalOpen: (open: boolean) => void;
 	readonly instanceDatabaseMap?: InstanceDatabaseMap;
+	readonly schemaRelationshipMap?: SchemaRelationshipMap;
 	readonly databaseName?: string;
 	readonly tableName?: string;
 	/** Method the launcher asked for, e.g. the empty-table state's separate Import and Seed cards. */
@@ -196,6 +199,7 @@ export function ImportDataModal({
 	const fillableAttributes = randomizableAttributes(
 		targetTable?.attributes,
 		instanceDatabaseMap?.[watchedDatabase || 'data'],
+		schemaRelationshipMap?.[watchedDatabase || 'data']?.[watchedTable],
 	);
 	const canGenerateRandom = fillableAttributes.length > 0;
 	const isRandomDataset = datasetId === RANDOM_DATASET_ID;
@@ -252,6 +256,7 @@ export function ImportDataModal({
 			const attributes = randomizableAttributes(
 				instanceDatabaseMap?.[database]?.[table]?.attributes,
 				instanceDatabaseMap?.[database],
+				schemaRelationshipMap?.[database]?.[table],
 			);
 			if (attributes.length === 0) {
 				form.setError('datasetId', {

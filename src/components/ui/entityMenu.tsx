@@ -7,6 +7,7 @@ import {
 	ContextMenuTrigger,
 } from '@/components/ui/contextMenu';
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdownMenu';
+import type { AbsolutePath } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link } from '@tanstack/react-router';
 import { ComponentType, Fragment, MouseEventHandler, ReactNode } from 'react';
 
@@ -23,8 +24,7 @@ export type EntityMenuItem =
 		key: string;
 		label: ReactNode;
 		icon?: ReactNode;
-		/** Router path; renders the item inside a Link. Absolute when the target is a different entity. */
-		to?: string;
+		to?: AbsolutePath;
 		/** Search params for `to` — a query string inside `to` is not parsed by the router. */
 		search?: Record<string, string>;
 		onClick?: MouseEventHandler<HTMLDivElement>;

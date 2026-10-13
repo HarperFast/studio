@@ -13,7 +13,11 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceContainerOps } from '@/hooks/useInstanceContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
-import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
+import {
+	getStatusQueryOptions,
+	getSystemStatusById,
+	supportsGetStatus,
+} from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -66,8 +70,12 @@ export function useInstanceMenuItems(
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
+	const statusSupported = supportsGetStatus(instance.version);
 	const { data: statusResponse } = useQuery(
-		getStatusQueryOptions(statusParams, enabled && canManage && !isOperationsProxyRefused(instance.status)),
+		getStatusQueryOptions(
+			statusParams,
+			enabled && canManage && !isOperationsProxyRefused(instance.status) && statusSupported,
+		),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';
@@ -94,7 +102,7 @@ export function useInstanceMenuItems(
 	const isDirectlyLoggedIn = !!instanceUser && !isFabricConnect;
 	const hasAuth = isReady;
 	const hasCopy = !!fqdn;
-	const hasRotation = canManage && isReady && (isAvailable || isUnavailable);
+	const hasRotation = canManage && isReady && statusSupported && (isAvailable || isUnavailable);
 
 	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
 	// Hidden mid-transition (the instances poll reveals the resting state and the actions reappear).

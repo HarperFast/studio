@@ -8,9 +8,14 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
+import {
+	getLogDateMax,
+	LOG_DATE_MIN,
+	LogFiltersFormSchema,
+} from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { cn } from '@/lib/cn';
 import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
 
@@ -18,6 +23,11 @@ import z from 'zod';
 // field is invisible against the filters card. Give the fields a distinct fill + visible
 // border — matching the schema editor's treatment (SchemaEditorView `FIELD_SURFACE`).
 const FIELD_SURFACE = 'dark:bg-grey-600 dark:border-grey-500';
+
+const DATE_FIELDS = [
+	{ name: 'from', label: 'Start date' },
+	{ name: 'until', label: 'End date' },
+] as const;
 
 export function LogsFiltersForm({
 	form,
@@ -36,6 +46,10 @@ export function LogsFiltersForm({
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
+	// Re-read on focus so a tab left open past midnight doesn't keep capping the picker at yesterday.
+	const [logDateMax, setLogDateMax] = useState(getLogDateMax);
+	const refreshLogDateMax = () => setLogDateMax(getLogDateMax());
+
 	// On mobile the panel is toggled from the compact toolbar in the parent; on desktop it is always shown.
 	return (
 		<Card className={cn(isOpen ? 'block' : 'hidden', 'mt-3 md:mt-0 md:block')}>
@@ -159,42 +173,31 @@ export function LogsFiltersForm({
 								)}
 							/>
 						</div>
-						<FormField
-							control={form.control}
-							name="from"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Start date</FormLabel>
-									<FormControl>
-										<Input
-											type="datetime-local"
-											className={FIELD_SURFACE}
-											value={field.value ?? undefined}
-											onChange={field.onChange}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="until"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>End date</FormLabel>
-									<FormControl>
-										<Input
-											type="datetime-local"
-											className={FIELD_SURFACE}
-											value={field.value ?? undefined}
-											onChange={field.onChange}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+						{DATE_FIELDS.map(({ name, label }) => (
+							<FormField
+								key={name}
+								control={form.control}
+								name={name}
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>{label}</FormLabel>
+										<FormControl>
+											<Input
+												type="datetime-local"
+												step={1}
+												min={LOG_DATE_MIN}
+												max={logDateMax}
+												onFocus={refreshLogDateMax}
+												className={FIELD_SURFACE}
+												value={field.value ?? ''}
+												onChange={field.onChange}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						))}
 
 						<div className="flex items-center gap-2 pt-1">
 							<Button type="submit" variant="positiveOutline" className="grow">

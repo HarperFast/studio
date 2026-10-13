@@ -185,6 +185,38 @@ describe('authStore.signOutFromPotentiallyAuthenticatedInstances', () => {
 		expect(consoleDebug).toHaveBeenCalledWith(expect.stringContaining('ins-corrupt'), expect.any(String));
 	});
 
+	it('clears and logs out of every entity when storage writes throw', async () => {
+		signInToInstance('ins-full-1');
+		signInToInstance('ins-full-2');
+		onInstanceLogoutSubmit.mockResolvedValue({ message: 'ok' });
+		const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+
+		try {
+			await authStore.signOutFromPotentiallyAuthenticatedInstances();
+		} finally {
+			setItem.mockRestore();
+		}
+
+		expect(loggedOutTargets()).toEqual([['ins-full-1', 'https://ins-full-1'], ['ins-full-2', 'https://ins-full-2']]);
+		expect(userOf('ins-full-1')).toBeNull();
+		expect(userOf('ins-full-2')).toBeNull();
+	});
+
+	it('drops every stored explorer credential before waiting on any logout', async () => {
+		signInToInstance('ins-pending');
+		sessionStorage.setItem(
+			'ApiExplorerSettings',
+			JSON.stringify({ 'ins-unmarked': { auth: { type: 'bearer', token: 'not-in-this-tab' } } }),
+		);
+		onInstanceLogoutSubmit.mockReturnValue(new Promise(() => undefined));
+
+		void authStore.signOutFromPotentiallyAuthenticatedInstances();
+
+		expect(sessionStorage.getItem('ApiExplorerSettings')).toBeNull();
+	});
+
 	it('does not post a logout for the cloud slot', async () => {
 		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, { id: 'usr_a' } as SetArgs[2]);
 

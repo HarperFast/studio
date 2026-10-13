@@ -1,4 +1,5 @@
 import { isSyntheticAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
+import { SchemaRelationship } from '@/features/instance/databases/functions/schemaRelationships';
 import { InstanceAttribute, InstanceDatabaseTableMap } from '@/integrations/api/api.patch';
 
 const FIRST_NAMES = [
@@ -136,6 +137,14 @@ function randomValue(attribute: InstanceAttribute): unknown {
 			const byName = randomValueByName(attribute.attribute);
 			return typeof byName === 'string' ? byName : String(byName);
 		}
+		case 'array':
+			// An untyped array says nothing about what it holds, so it gets none.
+			return attribute.elements
+				? Array.from(
+					{ length: randomInt(1, 3) },
+					() => randomValue({ attribute: attribute.attribute, type: attribute.elements }),
+				)
+				: [];
 		default:
 			// No declared type (schemaless table) or 'Any': go by the column name alone.
 			return randomValueByName(attribute.attribute);
@@ -148,6 +157,7 @@ function randomValue(attribute: InstanceAttribute): unknown {
 export function randomizableAttributes(
 	attributes: InstanceAttribute[] | undefined,
 	databaseTables?: InstanceDatabaseTableMap,
+	schemaRelationships?: SchemaRelationship[],
 ): InstanceAttribute[] {
 	return (attributes ?? []).filter((attr) =>
 		!attr.is_primary_key
@@ -155,7 +165,7 @@ export function randomizableAttributes(
 		&& attr.attribute !== '__updatedtime__'
 		&& attr.type !== 'Bytes'
 		&& attr.type !== 'Blob'
-		&& !isSyntheticAttribute(attr, databaseTables)
+		&& !isSyntheticAttribute(attr, databaseTables, schemaRelationships)
 	);
 }
 

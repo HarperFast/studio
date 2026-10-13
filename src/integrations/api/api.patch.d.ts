@@ -262,6 +262,76 @@ export interface GrantShapeEntry {
 	regionId: string | null;
 }
 
+/** What a promo code gives: money off the org's bills, or a free cluster of a fixed shape. */
+export type PromoKind = 'credit' | 'voucher';
+
+/** One code an organization redeemed, from `GET /PromoRedemption/?organizationId=` (central-manager#913). */
+export interface PromoRedemptionView {
+	code: string;
+	kind: PromoKind;
+	/**
+	 * CLAIMED while a redemption is still landing; FAILED when it never did (redeeming the code again resumes
+	 * it); EXPIRED is a credit whose use-by date passed.
+	 */
+	status: 'CLAIMED' | 'APPLIED' | 'EXPIRED' | 'FAILED';
+	redeemedAt: string;
+	creditCents?: number;
+	creditExpiresAt?: string;
+	/** Credit no invoice has spent yet. Null when central manager could not read it. */
+	remainingCents?: number | null;
+	expiredAt?: string | null;
+	grantId?: string | null;
+	shape?: GrantShapeEntry[] | null;
+	voucherEndsAt?: string | null;
+	voucherClaimed?: boolean;
+}
+
+/** A promo code as staff see it on `GET /Admin/PromoCode`, with its redemption totals. */
+export interface AdminPromoCode {
+	id: string;
+	kind: PromoKind;
+	redeemBy: string;
+	/** A soft cap: redemptions made at the same moment can go past it, which `overCap` reports. */
+	maxRedemptions: number | null;
+	disabledAt: string | null;
+	creditCents: number | null;
+	creditValidDays: number | null;
+	shape: GrantShapeEntry[] | null;
+	voucherDays: number | null;
+	campaign: string | null;
+	createdByUserId: string | null;
+	createdAt: string | null;
+	redemptions: number;
+	issuedCents: number;
+	expiredCents: number;
+	/** Face value of credit not yet expired; what is still unspent is at most this. */
+	liveCreditCents: number;
+	overCap: boolean;
+}
+
+/** One organization's redemption of a code, as `GET /Admin/PromoCode/:code` lists them in `redemptionList`. */
+export interface AdminPromoRedemption {
+	id: string;
+	organizationId: string;
+	organizationName: string | null;
+	redeemedByUserId: string | null;
+	redeemedByEmail: string | null;
+	redeemedAt: string;
+	status: PromoRedemptionView['status'];
+	creditCents?: number | null;
+	creditExpiresAt?: string | null;
+	/** Credit removed at its use-by date, net of corrections; set once the redemption is EXPIRED. */
+	expiredCents?: number | null;
+	grantId?: string | null;
+	voucherEndsAt?: string | null;
+	/** The cluster that claimed the voucher; null while it is unclaimed. */
+	clusterId?: string | null;
+}
+
+export interface AdminPromoCodeDetail extends AdminPromoCode {
+	redemptionList: AdminPromoRedemption[];
+}
+
 /**
  * A cluster's commercial terms, as projected for customers by central-manager. Returned on
  * `GET /Cluster/:id` and on each cluster in `GET /Organization/:id`. Not in the generated OpenAPI

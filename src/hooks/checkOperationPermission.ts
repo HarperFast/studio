@@ -11,9 +11,10 @@ import type { ImportSource } from '@/integrations/api/instance/database/importDa
 import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
 
 /**
- * Harper's `operations` allowlist (5.0+) is reached only by roles verifyPerms has not already cleared:
- * `isSuperUser && !isSuSystemOperation` returns first, and `structure_user` returns for create/drop
- * database, table, and attribute. Table reads and writes are the only Studio surface it can deny.
+ * Harper's `operations` allowlist (5.0+) never applies to a super_user: before 5.3 verifyPerms clears
+ * one first, and from 5.3.0-alpha.1, where the list runs ahead of every privilege return,
+ * validateNoSUPerms refuses to store a list on one. Table reads and writes are the only Studio
+ * surface these checks gate.
  */
 
 export const TABLE_ACTION_OPERATIONS: Record<LocalRolePermissionAction, readonly string[]> = {
@@ -114,9 +115,8 @@ export function checkAnyOperationAllowed(
 /**
  * Whether these operations survive gate 1 for a table action.
  *
- * Not `isElevatedRole`: that answers whether the allowlist is unenforceable anywhere for the role,
- * which is what the roles editor warns about. DML is where an elevated-but-not-super role is still
- * gated — `structure_user` short-circuits for DDL alone, and `cluster_user` appears nowhere in
+ * Only super_user short-circuits here. DML is gated for every other role on every version: before 5.3
+ * `structure_user` skips the list for DDL alone, and `cluster_user` appears nowhere in
  * operation_authorization.ts.
  */
 export function checkTableOperationsAllowed(

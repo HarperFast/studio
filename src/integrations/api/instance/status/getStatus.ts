@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { pollUnlessForbidden, retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
@@ -36,6 +37,20 @@ interface StatusResponse {
 	componentStatus: ComponentStatus[];
 
 	[key: string]: unknown;
+}
+
+/** `get_status` / `set_status` first shipped in Harper 4.6; an older instance rejects the
+ *  operation with a 400 on every poll. */
+const GET_STATUS_MIN_VERSION = '4.6.0';
+
+export function supportsGetStatus(harperVersion: string | undefined): boolean {
+	return !!harperVersion && wasAReleasedBeforeB(GET_STATUS_MIN_VERSION, harperVersion);
+}
+
+/** Unlike `!supportsGetStatus`, false for a version that is missing or doesn't parse. */
+export function predatesGetStatus(harperVersion: string | undefined): boolean {
+	return !!harperVersion && !supportsGetStatus(harperVersion)
+		&& wasAReleasedBeforeB(harperVersion, GET_STATUS_MIN_VERSION);
 }
 
 export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig, enabled?: boolean) {

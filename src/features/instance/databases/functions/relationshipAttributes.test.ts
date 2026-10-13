@@ -1,7 +1,8 @@
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
-	buildRelationshipGetAttributes,
+	buildExportGetAttributes,
+	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
 	getRelationshipInfo,
 	getRelationshipInfoMap,
@@ -68,6 +69,15 @@ describe('getRelationshipInfo', () => {
 		expect(getRelationshipInfo({ attribute: 'x', type: 'RelProduct', computed: true }, tables)).toBeUndefined();
 	});
 
+	it('does not mistake an inherited property of the table map for a table', () => {
+		const withOddType = {
+			...relProduct,
+			attributes: [...relProduct.attributes, { attribute: 'shape', type: 'constructor' }],
+		};
+		const info = getRelationshipInfo(relReview.attributes[3], { ...tables, RelProduct: withOddType });
+		expect(info?.relatedAttributes.map((a) => a.attribute)).toContain('shape');
+	});
+
 	it('returns undefined without the database table map', () => {
 		expect(getRelationshipInfo(relReview.attributes[3], undefined)).toBeUndefined();
 	});
@@ -98,18 +108,112 @@ describe('isSyntheticAttribute / syntheticAttributeNames', () => {
 	});
 });
 
-describe('buildRelationshipGetAttributes', () => {
+describe('buildSyntheticGetAttributes', () => {
 	it('selects each relationship by related primary key, with * last', () => {
-		expect(buildRelationshipGetAttributes(relProduct, tables)).toEqual([
+		expect(buildSyntheticGetAttributes(relProduct, tables)).toEqual([
 			{ name: 'reviews', select: ['id'] },
 			'*',
 		]);
 	});
 
-	it('returns undefined when the table has no relationships', () => {
+	it('returns undefined when the table has no relationships or computed attributes', () => {
 		const plain = { ...relProduct, attributes: relProduct.attributes.slice(0, 4) };
-		expect(buildRelationshipGetAttributes(plain, tables)).toBeUndefined();
-		expect(buildRelationshipGetAttributes(undefined, tables)).toBeUndefined();
+		expect(buildSyntheticGetAttributes(plain, tables)).toBeUndefined();
+		expect(buildSyntheticGetAttributes(undefined, tables)).toBeUndefined();
+	});
+});
+
+describe('buildSyntheticGetAttributes with @computed attributes', () => {
+	// describe_table with `include_computed: true`, copied from harperdb 4.7.40 for:
+	//   type Product2 @table { id: ID @primaryKey price: Float taxRate: Float
+	//     totalPrice: Float @computed(from: "price + (price * taxRate)") }
+	//   type Gadget @table { id: ID @primaryKey name: String brandId: ID @indexed
+	//     brand: Brand @relationship(from: brandId) label: String @computed(from: "name + '!'") }
+	//   type Brand @table { id: ID @primaryKey name: String products: [Gadget] @relationship(to: brandId) }
+	const product2 = {
+		schema: 'data',
+		name: 'Product2',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'price', type: 'Float' },
+			{ attribute: 'taxRate', type: 'Float' },
+			{ attribute: 'totalPrice', type: 'Float', computed: true },
+		],
+	} as InstanceTable;
+	const brand = {
+		schema: 'data',
+		name: 'Brand',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'products', type: 'array', elements: 'Gadget' },
+		],
+	} as InstanceTable;
+	const gadget = {
+		schema: 'data',
+		name: 'Gadget',
+		hash_attribute: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'brandId', type: 'ID', indexed: {} },
+			{
+				attribute: 'brand',
+				type: 'Brand',
+				properties: [{ type: 'ID', name: 'id' }, { type: 'String', name: 'name' }, {
+					type: 'array',
+					name: 'products',
+				}],
+			},
+			{ attribute: 'label', type: 'String', computed: true },
+		],
+	} as InstanceTable;
+	const catalog: InstanceDatabaseTableMap = { Product2: product2, Brand: brand, Gadget: gadget };
+
+	it('names each computed attribute ahead of the *', () => {
+		expect(buildSyntheticGetAttributes(product2, catalog)).toEqual(['totalPrice', '*']);
+	});
+
+	it('selects computed attributes alongside relationships (Harper 4.7)', () => {
+		expect(buildSyntheticGetAttributes(gadget, catalog)).toEqual([
+			{ name: 'brand', select: ['id'] },
+			'label',
+			'*',
+		]);
+	});
+
+	it('selects computed attributes where describe omits relationships (Harper 5.1+)', () => {
+		const gadgetWithoutRelationships = {
+			...gadget,
+			attributes: gadget.attributes.filter((attribute) => attribute.attribute !== 'brand'),
+		};
+		expect(buildSyntheticGetAttributes(gadgetWithoutRelationships, catalog)).toEqual(['label', '*']);
+	});
+
+	it('keeps computed attributes out of record writes', () => {
+		expect(syntheticAttributeNames(gadget.attributes, catalog)).toEqual(['brand', 'label']);
+	});
+
+	// harperdb 4.7.40, `Accept: text/csv`: `['totalPrice', '*']` answers search_by_conditions with the
+	// header "totalPrice","id","price","taxRate","totalPrice". The explicit list is the clean header.
+	it('exports every described attribute by name, in describe order, with no *', () => {
+		expect(buildExportGetAttributes(product2, catalog)).toEqual(['id', 'price', 'taxRate', 'totalPrice']);
+	});
+
+	it('leaves relationships out of the export, describe-detected or schema-declared', () => {
+		expect(buildExportGetAttributes(gadget, catalog)).toEqual(['id', 'name', 'brandId', 'label']);
+		// A legacy attribute registry can report a declared relationship as an untyped array.
+		const legacyGadget = { ...gadget, attributes: [...gadget.attributes, { attribute: 'parts', type: 'array' }] };
+		const declared = [{ attribute: 'parts', relatedTableName: 'Gadget', isToMany: true, to: 'parentId' }];
+		expect(buildExportGetAttributes(legacyGadget, catalog)).toEqual(['id', 'name', 'brandId', 'label', 'parts']);
+		expect(buildExportGetAttributes(legacyGadget, catalog, declared)).toEqual(['id', 'name', 'brandId', 'label']);
+	});
+
+	it('keeps the plain * export for a table with no computed attribute', () => {
+		expect(buildExportGetAttributes(brand, catalog)).toBeUndefined();
+		expect(buildExportGetAttributes(undefined, catalog)).toBeUndefined();
 	});
 });
 
@@ -166,9 +270,10 @@ describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
 	});
 });
 
-describe('legacy elements-less relationships and reverse foreign keys', () => {
+describe('elements-less arrays and reverse foreign keys', () => {
 	// Shapes copied from a live 5.1.18 cluster whose Albums/Tracks tables were created under an
-	// older Harper: the legacy attribute registry kept `tracks` but without its element type.
+	// older Harper: the legacy attribute registry kept `tracks` but without its element type, and
+	// the schema doesn't declare it a relationship.
 	const albums = {
 		schema: 'data',
 		name: 'Albums',
@@ -191,14 +296,28 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 	} as InstanceTable;
 	const albumTables: InstanceDatabaseTableMap = { Albums: albums, Tracks: tracksTable };
 
-	it('detects an elements-less array by matching its name against sibling tables', () => {
-		const info = getRelationshipInfo(albums.attributes[2], albumTables, albums);
-		expect(info).toMatchObject({
+	it('treats an elements-less array named like a sibling table as plain data', () => {
+		const tracks = albums.attributes[2];
+		expect(getRelationshipInfo(tracks, albumTables, albums)).toBeUndefined();
+		expect(getRelationshipInfoMap(albums, albumTables)).toEqual({});
+		expect(isSyntheticAttribute(tracks, albumTables)).toBe(false);
+		expect(buildSyntheticGetAttributes(albums, albumTables)).toBeUndefined();
+		for (const attribute of ['track', 'Tracks', 'trackss']) {
+			expect(getRelationshipInfo({ attribute, type: 'array' }, albumTables)).toBeUndefined();
+		}
+	});
+
+	it('still treats it as a relationship when the schema declares one', () => {
+		const declared = [{ attribute: 'tracks', relatedTableName: 'Tracks', isToMany: true, to: 'albumId' }];
+		const map = getRelationshipInfoMap(albums, albumTables, declared);
+		expect(map.tracks).toMatchObject({
 			relatedTableName: 'Tracks',
 			isToMany: true,
 			resolvable: false,
 			reverseForeignKey: 'albumId',
 		});
+		expect(isSyntheticAttribute(albums.attributes[2], albumTables, declared)).toBe(true);
+		expect(syntheticAttributeNames(albums.attributes, albumTables, declared)).toEqual(['tracks']);
 	});
 
 	it('does not treat scalar arrays as relationships even if a table shares their name', () => {
@@ -210,12 +329,8 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 			.toBeUndefined();
 	});
 
-	it('omits unresolvable relationships from get_attributes', () => {
-		expect(buildRelationshipGetAttributes(albums, albumTables)).toBeUndefined();
-	});
-
 	it('only infers the reverse key when the owner table is known', () => {
-		expect(getRelationshipInfo(albums.attributes[2], albumTables)?.reverseForeignKey).toBeUndefined();
+		expect(getRelationshipInfo(relProduct.attributes[4], tables)?.reverseForeignKey).toBeUndefined();
 	});
 
 	it('finds the reverse key through the related table back-reference relationship', () => {

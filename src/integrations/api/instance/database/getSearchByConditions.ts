@@ -19,13 +19,15 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	onlyIfCached: boolean;
 	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
 	getAttributes?: GetAttribute[];
+	/** Set only once the user has agreed to a filter no index can answer (see `fullScanAttributes`). */
+	allowFullScan?: boolean;
 	headers?: Record<string, any>;
 }
 
 type Comparator =
 	| 'between'
-	// | 'contains' // Turned off for performance reasons until we add warnings for the user.
-	// | 'ends_with' // Turned off for performance reasons until we add warnings for the user.
+	| 'contains'
+	| 'ends_with'
 	| 'eq'
 	| 'equals'
 	| 'greater_than'
@@ -53,6 +55,7 @@ interface SearchByConditionsRequest {
 	offset: number;
 	limit: number;
 	get_attributes?: GetAttribute[];
+	allowFullScan?: boolean;
 	onlyIfCached: boolean;
 	noCacheStore: boolean;
 }
@@ -89,8 +92,24 @@ export function getSearchByConditionsOptions(params: GetSearchByConditionsParams
 		staleTime: 60_000,
 		gcTime: 5_000,
 		retry: false,
-		queryFn: () => getSearchByConditions(params),
+		queryFn: () => getSearchByConditionsPage(params),
 	});
+}
+
+export interface SearchByConditionsPage<T> {
+	data: T[];
+	hasNextPage: boolean;
+}
+
+/**
+ * A search reports no count of what it matched, so a page asks for one record past its end: whether
+ * that record comes back is the only exact answer to whether another page follows.
+ */
+export async function getSearchByConditionsPage<T = Record<string, unknown>>(
+	params: Omit<GetSearchByConditionsParams, 'enabled'>,
+): Promise<SearchByConditionsPage<T>> {
+	const { data } = await getSearchByConditions<T>({ ...params, limit: params.pageSize + 1 });
+	return { data: data.slice(0, params.pageSize), hasNextPage: data.length > params.pageSize };
 }
 
 export function getSearchByConditions<T = Record<string, unknown>>({
@@ -101,10 +120,12 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	sort,
 	pageIndex,
 	pageSize,
+	limit = pageSize,
 	onlyIfCached,
 	getAttributes,
+	allowFullScan,
 	headers,
-}: Omit<GetSearchByConditionsParams, 'enabled'>) {
+}: Omit<GetSearchByConditionsParams, 'enabled'> & { limit?: number }) {
 	return instanceClient.post<T[]>(
 		'/',
 		{
@@ -115,7 +136,10 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 			conditions: conditions!,
 			sort: sort.attribute.length ? sort : undefined,
 			offset: pageIndex * pageSize,
-			limit: pageSize,
+			limit,
+			// Harper's operations API scans without it (Harper 5's ResourceBridge passes
+			// `allowFullScan: true` itself); it carries the user's consent on the wire all the same.
+			allowFullScan: allowFullScan || undefined,
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByConditionsRequest,
@@ -322,7 +346,14 @@ export function parseComparator(value: string): { comparator: Comparator; value:
 		}
 	}
 
-	if (lowered.endsWith('*')) {
+	// As Harper reads a wildcard `search_value`: `*hn` ends with, `*oh*` contains, `Jo*` starts with. A
+	// lone `*` stays a starts-with of nothing, which matches every value.
+	if (value.length > 1 && value.startsWith('*')) {
+		return value.endsWith('*')
+			? { comparator: 'contains', value: value.slice(1, -1) }
+			: { comparator: 'ends_with', value: value.slice(1) };
+	}
+	if (value.endsWith('*')) {
 		return {
 			comparator: 'starts_with',
 			value: value.slice(0, -1),

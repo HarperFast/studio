@@ -3,7 +3,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 /**
  * Static catalog of the operation names a role's `permission.operations` allowlist accepts,
  * extracted from the Harper source (`utility/hdbTerms.ts` OPERATIONS_ENUM +
- * `utility/operationPermissions.ts` groups, verified against tags v5.0.0/v5.1.0/v5.2.2).
+ * `utility/operationPermissions.ts` groups, verified against tags v5.0.0/v5.1.0/v5.2.2/v5.3.0).
  * Harper has no discovery operation for these names (HarperFast/studio#1627), so the UI ships
  * the list per supported version and tolerates unknown names (e.g. component-registered
  * operations on 5.2+) rather than dropping them.
@@ -14,10 +14,11 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  *   array denies every operation.
  * - A listed operation that normally requires super_user is treated as a deliberate admin grant
  *   and allowed without super_user (`su` below marks those).
- * - super_user reaches operations without consulting the list, and cannot even hold one:
- *   validateNoSUPerms rejects a permission that sets super_user/cluster_user alongside other keys.
- *   structure_user roles DO go through the gate for everything except DDL.
- * - `sql` never reaches this gate at all; it is authorized against table permissions.
+ * - super_user cannot hold a list: validateNoSUPerms rejects a permission that sets
+ *   super_user/cluster_user alongside other keys.
+ * - Before 5.3 the gate runs after verifyPerms' super_user and structure_user returns, so a
+ *   structure user's DDL skips it, and `sql` never reaches it. From 5.3.0-alpha.1 it runs first and
+ *   on the SQL path too (see `GrantBand`).
  */
 export interface GrantableOperation {
 	name: string;
@@ -29,69 +30,89 @@ export interface GrantableOperation {
 	addedIn?: string;
 	/**
 	 * The handler self-enforces super_user, so the allowlist cannot delegate it
-	 * (secrets store, managed backups, get_deployment_payload). Not offered in the picker.
+	 * (secrets store, managed backups, get_deployment_payload, OIDC trust policies). Not offered in the
+	 * picker.
 	 */
 	nonDelegable?: boolean;
 	/** Legacy wire alias; Harper's authorization entry is registered under the canonical name. */
 	aliasOf?: string;
-	/** Extra qualification shown wherever the operation is offered or listed. */
+	/** The band in which it is authorized on a path that never consults the list. */
+	outOfGate?: GrantBand;
+	/** Why the list does not govern it, shown on its chip wherever `outOfGate` applies. */
 	caveat?: string;
-	/** Authorized on its own path, so the allowlist neither grants nor restricts it. */
-	outOfGate?: boolean;
+	/** Where listing the name stops or starts matching the gate; absent = it matches on every 5.x. */
+	gate?: GateChange;
 }
 
 /**
- * Operations whose `requiredPermissions` entry omits `api_name` AND is keyed by a handler name that
- * differs from the wire name. The gate resolves `requiredPermissions.get(op)?.api_name ?? op`, so
- * the fallback lands on the handler name and can never equal a snake_case grant — listing these
- * validates and saves but grants nothing on every shipped 5.x (HarperFast/harper#2175). An entry
- * registered under a bare string equal to its wire name (`catchup`) matches through that same
- * fallback and so is deliberately absent. They stay offered so a role is ready when core
- * wires the names, but the UI must not promise a delegation they cannot receive.
+ * Gate 1 checks a listed name against the authorization entry's `api_name`. Before 5.3.0-beta.3 that
+ * fell back to the handler's own name when the entry had none, which no snake_case grant can equal
+ * (HarperFast/harper#2175); beta.3 names every entry, deliberately naming a few `null`. "5.3" below
+ * means the `5.3` band:
+ * - `from-5.3`: unnamed before 5.3, so listing it grants nothing there.
+ * - `until-5.3`: registered under its wire name, so the fallback matched it; named `null` from 5.3.
+ * - `never`: no version lets a listing reach it, so it is not offered.
  */
-const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
-	'add_component',
-	'cleanup_orphan_blobs',
-	'clear_status',
-	'delete_audit_logs_before',
-	'delete_files_before',
-	'delete_transaction_logs_before',
-	'deploy_component',
-	'drop_component',
-	'drop_custom_function',
-	'drop_custom_function_project',
-	'get_backup',
-	'get_status',
-	'install_node_modules',
-	'package_component',
-	'read_transaction_log',
-	'restart_service',
-	'search_jobs_by_start_date',
-	'set_component_file',
-	'set_configuration',
-	'set_custom_function',
-	'set_status',
-	// Shares delete_files_before's handler, whose entry carries no api_name either.
-	'delete_records_before',
-	// Not super_user-only like the rest, but registered without api_name all the same — so a role
-	// carrying any allowlist is denied registration_info even when it lists it.
-	'registration_info',
-]);
+export type GateChange = 'from-5.3' | 'until-5.3' | 'never';
 
-/** Whether granting this operation is currently a no-op server-side (HarperFast/harper#2175). */
-export function isGrantGateInert(name: string): boolean {
-	return GATE_INERT_OPERATIONS.has(name);
+/**
+ * Which allowlist rules an instance follows; resolve it once per version, not per operation. Harper
+ * changed gate 1 twice during 5.3, so the bands are named for those changes, not for releases:
+ * - `pre-5.3`: the gate runs after the super_user and structure_user returns, and the SQL path never
+ *   calls it.
+ * - `5.3-early` (5.3.0-alpha.1 to beta.2): it runs ahead of both and on the SQL path, but the
+ *   entries `from-5.3` marks are still unnamed.
+ * - `5.3` (5.3.0-beta.3 on): every entry names its grant as well.
+ */
+export type GrantBand = 'pre-5.3' | '5.3-early' | '5.3';
+
+/** The first tagged build that runs gate 1 first and on `sql` (harper f8a5aa90a). */
+const ALLOWLIST_GATE_RUNS_FIRST_FROM = '5.3.0-alpha.1';
+
+/** The first tagged build that names every authorization entry, not 5.3.0's earliest prerelease. */
+export const GATE_NAMES_EVERY_ENTRY_FROM = '5.3.0-beta.3';
+
+export function resolveGrantBand(version: string): GrantBand {
+	if (wasAReleasedBeforeB(GATE_NAMES_EVERY_ENTRY_FROM, version)) {
+		return '5.3';
+	}
+	return wasAReleasedBeforeB(ALLOWLIST_GATE_RUNS_FIRST_FROM, version) ? '5.3-early' : 'pre-5.3';
+}
+
+/** Whether a structure user's DDL and `sql` have to be listed too, rather than skipping the list. */
+export function allowlistGatesEveryPath(band: GrantBand): boolean {
+	return band !== 'pre-5.3';
+}
+
+export function isOutOfGate(name: string, band: GrantBand): boolean {
+	return catalogByName.get(name)?.outOfGate === band;
+}
+
+export type GateVerdict = 'grants' | 'needs-5.3' | 'never';
+
+/** Whether gate 1 matches a listing of this name. Unknown names are not judged. */
+export function gateVerdict(name: string, band: GrantBand): GateVerdict {
+	switch (catalogByName.get(name)?.gate) {
+		case 'from-5.3':
+			return band === '5.3' ? 'grants' : 'needs-5.3';
+		case 'until-5.3':
+			return band === '5.3' ? 'never' : 'grants';
+		case 'never':
+			return 'never';
+		default:
+			return 'grants';
+	}
 }
 
 /**
  * Whether listing this name changes nothing: an alias the gate resolves elsewhere, an operation
- * whose handler self-enforces super_user, one the gate cannot match, or `sql`, which is authorized
- * on its own path and so is neither granted nor restricted by the list. The chip and the effective
- * count must agree on this, or the same component credits access it also calls inert.
+ * whose handler self-enforces super_user, one the gate cannot match, or one this band authorizes
+ * on its own path. The chip and the effective count must agree on this, or the same component
+ * credits access it also calls inert.
  */
-export function isInertGrant(name: string): boolean {
+export function isInertGrant(name: string, band: GrantBand): boolean {
 	const info = catalogByName.get(name);
-	return !!info?.aliasOf || !!info?.nonDelegable || !!info?.outOfGate || isGrantGateInert(name);
+	return !!info?.aliasOf || !!info?.nonDelegable || isOutOfGate(name, band) || gateVerdict(name, band) !== 'grants';
 }
 
 export interface OperationGroup {
@@ -144,9 +165,9 @@ export const OPERATION_CATEGORIES = [
 
 /**
  * Every grantable operation name, including non-delegable ones (kept so existing role JSON that
- * names them can still be rendered). Deliberately excludes `login`, `logout`, and
- * `create_authentication_tokens`: those bypass permission checks entirely, so listing them in an
- * allowlist has no effect either way.
+ * names them can still be rendered). Deliberately excludes `login`, `logout`,
+ * `create_authentication_tokens`, and `exchange_oidc_token`: those bypass permission checks entirely,
+ * so listing them in an allowlist has no effect either way.
  */
 export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	// Data
@@ -159,11 +180,11 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 		name: 'sql',
 		su: false,
 		category: DATA,
-		// serverUtilities routes `sql` to checkASTPermissions/verifyPermsAST, which never consults
-		// the allowlist — so this entry neither grants nor restricts SQL (HarperFast/harper#2175).
-		outOfGate: true,
-		caveat: 'SQL is authorized against table permissions, not this list — listing or omitting it '
-			+ 'does not restrict SQL statements.',
+		// Before 5.3 serverUtilities sends `sql` straight to checkASTPermissions, which never consults the
+		// allowlist. From 5.3.0-alpha.1 it runs gate 1 on `sql` first, so it is a grant like any other.
+		outOfGate: 'pre-5.3',
+		caveat: "This instance's Harper authorizes SQL against table permissions only, so listing or omitting "
+			+ 'sql here changes nothing. Harper 5.3 and later gate it by this list as well.',
 	},
 	{ name: 'insert', su: false, category: DATA },
 	{ name: 'update', su: false, category: DATA },
@@ -178,7 +199,7 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	// keeps the attribute — the bug being fixed. Each gate takes the safe side of its own failure.
 	{ name: 'put', su: false, category: DATA, addedIn: V5_3 },
 	{ name: 'delete', su: false, category: DATA },
-	{ name: 'delete_records_before', su: true, category: DATA },
+	{ name: 'delete_records_before', su: true, category: DATA, aliasOf: 'delete_files_before' },
 	{ name: 'csv_data_load', su: false, category: DATA },
 	{ name: 'csv_file_load', su: false, category: DATA },
 	{ name: 'csv_url_load', su: false, category: DATA },
@@ -198,7 +219,7 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'drop_table', su: true, category: SCHEMA },
 	{ name: 'create_attribute', su: false, category: SCHEMA },
 	{ name: 'drop_attribute', su: true, category: SCHEMA },
-	{ name: 'cleanup_orphan_blobs', su: true, category: SCHEMA },
+	{ name: 'cleanup_orphan_blobs', su: true, category: SCHEMA, gate: 'from-5.3' },
 	// Users & Roles
 	{ name: 'user_info', su: false, category: USERS_ROLES },
 	{ name: 'list_users', su: true, category: USERS_ROLES },
@@ -210,25 +231,28 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'alter_role', su: true, category: USERS_ROLES },
 	{ name: 'drop_role', su: true, category: USERS_ROLES },
 	{ name: 'refresh_operation_token', su: false, category: USERS_ROLES },
+	{ name: 'add_oidc_trust', su: true, category: USERS_ROLES, addedIn: V5_3, nonDelegable: true },
+	{ name: 'list_oidc_trust', su: true, category: USERS_ROLES, addedIn: V5_3, nonDelegable: true },
+	{ name: 'drop_oidc_trust', su: true, category: USERS_ROLES, addedIn: V5_3, nonDelegable: true },
 	// Components & Deployments
 	{ name: 'get_components', su: true, category: COMPONENTS },
 	{ name: 'get_component_file', su: true, category: COMPONENTS },
-	{ name: 'set_component_file', su: true, category: COMPONENTS },
-	{ name: 'add_component', su: true, category: COMPONENTS },
-	{ name: 'drop_component', su: true, category: COMPONENTS },
-	{ name: 'deploy_component', su: true, category: COMPONENTS },
-	{ name: 'package_component', su: true, category: COMPONENTS },
-	{ name: 'install_node_modules', su: true, category: COMPONENTS },
+	{ name: 'set_component_file', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'add_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'drop_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'deploy_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'package_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'install_node_modules', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'audit_node_modules', su: true, category: COMPONENTS },
 	{ name: 'custom_functions_status', su: true, category: COMPONENTS },
 	{ name: 'get_custom_functions', su: true, category: COMPONENTS },
 	{ name: 'get_custom_function', su: true, category: COMPONENTS },
-	{ name: 'set_custom_function', su: true, category: COMPONENTS },
-	{ name: 'drop_custom_function', su: true, category: COMPONENTS },
+	{ name: 'set_custom_function', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'drop_custom_function', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'add_custom_function_project', su: true, category: COMPONENTS, aliasOf: 'add_component' },
 	{ name: 'deploy_custom_function_project', su: true, category: COMPONENTS, aliasOf: 'deploy_component' },
 	{ name: 'package_custom_function_project', su: true, category: COMPONENTS, aliasOf: 'package_component' },
-	{ name: 'drop_custom_function_project', su: true, category: COMPONENTS, aliasOf: 'drop_component' },
+	{ name: 'drop_custom_function_project', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'list_deployments', su: true, category: COMPONENTS, addedIn: V5_1 },
 	{ name: 'get_deployment', su: true, category: COMPONENTS, addedIn: V5_1 },
 	{ name: 'get_deployment_payload', su: true, category: COMPONENTS, addedIn: V5_1, nonDelegable: true },
@@ -238,33 +262,33 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'update_node', su: true, category: CLUSTERING },
 	{ name: 'set_node_replication', su: true, category: CLUSTERING },
 	{ name: 'purge_stream', su: true, category: CLUSTERING },
-	{ name: 'catchup', su: true, category: CLUSTERING },
+	{ name: 'catchup', su: true, category: CLUSTERING, gate: 'until-5.3' },
 	// Jobs
 	{ name: 'get_job', su: false, category: JOBS },
-	{ name: 'search_jobs_by_start_date', su: true, category: JOBS },
+	{ name: 'search_jobs_by_start_date', su: true, category: JOBS, gate: 'from-5.3' },
 	{ name: 'update_job', su: true, category: JOBS },
 	{ name: 'delete_job', su: true, category: JOBS },
 	// Logs & Analytics
 	{ name: 'read_log', su: true, category: LOGS_ANALYTICS },
 	{ name: 'read_audit_log', su: true, category: LOGS_ANALYTICS },
-	{ name: 'read_transaction_log', su: true, category: LOGS_ANALYTICS },
-	{ name: 'delete_files_before', su: true, category: LOGS_ANALYTICS },
-	{ name: 'delete_audit_logs_before', su: true, category: LOGS_ANALYTICS },
-	{ name: 'delete_transaction_logs_before', su: true, category: LOGS_ANALYTICS },
+	{ name: 'read_transaction_log', su: true, category: LOGS_ANALYTICS, gate: 'never' },
+	{ name: 'delete_files_before', su: true, category: LOGS_ANALYTICS, gate: 'from-5.3' },
+	{ name: 'delete_audit_logs_before', su: true, category: LOGS_ANALYTICS, gate: 'from-5.3' },
+	{ name: 'delete_transaction_logs_before', su: true, category: LOGS_ANALYTICS, gate: 'from-5.3' },
 	{ name: 'get_analytics', su: false, category: LOGS_ANALYTICS },
 	{ name: 'list_metrics', su: false, category: LOGS_ANALYTICS },
 	{ name: 'describe_metric', su: false, category: LOGS_ANALYTICS },
 	// System
 	{ name: 'get_configuration', su: true, category: SYSTEM },
-	{ name: 'set_configuration', su: true, category: SYSTEM },
+	{ name: 'set_configuration', su: true, category: SYSTEM, gate: 'from-5.3' },
 	{ name: 'restart', su: true, category: SYSTEM },
-	{ name: 'restart_service', su: true, category: SYSTEM },
+	{ name: 'restart_service', su: true, category: SYSTEM, gate: 'from-5.3' },
 	{ name: 'system_information', su: true, category: SYSTEM },
-	{ name: 'get_status', su: true, category: SYSTEM },
-	{ name: 'set_status', su: true, category: SYSTEM },
-	{ name: 'clear_status', su: true, category: SYSTEM },
-	{ name: 'registration_info', su: false, category: SYSTEM },
-	{ name: 'get_backup', su: true, category: SYSTEM },
+	{ name: 'get_status', su: true, category: SYSTEM, gate: 'from-5.3' },
+	{ name: 'set_status', su: true, category: SYSTEM, gate: 'from-5.3' },
+	{ name: 'clear_status', su: true, category: SYSTEM, gate: 'from-5.3' },
+	{ name: 'registration_info', su: false, category: SYSTEM, gate: 'from-5.3' },
+	{ name: 'get_backup', su: true, category: SYSTEM, gate: 'never' },
 	// Managed Backups (5.2+, handlers self-enforce super_user)
 	{ name: 'create_backup', su: true, category: BACKUPS, addedIn: V5_2, nonDelegable: true },
 	{ name: 'verify_backup', su: true, category: BACKUPS, addedIn: V5_2, nonDelegable: true },
@@ -380,6 +404,7 @@ export function supportsOperationsAllowlist(version: string | undefined): boolea
  * rendered and preserved — just not offered.
  */
 export function getGrantableOperations(version: string): GrantableOperation[] {
+	const band = resolveGrantBand(version);
 	return OPERATION_CATALOG.filter(
 		(operation) =>
 			!operation.nonDelegable
@@ -387,6 +412,7 @@ export function getGrantableOperations(version: string): GrantableOperation[] {
 			// carries only the canonical api_name — so granting the alias spelling is inert. Offer
 			// the canonical name only; alias entries stay in the catalog to render existing JSON.
 			&& !operation.aliasOf
+			&& gateVerdict(operation.name, band) !== 'never'
 			&& (!operation.addedIn || wasAReleasedBeforeB(operation.addedIn, version)),
 	);
 }
@@ -401,7 +427,7 @@ export function getAvailableGroups(version: string): OperationGroup[] {
  * operations, everything else (including names we don't recognize) passes through. Sorted and
  * de-duplicated.
  */
-export function expandEffectiveOperations(operations: readonly string[]): string[] {
+export function expandEffectiveOperations(operations: readonly string[], band: GrantBand): string[] {
 	const effective = new Set<string>();
 	// A group's members fold to their canonical name: Harper's groups list both spellings of a pair
 	// (search_by_hash/search_by_id, describe_schema/describe_database) but each pair reaches one
@@ -411,7 +437,7 @@ export function expandEffectiveOperations(operations: readonly string[]): string
 		if (group) {
 			for (const member of group.members) {
 				const canonical = catalogByName.get(member)?.aliasOf ?? member;
-				if (!isInertGrant(canonical)) {
+				if (!isInertGrant(canonical, band)) {
 					effective.add(canonical);
 				}
 			}
@@ -420,7 +446,7 @@ export function expandEffectiveOperations(operations: readonly string[]): string
 		// A direct entry is NOT folded: the chip beside this count says an alias grants nothing, and
 		// rewriting it to its canonical name here would credit the role with access it does not have.
 		// Entries the server can never honor are left out for the same reason.
-		if (!isInertGrant(entry)) {
+		if (!isInertGrant(entry, band)) {
 			effective.add(entry);
 		}
 	}

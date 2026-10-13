@@ -1,9 +1,10 @@
 import {
+	allowlistGatesEveryPath,
 	expandEffectiveOperations,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { OperationsValueNotice } from '@/features/instance/config/roles/operations/OperationsValueNotice';
-import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
+import { useAllowlistVersion } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
 	classifyOperationsValue,
@@ -25,14 +26,14 @@ function isRecordShaped(permission: LocalRole['permission']): boolean {
  * Renders nothing for unrestricted roles.
  */
 export function RoleOperationsSummary({ role }: { role: LocalRole | undefined }) {
-	const allowlistSupported = useOperationsAllowlistSupported();
+	const allowlistVersion = useAllowlistVersion();
 	const permission = role?.permission;
 	// While the version is unresolved the verdict is unknowable, so say nothing rather than
 	// briefly describe a restricted role as unrestricted.
-	if (permission === undefined || allowlistSupported === undefined) {
+	if (permission === undefined || allowlistVersion === undefined) {
 		return null;
 	}
-	const kind = classifyOperationsValue(permission, allowlistSupported);
+	const kind = classifyOperationsValue(permission, allowlistVersion.supported);
 	// Below the floor the key is either a real database grant or inert; neither is a restriction.
 	if (kind === 'absent' || kind === 'database' || kind === 'inert') {
 		return null;
@@ -50,27 +51,35 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 			</p>
 		);
 	}
+	const gatesEveryPath = allowlistGatesEveryPath(allowlistVersion.band);
 	// Phrased to follow either "…cannot run any operation" or "…restricted to N operations", so the
 	// absolute wording is never left standing on a role that still reaches DDL.
 	const ddlScope = structureUserDdlScope(permission);
-	const ddlNote = ddlScope === true
+	const ddlNote = !ddlScope
+		? ''
+		: gatesEveryPath
+		? ` (its structure-user DDL${ddlScope === true ? '' : ` on ${ddlScope.join(', ')}`} needs listing too)`
+		: ddlScope === true
 		? ', except that it is a structure user: table and attribute DDL — and create/drop database — apply on any'
 			+ ' database regardless of the list.'
-		: ddlScope
-		? `, except that it is a structure user: table and attribute DDL applies on ${ddlScope.join(', ')}`
-			+ ' regardless of the list, and listing those operations cannot reach another database.'
-		: '';
-	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
+		: `, except that it is a structure user: table and attribute DDL applies on ${ddlScope.join(', ')}`
+			+ ' regardless of the list, and listing those operations cannot reach another database.';
+	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? [], allowlistVersion.band);
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
 				{(getOperationsAllowlist(permission) ?? []).length
 					? "Every entry in this role's operations allowlist is inert"
-					: "This role's operations allowlist is empty"}{' '}
-				— users with it cannot run any Operations API call (SQL is authorized by table permissions instead, so it is
-				unaffected)
-				{ddlScope ? '' : '.'}
-				{ddlNote}
+					: "This role's operations allowlist is empty"} — users with it cannot run any Operations API call
+				{gatesEveryPath
+					? `, not even SQL${ddlScope ? ' or its structure-user DDL' : ''}.`
+					: (
+						<>
+							{' '}(SQL is authorized by table permissions instead, so it is unaffected)
+							{ddlScope ? '' : '.'}
+							{ddlNote}
+						</>
+					)}
 			</p>
 		);
 	}
