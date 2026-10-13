@@ -20,6 +20,7 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
@@ -28,6 +29,7 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -50,6 +52,7 @@ export function RenameFileModal() {
 
 	const { openedEntry, entryExists, reloadRootEntries } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
@@ -123,6 +126,7 @@ export function RenameFileModal() {
 					});
 				}
 				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
+				forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
 				await reloadRootEntries();
 			} catch (error) {
 				const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
@@ -142,7 +146,17 @@ export function RenameFileModal() {
 			// Restore focus: a renamed directory stays in the tree; a renamed file is back in the editor.
 			setWatchedValue(isDir ? 'FocusFileTree' : 'FocusEditor', true);
 		}
-	}, [closeModal, entryExists, form, instanceParams, openedEntry, reloadRootEntries, renameFiles, setIsPending]);
+	}, [
+		closeModal,
+		entryExists,
+		form,
+		instanceParams,
+		openedEntry,
+		queryClient,
+		reloadRootEntries,
+		renameFiles,
+		setIsPending,
+	]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();

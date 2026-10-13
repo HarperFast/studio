@@ -1,6 +1,6 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { isMediaFile } from '@/lib/string/mediaFileType';
-import { queryOptions } from '@tanstack/react-query';
+import { QueryFilters, queryOptions } from '@tanstack/react-query';
 
 interface GetComponentFileRequest extends InstanceClientIdConfig {
 	project: string | undefined;
@@ -60,4 +60,18 @@ export function getComponentFileQueryKey(params: GetComponentFileRequest) {
 		params.file,
 		params.encoding,
 	] as const;
+}
+
+/** In every encoding it was loaded with; `path` can also be a folder or a bare project. */
+export function componentFilesAtOrUnder(entityId: string, path: string): QueryFilters {
+	return {
+		queryKey: [entityId, 'get_component_file'],
+		predicate: ({ queryKey: [, , project, file] }) => {
+			if (typeof project !== 'string') {
+				return false;
+			}
+			const cached = file ? `${project}/${file}` : project;
+			return cached === path || cached.startsWith(`${path}/`);
+		},
+	};
 }

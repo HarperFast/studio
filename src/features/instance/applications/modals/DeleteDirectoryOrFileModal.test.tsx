@@ -9,7 +9,9 @@
  */
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const rootEntries: DirectoryEntry[] = [
@@ -59,6 +61,10 @@ vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ del
 
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
+function renderWithQueryClient(ui: ReactElement) {
+	return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
+}
+
 // Radix dialogs rely on a couple of DOM APIs jsdom doesn't implement.
 beforeAll(() => {
 	Element.prototype.hasPointerCapture ??= () => false;
@@ -83,7 +89,7 @@ describe('DeleteDirectoryOrFileModal', () => {
 	it('refuses to delete a selection containing a protected component', async () => {
 		openedEntry = rootEntries[0];
 		selectedItems = ['status-check', 'status-check/resources.js'];
-		render(<DeleteDirectoryOrFileModal />);
+		renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 		confirmDelete(/Remove items/i);
 
@@ -94,7 +100,7 @@ describe('DeleteDirectoryOrFileModal', () => {
 	it('deletes an ordinary selection with no protected component', async () => {
 		openedEntry = rootEntries[1];
 		selectedItems = ['anvils/index.js'];
-		render(<DeleteDirectoryOrFileModal />);
+		renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 		confirmDelete(/Delete Application/i);
 

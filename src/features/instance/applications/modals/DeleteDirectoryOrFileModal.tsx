@@ -5,11 +5,13 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { isProtectedPath } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
+import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { pluralize } from '@/lib/pluralize';
 import { errorHandler } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +20,7 @@ export function DeleteDirectoryOrFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const { openedEntry, reloadRootEntries, rootEntries, setFocusedItem, setSelectedItems, selectedItems } =
 		useEditorView();
 
@@ -64,7 +67,11 @@ export function DeleteDirectoryOrFileModal() {
 		// Delete bottom-up so removing a child doesn't shift the path of a parent
 		// still queued for deletion. Copy first — `selectedItems` is shared state.
 		const result = await deleteSelectedItems(selectedItems.map(String).reverse(), {
-			dropItem: (project, file) => dropComponent({ file, project, ...instanceParams }),
+			dropItem: async (project, file) => {
+				const dropped = await dropComponent({ file, project, ...instanceParams });
+				forgetDeletedPath(queryClient, instanceParams.entityId, file ? `${project}/${file}` : project);
+				return dropped;
+			},
 			onProgress: (deleted) => {
 				toast.loading(`${action} in progress...`, {
 					id,
@@ -102,6 +109,7 @@ export function DeleteDirectoryOrFileModal() {
 		action,
 		closeModal,
 		instanceParams,
+		queryClient,
 		reloadRootEntries,
 		rootEntries,
 		selectedItems,

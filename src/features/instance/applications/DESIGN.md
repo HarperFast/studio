@@ -1,5 +1,55 @@
 # Applications — design notes
 
+## Unsaved edits belong to the file, not the path
+
+The editor keeps three things for each path: the file's unsaved edits, in a session-storage buffer
+(`EditorFileContent/{entityId}/{path}`, [`editorFileContent`](context/editorFileContent.ts)); its loaded contents, in
+the `get_component_file` query; and the text editor's Monaco model, which `keepCurrentModel` keeps after the file is
+closed. All three are keyed by path. So anything that changes which file a path names has to update them, or the next
+file at that path opens with the last one's text and Save writes it into it (#1934). Every such operation goes through
+[`editorPathState`](lib/editorPathState.ts) once the server confirms it:
+
+- **Delete** (the delete modal, the assistant's `dropComponentFile`, the old folder after a folder rename) discards the
+  unsaved edits and the cached contents, for the file or for everything under the folder or project. The open file's
+  query is emptied rather than removed: its observer would otherwise fetch a file that is gone, into an error toast.
+- **Replace** (New File over an existing file, an upload, the destination of a move) discards the unsaved edits, which
+  were made to the file that is gone, and resets the cached contents so the old ones aren't handed out while the new
+  ones load. New File and uploads do this even when nothing was at the path, which clears edits a delete left behind
+  before this was in place.
+- **Rename or move** carries the unsaved edits to the new path, as a desktop editor would, and replaces any there. A
+  folder rename moves file by file, so the rest of a destination folder keeps its own. The edits are copied once the
+  copy at the new path lands, and leave the old path only once its drop is confirmed. An unanswered drop leaves them
+  on both paths, so they stay reachable whether or not the old file is gone; a refused one, on the original only.
+
+All three dispose the Monaco models at the old path, because @monaco-editor/react reuses a path's model as it is and
+applies `value` only when it changes. A model still on screen goes a tick after the editor lets go of it, since Monaco
+keeps using it while it detaches. They reach Monaco through the loader, so a chunk that deletes files, such as the
+assistant's, doesn't pull Monaco in. For the file that is open, `TextEditorView` covers two more gaps:
+
+- It is read-only until the file's contents are known, and while the provider's contents still trail the query after
+  a replace. Monaco ignores an undefined `value` and keeps showing the model's last text, and typing into that would
+  save it here.
+- When its `value` changes to text nobody typed, as when the file is replaced while open or moved edits land on it,
+  the library writes it into the model as an undoable edit. The editor then sets the same text with `setValue`, which
+  drops the history, so Ctrl+Z can't bring the replaced file back for Save to write. Typing, and switching to another
+  file and back, keep their history.
+
+Apart from the rename's copy, an operation whose outcome is unknown (an unanswered write) changes nothing, because
+discarding edits for a file that may still be there loses work. Call sites run these where an unmount can't skip them:
+after an `await`, or in a mutation's own `onSuccess`, which takes the instance from the request because the page can
+have moved to another by then. A `mutate()` call's `onSuccess` is dropped once its component unmounts.
+
+Buffers are read and written through the session-storage store (`sessionStorageStore`), which every mounted
+`useSessionStorage` on a key renders, so an open editor or the tree's unsaved marker updates at once. Writing to
+session storage directly would leave a mounted editor showing the old buffer. The store keeps a write that storage
+refuses in memory, so a full storage doesn't lose edits mid-rename. It can't list its keys, though, so the buffers
+under a folder are found from what session storage persisted: a buffer held only in memory is cleared at its own path,
+not by a delete or move of a folder above it. A save that lands after another file was opened clears the saved file's
+buffer the same way, if it still equals what was saved.
+
+The assistant's `setComponentFile` tool leaves the buffer alone: it writes to a file the person may be editing, which
+is a conflict between two editors rather than a path naming a different file.
+
 ## When a deploy is done
 
 Studio deploys with `restart: 'rolling'`. The node that receives the deploy answers once its own part is done and hands

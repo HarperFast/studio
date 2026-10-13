@@ -1,4 +1,6 @@
+import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { queryClient } from '@/react-query/queryClient';
 import { inputSchema } from '@harperfast/agent-tools/tools/dropComponentFile/inputSchema';
 import { z } from 'zod';
 import { ExecuteParams } from '../../types/executeParams';
@@ -13,6 +15,7 @@ export async function execute(
 		const project = parts.shift()!;
 		const file = parts.join('/');
 		const data = await dropComponent({ ...instanceClientParams, file, project });
+		forgetDeletedPath(queryClient, instanceClientParams.entityId, path.replace(/\/+$/, ''));
 		return {
 			success: true,
 			data,

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
@@ -13,7 +14,8 @@ vi.mock('@/config/useInstanceClient', () => ({
 vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
 	useEditorView: () => ({ reloadRootEntries: vi.fn(), setFocusedItem: vi.fn(), setSelectedItems: vi.fn() }),
 }));
-vi.mock('@/integrations/api/instance/applications/getComponentFile', () => ({
+vi.mock('@/integrations/api/instance/applications/getComponentFile', async importOriginal => ({
+	...await importOriginal(),
 	getComponentFile: vi.fn().mockResolvedValue({ message: 'Y29udGVudHM=' }),
 }));
 vi.mock('@/integrations/api/instance/applications/setComponentFile', () => ({
@@ -28,7 +30,10 @@ const dropSent = {
 } as InternalAxiosRequestConfig;
 
 function rename() {
-	const { result } = renderHook(() => useRenameFiles());
+	const queryClient = new QueryClient();
+	const { result } = renderHook(() => useRenameFiles(), {
+		wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+	});
 	return result.current([{ from: 'app/old.js', to: 'app/new.js' }]);
 }
 
