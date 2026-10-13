@@ -1,6 +1,7 @@
 import { readSessionValue } from '@/lib/storage/sessionStorageStore';
 import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { inputSchema } from '@harperfast/agent-tools/tools/getUserContext/inputSchema';
+import type { TreeItemIndex } from 'react-complex-tree';
 import { z } from 'zod';
 import { ExecuteParams } from '../../types/executeParams';
 import { Output } from './output';
@@ -59,15 +60,15 @@ export async function execute(
 
 	const focusedItem = readSessionValue(
 		`FileFocused/${instanceClientParams.entityId}` as 'FileFocused/{entityId}',
-		undefined,
+		undefined as TreeItemIndex | undefined,
 	);
 	const expandedItems = readSessionValue(
 		`FolderOpened/${instanceClientParams.entityId}` as 'FolderOpened/{entityId}',
-		[],
+		[] as TreeItemIndex[],
 	);
 	const selectedItems = readSessionValue(
 		`FileSelected/${instanceClientParams.entityId}` as 'FileSelected/{entityId}',
-		[],
+		[] as TreeItemIndex[],
 	);
 
 	if (focusedItem) {
