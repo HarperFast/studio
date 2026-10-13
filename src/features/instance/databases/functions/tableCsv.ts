@@ -41,8 +41,10 @@ export function tableCsvColumns(
 	return [...declared, ...extras];
 }
 
-// Each part's text goes into its own Blob, outside the JS heap, before the next part is written.
+// A part's text goes into its own Blob, outside the JS heap, before the next part is written. The
+// length bound keeps a wide part well under the engine's longest string.
 const ROWS_PER_PART = 10_000;
+const CHARACTERS_PER_PART = 1 << 24;
 const WRITTEN = Object.freeze({});
 
 /**
@@ -50,23 +52,30 @@ const WRITTEN = Object.freeze({});
  * Empties `rows` as it goes, so the file's text replaces the records in memory instead of joining them.
  */
 export function tableCsvBlob(rows: Record<string, unknown>[], columns: readonly string[]): Blob {
-	const parts = [new Blob([csvLine(columns, true)])];
-	for (let start = 0; start < rows.length; start += ROWS_PER_PART) {
-		const end = Math.min(rows.length, start + ROWS_PER_PART);
-		let text = '';
-		for (let index = start; index < end; index++) {
-			const row = rows[index];
-			text += csvLine(columns.map((column) => (Object.hasOwn(row, column) ? row[column] : undefined)), false);
+	const parts = [new Blob([columns.map((column) => csvCell(column, true)).join(',') + '\n'])];
+	let text = '';
+	let partStart = 0;
+	for (let index = 0; index < rows.length; index++) {
+		text += csvRow(rows[index], columns);
+		const partEnd = index + 1;
+		if (partEnd - partStart === ROWS_PER_PART || text.length >= CHARACTERS_PER_PART || partEnd === rows.length) {
+			parts.push(new Blob([text]));
+			rows.fill(WRITTEN, partStart, partEnd);
+			partStart = partEnd;
+			text = '';
 		}
-		parts.push(new Blob([text]));
-		rows.fill(WRITTEN, start, end);
 	}
 	rows.length = 0;
 	return new Blob(parts, { type: 'text/csv' });
 }
 
-function csvLine(values: readonly unknown[], quoteAll: boolean): string {
-	return values.map((value) => csvCell(value, quoteAll)).join(',') + '\n';
+function csvRow(row: Record<string, unknown>, columns: readonly string[]): string {
+	let line = '';
+	for (let index = 0; index < columns.length; index++) {
+		const column = columns[index];
+		line += (index ? ',' : '') + csvCell(Object.hasOwn(row, column) ? row[column] : undefined, false);
+	}
+	return line + '\n';
 }
 
 function csvCell(value: unknown, quoteAll: boolean): string {
@@ -89,40 +98,23 @@ export function exportedRecords(data: unknown): Record<string, unknown>[] {
 }
 
 // Harper's own cheap test for a body that may need its big-number parse (`HAS_BIG_NUMBER`, JSONStream.ts).
-// It also matches digits inside a string, so `holdsUnsafeInteger` decides.
+// It also matches digits inside a string, which `quoteUnsafeIntegers` leaves alone.
 const MAY_HOLD_LARGE_INTEGER = /[[,:]\s*-?\d{16,}/;
 const INTEGER_SOURCE = /^-?\d+$/;
 
 /**
- * `JSON.parse`, except that an integer a double can't hold keeps its digits. Harper writes a `BigInt`
- * as bare digits, which a plain parse rounds (98765432109876543210 reads as 98765432109876540000),
- * while its own CSV wrote them exactly. Such a number becomes a `JSON.rawJSON` value, which
- * `JSON.stringify` writes back digit for digit. A browser without `JSON.rawJSON` can't do that, so
- * it refuses a body that holds one rather than export rounded values.
+ * `JSON.parse`, except that an integer a double can't hold is read as a string of its digits. Harper
+ * writes a `BigInt` as bare digits, which a plain parse rounds (98765432109876543210 reads as
+ * 98765432109876540000), while its own CSV wrote them exactly, as a quoted cell.
  */
 export function parseJsonKeepingLargeIntegers(text: string): unknown {
-	if (!MAY_HOLD_LARGE_INTEGER.test(text) || !holdsUnsafeInteger(text)) {
-		return JSON.parse(text);
-	}
-	const rawJSON = (JSON as { rawJSON?: (text: string) => unknown }).rawJSON;
-	if (!rawJSON) {
-		throw new Error(
-			'This export holds an integer too large for this browser to read exactly. '
-				+ 'Export it from a browser with JSON.rawJSON, such as a current Chrome, Edge or Firefox.',
-		);
-	}
-	return JSON.parse(
-		text,
-		(_key, value: unknown, context?: { source?: string }) =>
-			typeof value === 'number' && !Number.isSafeInteger(value) && context?.source
-				&& INTEGER_SOURCE.test(context.source)
-				? rawJSON(context.source)
-				: value,
-	);
+	return JSON.parse(MAY_HOLD_LARGE_INTEGER.test(text) ? quoteUnsafeIntegers(text) : text);
 }
 
-/** Whether a JSON text holds, outside every string, an integer literal a double can't hold. */
-function holdsUnsafeInteger(text: string): boolean {
+/** Wraps in quotes each integer literal, outside any string, that a double can't hold. */
+function quoteUnsafeIntegers(text: string): string {
+	let quoted = '';
+	let copiedTo = 0;
 	let inString = false;
 	for (let index = 0; index < text.length; index++) {
 		const code = text.charCodeAt(index);
@@ -142,24 +134,28 @@ function holdsUnsafeInteger(text: string): boolean {
 			if (end - index >= 16) {
 				const token = text.slice(index, end);
 				if (INTEGER_SOURCE.test(token) && !Number.isSafeInteger(Number(token))) {
-					return true;
+					quoted += `${text.slice(copiedTo, index)}"${token}"`;
+					copiedTo = end;
 				}
 			}
 			index = end - 1;
 		}
 	}
-	return false;
+	return copiedTo ? quoted + text.slice(copiedTo) : text;
 }
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
 const MINUS = 0x2d;
+const PLUS = 0x2b;
+const DOT = 0x2e;
+const LOWER_E = 0x65;
+const UPPER_E = 0x45;
 
 function isDigit(code: number): boolean {
 	return code >= 0x30 && code <= 0x39;
 }
 
-// Digits, `.`, `+`, `-`, `e` and `E`.
 function isNumberCharacter(code: number): boolean {
-	return isDigit(code) || code === 0x2e || code === 0x2b || code === MINUS || code === 0x65 || code === 0x45;
+	return isDigit(code) || code === DOT || code === PLUS || code === MINUS || code === LOWER_E || code === UPPER_E;
 }

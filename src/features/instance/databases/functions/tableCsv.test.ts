@@ -1,6 +1,6 @@
 import { MAX_EXTRA_COLUMNS } from '@/features/instance/databases/functions/extraRecordAttributes';
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	buildExportGetAttributes,
 	exportedRecords,
@@ -185,22 +185,47 @@ describe('tableCsvBlob', () => {
 		// The header, three parts of rows, then the file.
 		expect(firstStillHeld).toEqual([true, true, false, false, false]);
 	});
+
+	// Records that each bring their own keys make every line as wide as the whole column set.
+	it('starts a new part before one grows past 16M characters, however few rows that is', async () => {
+		const rows = Array.from({ length: 10_000 }, (_, index) => ({ id: index, wide: 'x'.repeat(2_000) }));
+		const partLengths: number[] = [];
+		vi.stubGlobal(
+			'Blob',
+			class extends Blob {
+				constructor(...args: ConstructorParameters<typeof Blob>) {
+					super(...args);
+					partLengths.push(this.size);
+				}
+			},
+		);
+		let file: Blob;
+		try {
+			file = tableCsvBlob(rows, ['id', 'wide']);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+		const rowParts = partLengths.slice(1, -1);
+		expect(rowParts).toHaveLength(2);
+		expect(Math.max(...rowParts)).toBeLessThan((1 << 24) + 2_010);
+		expect((await file.text()).trimEnd().split('\n')).toHaveLength(10_001);
+	});
 });
 
 describe('parseJsonKeepingLargeIntegers', () => {
 	// harper 5.3.2 writes a stored BigInt 98765432109876543210 as bare digits.
-	const body = '[{"id":"w2","big":98765432109876543210,"ids":[12345678901234567890,1],"n":9007199254740991,'
-		+ '"f":1.5,"e":-1e+21}]';
-	const json = JSON as { rawJSON?: unknown };
-	const rawJSON = json.rawJSON;
+	const body = '[{"id":"w2","big":98765432109876543210,"ids":[1,12345678901234567890],"n":9007199254740991,'
+		+ '"f":1.5,"e":-1e+21,"neg":-12345678901234567890}]';
 
-	afterEach(() => {
-		json.rawJSON = rawJSON;
+	it('reads an integer too large for a double as its digits, wherever it sits', () => {
+		const [record] = parseJsonKeepingLargeIntegers(body) as Record<string, unknown>[];
+		expect(record).toMatchObject({ big: '98765432109876543210', neg: '-12345678901234567890' });
+		expect(record.ids).toEqual([1, '12345678901234567890']);
 	});
 
-	it('keeps an integer too large for a double digit for digit through to the CSV', async () => {
-		expect(await rowsOf(exportedRecords(body), ['big', 'ids', 'n', 'f', 'e'])).toBe(
-			'"98765432109876543210","[12345678901234567890,1]",9007199254740991,1.5,-1e+21\n',
+	it('writes it to the CSV quoted, as harper 5.3.2 writes a BigInt', async () => {
+		expect(await rowsOf(exportedRecords(body), ['big', 'ids'])).toBe(
+			'"98765432109876543210","[1,""12345678901234567890""]"\n',
 		);
 	});
 
@@ -210,15 +235,8 @@ describe('parseJsonKeepingLargeIntegers', () => {
 		expect(parseJsonKeepingLargeIntegers('[{"id":1,"name":"plain"}]')).toEqual([{ id: 1, name: 'plain' }]);
 	});
 
-	it('refuses, where the browser has no JSON.rawJSON, rather than round an integer', () => {
-		delete json.rawJSON;
-		expect(() => parseJsonKeepingLargeIntegers(body)).toThrow('too large for this browser to read exactly');
-		expect(() => parseJsonKeepingLargeIntegers('[{"n":-12345678901234567890}]')).toThrow('too large');
-	});
-
 	// Harper's cheap pre-check matches each of these too. None holds an integer a double rounds.
-	it('reads digits in a string, a safe 16-digit integer and long decimals without refusing', () => {
-		delete json.rawJSON;
+	it('leaves digits in a string, a safe 16-digit integer and long decimals as they are', () => {
 		const bodies = [
 			'[{"note":"ref: 98765432109876543210"}]',
 			String.raw`[{"note":"say \"x\": 98765432109876543210"}]`,
