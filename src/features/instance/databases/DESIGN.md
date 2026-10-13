@@ -90,3 +90,23 @@ so it is judged by that table's attribute. Typed filters and deep-linked ones bo
 [`DatabaseTableView`](components/DatabaseTableView.tsx), which asks first (#1285). The request then
 carries `allowFullScan: true`, and so does a CSV export of that filter. A new way to apply a filter
 has to go through that function.
+
+## An import refreshes Browse from the mutation, not from the modal
+
+Every Browse read has a 60s `staleTime`, so an import into the open table shows nothing new until
+something invalidates `[entityId, database, table]`. Navigating to a table that is already on screen
+doesn't invalidate it. That refresh lives in `useImportDataMutation`'s own `onSettled`
+([`importData.ts`](../../../integrations/api/instance/database/importData.ts)), because React Query
+skips a `mutate` call's callbacks once the component that made it has unmounted. It used to live in
+the table view, and #1471 lost it when the modal moved into `DatabaseActionModals`.
+
+It is not awaited. The import settles at the job's verdict, and the modal closes then. The modal's
+`onImported` waits for the `describe_all` refetch before it navigates
+(`awaitDatabaseMapRefresh`, which joins the refetch rather than starting another), or
+`resolveDatabasesRedirect` would send a table the import just created back to the overview. If that
+refetch fails, the old map stays and the redirect still happens, as it did before.
+
+A failed import refreshes too, because a CSV loaded from a URL that fails partway leaves its earlier
+chunks written. When the failure has no verdict (no response, or a 502/503/504), the reads are only
+marked stale rather than refetched: they would fail too and add their own error toasts, and the next
+mount, refocus or Refresh fetches them.
