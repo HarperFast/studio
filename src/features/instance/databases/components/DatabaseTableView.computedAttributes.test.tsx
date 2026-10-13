@@ -40,7 +40,6 @@ const computed: Record<string, (record: (typeof stored)[number]) => unknown> = {
 vi.mock('@/config/useInstanceClient', () => {
 	const instanceClient = {
 		post: async (_url: string, body: Body, config?: { responseType?: string }) => {
-			// The export reads JSON unparsed (`responseType: 'text'`) and writes the CSV itself.
 			const exporting = config?.responseType === 'text';
 			if (exporting) {
 				csvRequests.push(body);

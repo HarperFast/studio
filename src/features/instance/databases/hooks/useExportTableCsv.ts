@@ -3,8 +3,8 @@ import { getSchemaRelationshipsQueryOptions } from '@/features/instance/database
 import {
 	buildExportGetAttributes,
 	exportedRecords,
+	tableCsvBlob,
 	tableCsvColumns,
-	tableCsvLines,
 } from '@/features/instance/databases/functions/tableCsv';
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { getSearchByConditions, SearchCondition } from '@/integrations/api/instance/database/getSearchByConditions';
@@ -31,10 +31,8 @@ interface ExportTableCsvParams {
 /**
  * Shared "download this table as CSV" plumbing, lifted out of the table view so both the right-pane
  * toolbar (which passes the active filters/sort) and the tree context menu (which exports the whole
- * table) can trigger it. Fetches every matching record as JSON in one request, with the grid's
- * select minus relationships, and writes the CSV here: its columns are the described attributes,
- * then every property any of those records carries that describe doesn't list. Harper's own
- * `text/csv` answer fixes its header before the first row, so it can't (see `buildExportGetAttributes`).
+ * table) can trigger it. Reads every matching record as JSON in one request and writes the CSV
+ * here, so that it holds every property any of them carries (see DESIGN.md).
  */
 export function useExportTableCsv() {
 	const instanceParams = useInstanceClientIdParams();
@@ -65,22 +63,25 @@ export function useExportTableCsv() {
 					// Parsed here, so an integer too large for a double keeps its digits.
 					responseType: 'text' as const,
 				};
-				const [response, schemaRelationshipMap] = await Promise.all([
-					conditions?.length
-						? getSearchByConditions<unknown>({ ...base, conditions, allowFullScan })
-						: getSearchByValue<unknown>({ ...base, searchAttribute: primaryKey }),
+				const request = conditions?.length
+					? getSearchByConditions<unknown>({ ...base, conditions, allowFullScan })
+					: getSearchByValue<unknown>({ ...base, searchAttribute: primaryKey });
+				const [records, schemaRelationshipMap] = await Promise.all([
+					// Parsed where it arrives, so nothing holds the response text once the records exist.
+					request.then(({ data }) => {
+						toast.loading('Preparing CSV...', { id });
+						return exportedRecords(data);
+					}),
 					// Describe can report a declared relationship as a plain attribute; it stays out of the file.
 					queryClient.fetchQuery(getSchemaRelationshipsQueryOptions(instanceParams)),
 				]);
-				toast.loading('Preparing CSV...', { id });
-				const records = exportedRecords(response.data);
 				const columns = tableCsvColumns(
 					records,
 					instanceTable,
 					databaseTables,
 					schemaRelationshipMap[databaseName]?.[tableName],
 				);
-				const blob = new Blob(tableCsvLines(records, columns), { type: 'text/csv' });
+				const blob = tableCsvBlob(records, columns);
 				const url = URL.createObjectURL(blob);
 				const downloadLink = document.createElement('a');
 				downloadLink.href = url;

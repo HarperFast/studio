@@ -22,7 +22,6 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	getAttributes?: GetAttribute[];
 	/** Set only once the user has agreed to a filter no index can answer (see `fullScanAttributes`). */
 	allowFullScan?: boolean;
-	/** `'text'` hands back the body unparsed. */
 	responseType?: ResponseType;
 }
 

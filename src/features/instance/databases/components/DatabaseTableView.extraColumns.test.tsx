@@ -68,7 +68,6 @@ vi.mock('@/config/useInstanceClient', () => {
 					}
 					const records = instance.tables[body.table!] ?? [];
 					const page = records.slice(offset, offset + (body.limit ?? 0));
-					// The CSV export reads its JSON unparsed.
 					return { data: config?.responseType === 'text' ? JSON.stringify(page) : page, status: 200 };
 				}
 				default:

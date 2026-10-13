@@ -14,7 +14,6 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	onlyIfCached: boolean;
 	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
 	getAttributes?: GetAttribute[];
-	/** `'text'` hands back the body unparsed. */
 	responseType?: ResponseType;
 }
 

@@ -1,13 +1,17 @@
 import { MAX_EXTRA_COLUMNS } from '@/features/instance/databases/functions/extraRecordAttributes';
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	buildExportGetAttributes,
 	exportedRecords,
 	parseJsonKeepingLargeIntegers,
+	tableCsvBlob,
 	tableCsvColumns,
-	tableCsvLines,
 } from './tableCsv';
+
+const csvOf = (rows: Record<string, unknown>[], columns: string[]) => tableCsvBlob(rows, columns).text();
+const rowsOf = async (rows: Record<string, unknown>[], columns: string[]) =>
+	(await csvOf(rows, columns)).slice(columns.map((column) => `"${column}"`).join(',').length + 1);
 
 // As harper 5.3.2 describes `type Thing @table(database: "punch") { id: ID @primaryKey price: Float
 // taxRate: Float totalPrice: Float @computed(from: "price * (1 + taxRate)") tags: [String] note: String }`
@@ -129,10 +133,10 @@ describe('tableCsvColumns', () => {
 	});
 });
 
-describe('tableCsvLines', () => {
-	it('writes the file harper 5.3.2 would for the same columns', () => {
+describe('tableCsvBlob', () => {
+	it('writes the file harper 5.3.2 would for the same columns', async () => {
 		const columns = tableCsvColumns(thingRecords, thing, catalog);
-		expect(tableCsvLines(thingRecords, columns).join('')).toBe(
+		expect(await csvOf([...thingRecords], columns)).toBe(
 			'"id","note","price","tags","taxRate","totalPrice","color","owners","size","weight"\n'
 				+ '"a1",,100,"[""red""]",0.19,119,"red","[""ann"",""bo""]",3,\n'
 				+ '"a2","second",50,,0.1,55,"blue",,,\n'
@@ -140,15 +144,46 @@ describe('tableCsvLines', () => {
 		);
 	});
 
-	it('quotes text with its quotes doubled, and leaves null, undefined and empty text blank', () => {
+	it('quotes text with its quotes doubled, and leaves null, undefined and empty text blank', async () => {
 		const rows = [{ a: 'say "hi", twice\nthen stop', b: null, c: undefined, d: '', e: false, f: { x: 1 } }];
-		expect(tableCsvLines(rows, ['a', 'b', 'c', 'd', 'e', 'f'])[1]).toBe(
+		expect(await rowsOf(rows, ['a', 'b', 'c', 'd', 'e', 'f'])).toBe(
 			'"say ""hi"", twice\nthen stop",,,,"false","{""x"":1}"\n',
 		);
 	});
 
-	it('reads each cell from the record’s own properties only', () => {
-		expect(tableCsvLines([{ id: 1 }], ['id', 'toString', 'constructor'])[1]).toBe('1,,\n');
+	it('reads each cell from the record’s own properties only', async () => {
+		expect(await rowsOf([{ id: 1 }], ['id', 'toString', 'constructor'])).toBe('1,,\n');
+	});
+
+	it('writes every row across its parts', async () => {
+		const rows = Array.from({ length: 25_001 }, (_, index) => ({ id: index }));
+		const lines = (await csvOf(rows, ['id'])).trimEnd().split('\n');
+		expect(lines).toHaveLength(25_002);
+		expect(lines.slice(-2)).toEqual(['24999', '25000']);
+		expect(rows).toHaveLength(0);
+	});
+
+	// The file's text takes the records' place in memory rather than joining them.
+	it('lets go of a part’s records as soon as that part is written', () => {
+		const rows = Array.from({ length: 20_001 }, (_, index) => ({ id: index }));
+		const first = rows[0];
+		const firstStillHeld: boolean[] = [];
+		vi.stubGlobal(
+			'Blob',
+			class extends Blob {
+				constructor(...args: ConstructorParameters<typeof Blob>) {
+					super(...args);
+					firstStillHeld.push(rows[0] === first);
+				}
+			},
+		);
+		try {
+			tableCsvBlob(rows, ['id']);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+		// The header, three parts of rows, then the file.
+		expect(firstStillHeld).toEqual([true, true, false, false, false]);
 	});
 });
 
@@ -156,10 +191,15 @@ describe('parseJsonKeepingLargeIntegers', () => {
 	// harper 5.3.2 writes a stored BigInt 98765432109876543210 as bare digits.
 	const body = '[{"id":"w2","big":98765432109876543210,"ids":[12345678901234567890,1],"n":9007199254740991,'
 		+ '"f":1.5,"e":-1e+21}]';
+	const json = JSON as { rawJSON?: unknown };
+	const rawJSON = json.rawJSON;
 
-	it('keeps an integer too large for a double digit for digit through to the CSV', () => {
-		const records = exportedRecords(body);
-		expect(tableCsvLines(records, ['big', 'ids', 'n', 'f', 'e'])[1]).toBe(
+	afterEach(() => {
+		json.rawJSON = rawJSON;
+	});
+
+	it('keeps an integer too large for a double digit for digit through to the CSV', async () => {
+		expect(await rowsOf(exportedRecords(body), ['big', 'ids', 'n', 'f', 'e'])).toBe(
 			'"98765432109876543210","[12345678901234567890,1]",9007199254740991,1.5,-1e+21\n',
 		);
 	});
@@ -168,6 +208,26 @@ describe('parseJsonKeepingLargeIntegers', () => {
 		const [record] = parseJsonKeepingLargeIntegers(body) as Record<string, unknown>[];
 		expect(record).toMatchObject({ id: 'w2', n: 9007199254740991, f: 1.5, e: -1e21 });
 		expect(parseJsonKeepingLargeIntegers('[{"id":1,"name":"plain"}]')).toEqual([{ id: 1, name: 'plain' }]);
+	});
+
+	it('refuses, where the browser has no JSON.rawJSON, rather than round an integer', () => {
+		delete json.rawJSON;
+		expect(() => parseJsonKeepingLargeIntegers(body)).toThrow('too large for this browser to read exactly');
+		expect(() => parseJsonKeepingLargeIntegers('[{"n":-12345678901234567890}]')).toThrow('too large');
+	});
+
+	// Harper's cheap pre-check matches each of these too. None holds an integer a double rounds.
+	it('reads digits in a string, a safe 16-digit integer and long decimals without refusing', () => {
+		delete json.rawJSON;
+		const bodies = [
+			'[{"note":"ref: 98765432109876543210"}]',
+			String.raw`[{"note":"say \"x\": 98765432109876543210"}]`,
+			'[{"micros":1760356800000000}]',
+			'[{"ratio":0.12345678901234567890,"e":1.5e1234567890123456,"tiny":12345678901234567890e-30}]',
+		];
+		for (const text of bodies) {
+			expect(parseJsonKeepingLargeIntegers(text)).toEqual(JSON.parse(text));
+		}
 	});
 
 	it('refuses an answer that is not a list of records', () => {
