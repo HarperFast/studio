@@ -44,6 +44,11 @@ function heldValue(key: Key, defaultValue: unknown): Held {
 	return held;
 }
 
+/** Keys whose value is held only here, because session storage refused it. */
+export function refusedSessionKeys(): string[] {
+	return [...values].filter(([, held]) => held.state === 'refused').map(([key]) => key);
+}
+
 export function readSessionValue<T>(key: Key, defaultValue: T): T {
 	return heldValue(key, defaultValue).value as T;
 }

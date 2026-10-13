@@ -1,7 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
-import { readSessionValue, writeSessionValue } from '@/lib/storage/sessionStorageStore';
+import { readSessionValue, refusedSessionKeys, writeSessionValue } from '@/lib/storage/sessionStorageStore';
 import { useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
@@ -41,12 +41,11 @@ function writeEditorFileContent(key: EditorFileContentKey, content: string | und
 	writeSessionValue(key, undefined as string | undefined, content);
 }
 
-function readEditorFileContent(key: EditorFileContentKey) {
+export function readEditorFileContent(key: EditorFileContentKey) {
 	return readSessionValue(key, undefined as string | undefined);
 }
 
-// The store can't list its keys, so the keys under a folder come from what session storage persisted. A
-// buffer the store holds only in memory, because storage refused it, is found at its exact path only.
+// What session storage persisted, plus what the store holds only because storage refused it.
 function editorFileContentKeysAtOrUnder(entityId: string, path: string): EditorFileContentKey[] {
 	const exact = editorFileContentKey(entityId, path);
 	const under = editorFileContentKey(entityId, `${path}/`);
@@ -54,6 +53,11 @@ function editorFileContentKeysAtOrUnder(entityId: string, path: string): EditorF
 	for (let i = 0; i < sessionStorage.length; i++) {
 		const key = sessionStorage.key(i);
 		if (key?.startsWith(under)) {
+			keys.add(key);
+		}
+	}
+	for (const key of refusedSessionKeys()) {
+		if (key.startsWith(under)) {
 			keys.add(key);
 		}
 	}
@@ -74,7 +78,6 @@ export function moveEditorFileContent(entityId: string, from: string, to: string
 	carryEditorFileContent(entityId, from, to, false);
 }
 
-/** As {@link moveEditorFileContent}, but the edits stay at `from` too. */
 export function copyEditorFileContent(entityId: string, from: string, to: string) {
 	carryEditorFileContent(entityId, from, to, true);
 }

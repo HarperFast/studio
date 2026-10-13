@@ -42,10 +42,9 @@ have moved to another by then. A `mutate()` call's `onSuccess` is dropped once i
 Buffers are read and written through the session-storage store (`sessionStorageStore`), which every mounted
 `useSessionStorage` on a key renders, so an open editor or the tree's unsaved marker updates at once. Writing to
 session storage directly would leave a mounted editor showing the old buffer. The store keeps a write that storage
-refuses in memory, so a full storage doesn't lose edits mid-rename. It can't list its keys, though, so the buffers
-under a folder are found from what session storage persisted: a buffer held only in memory is cleared at its own path,
-not by a delete or move of a folder above it. A save that lands after another file was opened clears the saved file's
-buffer the same way, if it still equals what was saved.
+refuses in memory, so a full storage doesn't lose edits mid-rename. The buffers under a folder are found from what
+session storage persisted and from the keys the store holds only in memory (`refusedSessionKeys`). A save that lands
+after another file was opened clears the saved file's buffer the same way, if it still equals what was saved.
 
 The assistant's `setComponentFile` tool leaves the buffer alone: it writes to a file the person may be editing, which
 is a conflict between two editors rather than a path naming a different file.

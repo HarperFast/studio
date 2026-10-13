@@ -52,7 +52,6 @@ export function AddDirectoryOrFileModal() {
 		// instance comes from the request, since the page can have moved to another one by then.
 		onSuccess: (_data, { entityId, project, file, payload }) => {
 			if (payload !== undefined) {
-				// Whatever was kept for this path was a file that is gone: the one overwritten, or one deleted.
 				forgetReplacedPath(queryClient, entityId, `${project}/${file}`);
 			}
 		},

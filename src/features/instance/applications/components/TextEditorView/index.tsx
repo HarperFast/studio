@@ -77,12 +77,22 @@ export function TextEditorView() {
 		setContent,
 	} = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
-	// The text last typed, so a change of `value` can be told apart from typing.
 	const typed = useRef<string | undefined>(undefined);
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
 		typed.current = newValue;
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
 	}, [openedEntryContents, setContent]);
+	// @monaco-editor/react keeps an `onChange` subscribed after the prop changes or becomes undefined, and
+	// it writes a new `value` into a read-only editor with `setValue`, which fires it. So it gets one handler
+	// for good, which reads the open file's setter and read-only state when it runs.
+	const readOnlyRef = useRef(true);
+	const setUpdatedFileContentRef = useRef(setUpdatedFileContent);
+	setUpdatedFileContentRef.current = setUpdatedFileContent;
+	const handleEditorChange = useCallback((newValue: string | undefined) => {
+		if (!readOnlyRef.current) {
+			setUpdatedFileContentRef.current(newValue);
+		}
+	}, []);
 
 	const monacoTheme = useMonacoTheme();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
@@ -111,16 +121,16 @@ export function TextEditorView() {
 		setMounted([editor, monaco]);
 	}, []);
 
-	// When `value` changes to text nobody typed (the file was replaced while open, or moved edits landed
-	// on it), the library writes it into the model as an undoable edit, so Ctrl+Z and Save would put
-	// the replaced file back. `setValue` puts the same text in with no history.
+	// The library writes a `value` nobody typed into the model as an undoable edit, so after the file is
+	// replaced while open (or moved edits land on it) Ctrl+Z and Save would put the replaced file back.
+	// `setValue` puts the same text in with no history.
 	const lastSeen = useRef<{ model: unknown; text: string } | undefined>(undefined);
 	useEffect(() => {
 		const model = mounted?.[0].getModel();
 		if (!model) {
 			return;
 		}
-		// Typing hands back the string `onChange` produced, so it needs no read of the model.
+		// `onChange` hands back the string it produced, so typing needs no read of the model.
 		if (typed.current !== undefined && typed.current === fileContent) {
 			typed.current = undefined;
 			lastSeen.current = { model, text: fileContent };
@@ -203,19 +213,19 @@ export function TextEditorView() {
 		return null;
 	}
 
-	// Monaco ignores an undefined `value` and keeps the model's last text, which typing would save here.
-	// The provider hands out contents an effect after the query changes, so for a render after the file
-	// is replaced they are still the old ones, while the query is already empty or reloaded.
+	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
+	// query by an effect after a replace; typing into either would save the old file's text here.
 	const cached = queryClient.getQueryData<GetComponentFileResponse>(
 		getComponentFileQueryKey({
 			...instanceParams,
 			project: openedEntry.project,
-			file: openedEntry.path.split('/').slice(1).join('/'),
+			file: openedEntry.path.slice(openedEntry.project.length + 1),
 		}),
 	);
 	const contentsBehind = updatedFileContent === undefined && cached?.message !== openedEntryContents;
 	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance || fileContent === undefined
 		|| contentsBehind;
+	readOnlyRef.current = readOnly;
 
 	// Surface either silent editor degradation as a dismissible notice. Oversized
 	// wins: the file is already plaintext, so the "cannot find module" wording
@@ -251,7 +261,7 @@ export function TextEditorView() {
 					keepCurrentModel
 					beforeMount={handleEditorWillMount}
 					onMount={handleEditorDidMount}
-					onChange={readOnly ? undefined : setUpdatedFileContent}
+					onChange={handleEditorChange}
 					options={{
 						automaticLayout: true,
 						minimap: { enabled: false },
