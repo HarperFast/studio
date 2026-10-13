@@ -1,3 +1,9 @@
+import { forgetSessionValues } from '@/lib/storage/sessionStorageStore';
+
 export function clearSessionStorage(): void {
-	sessionStorage.clear();
+	try {
+		sessionStorage.clear();
+	} finally {
+		forgetSessionValues();
+	}
 }

@@ -8,6 +8,7 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
@@ -143,7 +144,7 @@ function startSave(payload: string) {
 
 afterEach(() => {
 	cleanup();
-	sessionStorage.clear();
+	clearSessionStorage();
 	server.reads.pending = undefined;
 	server.writes.pending = undefined;
 });
