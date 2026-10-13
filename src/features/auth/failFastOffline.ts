@@ -52,7 +52,10 @@ function targetsLoopback({ config }: AxiosError): boolean {
 		return false;
 	}
 	try {
-		return LOOPBACK_HOST.test(new URL(config.url ?? '', config.baseURL ?? window.location.href).hostname);
+		// Local Studio's build sets `baseURL` to a relative `/` (`.github/deploy-public-env/.env.localstudio`),
+		// and `new URL` throws on a relative base.
+		const base = new URL(config.baseURL ?? '', window.location.href).href;
+		return LOOPBACK_HOST.test(new URL(config.url ?? '', base).hostname);
 	} catch {
 		return false;
 	}
