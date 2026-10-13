@@ -114,7 +114,7 @@ const activationButton = () => screen.queryByRole('button', { name: /Activate|Ro
 describe('StagedReleaseDetail', () => {
 	it("reads the component's records from the staged one on, wherever they are listed", async () => {
 		renderDetail([staged]);
-		await screen.findByText(/Staged: built and installed, but not live/);
+		await screen.findByText('Staged: built and installed, but not live. Activating it just switches each node to it.');
 		expect(state.post).toHaveBeenCalledWith(
 			'/',
 			expect.objectContaining({
@@ -142,6 +142,9 @@ describe('StagedReleaseDetail', () => {
 		expect(await screen.findByText(/then replaced by/)).toBeTruthy();
 		fireEvent.click(screen.getByRole('button', { name: /Roll back to this release/ }));
 		expect(screen.getByText('Roll hello back to this release?')).toBeTruthy();
+		const description = screen.getByText(/Each node kept this release installed when it was replaced/);
+		expect(description.textContent).toMatch(/goes live again on all nodes, which restart one at a time\./);
+		expect(description.textContent).toMatch(/so it just switches back\. A node that no longer keeps it refuses\.$/);
 		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
 		expect(state.mutateAsync.mock.calls[0][0]).toMatchObject({
 			request: { kind: 'activate', project: 'hello', deploymentId: STAGED_ID },
