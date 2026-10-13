@@ -94,11 +94,6 @@ export function PromoCodeRedemptions({ code, kind }: { code: string; kind: Promo
 						</TableBody>
 					</Table>
 				)}
-			{kind === 'credit' && redemptions.length > 0 && (
-				<p className="text-xs text-muted-foreground">
-					What credit an organization has left shows on its own Billing page.
-				</p>
-			)}
 		</div>
 	);
 }
