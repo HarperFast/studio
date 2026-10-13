@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreatePromoCodeModal } from '@/features/admin/promoCodes/components/CreatePromoCodeModal';
-import { PromoCodeRedemptionsModal } from '@/features/admin/promoCodes/components/PromoCodeRedemptionsModal';
+import { PromoCodeRedemptions } from '@/features/admin/promoCodes/components/PromoCodeRedemptions';
 import { getPromoCodesQueryOptions, useSetPromoCodeDisabled } from '@/features/admin/promoCodes/promoCodeAdminApi';
 import { formatCents, formatDay } from '@/features/organization/billing/promoCodes/promoCodeApi';
 import { useStaffPermission } from '@/hooks/useAuth';
@@ -10,8 +10,8 @@ import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { AdminPromoCode, PromoKind } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
-import { CopyIcon, PlusIcon } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronRightIcon, CopyIcon, PlusIcon } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 
 function gives(code: AdminPromoCode) {
@@ -49,7 +49,7 @@ export function PromoCodesAdminIndex() {
 	];
 	const { data: codes, isLoading, isError } = useQuery(getPromoCodesQueryOptions());
 	const [creating, setCreating] = useState(0);
-	const [viewing, setViewing] = useState<AdminPromoCode | null>(null);
+	const [expanded, setExpanded] = useState<string | null>(null);
 	const { mutate: setDisabled, isPending: switching } = useSetPromoCodeDisabled();
 	const copyCode = useCopyTextToClipboard();
 
@@ -92,6 +92,7 @@ export function PromoCodesAdminIndex() {
 						<Table>
 							<TableHeader>
 								<TableRow>
+									<TableHead className="w-0" />
 									<TableHead>Code</TableHead>
 									<TableHead>Gives</TableHead>
 									<TableHead>Redeem by</TableHead>
@@ -102,71 +103,84 @@ export function PromoCodesAdminIndex() {
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{codes.map((code) => (
-									<TableRow key={code.id}>
-										<TableCell className="font-mono">
-											<div className="flex items-center gap-1.5">
-												{code.id}
-												<Button
-													type="button"
-													size="sm"
-													variant="ghost"
-													className="h-6 w-6 p-0 shrink-0"
-													aria-label={`Copy ${code.id}`}
-													onClick={() => copyCode(code.id)}
-												>
-													<CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
-												</Button>
-											</div>
-											{code.campaign && <div className="text-xs text-muted-foreground font-sans">{code.campaign}</div>}
-										</TableCell>
-										<TableCell>{gives(code)}</TableCell>
-										<TableCell>{formatDay(code.redeemBy)}</TableCell>
-										<TableCell>
-											{code.redemptions > 0
-												? (
-													<Button
-														variant="link"
-														className="h-auto p-0"
-														aria-label={`See who redeemed ${code.id}`}
-														onClick={() => setViewing(code)}
+								{codes.map((code) => {
+									const isOpen = expanded === code.id;
+									return (
+										<Fragment key={code.id}>
+											<TableRow>
+												<TableCell className="w-0 align-middle">
+													<button
+														type="button"
+														aria-label={`${isOpen ? 'Hide' : 'Show'} redemptions of ${code.id}`}
+														aria-expanded={isOpen}
+														disabled={code.redemptions === 0}
+														onClick={() => setExpanded(isOpen ? null : code.id)}
+														className="flex cursor-pointer items-center text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
 													>
-														{redeemed(code)}
-													</Button>
-												)
-												: redeemed(code)}
-											{code.overCap && (
-												<Badge
-													variant="destructive"
-													className="ml-2"
-													title="Redemptions at the same moment passed the cap"
-												>
-													Over cap
-												</Badge>
+														<ChevronRightIcon className={`size-4 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+													</button>
+												</TableCell>
+												<TableCell className="font-mono">
+													<div className="flex items-center gap-1.5">
+														{code.id}
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															className="h-6 w-6 p-0 shrink-0"
+															aria-label={`Copy ${code.id}`}
+															onClick={() => copyCode(code.id)}
+														>
+															<CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
+														</Button>
+													</div>
+													{code.campaign && (
+														<div className="text-xs text-muted-foreground font-sans">{code.campaign}</div>
+													)}
+												</TableCell>
+												<TableCell>{gives(code)}</TableCell>
+												<TableCell>{formatDay(code.redeemBy)}</TableCell>
+												<TableCell>
+													{redeemed(code)}
+													{code.overCap && (
+														<Badge
+															variant="destructive"
+															className="ml-2"
+															title="Redemptions at the same moment passed the cap"
+														>
+															Over cap
+														</Badge>
+													)}
+												</TableCell>
+												<TableCell className="text-xs">{creditTotals(code)}</TableCell>
+												<TableCell>{statusOf(code)}</TableCell>
+												<TableCell className="text-right">
+													{canWrite(code) && (
+														<Button
+															variant="ghost"
+															size="sm"
+															disabled={switching}
+															onClick={() => toggle(code)}
+														>
+															{code.disabledAt ? 'Enable' : 'Disable'}
+														</Button>
+													)}
+												</TableCell>
+											</TableRow>
+											{isOpen && (
+												<TableRow>
+													<TableCell colSpan={8} className="p-0">
+														<PromoCodeRedemptions code={code.id} kind={code.kind} />
+													</TableCell>
+												</TableRow>
 											)}
-										</TableCell>
-										<TableCell className="text-xs">{creditTotals(code)}</TableCell>
-										<TableCell>{statusOf(code)}</TableCell>
-										<TableCell className="text-right">
-											{canWrite(code) && (
-												<Button
-													variant="ghost"
-													size="sm"
-													disabled={switching}
-													onClick={() => toggle(code)}
-												>
-													{code.disabledAt ? 'Enable' : 'Disable'}
-												</Button>
-											)}
-										</TableCell>
-									</TableRow>
-								))}
+										</Fragment>
+									);
+								})}
 							</TableBody>
 						</Table>
 					)}
 			</div>
-
-			{viewing && <PromoCodeRedemptionsModal code={viewing.id} kind={viewing.kind} onClose={() => setViewing(null)} />}
 
 			{creating > 0 && (
 				<CreatePromoCodeModal
