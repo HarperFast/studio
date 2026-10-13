@@ -100,9 +100,9 @@ class AuthStore {
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 
 	private readonly appSignOutKey = 'Studio:AppSignOut';
-	// The sweep clears the app user before `/Logout/`, and the announcement after it must still name them.
-	private sweptAppUser: string | null = null;
-	// Central manager may have confirmed that user before the session ended, so the check is asked again.
+	// The last app user central manager confirmed, kept through the blanking a sweep or a check does until a
+	// sign-out announces them: the session that ends is theirs.
+	private heldAppUser: string | null = null;
 	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
@@ -639,7 +639,6 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
-		this.sweptAppUser = this.appUser() ?? this.sweptAppUser;
 		// Dooms connects for entities not yet in `potentiallyAuthenticated`, which the loop skips.
 		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
@@ -726,8 +725,8 @@ class AuthStore {
 	 * per-instance logouts.
 	 */
 	public signOutAllLocally(): void {
-		const endedUser = this.appUser() ?? this.sweptAppUser;
-		this.sweptAppUser = null;
+		const endedUser = this.heldAppUser;
+		this.heldAppUser = null;
 		try {
 			this.bumpSignOutGeneration('*');
 			forgetAllEntitySettings();
@@ -746,14 +745,13 @@ class AuthStore {
 	}
 
 	private appUser(): string | null {
-		const user = this.allConnections[OverallAppSignIn]?.user;
-		if (!user) {
-			return null;
-		}
-		return 'id' in user ? user.id : user.username;
+		return userIdentity(this.allConnections[OverallAppSignIn]?.user);
 	}
 
 	private announceAppSignOut(user: string | null): void {
+		if (user === null) {
+			return;
+		}
 		try {
 			// A new value every time, since storage fires an event only for a change.
 			localStorage.setItem(this.appSignOutKey, JSON.stringify({ user, at: `${Date.now()}:${Math.random()}` }));
@@ -782,6 +780,7 @@ class AuthStore {
 	}
 
 	public forgetAppSignInEndedElsewhere(): void {
+		this.heldAppUser = null;
 		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
 		const entityIds = new Set([...Object.keys(this.potentiallyAuthenticated), ...Object.keys(this.allConnections)]);
@@ -811,6 +810,9 @@ class AuthStore {
 
 	private updateConnectionIfChanged(id: EntityIds, isLoading: boolean, user: AuthenticatedConnection['user']) {
 		this.checkedAuthentication[id] = true;
+		if (id === OverallAppSignIn && user) {
+			this.heldAppUser = userIdentity(user);
+		}
 		const connection = this.getConnectionById(id);
 		if (connection.isLoading === isLoading && connection.user === user) {
 			return;
@@ -941,6 +943,13 @@ class SignedOutWhileConnectingError extends Error {
 		super('Signed out before Fabric Connect finished connecting.');
 		this.name = 'SignedOutWhileConnectingError';
 	}
+}
+
+function userIdentity(user: AuthenticatedConnection['user'] | undefined): string | null {
+	if (!user) {
+		return null;
+	}
+	return 'id' in user ? user.id : user.username;
 }
 
 function signedOutUser(announcement: string): unknown {
