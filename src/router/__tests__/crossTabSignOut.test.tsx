@@ -90,6 +90,8 @@ await Promise.all([import('@/lib/installApiUnauthorizedRedirect'), import('@/App
 let session: 'live' | 'ended' | 'ended-with-401' | 'cluster-forbidden';
 const requests: string[] = [];
 const requestsAfterSessionEnded: string[] = [];
+/** While set, this tab's `/User/current` answers are decided when sent but delivered only once it settles. */
+let userCurrentHeldUntil: Promise<void> | null = null;
 
 function respond(config: InternalAxiosRequestConfig, status: number, data: unknown) {
 	const response = { status, statusText: String(status), data, headers: {}, config };
@@ -155,7 +157,23 @@ async function openClusterPage() {
 		import('@/react-query/queryClient'),
 		import('@/AppRouted'),
 	]);
-	apiClient.defaults.adapter = async (config) => centralManager(config);
+	apiClient.defaults.adapter = async (config) => {
+		const held = config.url === '/User/current' ? userCurrentHeldUntil : null;
+		if (!held) {
+			return centralManager(config);
+		}
+		let answer: () => ReturnType<typeof centralManager>;
+		try {
+			const response = centralManager(config);
+			answer = () => response;
+		} catch (error) {
+			answer = () => {
+				throw error;
+			};
+		}
+		await held;
+		return answer();
+	};
 	installApiUnauthorizedRedirect();
 	installCrossTabSignOut();
 	render(
@@ -268,6 +286,7 @@ async function expectStillSignedIn(thisTab: Awaited<ReturnType<typeof openCluste
 }
 
 let consoleError: MockInstance<Console['error']>;
+let addEventListener: MockInstance<Window['addEventListener']>;
 
 function reportedAuthorizationFailures() {
 	return consoleError.mock.calls.filter(([error]) => error instanceof AxiosError && error.response?.status === 403);
@@ -281,6 +300,9 @@ beforeEach(() => {
 	session = 'live';
 	requests.length = 0;
 	requestsAfterSessionEnded.length = 0;
+	userCurrentHeldUntil = null;
+	// Recorded so each test's `storage` listeners come down with it, rather than acting on its modules later.
+	addEventListener = vi.spyOn(window, 'addEventListener');
 	consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 });
@@ -291,6 +313,11 @@ afterEach(() => {
 		router.history.destroy();
 	}
 	routers.clear();
+	for (const [type, listener, options] of addEventListener.mock.calls) {
+		if (type === 'storage' && listener) {
+			window.removeEventListener(type, listener, options);
+		}
+	}
 	vi.clearAllMocks();
 	vi.restoreAllMocks();
 });
@@ -300,11 +327,9 @@ describe('a sign-out in another tab', () => {
 		const { queryClient } = await openClusterPage();
 		const otherTab = await openAnotherTab();
 
-		// What `useLogoutMutation` runs there: the sweep, central manager's `/Logout/`, then `logoutOnSuccess`.
 		await otherTab.run(() => otherTab.authStore.signOutFromPotentiallyAuthenticatedInstances());
 		session = 'ended';
 		await otherTab.run(() => otherTab.logoutOnSuccess());
-		// The poll, or the refocus, that toasted "ClientError: Not allowed" before.
 		await nextPoll(queryClient);
 
 		expect(toast.error).not.toHaveBeenCalled();
@@ -317,7 +342,6 @@ describe('a sign-out in another tab', () => {
 		const thisTab = await openClusterPage();
 		const otherTab = await openAnotherTab();
 
-		// The sweep runs first; a failed `/Logout/` skips `logoutOnSuccess`, and the session stays live.
 		await otherTab.run(() => otherTab.authStore.signOutFromPotentiallyAuthenticatedInstances());
 
 		await expectStillSignedIn(thisTab);
@@ -327,7 +351,6 @@ describe('a sign-out in another tab', () => {
 		const { queryClient } = await openClusterPage();
 		const otherTab = await openAnotherTab();
 
-		// The session expired; the other tab heard first, from a 401, and cleared it as the 401 handler does.
 		session = 'ended';
 		await otherTab.run(() => otherTab.clearAuthStateLocally());
 		await nextPoll(queryClient);
@@ -337,10 +360,32 @@ describe('a sign-out in another tab', () => {
 		await screen.findByText('sign-in page');
 	});
 
+	it('asks again when its own check, out during the sign-out, comes back as the user it ended', async () => {
+		const { authStore, queryClient } = await openClusterPage();
+		const otherTab = await openAnotherTab();
+		let releaseUserCurrent: () => void = () => undefined;
+		userCurrentHeldUntil = new Promise((resolve) => (releaseUserCurrent = resolve));
+		const checksBefore = requests.filter((url) => url === '/User/current').length;
+
+		// Central manager answers this check before the other tab's `/Logout/`; the answer arrives after it.
+		const check = authStore.reloadUser('OverallAppSignIn');
+		await waitFor(() => expect(requests.filter((url) => url === '/User/current')).toHaveLength(checksBefore + 1));
+		await otherTab.run(() => otherTab.authStore.signOutFromPotentiallyAuthenticatedInstances());
+		session = 'ended';
+		await otherTab.run(() => otherTab.logoutOnSuccess());
+		userCurrentHeldUntil = null;
+		releaseUserCurrent();
+		await check;
+		await screen.findByText('sign-in page');
+		await nextPoll(queryClient);
+
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(requestsAfterSessionEnded).toEqual(['/User/current']);
+	});
+
 	it('leaves this tab signed in when a 401 in another tab ends a different user’s session', async () => {
 		const thisTab = await openClusterPage();
 		const otherTab = await openAnotherTab();
-		// That tab still holds user U from before this tab signed in as the current user.
 		otherTab.authStore.setUserForIdAndKey('OverallAppSignIn', 'OverallAppSignIn', { id: 'usr_u' } as never);
 		otherTab.apiClient.defaults.adapter = async (config) =>
 			respond(config, 401, { code: 'ClientError', title: 'Invalid cookie' });

@@ -102,6 +102,8 @@ class AuthStore {
 	private readonly appSignOutKey = 'Studio:AppSignOut';
 	// The sweep clears the app user before `/Logout/`, and the announcement after it must still name them.
 	private sweptAppUser: string | null = null;
+	// Central manager may have confirmed that user before the session ended, so the check is asked again.
+	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -726,21 +728,23 @@ class AuthStore {
 	public signOutAllLocally(): void {
 		const endedUser = this.appUser() ?? this.sweptAppUser;
 		this.sweptAppUser = null;
-		this.bumpSignOutGeneration('*');
-		forgetAllEntitySettings();
-		// Snapshot keys first — signOutLocally mutates the flags as it goes.
-		for (const id of Object.keys(this.potentiallyAuthenticated)) {
-			this.signOutLocally(id);
+		try {
+			this.bumpSignOutGeneration('*');
+			forgetAllEntitySettings();
+			// Snapshot keys first — signOutLocally mutates the flags as it goes.
+			for (const id of Object.keys(this.potentiallyAuthenticated)) {
+				this.signOutLocally(id);
+			}
+			this.dropFabricConnectState();
+			this.setUserForEntity(OverallAppSignIn, null);
+			// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
+			// in this tab's potentiallyAuthenticated set.
+			this.bumpExplorerAuthEpochAll();
+		} finally {
+			this.announceAppSignOut(endedUser);
 		}
-		this.dropFabricConnectState();
-		this.setUserForEntity(OverallAppSignIn, null);
-		// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
-		// in this tab's potentiallyAuthenticated set.
-		this.bumpExplorerAuthEpochAll();
-		this.announceAppSignOut(endedUser);
 	}
 
-	/** The signed-in app user's id, or a local instance user's name. */
 	private appUser(): string | null {
 		const user = this.allConnections[OverallAppSignIn]?.user;
 		if (!user) {
@@ -763,9 +767,14 @@ class AuthStore {
 			if (event.key !== this.appSignOutKey || !event.newValue) {
 				return;
 			}
+			const ended = signedOutUser(event.newValue);
 			const user = this.appUser();
-			if (user !== null && signedOutUser(event.newValue) === user) {
-				onSignedOut();
+			if (user !== null) {
+				if (ended === user) {
+					onSignedOut();
+				}
+			} else if (typeof ended === 'string' && this.allConnections[OverallAppSignIn]?.isLoading) {
+				this.signOutHeardDuringCheck = ended;
 			}
 		};
 		window.addEventListener('storage', handler);
@@ -907,6 +916,10 @@ class AuthStore {
 			console.error(error);
 			user = null;
 		}
+		const signOutHeard = id === OverallAppSignIn ? this.signOutHeardDuringCheck : null;
+		if (id === OverallAppSignIn) {
+			this.signOutHeardDuringCheck = null;
+		}
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
 			return null;
 		}
@@ -916,6 +929,9 @@ class AuthStore {
 			this.flagKeyAsSignedOut(id);
 		}
 		this.updateConnectionIfChanged(id, false, user);
+		if (signOutHeard !== null && signOutHeard === this.appUser()) {
+			void this.reloadUser(id);
+		}
 		return user;
 	}
 }
