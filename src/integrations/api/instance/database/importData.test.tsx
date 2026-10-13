@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDescribeAllQueryOptions } from './getDescribeAll';
 import { getDescribeTableQueryOptions } from './getDescribeTable';
 import { getSearchByConditionsOptions } from './getSearchByConditions';
+import { getSearchByIdOptions } from './getSearchById';
 import { getSearchByValueOptions } from './getSearchByValue';
 import { getTableRecordCountQueryOptions } from './getTableRecordCount';
 import {
@@ -150,6 +151,8 @@ describe('useImportDataMutation refreshing Browse', () => {
 		}).queryKey,
 		count: getTableRecordCountQueryOptions({ ...browse, enabled: true, databaseName: 'data', tableName }).queryKey,
 		describe: getDescribeTableQueryOptions({ ...browse, databaseName: 'data', tableName }).queryKey,
+		record: getSearchByIdOptions({ ...browse, enabled: true, databaseName: 'data', tableName, ids: ['rex'] })
+			.queryKey,
 	});
 	const treeKey = getDescribeAllQueryOptions({ ...browse, skipRecordCount: true, includeComputed: true }).queryKey;
 
@@ -166,17 +169,18 @@ describe('useImportDataMutation refreshing Browse', () => {
 			otherPage: vi.fn(async () => ({ data: [] })),
 			tree,
 		};
-		// Browse's own staleTime, so within the test only an invalidation refetches.
-		const staleTime = 60_000;
+		// Browse's own options, so within the test only an invalidation refetches, and once.
+		const browseOptions = { staleTime: 60_000, retry: false } as const;
 		renderHook(() => {
-			useQuery({ queryKey: [...keys('dog').page], queryFn: reads.page, staleTime });
-			useQuery({ queryKey: [...keys('dog').describe], queryFn: reads.describe, staleTime });
-			useQuery({ queryKey: [...keys('cat').page], queryFn: reads.otherPage, staleTime });
-			useQuery({ queryKey: [...treeKey], queryFn: reads.tree, staleTime });
+			useQuery({ queryKey: [...keys('dog').page], queryFn: reads.page, ...browseOptions });
+			useQuery({ queryKey: [...keys('dog').describe], queryFn: reads.describe, ...browseOptions });
+			useQuery({ queryKey: [...keys('cat').page], queryFn: reads.otherPage, ...browseOptions });
+			useQuery({ queryKey: [...treeKey], queryFn: reads.tree, ...browseOptions });
 		}, { wrapper: wrapperFor(client) });
 		// Cached but not on screen, so an invalidation only marks them stale.
 		client.setQueryData([...keys('dog').filtered], { data: [] });
 		client.setQueryData([...keys('dog').count], 5);
+		client.setQueryData([...keys('dog').record], { data: [] });
 		await vi.advanceTimersByTimeAsync(0);
 		for (const read of Object.values(reads)) {
 			expect(read).toHaveBeenCalledTimes(1);
@@ -209,6 +213,16 @@ describe('useImportDataMutation refreshing Browse', () => {
 		return { post } as unknown as AxiosInstance;
 	}
 
+	function pollsStopAnswering() {
+		const post = vi.fn(async (_url: string, body: { operation: string }) => {
+			if (body.operation === 'csv_url_load') {
+				return { data: { message: 'Starting job', job_id: 'job-1' } };
+			}
+			throw rejection();
+		});
+		return { post } as unknown as AxiosInstance;
+	}
+
 	it('refetches the imported table and the tree once the job completes, rows skipped and the modal unmounted', async () => {
 		const client = new QueryClient();
 		const reads = await openBrowse(client);
@@ -221,10 +235,17 @@ describe('useImportDataMutation refreshing Browse', () => {
 		expect(reads.tree).toHaveBeenCalledTimes(2);
 		expect(client.getQueryState([...keys('dog').filtered])?.isInvalidated).toBe(true);
 		expect(client.getQueryState([...keys('dog').count])?.isInvalidated).toBe(true);
+		expect(client.getQueryState([...keys('dog').record])?.isInvalidated).toBe(true);
 		expect(reads.otherPage).toHaveBeenCalledTimes(1);
 	});
 
-	const answeredFailures: [string, () => AxiosInstance, Partial<ImportDataParams>, number][] = [
+	const rejectAll = (status?: number) => () =>
+		({
+			post: vi.fn(async () => {
+				throw rejection(status);
+			}),
+		}) as unknown as AxiosInstance;
+	const failures: [string, () => AxiosInstance, Partial<ImportDataParams>, number][] = [
 		['the job ended in ERROR', () => csvClient(['IN_PROGRESS', 'ERROR']), {}, 5_000],
 		['the wait timed out on a load still running', () => csvClient(['IN_PROGRESS']), {}, 11 * 60_000],
 		[
@@ -233,8 +254,11 @@ describe('useImportDataMutation refreshing Browse', () => {
 			{ tableExists: false, source: { kind: 'json-records', records: [{ name: 'Rex' }] } },
 			5_000,
 		],
+		['the submission got no answer', rejectAll(), {}, 5_000],
+		['a gateway answered 504', rejectAll(504), {}, 5_000],
+		['the polls stopped answering', pollsStopAnswering, {}, 10_000],
 	];
-	it.each(answeredFailures)('refetches too when %s', async (_case, instanceClient, overrides, waitMs) => {
+	it.each(failures)('refetches too when %s', async (_case, instanceClient, overrides, waitMs) => {
 		const client = new QueryClient();
 		const reads = await openBrowse(client);
 
@@ -246,32 +270,18 @@ describe('useImportDataMutation refreshing Browse', () => {
 		expect(reads.tree).toHaveBeenCalledTimes(2);
 	});
 
-	it.each([
-		['the submission got no answer', async () => {
-			throw rejection();
-		}],
-		['a gateway answered 504', async () => {
-			throw rejection(504);
-		}],
-		['the polls stopped answering', async (_url: string, body: { operation: string }) => {
-			if (body.operation === 'csv_url_load') {
-				return { data: { message: 'Starting job', job_id: 'job-1' } };
-			}
-			throw rejection();
-		}],
-	])('only marks Browse stale when %s', async (_case, post) => {
+	it('keeps re-reads that fail with the instance from escaping as unhandled rejections', async () => {
 		const client = new QueryClient();
 		const reads = await openBrowse(client);
+		reads.page.mockRejectedValue(rejection());
+		reads.tree.mockRejectedValue(rejection());
 
-		const modal = startImport(client, { post: vi.fn(post) } as unknown as AxiosInstance);
+		const modal = startImport(client, pollsStopAnswering());
 		await vi.advanceTimersByTimeAsync(10_000);
 
 		expect(modal.result.current.isError).toBe(true);
-		expect(reads.page).toHaveBeenCalledTimes(1);
-		expect(reads.tree).toHaveBeenCalledTimes(1);
-		expect(client.getQueryState([...keys('dog').page])?.isInvalidated).toBe(true);
-		expect(client.getQueryState([...treeKey])?.isInvalidated).toBe(true);
-		expect(client.getQueryState([...keys('cat').page])?.isInvalidated).toBe(false);
+		expect(client.getQueryState([...keys('dog').page])?.status).toBe('error');
+		expect(client.getQueryState([...treeKey])?.status).toBe('error');
 	});
 
 	it('settles at the job verdict, and a caller waiting for the map joins the refetch already in flight', async () => {

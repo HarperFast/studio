@@ -26,7 +26,7 @@ export const NO_RESPONSE_CODES: ReadonlySet<string> = new Set([
 // A proxy answers these for an upstream that may already have the request (central manager's
 // operations proxy sends 504 after forwarding it), and Harper answers 503 when the worker it handed an
 // operation to exits or overruns. The same reasoning stops the gateway retry from replaying a write.
-export const NO_VERDICT_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+const NO_VERDICT_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
 
 /** Its failure must not read as a plain failure: it may have been applied, so a retry can apply it twice. */
 export function isUnansweredWrite(rawErr: unknown): rawErr is AxiosError {
