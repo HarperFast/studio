@@ -12,6 +12,7 @@ vi.mock('@/integrations/api/instance/auth/createInstanceAuthenticationTokens', (
 }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo }));
 
+import { apiClient } from '@/config/apiClient';
 import { authStore, OverallAppSignIn } from './authStore';
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
@@ -28,6 +29,15 @@ function storageEventFromAnotherTab(key: string | null, newValue: string | null)
 	window.dispatchEvent(new StorageEvent('storage', { key, newValue, storageArea: localStorage }));
 }
 
+function signOutOf(user: unknown) {
+	return JSON.stringify({ user, at: '1' });
+}
+
+function announcedUser() {
+	const value = localStorage.getItem(SIGNAL);
+	return value === null ? undefined : (JSON.parse(value) as { user: unknown }).user;
+}
+
 beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
@@ -41,7 +51,7 @@ afterEach(() => {
 });
 
 describe('authStore.onAppSignedOutElsewhere', () => {
-	it('fires for another tab’s app sign-out, and for nothing else it writes', () => {
+	it('fires for another tab’s sign-out of this tab’s user, and for nothing else it writes', () => {
 		signIn();
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
@@ -51,9 +61,15 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		storageEventFromAnotherTab(MARKER, '{}');
 		storageEventFromAnotherTab('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 1 }));
 		storageEventFromAnotherTab(null, null);
+		// Someone else's session, a sign-out that knew no user, and values no sign-out writes.
+		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_v'));
+		storageEventFromAnotherTab(SIGNAL, signOutOf(null));
+		storageEventFromAnotherTab(SIGNAL, '1');
+		storageEventFromAnotherTab(SIGNAL, 'null');
+		storageEventFromAnotherTab(SIGNAL, '{');
 		expect(signedOut).not.toHaveBeenCalled();
 
-		storageEventFromAnotherTab(SIGNAL, '1');
+		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_a'));
 		expect(signedOut).toHaveBeenCalledOnce();
 		stop();
 	});
@@ -62,25 +78,46 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
 
-		storageEventFromAnotherTab(SIGNAL, '1');
+		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_a'));
+		storageEventFromAnotherTab(SIGNAL, signOutOf(null));
 
 		expect(signedOut).not.toHaveBeenCalled();
 		stop();
 	});
 
-	it('is announced by every local sign-out of an ended session, and not by the sweep before `/Logout/`', async () => {
+	it('leaves a tab whose sign-in check has not answered to that check', () => {
+		signIn();
+		vi.mocked(apiClient.get).mockReturnValue(new Promise(() => undefined));
+		void authStore.reloadUser(OverallAppSignIn);
+		expect(authStore.getConnectionById(OverallAppSignIn)).toEqual({ isLoading: true, user: null });
+		const signedOut = vi.fn();
+		const stop = authStore.onAppSignedOutElsewhere(signedOut);
+
+		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_a'));
+
+		expect(signedOut).not.toHaveBeenCalled();
+		stop();
+	});
+
+	it('names the ended user from every local sign-out, and is not written by the sweep before `/Logout/`', async () => {
 		signIn();
 		await authStore.signOutFromPotentiallyAuthenticatedInstances();
 		expect(localStorage.getItem(SIGNAL)).toBeNull();
+		// `logoutOnSuccess`, after the sweep has already cleared the user.
+		authStore.signOutAllLocally();
+		expect(announcedUser()).toBe('usr_a');
 
-		const values = new Set<string | null>();
-		for (let i = 0; i < 2; i++) {
-			signIn();
-			authStore.signOutAllLocally();
-			values.add(localStorage.getItem(SIGNAL));
-		}
-		values.delete(null);
-		expect(values.size).toBe(2);
+		signIn();
+		authStore.signOutAllLocally();
+		const first = localStorage.getItem(SIGNAL);
+		signIn();
+		authStore.signOutAllLocally();
+		expect(announcedUser()).toBe('usr_a');
+		expect(localStorage.getItem(SIGNAL)).not.toBe(first);
+
+		// A tab with no user to name: nothing for another tab to match.
+		authStore.signOutAllLocally();
+		expect(announcedUser()).toBeNull();
 	});
 });
 

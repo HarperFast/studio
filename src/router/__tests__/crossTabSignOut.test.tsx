@@ -170,30 +170,40 @@ async function openClusterPage() {
 type StorageChange = Pick<StorageEvent, 'key' | 'oldValue' | 'newValue'>;
 
 /**
- * Another tab of the same browser: its own copy of the app's modules, sharing this tab's `localStorage` and
- * central-manager session but not its `sessionStorage`. `run` returns once that tab has done `step`, having
- * delivered each change it made to `localStorage` here as the `storage` event a browser fires in every other tab.
+ * Another tab of the same browser, signed in as its page load would sign it in: its own copy of the app's
+ * modules, sharing this tab's `localStorage` and central-manager session but not its `sessionStorage`.
+ * `record` returns the changes `step` made to `localStorage`; `deliver` hands them to this tab as the
+ * `storage` events a browser fires in every other tab; `run` does both.
  */
 async function openAnotherTab() {
 	vi.resetModules();
-	const [{ authStore }, { apiClient }, { logoutOnSuccess }, { clearAuthStateLocally }] = await Promise.all([
+	const [{ authStore }, { apiClient }, { installApiUnauthorizedRedirect }, { logoutOnSuccess }, {
+		clearAuthStateLocally,
+	}] = await Promise.all([
 		import('@/features/auth/store/authStore'),
 		import('@/config/apiClient'),
+		import('@/lib/installApiUnauthorizedRedirect'),
 		import('@/features/auth/handlers/logoutOnSuccess'),
 		import('@/features/auth/handlers/clearAuthStateLocally'),
 	]);
 	apiClient.defaults.adapter = async (config) => centralManager(config);
+	installApiUnauthorizedRedirect();
+	await authStore.reloadUser('OverallAppSignIn');
+	const record = (step: () => unknown) => localStorageChanges(step);
 	return {
 		authStore,
 		apiClient,
 		logoutOnSuccess,
 		clearAuthStateLocally,
-		run: async (step: () => unknown) => {
-			for (const change of await localStorageChanges(step)) {
-				window.dispatchEvent(new StorageEvent('storage', { ...change, storageArea: localStorage }));
-			}
-		},
+		record,
+		run: async (step: () => unknown) => deliver(await record(step)),
 	};
+}
+
+function deliver(changes: StorageChange[]) {
+	for (const change of changes) {
+		window.dispatchEvent(new StorageEvent('storage', { ...change, storageArea: localStorage }));
+	}
 }
 
 async function localStorageChanges(step: () => unknown): Promise<StorageChange[]> {
@@ -248,8 +258,8 @@ async function nextPoll(queryClient: QueryClient) {
 }
 
 /** Needs no wait: a sign-out reaches the store synchronously, and its cache clear leaves the next poll nothing to send. */
-async function expectStillSignedIn(thisTab: Awaited<ReturnType<typeof openClusterPage>>) {
-	expect(thisTab.authStore.getConnectionById('OverallAppSignIn').user).toEqual(cloudUser);
+async function expectStillSignedIn(thisTab: Awaited<ReturnType<typeof openClusterPage>>, user: object = cloudUser) {
+	expect(thisTab.authStore.getConnectionById('OverallAppSignIn').user).toEqual(user);
 	const polled = requests.length;
 	await nextPoll(thisTab.queryClient);
 	expect(requests.slice(polled)).toContain(`/Cluster/${CLUSTER_ID}`);
@@ -325,6 +335,37 @@ describe('a sign-out in another tab', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(requestsAfterSessionEnded).toEqual([]);
 		await screen.findByText('sign-in page');
+	});
+
+	it('leaves this tab signed in when a 401 in another tab ends a different user’s session', async () => {
+		const thisTab = await openClusterPage();
+		const otherTab = await openAnotherTab();
+		// That tab still holds user U from before this tab signed in as the current user.
+		otherTab.authStore.setUserForIdAndKey('OverallAppSignIn', 'OverallAppSignIn', { id: 'usr_u' } as never);
+		otherTab.apiClient.defaults.adapter = async (config) =>
+			respond(config, 401, { code: 'ClientError', title: 'Invalid cookie' });
+
+		await otherTab.run(() =>
+			otherTab.apiClient.get(`/Organization/${ORGANIZATION_ID}` as '/Organization/{id}').catch(() => undefined)
+		);
+		expect(otherTab.authStore.isKnownSignedOut('OverallAppSignIn')).toBe(true);
+
+		await expectStillSignedIn(thisTab);
+	});
+
+	it('leaves this tab signed in when a sign-out reaches it after it signed in as someone else', async () => {
+		const thisTab = await openClusterPage();
+		const otherTab = await openAnotherTab();
+		const signedInSince = { id: 'usr_v', email: 'v@example.com', roles: {} };
+
+		const changes = [
+			...await otherTab.record(() => otherTab.authStore.signOutFromPotentiallyAuthenticatedInstances()),
+			...await otherTab.record(() => otherTab.logoutOnSuccess()),
+		];
+		thisTab.authStore.setUserForIdAndKey('OverallAppSignIn', 'OverallAppSignIn', signedInSince as never);
+		deliver(changes);
+
+		await expectStillSignedIn(thisTab, signedInSince);
 	});
 
 	it('leaves this tab signed in when another tab only signs in or out of a cluster', async () => {
