@@ -18,7 +18,7 @@ import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
 import './monaco-customizations.css';
@@ -87,7 +87,6 @@ export function TextEditorView() {
 	// for good, which reads the open file's setter and read-only state when it runs.
 	const readOnlyRef = useRef(true);
 	const setUpdatedFileContentRef = useRef(setUpdatedFileContent);
-	setUpdatedFileContentRef.current = setUpdatedFileContent;
 	const handleEditorChange = useCallback((newValue: string | undefined) => {
 		if (!readOnlyRef.current) {
 			setUpdatedFileContentRef.current(newValue);
@@ -209,23 +208,29 @@ export function TextEditorView() {
 		}
 	}, [mounted]);
 
+	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
+	// query by an effect after a replace; typing into either would save the old file's text here.
+	const cached = openedEntry
+		&& queryClient.getQueryData<GetComponentFileResponse>(
+			getComponentFileQueryKey({
+				...instanceParams,
+				project: openedEntry.project,
+				file: openedEntry.path.slice(openedEntry.project.length + 1),
+			}),
+		);
+	const contentsBehind = updatedFileContent === undefined && cached?.message !== openedEntryContents;
+	const readOnly = !openedEntry || isSavingFile || !!openedEntry.package || !canManageBrowseInstance
+		|| fileContent === undefined || contentsBehind;
+	// Set on commit, before the library's effects can fire the handler, so a render React throws away
+	// never reaches it.
+	useInsertionEffect(() => {
+		readOnlyRef.current = readOnly;
+		setUpdatedFileContentRef.current = setUpdatedFileContent;
+	});
+
 	if (!openedEntry) {
 		return null;
 	}
-
-	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
-	// query by an effect after a replace; typing into either would save the old file's text here.
-	const cached = queryClient.getQueryData<GetComponentFileResponse>(
-		getComponentFileQueryKey({
-			...instanceParams,
-			project: openedEntry.project,
-			file: openedEntry.path.slice(openedEntry.project.length + 1),
-		}),
-	);
-	const contentsBehind = updatedFileContent === undefined && cached?.message !== openedEntryContents;
-	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance || fileContent === undefined
-		|| contentsBehind;
-	readOnlyRef.current = readOnly;
 
 	// Surface either silent editor degradation as a dismissible notice. Oversized
 	// wins: the file is already plaintext, so the "cannot find module" wording

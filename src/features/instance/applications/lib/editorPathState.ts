@@ -28,8 +28,8 @@ export function moveEditedPath(queryClient: QueryClient, entityId: string, from:
 }
 
 // The open file's query is still observed until the editor moves off it, and removing that one would
-// have the observer fetch a file that is gone, which fails into an error toast. Emptying it in place
-// fetches nothing.
+// have the observer fetch a file that is gone at once, which fails into an error toast. Emptied in
+// place, it is fetched only if a refetch trigger such as window focus fires before the editor moves off.
 function forgetFilesThatAreGone(queryClient: QueryClient, entityId: string, path: string) {
 	const files = componentFilesAtOrUnder(entityId, path);
 	queryClient.removeQueries({ ...files, type: 'inactive' });
