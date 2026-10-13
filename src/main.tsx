@@ -19,7 +19,6 @@ installStaleDeployReload();
 // Redirect to /sign-in when a CM call returns 401 (lost/expired session), instead
 // of leaving the SPA on a stale user while every data call fails.
 installApiUnauthorizedRedirect();
-// Follow a sign-out made in another tab, which this tab otherwise learns of only as central manager's 403.
 installCrossTabSignOut();
 // Remove the pre-sessionStorage API-explorer credential map (plaintext Basic passwords / Bearer
 // tokens) at boot, so an upgraded user who never reopens the explorer is still scrubbed.

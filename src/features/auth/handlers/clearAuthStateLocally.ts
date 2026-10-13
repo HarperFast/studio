@@ -18,11 +18,6 @@ export function clearAuthStateLocally(): void {
 	]);
 }
 
-/**
- * This tab's half of a sign-out another tab made: the same clears as {@link clearAuthStateLocally}, except
- * the `localStorage` both tabs share, which the tab that signed out clears and this one must not write
- * (`authStore.forgetAppSignInEndedElsewhere`).
- */
 export function clearAuthStateAfterSignOutElsewhere(): void {
 	runEvery([
 		() => authStore.forgetAppSignInEndedElsewhere(),
