@@ -72,6 +72,24 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		stop();
 	});
 
+	it.each([
+		['no id', {}],
+		['an id that is not a string', { id: 42 }],
+		['an empty id', { id: '' }],
+	])('treats a user with %s as no one to name or match', (_, user) => {
+		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, user as SetArgs[2]);
+		const signedOut = vi.fn();
+		const stop = authStore.onAppSignedOutElsewhere(signedOut);
+
+		storageEventFromAnotherTab(SIGNAL, JSON.stringify({ at: '1' }));
+		storageEventFromAnotherTab(SIGNAL, signOutOf(42));
+		authStore.signOutAllLocally();
+
+		expect(signedOut).not.toHaveBeenCalled();
+		expect(localStorage.getItem(SIGNAL)).toBeNull();
+		stop();
+	});
+
 	it('does nothing in a tab that holds no app sign-in', () => {
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
