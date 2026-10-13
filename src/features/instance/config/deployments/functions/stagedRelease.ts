@@ -1,4 +1,4 @@
-import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
 
 /**
  * What became of a staged release. Harper never rewrites a staged record: activating it writes a record of its own
@@ -6,6 +6,7 @@ import { Deployment } from '@/integrations/api/instance/deployments/types';
  * records that came after it.
  *
  * - `waiting`: nothing activated it.
+ * - `activating`: an activation of it has not finished. Another one now would start a second rolling restart.
  * - `live`: its newest activation is the component's newest successful deploy, every node it reached took it, and
  *   no deploy after it failed. Activating it again swaps nothing and only restarts every worker (harper
  *   `components/Application.ts:4812-4821`, `operations.js:956`). The record cannot say whether the rolling restart
@@ -20,6 +21,7 @@ import { Deployment } from '@/integrations/api/instance/deployments/types';
  */
 export type StagedReleaseState =
 	| { kind: 'waiting' }
+	| { kind: 'activating'; activation: Deployment }
 	| { kind: 'live'; activation: Deployment }
 	| { kind: 'replaced'; activation: Deployment; replacedBy: Deployment }
 	| { kind: 'uncertain'; activation?: Deployment; failed: Deployment }
@@ -36,6 +38,13 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 	const failedAfter = (after: Deployment | undefined, which: (record: Deployment) => boolean = () => true) =>
 		newestFirst.find((record) => record.status === 'failed' && startedAt(record) > startedAt(after) && which(record));
 
+	const running = newestFirst.find((record) =>
+		!isTerminalDeploymentStatus(record.status) && record.activated_from === staged.deployment_id
+		&& startedAt(record) > startedAt(succeeded[0])
+	);
+	if (running) {
+		return { kind: 'activating', activation: running };
+	}
 	const activation = succeeded.find((record) => record.activated_from === staged.deployment_id);
 	if (!activation) {
 		// Once anything has succeeded since, a failed attempt at this one no longer decides what runs.
