@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 // what's under test, so restating `skipGlobalErrorToast` here would let these pass regardless.
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
+import { OFFLINE_MESSAGE } from './failFastOffline';
 import { SignIn } from './SignIn';
 
 function axiosError(status: number, data?: unknown): AxiosError {
@@ -166,5 +167,34 @@ describe('SignIn', () => {
 
 		await waitFor(() => expect(screen.getByText('Please enter your password.')).toBeTruthy());
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+});
+
+describe('SignIn — offline', () => {
+	afterEach(() => {
+		onlineManager.setOnline(true);
+		vi.restoreAllMocks();
+	});
+
+	// Under the default `networkMode` the sign-in paused, then went out whenever the connection returned.
+	it('says it is offline at once and sends nothing more when the connection returns', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError);
+		onlineManager.setOnline(false);
+
+		renderSignIn();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Sign In' }).hasAttribute('disabled')).toBe(false));
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
+
+		onlineManager.setOnline(true);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(navigate).not.toHaveBeenCalled();
 	});
 });

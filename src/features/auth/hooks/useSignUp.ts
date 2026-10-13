@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
+import { failFastOffline, reportAuthFailure } from '../failFastOffline';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 import { clearCaptchaFailures } from './useCaptchaChallenge';
 
@@ -27,7 +28,7 @@ export async function onSignUpSubmit({ captchaToken, ...signUpCredentials }: Sig
 
 export function useSignUpMutation() {
 	return useMutation<SchemaUser, Error, SignUpCredentials>({
-		mutationFn: (loginData) => onSignUpSubmit(loginData),
+		...failFastOffline(onSignUpSubmit),
 		// The sign-up form renders the failure inline, beside the inputs, instead of in a toast
 		// that fades away from them, so suppress the default global error toast for this
 		// mutation (see `SignUp`'s `onError`).
@@ -40,7 +41,7 @@ export function useSignUpMutation() {
 		onError: (error) => {
 			if (!isCaptchaVerificationError(error)) {
 				clearCaptchaFailures();
-				console.error(error);
+				reportAuthFailure(error);
 			}
 		},
 	});

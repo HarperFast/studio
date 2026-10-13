@@ -1,4 +1,5 @@
 import { getCaptchaToken, isCaptchaConfigured, warmCaptcha } from '@/lib/recaptcha/recaptchaScript';
+import { onlineManager } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 
@@ -8,6 +9,15 @@ export const CHALLENGE_FAILED =
 	"We couldn't verify this request. A VPN, proxy, or strict browser privacy setting can cause this — turn it off for this page, then try again.";
 export const CHALLENGE_UNAVAILABLE =
 	'We could not run the verification check. Disable any ad blocker for this page, then reload and try again.';
+// Central manager answers an expired, a missing and a low-scoring token with the same 403 (its
+// `src/lib/recaptcha.js`), so these two come from the client's own mint, and neither counts toward support.
+export const CHALLENGE_EXPIRED = 'The verification check expired before it reached us. Please try again.';
+export const CHALLENGE_OFFLINE =
+	"The verification check couldn't run while you were offline. Check your connection, then try again.";
+
+/** Google: "Each token can be used only once, and it expires after two minutes."
+ *  https://docs.cloud.google.com/recaptcha/docs/create-assessment-website */
+export const CAPTCHA_TOKEN_LIFETIME_MS = 2 * 60 * 1000;
 
 const SUPPORT_AFTER_FAILURES = 2;
 
@@ -21,8 +31,23 @@ export function clearCaptchaFailures() {
 	consecutiveFailures = 0;
 }
 
-/** reCAPTCHA plumbing for the public auth forms (central-manager#627). Fresh
- *  single-use token per submit, so there is no reset or expiry handling.
+// `undefined` when no key is configured.
+type LastMint = { minted: true; at: number } | { minted: false; offline: boolean };
+
+function uncountedRefusal(mint: LastMint | undefined): string | undefined {
+	if (mint?.minted === false) {
+		return mint.offline ? CHALLENGE_OFFLINE : undefined;
+	}
+	// The refusal arrives after central manager checked the token, so one that arrives within the
+	// lifetime was checked while the token was valid. One that arrives later may have expired.
+	if (mint && Date.now() - mint.at >= CAPTCHA_TOKEN_LIFETIME_MS) {
+		return CHALLENGE_EXPIRED;
+	}
+	return undefined;
+}
+
+/** reCAPTCHA plumbing for the public auth forms (central-manager#627). Mints a fresh single-use
+ *  token per submit, which the auth mutations send immediately, even offline (`failFastOffline`).
  *  `alternative` is appended to a rejection: a way forward this form offers that skips the check. */
 export function useCaptchaChallenge(action: string, alternative?: string) {
 	// Google's terms require the badge to be visible where reCAPTCHA is in use.
@@ -32,16 +57,22 @@ export function useCaptchaChallenge(action: string, alternative?: string) {
 
 	// Mint came back empty with a key configured: a later 403 should say the
 	// check couldn't run, not ask the user to retry something that can't succeed.
-	const mintFailed = useRef(false);
+	const lastMint = useRef<LastMint>(undefined);
 	// Disabling submit during the mint also stops concurrent submits racing
-	// mintFailed to the wrong message.
+	// lastMint to the wrong message.
 	const [minting, setMinting] = useState(false);
 
 	const getToken = useCallback(async (): Promise<string | undefined> => {
 		setMinting(true);
+		// Check both ends: if the connection comes back during the mint, the tokenless request can still go out.
+		const offlineBefore = !onlineManager.isOnline();
 		try {
 			const token = await getCaptchaToken(action);
-			mintFailed.current = isCaptchaConfigured() && !token;
+			lastMint.current = token
+				? { minted: true, at: Date.now() }
+				: isCaptchaConfigured()
+				? { minted: false, offline: offlineBefore || !onlineManager.isOnline() }
+				: undefined;
 			return token;
 		} finally {
 			setMinting(false);
@@ -56,9 +87,15 @@ export function useCaptchaChallenge(action: string, alternative?: string) {
 			setSupportSuggested(false);
 			return undefined;
 		}
+		const mint = lastMint.current;
+		const uncounted = uncountedRefusal(mint);
+		if (uncounted) {
+			setSupportSuggested(false);
+			return uncounted;
+		}
 		consecutiveFailures += 1;
 		setSupportSuggested(consecutiveFailures >= SUPPORT_AFTER_FAILURES);
-		const message = mintFailed.current ? CHALLENGE_UNAVAILABLE : CHALLENGE_FAILED;
+		const message = mint?.minted === false ? CHALLENGE_UNAVAILABLE : CHALLENGE_FAILED;
 		return alternative ? `${message} ${alternative}` : message;
 	}, [alternative]);
 

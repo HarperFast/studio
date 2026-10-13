@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
@@ -40,8 +40,15 @@ vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
 }));
 
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
+import { OFFLINE_MESSAGE } from './failFastOffline';
 import { ForgotPassword } from './ForgotPassword';
-import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
+import {
+	CAPTCHA_TOKEN_LIFETIME_MS,
+	CHALLENGE_EXPIRED,
+	CHALLENGE_FAILED,
+	clearCaptchaFailures,
+	useCaptchaChallenge,
+} from './hooks/useCaptchaChallenge';
 
 const captchaRejection = { isAxiosError: true, response: { status: 403, data: 'Verification failed' } } as AxiosError;
 const serverError = { isAxiosError: true, response: { status: 500 } } as AxiosError;
@@ -372,5 +379,105 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ isAxiosError: true }));
 		consoleError.mockRestore();
+	});
+});
+
+// #1930: offline, the submit paused, then went out on a stale token and was refused as a VPN problem.
+describe('ForgotPassword — offline', () => {
+	const networkError = { isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError;
+	const submitButton = (container: HTMLElement) => container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+	let consoleError: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		onlineManager.setOnline(true);
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
+
+	it('says it is offline and frees the form at once, then sends nothing when the connection returns', async () => {
+		captchaState.token = 'human-token';
+		post.mockRejectedValue(networkError);
+		onlineManager.setOnline(false);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		const alert = await findByRole('alert');
+		expect(alert.textContent).toBe(OFFLINE_MESSAGE);
+		expect(alert.textContent).not.toMatch(/VPN|proxy|ad blocker/);
+		await waitFor(() => expect(submitButton(container).disabled).toBe(false));
+		expect(toast.error).not.toHaveBeenCalled();
+		// Being offline is not a Studio failure: `console.error` would file it in RUM.
+		expect(consoleError).not.toHaveBeenCalled();
+
+		onlineManager.setOnline(true);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
+	it('mints a fresh token for the resubmit once back online', async () => {
+		captchaState.token = 'offline-token';
+		post.mockRejectedValueOnce(networkError);
+		onlineManager.setOnline(false);
+		const { container, findByRole, queryByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+		await findByRole('alert');
+
+		onlineManager.setOnline(true);
+		captchaState.token = 'fresh-token';
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		await submitWith(container, 'user@example.com');
+
+		await waitFor(() => expect(queryByRole('alert')).toBeNull());
+		expect(post).toHaveBeenLastCalledWith('/ForgotPassword/', {
+			email: 'user@example.com',
+			captchaToken: 'fresh-token',
+		});
+	});
+
+	// Central manager refuses an expired token with the same 403 as a low score.
+	it('says the check expired, not that a VPN is in the way, for a refusal after the token’s lifetime', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		captchaState.token = 'soon-stale-token';
+		let refuse: (() => void) | undefined;
+		post.mockReturnValue(new Promise((_resolve, reject) => (refuse = () => reject(captchaRejection))));
+		const { container, findByRole, queryByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		vi.setSystemTime(Date.now() + CAPTCHA_TOKEN_LIFETIME_MS);
+		refuse!();
+
+		const alert = await findByRole('alert');
+		expect(alert.textContent).toBe(CHALLENGE_EXPIRED);
+		expect(alert.textContent).not.toMatch(/VPN|proxy/);
+		expect(queryByRole('link', { name: 'Contact us' })).toBeNull();
+	});
+
+	it('does not offer support for refusals of tokens that may have expired', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		captchaState.token = 'soon-stale-token';
+		const { container, getByRole, queryByRole } = renderForm();
+
+		for (let attempt = 1; attempt <= 2; attempt++) {
+			let refuse: (() => void) | undefined;
+			post.mockReturnValueOnce(new Promise((_resolve, reject) => (refuse = () => reject(captchaRejection))));
+			await submitWith(container, 'user@example.com');
+			await waitFor(() => expect(post).toHaveBeenCalledTimes(attempt));
+			// The submit cleared the last alert, so the one awaited below is this attempt's.
+			expect(queryByRole('alert')).toBeNull();
+			vi.setSystemTime(Date.now() + CAPTCHA_TOKEN_LIFETIME_MS);
+			refuse!();
+			await waitFor(() => expect(getByRole('alert').textContent).toBe(CHALLENGE_EXPIRED));
+		}
+
+		// Two consecutive refusals would offer it, were these counted.
+		expect(queryByRole('link', { name: 'Contact us' })).toBeNull();
 	});
 });

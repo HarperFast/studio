@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { failFastOffline, reportAuthFailure } from '../failFastOffline';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
 import { clearCaptchaFailures } from './useCaptchaChallenge';
 
@@ -29,7 +30,7 @@ export async function onResetPasswordSubmit(
 
 export function useForgotPasswordMutation() {
 	return useMutation<ForgotPasswordResponse, Error, ForgotPasswordCredential>({
-		mutationFn: (loginData) => onResetPasswordSubmit(loginData),
+		...failFastOffline(onResetPasswordSubmit),
 		meta: { skipGlobalErrorToast: true },
 		onSuccess: () => clearCaptchaFailures(),
 		// At mutation level, not in the caller's `mutate` callback: React Query skips those when
@@ -39,7 +40,7 @@ export function useForgotPasswordMutation() {
 		onError: (error) => {
 			if (!isCaptchaVerificationError(error)) {
 				clearCaptchaFailures();
-				console.error(error);
+				reportAuthFailure(error);
 			}
 		},
 	});

@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { failFastOffline, toastsAuthFailures } from '../failFastOffline';
 
 type ResetPasswordRequest = {
 	token: string;
@@ -23,6 +24,7 @@ const onResetPasswordSubmit = async ({ token, password }: ResetPasswordRequest):
 
 export function useResetPasswordMutation() {
 	return useMutation<ResetPasswordResponse, Error, ResetPasswordRequest>({
-		mutationFn: (formData) => onResetPasswordSubmit(formData),
+		...failFastOffline(onResetPasswordSubmit),
+		...toastsAuthFailures,
 	});
 }

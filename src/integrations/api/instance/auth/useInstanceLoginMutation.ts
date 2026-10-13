@@ -1,6 +1,7 @@
 import { forceBasicAuth, isLocalStudio } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { failFastOffline, toastsAuthFailures } from '@/features/auth/failFastOffline';
 import { authStore } from '@/features/auth/store/authStore';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
@@ -95,6 +96,7 @@ export async function onInstanceLoginSubmit({
 
 export function useInstanceLoginMutation() {
 	return useMutation<LoginInfoResponse, Error, InstanceLoginCredentials>({
-		mutationFn: onInstanceLoginSubmit,
+		...failFastOffline(onInstanceLoginSubmit),
+		...toastsAuthFailures,
 	});
 }

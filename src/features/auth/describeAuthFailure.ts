@@ -1,6 +1,7 @@
 import { NO_RESPONSE_CODES } from '@/integrations/api/unansweredWrite';
 import { describeError } from '@/react-query/queryClient';
 import { AxiosError } from 'axios';
+import { OFFLINE_MESSAGE, OfflineSubmitError } from './failFastOffline';
 
 export const SERVER_UNAVAILABLE_MESSAGE =
 	"The server is temporarily unavailable. It isn't a problem with the details you entered — please try again in a moment.";
@@ -37,6 +38,10 @@ const OUTCOME_UNKNOWN_STATUSES: ReadonlySet<number> = new Set([502, 504]);
  * would repeat the side effect this branch exists to avoid.
  */
 export function describeRetryableAuthFailure(rawErr: unknown, outcomeUnknownRecovery: string): string | undefined {
+	// Ahead of the `ERR_NETWORK` hedge below: what to check here is the person's own connection.
+	if (rawErr instanceof OfflineSubmitError) {
+		return OFFLINE_MESSAGE;
+	}
 	const outcomeUnknown = `${OUTCOME_UNKNOWN_MESSAGE} ${outcomeUnknownRecovery}`;
 	const axiosErr = rawErr as AxiosError;
 	const status = axiosErr?.response?.status;

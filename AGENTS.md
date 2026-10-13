@@ -842,7 +842,8 @@ timeouts, 401s and third-party stacks in `beforeSend`. Reaching RUM is not the s
 Error Tracking.
 
 That matters when replacing a toast with inline form copy: drop the `errorHandler` call and the
-failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)` for exactly this
+failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)`
+(`reportAuthFailure`, which logs an offline failure with `console.debug` instead) for exactly this
 reason — **at mutation level, in the `useMutation({ onError })`, not in the caller's `mutate(…, {
 onError })` callback**. React Query skips the latter when the component unmounted mid-flight, which
 is precisely when someone gave up on a slow sign-in and navigated away. All three auth forms
@@ -894,6 +895,16 @@ non-idempotent POSTs, and each of those means the request may already have been 
 reports a CORS rejection and a connection dropped _after_ the POST both as `ERR_NETWORK`, so none of
 them can claim the server was never reached. RFC 9110 §9.2.2: a retry is only safe once you know the
 request was not applied.
+
+The one `ERR_NETWORK` that gets "check your connection, then try again" instead is a request sent
+while `onlineManager` reported offline, to a host that isn't loopback. Every auth form's mutation
+(sign-in, sign-up, forgot and reset password, email verification, cluster/instance sign-in) spreads
+[`failFastOffline`](src/features/auth/failFastOffline.ts), which sets `networkMode: 'always'` and
+rethrows that failure as an `OfflineSubmitError`. React Query's default `'online'` mode **pauses** a
+mutation while offline rather than failing it, so the form spun with nothing to show, and the request
+went out whenever the connection came back, carrying a CAPTCHA token that had expired by then
+(#1930). An offline failure is logged with `console.debug`, never `console.error`. Sign-out, Finish
+Setup and every non-auth mutation still pause (#1933).
 
 That message **states the uncertainty and stops** — the remediation is the caller's, because only
 the form knows what recovery means for its endpoint ("check your inbox before requesting another
