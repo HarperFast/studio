@@ -7,7 +7,6 @@ declare module 'axios' {
 		/**
 		 * Send at most once, even a read. The operations console sets it: its freeform body can name a
 		 * component's operation, and a `get_` name from a component is no proof that it only reads.
-		 * `package_component` sets it too, a read that rebuilds the whole archive on every attempt.
 		 */
 		skipGatewayRetry?: boolean;
 	}

@@ -136,7 +136,7 @@ export function reportDeployResult(
 	toast.success(success.title, { ...options, description: withNotes(success.description, notes) });
 }
 
-export type DeployVerb = 'import' | 'stage' | 'redeploy' | 'activate';
+type DeployVerb = 'import' | 'stage' | 'redeploy' | 'activate';
 
 const DONE: Record<DeployVerb, string> = {
 	import: 'imported',
