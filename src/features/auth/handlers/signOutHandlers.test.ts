@@ -109,7 +109,6 @@ describe.each(
 describe('clearAuthStateAfterSignOutElsewhere', () => {
 	it('signs this tab out and wipes both caches and its sessionStorage, but leaves the shared localStorage', () => {
 		seedSignedInTab();
-		// The tab that signed out cleared localStorage; what is there now is that tab's, a new sign-in perhaps.
 		localStorage.clear();
 		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn }));
 

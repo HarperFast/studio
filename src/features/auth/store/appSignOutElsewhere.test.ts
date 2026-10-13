@@ -56,12 +56,10 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
 
-		// A cluster sign-out, a failed sign-in check dropping the app marker, an explorer clear, a storage wipe.
 		storageEventFromAnotherTab(MARKER, JSON.stringify({ OverallAppSignIn }));
 		storageEventFromAnotherTab(MARKER, '{}');
 		storageEventFromAnotherTab('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 1 }));
 		storageEventFromAnotherTab(null, null);
-		// Someone else's session, a sign-out that knew no user, and values no sign-out writes.
 		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_v'));
 		storageEventFromAnotherTab(SIGNAL, signOutOf(null));
 		storageEventFromAnotherTab(SIGNAL, '1');
@@ -138,7 +136,6 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		signIn();
 		await authStore.signOutFromPotentiallyAuthenticatedInstances();
 		expect(localStorage.getItem(SIGNAL)).toBeNull();
-		// `logoutOnSuccess`, after the sweep has already cleared the user.
 		authStore.signOutAllLocally();
 		expect(announcedUser()).toBe('usr_a');
 
@@ -150,13 +147,35 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		expect(announcedUser()).toBe('usr_a');
 		expect(localStorage.getItem(SIGNAL)).not.toBe(first);
 
-		// A tab with no user to name: nothing for another tab to match.
+		const last = localStorage.getItem(SIGNAL);
 		authStore.signOutAllLocally();
-		expect(announcedUser()).toBeNull();
+		expect(localStorage.getItem(SIGNAL)).toBe(last);
+	});
+
+	it('names the user a check had blanked, and the latest one after a `/Logout/` that failed', async () => {
+		signIn();
+		await authStore.signOutFromPotentiallyAuthenticatedInstances();
+		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, { id: 'usr_v' } as SetArgs[2]);
+		vi.mocked(apiClient.get).mockReturnValue(new Promise(() => undefined));
+		void authStore.reloadUser(OverallAppSignIn);
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+
+		authStore.signOutAllLocally();
+
+		expect(announcedUser()).toBe('usr_v');
 	});
 });
 
 describe('authStore.forgetAppSignInEndedElsewhere', () => {
+	it('leaves no user for a later sign-out of this tab to name again', () => {
+		signIn();
+		authStore.forgetAppSignInEndedElsewhere();
+
+		authStore.signOutAllLocally();
+
+		expect(localStorage.getItem(SIGNAL)).toBeNull();
+	});
+
 	it('signs every entity out in memory without writing the storage the tabs share', () => {
 		signIn();
 		authStore.setUserForIdAndKey('ins-a', 'https://ins-a.example.com', { username: 'u' } as SetArgs[2]);

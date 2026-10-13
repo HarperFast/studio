@@ -332,10 +332,11 @@ describe('a sign-out in another tab', () => {
 		await otherTab.run(() => otherTab.logoutOnSuccess());
 		await nextPoll(queryClient);
 
+		await screen.findByText('sign-in page');
+		await nextPoll(queryClient);
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(requestsAfterSessionEnded).toEqual([]);
 		expect(reportedAuthorizationFailures()).toEqual([]);
-		await screen.findByText('sign-in page');
 	});
 
 	it('leaves this tab signed in when that tab’s `/Logout/` fails', async () => {
@@ -355,9 +356,24 @@ describe('a sign-out in another tab', () => {
 		await otherTab.run(() => otherTab.clearAuthStateLocally());
 		await nextPoll(queryClient);
 
+		await screen.findByText('sign-in page');
+		await nextPoll(queryClient);
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(requestsAfterSessionEnded).toEqual([]);
+	});
+
+	it('signs this tab out when another tab’s own sign-in check finds the session ended', async () => {
+		const { queryClient } = await openClusterPage();
+		const otherTab = await openAnotherTab();
+
+		session = 'ended';
+		await otherTab.run(() => otherTab.authStore.reloadUser('OverallAppSignIn'));
+		await nextPoll(queryClient);
+
 		await screen.findByText('sign-in page');
+		await nextPoll(queryClient);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(requestsAfterSessionEnded).toEqual(['/User/current']);
 	});
 
 	it('asks again when its own check, out during the sign-out, comes back as the user it ended', async () => {
