@@ -101,7 +101,7 @@ export function SimpleBrowseDataTable<TData extends RowData>({
 				{children}
 				<div className="grow hidden lg:visible"></div>
 			</div>
-			<Table containerClassName="rounded-md bg-card dark:bg-black-dark">
+			<Table containerClassName="rounded-md border border-border dark:border-grey-700 bg-card dark:bg-black-dark">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
@@ -111,7 +111,7 @@ export function SimpleBrowseDataTable<TData extends RowData>({
 						</TableRow>
 					))}
 				</TableHeader>
-				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
+				<TableBody className="bg-background dark:bg-black">
 					{table.getRowModel().rows?.length
 						? (table.getRowModel().rows.map((row) => (
 							<TableRow

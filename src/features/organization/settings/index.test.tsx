@@ -17,6 +17,7 @@ vi.mock('@/features/organization/components/OrgPageLayout', () => ({
 	OrgPageLayout: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@/features/organization/settings/ApiAccessSettings', () => ({ ApiAccessSettings: () => null }));
 
 import { OrgSettingsIndex } from '@/features/organization/settings';
 
@@ -49,7 +50,7 @@ afterEach(() => {
 describe('OrgSettingsIndex — OAuth scope', () => {
 	it('sends the scope its placeholder shows when an added provider clears Scope to whitespace', async () => {
 		renderSettings([]);
-		fireEvent.click(await screen.findByRole('button', { name: /add provider/i }));
+		fireEvent.click(await screen.findByRole('button', { name: 'Add OAuth provider' }));
 		fireEvent.change(screen.getByLabelText('Domain'), { target: { value: 'acme.okta.com' } });
 		fireEvent.change(screen.getByLabelText('Client ID'), { target: { value: 'client' } });
 		fireEvent.change(screen.getByLabelText('Client Secret'), { target: { value: 'secret' } });

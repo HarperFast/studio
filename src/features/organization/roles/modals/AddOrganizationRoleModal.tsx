@@ -1,47 +1,25 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
-import { Input } from '@/components/ui/input';
 import { useAddOrganizationRole } from '@/features/organization/mutations/addOrganizationRole';
-import {
-	OrganizationRoleOverviewSchema,
-	OrganizationRoleOverviewType,
-	OrganizationRoleSpecificPermissionsType,
-	OrganizationRoleUpdatePayloadType,
-} from '@/features/organization/mutations/OrganizationRoleFormSchema';
-import { useMonacoTheme } from '@/hooks/useMonacoTheme';
-import { Editor } from '@/lib/monaco/MonacoEditor';
-import { safeParse } from '@/lib/string/safeParse';
+import { OrganizationRoleNameSchema } from '@/features/organization/mutations/OrganizationRoleFormSchema';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { RolePermissionsEditor } from '@/features/organization/roles/components/RolePermissionsEditor';
+import { NEW_ROLE_PERMISSIONS, RolePermissions, toPayload } from '@/features/organization/roles/rolePermissions';
 import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-
-const defaultPermissions: OrganizationRoleSpecificPermissionsType = {
-	roles: {
-		create: true,
-		view: true,
-		update: true,
-		delete: true,
-	},
-	clusters: {
-		create: true,
-		view: true,
-		update: true,
-		delete: true,
-		resources: [],
-	},
-};
 
 export function AddOrganizationRoleModal({
 	isModalOpen,
@@ -50,161 +28,91 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
-	const monacoTheme = useMonacoTheme();
 	const queryClient = useQueryClient();
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
-	const [isValidJSON, setIsValidJSON] = useState(true);
-	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
-
+	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
+	const [permissions, setPermissions] = useState<RolePermissions>(NEW_ROLE_PERMISSIONS);
+	const [isPermissionsValid, setIsPermissionsValid] = useState(true);
 	const { mutate: addOrganizationRole, isPending } = useAddOrganizationRole();
 
 	const form = useForm({
-		resolver: zodResolver(OrganizationRoleOverviewSchema),
+		resolver: zodResolver(OrganizationRoleNameSchema),
 		mode: 'onTouched',
-		defaultValues: {
-			name: '',
-			update: false,
-			delete: false,
-		},
+		defaultValues: { name: '' },
 	});
 
-	const onValidate = useCallback(
-		(markers: unknown[]) => {
-			setIsValidJSON(markers.length === 0);
-		},
-		[setIsValidJSON],
-	);
+	const close = () => {
+		setIsModalOpen(false);
+		form.reset();
+		setPermissions(NEW_ROLE_PERMISSIONS);
+		setIsPermissionsValid(true);
+	};
 
-	const onSubmitRoleEdits = useCallback(
-		async (formData: OrganizationRoleOverviewType) => {
-			const parsedPermissions = safeParse<OrganizationRoleSpecificPermissionsType>(updatedPermissions);
-			if (!parsedPermissions) {
-				return;
-			}
-			const updatedFormData: OrganizationRoleUpdatePayloadType = {
-				...formData,
-				...parsedPermissions,
-				organizationId: organizationId,
-			};
-			if (formData && isValidJSON) {
-				addOrganizationRole(updatedFormData, {
-					onSuccess: () => {
-						toast.success('Organization role added successfully!');
-						setIsModalOpen(false);
-						void queryClient.invalidateQueries({
-							queryKey: [organizationId, 'roles'],
-							refetchType: 'active',
-						});
-						form.reset();
-					},
-					onError: (error: Error) => {
-						if (shouldToastOwnFailure(error)) {
-							toast.error(`Failed to add organization role: ${error.message}`);
-						}
-					},
-				});
-			}
-		},
-		[isValidJSON, updatedPermissions, addOrganizationRole, form, queryClient, setIsModalOpen, organizationId],
-	);
+	const onSubmit = ({ name }: { name: string }) =>
+		addOrganizationRole(toPayload(name, organizationId, permissions), {
+			onSuccess: () => {
+				toast.success(`Role "${name}" created.`);
+				void queryClient.invalidateQueries({ queryKey: [organizationId, 'roles'], refetchType: 'active' });
+				close();
+			},
+			onError: (error: Error) => {
+				if (shouldToastOwnFailure(error)) {
+					toast.error(`Failed to create the role: ${error.message}`);
+				}
+			},
+		});
 
 	return (
-		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-			<DialogContent resizable>
-				<DialogTitle>Add New Organization Role</DialogTitle>
-				<DialogDescription>Set the new organization role permissions.</DialogDescription>
+		<Dialog onOpenChange={(open) => !open && close()} open={isModalOpen}>
+			<DialogContent
+				className="max-h-[90vh] overflow-y-auto focus:outline-none sm:max-w-[760px]"
+				// Focus the dialog, not the role name: an autofocused name counts as visited, so the first click
+				// anywhere else would report it empty before anything was typed.
+				onOpenAutoFocus={(event) => {
+					event.preventDefault();
+					(event.currentTarget as HTMLElement).focus();
+				}}
+			>
+				<DialogTitle>Create role</DialogTitle>
+				<DialogDescription>Choose what this role can access.</DialogDescription>
 				<Form {...form}>
 					<form
 						id="org-add-role-form"
 						name="org-add-role-form"
-						className="flex flex-1 min-h-0 flex-col gap-4 my-4"
-						onSubmit={form.handleSubmit(onSubmitRoleEdits)}
+						className="flex flex-col gap-4 my-2"
+						onSubmit={form.handleSubmit(onSubmit)}
 						onKeyDown={revealFieldErrorOnEnter(form)}
 					>
-						<div className="grid grid-cols-2 gap-4">
-							<FormField
-								control={form.control}
-								name="name"
-								render={({ field }) => (
-									<FormItem className="col-span-2">
-										<FormLabel className="pb-1">Role Name</FormLabel>
-										<LengthLimitedInput
-											type="text"
-											className=""
-											maxLength={OrganizationRoleOverviewSchema.shape.name.maxLength!}
-											{...field}
-										/>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="update"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Can Update Organization</FormLabel>
-										<FormControl>
-											<Input
-												type="checkbox"
-												className="w-6 ml-2"
-												checked={field.value}
-												onChange={(e) => field.onChange(e.target.checked)}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="delete"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Can Delete Organization</FormLabel>
-										<FormControl>
-											<Input
-												type="checkbox"
-												className="w-6 ml-2"
-												checked={field.value}
-												onChange={(e) => field.onChange(e.target.checked)}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-						<div className="flex-1 min-h-0">
-							<Editor
-								className="w-full h-full"
-								theme={monacoTheme}
-								defaultLanguage="json"
-								onValidate={onValidate}
-								onChange={(value) => {
-									if (value) {
-										setUpdatedPermissions(value);
-									}
-								}}
-								options={{ automaticLayout: true }}
-								defaultValue={JSON.stringify(defaultPermissions, null, 2)}
-							/>
-						</div>
+						<FormField
+							control={form.control}
+							name="name"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Role name</FormLabel>
+									<LengthLimitedInput
+										type="text"
+										placeholder="e.g. deployment_operator"
+										maxLength={OrganizationRoleNameSchema.shape.name.maxLength!}
+										{...field}
+									/>
+									<FormDescription>Letters and underscores, up to 30 characters.</FormDescription>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<RolePermissionsEditor
+							value={permissions}
+							onChange={setPermissions}
+							onValidChange={setIsPermissionsValid}
+							clusters={organization?.clusters ?? []}
+						/>
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button
-									variant="destructiveOutline"
-									type="button"
-									onClick={() => setIsModalOpen(false)}
-									disabled={isPending}
-								>
+								<Button variant="outline" type="button" onClick={close} disabled={isPending}>
 									Cancel
 								</Button>
-								<Button
-									variant="submit"
-									disabled={isPending || !isValidJSON || !form.formState.isValid}
-								>
-									Save Changes
+								<Button variant="submit" disabled={isPending || !isPermissionsValid || !form.formState.isValid}>
+									{isPending ? 'Creating…' : 'Create role'}
 								</Button>
 							</div>
 						</DialogFooter>

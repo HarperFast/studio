@@ -14,8 +14,7 @@ export const OrganizationRoleOverviewSchema = z.object({
 	delete: z.boolean(),
 });
 
-/** The name is read-only when editing, and central manager accepts names the add form refuses. */
-export const OrganizationRoleEditSchema = OrganizationRoleOverviewSchema.extend({ name: z.string() });
+export const OrganizationRoleNameSchema = OrganizationRoleOverviewSchema.pick({ name: true });
 
 export const OrganizationRoleSpecificPermissionsSchema = z.object({
 	roles: z.object({
@@ -48,6 +47,3 @@ export type OrganizationRoleUpdatePayloadType =
 	& z.infer<typeof OrganizationRoleOverviewSchema>
 	& z.infer<typeof OrganizationRoleSpecificPermissionsSchema>
 	& { organizationId: string };
-
-export type OrganizationRoleOverviewType = z.infer<typeof OrganizationRoleOverviewSchema>;
-export type OrganizationRoleSpecificPermissionsType = z.infer<typeof OrganizationRoleSpecificPermissionsSchema>;
