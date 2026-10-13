@@ -103,7 +103,7 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 				</DialogDescription>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-						<div className="grid grid-cols-2 gap-3">
+						<div className="grid grid-cols-2 items-start gap-3">
 							<FormField
 								control={form.control}
 								name="kind"
@@ -141,7 +141,7 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 
 						{kind === 'credit'
 							? (
-								<div className="grid grid-cols-2 gap-3">
+								<div className="grid grid-cols-2 items-start gap-3">
 									<FormField
 										control={form.control}
 										name="creditDollars"
@@ -197,7 +197,7 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 								</>
 							)}
 
-						<div className="grid grid-cols-2 gap-3">
+						<div className="grid grid-cols-2 items-start gap-3">
 							<FormField
 								control={form.control}
 								name="redeemBy"
