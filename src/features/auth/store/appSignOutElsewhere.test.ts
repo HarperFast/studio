@@ -85,18 +85,53 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		stop();
 	});
 
-	it('leaves a tab whose sign-in check has not answered to that check', () => {
+	it.each([
+		['the user it named', 'usr_a', 2],
+		['someone else', 'usr_v', 1],
+	])('asks again when a check that was out during a sign-out of %s comes back as them', async (_, ended, checks) => {
 		signIn();
-		vi.mocked(apiClient.get).mockReturnValue(new Promise(() => undefined));
-		void authStore.reloadUser(OverallAppSignIn);
-		expect(authStore.getConnectionById(OverallAppSignIn)).toEqual({ isLoading: true, user: null });
+		let answer: (response: { data: { id: string } }) => void = () => undefined;
+		vi.mocked(apiClient.get)
+			.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)))
+			.mockReturnValue(new Promise(() => undefined));
+		const check = authStore.reloadUser(OverallAppSignIn);
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
 
-		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_a'));
+		storageEventFromAnotherTab(SIGNAL, signOutOf(ended));
+		answer({ data: { id: 'usr_a' } });
+		await check;
 
 		expect(signedOut).not.toHaveBeenCalled();
+		expect(apiClient.get).toHaveBeenCalledTimes(checks);
 		stop();
+	});
+
+	it('does not ask again on a later check in a tab that was signed out when it heard', async () => {
+		const stop = authStore.onAppSignedOutElsewhere(vi.fn());
+		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_a'));
+		signIn();
+		vi.mocked(apiClient.get).mockResolvedValueOnce({ data: { id: 'usr_a' } }).mockReturnValue(
+			new Promise(() => undefined),
+		);
+
+		await authStore.reloadUser(OverallAppSignIn);
+
+		expect(apiClient.get).toHaveBeenCalledOnce();
+		stop();
+	});
+
+	it('still names the ended user when the teardown throws', () => {
+		signIn();
+		const failure = new Error('explorer listener failed');
+		const stop = authStore.onExplorerAuthInvalidated(OverallAppSignIn, () => {
+			throw failure;
+		});
+
+		expect(() => authStore.signOutAllLocally()).toThrow(failure);
+		stop();
+
+		expect(announcedUser()).toBe('usr_a');
 	});
 
 	it('names the ended user from every local sign-out, and is not written by the sweep before `/Logout/`', async () => {

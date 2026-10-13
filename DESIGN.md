@@ -125,7 +125,8 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   would sign the other tabs out of a live session, and one signed back in meanwhile would be ended by that `/Logout/`.
   The value names the user whose session ended (the sweep remembers them, since it clears the user before `/Logout/`),
   and a tab follows only when that is its own app user: a late 401 or event from user U's session must not sign out a
-  tab that has since signed in as V, and a tab whose check has not answered yet waits for that check instead.
+  tab that has since signed in as V. A tab whose check is still out remembers the user, and if the check comes back as
+  them, asks again: central manager may have confirmed them just before the session ended.
   Tabs follow that key, not the marker record, because a tab also drops the app sign-in from the record when its own
   check merely fails (a timeout, a 5xx). A tab that follows writes no `localStorage`: its copy of the markers is a
   snapshot from its own load, and writing it back could undo the other tab's next sign-in (`crossTabSignOut.test.tsx`).
