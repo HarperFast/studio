@@ -7,19 +7,25 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeploymentDetail } from './DeploymentDetail';
 
+const post = vi.hoisted(() => vi.fn());
 vi.mock('@/config/useInstanceClient', () => {
-	const params = { instanceClient: { post: vi.fn() }, entityId: 'entity-1', entityType: 'instance' };
+	const params = { instanceClient: { post }, entityId: 'entity-1', entityType: 'instance' };
 	return { useInstanceClientIdParams: () => params };
 });
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => false,
+	useStagedDeploymentsAvailable: () => true,
 }));
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
-	return { useParams: () => params, Link: () => null };
+	const navigate = () => {};
+	return { useParams: () => params, useNavigate: () => navigate, Link: () => null };
 });
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	post.mockReset();
+});
 
 function renderFailedDeployment(message: string) {
 	const deployment: Deployment = {
@@ -57,5 +63,40 @@ describe('DeploymentDetail', () => {
 		renderFailedDeployment('Failed to clone package acme/widgets: fatal: repository not found');
 
 		expect(screen.getByText('Failed to clone package acme/widgets: fatal: repository not found')).toBeTruthy();
+	});
+});
+
+describe('DeploymentDetail of a staged release', () => {
+	const staged: Deployment = { deployment_id: 'd1', project: 'widgets', status: 'staged', started_at: 100 };
+
+	function renderStaged(history: Deployment[]) {
+		post.mockImplementation((_url: string, body: { operation: string }) =>
+			Promise.resolve({
+				data: body.operation === 'list_deployments' ? { deployments: history, total: history.length } : staged,
+			})
+		);
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		queryClient.setQueryData(['entity-1', 'get_deployment', 'd1'], staged);
+		return render(
+			<QueryClientProvider client={queryClient}>
+				<DeploymentDetail deploymentId="d1" />
+			</QueryClientProvider>,
+		);
+	}
+
+	it('offers to activate a staged release nothing has activated', async () => {
+		renderStaged([staged]);
+		expect(await screen.findByText(/but not live/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Activate/ })).toBeTruthy();
+	});
+
+	it('says an activated one is live instead, and offers no Activate', async () => {
+		renderStaged([
+			{ deployment_id: 'd2', project: 'widgets', status: 'success', started_at: 200, activated_from: 'd1' },
+			staged,
+		]);
+		expect(await screen.findByText(/Live: activated by/)).toBeTruthy();
+		expect(screen.queryByText(/but not live/)).toBeNull();
+		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
 	});
 });
