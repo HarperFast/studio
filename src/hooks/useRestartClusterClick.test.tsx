@@ -458,6 +458,29 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 		expect(restarted).toEqual(['ins-c', 'ins-b']);
 	});
 
+	it('brings back none of its later toasts with a second Cancel once Cancel was clicked', async () => {
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			restarted.push(targetOf(instanceClient));
+			if (targetOf(instanceClient) === 'ins-b') {
+				cancel();
+				throw answeredWith(504);
+			}
+			return { message: 'Restarting Harper. This may take up to 60 seconds.' };
+		});
+
+		await clickRestart();
+
+		const afterCancel = vi.mocked(toast.loading).mock.calls.filter(([title]) =>
+			title === 'Could Not Confirm Instance 2 of 3'
+		);
+		expect(afterCancel).toHaveLength(2);
+		for (const [, options] of afterCancel) {
+			expect(options).not.toHaveProperty('action');
+			expect(options?.description).toContain('Cancelled: no other instance will be restarted.');
+		}
+		expect(restarted).toEqual(['ins-c', 'ins-b']);
+	});
+
 	it('still says Cancelled when nothing was left uncertain', async () => {
 		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
 			restarted.push(targetOf(instanceClient));

@@ -749,6 +749,30 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 		expect(options?.description).toContain('Cancelled: no other instance will be updated.');
 	});
 
+	it('brings back none of its later toasts with a second Cancel once Cancel was clicked', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			events.push(`restart ${targetOf(instanceClient)}`);
+			cancel();
+			throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: '{"operation":"restart_service"}',
+			} as InternalAxiosRequestConfig);
+		});
+
+		await save();
+
+		const afterCancel = vi.mocked(toast.loading).mock.calls.filter(([title]) =>
+			title === 'Could Not Confirm Instance 1 of 2'
+		);
+		expect(afterCancel).toHaveLength(2);
+		for (const [, options] of afterCancel) {
+			expect(options).not.toHaveProperty('action');
+			expect(options?.description).toContain('Cancelled: no other instance will be updated.');
+		}
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b']);
+	});
+
 	it('keeps the pending-configuration note when Cancel lands while waiting on a member after the fan-out', async () => {
 		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0')]);
 		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
