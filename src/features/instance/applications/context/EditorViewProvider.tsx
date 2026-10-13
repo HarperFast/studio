@@ -21,7 +21,7 @@ import { setWatchedValue } from '@/lib/events/watcher';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
@@ -29,11 +29,34 @@ import { FileEntry } from './fileEntry';
 import { isDirectory } from './isDirectory';
 import { isProtectedEntry } from './isProtectedComponentPackage';
 
+/** An entry's loaded contents, tagged with the path of the entry they belong to. */
+interface LoadedContents {
+	entryPath: string | undefined;
+	contents: string | undefined;
+}
+
 export function EditorViewProvider({ children }: PropsWithChildren) {
 	const navigate = useNavigate();
 	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | undefined>(undefined);
-	const [openedEntryContents, setOpenedEntryContents] = useState<string | undefined>(undefined);
-	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntry?.path);
+	const openedEntryPath = openedEntry?.path;
+	const openedEntryPathRef = useRef(openedEntryPath);
+	openedEntryPathRef.current = openedEntryPath;
+	// Contents are kept with the entry they were loaded for, and handed out only while that entry is
+	// open. They load in an effect, and a parent's effects run after its children's, so for the
+	// first render after a switch (and every effect it runs) the state still holds the previous
+	// entry's contents. An editor mounting then adopted them as the new file's — a new, empty
+	// .graphql file opened from a folder took the folder's README as its schema (#1929).
+	const [loadedContents, setLoadedContents] = useState<LoadedContents>({ entryPath: undefined, contents: undefined });
+	const openedEntryContents = loadedContents.entryPath === openedEntryPath ? loadedContents.contents : undefined;
+	const setOpenedEntryContents = useCallback<EditorViewContextValue['setOpenedEntryContents']>(contents => {
+		setLoadedContents(previous => ({
+			entryPath: openedEntryPath,
+			contents: typeof contents === 'function'
+				? contents(previous.entryPath === openedEntryPath ? previous.contents : undefined)
+				: contents,
+		}));
+	}, [openedEntryPath]);
+	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntryPath);
 	const instanceParams = useInstanceClientIdParams();
 	const baseURL = useEntityRestURL();
 	const queryClient = useQueryClient();
@@ -152,18 +175,18 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	useEffect(function setOpenedEntryContentsFromAPIResponse() {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
 		let contents = getComponentFileQueryData?.message;
-		if (
-			loadedPath === pathToLoad && contents !== undefined
-		) {
-			if (loadedOverviewEntry && baseURL && getComponentFileQueryData) {
-				contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
-			}
-			// eslint-disable-next-line react-hooks/set-state-in-effect
-			setOpenedEntryContents(contents);
-		} else {
-			setOpenedEntryContents(undefined);
+		if (loadedPath !== pathToLoad) {
+			contents = undefined;
+		} else if (contents !== undefined && loadedOverviewEntry && baseURL && getComponentFileQueryData) {
+			contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
 		}
-	}, [getComponentFileQueryData, pathToLoad, loadedOverviewEntry, instanceParams]);
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		setLoadedContents(previous =>
+			previous.entryPath === openedEntryPath && previous.contents === contents
+				? previous
+				: { entryPath: openedEntryPath, contents }
+		);
+	}, [getComponentFileQueryData, pathToLoad, loadedOverviewEntry, instanceParams, openedEntryPath]);
 
 	/*
 	 Save changes.
@@ -173,10 +196,15 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
 				onSuccess: () => {
-					if (openedEntry?.path === filePath && data.payload !== undefined) {
-						setUpdatedEntryContents(undefined);
-						setOpenedEntryContents(data.payload || undefined);
-						queryClient.setQueryData(fileQueryKey, { ...getComponentFileQueryData, message: data.payload });
+					// The live path, not this closure's: once another entry is open, the buffer setter
+					// below is that entry's.
+					const { payload } = data;
+					if (openedEntryPathRef.current === filePath && payload !== undefined) {
+						// Edits made while the save was in flight aren't saved yet, so they stay.
+						setUpdatedEntryContents(current => current === payload ? undefined : current);
+						// An emptied file is still loaded: its contents are '', not unknown.
+						setLoadedContents({ entryPath: filePath, contents: payload });
+						queryClient.setQueryData(fileQueryKey, { ...getComponentFileQueryData, message: payload });
 					}
 				},
 				onError: (error) => {
@@ -187,7 +215,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		[
 			fileQueryKey,
 			getComponentFileQueryData,
-			openedEntry?.path,
 			queryClient,
 			saveComponentFile,
 			setUpdatedEntryContents,

@@ -7,7 +7,8 @@
  *
  * The buffer is the source of truth; the reducer's document is an editable
  * projection re-derived from the buffer on mount, on revert, and whenever we
- * return from the text editor (so manual text edits are never lost).
+ * return from the text editor (so manual text edits are never lost). Saving
+ * from the visual editor writes that document, which is what the user sees.
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -22,23 +23,37 @@ import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { CodeIcon, PlusIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { TextEditorView } from '../TextEditorView';
 import { documentTables, hasUnmodeledContent, parseDocument, schemaEditorReducer } from './schemaEditorReducer';
 import { TableCard } from './TableCard';
 
 export function SchemaEditorView() {
-	const { openedEntry, openedEntryContents, isSavingFile, saveFile } = useEditorView();
-	const instanceParams = useInstanceClientIdParams();
-	const canManage = useInstanceBrowseManagePermission();
+	const { openedEntry, openedEntryContents } = useEditorView();
 	const path = !!openedEntry && !openedEntry.package && openedEntry.path;
 	const { content: updatedFileContent, setContent } = useEditorFileContent(path);
 
+	// Seed the editor only from this file. Before its contents load (with no unsaved edits to show),
+	// an empty document would pass for an empty file: a table added then would replace the file on
+	// save, and the visual-or-text choice would be made from nothing.
+	if (!openedEntry || (openedEntryContents === undefined && updatedFileContent === undefined)) {
+		return null;
+	}
+	return <LoadedSchemaEditorView updatedFileContent={updatedFileContent} setContent={setContent} />;
+}
+
+function LoadedSchemaEditorView({
+	updatedFileContent,
+	setContent,
+}: {
+	updatedFileContent: string | undefined;
+	setContent: (content: string | undefined) => void;
+}) {
+	const { openedEntry, openedEntryContents, isSavingFile, saveFile } = useEditorView();
+	const instanceParams = useInstanceClientIdParams();
+	const canManage = useInstanceBrowseManagePermission();
+
 	const buffer = updatedFileContent ?? openedEntryContents ?? '';
-	// Latest buffer available to effects that must not list it as a dependency
-	// (they'd otherwise re-run — and clobber the doc — on our own writes).
-	const bufferRef = useRef(buffer);
-	bufferRef.current = buffer;
 
 	const readOnly = !!openedEntry?.package || !canManage;
 	const canUseVisual = useMemo(
@@ -46,25 +61,29 @@ export function SchemaEditorView() {
 		[buffer],
 	);
 
-	const [doc, dispatch] = useReducer(schemaEditorReducer, bufferRef.current, parseDocument);
+	const [doc, dispatch] = useReducer(schemaEditorReducer, buffer, parseDocument);
 	const [showSource, setShowSource] = useState(() => !canUseVisual);
-	const pendingAddTable = useRef(false);
+	const [pendingAddTable, setPendingAddTable] = useState(false);
 
-	// Re-derive the doc from the buffer on mount, when the saved content changes
-	// (e.g. it finishes loading, or a save lands), and when we return from the
-	// text editor. Deliberately excludes `updatedFileContent` so our own visual
-	// edits don't trigger a re-parse that would discard them.
-	useEffect(() => {
-		if (showSource) {
-			return;
+	// Re-derive the doc from the buffer when we return from the text editor, and when the saved
+	// content changes (a save lands, or it is refetched) under a doc with no edits of its own. Edits
+	// made while a save was in flight are newer than what it saved, so they stay. Not on
+	// `updatedFileContent`, so our own visual edits don't trigger a re-parse that would discard them.
+	// Done during render: from an effect the new doc landed a render late, and the buffer sync below
+	// ran in between with the old doc against the new contents, writing that old doc into the buffer.
+	const [derivedFrom, setDerivedFrom] = useState({ openedEntryContents, showSource });
+	if (derivedFrom.openedEntryContents !== openedEntryContents || derivedFrom.showSource !== showSource) {
+		setDerivedFrom({ openedEntryContents, showSource });
+		const keepEdits = !derivedFrom.showSource
+			&& serializeSchema(doc) !== (derivedFrom.openedEntryContents ?? '');
+		if (!showSource && !keepEdits) {
+			dispatch({ type: 'reset', source: buffer });
+			if (pendingAddTable) {
+				setPendingAddTable(false);
+				dispatch({ type: 'addTable' });
+			}
 		}
-		dispatch({ type: 'reset', source: bufferRef.current });
-		if (pendingAddTable.current) {
-			pendingAddTable.current = false;
-			dispatch({ type: 'addTable' });
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [openedEntryContents, showSource]);
+	}
 
 	// Push the regenerated schema into the shared buffer, or clear it when the
 	// result matches the saved content (so merely opening the view never dirties
@@ -80,7 +99,10 @@ export function SchemaEditorView() {
 	useListener(
 		'SaveFile',
 		() => {
-			if (showSource || !openedEntry || isSavingFile || updatedFileContent === undefined) {
+			// Save the schema on screen, and only when it differs from the saved file. The buffer can't
+			// decide either: it is shared through session storage with other subscribers, and a value one
+			// of them echoes back can trail the edits shown.
+			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === (openedEntryContents ?? '')) {
 				return;
 			}
 			// Never write a schema the visual editor knows is invalid — it would break
@@ -92,13 +114,13 @@ export function SchemaEditorView() {
 				{
 					...instanceParams,
 					file: openedEntry.path.split('/').slice(1).join('/'),
-					payload: updatedFileContent,
+					payload: serialized,
 					project: openedEntry.project,
 				},
 				openedEntry.path,
 			);
 		},
-		[showSource, openedEntry, instanceParams, updatedFileContent, isSavingFile, doc],
+		[showSource, readOnly, openedEntry, openedEntryContents, instanceParams, isSavingFile, doc, serialized],
 	);
 
 	useListener(
@@ -117,7 +139,7 @@ export function SchemaEditorView() {
 		'AddSchemaTable',
 		() => {
 			if (showSource) {
-				pendingAddTable.current = true;
+				setPendingAddTable(true);
 				setShowSource(false);
 			} else {
 				dispatch({ type: 'addTable' });
