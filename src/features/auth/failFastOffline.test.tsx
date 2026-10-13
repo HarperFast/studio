@@ -99,6 +99,16 @@ describe('failFastOffline', () => {
 		await expect(mutationFn(undefined)).rejects.toBe(failure);
 	});
 
+	// The shipped local Studio build's instance client has `baseURL: '/'`, so the host is the page's own.
+	it('resolves a relative baseURL against the page, as local Studio sends it', async () => {
+		expect(window.location.hostname).toBe('localhost');
+		onlineManager.setOnline(false);
+		const failure = { ...networkError, config: { baseURL: '/', url: '/' } } as AxiosError;
+		const { mutationFn } = failFastOffline(() => Promise.reject(failure));
+
+		await expect(mutationFn(undefined)).rejects.toBe(failure);
+	});
+
 	it('still treats a remote target as offline', async () => {
 		onlineManager.setOnline(false);
 		const failure = { ...networkError, config: { baseURL: 'https://api.example.com', url: '/Login/' } } as AxiosError;
