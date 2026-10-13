@@ -68,7 +68,9 @@ describe('PromoCodeRedemptions', () => {
 		expect(within(acme).getByText('a@acme.test')).toBeTruthy();
 		expect(within(acme).getByText('Applied')).toBeTruthy();
 		expect(within(acme).getByText(/\$100\.00, use by/)).toBeTruthy();
-		expect(within(acme).getByRole('link', { name: 'Acme' }).getAttribute('href')).toMatch(/\/org-1$/);
+		expect(within(acme).getByRole('link', { name: 'Acme' }).getAttribute('href')).toMatch(
+			/\/org-1\/billing\/promo-codes$/,
+		);
 
 		const unnamed = await rowFor('org-2');
 		expect(within(unnamed).getByText('usr-gone')).toBeTruthy();

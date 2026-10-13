@@ -68,7 +68,7 @@ export function PromoCodeRedemptions({ code, kind }: { code: string; kind: Promo
 							{redemptions.map((redemption) => (
 								<TableRow key={redemption.id}>
 									<TableCell>
-										<Link to={`/${redemption.organizationId}`} className="underline">
+										<Link to={`/${redemption.organizationId}/billing/promo-codes`} className="underline">
 											{redemption.organizationName ?? redemption.organizationId}
 										</Link>
 										{redemption.organizationName && (
