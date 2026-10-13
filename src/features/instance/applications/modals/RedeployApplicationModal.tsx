@@ -213,7 +213,6 @@ export function RedeployApplicationModal() {
 					return;
 				}
 				if (isUnansweredWrite(error)) {
-					// It may have deployed, so the list the message says to check must be current.
 					invalidateComponents();
 				}
 				toast.error(deployFailureTitle(error, project, stage ? 'stage' : 'redeploy'), {
