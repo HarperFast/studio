@@ -45,7 +45,7 @@ export function readEditorFileContent(key: EditorFileContentKey) {
 	return readSessionValue(key, undefined as string | undefined);
 }
 
-// What session storage persisted, plus what the store holds only because storage refused it.
+// Session storage alone misses a buffer under the folder that it refused and only the store holds.
 function editorFileContentKeysAtOrUnder(entityId: string, path: string): EditorFileContentKey[] {
 	const exact = editorFileContentKey(entityId, path);
 	const under = editorFileContentKey(entityId, `${path}/`);

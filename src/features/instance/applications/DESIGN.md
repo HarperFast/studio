@@ -20,6 +20,7 @@ file at that path opens with the last one's text and Save writes it into it (#19
   folder rename moves file by file, so the rest of a destination folder keeps its own. The edits are copied once the
   copy at the new path lands, and leave the old path only once its drop is confirmed. An unanswered drop leaves them
   on both paths, so they stay reachable whether or not the old file is gone; a refused one, on the original only.
+  Edits typed at the new path while the drop is in flight are newer than the copy, and stay there either way.
 
 All three dispose the Monaco models at the old path, because @monaco-editor/react reuses a path's model as it is and
 applies `value` only when it changes. A model still on screen goes a tick after the editor lets go of it, since Monaco
@@ -28,7 +29,9 @@ assistant's, doesn't pull Monaco in. For the file that is open, `TextEditorView`
 
 - It is read-only until the file's contents are known, and while the provider's contents still trail the query after
   a replace. Monaco ignores an undefined `value` and keeps showing the model's last text, and typing into that would
-  save it here.
+  save it here. The library also keeps an old `onChange` subscribed, and fires it when it writes `value` into a
+  read-only editor, so the editor passes one handler for good. That handler reads the open file's setter and the
+  read-only state, which are set on commit.
 - When its `value` changes to text nobody typed, as when the file is replaced while open or moved edits land on it,
   the library writes it into the model as an undoable edit. The editor then sets the same text with `setValue`, which
   drops the history, so Ctrl+Z can't bring the replaced file back for Save to write. Typing, and switching to another

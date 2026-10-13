@@ -672,6 +672,21 @@ describe('undo in the text editor', () => {
 	});
 });
 
+describe('a file typed back to its saved text', () => {
+	it('has no unsaved edits, after another file was open first', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await openFile('app/b.js', 'saved b');
+		type('unsaved edits to b');
+		expect(bufferAt('app/b.js')).toBe('unsaved edits to b');
+
+		type('saved b');
+
+		expect(bufferAt('app/b.js')).toBeUndefined();
+	});
+});
+
 describe('a file overwritten while it is open', () => {
 	it('takes no typing until the new contents load, so its old text cannot be saved back', async () => {
 		seed({ 'app/a.js': 'saved a' });
@@ -956,6 +971,30 @@ describe('a destination edited while the move that replaced it is in flight', ()
 		await waitFor(() => expect(view.entryExists('app/a.js')).toBe(false));
 		expect(bufferAt('app/lib/a.js')).toBe('typed into the destination');
 		expect(bufferAt('app/a.js')).toBeUndefined();
+	});
+
+	it('keeps the edits typed into it when the original is not dropped', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/lib/a.js': 'saved lib a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('unsaved edits to a');
+		const dropped = hold('drop_component', 'app/a.js');
+		harness.refused.add('drop_component:app/a.js');
+
+		let move: Promise<unknown> | undefined;
+		act(() => {
+			move = harness.tree.onDrop!([{ index: 'app/a.js' }], { targetType: 'item', targetItem: 'app/lib' });
+		});
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+		await openFile('app/lib/a.js', 'unsaved edits to a');
+		type('typed into the destination');
+		await dropped();
+		await act(() => move!);
+
+		await waitFor(() => expect(harness.refused.size).toBe(0));
+		expect(files.has('app/a.js')).toBe(true);
+		expect(bufferAt('app/lib/a.js')).toBe('typed into the destination');
+		expect(bufferAt('app/a.js')).toBe('unsaved edits to a');
 	});
 });
 

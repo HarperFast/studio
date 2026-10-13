@@ -104,7 +104,9 @@ export function useRenameFiles() {
 				stepForward();
 
 				copyEditorFileContent(instanceParams.entityId, change.from, change.to);
-				const copied = readEditorFileContent(editorFileContentKey(instanceParams.entityId, change.to));
+				const destination = editorFileContentKey(instanceParams.entityId, change.to);
+				const copied = readEditorFileContent(destination);
+				// Edits typed into the destination while the drop was in flight are newer than the copy.
 				try {
 					await dropComponent({
 						...instanceParams,
@@ -112,13 +114,12 @@ export function useRenameFiles() {
 						project: oldProject,
 					});
 				} catch (error) {
-					if (!isUnansweredWrite(error)) {
+					if (!isUnansweredWrite(error) && readEditorFileContent(destination) === copied) {
 						discardEditorFileContent(instanceParams.entityId, change.to);
 					}
 					throw error;
 				}
-				// Edits typed into the destination while the drop was in flight are newer than the copy.
-				if (readEditorFileContent(editorFileContentKey(instanceParams.entityId, change.to)) === copied) {
+				if (readEditorFileContent(destination) === copied) {
 					moveEditedPath(queryClient, instanceParams.entityId, change.from, change.to);
 				} else {
 					forgetDeletedPath(queryClient, instanceParams.entityId, change.from);
