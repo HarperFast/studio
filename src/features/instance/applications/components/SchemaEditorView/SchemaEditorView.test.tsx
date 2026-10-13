@@ -59,7 +59,6 @@ vi.mock('@tanstack/react-router', () => {
 	const params = { instanceId: 'instance-1' };
 	return { useNavigate: () => navigate, useSearch: () => search, useParams: () => params };
 });
-// Edits and saves the buffer the way the Monaco-based editor does.
 vi.mock('@/features/instance/applications/components/TextEditorView', async () => {
 	const { useEditorView } = await import('@/features/instance/applications/hooks/useEditorView');
 	const { useEditorFileContent } = await import('@/features/instance/applications/context/editorFileContent');
@@ -256,7 +255,6 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		await openEntry(brokenSchema, /type Broken/, 'source');
 		await openEntry(schemasFolder, /Your schemas are defined in/);
 
-		// The contents are cached now, so they are known the moment the schema is opened again.
 		await openEntry(brokenSchema, /type Broken/, 'source');
 
 		expect(screen.getByLabelText<HTMLTextAreaElement>('Source').value).toContain('type Broken');
@@ -278,7 +276,7 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		expect(buffered(dogSchema.path)).toBe('');
 	});
 
-	it('keeps an unsaved draft through a failed read, and shows it once a read succeeds', async () => {
+	it('shows an unsaved draft as text when the read fails, and saves it from there', async () => {
 		renderEditor();
 		await openEntry(dogSchema, 'Dog');
 		fireEvent.click(screen.getByRole('button', { name: /edit as text/i }));
@@ -290,14 +288,12 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		server.state.failReads = true;
 		act(() => open(dogSchema));
 		await waitFor(() => expect(queryClient.getQueryState(dogQuery)?.status).toBe('error'));
+		expect(screen.getByLabelText<HTMLTextAreaElement>('Source').value).toBe(CAT);
 		expect(screen.queryByRole('button', { name: /add table/i })).toBeNull();
-		expect(buffered(dogSchema.path)).toBe(CAT);
 
-		server.state.failReads = false;
-		await act(() => queryClient.refetchQueries({ queryKey: dogQuery }));
+		expect(await save()).toEqual({ file: 'schemas/schema.graphql', payload: CAT });
 		expect(await screen.findByText('Cat')).toBeTruthy();
-		expect(screen.queryByText('Dog')).toBeNull();
-		expect(buffered(dogSchema.path)).toBe(CAT);
+		expect(buffered(dogSchema.path)).toBeUndefined();
 	});
 
 	it('takes in refetched contents without writing the old schema into the buffer', async () => {
@@ -325,7 +321,6 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		fireEvent.click(screen.getByRole('button', { name: /visual editor/i }));
 		await screen.findByText('Cat');
 
-		// The buffer may be rewritten with the same text, but never with the old schema, nor cleared.
 		expect(buffer.stored().filter(value => value !== edited)).toEqual([]);
 		expect(buffer.removed()).toBe(0);
 		expect(buffered(dogSchema.path)).toBe(edited);

@@ -11,6 +11,7 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
+import { ReactNode, startTransition, Suspense, useLayoutEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => {
@@ -74,8 +75,14 @@ let renders: Array<{ entityId: string; path: string | undefined; contents: strin
 let editorView: ReturnType<typeof useEditorView>;
 let buffer: ReturnType<typeof useEditorFileContent>;
 
+let committed: ReturnType<typeof useEditorView>;
+
 function Probe() {
-	editorView = useEditorView();
+	const view = useEditorView();
+	editorView = view;
+	useLayoutEffect(() => {
+		committed = view;
+	});
 	buffer = useEditorFileContent(editorView.openedEntry?.path);
 	renders.push({
 		entityId: server.current.params.entityId,
@@ -85,7 +92,17 @@ function Probe() {
 	return null;
 }
 
-function renderProvider() {
+const neverSettles = new Promise<never>(() => {});
+
+/** Suspends whenever `path` is the open entry, so a transition opening it renders but never commits. */
+function SuspendWhileOpen({ path }: { path: string }) {
+	if (useEditorView().openedEntry?.path === path) {
+		throw neverSettles;
+	}
+	return null;
+}
+
+function renderProvider(extra?: ReactNode) {
 	Object.assign(server.instances['instance-1'].files, {
 		'schemas/README.md': README,
 		'resources.js': SCRIPT,
@@ -98,6 +115,7 @@ function renderProvider() {
 		<QueryClientProvider client={new QueryClient()}>
 			<EditorViewProvider>
 				<Probe />
+				{extra}
 			</EditorViewProvider>
 		</QueryClientProvider>
 	);
@@ -166,8 +184,6 @@ describe('EditorViewProvider openedEntryContents', () => {
 		expect(editorView.openedEntryContents).toBe('');
 		expect(buffer.content).toBe(DRAFT);
 
-		// The saved file's cached contents took the save anyway: reopened before any refetch answers, it
-		// shows what was saved rather than what was there before.
 		server.reads.pending = new Promise(() => {});
 		const before = renders.length;
 		await openEntry(script, SAVED_SCRIPT);
@@ -184,6 +200,45 @@ describe('EditorViewProvider openedEntryContents', () => {
 		await startSave(SAVED_SCRIPT)();
 
 		expect(editorView.openedEntryContents).toBe(SAVED_SCRIPT);
+	});
+
+	it('still treats the committed entry as open while a transition to another is suspended', async () => {
+		renderProvider(
+			<Suspense fallback={null}>
+				<SuspendWhileOpen path={newSchema.path} />
+			</Suspense>,
+		);
+		await openEntry(script, SCRIPT);
+		const { setOpenedEntry, setOpenedEntryContents } = committed;
+
+		await act(async () => startTransition(() => setOpenedEntry(newSchema)));
+		expect(committed.openedEntry?.path).toBe(script.path);
+		act(() => setOpenedEntryContents(SAVED_SCRIPT));
+
+		expect(committed.openedEntryContents).toBe(SAVED_SCRIPT);
+	});
+
+	it.each([
+		['drops it when it is what was saved', undefined, undefined],
+		[
+			'keeps it when it was edited after the save started',
+			'export const answer = 44;\n',
+			'export const answer = 44;\n',
+		],
+	])("settles a saved file's unsaved copy after another file is opened: %s", async (_, editedDuringSave, left) => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		act(() => buffer.setContent(SAVED_SCRIPT));
+		const finishSave = startSave(SAVED_SCRIPT);
+		if (editedDuringSave) {
+			act(() => buffer.setContent(editedDuringSave));
+		}
+
+		await openEntry(newSchema, '');
+		await finishSave();
+
+		const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${script.path}`));
+		expect(key && JSON.parse(sessionStorage.getItem(key)!)).toBe(left);
 	});
 
 	it('ignores a contents setter kept from an entry that is no longer open', async () => {

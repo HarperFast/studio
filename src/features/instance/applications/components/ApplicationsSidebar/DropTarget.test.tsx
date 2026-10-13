@@ -61,6 +61,7 @@ function mount() {
 		restrictPackageModification: false,
 		openedEntryContents: undefined,
 		setOpenedEntryContents: () => {},
+		openedEntryReadFailed: false,
 		focusedItem: undefined,
 		setFocusedItem: () => {},
 		expandedItems: [],
