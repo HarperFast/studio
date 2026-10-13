@@ -7,6 +7,7 @@ import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTab
 import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { getDescribeTable } from '@/integrations/api/instance/database/getDescribeTable';
+import { awaitDatabaseMapRefresh } from '@/integrations/api/instance/database/importData';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { WatchedValuesTypeMap } from '@/lib/storage/watchedValueKeys';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
@@ -91,11 +92,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	}, [addTarget, addTableFromMap, instanceParams]);
 
 	const onImported = useCallback(async (databaseName: string, tableName: string) => {
-		// The import may have created a new table (or even database), so refresh the tree too.
-		await queryClient.invalidateQueries({
-			queryKey: [instanceParams.entityId, 'describe_all'],
-			refetchType: 'all',
-		});
+		await awaitDatabaseMapRefresh(queryClient, instanceParams.entityId);
 		goToTable(databaseName, tableName);
 		await router.invalidate();
 	}, [queryClient, instanceParams.entityId, goToTable, router]);
