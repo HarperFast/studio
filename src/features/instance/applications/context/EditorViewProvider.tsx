@@ -220,7 +220,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 						previous =>
 							({ ...previous, project: data.project, file: data.file, message: payload }) as GetComponentFileResponse,
 					);
-					// Edits made while the save was in flight are newer than it, so they stay.
 					discardEditorFileContentIfSaved(bufferKey, payload);
 					if (openedEntryKeyRef.current === savedKey) {
 						// '' included: an emptied file is loaded, not unknown.
