@@ -83,11 +83,18 @@ go first because a select that starts with `'*'` is dropped on a schema-defined 
 `owners`, `size` and `weight` with `totalPrice`, and the export wrote them all.
 
 The JSON is read as text and parsed with [`parseJsonKeepingLargeIntegers`](functions/tableCsv.ts).
-Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. Where the
-browser hands a reviver the source text, such an integer keeps its digits (`JSON.rawJSON`).
+Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. Such an
+integer keeps its digits as a `JSON.rawJSON` value. A browser without `JSON.rawJSON` refuses an
+export that holds one (outside a string) rather than write it rounded.
 
-It all sits in memory at once, as the `text/csv` answer did: the export is one request of up to
-1,000,000 records, and the header can't be written until every record has been read.
+The export costs more memory than the `text/csv` answer did, which was one string the size of the
+file. The header can't be written until every record has been read, so the whole result is parsed at
+once: one request of up to 1,000,000 records. The response text is dropped once parsed, and the file
+is written into `Blob` parts 10,000 rows at a time, each part's records let go as it's written. So
+the peak is the JSON text plus the parsed records. For 500,000 records of `Thing`'s ten columns that
+was about 355MB of heap (78M characters of JSON, 277MB of records), for a 46MB file, in Node 24.
+Paging the read would bound it, at the cost of two reads (one for the columns, one for the rows) that
+no longer see one snapshot.
 
 ## Columns for undeclared properties come from the rows on screen
 
