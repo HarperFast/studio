@@ -156,8 +156,10 @@ describe('StagedReleaseDetail', () => {
 
 	it('says when someone else is activating it, and what another activation would do', async () => {
 		renderDetail([{ ...activation, status: 'restarting' }, staged]);
-		expect(await screen.findByText(/Being activated by/)).toBeTruthy();
-		expect(screen.getByText(/starts a second rolling restart/)).toBeTruthy();
+		const note = await screen.findByText(/Being activated by/);
+		expect(note.textContent).toMatch(/which started .+ and has not finished/);
+		expect(note.textContent).toMatch(/While it runs, activating it again starts a second rolling restart/);
+		expect(note.textContent).toMatch(/If it stopped without finishing, activate it again/);
 		expect(screen.queryByText(/but not live/)).toBeNull();
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
