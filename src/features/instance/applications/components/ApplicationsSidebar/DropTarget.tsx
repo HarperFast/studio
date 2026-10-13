@@ -4,12 +4,14 @@ import { authStore } from '@/features/auth/store/authStore';
 import { useDraggingHook } from '@/features/instance/applications/components/ApplicationsSidebar/useDraggingHook';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { forgetReplacedPath } from '@/features/instance/applications/lib/editorPathState';
 import { confirmOverwrite } from '@/features/instance/applications/modals/confirmOverwrite';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { pluralize } from '@/lib/pluralize';
 import { readAsDataURL } from '@/lib/storage/readAsDataURL';
 import { errorHandler } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { cx } from 'class-variance-authority';
 import { useCallback, useState } from 'react';
@@ -22,6 +24,7 @@ export function DropTarget() {
 	const { openedEntry, restrictPackageModification, reloadRootEntries, entryExists } = useEditorView();
 	const canUpload = !!openedEntry && !openedEntry.package && !restrictPackageModification;
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const { dragging: isDraggingAnywhere, dragTarget } = useDraggingHook();
 	const dragTargetId = dragTarget?.getAttribute?.('data-rct-item-id');
 	const dragTargetDirectory = dragTargetId?.split?.('/')?.pop?.();
@@ -151,6 +154,7 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 						encoding: 'base64',
 						payload: dataURLResult.slice(encodingIndex + demarcation.length),
 					});
+					forgetReplacedPath(queryClient, instanceParams.entityId, `${targetProject}/${filePath}`);
 					uploadedBytes += file.size;
 				} else {
 					filesRejected.push({
@@ -211,7 +215,7 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 		} finally {
 			setUploading('');
 		}
-	}, [dragTarget, canUpload, currentProject, currentPath, entryExists, instanceParams, reloadRootEntries]);
+	}, [dragTarget, canUpload, currentProject, currentPath, entryExists, instanceParams, queryClient, reloadRootEntries]);
 
 	const isFabricConnect = !!clusterId && authStore.checkForFabricConnect(clusterId);
 	const { getRootProps, getInputProps } = useDropzone({

@@ -2,7 +2,9 @@
  * @vitest-environment jsdom
  */
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const openedEntry: FileEntry = { name: 'index.js', path: 'my-app/index.js', project: 'my-app' } as FileEntry;
@@ -24,6 +26,10 @@ vi.mock('@/integrations/api/instance/applications/setComponentFile', () => ({ se
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { RenameFileModal } from './RenameFileModal';
+
+function renderWithQueryClient(ui: ReactElement) {
+	return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
+}
 
 beforeAll(() => {
 	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
@@ -53,7 +59,7 @@ function renameButton() {
 
 describe('RenameFileModal', () => {
 	it('stops the name at the 50 characters the form accepts, and says so there', () => {
-		render(<RenameFileModal />);
+		renderWithQueryClient(<RenameFileModal />);
 		const name = screen.getByLabelText('Name') as HTMLInputElement;
 		expect(name.maxLength).toBe(50);
 
@@ -62,7 +68,7 @@ describe('RenameFileModal', () => {
 	});
 
 	it('shows the reason when Enter is pressed, then clears it once the name is fixed', async () => {
-		render(<RenameFileModal />);
+		renderWithQueryClient(<RenameFileModal />);
 		await typeName('index(1).js');
 		await act(async () => {
 			fireEvent.keyDown(screen.getByLabelText('Name'), { key: 'Enter' });
@@ -78,7 +84,7 @@ describe('RenameFileModal', () => {
 	});
 
 	it('enables Rename after a single change, such as pasting a new name', async () => {
-		render(<RenameFileModal />);
+		renderWithQueryClient(<RenameFileModal />);
 		await typeName('renamed.js');
 
 		await waitFor(() => expect(renameButton().disabled).toBe(false));
@@ -93,7 +99,7 @@ describe('RenameFileModal', () => {
 		['the current name', 'index.js', 'Please enter a new name.'],
 		['only spaces', '   ', 'Please enter a valid name.'],
 	])('explains why %s is refused once the field is left', async (_, value, message) => {
-		render(<RenameFileModal />);
+		renderWithQueryClient(<RenameFileModal />);
 		await typeName('renamed.js');
 		await typeName(value);
 		expect(screen.queryByText(message)).toBeNull();

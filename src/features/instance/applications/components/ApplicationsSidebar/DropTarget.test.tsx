@@ -14,6 +14,7 @@
  */
 import { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -72,9 +73,11 @@ function mount() {
 		isSavingFile: false,
 	};
 	return render(
-		<EditorViewContext.Provider value={value}>
-			<DropTarget />
-		</EditorViewContext.Provider>,
+		<QueryClientProvider client={new QueryClient()}>
+			<EditorViewContext.Provider value={value}>
+				<DropTarget />
+			</EditorViewContext.Provider>
+		</QueryClientProvider>,
 	);
 }
 

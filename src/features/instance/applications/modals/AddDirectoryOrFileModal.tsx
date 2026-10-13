@@ -16,11 +16,13 @@ import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { forgetReplacedPath } from '@/features/instance/applications/lib/editorPathState';
 import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -44,7 +46,17 @@ export function AddDirectoryOrFileModal() {
 		setExpandedItems,
 	} = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
-	const { mutate: addFolderFile, isPending } = useSetComponentFile();
+	const queryClient = useQueryClient();
+	const { mutate: addFolderFile, isPending } = useSetComponentFile({
+		// Here rather than in `mutate()`'s `onSuccess`, which is dropped if the modal unmounts first. The
+		// instance comes from the request, since the page can have moved to another one by then.
+		onSuccess: (_data, { entityId, project, file, payload }) => {
+			if (payload !== undefined) {
+				// Whatever was kept for this path was a file that is gone: the one overwritten, or one deleted.
+				forgetReplacedPath(queryClient, entityId, `${project}/${file}`);
+			}
+		},
+	});
 	const NewFileFolderSchema = z.object({
 		name: z
 			.string()

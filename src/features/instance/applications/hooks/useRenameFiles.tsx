@@ -1,12 +1,18 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	copyEditorFileContent,
+	discardEditorFileContent,
+} from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { forgetReplacedPath, moveEditedPath } from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { pluralize } from '@/lib/pluralize';
 import { describeError } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
 
@@ -18,6 +24,7 @@ export function useRenameFiles() {
 	} = useEditorView();
 
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 
 	return useCallback(async (changes: { from: string; to: string }[]): Promise<boolean> => {
 		let canceled = false;
@@ -84,16 +91,26 @@ export function useRenameFiles() {
 					encoding: 'base64',
 					payload: fileContents.message,
 				});
+				forgetReplacedPath(queryClient, instanceParams.entityId, change.to);
 				if (canceled) {
 					break;
 				}
 				stepForward();
 
-				await dropComponent({
-					...instanceParams,
-					file: oldFile,
-					project: oldProject,
-				});
+				copyEditorFileContent(instanceParams.entityId, change.from, change.to);
+				try {
+					await dropComponent({
+						...instanceParams,
+						file: oldFile,
+						project: oldProject,
+					});
+				} catch (error) {
+					if (!isUnansweredWrite(error)) {
+						discardEditorFileContent(instanceParams.entityId, change.to);
+					}
+					throw error;
+				}
+				moveEditedPath(queryClient, instanceParams.entityId, change.from, change.to);
 				if (canceled) {
 					break;
 				}
@@ -167,5 +184,5 @@ export function useRenameFiles() {
 		// false when the user cancelled partway, so callers don't treat a partial
 		// move as a completed rename.
 		return currentStep >= totalSteps;
-	}, [instanceParams, reloadRootEntries, setFocusedItem, setSelectedItems]);
+	}, [instanceParams, queryClient, reloadRootEntries, setFocusedItem, setSelectedItems]);
 }

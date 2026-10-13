@@ -8,12 +8,17 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import {
+	getComponentFileQueryKey,
+	type GetComponentFileResponse,
+} from '@/integrations/api/instance/applications/getComponentFile';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
 import './monaco-customizations.css';
@@ -63,6 +68,7 @@ function lookupEditorShortcuts(editor: Parameters<OnMount>[0], ids: string[]): R
 
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile, rootEntries } =
 		useEditorView();
 	const { typeAcquisitionBudgetExhausted } = useApplicationTypeIntelligence(openedEntry, rootEntries);
@@ -71,7 +77,10 @@ export function TextEditorView() {
 		setContent,
 	} = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
+	// The text last typed, so a change of `value` can be told apart from typing.
+	const typed = useRef<string | undefined>(undefined);
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
+		typed.current = newValue;
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
 	}, [openedEntryContents, setContent]);
 
@@ -101,6 +110,31 @@ export function TextEditorView() {
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		setMounted([editor, monaco]);
 	}, []);
+
+	// When `value` changes to text nobody typed (the file was replaced while open, or moved edits landed
+	// on it), the library writes it into the model as an undoable edit, so Ctrl+Z and Save would put
+	// the replaced file back. `setValue` puts the same text in with no history.
+	const lastSeen = useRef<{ model: unknown; text: string } | undefined>(undefined);
+	useEffect(() => {
+		const model = mounted?.[0].getModel();
+		if (!model) {
+			return;
+		}
+		// Typing hands back the string `onChange` produced, so it needs no read of the model.
+		if (typed.current !== undefined && typed.current === fileContent) {
+			typed.current = undefined;
+			lastSeen.current = { model, text: fileContent };
+			return;
+		}
+		typed.current = undefined;
+		const seen = lastSeen.current?.model === model ? lastSeen.current : undefined;
+		const text = model.getValue();
+		if (seen && fileContent !== undefined && text === fileContent && seen.text !== fileContent) {
+			model.setValue(fileContent);
+			typed.current = undefined;
+		}
+		lastSeen.current = { model, text };
+	}, [mounted, fileContent]);
 
 	useEffect(() => {
 		if (mounted && canManageBrowseInstance && !openedEntry?.package && !restrictPackageModification) {
@@ -169,7 +203,19 @@ export function TextEditorView() {
 		return null;
 	}
 
-	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance;
+	// Monaco ignores an undefined `value` and keeps the model's last text, which typing would save here.
+	// The provider hands out contents an effect after the query changes, so for a render after the file
+	// is replaced they are still the old ones, while the query is already empty or reloaded.
+	const cached = queryClient.getQueryData<GetComponentFileResponse>(
+		getComponentFileQueryKey({
+			...instanceParams,
+			project: openedEntry.project,
+			file: openedEntry.path.split('/').slice(1).join('/'),
+		}),
+	);
+	const contentsBehind = updatedFileContent === undefined && cached?.message !== openedEntryContents;
+	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance || fileContent === undefined
+		|| contentsBehind;
 
 	// Surface either silent editor degradation as a dismissible notice. Oversized
 	// wins: the file is already plaintext, so the "cannot find module" wording
