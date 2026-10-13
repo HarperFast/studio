@@ -1,10 +1,10 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { NO_VERDICT_STATUSES } from '@/integrations/api/unansweredWrite';
 import { errorText } from '@/lib/errorText';
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AxiosError, isAxiosError } from 'axios';
+import { AxiosError } from 'axios';
 import { onAddCSVDataSubmit } from './addCSVData';
 import { type HarperJob, waitForJob } from './getJob';
+import { searchByIdInvalidationKey } from './getSearchById';
 import { insertTableRecords } from './insertTableRecords';
 
 export type ImportSource =
@@ -124,21 +124,13 @@ function settleQuietly(what: string, settle: () => void) {
 	}
 }
 
-/** describe_table sits under the prefix, and the database overview totals its counts. describe_all
- *  gains the table when the import created it. */
 function refreshImportedTable(
 	queryClient: QueryClient,
 	{ entityId, database, table }: Pick<ImportDataParams, 'entityId' | 'database' | 'table'>,
-	refetchNow: boolean,
 ) {
-	void queryClient.invalidateQueries({
-		queryKey: [entityId, database, table],
-		refetchType: refetchNow ? 'active' : 'none',
-	});
-	void queryClient.invalidateQueries({
-		queryKey: [entityId, 'describe_all'],
-		refetchType: refetchNow ? 'all' : 'none',
-	});
+	void queryClient.invalidateQueries({ queryKey: [entityId, database, table] });
+	void queryClient.invalidateQueries({ queryKey: searchByIdInvalidationKey(entityId, database, table) });
+	void queryClient.invalidateQueries({ queryKey: [entityId, 'describe_all'], refetchType: 'all' });
 }
 
 /**
@@ -154,32 +146,15 @@ export function awaitDatabaseMapRefresh(queryClient: QueryClient, entityId: Impo
 	);
 }
 
-/**
- * Any outcome can have changed the table: a job that ended in `ERROR` keeps the chunks `csv_url_load`
- * wrote before the failing one (harper `dataLayer/bulkLoad.ts`, `insertChunk`), and a refused load can
- * follow the `create_table` that made its table. But without a verdict (no response, or a 502/503/504)
- * re-reading now would fail the same way and stack its own error toasts on the import's, so the reads
- * are only marked stale.
- */
-function instanceAnswered(error: Error | null): boolean {
-	if (!isAxiosError(error)) {
-		return true;
-	}
-	const status = error.response?.status;
-	return status !== undefined && !NO_VERDICT_STATUSES.has(status);
-}
-
 export function useImportDataMutation() {
 	const queryClient = useQueryClient();
 	return useMutation<ImportDataResult, Error, ImportDataParams>({
 		mutationFn: importData,
 		onSuccess: (result, { progress }) => settleQuietly('Import progress listener', () => progress?.onSuccess(result)),
 		onError: (_error, { progress }) => settleQuietly('Import progress listener', () => progress?.onError()),
-		// Not awaited, so a slow re-read cannot hold the modal on "Importing…". See the databases DESIGN.md.
-		onSettled: (_result, error, params) =>
-			settleQuietly(
-				'Refreshing the imported table',
-				() => refreshImportedTable(queryClient, params, instanceAnswered(error)),
-			),
+		// After a failure too: any outcome can have written (see the databases DESIGN.md). Not awaited, so a
+		// slow re-read cannot hold the modal on "Importing…".
+		onSettled: (_result, _error, params) =>
+			settleQuietly('Refreshing the imported table', () => refreshImportedTable(queryClient, params)),
 	});
 }

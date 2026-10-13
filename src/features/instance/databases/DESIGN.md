@@ -106,7 +106,11 @@ It is not awaited. The import settles at the job's verdict, and the modal closes
 `resolveDatabasesRedirect` would send a table the import just created back to the overview. If that
 refetch fails, the old map stays and the redirect still happens, as it did before.
 
-A failed import refreshes too, because a CSV loaded from a URL that fails partway leaves its earlier
-chunks written. When the failure has no verdict (no response, or a 502/503/504), the reads are only
-marked stale rather than refetched: they would fail too and add their own error toasts, and the next
-mount, refocus or Refresh fetches them.
+A failed import refreshes too, because any outcome can have written. `csv_url_load` inserts chunk by
+chunk (harper `dataLayer/bulkLoad.ts`, `insertChunk`), so a load that fails partway keeps its earlier
+chunks, and a refused load can follow the `create_table` that made its table. A submission with no
+verdict is the strongest case: its toast says "Outcome unknown" and asks the user to check whether the
+import took effect (`isUnansweredWrite`). A central-manager 504 on a long insert that Harper went on to apply is one
+example, and only a re-read shows the answer. When the instance is really down, the re-reads fail
+too and add their own error toasts. That noise is cheaper than a stale grid inviting a retry that
+duplicates every record without an id.
