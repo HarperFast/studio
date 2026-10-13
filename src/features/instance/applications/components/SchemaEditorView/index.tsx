@@ -33,27 +33,35 @@ export function SchemaEditorView() {
 	const path = !!openedEntry && !openedEntry.package && openedEntry.path;
 	const { content: updatedFileContent, setContent } = useEditorFileContent(path);
 
-	// Seed the editor only from this file. Before its contents load (with no unsaved edits to show),
-	// an empty document would pass for an empty file: a table added then would replace the file on
-	// save, and the visual-or-text choice would be made from nothing.
-	if (!openedEntry || (openedEntryContents === undefined && updatedFileContent === undefined)) {
+	// Seed the editor only once this file's contents are known, unsaved edits or not. Until then, not
+	// loaded passes for empty: an emptied draft looks unchanged and is dropped, and a table added early
+	// replaces the file.
+	if (!openedEntry || openedEntryContents === undefined) {
 		return null;
 	}
-	return <LoadedSchemaEditorView updatedFileContent={updatedFileContent} setContent={setContent} />;
+	return (
+		<LoadedSchemaEditorView
+			savedContents={openedEntryContents}
+			updatedFileContent={updatedFileContent}
+			setContent={setContent}
+		/>
+	);
 }
 
 function LoadedSchemaEditorView({
+	savedContents,
 	updatedFileContent,
 	setContent,
 }: {
+	savedContents: string;
 	updatedFileContent: string | undefined;
 	setContent: (content: string | undefined) => void;
 }) {
-	const { openedEntry, openedEntryContents, isSavingFile, saveFile } = useEditorView();
+	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
 
-	const buffer = updatedFileContent ?? openedEntryContents ?? '';
+	const buffer = updatedFileContent ?? savedContents;
 
 	const readOnly = !!openedEntry?.package || !canManage;
 	const canUseVisual = useMemo(
@@ -65,17 +73,15 @@ function LoadedSchemaEditorView({
 	const [showSource, setShowSource] = useState(() => !canUseVisual);
 	const [pendingAddTable, setPendingAddTable] = useState(false);
 
-	// Re-derive the doc from the buffer when we return from the text editor, and when the saved
-	// content changes (a save lands, or it is refetched) under a doc with no edits of its own. Edits
-	// made while a save was in flight are newer than what it saved, so they stay. Not on
-	// `updatedFileContent`, so our own visual edits don't trigger a re-parse that would discard them.
-	// Done during render: from an effect the new doc landed a render late, and the buffer sync below
-	// ran in between with the old doc against the new contents, writing that old doc into the buffer.
-	const [derivedFrom, setDerivedFrom] = useState({ openedEntryContents, showSource });
-	if (derivedFrom.openedEntryContents !== openedEntryContents || derivedFrom.showSource !== showSource) {
-		setDerivedFrom({ openedEntryContents, showSource });
-		const keepEdits = !derivedFrom.showSource
-			&& serializeSchema(doc) !== (derivedFrom.openedEntryContents ?? '');
+	// Re-derive the doc from the buffer on return from the text editor, and when the saved contents
+	// change (a save lands, or a refetch) under a doc with no edits of its own: edits made during a
+	// save are newer than it. Not on `updatedFileContent`, or our own visual edits would be re-parsed
+	// away. During render, because from an effect the buffer sync below ran once in between, with the
+	// old doc against the new contents, and wrote the old doc into the buffer.
+	const [derivedFrom, setDerivedFrom] = useState({ savedContents, showSource });
+	if (derivedFrom.savedContents !== savedContents || derivedFrom.showSource !== showSource) {
+		setDerivedFrom({ savedContents, showSource });
+		const keepEdits = !derivedFrom.showSource && serializeSchema(doc) !== derivedFrom.savedContents;
 		if (!showSource && !keepEdits) {
 			dispatch({ type: 'reset', source: buffer });
 			if (pendingAddTable) {
@@ -93,16 +99,15 @@ function LoadedSchemaEditorView({
 		if (showSource || readOnly) {
 			return;
 		}
-		setContent(serialized === (openedEntryContents ?? '') ? undefined : serialized);
-	}, [serialized, showSource, readOnly, openedEntryContents, setContent]);
+		setContent(serialized === savedContents ? undefined : serialized);
+	}, [serialized, showSource, readOnly, savedContents, setContent]);
 
 	useListener(
 		'SaveFile',
 		() => {
-			// Save the schema on screen, and only when it differs from the saved file. The buffer can't
-			// decide either: it is shared through session storage with other subscribers, and a value one
-			// of them echoes back can trail the edits shown.
-			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === (openedEntryContents ?? '')) {
+			// The schema on screen decides, not the buffer: another subscriber to the buffer can echo
+			// back a value that trails the edits shown.
+			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === savedContents) {
 				return;
 			}
 			// Never write a schema the visual editor knows is invalid — it would break
@@ -120,7 +125,7 @@ function LoadedSchemaEditorView({
 				openedEntry.path,
 			);
 		},
-		[showSource, readOnly, openedEntry, openedEntryContents, instanceParams, isSavingFile, doc, serialized],
+		[showSource, readOnly, openedEntry, savedContents, instanceParams, isSavingFile, doc, serialized],
 	);
 
 	useListener(
@@ -130,9 +135,9 @@ function LoadedSchemaEditorView({
 				return;
 			}
 			setContent(undefined);
-			dispatch({ type: 'reset', source: openedEntryContents ?? '' });
+			dispatch({ type: 'reset', source: savedContents });
 		},
-		[showSource, openedEntryContents, setContent],
+		[showSource, savedContents, setContent],
 	);
 
 	useListener(

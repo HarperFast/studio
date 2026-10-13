@@ -16,9 +16,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 const server = vi.hoisted(() => {
 	const state = {
 		files: {} as Record<string, string>,
-		/** While set, file reads wait on it, so a test can look at the editor before contents arrive. */
 		pendingRead: undefined as Promise<void> | undefined,
-		/** While set, file writes wait on it, so a test can act while a save is in flight. */
 		pendingWrite: undefined as Promise<void> | undefined,
 		saves: [] as Array<{ file: string; payload: string | undefined }>,
 	};
@@ -57,7 +55,7 @@ vi.mock('@tanstack/react-router', () => {
 	const params = { instanceId: 'instance-1' };
 	return { useNavigate: () => navigate, useSearch: () => search, useParams: () => params };
 });
-// A textarea that edits and saves the shared buffer the way the Monaco editor does.
+// Edits and saves the buffer the way the Monaco-based editor does.
 vi.mock('@/features/instance/applications/components/TextEditorView', async () => {
 	const { useEditorView } = await import('@/features/instance/applications/hooks/useEditorView');
 	const { useEditorFileContent } = await import('@/features/instance/applications/context/editorFileContent');
@@ -130,7 +128,6 @@ function renderEditor() {
 	);
 }
 
-/** Open `entry` and wait for `loaded` to show, as text or (`'source'`) in the text editor. */
 async function openEntry(
 	entry: DirectoryEntry | FileEntry,
 	loaded: string | RegExp,
@@ -140,10 +137,7 @@ async function openEntry(
 	await (where === 'source' ? screen.findByDisplayValue(loaded) : screen.findByText(loaded));
 }
 
-/**
- * Watch `path`'s unsaved-content buffer in session storage: `stored()` is every value written to it since,
- * and `removed()` counts the clears (which every subscriber also issues, harmlessly, when it mounts clean).
- */
+// Clears are counted apart from writes: every subscriber also clears the key, harmlessly, when it mounts clean.
 function watchBuffer(path: string) {
 	const setItem = vi.spyOn(Storage.prototype, 'setItem');
 	const removeItem = vi.spyOn(Storage.prototype, 'removeItem');
@@ -262,6 +256,21 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 
 		expect(screen.getByLabelText<HTMLTextAreaElement>('Source').value).toContain('type Broken');
 		expect(screen.queryByText(/This file has other content/)).toBeNull();
+	});
+
+	it('reopens a schema emptied but not saved as empty', async () => {
+		renderEditor();
+		await openEntry(dogSchema, 'Dog');
+		fireEvent.click(screen.getByRole('button', { name: /edit as text/i }));
+		fireEvent.change(screen.getByLabelText('Source'), { target: { value: '' } });
+		expect(buffered(dogSchema.path)).toBe('');
+		await openEntry(schemasFolder, /Your schemas are defined in/);
+
+		await openEntry(dogSchema, 'No tables yet.');
+		await act(async () => {});
+
+		expect(screen.queryByText('Dog')).toBeNull();
+		expect(buffered(dogSchema.path)).toBe('');
 	});
 
 	it('takes in refetched contents without writing the old schema into the buffer', async () => {
