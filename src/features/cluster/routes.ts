@@ -8,6 +8,7 @@ import { clusterLayoutRoute } from './clusterLayoutRoute';
 import { DomainsPage } from './domains/Page';
 import { FinishSetup } from './FinishSetup';
 import { Instances } from './Instances';
+import { redirectAwayFromDeletedCluster } from './redirectAwayFromDeletedCluster';
 import { Scaling } from './Scaling';
 import { StartingUp } from './StartingUp';
 import { UsagePage } from './usage/Page';
@@ -16,6 +17,7 @@ const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instances',
 	head: () => ({ meta: [{ title: 'Instances — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: Instances,
 });
 
@@ -30,6 +32,7 @@ const clusterScalingRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'scaling',
 	head: () => ({ meta: [{ title: 'Scaling — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: Scaling,
 });
 
@@ -37,6 +40,7 @@ const clusterDomainsRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'domains',
 	head: () => ({ meta: [{ title: 'Domains — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: DomainsPage,
 });
 

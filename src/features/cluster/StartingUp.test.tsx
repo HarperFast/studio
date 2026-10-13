@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({
+	Link: ({ to, children }: { to: string; children?: React.ReactNode }) => <a href={to}>{children}</a>,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 	useRouter: () => ({ navigate: vi.fn() }),
 }));
@@ -50,5 +51,31 @@ describe('StartingUp', () => {
 		mount();
 		await waitFor(() => screen.getByText('Here we go!'));
 		expect(screen.getByText('Waiting to sync data')).toBeTruthy();
+	});
+
+	it('says a terminated cluster is gone instead of waiting on it to start', async () => {
+		respond = async () => ({
+			id: 'clu-1',
+			name: 'prod-east',
+			organizationId: 'org-1',
+			status: 'TERMINATED',
+			instances: [],
+		});
+		mount();
+		await waitFor(() => screen.getByRole('heading', { name: 'Cluster Terminated' }));
+		expect(screen.queryByText('Here we go!')).toBeNull();
+	});
+
+	it('still offers Try Again for a failed build central manager rolled back (FAILED with terminatedAt)', async () => {
+		respond = async () => ({
+			id: 'clu-1',
+			organizationId: 'org-1',
+			status: 'FAILED',
+			terminatedAt: '2026-10-12T00:00:00.000Z',
+			instances: [],
+		});
+		mount();
+		await waitFor(() => screen.getByRole('button', { name: 'Try Again' }));
+		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
 	});
 });
