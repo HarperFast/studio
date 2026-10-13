@@ -87,16 +87,20 @@ go first because a select that starts with `'*'` is dropped on a schema-defined 
 
 The JSON is read as text and parsed with [`parseJsonKeepingLargeIntegers`](functions/tableCsv.ts).
 Harper writes a `BigInt` as bare digits, which `JSON.parse` rounds and Harper's CSV didn't. So before
-the parse, each integer literal outside a string that a double can't hold is quoted, and it reads as
-a string of its digits. Its cell is then quoted, as 5.3.2's writer quotes a `BigInt`. Inside an array
-or object cell it is a JSON string. This needs nothing of the browser, unlike a `JSON.parse` reviver
-reading the source text.
+the parse, each integer literal outside a string whose digits a double would change is quoted, and
+it reads as a string of its digits. Its cell is then quoted, as 5.3.2's writer quotes a `BigInt`. A
+double Harper wrote as integer digits (`1e17` as `100000000000000000`) parses back to the same digits,
+so it stays a number. Inside an array or object cell a quoted integer is a JSON string. Import can't
+do better with bare digits there: it reads such a cell with `JSON.parse` (`autoCastJSON`,
+`utility/common_utils.ts:190-203`), which would round them. This needs nothing of the browser, unlike
+a `JSON.parse` reviver reading the source text.
 
 The export costs more memory than the `text/csv` answer did, which was one string the size of the
 file. The header can't be written until every record has been read, so the whole result is parsed at
-once: one request of up to 1,000,000 records. The response text is dropped once parsed, and the file
-is written into `Blob` parts of at most 10,000 rows or 16M characters, each part's records let go as
-it's written. So the peak is the JSON text plus the parsed records. For 500,000 records of `Thing`'s
+once: one request of up to 1,000,000 records. The response text is dropped once parsed (a body with
+such an integer is copied once more to quote it), and the file is written into `Blob` parts of
+10,000 rows, or fewer once a part passes 16M characters, each part's records let go as it's
+written. So the peak is the JSON text plus the parsed records. For 500,000 records of `Thing`'s
 ten columns that was about 355MB of heap (78M characters of JSON, 277MB of records), for a 46MB file,
 in Node 24. The JSON text is also one string, and longer than the CSV was, so the largest result that
 can be exported is smaller than before. Paging the read would bound both, at the cost of two reads
