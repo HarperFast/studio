@@ -120,13 +120,17 @@ describe('PromoCodesAdminIndex', () => {
 		expect(writeText).toHaveBeenCalledWith('DEMO-CREDIT-100');
 	});
 
-	it('opens who redeemed a code from its count, and offers nothing to open for an unredeemed one', async () => {
+	it('expands a code’s row to show who redeemed it, and has nothing to expand for an unredeemed one', async () => {
 		granted = ['billing:read'];
 		codes = [code({ id: 'USED-CODE1', redemptions: 2 }), code({ id: 'FRESH-CODE1', redemptions: 0 })];
 		renderPage();
-		fireEvent.click(await screen.findByRole('button', { name: 'See who redeemed USED-CODE1' }));
-		expect(await screen.findByRole('dialog')).toBeTruthy();
-		expect(screen.getByText('Redemptions of')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'See who redeemed FRESH-CODE1' })).toBeNull();
+		const toggle = await screen.findByRole('button', { name: 'Show redemptions of USED-CODE1' });
+		fireEvent.click(toggle);
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(await screen.findByText('No organization has redeemed this code yet.')).toBeTruthy();
+		expect(screen.queryByRole('dialog')).toBeNull();
+		fireEvent.click(screen.getByRole('button', { name: 'Hide redemptions of USED-CODE1' }));
+		expect(screen.queryByText('No organization has redeemed this code yet.')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Show redemptions of FRESH-CODE1' }).hasAttribute('disabled')).toBe(true);
 	});
 });
