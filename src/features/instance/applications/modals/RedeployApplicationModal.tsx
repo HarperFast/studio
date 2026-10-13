@@ -33,7 +33,13 @@ import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { deployNotes, reportDeployOutcome, reportDeployResult, reportStaged } from './reportDeployHealth';
+import {
+	deployFailureTitle,
+	deployNotes,
+	reportDeployOutcome,
+	reportDeployResult,
+	reportStaged,
+} from './reportDeployHealth';
 
 export function RedeployApplicationModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRedeployApplicationModal', false);
@@ -148,7 +154,7 @@ export function RedeployApplicationModal() {
 				}
 				const title = rolloutFailed
 					? `${project} did not reach every node`
-					: redeployFailureTitle(error, project, stage);
+					: deployFailureTitle(error, project, stage ? 'stage' : 'redeploy');
 				toast.error(title, { description: message, action: recordAction(deployFailureDetails(error).deploymentId) });
 				return;
 			}
@@ -210,7 +216,7 @@ export function RedeployApplicationModal() {
 					// It may have deployed, so the list the message says to check must be current.
 					invalidateComponents();
 				}
-				toast.error(redeployFailureTitle(error, project, stage), {
+				toast.error(deployFailureTitle(error, project, stage ? 'stage' : 'redeploy'), {
 					id: toastId,
 					description: describeError(error).message,
 					action,
@@ -364,12 +370,4 @@ export function RedeployApplicationModal() {
 			</DialogContent>
 		</Dialog>
 	);
-}
-
-/** Never "Failed" for a deploy that got no verdict: it may be live, and the message says to check first. */
-function redeployFailureTitle(error: unknown, project: string, stage: boolean): string {
-	if (isUnansweredWrite(error)) {
-		return `Couldn't confirm ${project} was ${stage ? 'staged' : 'redeployed'}`;
-	}
-	return `Failed to ${stage ? 'stage' : 'redeploy'} ${project}`;
 }
