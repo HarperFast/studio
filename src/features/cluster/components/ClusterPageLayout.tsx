@@ -1,5 +1,6 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
+import { isDeletedCluster } from '@/config/clusterStatuses';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -14,6 +15,7 @@ import { ReactNode } from 'react';
  * same responsive sub-nav rail as the org page so those sections persist across them. The in-cluster
  * studio (apps, databases, …) keeps its own top nav — this rail is the cluster-settings level. Items
  * are gated by cluster permissions (scaling/domains require manage; domains also hides for self-managed).
+ * A terminated cluster keeps only Overview and, when managed, Usage (see DESIGN.md).
  */
 export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	const { organizationId, clusterId } = useParams({ strict: false }) as {
@@ -23,6 +25,7 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	const { view, update } = useOrganizationClusterPermissions(organizationId, clusterId);
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
 	const selfManaged = cluster ? clusterIsSelfManaged(cluster) : false;
+	const live = !isDeletedCluster(cluster);
 	const base = `/${organizationId}/${clusterId}`;
 
 	const items = [
@@ -34,10 +37,15 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		// Version"), not the /scaling update-progress screen. Both are exact so /edit/version doesn't
 		// also light up Scaling (/edit). Self-hosted clusters don't scale from here — their editor
 		// only holds registration details, so the item reads "Configuration" instead.
-		update && { to: `${base}/edit`, label: selfManaged ? 'Configuration' : 'Scaling', icon: GaugeIcon, exact: true },
-		update && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
-		update && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
-		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
+		update && live && {
+			to: `${base}/edit`,
+			label: selfManaged ? 'Configuration' : 'Scaling',
+			icon: GaugeIcon,
+			exact: true,
+		},
+		update && live && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
+		update && live && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
+		view && live && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
 	].filter(Boolean) as SubNavItem[];
 
 	return (

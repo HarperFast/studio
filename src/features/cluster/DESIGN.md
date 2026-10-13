@@ -59,6 +59,30 @@ The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING`
 non-admin on a new cluster lands on that message instead of a dead card
 ([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
 
+## A terminated cluster keeps only its overview and usage
+
+Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`
+([`clusterStatuses.ts`](../../config/clusterStatuses.ts)) is the one test for "gone": `TERMINATING`, `TERMINATED` or
+`REMOVED`, or `FAILED` with `terminatedAt` (a first build that was rolled back). For such a cluster the overview says it
+is gone, and the cluster rail ([`ClusterPageLayout`](components/ClusterPageLayout.tsx)) keeps only Overview, plus Usage
+on a managed cluster (a self-hosted one never shows Usage). Scaling (Configuration when self-hosted), Version, Domains
+and Instances are hidden, the same way the rail already hides what a member's permissions don't allow. A bookmark to one
+of those pages, or to the `/scaling` update screen, redirects to the overview (`redirectAwayFromDeletedCluster`).
+Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for `FAILED`
+first, so a rolled-back build still offers Try Again.
+
+None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
+that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left
+to unbind under Domains: once the instances are torn down, `deleteCluster` sets `clusterId` to null on each of the
+cluster's domains, so the organization can bind them to another cluster or delete them
+([`deleteCluster.js#L133-L141`](https://github.com/HarperFast/central-manager/blob/642af5eadfde95cf174d73d04cec468abaf006f2/src/resources/cluster/deleteCluster.js#L133-L141)).
+It leaves the cluster's own `domainIds` in place, so a terminated cluster's `domains` still lists them, though none is
+bound to it any more.
+
+That unbind is best-effort and runs after the teardown is committed, so a failure is only logged. A domain it missed
+stays bound to the dead cluster, and only support can release it: `DELETE /Domain` refuses a bound domain, and the
+cluster can no longer change.
+
 ## Custom domains: cert intent is cluster-wide, and certificate progress is polled
 
 `generateDomainCerts` is one flag for the whole cluster. Central manager reads an absent flag on a `domainIds` edit as
