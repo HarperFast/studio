@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigDeploymentsIndex } from './index';
 
@@ -10,10 +11,13 @@ const state = vi.hoisted(() => ({
 	listEnabled: [] as (boolean | undefined)[],
 	listParams: [] as Record<string, unknown>[],
 	listData: undefined as { deployments: object[]; total: number } | undefined,
+	historyParams: [] as Record<string, unknown>[],
+	historyData: undefined as { deployments: object[]; total: number } | undefined,
 	search: {} as Record<string, unknown>,
 	navigate: vi.fn(),
 }));
 vi.mock('@tanstack/react-router', () => ({
+	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
 	useNavigate: () => state.navigate,
 	useParams: () => ({}),
 	useSearch: () => state.search,
@@ -29,7 +33,17 @@ vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 	}),
 }));
 vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
-	getDeploymentsQueryOptions: (params: { enabled?: boolean }) => {
+	getDeploymentsQueryOptions: (params: { enabled?: boolean; limit?: number }) => {
+		// The page asks for a page; what became of a staged record is asked of the component's whole history.
+		if (params.limit === undefined) {
+			state.historyParams.push(params);
+			return {
+				queryKey: ['history', params],
+				queryFn: () => ({ deployments: [], total: 0 }),
+				enabled: false,
+				...(state.historyData ? { initialData: state.historyData } : {}),
+			};
+		}
 		state.listEnabled.push(params.enabled);
 		state.listParams.push(params);
 		return {
@@ -49,6 +63,8 @@ afterEach(() => {
 	state.listEnabled = [];
 	state.listParams = [];
 	state.listData = undefined;
+	state.historyParams = [];
+	state.historyData = undefined;
 	state.search = {};
 	state.navigate.mockClear();
 });
@@ -161,17 +177,48 @@ describe('ConfigDeploymentsIndex filters and paging', () => {
 		expect(screen.getByText('No deployments match these filters.')).toBeTruthy();
 	});
 
-	it('shows a staged release as waiting, and an activation by the release it made live', () => {
+	it('shows a staged release nothing activated as waiting, and an activation by the release it made live', () => {
 		state.listData = {
 			deployments: [
 				row('a1b2c3d4-0000-4000-8000-000000000001', { status: 'staged', package_identifier: 'npm:web@2.0.0' }),
-				row('e5f6a7b8-0000-4000-8000-000000000002', { activated_from: 'a1b2c3d4-0000-4000-8000-000000000001' }),
+				row('e5f6a7b8-0000-4000-8000-000000000002', { activated_from: 'ffffffff-0000-4000-8000-000000000009' }),
+			],
+			total: 2,
+		};
+		state.historyData = state.listData;
+		renderPage('5.3.0');
+		expect(screen.getByText('waiting to be activated')).toBeTruthy();
+		expect(screen.getByText('npm:web@2.0.0')).toBeTruthy();
+		expect(screen.getByText('Activation of ffffffff')).toBeTruthy();
+	});
+
+	// Harper never rewrites a staged record; its activation is a record of its own that may be on another page.
+	it('shows an activated staged release as live by its activation, found in the history rather than on this page', () => {
+		state.search = { status: 'staged' };
+		const staged = row('4ac92da3-d8a0-423e-b145-5df107957dd4', { status: 'staged', started_at: 100 });
+		state.listData = { deployments: [staged], total: 1 };
+		state.historyData = {
+			deployments: [
+				row('5c12b89e-0000-4000-8000-000000000002', {
+					started_at: 200,
+					activated_from: staged.deployment_id,
+				}),
+				staged,
 			],
 			total: 2,
 		};
 		renderPage('5.3.0');
-		expect(screen.getByText('waiting to be activated')).toBeTruthy();
-		expect(screen.getByText('npm:web@2.0.0')).toBeTruthy();
-		expect(screen.getByText('Activation of a1b2c3d4')).toBeTruthy();
+		expect(state.historyParams.at(-1)).toMatchObject({ project: 'web', since: 100 });
+		expect(state.historyParams.at(-1)?.status).toBeUndefined();
+		expect(screen.queryByText('waiting to be activated')).toBeNull();
+		expect(screen.getByText(/live, activated by/).textContent).toBe('live, activated by 5c12b89e');
+		expect(screen.getByRole('link', { name: '5c12b89e' }).getAttribute('href'))
+			.toContain('config/deployments/5c12b89e-0000-4000-8000-000000000002');
+	});
+
+	it('asks no history when the page holds no staged record', () => {
+		state.listData = { deployments: [row('e5f6a7b8-0000-4000-8000-000000000002')], total: 1 };
+		renderPage('5.3.0');
+		expect(state.historyParams).toEqual([]);
 	});
 });

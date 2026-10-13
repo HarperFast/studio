@@ -2,15 +2,21 @@ import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { DeploymentStatusBadge } from '../components/deploymentStatusBadge';
+import { StagedReleaseNote } from '../components/StagedReleaseNote';
 import { deploymentSource, shortDeploymentId } from '../functions/deploymentSource';
+import { StagedReleaseState } from '../functions/stagedRelease';
 
-const columnHelper = createColumnHelper<Deployment>();
+export interface DeploymentRow extends Deployment {
+	release?: StagedReleaseState;
+}
+
+const columnHelper = createColumnHelper<DeploymentRow>();
 
 function ago(ms?: number) {
 	return ms ? translateSecondsToAgo((Date.now() - ms) / 1000, ms) : '—';
 }
 
-export const deploymentColumns: Array<ColumnDef<Deployment>> = [
+export const deploymentColumns: Array<ColumnDef<DeploymentRow>> = [
 	columnHelper.display({
 		header: 'Deployment',
 		id: 'deployment_id',
@@ -33,9 +39,7 @@ export const deploymentColumns: Array<ColumnDef<Deployment>> = [
 		cell: (props) => (
 			<span className="flex flex-wrap items-center gap-1">
 				<DeploymentStatusBadge status={props.row.original.status} />
-				{props.row.original.status === 'staged' && (
-					<span className="text-xs text-muted-foreground">waiting to be activated</span>
-				)}
+				{props.row.original.status === 'staged' && <StagedReleaseNote release={props.row.original.release} />}
 			</span>
 		),
 	}),

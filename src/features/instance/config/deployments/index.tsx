@@ -10,7 +10,7 @@ import {
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
-import { Deployment, DeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { Row } from '@/lib/table';
 import { useQuery } from '@tanstack/react-query';
@@ -18,8 +18,9 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DEPLOYMENT_STATUS_LABEL } from './components/deploymentStatusBadge';
-import { deploymentColumns } from './constants/tableDefinition';
+import { deploymentColumns, DeploymentRow } from './constants/tableDefinition';
 import { DEPLOYMENTS_PAGE_SIZE, DeploymentsSearch, filterableStatuses } from './deploymentsSearch';
+import { useStagedReleases } from './hooks/useStagedReleases';
 import { DeploymentDetailModal } from './modals/DeploymentDetailModal';
 
 const ALL_STATUSES = 'all';
@@ -63,6 +64,16 @@ export function ConfigDeploymentsIndex() {
 		}),
 	);
 	const deployments = useMemo(() => data?.deployments ?? [], [data]);
+	const releases = useStagedReleases(deployments);
+	const rows = useMemo<DeploymentRow[]>(
+		() =>
+			deployments.map((deployment) =>
+				releases.has(deployment.deployment_id)
+					? { ...deployment, release: releases.get(deployment.deployment_id) }
+					: deployment
+			),
+		[deployments, releases],
+	);
 	const total = data?.total ?? 0;
 	const firstShown = total === 0 ? 0 : (page - 1) * DEPLOYMENTS_PAGE_SIZE + 1;
 	const lastShown = Math.min(total, (page - 1) * DEPLOYMENTS_PAGE_SIZE + deployments.length);
@@ -91,7 +102,7 @@ export function ConfigDeploymentsIndex() {
 		},
 		[deploymentId, navigate],
 	);
-	const onRowClick = useCallback((row: Row<Deployment>) => onSelect(row.original.deployment_id), [onSelect]);
+	const onRowClick = useCallback((row: Row<DeploymentRow>) => onSelect(row.original.deployment_id), [onSelect]);
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
 	const onRefreshClick = useRefreshClick(refetch);
 	const projectInput = useRef<HTMLInputElement>(null);
@@ -120,8 +131,8 @@ export function ConfigDeploymentsIndex() {
 
 	return (
 		<>
-			<SimpleBrowseDataTable<Deployment>
-				data={deployments}
+			<SimpleBrowseDataTable<DeploymentRow>
+				data={rows}
 				isFetching={isFetching || isRefetching || (!versionKnown && !versionUnavailable)}
 				columns={deploymentColumns}
 				onRowClick={onRowClick}

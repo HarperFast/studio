@@ -36,7 +36,25 @@ export function activationMutationKey(entityId: string | undefined, deploymentId
 	return ['activate_deployment', entityId, deploymentId] as const;
 }
 
-export function ActivateStagedRelease({ deployment }: { deployment: Deployment }) {
+/** `rollback`: a later deploy replaced this release. `again`: a deploy failed, so it may not be live everywhere. */
+type ActivationIntent = 'activate' | 'rollback' | 'again';
+
+const BUTTON_LABEL: Record<ActivationIntent, string> = {
+	activate: 'Activate',
+	rollback: 'Roll back to this release',
+	again: 'Activate again',
+};
+
+export function ActivateStagedRelease({
+	deployment,
+	intent = 'activate',
+	offer = true,
+}: {
+	deployment: Deployment;
+	intent?: ActivationIntent;
+	/** Whether the records say it is worth offering. The progress of an activation started here shows either way. */
+	offer?: boolean;
+}) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const sseDeploy = useSupportsDeploymentSSE();
@@ -114,16 +132,25 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 		return null;
 	}
 
+	// What this activation showed here outranks the records until they catch up, and where they cannot: the record
+	// reads `success` before the rolling restart reaches the other nodes, and after it fails there.
+	const lifecycle = started ? stream.state.lifecycle : 'idle';
+	const retry = lifecycle === 'error' || lifecycle === 'inconclusive';
+	const showButton = isPending || retry || (offer && lifecycle !== 'success');
+	const shownIntent = retry && !offer ? 'again' : intent;
+
 	return (
 		<>
-			<Button
-				variant="positiveOutline"
-				className="self-start"
-				onClick={() => setConfirming(true)}
-				disabled={isPending}
-			>
-				<RocketIcon /> {isPending ? 'Activating…' : 'Activate'}
-			</Button>
+			{showButton && (
+				<Button
+					variant="positiveOutline"
+					className="self-start"
+					onClick={() => setConfirming(true)}
+					disabled={isPending}
+				>
+					<RocketIcon /> {isPending ? 'Activating…' : BUTTON_LABEL[shownIntent]}
+				</Button>
+			)}
 			{started && (
 				<>
 					<Separator />
@@ -133,16 +160,33 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Activate this release of {project}?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{shownIntent === 'rollback'
+								? `Roll ${project} back to this release?`
+								: `Activate this release of ${project}${shownIntent === 'again' ? ' again' : ''}?`}
+						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Deployment <span className="font-mono">{deploymentId}</span>{' '}
-							goes live on every node, which restart one at a time. Nothing is installed: each node swaps in the release
-							it staged.
+							{shownIntent === 'rollback'
+								? (
+									<>
+										Deployment <span className="font-mono">{deploymentId}</span>{' '}
+										goes live again on every node, which restart one at a time. Nothing is installed: each node swaps
+										back the copy it kept when this release was replaced. A node that no longer keeps it refuses.
+									</>
+								)
+								: (
+									<>
+										Deployment <span className="font-mono">{deploymentId}</span>{' '}
+										goes live on every node, which restart one at a time. Nothing is installed: each node swaps in the
+										release it staged.{shownIntent === 'again'
+											&& ' A node already running it restarts without changing anything.'}
+									</>
+								)}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void activate()}>Activate</AlertDialogAction>
+						<AlertDialogAction onClick={() => void activate()}>{BUTTON_LABEL[shownIntent]}</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>

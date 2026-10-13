@@ -8,7 +8,15 @@ import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applic
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
 import { Link, useParams } from '@tanstack/react-router';
-import { CheckIcon, CircleDashedIcon, Loader2Icon, ShieldCheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import {
+	CheckIcon,
+	CircleDashedIcon,
+	CircleMinusIcon,
+	Loader2Icon,
+	ShieldCheckIcon,
+	TriangleAlertIcon,
+	XIcon,
+} from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { DeployFailure } from './DeployFailure';
 import {
@@ -28,7 +36,28 @@ const PHASE_LABELS: Record<string, string> = {
 	staged: 'Staged',
 };
 
-function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boolean }) {
+/**
+ * Phases Harper passed over: it sent nothing for them, and a later phase has already reported. Harper sends no
+ * Load when it skips the validation load (harper `components/operations.js:467-473`, v5.3.2) and no Restart for a
+ * deploy that does not restart (`operations.js:992-1013`), so drawing those as pending says they are still to come.
+ */
+function skippedPhases(order: readonly string[], phases: Record<string, PhaseStatus>): Set<string> {
+	const skipped = new Set<string>();
+	let laterReported = false;
+	for (let i = order.length - 1; i >= 0; i--) {
+		if (phases[order[i]]) {
+			laterReported = true;
+		} else if (laterReported) {
+			skipped.add(order[i]);
+		}
+	}
+	return skipped;
+}
+
+function PhaseIcon({ status, isCurrent, skipped }: { status?: PhaseStatus; isCurrent: boolean; skipped: boolean }) {
+	if (skipped) {
+		return <CircleMinusIcon className="size-4 text-muted-foreground" />;
+	}
 	if (status === 'done') {
 		return <CheckIcon className="size-4 text-success" />;
 	}
@@ -60,19 +89,23 @@ export function DeployProgress({
 	}, [state.installLog.length]);
 
 	const phasesFailed = state.lifecycle === 'error';
+	const phaseOrder = staging ? STAGE_PHASE_ORDER : DEPLOY_PHASE_ORDER;
+	const skipped = skippedPhases(phaseOrder, state.phases);
 
 	return (
 		<div className="flex flex-col gap-4">
 			<ol className="flex flex-col gap-2">
-				{(staging ? STAGE_PHASE_ORDER : DEPLOY_PHASE_ORDER).map((phase) => {
+				{phaseOrder.map((phase) => {
 					const status = state.phases[phase];
 					const isCurrent = state.currentPhase === phase && status !== 'done';
+					const isSkipped = skipped.has(phase);
 					return (
 						<li key={phase} className="flex items-center gap-2 text-sm">
-							<PhaseIcon status={status} isCurrent={isCurrent} />
+							<PhaseIcon status={status} isCurrent={isCurrent} skipped={isSkipped} />
 							<span className={cn(status ? 'text-foreground' : 'text-muted-foreground')}>
 								{PHASE_LABELS[phase] ?? phase}
 							</span>
+							{isSkipped && <span className="text-xs text-muted-foreground">skipped</span>}
 						</li>
 					);
 				})}

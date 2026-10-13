@@ -16,8 +16,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { describePeerInstall } from '../functions/describePeerInstall';
-import { ActivateStagedRelease } from './ActivateStagedRelease';
 import { DeploymentStatusBadge } from './deploymentStatusBadge';
+import { StagedReleaseDetail } from './StagedReleaseDetail';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
 	if (value === undefined || value === null || value === '') {
@@ -140,14 +140,7 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 				/>
 			</div>
 
-			{deployment.status === 'staged' && (
-				<>
-					<div className="text-sm text-muted-foreground">
-						Staged: built and installed, but not live. Activating it makes it live with nothing to install.
-					</div>
-					<ActivateStagedRelease deployment={deployment} />
-				</>
-			)}
+			{deployment.status === 'staged' && <StagedReleaseDetail deployment={deployment} />}
 
 			{showLiveProgress && (
 				<>
