@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { apiClient } from '@/config/apiClient';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { ApiAccessSettings } from '@/features/organization/settings/ApiAccessSettings';
+import { SettingsSection } from '@/features/organization/settings/SettingsSection';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { writeToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
@@ -22,7 +24,7 @@ import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { CopyIcon, ExternalLinkIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react';
+import { CopyIcon, ExternalLinkIcon, LinkIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -170,22 +172,33 @@ export function OrgSettingsIndex() {
 		<>
 			<SubNavMenu />
 			<OrgPageLayout>
-				<div className="max-w-2xl">
-					<h2 className="text-2xl text-foreground font-light mb-6">Authentication</h2>
+				<div className="max-w-5xl space-y-6 pb-12">
+					<div>
+						<h2 className="text-2xl text-foreground font-light">Authentication</h2>
+						<p className="text-sm text-muted-foreground">
+							Manage sign-in methods and API access for your organization.
+						</p>
+					</div>
 
-					<section>
-						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg text-foreground font-medium">OAuth Providers</h3>
-							{!isAdding && (
-								<Button variant="positiveOutline" size="sm" onClick={() => setIsAdding(true)}>
-									<PlusIcon />
-									Add Provider
-								</Button>
-							)}
-						</div>
-
+					<SettingsSection
+						title="OAuth providers"
+						actions={!isAdding && (
+							<Button variant="positiveOutline" size="sm" onClick={() => setIsAdding(true)}>
+								<PlusIcon />
+								Add OAuth provider
+							</Button>
+						)}
+					>
 						{configs.length === 0 && !isAdding && (
-							<p className="text-muted-foreground text-sm mb-4">No OAuth providers configured.</p>
+							<div className="flex flex-col items-center gap-2 py-4 text-center">
+								<span className="flex size-10 items-center justify-center rounded-full bg-muted">
+									<LinkIcon aria-hidden className="size-5 text-muted-foreground" />
+								</span>
+								<p className="font-medium">No OAuth providers configured</p>
+								<p className="text-sm text-muted-foreground">
+									Add your organization’s Okta so members can sign in with single sign-on.
+								</p>
+							</div>
 						)}
 
 						{/* Existing provider cards */}
@@ -492,7 +505,11 @@ export function OrgSettingsIndex() {
 								</Form>
 							</div>
 						)}
-					</section>
+					</SettingsSection>
+					<ApiAccessSettings
+						organizationId={organizationId}
+						apiTokensEnabled={organization.settings?.apiTokensEnabled === true}
+					/>
 				</div>
 			</OrgPageLayout>
 		</>

@@ -76,6 +76,38 @@ export interface User extends Omit<SchemaUser, 'roles'> {
 	oauthConfigId: string | null;
 }
 
+export interface ServiceAccount {
+	id: string;
+	organizationId: string;
+	name: string;
+	roleId: string;
+	/** null when the role no longer exists. */
+	roleName: string | null;
+	status: 'ACTIVE' | 'DISABLED';
+	createdAt: string;
+	createdByUserId: string | null;
+	activeTokens: number;
+}
+
+/** A service account's API token as GET /ApiToken/ lists it — metadata only, never the secret. */
+export interface OrganizationApiToken {
+	id: string;
+	name: string;
+	serviceAccountId: string;
+	organizationId: string;
+	createdAt: string;
+	expiresAt: string;
+	lastUsedAt: string | null;
+	createdByUserId: string | null;
+	/** Listed by GET /ApiToken/ only; null when the creator has no user record. */
+	createdByEmail?: string | null;
+}
+
+/** Response of POST /ApiToken/ — the only time the token itself is returned. */
+export interface CreatedOrganizationApiToken extends OrganizationApiToken {
+	token: string;
+}
+
 /** Response of POST /Admin/ApiToken — a short-lived Bearer token for programmatic API access. */
 export interface ApiTokenResult {
 	operationToken: string;
@@ -158,6 +190,7 @@ export interface Organization extends SchemaOrganization {
 	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
 		oauthConfigs?: OAuthConfig[];
+		apiTokensEnabled?: boolean;
 	};
 }
 
