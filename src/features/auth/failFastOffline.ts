@@ -24,9 +24,8 @@ export class OfflineSubmitError extends Error {
 }
 
 /**
- * `networkMode` and `mutationFn` for an auth form's mutation. React Query's default `'online'` pauses
- * the mutation while offline instead of failing it: the form spins, and the request goes out whenever
- * the connection returns, on a CAPTCHA token that may have expired by then (#1930).
+ * `networkMode` and `mutationFn` for an auth form's mutation. The default `'online'` pauses it while
+ * offline instead of failing it, so the form spins and the request goes out on reconnect.
  */
 export function failFastOffline<TVariables, TData>(send: (variables: TVariables) => Promise<TData>) {
 	return {
@@ -63,7 +62,7 @@ function targetsLoopback({ config }: AxiosError): boolean {
 
 /**
  * Mutation-level reporting for an auth form that shows its own failure. `console.debug` for an offline
- * one: RUM collects `console.error`, and being offline is not a Studio failure (#1669).
+ * one: RUM collects `console.error`, and being offline is not a Studio failure.
  */
 export function reportAuthFailure(error: unknown) {
 	if (error instanceof OfflineSubmitError) {

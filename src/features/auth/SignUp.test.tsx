@@ -537,7 +537,6 @@ describe('SignUp — offline', () => {
 		vi.restoreAllMocks();
 	});
 
-	// The default `networkMode` paused the mutation: the button stayed disabled with nothing sent (#1930).
 	it('says it is offline and re-enables the form instead of hanging, without blaming a VPN', async () => {
 		captchaState.token = 'human-token';
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -557,5 +556,28 @@ describe('SignUp — offline', () => {
 		expect(post).toHaveBeenCalledTimes(1);
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(consoleError).not.toHaveBeenCalled();
+	});
+
+	it('keeps the refusal count across an offline submit, so the next refusal still offers support', async () => {
+		captchaState.token = 'human-token';
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHALLENGE_FAILED));
+
+		onlineManager.setOnline(false);
+		post.mockRejectedValueOnce({ isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError);
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+
+		onlineManager.setOnline(true);
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
+		expect(post).toHaveBeenCalledTimes(3);
 	});
 });
