@@ -99,6 +99,11 @@ class AuthStore {
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 
+	// Rewritten once the shared central-manager session is known to have ended, so the other tabs follow
+	// (`onAppSignedOutElsewhere`). Not the marker record: a tab also drops the app sign-in from that when its
+	// check merely failed, a timeout or a 5xx on `/User/current`, and that must not sign every other tab out.
+	private readonly appSignOutKey = 'Studio:AppSignOut';
+
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
 	}
@@ -730,6 +735,59 @@ class AuthStore {
 		// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
 		// in this tab's potentiallyAuthenticated set.
 		this.bumpExplorerAuthEpochAll();
+		this.announceAppSignOut();
+	}
+
+	/**
+	 * Tells the other tabs the session ended. Only from `signOutAllLocally`, which runs once it has: after
+	 * `/Logout/` succeeds, on a 401, after a password change. The sign-out sweep runs before `/Logout/`, which
+	 * can fail, and a tab sent to sign-in that early could sign in again only for that `/Logout/` to end it.
+	 * Best effort: a tab that misses it learns of it from its next request, as every tab did before.
+	 */
+	private announceAppSignOut(): void {
+		try {
+			// A new value every time, since storage fires an event only for a change.
+			localStorage.setItem(this.appSignOutKey, `${Date.now()}:${Math.random()}`);
+		} catch (error) {
+			console.debug('Could not tell the other tabs about this sign-out', error);
+		}
+	}
+
+	/**
+	 * Calls `onSignedOut` when another tab signs the app out while this tab holds the app sign-in. The
+	 * central-manager cookie is shared, so the session that tab ended was this one's too, and nothing else
+	 * would tell this tab: central manager answers a request with no session 403, as it answers a request
+	 * the user is not permitted to make.
+	 */
+	public onAppSignedOutElsewhere(onSignedOut: () => void): () => void {
+		const handler = (event: StorageEvent) => {
+			if (event.key === this.appSignOutKey && this.potentiallyAuthenticated[OverallAppSignIn]) {
+				onSignedOut();
+			}
+		};
+		window.addEventListener('storage', handler);
+		return () => window.removeEventListener('storage', handler);
+	}
+
+	/**
+	 * Another tab ended the app sign-in: drop what this tab holds in memory for it, as `signOutAllLocally`
+	 * does, but write no shared storage. The other tab clears that, and this tab's copy of the markers is a
+	 * snapshot from its own page load, so writing it back could undo that tab's next write, a sign-in as
+	 * someone else among them.
+	 */
+	public forgetAppSignInEndedElsewhere(): void {
+		this.bumpSignOutGeneration('*');
+		forgetAllEntitySettings();
+		const entityIds = new Set([...Object.keys(this.potentiallyAuthenticated), ...Object.keys(this.allConnections)]);
+		entityIds.delete(OverallAppSignIn);
+		for (const id of Object.keys(this.potentiallyAuthenticated)) {
+			delete this.potentiallyAuthenticated[id];
+		}
+		this.dropFabricConnectState();
+		for (const id of entityIds) {
+			this.updateConnectionIfChanged(id, false, null);
+		}
+		this.updateConnectionIfChanged(OverallAppSignIn, false, null);
 	}
 
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {

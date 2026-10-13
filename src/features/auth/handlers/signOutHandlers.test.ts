@@ -2,7 +2,7 @@
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { queryClient } from '@/react-query/queryClient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearAuthStateLocally } from './clearAuthStateLocally';
+import { clearAuthStateAfterSignOutElsewhere, clearAuthStateLocally } from './clearAuthStateLocally';
 import { logoutOnSuccess } from './logoutOnSuccess';
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
@@ -101,6 +101,39 @@ describe.each(
 
 		expectCachesEmpty();
 		expect(localStorage.length).toBe(0);
+		expect(sessionStorage.length).toBe(0);
+		expect(consoleError).toHaveBeenCalledWith(failure);
+	});
+});
+
+describe('clearAuthStateAfterSignOutElsewhere', () => {
+	it('signs this tab out and wipes both caches and its sessionStorage, but leaves the shared localStorage', () => {
+		seedSignedInTab();
+		// The tab that signed out cleared localStorage; what is there now is that tab's, a new sign-in perhaps.
+		localStorage.clear();
+		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn }));
+
+		clearAuthStateAfterSignOutElsewhere();
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(authStore.getConnectionById('ins-a').user).toBeNull();
+		expectCachesEmpty();
+		expect(sessionStorage.length).toBe(0);
+		expect(localStorage.length).toBe(1);
+		expect(localStorage.getItem('Studio:PotentiallyAuthenticated')).toBe(JSON.stringify({ OverallAppSignIn }));
+	});
+
+	it('still wipes the caches and sessionStorage when the store teardown throws', () => {
+		seedSignedInTab();
+		const failure = new Error('teardown failed');
+		vi.spyOn(authStore, 'forgetAppSignInEndedElsewhere').mockImplementation(() => {
+			throw failure;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		clearAuthStateAfterSignOutElsewhere();
+
+		expectCachesEmpty();
 		expect(sessionStorage.length).toBe(0);
 		expect(consoleError).toHaveBeenCalledWith(failure);
 	});
