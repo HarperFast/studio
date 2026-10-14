@@ -87,7 +87,8 @@ cluster. Starting-up, where Finish-setup sends a cluster that isn't ready, says 
 A terminated cluster's sign-ins, its own and each instance's (`terminatedClusterSignIns`), are forgotten locally
 (`signOutEntitiesLocally`, which posts no logout to the gone hosts) at two points. When Studio's terminate succeeds,
 `terminateCluster` takes the instances from the cluster record, read alongside the DELETE or back after it, because the
-organization's cluster list doesn't carry them. And when any page of a terminated cluster renders, `ClusterLayout` does
+organization's cluster list doesn't carry them; with neither read it forgets nothing, since it can't tell whether the
+cluster was self-hosted. And when any page of a terminated cluster renders, `ClusterLayout` does
 it, which covers a terminate done in another tab, by another member or by central manager. It skips `TERMINATING`,
 which is not final. Never from a route guard: guards also run on hover preloads, so a hover would delete stored
 credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host, and a

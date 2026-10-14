@@ -750,10 +750,7 @@ class AuthStore {
 		this.flagForFabricConnect(id, false);
 	}
 
-	/**
-	 * `signOutLocally` for each of `ids`, once each. Never throws: one id that fails to clear must not keep the rest, or
-	 * fail the caller's own work.
-	 */
+	/** Never throws: one id that fails to clear must not keep the rest, or fail the caller's own work. */
 	public signOutEntitiesLocally(ids: Iterable<EntityIds>): void {
 		for (const id of new Set(ids)) {
 			try {
