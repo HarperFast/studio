@@ -105,18 +105,27 @@ export async function waitForJob({
 	let missingSince: number | undefined;
 	for (;;) {
 		let job: HarperJob | undefined;
+		let pollFailed = false;
+		let pollError: unknown;
 		try {
 			job = await getJob({ jobId, instanceClient });
-			consecutiveFailures = 0;
-			missingSince = job ? undefined : (missingSince ?? Date.now());
 		} catch (err) {
+			pollFailed = true;
+			pollError = err;
+		}
+		// Read once, so the checks below agree on which side of the deadline this poll landed.
+		const now = Date.now();
+		if (pollFailed) {
 			// An answer that never came is not a miss, so not-found needs an unbroken run of them.
 			missingSince = undefined;
 			consecutiveFailures += 1;
 			// At the deadline too: the failed poll, not the clock, is what left the outcome unread.
-			if (consecutiveFailures >= 5 || Date.now() >= deadline) {
-				throw new ImportJobUnconfirmedError(jobId, 'polling-failed', err);
+			if (consecutiveFailures >= 5 || now >= deadline) {
+				throw new ImportJobUnconfirmedError(jobId, 'polling-failed', pollError);
 			}
+		} else {
+			consecutiveFailures = 0;
+			missingSince = job ? undefined : (missingSince ?? now);
 		}
 		if (job && onUpdate) {
 			// An observer failure must not turn a load Harper completed into a reported failure, which
@@ -136,10 +145,10 @@ export async function waitForJob({
 		if (status === 'COMPLETE' && job) {
 			return job;
 		}
-		if (missingSince !== undefined && Date.now() - missingSince >= JOB_NOT_FOUND_GRACE_MS) {
+		if (missingSince !== undefined && now - missingSince >= JOB_NOT_FOUND_GRACE_MS) {
 			throw new ImportJobUnconfirmedError(jobId, 'not-found');
 		}
-		if (Date.now() >= deadline) {
+		if (now >= deadline) {
 			throw new ImportJobUnconfirmedError(jobId, 'deadline');
 		}
 		await sleep(pollIntervalMs);
