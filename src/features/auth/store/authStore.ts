@@ -95,9 +95,10 @@ class AuthStore {
 	// generation therefore lives in localStorage (durable, shared) and each stored credential records the
 	// generation it was created under, so a stale credential is detected by comparison at read time
 	// regardless of whether this tab was running when the sign-out happened.
-	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
+	public readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
+	private explorerSignOutUnwritten = false;
 
 	private readonly appSignOutKey = 'Studio:AppSignOut';
 	// The last app user this tab held, kept through the blanking a sweep or a check does until a sign-out
@@ -125,17 +126,15 @@ class AuthStore {
 	 */
 	public getExplorerAuthEpoch(id: EntityIds): number {
 		const generations = this.readExplorerGenerations();
-		const own = typeof generations[id] === 'number' ? generations[id] : 0;
-		const all = typeof generations['*'] === 'number' ? generations['*'] : 0;
-		return own + all;
+		return countIn(generations, id) + countIn(generations, '*');
 	}
 
-	private writeExplorerInvalidation(id: EntityIds | '*'): void {
+	private writeExplorerInvalidation(next: (generations: Record<string, number>) => Record<string, number>): boolean {
+		let written = false;
 		try {
-			const generations = this.readExplorerGenerations();
-			const current = typeof generations[id] === 'number' ? generations[id] : 0;
 			// The value changes on every write, so other tabs' `storage` listeners still fire.
-			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ ...generations, [id]: current + 1 }));
+			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify(next(this.readExplorerGenerations())));
+			written = true;
 		} catch {
 			// Storage disabled or full. The durable generation therefore doesn't move, so subscribers below
 			// see no change and this tab's explorer keeps its credential until the render-time comparison
@@ -143,17 +142,42 @@ class AuthStore {
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
 		for (const listener of this.explorerInvalidationListeners) {
-			listener();
+			// One subscriber's failure must not abort the sign-out that is notifying it.
+			try {
+				listener();
+			} catch (error) {
+				console.error(error);
+			}
 		}
+		return written;
 	}
 
 	private bumpExplorerAuthEpoch(id: EntityIds): void {
-		this.writeExplorerInvalidation(id);
+		this.writeExplorerInvalidation(generations => ({ ...generations, [id]: countIn(generations, id) + 1 }));
 	}
 
-	/** Signal every tab's explorer to clear, regardless of entity — used on a global (all-entity) logout. */
+	/**
+	 * Signal every tab's explorer to clear, regardless of entity — used on a global (all-entity) logout. The
+	 * record outlives the sign-out's storage wipe, so it collapses to one global slot above every entity's
+	 * generation rather than carry the signed-out instances' ids into the next account's session.
+	 */
 	private bumpExplorerAuthEpochAll(): void {
-		this.writeExplorerInvalidation('*');
+		this.explorerSignOutUnwritten = !this.writeExplorerInvalidation(generations => {
+			let highestOwn = 0;
+			for (const id of Object.keys(generations)) {
+				if (id !== '*') {
+					highestOwn = Math.max(highestOwn, countIn(generations, id));
+				}
+			}
+			return { '*': countIn(generations, '*') + highestOwn + 1 };
+		});
+	}
+
+	/** Only after the sign-out's storage wipe, which makes room in a store too full to take this generation. */
+	public retryUnwrittenExplorerSignOut(): void {
+		if (this.explorerSignOutUnwritten) {
+			this.bumpExplorerAuthEpochAll();
+		}
 	}
 
 	/**
@@ -736,10 +760,10 @@ class AuthStore {
 			}
 			this.dropFabricConnectState();
 			this.setUserForEntity(OverallAppSignIn, null);
-			// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
-			// in this tab's potentiallyAuthenticated set.
-			this.bumpExplorerAuthEpochAll();
 		} finally {
+			// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
+			// in this tab's potentiallyAuthenticated set, or skipped by a step above that threw.
+			this.bumpExplorerAuthEpochAll();
 			this.announceAppSignOut(endedUser);
 		}
 	}
@@ -956,6 +980,10 @@ function signedOutUser(announcement: string): unknown {
 	} catch {
 		return undefined;
 	}
+}
+
+function countIn(generations: Record<string, number>, slot: string): number {
+	return typeof generations[slot] === 'number' ? generations[slot] : 0;
 }
 
 // `console.debug`, never `console.error`: the RUM SDK reports `console.error` as an error, which would

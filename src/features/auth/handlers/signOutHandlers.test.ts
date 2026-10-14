@@ -16,9 +16,25 @@ function seedSignedInTab() {
 	queryClient.getMutationCache().build(queryClient, { mutationKey: ['previous-user-mutation'] });
 }
 
+function localStorageKeys(): Array<string | null> {
+	return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+}
+
 function expectCachesEmpty() {
 	expect(queryClient.getQueryCache().getAll()).toEqual([]);
 	expect(queryClient.getMutationCache().getAll()).toEqual([]);
+}
+
+/**
+ * Another tab that missed the sign-out's `storage` event reloads: fresh modules over the shared localStorage, and its
+ * own sessionStorage, which still holds the explorer credential it stored before the sign-out.
+ */
+async function reloadTabHolding(explorerSettings: string): Promise<unknown> {
+	sessionStorage.setItem('ApiExplorerSettings', explorerSettings);
+	vi.resetModules();
+	const { authStore: reloaded } = await import('@/features/auth/store/authStore');
+	reloaded.installExplorerCrossTabCleanup()();
+	return JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? 'null');
 }
 
 function failWith(name: string) {
@@ -51,8 +67,69 @@ describe.each(
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
 		expect(authStore.getConnectionById('ins-a').user).toBeNull();
 		expectCachesEmpty();
-		expect(localStorage.length).toBe(0);
+		expect(localStorageKeys()).toEqual(['Studio:ExplorerAuthEpoch']);
 		expect(sessionStorage.length).toBe(0);
+	});
+
+	it.each([1, 2])(
+		'drops a credential stored before sign-out %i once a tab that missed the sign-out reloads',
+		async (signOuts) => {
+			for (let earlier = 1; earlier < signOuts; earlier++) {
+				seedSignedInTab();
+				await signOut();
+			}
+			const otherTabSettings = JSON.stringify({
+				'ins-a': {
+					method: 'bearer',
+					auth: { type: 'bearer', token: 'other-tab' },
+					authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+				},
+			});
+			seedSignedInTab();
+
+			await signOut();
+
+			expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+		},
+	);
+
+	it('drops that credential when storage is too full to record the sign-out until the wipe', async () => {
+		seedSignedInTab();
+		localStorage.setItem('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 2 }));
+		const otherTabSettings = JSON.stringify({
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'other-tab' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		});
+		localStorage.setItem('filler', 'the rest of the quota');
+		const setItem = Storage.prototype.setItem;
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
+			if (this === localStorage && localStorage.getItem('filler') !== null) {
+				throw new DOMException('Storage is full.', 'QuotaExceededError');
+			}
+			setItem.call(this, key, value);
+		});
+
+		await signOut();
+		vi.restoreAllMocks();
+
+		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+	});
+
+	it('keeps a credential stored after the sign-out when that tab reloads', async () => {
+		seedSignedInTab();
+		await signOut();
+		const settings = {
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'next-session' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		};
+
+		expect(await reloadTabHolding(JSON.stringify(settings))).toEqual(settings);
 	});
 
 	it('still wipes everything when every storage write throws', async () => {
@@ -70,13 +147,8 @@ describe.each(
 	it('still clears memory, the caches and sessionStorage when localStorage refuses removal', async () => {
 		seedSignedInTab();
 		const refusal = new DOMException('Storage refused.', 'SecurityError');
-		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(failWith('SecurityError'));
-		const clear = Storage.prototype.clear;
-		vi.spyOn(Storage.prototype, 'clear').mockImplementation(function(this: Storage) {
-			if (this === localStorage) {
-				throw refusal;
-			}
-			clear.call(this);
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
 		});
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 

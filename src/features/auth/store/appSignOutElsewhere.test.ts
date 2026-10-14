@@ -139,13 +139,13 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 
 	it('still names the ended user when the teardown throws', () => {
 		signIn();
-		const failure = new Error('explorer listener failed');
-		const stop = authStore.onExplorerAuthInvalidated(OverallAppSignIn, () => {
+		const failure = new Error('teardown failed');
+		const signOutLocally = vi.spyOn(authStore, 'signOutLocally').mockImplementation(() => {
 			throw failure;
 		});
 
 		expect(() => authStore.signOutAllLocally()).toThrow(failure);
-		stop();
+		signOutLocally.mockRestore();
 
 		expect(announcedUser()).toBe('usr_a');
 	});
