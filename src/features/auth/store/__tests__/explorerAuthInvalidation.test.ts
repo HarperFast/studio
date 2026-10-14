@@ -114,6 +114,22 @@ describe('authStore.signOutAllLocally and the explorer generation', () => {
 		expect(authStore.getExplorerAuthEpoch('ins-a')).toBe(before + 1);
 	});
 
+	it('collapses the record at the next entity sign-out when storage refused both full sign-out writes', () => {
+		localStorage.setItem(KEY, JSON.stringify({ 'ins-a': 1, 'ins-b': 1 }));
+		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
+		const refused = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('Storage is full.', 'QuotaExceededError');
+		});
+		authStore.signOutAllLocally();
+		authStore.wipeLocalStorageForSignOut();
+		refused.mockRestore();
+		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
+
+		authStore.signOutLocally('ins-a');
+
+		expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toEqual({ '*': 2 });
+	});
+
 	it('leaves the subscribers alone when storage refuses the write', () => {
 		const stop = authStore.onExplorerAuthInvalidated('ins-a', vi.fn());
 		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
