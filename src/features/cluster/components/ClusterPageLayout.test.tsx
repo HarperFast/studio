@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
+	useLocation: () => false,
 }));
 vi.mock('@/components/SectionRail', () => ({
 	SectionRail: ({ items }: { items: SubNavItem[] }) => (
@@ -17,6 +18,7 @@ vi.mock('@/components/SectionRail', () => ({
 	),
 }));
 vi.mock('@/features/restart/RestartingNotice', () => ({ RestartingNotice: () => null }));
+vi.mock('@/features/cluster/components/ClusterExpiryBanner', () => ({ ClusterExpiryBanner: () => null }));
 let permissions = { view: true, update: true };
 vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterPermissions: () => permissions }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
