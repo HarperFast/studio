@@ -1,5 +1,9 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/contextMenu';
-import { describedDatabase, describedTable } from '@/features/instance/databases/functions/describedTable';
+import {
+	describedDatabase,
+	describedTable,
+	describedTableNames,
+} from '@/features/instance/databases/functions/describedTable';
 import { browsePrimaryKey } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import {
@@ -30,7 +34,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const { exportCsv } = useExportTableCsv();
 
 	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
-	const isLastTable = Object.keys(databaseTables || {}).length <= 1;
+	const isLastTable = describedTableNames(instanceDatabaseMap, databaseName).length <= 1;
 	const instanceTable = describedTable(instanceDatabaseMap, databaseName, tableName);
 	const primaryKey = browsePrimaryKey(instanceTable);
 	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.

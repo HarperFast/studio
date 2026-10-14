@@ -1,7 +1,14 @@
 import type { SchemaRelationshipMap } from '@/features/instance/databases/functions/schemaRelationships';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { declaredRelationships, describedDatabase, describedTable, ownEntry } from './describedTable';
+import {
+	declaredRelationships,
+	describedDatabase,
+	describedDatabaseNames,
+	describedTable,
+	describedTableNames,
+	ownEntry,
+} from './describedTable';
 
 const dog = { attributes: [] };
 const map = { data: { dog } } as unknown as InstanceDatabaseMap;
@@ -22,6 +29,16 @@ describe('describedDatabase and describedTable', () => {
 		expect(describedTable(map, 'other', 'dog')).toBeUndefined();
 		expect(declaredRelationships(undefined, 'data', 'dog')).toBeUndefined();
 		expect(ownEntry(null, 'data')).toBeUndefined();
+		expect(ownEntry({ data: null }, 'data')).toBeUndefined();
+	});
+
+	it('name the databases and tables that have a describe, sorted', () => {
+		const withHoles = { beta: { b: dog, a: dog, hole: null }, alpha: {}, hole: null } as unknown as InstanceDatabaseMap;
+		expect(describedDatabaseNames(withHoles)).toEqual(['alpha', 'beta']);
+		expect(describedDatabaseNames(undefined)).toEqual([]);
+		expect(describedTableNames(withHoles, 'beta')).toEqual(['a', 'b']);
+		expect(describedTableNames(withHoles, 'hole')).toEqual([]);
+		expect(describedTableNames(undefined, 'beta')).toEqual([]);
 	});
 
 	it('never find an Object.prototype member', () => {

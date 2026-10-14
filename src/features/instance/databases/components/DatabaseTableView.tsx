@@ -22,6 +22,7 @@ import {
 	declaredRelationships,
 	describedDatabase,
 	describedTable,
+	describedTableNames,
 } from '@/features/instance/databases/functions/describedTable';
 import {
 	ExtraRecordAttribute,
@@ -252,8 +253,8 @@ export function DatabaseTableView({
 	// answers `false` when it simply doesn't know, which would offer an irreversible action on a
 	// guess): dropping a table needs positive evidence that another one remains.
 	const canDropTable = useMemo(
-		() => canManageBrowseInstance && !!databaseTables && Object.keys(databaseTables).length > 1,
-		[canManageBrowseInstance, databaseTables],
+		() => canManageBrowseInstance && describedTableNames(instanceDatabaseMap, databaseName).length > 1,
+		[canManageBrowseInstance, instanceDatabaseMap, databaseName],
 	);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);

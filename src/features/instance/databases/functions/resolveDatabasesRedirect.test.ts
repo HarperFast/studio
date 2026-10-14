@@ -61,6 +61,8 @@ describe('resolveDatabasesRedirect', () => {
 			databaseName: 'alpha',
 			tableName: undefined,
 		});
+		const holeFirst = { aaa: null, beta: {} } as unknown as InstanceDatabaseMap;
+		expect(resolveDatabasesRedirect(holeFirst, {})).toEqual({ databaseName: 'beta', tableName: undefined });
 	});
 
 	it('stays put on an empty database (shows its overview, no redirect loop)', () => {

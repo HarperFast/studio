@@ -1,4 +1,8 @@
-import { describedDatabase, describedTable } from '@/features/instance/databases/functions/describedTable';
+import {
+	describedDatabase,
+	describedDatabaseNames,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 
 /**
@@ -20,7 +24,7 @@ export function resolveDatabasesRedirect(
 	}
 	const databaseExists = !!params.databaseName && !!describedDatabase(instanceDatabaseMap, params.databaseName);
 	if (!databaseExists) {
-		const firstDatabaseName = Object.keys(instanceDatabaseMap).sort()[0];
+		const firstDatabaseName = describedDatabaseNames(instanceDatabaseMap)[0];
 		// No redirect when there are no databases at all, or the fallback would land on the same
 		// (nonexistent) name we're already on -- both would otherwise loop.
 		if (firstDatabaseName && firstDatabaseName !== params.databaseName) {

@@ -1,3 +1,4 @@
+import { describedDatabaseNames, describedTableNames } from '@/features/instance/databases/functions/describedTable';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import type { TreeItem } from 'react-complex-tree';
 import { createTableId, rootId } from './specialItems';
@@ -28,10 +29,10 @@ export function buildItems(
 	{ canManage }: { canManage: boolean },
 ): { items: Record<string, TreeItem<DbTreeData>>; rootId: string } {
 	const items: Record<string, TreeItem<DbTreeData>> = {};
-	const databaseNames = Object.keys(instanceDatabaseMap || {}).sort();
+	const databaseNames = describedDatabaseNames(instanceDatabaseMap);
 
 	for (const databaseName of databaseNames) {
-		const tableNames = Object.keys(instanceDatabaseMap?.[databaseName] || {}).sort();
+		const tableNames = describedTableNames(instanceDatabaseMap, databaseName);
 		items[databaseName] = {
 			index: databaseName,
 			isFolder: true,
