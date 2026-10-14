@@ -2,8 +2,13 @@
 import { authStore } from '@/features/auth/store/authStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { apiDelete, apiGet } = vi.hoisted(() => ({ apiDelete: vi.fn(), apiGet: vi.fn() }));
+const { apiDelete, apiGet, onInstanceLogoutSubmit } = vi.hoisted(() => ({
+	apiDelete: vi.fn(),
+	apiGet: vi.fn(),
+	onInstanceLogoutSubmit: vi.fn(),
+}));
 vi.mock('@/config/apiClient', () => ({ apiClient: { delete: apiDelete, get: apiGet } }));
+vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
 
 const { terminateCluster } = await import('./terminateCluster');
 
@@ -12,6 +17,7 @@ const ENTITIES = ['clu-1', 'ins-1', 'ins-2', 'clu-2'];
 const DELETED = { data: { id: 'clu-1', deleted: true } };
 // The organization's cluster list carries no instances; the cluster record does.
 const RECORD = { data: { id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1' }, { id: 'ins-2' }] } };
+const SELF_HOSTED = { data: { ...RECORD.data, plans: [{ planId: 'self-hosted-free' }] } };
 
 function remember(id: string) {
 	const user = { username: 'admin' } as SetArgs[2];
@@ -20,7 +26,11 @@ function remember(id: string) {
 }
 
 function rememberedEntities() {
-	return ENTITIES.filter((id) => !!authStore.getOperationsUrl(id) && !!authStore.checkForBasicAuth(id));
+	return ENTITIES.filter((id) => !!authStore.getOperationsUrl(id) || !!authStore.checkForBasicAuth(id));
+}
+
+function loggedOut() {
+	return onInstanceLogoutSubmit.mock.calls.map(([{ entityId }]) => entityId);
 }
 
 beforeEach(() => {
@@ -28,6 +38,7 @@ beforeEach(() => {
 	ENTITIES.forEach(remember);
 	apiDelete.mockResolvedValue(DELETED);
 	apiGet.mockResolvedValue(RECORD);
+	onInstanceLogoutSubmit.mockResolvedValue({ message: 'ok' });
 	vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 });
 
@@ -43,6 +54,7 @@ describe(terminateCluster, () => {
 
 		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
 		expect(apiGet).toHaveBeenCalledWith('/Cluster/clu-1');
+		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 	});
 
 	it('reads the instances back after the terminate when the read alongside it failed', async () => {
@@ -61,16 +73,7 @@ describe(terminateCluster, () => {
 
 		await vi.waitFor(() => expect(console.debug).toHaveBeenCalledTimes(2));
 		expect(rememberedEntities()).toEqual(ENTITIES);
-	});
-
-	it("keeps a removed self-hosted cluster's sign-ins, whose servers may still run", async () => {
-		apiGet.mockResolvedValue({ data: { ...RECORD.data, plans: [{ planId: 'self-hosted-free' }] } });
-
-		await terminateCluster('clu-1');
-
-		await new Promise((resolve) => setTimeout(resolve));
-		expect(apiGet).toHaveBeenCalled();
-		expect(rememberedEntities()).toEqual(ENTITIES);
+		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 	});
 
 	it('forgets nothing when the terminate fails', async () => {
@@ -80,5 +83,36 @@ describe(terminateCluster, () => {
 
 		await new Promise((resolve) => setTimeout(resolve));
 		expect(rememberedEntities()).toEqual(ENTITIES);
+	});
+});
+
+describe('removing a self-hosted cluster, whose servers may still run', () => {
+	beforeEach(() => {
+		apiGet.mockResolvedValue(SELF_HOSTED);
+	});
+
+	it('sends the cluster and every instance a logout, and forgets them', async () => {
+		await terminateCluster('clu-1');
+
+		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
+		expect(loggedOut()).toEqual(['clu-1', 'ins-1', 'ins-2']);
+	});
+
+	it('still forgets them when a logout fails', async () => {
+		onInstanceLogoutSubmit.mockRejectedValue(new Error('timeout of 10000ms exceeded'));
+
+		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
+
+		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
+		expect(loggedOut()).toEqual(['clu-1', 'ins-1', 'ins-2']);
+	});
+
+	it('finishes the removal without waiting for the logouts', async () => {
+		onInstanceLogoutSubmit.mockReturnValue(new Promise(() => undefined));
+
+		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
+
+		await vi.waitFor(() => expect(loggedOut()).toEqual(['clu-1', 'ins-1', 'ins-2']));
+		expect(rememberedEntities()).toEqual(['clu-2']);
 	});
 });
