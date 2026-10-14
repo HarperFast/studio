@@ -18,7 +18,7 @@ export function clearAuthStateLocally(): void {
 		() => queryClient.getMutationCache().clear(),
 		() => queryClient.getQueryCache().clear(),
 		() => clearLocalStorage([authStore.explorerAuthEpochKey]),
-		() => authStore.retryUnwrittenExplorerSignOut(),
+		() => authStore.retrySignOutWritesAfterWipe(),
 		clearSessionStorage,
 	]);
 }
