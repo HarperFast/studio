@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 
 export function ClusterLayout() {
 	const { clusterId } = useParams({ strict: false }) as { clusterId?: string };
-	const { data: cluster } = useQuery({ ...getClusterInfoQueryOptions(clusterId, false), refetchOnMount: false });
+	const { data: cluster } = useQuery({ ...getClusterInfoQueryOptions(clusterId, false), enabled: false });
 	// A string, so a poll that changes other fields doesn't re-run the effect.
 	const signIns = cluster && isDeletedCluster(cluster) && cluster.status !== 'TERMINATING'
 		? JSON.stringify(terminatedClusterSignIns(cluster))

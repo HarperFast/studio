@@ -2,8 +2,8 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 
 /**
- * The sign-ins a terminated cluster leaves behind: its own and each instance's. None for a self-hosted cluster removed
- * from Fabric, whose servers may still run: those stay remembered, so an app sign-out still ends their sessions.
+ * None for a self-hosted cluster removed from Fabric: its servers may still run, so its sign-ins stay remembered and an
+ * app sign-out still ends their sessions.
  */
 export function terminatedClusterSignIns(cluster: Cluster): string[] {
 	if (clusterIsSelfManaged(cluster)) {

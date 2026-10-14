@@ -54,13 +54,13 @@ describe(terminateCluster, () => {
 		expect(apiGet).toHaveBeenCalledTimes(2);
 	});
 
-	it('still succeeds, and forgets the cluster sign-in, when the instances cannot be read', async () => {
+	it('still succeeds, and forgets nothing, when the cluster cannot be read to tell whether it was self-hosted', async () => {
 		apiGet.mockRejectedValue(new Error('Network Error'));
 
 		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
 
-		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['ins-1', 'ins-2', 'clu-2']));
-		expect(console.debug).toHaveBeenCalledTimes(2);
+		await vi.waitFor(() => expect(console.debug).toHaveBeenCalledTimes(2));
+		expect(rememberedEntities()).toEqual(ENTITIES);
 	});
 
 	it("keeps a removed self-hosted cluster's sign-ins, whose servers may still run", async () => {

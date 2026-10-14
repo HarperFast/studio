@@ -14,11 +14,14 @@ export async function terminateCluster(clusterId: string) {
 
 /**
  * The organization's cluster list carries no instances, so they come from the cluster record: read alongside the DELETE,
- * or read back after it, since central manager keeps a terminated cluster's record and its instances.
+ * or read back after it, since central manager keeps a terminated cluster's record and its instances. Without either
+ * read nothing is forgotten, since the cluster might be self-hosted; `ClusterLayout` forgets them on the next visit.
  */
 async function forgetSignIns(clusterId: string, before: Promise<Cluster | undefined>): Promise<void> {
 	const cluster = await before ?? await readCluster(clusterId);
-	authStore.signOutEntitiesLocally(cluster ? terminatedClusterSignIns(cluster) : [clusterId]);
+	if (cluster) {
+		authStore.signOutEntitiesLocally(terminatedClusterSignIns(cluster));
+	}
 }
 
 function readCluster(clusterId: string): Promise<Cluster | undefined> {
