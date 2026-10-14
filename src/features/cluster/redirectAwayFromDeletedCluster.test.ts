@@ -14,7 +14,6 @@ const TERMINATED_AT = '2026-10-12T00:00:00.000Z';
 
 type BeforeLoad = (opts: unknown) => unknown;
 
-// The cluster layout's beforeLoad, then every route's below it down to the leaf, as a bookmark load runs them.
 async function landingFor(path: string, cluster: { status: string; terminatedAt?: string }) {
 	const queryClient = new QueryClient();
 	queryClient.setQueryData(getClusterInfoQueryOptions('clu-1').queryKey, {

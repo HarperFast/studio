@@ -9,6 +9,9 @@ const { terminateCluster } = await import('./terminateCluster');
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
 const ENTITIES = ['clu-1', 'ins-1', 'ins-2', 'clu-2'];
+const DELETED = { data: { id: 'clu-1', deleted: true } };
+// The organization's cluster list carries no instances; the cluster record does.
+const RECORD = { data: { id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1' }, { id: 'ins-2' }] } };
 
 function remember(id: string) {
 	const user = { username: 'admin' } as SetArgs[2];
@@ -16,21 +19,15 @@ function remember(id: string) {
 	authStore.flagForBasicAuth(id, { username: 'admin', password: 'hunter2' });
 }
 
-function isRemembered(id: string) {
-	return !!authStore.getOperationsUrl(id) && !!authStore.checkForBasicAuth(id);
-}
-
 function rememberedEntities() {
-	return ENTITIES.filter(isRemembered);
+	return ENTITIES.filter((id) => !!authStore.getOperationsUrl(id) && !!authStore.checkForBasicAuth(id));
 }
 
 beforeEach(() => {
 	localStorage.clear();
 	ENTITIES.forEach(remember);
-	// The organization's cluster list carries no instances; the cluster record does.
-	apiGet.mockResolvedValue({
-		data: { id: 'clu-1', status: 'TERMINATED', instances: [{ id: 'ins-1' }, { id: 'ins-2' }] },
-	});
+	apiDelete.mockResolvedValue(DELETED);
+	apiGet.mockResolvedValue(RECORD);
 	vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 });
 
@@ -42,22 +39,38 @@ afterEach(() => {
 
 describe(terminateCluster, () => {
 	it('forgets the cluster sign-in and every instance sign-in once the terminate succeeds', async () => {
-		apiDelete.mockResolvedValue({ data: { id: 'clu-1', deleted: true } });
-
-		await expect(terminateCluster('clu-1')).resolves.toEqual({ id: 'clu-1', deleted: true });
+		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
 
 		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
 		expect(apiGet).toHaveBeenCalledWith('/Cluster/clu-1');
 	});
 
-	it('still succeeds, and forgets the cluster sign-in, when the instances cannot be read back', async () => {
-		apiDelete.mockResolvedValue({ data: { id: 'clu-1', deleted: true } });
+	it('reads the instances back after the terminate when the read alongside it failed', async () => {
+		apiGet.mockRejectedValueOnce(new Error('Network Error'));
+
+		await terminateCluster('clu-1');
+
+		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
+		expect(apiGet).toHaveBeenCalledTimes(2);
+	});
+
+	it('still succeeds, and forgets the cluster sign-in, when the instances cannot be read', async () => {
 		apiGet.mockRejectedValue(new Error('Network Error'));
 
-		await expect(terminateCluster('clu-1')).resolves.toEqual({ id: 'clu-1', deleted: true });
+		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
 
-		await vi.waitFor(() => expect(console.debug).toHaveBeenCalled());
-		expect(rememberedEntities()).toEqual(['ins-1', 'ins-2', 'clu-2']);
+		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['ins-1', 'ins-2', 'clu-2']));
+		expect(console.debug).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps a removed self-hosted cluster's sign-ins, whose servers may still run", async () => {
+		apiGet.mockResolvedValue({ data: { ...RECORD.data, plans: [{ planId: 'self-hosted-free' }] } });
+
+		await terminateCluster('clu-1');
+
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(apiGet).toHaveBeenCalled();
+		expect(rememberedEntities()).toEqual(ENTITIES);
 	});
 
 	it('forgets nothing when the terminate fails', async () => {
@@ -65,7 +78,7 @@ describe(terminateCluster, () => {
 
 		await expect(terminateCluster('clu-1')).rejects.toThrow('400');
 
+		await new Promise((resolve) => setTimeout(resolve));
 		expect(rememberedEntities()).toEqual(ENTITIES);
-		expect(apiGet).not.toHaveBeenCalled();
 	});
 });

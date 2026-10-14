@@ -75,13 +75,17 @@ against the torn-down host. Nor does the overview check one: `ClusterHome` mount
 cluster. Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for
 `FAILED` first, so a rolled-back build still offers Try Again.
 
-A terminated cluster's sign-ins, its own and each instance's, are forgotten locally (`signOutEntitiesLocally`, which
-posts no logout to the gone hosts) at two points. When Studio's terminate succeeds, `terminateCluster` reads the
-instances back, because the organization's cluster list doesn't carry them. When `ClusterTerminated` mounts, it covers
-a terminate done in another tab, by another member or by central manager; it skips `TERMINATING`, which is not final.
-Never from a route guard: guards also run on hover preloads, so a hover would delete stored credentials. A sign-in left
-behind is not harmless. Each app sign-out posts a logout to every remembered host, and a stored Basic Auth credential
-would stay in localStorage for good.
+A terminated cluster's sign-ins, its own and each instance's (`terminatedClusterSignIns`), are forgotten locally
+(`signOutEntitiesLocally`, which posts no logout to the gone hosts) at two points. When Studio's terminate succeeds,
+`terminateCluster` takes the instances from the cluster record, read alongside the DELETE or back after it, because the
+organization's cluster list doesn't carry them. And when any page of a terminated cluster renders, `ClusterLayout` does
+it, which covers a terminate done in another tab, by another member or by central manager. It skips `TERMINATING`,
+which is not final. Never from a route guard: guards also run on hover preloads, so a hover would delete stored
+credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host, and a
+stored Basic Auth credential would stay in localStorage for good.
+
+A self-hosted cluster removed from Fabric keeps its sign-ins. Its servers may still run, and forgetting them locally
+would leave their cookie sessions open; kept, the next app sign-out still logs them out.
 
 None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
 that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left

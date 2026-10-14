@@ -78,8 +78,8 @@ function respond(config: InternalAxiosRequestConfig, data: unknown) {
 	return { status: 200, statusText: '200', data, headers: {}, config };
 }
 
-/** A page load on a bookmark, through the real `AppRouted` and route tree, with the store reading storage afresh. */
-async function openBookmark(path: string) {
+// Fresh modules, because the store reads the remembered sign-ins from storage when it is built.
+async function openBookmark(path: string, cluster: object = {}) {
 	window.history.replaceState(null, '', `#${path}`);
 	vi.resetModules();
 	mockAppModules();
@@ -103,6 +103,7 @@ async function openBookmark(path: string) {
 				status: 'TERMINATED',
 				terminatedAt: '2026-10-12T00:00:00.000Z',
 				instances: [{ id: INSTANCE_ID, status: 'TERMINATING' }],
+				...cluster,
 			});
 		}
 		throw new Error(`unexpected request ${config.url}`);
@@ -164,4 +165,15 @@ describe('a bookmark into a terminated cluster, rendered through the whole app',
 			expect(registrationInfo).not.toHaveBeenCalled();
 		},
 	);
+
+	it("keeps a removed self-hosted cluster's sign-ins, whose servers may still run", async () => {
+		await openBookmark(`${OVERVIEW}/logs`, { plans: [{ planId: 'self-hosted-free' }] });
+
+		expect(await screen.findByRole('heading', { name: 'Cluster Removed' }, { timeout: 4000 })).toBeTruthy();
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(window.location.hash).toBe(`#${OVERVIEW}`);
+		expect(rememberedEntities()).toEqual(Object.keys(SIGN_INS));
+		expect(getInstanceUserInfo).not.toHaveBeenCalled();
+		expect(registrationInfo).not.toHaveBeenCalled();
+	});
 });
