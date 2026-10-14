@@ -1,3 +1,4 @@
+import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
 	RESTART_UNCONFIRMED_TITLE,
@@ -13,6 +14,26 @@ import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
+interface DescribedError {
+	title: string;
+	description: string;
+	message: string;
+}
+
+function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
+	const copy = (title: string, message: string) => ({ title, description: message, message });
+	if (isUnansweredWrite(rawErr)) {
+		return copy(OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE);
+	}
+	if (rawErr instanceof RestartUnconfirmedError) {
+		return copy(RESTART_UNCONFIRMED_TITLE, RESTART_UNCONFIRMED_MESSAGE);
+	}
+	if (rawErr instanceof ImportJobUnconfirmedError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, describeImportJobUnconfirmed(rawErr));
+	}
+	return undefined;
+}
+
 /**
  * Turn an error of unknown shape into display text, in both the shapes the UI needs.
  *
@@ -21,21 +42,11 @@ import { toast } from 'sonner';
  * inputs. They differ only for a legacy `"Conflict: user already exists"` body, where the split
  * below moves the first clause into `title`: a single line built from `description` alone would
  * lose it. Everything comes from this one extractor so the inline text and the toast can't drift.
- *
- * A write that got no verdict ({@link isUnansweredWrite}) gets our own copy instead, chosen by status
- * and never by body: a gateway's body describes the gateway, and "failed" is exactly what it can't claim.
- * So does a restart Harper accepted whose target was never confirmed back ({@link RestartUnconfirmedError}).
  */
-export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
-	if (isUnansweredWrite(rawErr)) {
-		return { title: OUTCOME_UNKNOWN_TITLE, description: UNANSWERED_WRITE_MESSAGE, message: UNANSWERED_WRITE_MESSAGE };
-	}
-	if (rawErr instanceof RestartUnconfirmedError) {
-		return {
-			title: RESTART_UNCONFIRMED_TITLE,
-			description: RESTART_UNCONFIRMED_MESSAGE,
-			message: RESTART_UNCONFIRMED_MESSAGE,
-		};
+export function describeError(rawErr: unknown): DescribedError {
+	const unknownOutcome = describeUnknownOutcome(rawErr);
+	if (unknownOutcome) {
+		return unknownOutcome;
 	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
@@ -84,11 +95,11 @@ export function describeError(rawErr: unknown): { title: string; description: st
 
 /**
  * For a mutation's caller that toasts its own failure on top of the global toast: whether it should.
- * Not for an unanswered write or an unconfirmed restart, whose global toast already says what is known —
- * a second one saying "failed" would contradict it and invite the retry it warns against.
+ * Not for a failure whose outcome is not known, whose global toast already says what is known — a
+ * second one saying "failed" would contradict it and invite the retry it warns against.
  */
 export function shouldToastOwnFailure(rawErr: unknown): boolean {
-	return !isUnansweredWrite(rawErr) && !(rawErr instanceof RestartUnconfirmedError);
+	return describeUnknownOutcome(rawErr) === undefined;
 }
 
 export function errorHandler(rawErr: unknown) {
@@ -106,7 +117,7 @@ export function errorHandler(rawErr: unknown) {
 	const isForbidden = axiosWrappedErr?.response?.status === 403;
 	// Never collapsed: each warns about a different write, and a read timing out alongside one must
 	// not replace it through `request-timeout`.
-	const collapseId = isUnansweredWrite(rawErr)
+	const collapseId = describeUnknownOutcome(rawErr)
 		? undefined
 		: isTimeout
 		? 'request-timeout'

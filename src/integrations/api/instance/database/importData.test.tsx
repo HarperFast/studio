@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDescribeAllQueryOptions } from './getDescribeAll';
 import { getDescribeTableQueryOptions } from './getDescribeTable';
+import { ImportJobError, ImportJobUnconfirmedError } from './getJob';
 import { getSearchByConditionsOptions } from './getSearchByConditions';
 import { getSearchByIdOptions } from './getSearchById';
 import { getSearchByValueOptions } from './getSearchByValue';
@@ -245,20 +246,27 @@ describe('useImportDataMutation refreshing Browse', () => {
 				throw rejection(status);
 			}),
 		}) as unknown as AxiosInstance;
-	const failures: [string, () => AxiosInstance, Partial<ImportDataParams>, number][] = [
-		['the job ended in ERROR', () => csvClient(['IN_PROGRESS', 'ERROR']), {}, 5_000],
-		['the wait timed out on a load still running', () => csvClient(['IN_PROGRESS']), {}, 11 * 60_000],
+	const failures: [string, () => AxiosInstance, Partial<ImportDataParams>, number, new(...args: never[]) => Error][] = [
+		['the job ended in ERROR', () => csvClient(['IN_PROGRESS', 'ERROR']), {}, 5_000, ImportJobError],
+		[
+			'the wait timed out on a load still running',
+			() => csvClient(['IN_PROGRESS']),
+			{},
+			11 * 60_000,
+			ImportJobUnconfirmedError,
+		],
 		[
 			'Harper refused the records for a table the import had just created',
 			createsTableThenRefuses,
 			{ tableExists: false, source: { kind: 'json-records', records: [{ name: 'Rex' }] } },
 			5_000,
+			AxiosError,
 		],
-		['the submission got no answer', rejectAll(), {}, 5_000],
-		['a gateway answered 504', rejectAll(504), {}, 5_000],
-		['the polls stopped answering', pollsStopAnswering, {}, 10_000],
+		['the submission got no answer', rejectAll(), {}, 5_000, AxiosError],
+		['a gateway answered 504', rejectAll(504), {}, 5_000, AxiosError],
+		['the polls stopped answering', pollsStopAnswering, {}, 10_000, ImportJobUnconfirmedError],
 	];
-	it.each(failures)('refetches too when %s', async (_case, instanceClient, overrides, waitMs) => {
+	it.each(failures)('refetches too when %s', async (_case, instanceClient, overrides, waitMs, settledWith) => {
 		const client = new QueryClient();
 		const reads = await openBrowse(client);
 
@@ -266,6 +274,7 @@ describe('useImportDataMutation refreshing Browse', () => {
 		await vi.advanceTimersByTimeAsync(waitMs);
 
 		expect(modal.result.current.isError).toBe(true);
+		expect(modal.result.current.error).toBeInstanceOf(settledWith);
 		expect(reads.page).toHaveBeenCalledTimes(2);
 		expect(reads.tree).toHaveBeenCalledTimes(2);
 	});
