@@ -71,10 +71,17 @@ of those pages, or to the `/scaling` update screen, redirects to the overview (`
 So does one to the in-cluster pages (apps, databases, APIs, operations, status, logs and config, for the cluster and for
 each instance): their shared guard, `checkClusterInstanceAuthenticationBeforeLoad`, redirects before it checks,
 restores or mints any sign-in, so a sign-in remembered from before the termination can't open them or run their loader
-against the torn-down host. The redirect leaves that sign-in stored; the overview still checks a remembered cluster
-sign-in once (`useInstanceAuth` in `ClusterHome`), as it does on any visit.
-Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for `FAILED`
-first, so a rolled-back build still offers Try Again.
+against the torn-down host. Nor does the overview check one: `ClusterHome` mounts `useInstanceAuth` only for a live
+cluster. Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for
+`FAILED` first, so a rolled-back build still offers Try Again.
+
+A terminated cluster's sign-ins, its own and each instance's, are forgotten locally (`signOutEntitiesLocally`, which
+posts no logout to the gone hosts) at two points. When Studio's terminate succeeds, `terminateCluster` reads the
+instances back, because the organization's cluster list doesn't carry them. When `ClusterTerminated` mounts, it covers
+a terminate done in another tab, by another member or by central manager; it skips `TERMINATING`, which is not final.
+Never from a route guard: guards also run on hover preloads, so a hover would delete stored credentials. A sign-in left
+behind is not harmless. Each app sign-out posts a logout to every remembered host, and a stored Basic Auth credential
+would stay in localStorage for good.
 
 None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
 that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left

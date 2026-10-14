@@ -172,4 +172,19 @@ describe('a deep link into a remembered cluster that has been terminated since',
 		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
 		expect(registrationInfo).not.toHaveBeenCalled();
 	});
+
+	it.each(remembered)('keeps the sign-in when the overview loads and /$page is only preloaded', async ({
+		page,
+		entity,
+		url,
+	}) => {
+		remember(entity, url);
+
+		const { authStore, router } = await openDeepLink(OVERVIEW);
+		await vi.waitFor(() => expect(router.state.status).toBe('idle'));
+		await router.preloadRoute({ to: `${OVERVIEW}/${page}` });
+
+		expect(authStore.getOperationsUrl(entity)).toBe(url);
+		expect(authStore.getOperationsUrl(CLUSTER_ID)).toBe(CLUSTER_URL);
+	});
 });
