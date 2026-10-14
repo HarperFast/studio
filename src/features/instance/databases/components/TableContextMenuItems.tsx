@@ -28,8 +28,12 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const canImport = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const { exportCsv } = useExportTableCsv();
 
-	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
-	const instanceTable = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const databaseTables = instanceDatabaseMap?.[databaseName];
+	const isLastTable = Object.keys(databaseTables || {}).length <= 1;
+	// Own keys only: a table named `constructor` would otherwise find Object.prototype's.
+	const instanceTable = databaseTables && Object.hasOwn(databaseTables, tableName)
+		? databaseTables[tableName]
+		: undefined;
 	const primaryKey = browsePrimaryKey(instanceTable);
 	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.
 	const hasKnownPrimaryKey = !!primaryKey;
@@ -41,7 +45,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 			primaryKey,
 			conditions: null,
 			instanceTable,
-			databaseTables: instanceDatabaseMap?.[databaseName],
+			databaseTables,
 		});
 	};
 
@@ -63,7 +67,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 				<CloudDownloadIcon />
 				Export CSV
 			</ContextMenuItem>
-			{canManage && !isLastTable && (
+			{canManage && instanceTable && !isLastTable && (
 				<>
 					<ContextMenuSeparator />
 					<ContextMenuItem

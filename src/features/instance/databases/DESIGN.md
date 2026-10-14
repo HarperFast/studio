@@ -27,7 +27,11 @@ schema load. Add Records, Import and Export CSV need the key itself, so they wai
 that names one (`hasKnownPrimaryKey`, in the toolbar and in
 [`TableContextMenuItems`](components/TableContextMenuItems.tsx), the tree and overview menus). A
 table nothing has described yet gets the same answer as one without a key, rather than an Export
-that then reports "no primary key found" (#1941).
+that then reports "no primary key found" (#1941). The menus' Drop Table waits for the map to hold
+the table too: one the map no longer holds may already have been dropped.
+
+A Radix menu item runs its `onClick` even while it is disabled, and only CSS keeps a pointer off it,
+so an item that can be disabled takes its action through `onSelect`, which Radix gates.
 
 `$id` is not a stand-in key. These are live-probe observations on `harperdb:4.7.36` and
 `harper-pro:5.2.13` (2026-09), not covered by a test here:
