@@ -44,6 +44,17 @@ describe('resolveDatabasesRedirect', () => {
 		expect(resolveDatabasesRedirect(map, { databaseName: 'alpha', tableName: 'widgets' })).toBeNull();
 	});
 
+	it('treats a database or table named like an Object.prototype member as missing unless the map has it', () => {
+		expect(resolveDatabasesRedirect(map, { databaseName: 'constructor' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+		expect(resolveDatabasesRedirect(map, { databaseName: 'alpha', tableName: 'toString' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+	});
+
 	it('stays put on an empty database (shows its overview, no redirect loop)', () => {
 		expect(resolveDatabasesRedirect(map, { databaseName: 'empty' })).toBeNull();
 	});
