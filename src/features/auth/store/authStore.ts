@@ -99,8 +99,8 @@ class AuthStore {
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 	private explorerSignOutUnwritten = false;
-	// Set through a full sign-out, whose one collapsed write stands in for every entity's own bump.
-	private explorerBumpsDeferred = false;
+	// A full sign-out's one collapsed write covers every entity's own bump, so those are skipped while it runs.
+	private fullSignOutInProgress = false;
 
 	private readonly appSignOutKey = 'Studio:AppSignOut';
 	private unannouncedSignOutUser: string | null = null;
@@ -133,15 +133,14 @@ class AuthStore {
 	}
 
 	private writeExplorerInvalidation(next: (generations: Record<string, number>) => Record<string, number>): boolean {
-		let written = false;
 		try {
 			// The value changes on every write, so other tabs' `storage` listeners still fire.
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify(next(this.readExplorerGenerations())));
-			written = true;
 		} catch {
-			// Storage disabled or full. The durable generation therefore doesn't move, so subscribers below
-			// see no change and this tab's explorer keeps its credential until the render-time comparison
-			// is re-run against a generation that does move. Pre-existing, and tracked separately.
+			// Storage disabled or full. The durable generation therefore doesn't move, so there is nothing to
+			// tell the subscribers, and this tab's explorer keeps its credential until the render-time
+			// comparison is re-run against a generation that does move. Pre-existing, and tracked separately.
+			return false;
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
 		for (const listener of this.explorerInvalidationListeners) {
@@ -152,11 +151,11 @@ class AuthStore {
 				console.error(error);
 			}
 		}
-		return written;
+		return true;
 	}
 
 	private bumpExplorerAuthEpoch(id: EntityIds): void {
-		if (this.explorerBumpsDeferred) {
+		if (this.fullSignOutInProgress) {
 			return;
 		}
 		this.writeExplorerInvalidation(generations => ({ ...generations, [id]: countIn(generations, id) + 1 }));
@@ -188,8 +187,8 @@ class AuthStore {
 			this.bumpExplorerAuthEpochAll();
 		}
 		const user = this.unannouncedSignOutUser;
-		this.unannouncedSignOutUser = null;
 		if (user !== null && this.writeAppSignOut(user)) {
+			this.unannouncedSignOutUser = null;
 			// The other tabs have the value from the event; leaving it would carry the ended user into the next
 			// account's session, which the wipe exists to prevent.
 			this.removeStoredItem(this.appSignOutKey);
@@ -768,7 +767,7 @@ class AuthStore {
 		const endedUser = this.heldAppUser;
 		this.heldAppUser = null;
 		try {
-			this.explorerBumpsDeferred = true;
+			this.fullSignOutInProgress = true;
 			this.bumpSignOutGeneration('*');
 			forgetAllEntitySettings();
 			// Snapshot keys first — signOutLocally mutates the flags as it goes.
@@ -778,7 +777,7 @@ class AuthStore {
 			this.dropFabricConnectState();
 			this.setUserForEntity(OverallAppSignIn, null);
 		} finally {
-			this.explorerBumpsDeferred = false;
+			this.fullSignOutInProgress = false;
 			// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
 			// in this tab's potentiallyAuthenticated set, or skipped by a step above that threw.
 			this.bumpExplorerAuthEpochAll();

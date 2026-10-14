@@ -49,7 +49,6 @@ function fillStorageUntilTheWipe() {
 	});
 }
 
-/** The users named by the sign-out announcements that storage accepted. */
 function announcedUsers(setItem: ReturnType<typeof vi.spyOn<Storage, 'setItem'>>): unknown[] {
 	const { calls, results } = setItem.mock;
 	return calls.flatMap(([key, value], index) =>
