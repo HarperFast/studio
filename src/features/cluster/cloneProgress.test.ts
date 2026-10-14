@@ -79,14 +79,53 @@ describe('describeCloneProgress', () => {
 		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · ~12.4 GB copied');
 	});
 
-	it('falls back to the start time before the first progress report', () => {
+	it('falls back to the start time, and shows no amount, before the first progress report', () => {
 		const progress = cloneProgressOf(instance({
 			status: 'CLONE_READY',
 			cloneExpectedGb: 40,
 			cloneProgressGb: 0,
 			cloneStartedAt: minutesAgo(5),
 		}))!;
-		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · ~0 of ~40 GB (0%) · started 5 minutes ago');
+		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · started 5 minutes ago');
+	});
+
+	it('shows no amount that would read as ~0, with or without an expected size', () => {
+		for (const cloneProgressGb of [undefined, 0, 0.0004, Number.NaN]) {
+			for (const cloneExpectedGb of [undefined, 40]) {
+				const progress = cloneProgressOf(instance({
+					status: 'CLONING',
+					cloneExpectedGb,
+					cloneProgressGb,
+					cloneProgressAt: minutesAgo(2),
+				}))!;
+				expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · last progress 2 minutes ago');
+			}
+		}
+	});
+
+	it('shows an amount under 1 GB in whole MB', () => {
+		const copied = (cloneProgressGb: number) =>
+			describeCloneProgress(cloneProgressOf(instance({ status: 'CLONING', cloneProgressGb }))!, NOW);
+		expect(copied(0.0312)).toBe('Syncing data · ~31 MB copied');
+		expect(copied(0.0005)).toBe('Syncing data · ~1 MB copied');
+		expect(copied(0.9994)).toBe('Syncing data · ~999 MB copied');
+		expect(copied(0.9996)).toBe('Syncing data · ~1 GB copied');
+	});
+
+	it('names each unit when copied and expected differ, and one when they match', () => {
+		const ofExpected = (cloneProgressGb: number, cloneExpectedGb: number) =>
+			describeCloneProgress(
+				cloneProgressOf(instance({ status: 'CLONING', cloneProgressGb, cloneExpectedGb }))!,
+				NOW,
+			);
+		expect(ofExpected(0.512, 40)).toBe('Syncing data · ~512 MB of ~40 GB (1%)');
+		expect(ofExpected(0.012, 0.03)).toBe('Syncing data · ~12 of ~30 MB (40%)');
+		expect(ofExpected(1.2, 0.9)).toBe('Syncing data · ~1.2 GB of ~900 MB (100%)');
+	});
+
+	it('drops an expected size that would read as ~0 and shows the copied amount alone', () => {
+		const progress = cloneProgressOf(instance({ status: 'CLONING', cloneProgressGb: 0.012, cloneExpectedGb: 0.0003 }))!;
+		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · ~12 MB copied');
 	});
 
 	it('treats a progress time ahead of the local clock as just now', () => {

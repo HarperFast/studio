@@ -138,7 +138,7 @@ test('finds live instance regions when only some plan regions resolve', async ({
 });
 
 // Built per test: the ages in the caption are relative to now, and a worker can load this file long before running it.
-const cloningCluster = (now = Date.now()) => ({
+const cloningCluster = (now = Date.now(), extraInstances: Record<string, unknown>[] = []) => ({
 	...clusters[0],
 	instances: [
 		{ id: 'ins-a', name: 'node-a', status: 'RUNNING', cloneExpectedGb: 40, cloneProgressGb: 40 },
@@ -151,6 +151,7 @@ const cloningCluster = (now = Date.now()) => ({
 			cloneStartedAt: new Date(now - 10 * 60_000).toISOString(),
 			cloneProgressAt: new Date(now - 3 * 60_000).toISOString(),
 		},
+		...extraInstances,
 	].map((instance, index) => ({
 		...instance,
 		planId: 'shared',
@@ -167,13 +168,39 @@ const cloningCluster = (now = Date.now()) => ({
 });
 
 test('the instances table shows data-sync progress for a cloning member', async ({ page }) => {
-	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster() }));
+	const now = Date.now();
+	const smallCopies = [
+		{
+			id: 'ins-c',
+			name: 'node-c',
+			status: 'CLONING',
+			cloneProgressGb: 0.0312,
+			cloneProgressAt: new Date(now - 3 * 60_000).toISOString(),
+		},
+		{
+			id: 'ins-d',
+			name: 'node-d',
+			status: 'CLONE_READY',
+			cloneExpectedGb: 40,
+			cloneProgressGb: 0,
+			cloneStartedAt: new Date(now - 5 * 60_000).toISOString(),
+		},
+	];
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster(now, smallCopies) }));
 	await page.goto('/#/org-fixture/clu-production/instances');
 	const cloningRow = page.getByRole('row').filter({ hasText: 'node-b' });
 	await expect(cloningRow.getByText('Cloning', { exact: true })).toBeVisible();
 	await expect(cloningRow.locator('svg.lucide-refresh-cw')).toBeVisible();
 	await expect(cloningRow.getByText('Syncing data · ~12.4 of ~40 GB (31%) · last progress 3 minutes ago'))
 		.toBeVisible();
+	await expect(
+		page.getByRole('row').filter({ hasText: 'node-c' })
+			.getByText('Syncing data · ~31 MB copied · last progress 3 minutes ago', { exact: true }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('row').filter({ hasText: 'node-d' })
+			.getByText('Syncing data · started 5 minutes ago', { exact: true }),
+	).toBeVisible();
 	const runningRow = page.getByRole('row').filter({ hasText: 'node-a' });
 	await expect(runningRow.getByText('Running', { exact: true })).toBeVisible();
 	await expect(runningRow.getByText(/Syncing data/)).toHaveCount(0);
