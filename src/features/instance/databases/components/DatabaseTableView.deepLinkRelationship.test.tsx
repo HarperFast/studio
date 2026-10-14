@@ -4,7 +4,7 @@
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
 vi.mock('@tanstack/react-router', () => {
@@ -142,15 +142,10 @@ beforeAll(() => {
 	}
 });
 
-const confirm = vi.fn<(message?: string) => boolean>(() => true);
-beforeEach(() => {
-	vi.stubGlobal('confirm', confirm);
-});
+const fullScanQuestion = () => screen.queryByRole('alertdialog');
 
 afterEach(() => {
 	cleanup();
-	vi.unstubAllGlobals();
-	confirm.mockClear();
 	instance.searches = [];
 	instance.holdComponents = true;
 });
@@ -162,7 +157,7 @@ async function expectForeignKeySearch() {
 	expect(instance.searches[0].conditions).toEqual([
 		{ search_attribute: 'authorId', search_type: 'equals', search_value: 'a1' },
 	]);
-	expect(confirm).not.toHaveBeenCalled();
+	expect(fullScanQuestion()).toBeNull();
 	await screen.findByRole('cell', { name: 'b1' }, { timeout: 10_000 });
 	expect(screen.queryByRole('cell', { name: 'b2' })).toBeNull();
 }
@@ -203,7 +198,7 @@ describe('DatabaseTableView deep-linked filter on a relationship only the compon
 		await vi.waitFor(() => expect(queryClient.getQueryData(['instance-1', 'schema-relationships'])).toBeDefined());
 		await act(async () => {});
 		expect(instance.searches).toEqual([]);
-		expect(confirm).not.toHaveBeenCalled();
+		expect(fullScanQuestion()).toBeNull();
 
 		rerender(view(databaseMap));
 

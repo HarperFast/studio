@@ -45,10 +45,17 @@ export function fullScanAttributes(
 	return [...scans.values()];
 }
 
-export function fullScanWarning(tableName: string, scans: readonly FullScan[]): string {
+export function fullScanQuestion(
+	tableName: string,
+	scans: readonly FullScan[],
+): { title: string; description: string } {
 	const attributes = scans.map(({ attribute }) => `"${attribute}"`).join(', ');
 	const tables = [...new Set(scans.map((scan) => scan.relatedTableName ?? tableName))]
 		.map((name) => `"${name}"`)
 		.join(' and ');
-	return `No index can answer this filter on ${attributes}, so Harper will read every record in ${tables} to find the matches. On a large table that can take a long time and slow the server down for everyone using it.\n\nRun it anyway?`;
+	return {
+		title: `Scan every record in ${tables}?`,
+		description:
+			`No index can answer this filter on ${attributes}, so Harper will read every record in ${tables} to find the matches. On a large table that can take a long time and slow the server down for everyone using it.`,
+	};
 }

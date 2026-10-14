@@ -556,6 +556,7 @@ describe('EditTableRowModal', () => {
 		});
 		const previousButton = () => screen.getByRole('button', { name: 'Previous record' });
 		const nextButton = () => screen.getByRole('button', { name: 'Next record' });
+		const discardQuestion = () => screen.queryByRole('alertdialog', { name: 'Discard your unsaved changes?' });
 
 		it('has no navigation when the caller has no result set to step through', () => {
 			renderModal();
@@ -662,52 +663,88 @@ describe('EditTableRowModal', () => {
 		// silently, the way Escape used to before it was blocked for the same reason.
 		it('asks before a step discards unsaved edits, and stays put when refused', () => {
 			const onNext = vi.fn();
-			const confirmed = vi.spyOn(window, 'confirm').mockReturnValue(false);
 			renderModal({ recordNavigation: navigation({ onNext }) });
 
 			edit('[{"name":"Grace"}]');
 			fireEvent.click(nextButton());
+			expect(discardQuestion()).not.toBeNull();
+			fireEvent.click(screen.getByRole('button', { name: 'Keep Editing' }));
 
-			expect(confirmed).toHaveBeenCalled();
+			expect(discardQuestion()).toBeNull();
 			expect(onNext).not.toHaveBeenCalled();
-			confirmed.mockRestore();
+			expect((screen.getByTestId('editor') as HTMLTextAreaElement).value).toBe('[{"name":"Grace"}]');
 		});
 
 		it('steps once the discard is confirmed', () => {
 			const onNext = vi.fn();
-			const confirmed = vi.spyOn(window, 'confirm').mockReturnValue(true);
 			renderModal({ recordNavigation: navigation({ onNext }) });
 
 			edit('[{"name":"Grace"}]');
 			fireEvent.click(nextButton());
+			fireEvent.click(screen.getByRole('button', { name: 'Discard Changes' }));
 
 			expect(onNext).toHaveBeenCalledTimes(1);
-			confirmed.mockRestore();
+			expect(discardQuestion()).toBeNull();
+		});
+
+		it('asks once for the arrow keys too, and Escape answers no without closing the editor', () => {
+			const onNext = vi.fn();
+			const setIsModalOpen = vi.fn();
+			renderModal({ recordNavigation: navigation({ onNext }), setIsModalOpen });
+
+			edit('[{"name":"Grace"}]');
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' });
+			const question = discardQuestion()!;
+			// The question's own keys stay with it rather than stepping the record behind it.
+			fireEvent.keyDown(question, { key: 'ArrowRight' });
+			fireEvent.keyDown(question, { key: 'Escape' });
+
+			expect(discardQuestion()).toBeNull();
+			expect(onNext).not.toHaveBeenCalled();
+			expect(setIsModalOpen).not.toHaveBeenCalled();
+		});
+
+		// A refetch of the record resets the draft the question was about, so a yes must not step on
+		// the strength of edits that are already gone.
+		it('drops the question once the record it was about is replaced', () => {
+			const onNext = vi.fn();
+			const recordNavigation = navigation({ onNext });
+			const { rerender } = renderAddressableModal({ recordNavigation, data: [{ id: 'a', name: 'A' }] });
+
+			edit('[{"id":"a","name":"edited A"}]');
+			fireEvent.click(nextButton());
+			expect(discardQuestion()).not.toBeNull();
+			rerender(modal({ primaryKey: 'id', recordNavigation, data: [{ id: 'a', name: 'A, saved elsewhere' }] }));
+			expect(discardQuestion()).toBeNull();
+
+			// Edits typed after that are a new draft, which the old question never asked about.
+			edit('[{"id":"a","name":"edited again"}]');
+			expect(discardQuestion()).toBeNull();
+			expect(onNext).not.toHaveBeenCalled();
 		});
 
 		it('does not ask when there is nothing to discard', () => {
-			const confirmed = vi.spyOn(window, 'confirm').mockReturnValue(true);
-			renderModal({ recordNavigation: navigation() });
+			const onNext = vi.fn();
+			renderModal({ recordNavigation: navigation({ onNext }) });
 
 			fireEvent.click(nextButton());
 
-			expect(confirmed).not.toHaveBeenCalled();
-			confirmed.mockRestore();
+			expect(discardQuestion()).toBeNull();
+			expect(onNext).toHaveBeenCalledTimes(1);
 		});
 
 		// The record arriving after a step is a different record, not this one changing underfoot —
 		// the warning for that would be describing something that never happened.
 		it('does not warn about a changed record when the user stepped to another one', () => {
-			const confirmed = vi.spyOn(window, 'confirm').mockReturnValue(true);
 			const recordNavigation = navigation();
 			const { rerender } = renderModal({ recordNavigation, data: [{ id: 'a', name: 'A' }] });
 
 			edit('[{"id":"a","name":"edited A"}]');
 			fireEvent.click(nextButton());
+			fireEvent.click(screen.getByRole('button', { name: 'Discard Changes' }));
 			rerender(modal({ recordNavigation, data: [{ id: 'b', name: 'B' }] }));
 
 			expect(screen.queryByText('This record changed while you were editing it')).toBeNull();
-			confirmed.mockRestore();
 		});
 	});
 
@@ -784,7 +821,6 @@ describe('EditTableRowModal', () => {
 		// further step must not stop to ask (Escape is refused on the same flag).
 		it('leaves nothing to discard while the next record is still loading', () => {
 			const onNext = vi.fn();
-			const confirmed = vi.spyOn(window, 'confirm').mockReturnValue(true);
 			const recordNavigation = {
 				position: 1,
 				total: 3,
@@ -798,9 +834,8 @@ describe('EditTableRowModal', () => {
 			rerender(modal({ primaryKey: 'id', recordNavigation, data: undefined }));
 			fireEvent.click(screen.getByRole('button', { name: 'Next record' }));
 
-			expect(confirmed).not.toHaveBeenCalled();
+			expect(screen.queryByRole('alertdialog')).toBeNull();
 			expect(onNext).toHaveBeenCalledTimes(1);
-			confirmed.mockRestore();
 		});
 
 		// The echo is recognised by "we just pushed this", not by "the text matches the record": a

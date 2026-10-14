@@ -4,7 +4,7 @@
 import { InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
 const route = vi.hoisted(() => ({ search: {} as { filters?: Record<string, string> } }));
@@ -110,18 +110,15 @@ beforeAll(() => {
 	}
 });
 
-const confirm = vi.fn<(message?: string) => boolean>();
-beforeEach(() => {
-	vi.stubGlobal('confirm', confirm);
-});
-
 afterEach(() => {
 	cleanup();
-	vi.unstubAllGlobals();
-	confirm.mockReset();
 	instance.searches = [];
 	route.search = {};
 });
+
+const scanQuestion = () => screen.queryByRole('alertdialog', { name: /^Scan every record in/ });
+const findScanQuestion = () => screen.findByRole('alertdialog', { name: /^Scan every record in/ });
+const answer = (name: 'Scan anyway' | 'Cancel') => fireEvent.click(screen.getByRole('button', { name }));
 
 function renderView() {
 	return render(
@@ -152,21 +149,26 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 	});
 
 	it('asks first, and runs nothing when the user declines', async () => {
-		confirm.mockReturnValue(false);
 		renderView();
 		await filterBy('note', 'beta');
 
-		expect(confirm).toHaveBeenCalledTimes(1);
-		expect(confirm.mock.calls[0][0]).toContain('every record in "Thing"');
+		const question = await findScanQuestion();
+		expect(question.querySelector('h2')!.textContent).toBe('Scan every record in "Thing"?');
+		expect(question.textContent).toContain('this filter on "note"');
+		expect(instance.searches).toEqual([]);
+		answer('Cancel');
+
+		expect(scanQuestion()).toBeNull();
 		await findCell('t3');
 		expect(instance.searches).toEqual([]);
 		expect(screen.getByRole('button', { name: /apply filters/i })).toBeTruthy();
 	});
 
 	it('runs the search, marked as allowed to scan, once the user agrees', async () => {
-		confirm.mockReturnValue(true);
 		renderView();
 		await filterBy('note', 'beta');
+		await findScanQuestion();
+		answer('Scan anyway');
 
 		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
 		expect(instance.searches[0]).toMatchObject({
@@ -182,17 +184,17 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 		await filterBy('name', 'John');
 
 		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
-		expect(confirm).not.toHaveBeenCalled();
+		expect(scanQuestion()).toBeNull();
 		expect(instance.searches[0].allowFullScan).toBeUndefined();
 	});
 
 	it('reads *x as ends-with and *x* as contains, and asks before either', async () => {
-		confirm.mockReturnValue(true);
 		renderView();
 		await filterBy('name', '*hn');
+		expect((await findScanQuestion()).textContent).toContain('"name"');
+		answer('Scan anyway');
 
 		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
-		expect(confirm.mock.calls[0][0]).toContain('"name"');
 		expect(instance.searches[0]).toMatchObject({
 			conditions: [{ search_attribute: 'name', search_type: 'ends_with', search_value: 'hn' }],
 			allowFullScan: true,
@@ -200,8 +202,9 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 
 		fireEvent.change(filterInput('name'), { target: { value: '*oh*' } });
 		fireEvent.keyDown(filterInput('name'), { key: 'Enter' });
+		await findScanQuestion();
+		answer('Scan anyway');
 		await vi.waitFor(() => expect(instance.searches).toHaveLength(2));
-		expect(confirm).toHaveBeenCalledTimes(2);
 		expect(instance.searches[1].conditions).toEqual([
 			{ search_attribute: 'name', search_type: 'contains', search_value: 'oh' },
 		]);
@@ -234,21 +237,91 @@ describe('DatabaseTableView filtering a column no index covers', { timeout: 30_0
 
 	it('asks once for a deep link’s filter, and runs it on yes', async () => {
 		route.search = { filters: { note: 'beta' } };
-		confirm.mockReturnValue(true);
 		renderView();
+		await findScanQuestion();
+		expect(instance.searches).toEqual([]);
+		answer('Scan anyway');
 
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
 		await findCell('t2');
-		expect(instance.searches).toHaveLength(1);
 		expect(instance.searches[0].allowFullScan).toBe(true);
-		expect(confirm).toHaveBeenCalledTimes(1);
+		expect(scanQuestion()).toBeNull();
+		await vi.waitFor(() => expect(screen.queryByRole('button', { name: /apply filters/i })).toBeNull());
+	});
+
+	it('shows exactly the deep link’s filter once it runs, not one typed before it', async () => {
+		const { rerender } = renderView();
+		await filterBy('name', 'John');
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
+
+		route.search = { filters: { note: 'beta' } };
+		rerender(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="data" tableName="Thing" />
+			</QueryClientProvider>,
+		);
+		await findScanQuestion();
+		answer('Scan anyway');
+
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(2));
+		expect(instance.searches[1].conditions).toEqual([
+			{ search_attribute: 'note', search_type: 'equals', search_value: 'beta' },
+		]);
+		await vi.waitFor(() => expect(filterInput('note').value).toBe('beta'));
+		expect(filterInput('name').value).toBe('');
+		expect(screen.queryByRole('button', { name: /apply filters/i })).toBeNull();
+	});
+
+	it('keeps no earlier filter in the inputs when the deep link’s question is declined', async () => {
+		const { rerender } = renderView();
+		await filterBy('name', 'John');
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(1));
+
+		route.search = { filters: { note: 'beta' } };
+		rerender(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="data" tableName="Thing" />
+			</QueryClientProvider>,
+		);
+		await findScanQuestion();
+		answer('Cancel');
+
+		await vi.waitFor(() => expect(filterInput('note').value).toBe('beta'));
+		expect(filterInput('name').value).toBe('');
+		fireEvent.click(screen.getByRole('button', { name: /apply filters/i }));
+		await findScanQuestion();
+		answer('Scan anyway');
+		await vi.waitFor(() => expect(instance.searches).toHaveLength(2));
+		expect(instance.searches[1].conditions).toEqual([
+			{ search_attribute: 'note', search_type: 'equals', search_value: 'beta' },
+		]);
+	});
+
+	// The view stays mounted across deep links, so a yes to one must not apply it to the next.
+	it('drops the question for a deep link the user has since left', async () => {
+		route.search = { filters: { note: 'beta' } };
+		const { rerender } = renderView();
+		await findScanQuestion();
+
+		route.search = {};
+		rerender(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="data" tableName="Thing" />
+			</QueryClientProvider>,
+		);
+
+		expect(scanQuestion()).toBeNull();
+		await findCell('t3');
+		expect(instance.searches).toEqual([]);
 	});
 
 	it('asks before a deep link’s filter runs too', async () => {
 		route.search = { filters: { note: 'beta' } };
-		confirm.mockReturnValue(false);
 		renderView();
+		await findScanQuestion();
+		fireEvent.keyDown(scanQuestion()!, { key: 'Escape' });
 
-		await vi.waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+		expect(scanQuestion()).toBeNull();
 		await findCell('t3');
 		expect(instance.searches).toEqual([]);
 		expect(filterInput('note').value).toBe('beta');

@@ -156,6 +156,16 @@ so it is judged by that table's attribute. Typed filters and deep-linked ones bo
 carries `allowFullScan: true`, and so does a CSV export of that filter. A new way to apply a filter
 has to go through that function.
 
+## Browse asks in a Studio dialog, and a question belongs to where it was asked
+
+The full-scan question, Cleanup Orphan Blobs, Delete Selected and the row editor's discard all ask in
+an `AlertDialog`, not `window.confirm()` (#1924). Nothing blocks while it is open, so each question
+is a pending request that carries what it would act on: the filter's conditions, the selected keys.
+`DatabaseTableView` stays mounted when the route moves to another table, so its request also carries
+the view's context (instance, database, table, deep-link filters) and is cleared, not answered, once
+that changes. The editor's discard question is cleared once its draft is gone. A filter an index can
+answer never asks and applies at once, as before.
+
 ## An import refreshes Browse from the mutation, not from the modal
 
 Every Browse read has a 60s `staleTime`, so an import into the open table shows nothing new until
