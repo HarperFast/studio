@@ -27,7 +27,10 @@ async function rejectionOf(pending: Promise<unknown>): Promise<unknown> {
 
 describe('waitForJob', () => {
 	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
 
 	it('resolves once the job reaches COMPLETE', async () => {
 		const instanceClient = makeClient([
@@ -175,6 +178,18 @@ describe('waitForJob', () => {
 		const error = await pending;
 		expect(error).toMatchObject({ jobId: 'job-1', reason: 'polling-failed' });
 		expect((error as Error).cause).toEqual(new Error('network down (poll 11)'));
+	});
+
+	it('reads the clock once per poll, so a failed poll just under the deadline is never reported as the deadline', async () => {
+		const instanceClient = makeClient([{ reject: true }]);
+		const clock = [0, 999, 1000];
+		vi.spyOn(Date, 'now').mockImplementation(() => (clock.length > 1 ? clock.shift()! : clock[0]));
+		const pending = rejectionOf(waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100, timeoutMs: 1000 }));
+		await vi.advanceTimersByTimeAsync(500);
+
+		const error = await pending;
+		expect(error).toMatchObject({ jobId: 'job-1', reason: 'polling-failed' });
+		expect((error as Error).cause).toEqual(new Error('network down (poll 2)'));
 	});
 
 	it('still reports an ERROR that follows failed polls as the failure it is', async () => {
