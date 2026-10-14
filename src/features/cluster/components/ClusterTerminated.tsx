@@ -1,8 +1,10 @@
 import { Button } from '@/components/ui/button';
+import { authStore } from '@/features/auth/store/authStore';
 import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, ServerOff } from 'lucide-react';
+import { useEffect } from 'react';
 
 function describeDeletion(cluster: Cluster) {
 	if (clusterIsSelfManaged(cluster)) {
@@ -19,6 +21,15 @@ function describeDeletion(cluster: Cluster) {
 
 export function ClusterTerminated({ cluster }: { cluster: Cluster }) {
 	const { title, detail } = describeDeletion(cluster);
+	const finished = cluster.status !== 'TERMINATING';
+	// A string, so the 10s poll's fresh cluster object doesn't re-run the effect.
+	const signInIds = [cluster.id, ...(cluster.instances ?? []).map((instance) => instance.id)].join(' ');
+	useEffect(() => {
+		if (finished) {
+			authStore.signOutEntitiesLocally(signInIds.split(' '));
+		}
+	}, [finished, signInIds]);
+
 	return (
 		<div className="text-center py-12">
 			<ServerOff className="size-12 text-muted-foreground mx-auto mb-4" />

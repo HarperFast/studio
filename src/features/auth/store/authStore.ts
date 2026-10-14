@@ -750,6 +750,20 @@ class AuthStore {
 		this.flagForFabricConnect(id, false);
 	}
 
+	/**
+	 * `signOutLocally` for each of `ids`, for a cluster that is gone and every instance it had. Never throws: one id that
+	 * fails to clear must not keep the rest, or fail the termination that called this.
+	 */
+	public signOutEntitiesLocally(ids: Iterable<EntityIds>): void {
+		for (const id of new Set(ids)) {
+			try {
+				this.signOutLocally(id);
+			} catch (error) {
+				console.error(error);
+			}
+		}
+	}
+
 	private clearSignIn(id: EntityIds): void {
 		this.bumpSignOutGeneration(id);
 		// That attempt will now reject; the next connect for this id must not join it.
