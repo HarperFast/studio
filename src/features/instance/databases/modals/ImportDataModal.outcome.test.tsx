@@ -37,7 +37,7 @@ vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSuppo
 	useOperationsAllowlistSupported: () => true,
 }));
 
-type Poll = { status: string; message?: string } | 'no-answer';
+type Poll = { status: string; message?: string } | 'no-answer' | 'missing';
 
 function instanceClient(polls: Poll[]) {
 	let poll = 0;
@@ -53,7 +53,7 @@ function instanceClient(polls: Poll[]) {
 		if (next === 'no-answer') {
 			throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
 		}
-		return answer([{ id: 'job-7', ...next }]);
+		return answer(next === 'missing' ? [] : [{ id: 'job-7', ...next }]);
 	};
 	return client;
 }
@@ -99,10 +99,17 @@ afterEach(() => {
 });
 
 describe('ImportDataModal when Studio stops following the job', () => {
+	const anyNode = "If your role can list jobs, also look for job job-7 on the Status page's Jobs tab.";
 	it.each([
-		['the polls stop answering', [{ status: 'IN_PROGRESS' }, 'no-answer'] as Poll[], 20_000],
-		['the job is still running at the deadline', [{ status: 'IN_PROGRESS' }] as Poll[], 11 * 60_000],
-	])('reports an unknown outcome, never a failure, when %s', async (_, polls, waitMs) => {
+		['the polls stop answering', [{ status: 'IN_PROGRESS' }, 'no-answer'] as Poll[], 20_000, anyNode],
+		[
+			'the node Studio reaches does not have the job',
+			[{ status: 'IN_PROGRESS' }, 'missing'] as Poll[],
+			30_000,
+			"look for job job-7 on the Jobs tab of each instance's Status page",
+		],
+		['the job is still running at the deadline', [{ status: 'IN_PROGRESS' }] as Poll[], 11 * 60_000, anyNode],
+	])('reports an unknown outcome, never a failure, when %s', async (_, polls, waitMs, where) => {
 		const { onImported } = await importFromUrl(polls, waitMs);
 
 		expect(toast.loading).toHaveBeenCalled();
@@ -112,9 +119,7 @@ describe('ImportDataModal when Studio stops following the job', () => {
 		expect(title).toBe(OUTCOME_UNKNOWN_TITLE);
 		expect(options.description).toContain('It may still be running, or it may have finished.');
 		expect(options.description).toContain('Check the table before you import this data again');
-		expect(options.description).toContain(
-			"If your role can list jobs, also look for job job-7 on the Status page's Jobs tab.",
-		);
+		expect(options.description).toContain(where);
 		expect(toast.success).not.toHaveBeenCalled();
 		expect(onImported).not.toHaveBeenCalled();
 		expect(screen.getByRole('button', { name: 'Import Data' })).toBeTruthy();

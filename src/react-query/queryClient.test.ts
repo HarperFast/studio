@@ -481,12 +481,19 @@ describe('a load job Studio stopped following before it ended', () => {
 		);
 	};
 
+	const anyNode = "If your role can list jobs, also look for job job-7 on the Status page's Jobs tab.";
 	it.each(
 		[
-			['polling-failed', "Studio could no longer read this import's job"],
-			['deadline', 'Studio stopped following this import before it could confirm how it ended'],
+			['polling-failed', "Studio could no longer read this import's job", anyNode],
+			[
+				'not-found',
+				"Studio couldn't find this import's job on the node it reached",
+				"If your role can list jobs, look for job job-7 on the Jobs tab of each instance's Status page: "
+				+ 'only the node that ran it lists it.',
+			],
+			['deadline', 'Studio stopped following this import before it could confirm how it ended', anyNode],
 		] as const,
-	)('is described as an unknown outcome when %s, naming the job and where to check', (reason, why) => {
+	)('is described as an unknown outcome when %s, naming the job and where to check', (reason, why, where) => {
 		const described = describeError(new ImportJobUnconfirmedError('job-7', reason, pollFailure()));
 
 		expect(described.title).toBe(OUTCOME_UNKNOWN_TITLE);
@@ -494,9 +501,7 @@ describe('a load job Studio stopped following before it ended', () => {
 		expect(described.message).toContain(why);
 		expect(described.message).toContain('It may still be running, or it may have finished.');
 		expect(described.message).toContain('Check the table before you import this data again');
-		expect(described.message).toContain(
-			"If your role can list jobs, also look for job job-7 on the Status page's Jobs tab.",
-		);
+		expect(described.message).toContain(where);
 		expect(described.message).not.toMatch(/try again|retry|fail/i);
 		expect(described.message).not.toContain('secret-host-01');
 		expect(described.message).not.toContain('502');

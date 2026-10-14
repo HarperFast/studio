@@ -214,6 +214,13 @@ describe('useImportDataMutation refreshing Browse', () => {
 		return { post } as unknown as AxiosInstance;
 	}
 
+	function jobNeverFound() {
+		const post = vi.fn(async (_url: string, body: { operation: string }) =>
+			body.operation === 'csv_url_load' ? { data: { message: 'Starting job', job_id: 'job-1' } } : { data: [] }
+		);
+		return { post } as unknown as AxiosInstance;
+	}
+
 	function pollsStopAnswering() {
 		const post = vi.fn(async (_url: string, body: { operation: string }) => {
 			if (body.operation === 'csv_url_load') {
@@ -265,6 +272,7 @@ describe('useImportDataMutation refreshing Browse', () => {
 		['the submission got no answer', rejectAll(), {}, 5_000, AxiosError],
 		['a gateway answered 504', rejectAll(504), {}, 5_000, AxiosError],
 		['the polls stopped answering', pollsStopAnswering, {}, 10_000, ImportJobUnconfirmedError],
+		['the node polled never had the job', jobNeverFound, {}, 30_000, ImportJobUnconfirmedError],
 	];
 	it.each(failures)('refetches too when %s', async (_case, instanceClient, overrides, waitMs, settledWith) => {
 		const client = new QueryClient();
