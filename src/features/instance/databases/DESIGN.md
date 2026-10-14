@@ -50,6 +50,19 @@ and [`TablePagination`](components/TablePagination.tsx) pages by whether it came
 stated only once the page that ends the result set is on screen (`uncountedTotal`). The unfiltered
 list keeps paging by the table count.
 
+Past the last record of a full unfiltered page, the row editor's Next doesn't go by that count. It
+probes the next page, and an empty answer proves the page it came from is the last (`knownLastPage`
+in [`DatabaseTableView`](components/DatabaseTableView.tsx)). The proof is about how many records the
+table holds, so it carries the count the step set out with and holds only while the count is the
+same (#1940). A window-focus refetch or an import's refresh reads the count again, and Refresh
+retires the proof outright. Reading a page doesn't, so the read on the way back from the probe keeps
+it, however slow the probe; and a count that moves while the probe is out voids the answer it brings.
+A step that turns the page first drops the table's cached pages that aren't on screen, so it reads
+the next page afresh rather than trust a copy, or join a read, older than the page on screen (the
+probe's empty answer among them). Where `describe_table` only estimates the count, growth that leaves
+the estimate unchanged keeps the proof until Refresh, and a count that first arrives, or shrinks,
+costs one more probe.
+
 ## Export CSV writes the file itself, from JSON
 
 The export reads every matching record as JSON in one request, with the grid's select minus its

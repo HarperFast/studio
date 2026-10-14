@@ -213,9 +213,9 @@ export function DatabaseTableView({
 	// A step off either end of the page can only open its record once the neighbouring page has been
 	// fetched: which end of it to open, plus the page to put the grid back on if that fetch brings
 	// nothing (an empty page, or a failed request -- both list queries are `retry: false`).
-	const [pendingRecordStep, setPendingRecordStep] = useState<{ end: 'first' | 'last'; fromPage: number } | null>(
-		null,
-	);
+	const [pendingRecordStep, setPendingRecordStep] = useState<
+		{ end: 'first' | 'last'; fromPage: number; totalRecords: number | undefined } | null
+	>(null);
 	// While that page loads, the open record is the one the user stepped away from -- so the editor
 	// shows nothing rather than a record its own header can no longer name.
 	const isStepPending = pendingRecordStep !== null;
@@ -370,10 +370,13 @@ export function DatabaseTableView({
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName, appliedSearchConditions]);
 	const [pageSize, setPageSize] = useState(20);
 
-	// The index of a page a step has proven to be the last one. A full unfiltered page can't say
-	// whether more records follow, so the step probes; an empty answer is the only proof, and
-	// remembering it keeps the Next button from offering that same dead probe again.
-	const [knownLastPage, setKnownLastPage] = useEffectedState<number | null>(null, [
+	// The page a step has proven to be the last one. A full unfiltered page can't say whether more
+	// records follow, so the step probes; an empty answer is the only proof, and remembering it keeps
+	// the Next button from offering that same dead probe again. It holds only while the record count
+	// the step set out with does.
+	const [knownLastPage, setKnownLastPage] = useEffectedState<
+		{ pageIndex: number; totalRecords: number | undefined } | null
+	>(null, [
 		databaseName,
 		tableName,
 		appliedSearchConditions,
@@ -556,7 +559,8 @@ export function DatabaseTableView({
 	// full one is only proven terminal by a step that found nothing past it.
 	const hasNextPage = uncountedPage
 		? !!uncountedPage.hasNextPage
-		: !!pageRows && pageRows.length === pageSize && knownLastPage !== pageIndex;
+		: !!pageRows && pageRows.length === pageSize
+			&& !(knownLastPage?.pageIndex === pageIndex && knownLastPage.totalRecords === totalRecords);
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -847,9 +851,23 @@ export function DatabaseTableView({
 		if (targetPage < 0) {
 			return;
 		}
+		// A copy of that page still in the cache, or a read of it still in flight, can be older than the
+		// page on screen (the probe's empty answer among them), so the step reads it afresh.
+		queryClient.removeQueries({ queryKey: [instanceParams.entityId, databaseName, tableName], type: 'inactive' });
 		setPageIndex(targetPage);
-		setPendingRecordStep({ end: offset === 1 ? 'first' : 'last', fromPage: pageIndex });
-	}, [openRowIndex, pageRows, openRecordAt, pageIndex, setPageIndex]);
+		setPendingRecordStep({ end: offset === 1 ? 'first' : 'last', fromPage: pageIndex, totalRecords });
+	}, [
+		openRowIndex,
+		pageRows,
+		openRecordAt,
+		pageIndex,
+		setPageIndex,
+		totalRecords,
+		queryClient,
+		instanceParams.entityId,
+		databaseName,
+		tableName,
+	]);
 
 	useEffect(function openTheRecordWaitingOnTheNeighbouringPage() {
 		if (!pendingRecordStep) {
@@ -882,15 +900,28 @@ export function DatabaseTableView({
 			return;
 		}
 		if (pendingRecordStep.end === 'first') {
+			// A count that moved while the probe was out leaves its empty answer proving nothing.
+			if (pendingRecordStep.totalRecords !== totalRecords) {
+				return;
+			}
 			// An empty page forward is proof there is nothing past the page we came from -- the only
 			// proof available when that page was full. Backwards it means something else entirely
 			// (records disappeared behind us), so it must not mark that page as the last one.
-			setKnownLastPage(pendingRecordStep.fromPage);
+			setKnownLastPage({ pageIndex: pendingRecordStep.fromPage, totalRecords });
 			toast.info('This is the last record');
 			return;
 		}
 		toast.info('This is the first record');
-	}, [pendingRecordStep, pageRows, isPageError, isEditModalOpen, openRecordAt, setPageIndex, setKnownLastPage]);
+	}, [
+		pendingRecordStep,
+		pageRows,
+		isPageError,
+		isEditModalOpen,
+		openRecordAt,
+		setPageIndex,
+		totalRecords,
+		setKnownLastPage,
+	]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		openRecordAt(rowData.index, rowData.original);
