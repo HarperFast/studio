@@ -161,10 +161,10 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 			setItem.call(this, key, value);
 		});
 		authStore.signOutAllLocally();
-		authStore.retrySignOutWritesAfterWipe();
+		authStore.wipeLocalStorageForSignOut();
 		full = false;
 
-		authStore.retrySignOutWritesAfterWipe();
+		authStore.wipeLocalStorageForSignOut();
 
 		const { calls, results } = write.mock;
 		const accepted = calls.filter(([key], index) => key === SIGNAL && results[index]?.type === 'return');
