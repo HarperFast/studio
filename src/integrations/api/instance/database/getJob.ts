@@ -45,7 +45,6 @@ const UNCONFIRMED_MESSAGES: Record<Exclude<ImportJobUnconfirmedReason, 'polling-
 	deadline: 'Stopped following the import job at its deadline, before it reported how it ended',
 };
 
-/** Studio stopped following an accepted load before its job ended: never a failure, since a retry can duplicate rows. */
 export class ImportJobUnconfirmedError extends Error {
 	readonly jobId: string;
 	readonly reason: ImportJobUnconfirmedReason;
@@ -82,11 +81,9 @@ export function describeImportJobUnconfirmed({ jobId, reason }: ImportJobUnconfi
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Polls get_job until the job reports COMPLETE or ERROR. Resolves with the finished job, or rejects with
- * {@link ImportJobError} on ERROR. Stopping without either, after repeated failed polls, a job missing for
- * {@link JOB_NOT_FOUND_GRACE_MS}, or at the deadline, rejects with {@link ImportJobUnconfirmedError}, never
- * as a failure.
- * `onUpdate` sees every job record a poll returns, the finished one included.
+ * Rejects with {@link ImportJobError} only on an ERROR it read, and with {@link ImportJobUnconfirmedError}
+ * whenever it stops following without COMPLETE or ERROR. `onUpdate` sees every job record a poll returns,
+ * the finished one included.
  */
 export async function waitForJob({
 	jobId,
