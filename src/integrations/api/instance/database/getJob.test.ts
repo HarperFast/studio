@@ -1,7 +1,7 @@
 import { shouldKeepEvent } from '@/integrations/datadog/shouldKeepEvent';
 import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ImportJobError, ImportJobUnconfirmedError, waitForJob } from './getJob';
+import { ImportJobError, ImportJobUnconfirmedError, JOB_NOT_FOUND_GRACE_MS, waitForJob } from './getJob';
 
 type InstanceClient = Parameters<typeof waitForJob>[0]['instanceClient'];
 
@@ -132,6 +132,36 @@ describe('waitForJob', () => {
 		const error = await pending;
 		expect(error).toBeInstanceOf(ImportJobUnconfirmedError);
 		expect(error).toMatchObject({ jobId: 'job-1', reason: 'deadline', cause: undefined });
+	});
+
+	it('stops following a job that stays missing, long before the deadline, as an unconfirmed outcome', async () => {
+		const instanceClient = makeClient([{ status: 'IN_PROGRESS' }, { missing: true }]);
+		const pending = rejectionOf(waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100 }));
+		await vi.advanceTimersByTimeAsync(JOB_NOT_FOUND_GRACE_MS + 1000);
+
+		const error = await Promise.race([pending, Promise.resolve('still following')]);
+		expect(error).toBeInstanceOf(ImportJobUnconfirmedError);
+		expect(error).toMatchObject({ jobId: 'job-1', reason: 'not-found', cause: undefined });
+	});
+
+	const missingFor = (ms: number) => Array<{ missing: true }>(ms / 100).fill({ missing: true });
+	it.each(
+		[
+			['a poll that finds the job', { status: 'IN_PROGRESS' }],
+			['a poll that fails', { reject: true }],
+		] as const,
+	)('starts the missing-job grace again after %s', async (_, between) => {
+		const halfGrace = JOB_NOT_FOUND_GRACE_MS / 2;
+		const instanceClient = makeClient([
+			...missingFor(halfGrace + 5000),
+			between,
+			...missingFor(halfGrace + 5000),
+			{ status: 'COMPLETE', message: 'done' },
+		]);
+		const pending = waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100 });
+		await vi.advanceTimersByTimeAsync(2 * JOB_NOT_FOUND_GRACE_MS + 5000);
+
+		await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });
 	});
 
 	it('names the failed poll, not the clock, when the deadline passes while polls are failing', async () => {

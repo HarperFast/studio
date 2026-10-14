@@ -33,7 +33,17 @@ export class ImportJobError extends Error {
 	}
 }
 
-type ImportJobUnconfirmedReason = 'polling-failed' | 'deadline';
+// `hdb_job` does not replicate, so a cluster's address can answer `[]` from a node other than the one that
+// ran the job, and reach that one again on the next request: a missing row only counts once it has stayed
+// missing for a while.
+export const JOB_NOT_FOUND_GRACE_MS = 20_000;
+
+type ImportJobUnconfirmedReason = 'polling-failed' | 'not-found' | 'deadline';
+
+const UNCONFIRMED_MESSAGES: Record<Exclude<ImportJobUnconfirmedReason, 'polling-failed'>, string> = {
+	'not-found': 'Stopped following the import job, which the node Studio reached does not have',
+	deadline: 'Stopped following the import job at its deadline, before it reported how it ended',
+};
 
 /** Studio stopped following an accepted load before its job ended: never a failure, since a retry can duplicate rows. */
 export class ImportJobUnconfirmedError extends Error {
@@ -44,9 +54,9 @@ export class ImportJobUnconfirmedError extends Error {
 		// The poll's text stays in the message because Datadog's `shouldKeepEvent` filters on it. The job id
 		// stays out of it, so these group as one issue in Error Tracking.
 		super(
-			reason === 'deadline'
-				? 'Stopped following the import job at its deadline, before it reported how it ended'
-				: `Stopped following the import job, whose status could not be read: ${errorText(cause) ?? 'no answer'}`,
+			reason === 'polling-failed'
+				? `Stopped following the import job, whose status could not be read: ${errorText(cause) ?? 'no answer'}`
+				: UNCONFIRMED_MESSAGES[reason],
 			{ cause },
 		);
 		this.name = 'ImportJobUnconfirmedError';
@@ -55,21 +65,27 @@ export class ImportJobUnconfirmedError extends Error {
 	}
 }
 
+const UNCONFIRMED_WHY: Record<ImportJobUnconfirmedReason, string> = {
+	'polling-failed': "Studio could no longer read this import's job, so it can't tell how it ended.",
+	'not-found': "Studio couldn't find this import's job on the node it reached, so it can't tell how it ended.",
+	deadline: 'Studio stopped following this import before it could confirm how it ended.',
+};
+
 export function describeImportJobUnconfirmed({ jobId, reason }: ImportJobUnconfirmedError): string {
-	const why = reason === 'deadline'
-		? 'Studio stopped following this import before it could confirm how it ended.'
-		: "Studio could no longer read this import's job, so it can't tell how it ended.";
-	return `${why} It may still be running, or it may have finished. Check the table before you import this data `
-		+ 'again, or its rows may be added twice. '
-		+ `If your role can list jobs, also look for job ${jobId} on the Status page's Jobs tab.`;
+	const where = reason === 'not-found'
+		? `look for job ${jobId} on the Jobs tab of each instance's Status page: only the node that ran it lists it.`
+		: `also look for job ${jobId} on the Status page's Jobs tab.`;
+	return `${UNCONFIRMED_WHY[reason]} It may still be running, or it may have finished. Check the table before you `
+		+ `import this data again, or its rows may be added twice. If your role can list jobs, ${where}`;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Polls get_job until the job reports COMPLETE or ERROR. Resolves with the finished job, or rejects with
- * {@link ImportJobError} on ERROR. Stopping without either, after repeated failed polls or at the
- * deadline, rejects with {@link ImportJobUnconfirmedError}, never as a failure.
+ * {@link ImportJobError} on ERROR. Stopping without either, after repeated failed polls, a job missing for
+ * {@link JOB_NOT_FOUND_GRACE_MS}, or at the deadline, rejects with {@link ImportJobUnconfirmedError}, never
+ * as a failure.
  * `onUpdate` sees every job record a poll returns, the finished one included.
  */
 export async function waitForJob({
@@ -89,12 +105,16 @@ export async function waitForJob({
 	// transient get_job failures are tolerated — but only a few in a row, so a persistent
 	// problem (revoked token, instance gone) surfaces quickly instead of at the deadline.
 	let consecutiveFailures = 0;
+	let missingSince: number | undefined;
 	for (;;) {
 		let job: HarperJob | undefined;
 		try {
 			job = await getJob({ jobId, instanceClient });
 			consecutiveFailures = 0;
+			missingSince = job ? undefined : (missingSince ?? Date.now());
 		} catch (err) {
+			// An answer that never came is not a miss, so not-found needs an unbroken run of them.
+			missingSince = undefined;
 			consecutiveFailures += 1;
 			// At the deadline too: the failed poll, not the clock, is what left the outcome unread.
 			if (consecutiveFailures >= 5 || Date.now() >= deadline) {
@@ -118,6 +138,9 @@ export async function waitForJob({
 		}
 		if (status === 'COMPLETE' && job) {
 			return job;
+		}
+		if (missingSince !== undefined && Date.now() - missingSince >= JOB_NOT_FOUND_GRACE_MS) {
+			throw new ImportJobUnconfirmedError(jobId, 'not-found');
 		}
 		if (Date.now() >= deadline) {
 			throw new ImportJobUnconfirmedError(jobId, 'deadline');

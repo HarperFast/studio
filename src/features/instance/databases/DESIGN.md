@@ -171,9 +171,18 @@ duplicates every record without an id.
 
 Once Harper accepts a CSV load, which answers with a `job_id`, only the job's own `ERROR` is a failure
 (`ImportJobError`). [`waitForJob`](../../../integrations/api/instance/database/getJob.ts) also stops after five
-failed `get_job` polls in a row, and at its 10-minute deadline whatever the last poll read: a job still running
-or queued, or no row at all. Both reject with `ImportJobUnconfirmedError`, which `describeError` shows as "Outcome
-unknown": the load may still be running or may have finished, so check the table (and, for a role that can list
-jobs, the job on the Status page's Jobs tab). A retry is the thing to avoid: a CSV row with no primary key gets a
-new id on every load (harper `resources/Table.ts`, `getNewId`), so a second load duplicates it. Any new way to
+failed `get_job` polls in a row, after `get_job` has answered `[]` for 20 seconds straight, and at its 10-minute
+deadline whatever the last poll read. All three reject with `ImportJobUnconfirmedError`, which `describeError`
+shows as "Outcome unknown": the load may still be running or may have finished, so check the table (and, for a
+role that can list jobs, the job on a Jobs tab). A retry is the thing to avoid: a CSV row with no primary key gets
+a new id on every load (harper `resources/Table.ts`, `getNewId`), so a second load duplicates it. Any new way to
 stop following rejects the same way.
+
+The `[]` case is a cluster reached through its own address, which can send a poll to a node other than the one
+that ran the job. Studio can't poll the right node, because nothing names it: the load answers only `message` and
+`job_id` (harper v5.3.2 `server/serverHelpers/serverUtilities.ts:581-584`), the job row records no node
+(`server/jobs/JobObject.ts:10-19`), `get_job` reads only the local `hdb_job` (`server/jobs/jobs.ts:38-54`, `:280-290`),
+and `hdb_job` does not replicate (`resources/databases.ts:330-339`). Central manager's proxy sends every request
+to the first running instance (central-manager `src/resources/cluster/Cluster.js:375-380`), so it reaches the same
+node unless instance states change. The 20-second grace (`JOB_NOT_FOUND_GRACE_MS`) is the one the rolling-deploy
+follower uses for the same reason.
