@@ -150,7 +150,7 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		expect(announcedUser()).toBe('usr_a');
 	});
 
-	it('keeps a refused announcement for a later retry when storage refuses the first retry too', () => {
+	it('does not send a refused announcement later than right after the wipe', () => {
 		signIn();
 		let full = true;
 		const setItem = Storage.prototype.setItem;
@@ -168,7 +168,7 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 
 		const { calls, results } = write.mock;
 		const accepted = calls.filter(([key], index) => key === SIGNAL && results[index]?.type === 'return');
-		expect(accepted.map(([, value]) => (JSON.parse(value) as { user: unknown }).user)).toEqual(['usr_a']);
+		expect(accepted).toEqual([]);
 	});
 
 	it('names the ended user from every local sign-out, and is not written by the sweep before `/Logout/`', async () => {

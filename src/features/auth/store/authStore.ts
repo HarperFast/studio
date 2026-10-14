@@ -159,6 +159,11 @@ class AuthStore {
 		if (this.fullSignOutInProgress) {
 			return;
 		}
+		if (this.explorerSignOutUnwritten) {
+			// A full sign-out storage refused is still owed, and its collapse covers this entity too.
+			this.bumpExplorerAuthEpochAll();
+			return;
+		}
 		this.writeExplorerInvalidation(generations => ({ ...generations, [id]: countIn(generations, id) + 1 }));
 	}
 
@@ -180,9 +185,9 @@ class AuthStore {
 	}
 
 	/**
-	 * A full sign-out's localStorage wipe. It keeps the explorer's sign-out generation: a tab that missed the
-	 * sign-out compares its stored explorer credential against it when it reloads, so removing it would make
-	 * that credential current again. Then, with room made, it writes what a full store refused.
+	 * Keeps the explorer's sign-out generation: a tab that missed the sign-out compares its stored explorer
+	 * credential against it when it reloads, so removing it would make that credential current again. Then,
+	 * with room made, writes what a full store refused.
 	 */
 	public wipeLocalStorageForSignOut(): void {
 		try {
@@ -197,8 +202,10 @@ class AuthStore {
 			this.bumpExplorerAuthEpochAll();
 		}
 		const user = this.unannouncedSignOutUser;
+		// Right after the wipe is the last chance: sent any later, the announcement could end a session the user
+		// has signed back into in another tab.
+		this.unannouncedSignOutUser = null;
 		if (user !== null && this.writeAppSignOut(user)) {
-			this.unannouncedSignOutUser = null;
 			// The other tabs have the value from the event; leaving it would carry the ended user into the next
 			// account's session, which the wipe exists to prevent.
 			this.removeStoredItem(this.appSignOutKey);
