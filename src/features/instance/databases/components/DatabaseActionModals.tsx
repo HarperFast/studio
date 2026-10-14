@@ -1,4 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
@@ -55,7 +60,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	);
 
 	const addTableFromMap = addTarget
-		? instanceDatabaseMap?.[addTarget.databaseName]?.[addTarget.tableName]
+		? describedTable(instanceDatabaseMap, addTarget.databaseName, addTarget.tableName)
 		: undefined;
 	const [describedAddTable, setDescribedAddTable] = useState<{ target: AddTarget; table: InstanceTable }>();
 	const addInstanceTable = addTableFromMap
@@ -123,8 +128,12 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				<AddTableRowModal
 					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
-					databaseTables={instanceDatabaseMap?.[addTarget.databaseName]}
-					schemaRelationships={schemaRelationshipMap?.[addTarget.databaseName]?.[addTarget.tableName]}
+					databaseTables={describedDatabase(instanceDatabaseMap, addTarget.databaseName)}
+					schemaRelationships={declaredRelationships(
+						schemaRelationshipMap,
+						addTarget.databaseName,
+						addTarget.tableName,
+					)}
 					isModalOpen
 					setIsModalOpen={open => {
 						if (!open) {

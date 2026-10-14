@@ -3,6 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { TableRowContextMenu } from '@/features/instance/databases/components/TableRowContextMenu';
+import { describedDatabase } from '@/features/instance/databases/functions/describedTable';
 import { summarizeDatabaseCounts } from '@/features/instance/databases/functions/summarizeDatabaseCounts';
 import { useInstanceBrowseManagePermission, useInstanceImportOperationsPermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
@@ -58,7 +59,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 	const canManage = useInstanceBrowseManagePermission();
 	const canImport = useInstanceImportOperationsPermission();
 
-	const tables = instanceDatabaseMap?.[databaseName] ?? {};
+	const tables = describedDatabase(instanceDatabaseMap, databaseName) ?? {};
 	const tableNames = Object.keys(tables).sort();
 
 	// Sizes/schema are already in the fast (count-skipping) map, so they render instantly. Row counts

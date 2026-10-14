@@ -1,4 +1,5 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/contextMenu';
+import { describedDatabase, describedTable } from '@/features/instance/databases/functions/describedTable';
 import { browsePrimaryKey } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import {
@@ -28,12 +29,9 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const canImport = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const { exportCsv } = useExportTableCsv();
 
-	const databaseTables = instanceDatabaseMap?.[databaseName];
+	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
 	const isLastTable = Object.keys(databaseTables || {}).length <= 1;
-	// Own keys only: a table named `constructor` would otherwise find Object.prototype's.
-	const instanceTable = databaseTables && Object.hasOwn(databaseTables, tableName)
-		? databaseTables[tableName]
-		: undefined;
+	const instanceTable = describedTable(instanceDatabaseMap, databaseName, tableName);
 	const primaryKey = browsePrimaryKey(instanceTable);
 	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.
 	const hasKnownPrimaryKey = !!primaryKey;

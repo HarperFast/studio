@@ -1,3 +1,4 @@
+import { ownEntry } from '@/features/instance/databases/functions/describedTable';
 import { SchemaRelationship } from '@/features/instance/databases/functions/schemaRelationships';
 import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 
@@ -152,7 +153,7 @@ export function getRelationshipInfoMap(
 		}
 	}
 	for (const declared of schemaRelationships ?? []) {
-		const relatedTable = databaseTables?.[declared.relatedTableName];
+		const relatedTable = ownEntry(databaseTables, declared.relatedTableName);
 		const relatedPrimaryKey = relatedTable?.primary_key ?? relatedTable?.hash_attribute;
 		if (!relatedTable || !relatedPrimaryKey || !databaseTables) {
 			continue;
