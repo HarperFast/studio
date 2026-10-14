@@ -114,6 +114,20 @@ describe('authStore.signOutAllLocally and the explorer generation', () => {
 		expect(authStore.getExplorerAuthEpoch('ins-a')).toBe(before + 1);
 	});
 
+	it('leaves the subscribers alone when storage refuses the write', () => {
+		const stop = authStore.onExplorerAuthInvalidated('ins-a', vi.fn());
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('Storage is full.', 'QuotaExceededError');
+		});
+		const getItem = vi.spyOn(Storage.prototype, 'getItem');
+
+		authStore.signOutAllLocally();
+		stop();
+
+		// The bump's own read; a subscriber called back would read the generation again.
+		expect(getItem.mock.calls.filter(([key]) => key === KEY)).toHaveLength(1);
+	});
+
 	it('still moves every entity when an explorer subscriber throws', () => {
 		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
 		const failure = new Error('explorer subscriber failed');

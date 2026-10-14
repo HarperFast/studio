@@ -150,6 +150,27 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		expect(announcedUser()).toBe('usr_a');
 	});
 
+	it('keeps a refused announcement for a later retry when storage refuses the first retry too', () => {
+		signIn();
+		let full = true;
+		const setItem = Storage.prototype.setItem;
+		const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
+			if (this === localStorage && full) {
+				throw new DOMException('Storage is full.', 'QuotaExceededError');
+			}
+			setItem.call(this, key, value);
+		});
+		authStore.signOutAllLocally();
+		authStore.retrySignOutWritesAfterWipe();
+		full = false;
+
+		authStore.retrySignOutWritesAfterWipe();
+
+		const { calls, results } = write.mock;
+		const accepted = calls.filter(([key], index) => key === SIGNAL && results[index]?.type === 'return');
+		expect(accepted.map(([, value]) => (JSON.parse(value) as { user: unknown }).user)).toEqual(['usr_a']);
+	});
+
 	it('names the ended user from every local sign-out, and is not written by the sweep before `/Logout/`', async () => {
 		signIn();
 		await authStore.signOutFromPotentiallyAuthenticatedInstances();
