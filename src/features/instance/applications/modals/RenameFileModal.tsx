@@ -21,6 +21,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
+import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
@@ -50,7 +51,7 @@ export function RenameFileModal() {
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
-	const { openedEntry, entryExists, reloadRootEntries } = useEditorView();
+	const { openedEntry, entryExists, reloadRootEntries, isSavingAnyFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const RenameFileSchema = z.object({
@@ -116,6 +117,8 @@ export function RenameFileModal() {
 		// drop the old one. `relative` strips the leading project segment.
 		if (renamed && isDir) {
 			const relative = (path: string) => path.split('/').slice(1).join('/');
+			// Saves still wait while the old folder is dropped: that drop is part of the rename.
+			const endRename = startRename(instanceParams.entityId);
 			try {
 				if (changes.length === 0) {
 					await setComponentFile({
@@ -136,6 +139,8 @@ export function RenameFileModal() {
 				toast.error(title, { description });
 				setIsPending(false);
 				return;
+			} finally {
+				endRename();
 			}
 		}
 
@@ -209,6 +214,9 @@ export function RenameFileModal() {
 								</FormItem>
 							)}
 						/>
+						{isSavingAnyFile && (
+							<p className="text-sm text-muted-foreground">Rename once the save in progress finishes.</p>
+						)}
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
@@ -218,7 +226,7 @@ export function RenameFileModal() {
 								<Button
 									variant="positiveOutline"
 									type="submit"
-									disabled={isPending || !isDirty || !isValid}
+									disabled={isPending || isSavingAnyFile || !isDirty || !isValid}
 								>
 									<PencilIcon /> Rename
 								</Button>

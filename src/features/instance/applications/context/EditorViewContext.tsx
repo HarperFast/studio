@@ -30,8 +30,12 @@ export type EditorViewContextValue = {
 	selectedItems: TreeItemIndex[];
 	setSelectedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void;
 
-	saveFile: (data: SetComponentFileRequest, filePath: string) => void;
+	/** Refused while a save of the same file is in flight; another file saves alongside it. */
+	saveFile: (data: SetComponentFileRequest) => void;
+	/** `saveFile` for a caller that reports the outcome itself: rejects when refused or failed. */
+	writeFile: (data: SetComponentFileRequest) => Promise<void>;
 	isSavingFile: boolean;
+	isSavingAnyFile: boolean;
 };
 
 export const EditorViewContext = createContext<EditorViewContextValue | null>(null);

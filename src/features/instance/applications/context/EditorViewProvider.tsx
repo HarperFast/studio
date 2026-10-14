@@ -7,8 +7,12 @@ import { newApplication } from '@/features/instance/applications/components/Appl
 import {
 	discardEditorFileContentIfSaved,
 	editorFileContentKey,
-	useEditorFileContentId,
 } from '@/features/instance/applications/context/editorFileContent';
+import {
+	editorSaveKey,
+	editorSavesInFlight,
+	isRenaming,
+} from '@/features/instance/applications/lib/editorSaveInterlock';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import {
@@ -24,10 +28,11 @@ import {
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
+import { toast } from 'sonner';
 import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
 import { FileEntry } from './fileEntry';
@@ -43,6 +48,18 @@ interface LoadedContents {
 // two files.
 function entryKeyOf(entityId: string, path: string | undefined) {
 	return path === undefined ? undefined : `${entityId}:${path}`;
+}
+
+interface SaveRefusal {
+	id: string;
+	title: string;
+	description: string;
+	/** A save of the same text is already in flight, so nothing is lost. */
+	quiet: boolean;
+}
+
+function savedEntryKeyOf({ entityId, project, file }: SetComponentFileRequest) {
+	return entryKeyOf(entityId, `${project}/${file}`);
 }
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
@@ -69,7 +86,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				: contents,
 		}));
 	}, [openedEntryKey]);
-	const editorFileContentId = useEditorFileContentId();
 	const baseURL = useEntityRestURL();
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
@@ -170,11 +186,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	// risks choking the editor. Leave the file undefined to disable the query.
 	const isBinaryEntry = !!openedEntry && !isDirectory(openedEntry) && isBinaryFile(openedEntry.name);
 	const fileToLoad = isBinaryEntry ? undefined : pathToLoad?.split('/').slice(1).join('/');
-	const fileQueryKey = getComponentFileQueryKey({
-		file: fileToLoad,
-		project: projectToLoad,
-		...instanceParams,
-	});
 	const { data: getComponentFileQueryData, isError: openedEntryReadFailed } = useQuery(
 		getComponentFileQueryOptions(
 			{
@@ -203,35 +214,97 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Save changes.
 	 */
-	const { mutate: saveComponentFile, isPending: isSavingFile } = useSetComponentFile();
+	const settleSave = useCallback(async (_response: unknown, saved: SetComponentFileRequest) => {
+		const { entityId, instanceClient, project, file, payload } = saved;
+		if (payload === undefined) {
+			return;
+		}
+		// Sign-out clears the mutation cache, and nothing from before it may reach the next session's caches.
+		const signedOut = () =>
+			!queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
+		if (signedOut()) {
+			return;
+		}
+		const queryKey = getComponentFileQueryKey({ entityId, instanceClient, project, file });
+		// A read sent before the save landed would otherwise put the old contents back.
+		await queryClient.cancelQueries({ queryKey, exact: true });
+		if (signedOut()) {
+			return;
+		}
+		// With the file's identity, which a cache entry that was never read lacks. The response reports no
+		// size or time: the size is what was written, in UTF-8 as Harper writes it, and the time is unknown.
+		queryClient.setQueryData<GetComponentFileResponse>(
+			queryKey,
+			previous =>
+				({
+					...previous,
+					project,
+					file,
+					message: payload,
+					size: new TextEncoder().encode(payload).byteLength,
+					mtime: undefined,
+				}) as GetComponentFileResponse,
+		);
+		discardEditorFileContentIfSaved(editorFileContentKey(entityId, `${project}/${file}`), payload);
+		const savedKey = savedEntryKeyOf(saved);
+		if (openedEntryKeyRef.current === savedKey) {
+			// '' included: an emptied file is loaded, not unknown.
+			setLoadedContents({ entryKey: savedKey, contents: payload });
+		}
+	}, [queryClient]);
+	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
+		mutationKey: editorSaveKey,
+		onSuccess: settleSave,
+	});
+	const savingEntryKeys = useMutationState({
+		filters: { mutationKey: editorSaveKey, status: 'pending' },
+		select: mutation => savedEntryKeyOf(mutation.state.variables as SetComponentFileRequest),
+	});
+	const isSavingFile = openedEntryKey !== undefined && savingEntryKeys.includes(openedEntryKey);
+	const isSavingAnyFile = savingEntryKeys.some(key => key?.startsWith(`${instanceParams.entityId}:`));
+	const refusalOf = useCallback((data: SetComponentFileRequest): SaveRefusal | undefined => {
+		const savedKey = savedEntryKeyOf(data);
+		const name = data.file.split('/').at(-1);
+		if (isRenaming(data.entityId)) {
+			return {
+				id: `save-during-rename:${savedKey}`,
+				title: `${name} was not saved`,
+				description: 'A rename is in progress. Save again once it finishes.',
+				quiet: false,
+			};
+		}
+		const inFlight = editorSavesInFlight(queryClient).filter(saving => savedEntryKeyOf(saving) === savedKey);
+		if (inFlight.length > 0) {
+			return {
+				id: `save-in-flight:${savedKey}`,
+				title: `${name} is still saving`,
+				description: 'Your newer changes were not saved. Save again once this save finishes.',
+				quiet: inFlight.some(saving => saving.payload === data.payload),
+			};
+		}
+	}, [queryClient]);
 	const saveFile = useCallback(
-		(data: SetComponentFileRequest, filePath: string) => {
-			const savedKey = entryKeyOf(instanceParams.entityId, filePath);
-			const bufferKey = editorFileContentKey(editorFileContentId, filePath);
-			saveComponentFile(data, {
-				onSuccess: () => {
-					const { payload } = data;
-					if (payload === undefined) {
-						return;
-					}
-					// With the file's identity, which a cache entry that was never read lacks.
-					queryClient.setQueryData<GetComponentFileResponse>(
-						fileQueryKey,
-						previous =>
-							({ ...previous, project: data.project, file: data.file, message: payload }) as GetComponentFileResponse,
-					);
-					discardEditorFileContentIfSaved(bufferKey, payload);
-					if (openedEntryKeyRef.current === savedKey) {
-						// '' included: an emptied file is loaded, not unknown.
-						setLoadedContents({ entryKey: savedKey, contents: payload });
-					}
-				},
-				onError: (error) => {
-					console.error('Error saving file:', error);
-				},
-			});
+		(data: SetComponentFileRequest) => {
+			const refusal = refusalOf(data);
+			if (refusal) {
+				if (!refusal.quiet) {
+					toast.info(refusal.title, { id: refusal.id, description: refusal.description });
+				}
+				return;
+			}
+			saveComponentFile(data);
 		},
-		[editorFileContentId, fileQueryKey, instanceParams.entityId, queryClient, saveComponentFile],
+		[refusalOf, saveComponentFile],
+	);
+	const writeFile = useCallback(
+		async (data: SetComponentFileRequest) => {
+			const refusal = refusalOf(data);
+			if (refusal) {
+				throw new Error(`${refusal.title}. ${refusal.description}`);
+			}
+			await writeComponentFile(data);
+		},
+		[refusalOf, writeComponentFile],
 	);
 
 	const restrictPackageModification = useMemo(() => isProtectedEntry(openedEntry), [openedEntry]);
@@ -261,7 +334,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			openedEntryReadFailed,
 
 			saveFile,
+			writeFile,
 			isSavingFile,
+			isSavingAnyFile,
 		};
 	}, [
 		mappedData.rootEntries,
@@ -284,7 +359,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		openedEntryReadFailed,
 
 		saveFile,
+		writeFile,
 		isSavingFile,
+		isSavingAnyFile,
 	]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 }

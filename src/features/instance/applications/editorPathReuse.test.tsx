@@ -21,6 +21,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import type { ReactNode } from 'react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const harness = vi.hoisted(() => {
@@ -535,6 +536,7 @@ function bufferAt(path: string, entity = 'ins-1') {
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 });
 
 describe('a deleted file re-created at the same path', () => {
@@ -805,6 +807,231 @@ describe('a file opened while another is saving', () => {
 		await waitFor(() => expect(editor().value).toBe('saved b'));
 		expect(bufferAt('app/b.js')).toBeUndefined();
 		await landed();
+	});
+});
+
+describe('a file saved while another is saving', () => {
+	it('takes typing and saves without waiting for the other', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+		save();
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+		await openFile('app/b.js', 'saved b');
+
+		await waitFor(() => expect(editor().readOnly).toBe(false));
+		expect(view.isSavingAnyFile).toBe(true);
+		type('edits to b');
+		save();
+
+		await waitFor(() => expect(files.get('app/b.js')).toBe('edits to b'));
+		expect(files.get('app/a.js')).toBe('saved a');
+		await landed();
+		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
+	});
+});
+
+describe('Save pressed again while that file is saving', () => {
+	it('sends nothing more, and says nothing, when there is nothing newer to save', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+		save();
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+
+		save();
+		await landed();
+
+		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
+		expect(writesOf('app/a.js')).toEqual(['edits to a']);
+		expect(notice).not.toHaveBeenCalled();
+	});
+});
+
+describe('a rename while a file is saving', () => {
+	it('waits for the save to land, from any way of opening it', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+		save();
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: 'c.js' } });
+		fireEvent.submit(input.closest('form')!);
+		await act(async () => {});
+
+		expect(screen.getByRole('button', { name: 'Rename' })).toHaveProperty('disabled', true);
+		expect(writesOf('app/c.js')).toEqual([]);
+		await landed();
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Rename' })).toHaveProperty('disabled', false));
+		fireEvent.submit(input.closest('form')!);
+		await waitFor(() => expect(files.get('app/c.js')).toBe('edits to a'));
+		expect(files.has('app/a.js')).toBe(false);
+	});
+});
+
+describe('a save while a rename is in flight', () => {
+	it('is refused, so the edits move with the file instead of being lost with the original', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const copied = hold('set_component_file', 'app/c.js');
+
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: 'c.js' } });
+		fireEvent.submit(input.closest('form')!);
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+		save();
+		await copied();
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		expect(notice).toHaveBeenCalledWith('a.js was not saved', expect.anything());
+		expect(writesOf('app/a.js')).toEqual([]);
+		expect(files.has('app/a.js')).toBe(false);
+		expect(bufferAt('app/c.js')).toBe('edits to a');
+	});
+});
+
+describe('a save while a renamed folder is dropped', () => {
+	it('is refused until the old folder is gone', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/lib/x.js': 'saved x', 'app/b.js': 'saved b' });
+		renderEditor();
+		await open('app/lib');
+		const dropped = hold('drop_component', 'app/lib');
+
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: 'src' } });
+		fireEvent.submit(input.closest('form')!);
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+		act(() => view.saveFile({ ...harness.instanceParams, project: 'app', file: 'b.js', payload: 'edits to b' }));
+
+		expect(notice).toHaveBeenCalledWith('b.js was not saved', expect.anything());
+		await dropped();
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(writesOf('app/b.js')).toEqual([]);
+	});
+});
+
+describe('a move while a file is saving', () => {
+	it('is refused until the save lands', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/a.js': 'saved a', 'app/lib/z.js': 'saved z' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+		save();
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+
+		await act(() => harness.tree.onDrop!([{ index: 'app/a.js' }], { targetType: 'item', targetItem: 'app/lib' }));
+
+		expect(notice).toHaveBeenCalledWith('Nothing was renamed', expect.anything());
+		expect(files.has('app/lib/a.js')).toBe(false);
+		await landed();
+		await waitFor(() => expect(view.isSavingAnyFile).toBe(false));
+		await act(() => harness.tree.onDrop!([{ index: 'app/a.js' }], { targetType: 'item', targetItem: 'app/lib' }));
+		expect(files.get('app/lib/a.js')).toBe('edits to a');
+	});
+
+	it('goes ahead on another instance', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/a.js': 'saved a', 'app/lib/z.js': 'saved z' });
+		const { rerender } = renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const landed = hold('set_component_file', 'app/a.js');
+		save();
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+		act(() => switchInstance(rerender, 'ins-2'));
+		await waitFor(() => expect(view.entryExists('app/lib')).toBe(true));
+
+		await act(() => harness.tree.onDrop!([{ index: 'app/a.js' }], { targetType: 'item', targetItem: 'app/lib' }));
+
+		expect(notice).not.toHaveBeenCalledWith('Nothing was renamed', expect.anything());
+		await waitFor(() => expect(files.has('app/lib/a.js')).toBe(true));
+		await landed();
+	});
+});
+
+describe('a .env file written from the secrets view', () => {
+	async function addSecret(key: string, value: string) {
+		fireEvent.click(screen.getByRole('button', { name: /add/i }));
+		fireEvent.change(await screen.findByLabelText('Key'), { target: { value: key } });
+		fireEvent.change(screen.getByLabelText('Value'), { target: { value } });
+		const submit = screen.getByRole('button', { name: /add secret/i });
+		await waitFor(() => expect(submit.hasAttribute('disabled')).toBe(false));
+		fireEvent.click(submit);
+	}
+
+	it('counts as a save, so a move waits for it', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		seed({ 'app/.env': 'API_KEY=secret123\n', 'app/lib/z.js': 'saved z' });
+		renderEditor();
+		await open('app/.env');
+		await screen.findByText('API_KEY');
+		const landed = hold('set_component_file', 'app/.env');
+
+		await addSecret('NEW_KEY', 'value');
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+		await act(() => harness.tree.onDrop!([{ index: 'app/.env' }], { targetType: 'item', targetItem: 'app/lib' }));
+
+		expect(notice).toHaveBeenCalledWith('Nothing was renamed', expect.anything());
+		expect(files.has('app/lib/.env')).toBe(false);
+		await landed();
+		await waitFor(() => expect(files.get('app/.env')).toBe('API_KEY=secret123\nNEW_KEY=value\n'));
+	});
+
+	it('is refused during a rename, with the reason', async () => {
+		const failure = vi.spyOn(toast, 'error');
+		seed({ 'app/.env': 'API_KEY=secret123\n', 'app/lib/z.js': 'saved z' });
+		renderEditor();
+		await open('app/.env');
+		await screen.findByText('API_KEY');
+		const copied = hold('set_component_file', 'app/lib/.env');
+		let move: Promise<unknown> | undefined;
+		act(() => {
+			move = harness.tree.onDrop!([{ index: 'app/.env' }], { targetType: 'item', targetItem: 'app/lib' });
+		});
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+
+		await addSecret('NEW_KEY', 'value');
+
+		await waitFor(() => expect(failure).toHaveBeenCalledWith(expect.stringContaining('.env was not saved')));
+		expect(writesOf('app/.env')).toEqual([]);
+		await copied();
+		await act(() => move!);
+	});
+});
+
+describe('Save pressed twice at once', () => {
+	it('sends one write', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+
+		act(() => {
+			emitToListeners('SaveFile', true);
+			emitToListeners('SaveFile', true);
+		});
+
+		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
+		expect(writesOf('app/a.js')).toEqual(['edits to a']);
 	});
 });
 

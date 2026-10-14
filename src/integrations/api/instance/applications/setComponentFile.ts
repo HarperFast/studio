@@ -28,7 +28,7 @@ export async function setComponentFile({
 }
 
 export function useSetComponentFile(
-	options?: Pick<UseMutationOptions<unknown, Error, SetComponentFileRequest>, 'onSuccess'>,
+	options?: Pick<UseMutationOptions<unknown, Error, SetComponentFileRequest>, 'onSuccess' | 'mutationKey'>,
 ) {
 	return useMutation({
 		mutationFn: setComponentFile,

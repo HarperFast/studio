@@ -13,7 +13,8 @@ export interface GetComponentFileResponse {
 	file: string;
 	birthtime: string;
 	message: string;
-	mtime: string;
+	/** Unknown once an editor save has set the entry, since `set_component_file` doesn't report it. */
+	mtime?: string;
 	size: number;
 	/**
 	 * Harper >= 5.2 marks secret-bearing `.env` files as protected: `message` is a value-free

@@ -154,19 +154,16 @@ export function TextEditorView() {
 	useListener(
 		'SaveFile',
 		() => {
-			if (openedEntry && !isSavingFile && updatedFileContent !== undefined) {
-				saveFile(
-					{
-						...instanceParams,
-						file: openedEntry.path.split('/').slice(1).join('/'),
-						payload: updatedFileContent,
-						project: openedEntry.project,
-					},
-					openedEntry.path,
-				);
+			if (openedEntry && updatedFileContent !== undefined) {
+				saveFile({
+					...instanceParams,
+					file: openedEntry.path.split('/').slice(1).join('/'),
+					payload: updatedFileContent,
+					project: openedEntry.project,
+				});
 			}
 		},
-		[openedEntry, instanceParams, updatedFileContent],
+		[openedEntry, instanceParams, updatedFileContent, saveFile],
 	);
 
 	useListener(

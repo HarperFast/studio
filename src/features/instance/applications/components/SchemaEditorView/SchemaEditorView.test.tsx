@@ -13,6 +13,7 @@ import { readSessionValue, writeSessionValue } from '@/lib/storage/sessionStorag
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => {
@@ -72,7 +73,7 @@ vi.mock('@/features/instance/applications/components/TextEditorView', async () =
 			useListener('SaveFile', () => {
 				if (openedEntry && content !== undefined) {
 					const file = openedEntry.path.split('/').slice(1).join('/');
-					saveFile({ ...server.params, file, payload: content, project: openedEntry.project }, openedEntry.path);
+					saveFile({ ...server.params, file, payload: content, project: openedEntry.project });
 				}
 			}, [openedEntry, content, saveFile]);
 			return (
@@ -108,9 +109,11 @@ const brokenSchema: FileEntry = { name: 'broken.graphql', path: 'punch/schemas/b
 
 let queryClient: QueryClient;
 let open: (entry: DirectoryEntry | FileEntry) => void;
+let view: ReturnType<typeof useEditorView>;
 
 function Opener() {
-	open = useEditorView().setOpenedEntry;
+	view = useEditorView();
+	open = view.setOpenedEntry;
 	return null;
 }
 
@@ -388,5 +391,53 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		expect((await save()).payload).toBe(
 			'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',
 		);
+	});
+
+	it('says a Save pressed before the save in flight lands was not made, and makes the next one', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		renderEditor();
+		await openEntry(newSchema, 'No tables yet.');
+		fireEvent.click(screen.getByRole('button', { name: /add table/i }));
+		type('Table (type) name', 'Thing');
+		let finishWrite!: () => void;
+		server.state.pendingWrite = new Promise(resolve => (finishWrite = resolve));
+		act(() => emitToListeners('SaveFile', true));
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+		type('Database', 'punch');
+
+		act(() => emitToListeners('SaveFile', true));
+
+		expect(notice).toHaveBeenCalledWith('thing.graphql is still saving', expect.anything());
+		await act(async () => finishWrite());
+		await waitFor(() => expect(server.state.saves).toHaveLength(1));
+		expect(server.state.saves[0].payload).toBe('type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n');
+		expect((await save()).payload).toBe(
+			'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',
+		);
+	});
+
+	it('keeps a schema put back to the saved one while another saves, and says that Save was not made', async () => {
+		const notice = vi.spyOn(toast, 'info');
+		const saved = 'type Thing @table @export @sealed {\n\tid: ID @primaryKey\n}\n';
+		renderEditor();
+		server.state.files['schemas/thing.graphql'] = saved;
+		await openEntry(newSchema, 'Thing');
+		fireEvent.click(screen.getByRole('button', { name: /Thing/ }));
+		type('Database', 'punch');
+		let finishWrite!: () => void;
+		server.state.pendingWrite = new Promise(resolve => (finishWrite = resolve));
+		act(() => emitToListeners('SaveFile', true));
+		await waitFor(() => expect(view.isSavingFile).toBe(true));
+		fireEvent.change(screen.getByLabelText('Database'), { target: { value: '' } });
+		await waitFor(() => expect(buffered(newSchema.path)).toBe(saved));
+
+		act(() => emitToListeners('SaveFile', true));
+		expect(notice).toHaveBeenCalledWith('thing.graphql is still saving', expect.anything());
+		await act(async () => finishWrite());
+		await waitFor(() => expect(view.isSavingFile).toBe(false));
+
+		expect(screen.getByLabelText<HTMLInputElement>('Database').value).toBe('');
+		expect(buffered(newSchema.path)).toBe(saved);
+		expect((await save()).payload).toBe(saved);
 	});
 });

@@ -12,6 +12,7 @@ import {
 	forgetReplacedPath,
 	moveEditedPath,
 } from '@/features/instance/applications/lib/editorPathState';
+import { editorSavesInFlight, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
@@ -38,6 +39,10 @@ export function useRenameFiles() {
 
 		if (actualChanges.length === 0) {
 			return true;
+		}
+		if (editorSavesInFlight(queryClient).some(saving => saving.entityId === instanceParams.entityId)) {
+			toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+			return false;
 		}
 
 		const toastTitle = `Renaming ${pluralize(actualChanges.length, 'File', 'Files')}`;
@@ -70,6 +75,7 @@ export function useRenameFiles() {
 			});
 		}
 
+		const endRename = startRename(instanceParams.entityId);
 		try {
 			for (const change of actualChanges) {
 				const oldParts = change.from.split('/');
@@ -142,6 +148,8 @@ export function useRenameFiles() {
 			});
 			void reloadRootEntries();
 			return false;
+		} finally {
+			endRename();
 		}
 
 		if (currentStep >= totalSteps) {

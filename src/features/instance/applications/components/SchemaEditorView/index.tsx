@@ -99,14 +99,17 @@ function LoadedSchemaEditorView({
 		if (showSource || readOnly) {
 			return;
 		}
-		setContent(serialized === savedContents ? undefined : serialized);
-	}, [serialized, showSource, readOnly, savedContents, setContent]);
+		// While a save is in flight the saved contents are about to change, so a schema back at the old ones
+		// is an edit to keep; cleared, the reconcile would replace it with what lands.
+		setContent(serialized === savedContents && !isSavingFile ? undefined : serialized);
+	}, [serialized, showSource, readOnly, savedContents, isSavingFile, setContent]);
 
 	useListener(
 		'SaveFile',
 		() => {
-			// The schema on screen is what is saved, not the shared buffer, which can trail it.
-			if (showSource || readOnly || !openedEntry || isSavingFile || serialized === savedContents) {
+			// The schema on screen is what is saved, not the shared buffer, which can trail it. Unchanged from
+			// the saved contents can still differ from a save in flight, which `saveFile` then says it refused.
+			if (showSource || readOnly || !openedEntry || (serialized === savedContents && !isSavingFile)) {
 				return;
 			}
 			// Never write a schema the visual editor knows is invalid — it would break
@@ -114,17 +117,14 @@ function LoadedSchemaEditorView({
 			if (validateSchema(doc).length > 0) {
 				return;
 			}
-			saveFile(
-				{
-					...instanceParams,
-					file: openedEntry.path.split('/').slice(1).join('/'),
-					payload: serialized,
-					project: openedEntry.project,
-				},
-				openedEntry.path,
-			);
+			saveFile({
+				...instanceParams,
+				file: openedEntry.path.split('/').slice(1).join('/'),
+				payload: serialized,
+				project: openedEntry.project,
+			});
 		},
-		[showSource, readOnly, openedEntry, savedContents, instanceParams, isSavingFile, doc, serialized],
+		[showSource, readOnly, openedEntry, savedContents, isSavingFile, instanceParams, doc, serialized, saveFile],
 	);
 
 	useListener(
