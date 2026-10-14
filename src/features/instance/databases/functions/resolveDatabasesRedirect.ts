@@ -17,7 +17,8 @@ export function resolveDatabasesRedirect(
 	if (!instanceDatabaseMap) {
 		return null;
 	}
-	const databaseExists = !!(params.databaseName && instanceDatabaseMap[params.databaseName]);
+	// Own keys only: a database or table named `constructor` would otherwise find Object.prototype's.
+	const databaseExists = !!params.databaseName && Object.hasOwn(instanceDatabaseMap, params.databaseName);
 	if (!databaseExists) {
 		const firstDatabaseName = Object.keys(instanceDatabaseMap).sort()[0];
 		// No redirect when there are no databases at all, or the fallback would land on the same
@@ -27,7 +28,7 @@ export function resolveDatabasesRedirect(
 		}
 		return null;
 	}
-	if (params.tableName && !instanceDatabaseMap[params.databaseName!][params.tableName]) {
+	if (params.tableName && !Object.hasOwn(instanceDatabaseMap[params.databaseName!], params.tableName)) {
 		return { databaseName: params.databaseName!, tableName: undefined };
 	}
 	return null;
