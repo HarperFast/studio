@@ -31,11 +31,17 @@ assistant's, doesn't pull Monaco in. For the file that is open, `TextEditorView`
   a replace. Monaco ignores an undefined `value` and keeps showing the model's last text, and typing into that would
   save it here. The library also keeps an old `onChange` subscribed, and fires it when it writes `value` into a
   read-only editor, so the editor passes one handler for good. That handler reads the open file's setter and the
-  read-only state, which are set on commit.
+  read-only state, which are set on commit. The editor subscribes to the query for this, since a reload that brings
+  back the text the provider already holds changes nothing else it renders from.
 - When its `value` changes to text nobody typed, as when the file is replaced while open or moved edits land on it,
   the library writes it into the model as an undoable edit. The editor then sets the same text with `setValue`, which
-  drops the history, so Ctrl+Z can't bring the replaced file back for Save to write. Typing, and switching to another
-  file and back, keep their history.
+  drops the history, so Ctrl+Z can't bring the replaced file back for Save to write. A replacement with the same text
+  changes nothing the editor is handed, and its reload can land before the provider even shows the contents missing.
+  So `editorPathState` also counts each delete, replace and move away per path (`useReplacementCount`), and the
+  editor drops the history once the contents after a counted replacement are loaded, whatever the text. It records
+  per model which file and count its history follows, because a model taken back before its disposal keeps its
+  history, and the same path on another instance shares the model. Typing, saving, and switching to another file and
+  back keep their history; switching instances does not.
 
 Apart from the rename's copy, an operation whose outcome is unknown (an unanswered write) changes nothing, because
 discarding edits for a file that may still be there loses work. Call sites run these where an unmount can't skip them:

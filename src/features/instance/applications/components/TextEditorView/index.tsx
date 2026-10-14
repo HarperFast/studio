@@ -5,6 +5,7 @@ import { useEditorFileContent } from '@/features/instance/applications/context/e
 import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useReplacementCount } from '@/features/instance/applications/lib/editorPathState';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -17,8 +18,8 @@ import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react';
+import { hashKey, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
 import './monaco-customizations.css';
@@ -66,6 +67,10 @@ function lookupEditorShortcuts(editor: Parameters<OnMount>[0], ids: string[]): R
 	return labels;
 }
 
+// Per model, which file and replacement its undo history follows. A model outlives a switch to another
+// file, and one taken back before its disposal still holds the history from before the replacement.
+const historyAsOf = new WeakMap<object, { entry: string; replacement: number }>();
+
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -105,6 +110,32 @@ export function TextEditorView() {
 
 	const extension = parseFileExtension(openedEntry?.path);
 	const fileContent = updatedFileContent ?? openedEntryContents;
+	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
+	// query by an effect after a replace; typing into either would save the old file's text here.
+	const openedFileHash = useMemo(() =>
+		openedEntry && hashKey(getComponentFileQueryKey({
+			...instanceParams,
+			project: openedEntry.project,
+			file: openedEntry.path.slice(openedEntry.project.length + 1),
+		})), [instanceParams, openedEntry]);
+	const subscribeToOpenedFile = useCallback(
+		(listener: () => void) =>
+			queryClient.getQueryCache().subscribe(event => {
+				if (event.query.queryHash === openedFileHash) {
+					listener();
+				}
+			}),
+		[queryClient, openedFileHash],
+	);
+	const readCachedContents = useCallback(
+		() =>
+			openedFileHash
+				? (queryClient.getQueryCache().get(openedFileHash)?.state.data as GetComponentFileResponse | undefined)?.message
+				: undefined,
+		[queryClient, openedFileHash],
+	);
+	const cachedContents = useSyncExternalStore(subscribeToOpenedFile, readCachedContents);
+	const contentsBehind = updatedFileContent === undefined && cachedContents !== openedEntryContents;
 	// A huge open file would feed its full text to the language worker the same
 	// way sibling models do, overflowing the structured-clone buffer
 	// ("DataCloneError: ... out of memory."). Render it as plaintext so no
@@ -144,6 +175,29 @@ export function TextEditorView() {
 		}
 		lastSeen.current = { model, text };
 	}, [mounted, fileContent]);
+
+	const openedPath = openedEntry?.path;
+	const replacement = useReplacementCount(instanceParams.entityId, openedPath);
+	useEffect(() => {
+		const model = mounted?.[0].getModel();
+		if (!model) {
+			return;
+		}
+		const entry = `${instanceParams.entityId}:${openedPath}`;
+		const history = historyAsOf.get(model);
+		if (history === undefined) {
+			historyAsOf.set(model, { entry, replacement });
+			return;
+		}
+		// Another instance's file at the same path shares the model, and so its history.
+		const current = history.entry === entry && history.replacement === replacement;
+		if (current || fileContent === undefined || contentsBehind) {
+			return;
+		}
+		model.setValue(fileContent);
+		historyAsOf.set(model, { entry, replacement });
+		typed.current = undefined;
+	}, [instanceParams.entityId, openedPath, replacement, mounted, fileContent, contentsBehind]);
 
 	useEffect(() => {
 		if (mounted && canManageBrowseInstance && !openedEntry?.package && !restrictPackageModification) {
@@ -205,17 +259,6 @@ export function TextEditorView() {
 		}
 	}, [mounted]);
 
-	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
-	// query by an effect after a replace; typing into either would save the old file's text here.
-	const cached = openedEntry
-		&& queryClient.getQueryData<GetComponentFileResponse>(
-			getComponentFileQueryKey({
-				...instanceParams,
-				project: openedEntry.project,
-				file: openedEntry.path.slice(openedEntry.project.length + 1),
-			}),
-		);
-	const contentsBehind = updatedFileContent === undefined && cached?.message !== openedEntryContents;
 	const readOnly = !openedEntry || isSavingFile || !!openedEntry.package || !canManageBrowseInstance
 		|| fileContent === undefined || contentsBehind;
 	// Set on commit, before the library's effects can fire the handler, so a render React throws away
