@@ -33,11 +33,43 @@ export class ImportJobError extends Error {
 	}
 }
 
+type ImportJobUnconfirmedReason = 'polling-failed' | 'deadline';
+
+/** Studio stopped following an accepted load before its job ended: never a failure, since a retry can duplicate rows. */
+export class ImportJobUnconfirmedError extends Error {
+	readonly jobId: string;
+	readonly reason: ImportJobUnconfirmedReason;
+
+	constructor(jobId: string, reason: ImportJobUnconfirmedReason, cause?: unknown) {
+		// The poll's text stays in the message because Datadog's `shouldKeepEvent` filters on it. The job id
+		// stays out of it, so these group as one issue in Error Tracking.
+		super(
+			reason === 'deadline'
+				? 'Stopped following the import job at its deadline, before it reported how it ended'
+				: `Stopped following the import job, whose status could not be read: ${errorText(cause) ?? 'no answer'}`,
+			{ cause },
+		);
+		this.name = 'ImportJobUnconfirmedError';
+		this.jobId = jobId;
+		this.reason = reason;
+	}
+}
+
+export function describeImportJobUnconfirmed({ jobId, reason }: ImportJobUnconfirmedError): string {
+	const why = reason === 'deadline'
+		? 'Studio stopped following this import before it could confirm how it ended.'
+		: "Studio could no longer read this import's job, so it can't tell how it ended.";
+	return `${why} It may still be running, or it may have finished. Check the table before you import this data `
+		+ 'again, or its rows may be added twice. '
+		+ `If your role can list jobs, also look for job ${jobId} on the Status page's Jobs tab.`;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Polls get_job until the job leaves IN_PROGRESS. Resolves with the finished job,
- * or rejects with the job's error message (ERROR status) or on timeout.
+ * Polls get_job until the job reports COMPLETE or ERROR. Resolves with the finished job, or rejects with
+ * {@link ImportJobError} on ERROR. Stopping without either, after repeated failed polls or at the
+ * deadline, rejects with {@link ImportJobUnconfirmedError}, never as a failure.
  * `onUpdate` sees every job record a poll returns, the finished one included.
  */
 export async function waitForJob({
@@ -64,8 +96,9 @@ export async function waitForJob({
 			consecutiveFailures = 0;
 		} catch (err) {
 			consecutiveFailures += 1;
-			if (consecutiveFailures >= 5) {
-				throw err;
+			// At the deadline too: the failed poll, not the clock, is what left the outcome unread.
+			if (consecutiveFailures >= 5 || Date.now() >= deadline) {
+				throw new ImportJobUnconfirmedError(jobId, 'polling-failed', err);
 			}
 		}
 		if (job && onUpdate) {
@@ -87,7 +120,7 @@ export async function waitForJob({
 			return job;
 		}
 		if (Date.now() >= deadline) {
-			throw new Error('Timed out waiting for the import job to finish. Check the table in a few minutes.');
+			throw new ImportJobUnconfirmedError(jobId, 'deadline');
 		}
 		await sleep(pollIntervalMs);
 	}
