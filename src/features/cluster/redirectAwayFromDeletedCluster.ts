@@ -2,8 +2,8 @@ import { isDeletedCluster } from '@/config/clusterStatuses';
 import { redirect } from '@tanstack/react-router';
 
 /**
- * A bookmark to a page a terminated cluster's rail hides lands on the overview, not on a form central manager would
- * reject.
+ * A bookmark to a page that needs a live cluster lands on the overview: not on a form central manager would reject, nor
+ * on an in-cluster page that would talk to the torn-down host.
  */
 export function redirectAwayFromDeletedCluster(
 	{ context, params }: {

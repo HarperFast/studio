@@ -77,6 +77,11 @@ is gone, and the cluster rail ([`ClusterPageLayout`](components/ClusterPageLayou
 on a managed cluster (a self-hosted one never shows Usage). Scaling (Configuration when self-hosted), Version, Domains
 and Instances are hidden, the same way the rail already hides what a member's permissions don't allow. A bookmark to one
 of those pages, or to the `/scaling` update screen, redirects to the overview (`redirectAwayFromDeletedCluster`).
+So does one to the in-cluster pages (apps, databases, APIs, operations, status, logs and config, for the cluster and for
+each instance): their shared guard, `checkClusterInstanceAuthenticationBeforeLoad`, redirects before it checks,
+restores or mints any sign-in, so a sign-in remembered from before the termination can't open them or run their loader
+against the torn-down host. The redirect leaves that sign-in stored; the overview still checks a remembered cluster
+sign-in once (`useInstanceAuth` in `ClusterHome`), as it does on any visit.
 Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for `FAILED`
 first, so a rolled-back build still offers Try Again.
 
