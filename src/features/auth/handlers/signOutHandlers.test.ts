@@ -132,6 +132,35 @@ describe.each(
 		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
 	});
 
+	it('still writes the refused generation when a removal fails during the wipe', async () => {
+		seedSignedInTab();
+		localStorage.setItem('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 2 }));
+		const otherTabSettings = JSON.stringify({
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'other-tab' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		});
+		localStorage.setItem('Theme', 'dark');
+		fillStorageUntilTheWipe();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		const removeItem = Storage.prototype.removeItem;
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function(this: Storage, key) {
+			if (this === localStorage && key === 'Theme') {
+				throw refusal;
+			}
+			removeItem.call(this, key);
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		await signOut();
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+		vi.restoreAllMocks();
+
+		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+	});
+
 	it('announces the sign-out after the wipe when a full store refused it', async () => {
 		seedSignedInTab();
 		const setItem = fillStorageUntilTheWipe();

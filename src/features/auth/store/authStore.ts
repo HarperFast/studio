@@ -16,6 +16,7 @@ import {
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
+import { clearLocalStorage } from '@/lib/storage/clearLocalStorage';
 import { isCluster } from '@/lib/types/isCluster';
 import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
@@ -95,7 +96,7 @@ class AuthStore {
 	// generation therefore lives in localStorage (durable, shared) and each stored credential records the
 	// generation it was created under, so a stale credential is detected by comparison at read time
 	// regardless of whether this tab was running when the sign-out happened.
-	public readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
+	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 	private explorerSignOutUnwritten = false;
@@ -179,10 +180,19 @@ class AuthStore {
 	}
 
 	/**
-	 * Only after the sign-out's storage wipe, which makes room in a store too full to take the full sign-out's
-	 * explorer generation or its announcement.
+	 * A full sign-out's localStorage wipe. It keeps the explorer's sign-out generation: a tab that missed the
+	 * sign-out compares its stored explorer credential against it when it reloads, so removing it would make
+	 * that credential current again. Then, with room made, it writes what a full store refused.
 	 */
-	public retrySignOutWritesAfterWipe(): void {
+	public wipeLocalStorageForSignOut(): void {
+		try {
+			clearLocalStorage([this.explorerAuthEpochKey]);
+		} finally {
+			this.retrySignOutWritesAfterWipe();
+		}
+	}
+
+	private retrySignOutWritesAfterWipe(): void {
 		if (this.explorerSignOutUnwritten) {
 			this.bumpExplorerAuthEpochAll();
 		}
