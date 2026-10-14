@@ -17,8 +17,7 @@ export async function terminateCluster(clusterId: string) {
  * The organization's cluster list carries no instances, so they come from the cluster record: read alongside the DELETE,
  * or read back after it, since central manager keeps a terminated cluster's record and its instances. Without either
  * read nothing is forgotten, since the cluster might be self-hosted: a Fabric cluster's go on its next visit
- * (`ClusterLayout`), a self-hosted one's at the next app sign-out. A removed self-hosted cluster's servers may still run,
- * so they are sent a logout too.
+ * (`ClusterLayout`), a self-hosted one's at the next app sign-out.
  */
 async function forgetSignIns(clusterId: string, before: Promise<Cluster | undefined>): Promise<void> {
 	const cluster = await before ?? await readCluster(clusterId);

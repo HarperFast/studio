@@ -78,6 +78,42 @@ describe('authStore.signOutEntities', () => {
 		expect(settled).toBe(true);
 	});
 
+	it('logs out a session-cookie sign-in, which stores no Basic Auth credential', async () => {
+		const user = { username: 'admin' } as SetArgs[2];
+		authStore.setUserForIdAndKey(
+			'ins-cookie' as SetArgs[0],
+			'https://ins-cookie.example.com:9925/' as SetArgs[1],
+			user,
+		);
+
+		await authStore.signOutEntities(['ins-cookie']);
+
+		expect(loggedOut()).toEqual([
+			{ entityId: 'ins-cookie', baseURL: 'https://ins-cookie.example.com:9925/', timeout: 10_000, auth: undefined },
+		]);
+		expect(authStore.getOperationsUrl('ins-cookie')).toBeUndefined();
+	});
+
+	it('logs out, and forgets, a sign-in another tab made after this one read the markers', async () => {
+		const markers = JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}');
+		localStorage.setItem(
+			'Studio:PotentiallyAuthenticated',
+			JSON.stringify({ ...markers, 'ins-other-tab': 'https://ins-other-tab.example.com:9925/' }),
+		);
+
+		await authStore.signOutEntities(['ins-other-tab']);
+
+		expect(loggedOut()).toEqual([
+			{
+				entityId: 'ins-other-tab',
+				baseURL: 'https://ins-other-tab.example.com:9925/',
+				timeout: 10_000,
+				auth: undefined,
+			},
+		]);
+		expect(JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}')).toEqual(markers);
+	});
+
 	it('posts no logout for an id with nothing remembered', async () => {
 		await authStore.signOutEntities(['ins-unknown']);
 

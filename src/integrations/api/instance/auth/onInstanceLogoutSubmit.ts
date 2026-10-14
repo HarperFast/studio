@@ -6,13 +6,15 @@ interface LogoutInfoResponse {
 }
 
 export async function onInstanceLogoutSubmit(
-	{ instanceClient, entityId }: InstanceClientIdConfig,
+	{ instanceClient, entityId, signedInSince }: InstanceClientIdConfig & { signedInSince?: () => boolean },
 ): Promise<LogoutInfoResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'logout',
 	});
-	authStore.flagForBasicAuth(entityId, null);
-	authStore.flagForFabricConnect(entityId, false);
+	if (!signedInSince?.()) {
+		authStore.flagForBasicAuth(entityId, null);
+		authStore.flagForFabricConnect(entityId, false);
+	}
 	if (data) {
 		return data;
 	} else {
