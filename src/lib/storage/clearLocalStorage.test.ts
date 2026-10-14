@@ -26,6 +26,16 @@ describe('clearLocalStorage', () => {
 		expect(localStorage.getItem('kept')).toBe('value');
 	});
 
+	it('removes a key named like a Storage member, which Object.keys does not list', () => {
+		for (const key of ['length', 'key', 'getItem']) {
+			localStorage.setItem(key, 'stored');
+		}
+
+		clearLocalStorage([]);
+
+		expect(storedKeys()).toEqual([]);
+	});
+
 	it('still removes the other keys when one removal throws, then throws that failure', () => {
 		for (const key of ['a', 'b', 'c']) {
 			localStorage.setItem(key, key);
