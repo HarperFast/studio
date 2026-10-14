@@ -55,6 +55,14 @@ describe('resolveDatabasesRedirect', () => {
 		});
 	});
 
+	it('treats a database with no describe as missing rather than throwing', () => {
+		const withHole = { alpha: {}, broken: null } as unknown as InstanceDatabaseMap;
+		expect(resolveDatabasesRedirect(withHole, { databaseName: 'broken', tableName: 'orders' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+	});
+
 	it('stays put on an empty database (shows its overview, no redirect loop)', () => {
 		expect(resolveDatabasesRedirect(map, { databaseName: 'empty' })).toBeNull();
 	});

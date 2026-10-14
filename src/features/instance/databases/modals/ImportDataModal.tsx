@@ -29,6 +29,11 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
+import {
 	generateRandomRecords,
 	randomizableAttributes,
 } from '@/features/instance/databases/functions/generateRandomRecords';
@@ -193,15 +198,15 @@ export function ImportDataModal({
 	const watchedTable = form.watch('table');
 	const selectedDataset = sampleDatasets.find((dataset) => dataset.id === datasetId);
 
-	const targetTable = instanceDatabaseMap?.[watchedDatabase || 'data']?.[watchedTable];
+	const targetTable = describedTable(instanceDatabaseMap, watchedDatabase || 'data', watchedTable);
 	const tableExists = !!targetTable;
 	const tableWillBeCreated = !!instanceDatabaseMap && !!watchedTable && !tableExists;
 	// Random data needs existing columns to model values on, so the option only appears
 	// when the target table already has some beyond the primary key and system fields.
 	const fillableAttributes = randomizableAttributes(
 		targetTable?.attributes,
-		instanceDatabaseMap?.[watchedDatabase || 'data'],
-		schemaRelationshipMap?.[watchedDatabase || 'data']?.[watchedTable],
+		describedDatabase(instanceDatabaseMap, watchedDatabase || 'data'),
+		declaredRelationships(schemaRelationshipMap, watchedDatabase || 'data', watchedTable),
 	);
 	const canGenerateRandom = fillableAttributes.length > 0;
 	const isRandomDataset = datasetId === RANDOM_DATASET_ID;
@@ -256,9 +261,9 @@ export function ImportDataModal({
 		let source: ImportSource;
 		if (values.method === 'sample' && values.datasetId === RANDOM_DATASET_ID) {
 			const attributes = randomizableAttributes(
-				instanceDatabaseMap?.[database]?.[table]?.attributes,
-				instanceDatabaseMap?.[database],
-				schemaRelationshipMap?.[database]?.[table],
+				describedTable(instanceDatabaseMap, database, table)?.attributes,
+				describedDatabase(instanceDatabaseMap, database),
+				declaredRelationships(schemaRelationshipMap, database, table),
 			);
 			if (attributes.length === 0) {
 				form.setError('datasetId', {

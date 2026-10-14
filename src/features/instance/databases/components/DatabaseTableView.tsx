@@ -19,6 +19,11 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
+import {
 	ExtraRecordAttribute,
 	extraRecordAttributes,
 	sameExtraRecordAttributes,
@@ -169,8 +174,8 @@ export function DatabaseTableView({
 	// describe_table backfills this table's count asynchronously. Render schema from whichever arrives first
 	// -- the map is usually ready before describe_table -- so columns and records are never gated on the
 	// (slower) count scan. describe_table wins once present: it's the per-table, refresh-invalidated copy.
-	const databaseTables = instanceDatabaseMap?.[databaseName];
-	const tableFromMap = databaseTables?.[tableName];
+	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
+	const tableFromMap = describedTable(instanceDatabaseMap, databaseName, tableName);
 	const instanceTable = describeTableData ?? tableFromMap;
 
 	// What the empty state may actually invite, each gated on the source it would use rather than on
@@ -195,7 +200,7 @@ export function DatabaseTableView({
 	const hasReplaceGrants = useInstanceTablePutPermission(instanceId ?? clusterId, databaseName, tableName);
 	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
 	const canReplaceRecords = replaceBlockedReason === undefined;
-	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
+	const schemaRelationships = declaredRelationships(schemaRelationshipMap, databaseName, tableName);
 	// Read the attributes from the same map the modal's Random Data option reads (NOT the
 	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
 	// dead end this gate exists to close.

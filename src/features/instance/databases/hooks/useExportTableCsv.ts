@@ -1,4 +1,5 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { declaredRelationships } from '@/features/instance/databases/functions/describedTable';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import {
 	buildExportGetAttributes,
@@ -78,7 +79,7 @@ export function useExportTableCsv() {
 					records,
 					instanceTable,
 					databaseTables,
-					schemaRelationshipMap[databaseName]?.[tableName],
+					declaredRelationships(schemaRelationshipMap, databaseName, tableName),
 				);
 				const blob = tableCsvBlob(records, columns);
 				const url = URL.createObjectURL(blob);

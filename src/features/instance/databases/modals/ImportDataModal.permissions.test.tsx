@@ -143,4 +143,13 @@ describe('ImportDataModal name fields', () => {
 		expect(screen.getByText('Maximum 75 characters reached.')).toBeTruthy();
 		expect(screen.getByText('Maximum 250 characters reached.')).toBeTruthy();
 	});
+
+	it('says a table named like an Object.prototype member will be created, as for any new name', () => {
+		renderModal({ super_user: true });
+		expect(screen.queryByText('New table')).toBeNull();
+
+		fireEvent.change(screen.getByLabelText('Table'), { target: { value: 'constructor' } });
+
+		expect(screen.getByText('New table')).toBeTruthy();
+	});
 });
