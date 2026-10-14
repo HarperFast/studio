@@ -1,5 +1,6 @@
+import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { parseSchemaRelationships } from './schemaRelationships';
+import { getSchemaRelationshipsQueryOptions, parseSchemaRelationships } from './schemaRelationships';
 
 // The live anvils app schema this feature was built against.
 const anvilsSchema = `type Category @table @export @sealed {
@@ -68,6 +69,65 @@ type Post @table(database: "blog") {
 		expect(map.data.Category).toEqual([
 			{ attribute: 'products', relatedTableName: 'Product', isToMany: true, from: undefined, to: 'categoryId' },
 		]);
+	});
+
+	it('keeps a database named __proto__ or constructor as its own entry, touching no prototype', () => {
+		const schemaIn = (database: string) =>
+			`type Owner @table(database: "${database}") {
+	id: ID @primaryKey
+	pets: [Pet] @relationship(to: "ownerId")
+}
+
+type Pet @table(database: "${database}") {
+	id: ID @primaryKey
+	ownerId: ID @indexed
+}
+`;
+		const map = parseSchemaRelationships([schemaIn('__proto__'), schemaIn('constructor')]);
+
+		expect(Object.keys(map).sort()).toEqual(['__proto__', 'constructor']);
+		for (const database of ['__proto__', 'constructor']) {
+			expect(map[database].Owner[0]).toMatchObject({ attribute: 'pets', relatedTableName: 'Pet' });
+		}
+
+		const tableNamedProto = `type Owner @table(table: "__proto__") {
+	id: ID @primaryKey
+	pets: [Pet] @relationship(to: "ownerId")
+}
+
+type Pet @table {
+	id: ID @primaryKey
+	ownerId: ID @indexed
+}
+`;
+		const tables = parseSchemaRelationships([tableNamedProto]).data;
+		expect(Object.keys(tables)).toEqual(['__proto__']);
+		expect(Object.getPrototypeOf(tables)).toBeNull();
+		expect(({} as Record<string, unknown>).Owner).toBeUndefined();
+		expect((Object as unknown as Record<string, unknown>).Owner).toBeUndefined();
+	});
+
+	it('keeps a __proto__ database an entry across a refetch that changes the map', () => {
+		const ownerIn = (database: string, pets: string) =>
+			`type Owner @table(database: "${database}") {
+	id: ID @primaryKey
+	${pets}: [Pet] @relationship(to: "ownerId")
+}
+
+type Pet @table(database: "${database}") {
+	id: ID @primaryKey
+	ownerId: ID @indexed
+}
+`;
+		const options = getSchemaRelationshipsQueryOptions({ entityId: 'instance-1' } as never);
+		const queryClient = new QueryClient();
+		queryClient.getQueryCache().build(queryClient, options as never);
+		queryClient.setQueryData(options.queryKey, parseSchemaRelationships([ownerIn('__proto__', 'pets')]));
+		queryClient.setQueryData(options.queryKey, parseSchemaRelationships([ownerIn('__proto__', 'animals')]));
+
+		const map = queryClient.getQueryData(options.queryKey)!;
+		expect(Object.hasOwn(map, '__proto__')).toBe(true);
+		expect(map['__proto__'].Owner[0]).toMatchObject({ attribute: 'animals' });
 	});
 
 	it('ignores unparseable sources and tables without relationships', () => {

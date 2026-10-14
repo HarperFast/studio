@@ -37,6 +37,12 @@ describe('buildItems', () => {
 		expect(items['empty'].children).toEqual([]);
 	});
 
+	it('lists only databases the map has a describe for', () => {
+		const { items } = buildItems({ ...map, hole: null } as unknown as InstanceDatabaseMap, { canManage: true });
+		expect(items[rootId].children).toEqual([createTableId, 'alpha', 'beta', 'empty']);
+		expect(items['hole']).toBeUndefined();
+	});
+
 	it('gives tables composite ids so duplicate names across databases do not collide', () => {
 		const { items } = buildItems(map, { canManage: true });
 		expect(items['alpha/shared'].data).toEqual({ kind: 'table', databaseName: 'alpha', tableName: 'shared' });
