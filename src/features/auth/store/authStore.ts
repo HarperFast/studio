@@ -99,8 +99,11 @@ class AuthStore {
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
 	private explorerSignOutUnwritten = false;
+	// Set through a full sign-out, whose one collapsed write stands in for every entity's own bump.
+	private explorerBumpsDeferred = false;
 
 	private readonly appSignOutKey = 'Studio:AppSignOut';
+	private unannouncedSignOutUser: string | null = null;
 	// The last app user this tab held, kept through the blanking a sweep or a check does until a sign-out
 	// announces them or a follower drops them: the session that ends is theirs.
 	private heldAppUser: string | null = null;
@@ -153,6 +156,9 @@ class AuthStore {
 	}
 
 	private bumpExplorerAuthEpoch(id: EntityIds): void {
+		if (this.explorerBumpsDeferred) {
+			return;
+		}
 		this.writeExplorerInvalidation(generations => ({ ...generations, [id]: countIn(generations, id) + 1 }));
 	}
 
@@ -173,10 +179,20 @@ class AuthStore {
 		});
 	}
 
-	/** Only after the sign-out's storage wipe, which makes room in a store too full to take this generation. */
-	public retryUnwrittenExplorerSignOut(): void {
+	/**
+	 * Only after the sign-out's storage wipe, which makes room in a store too full to take the full sign-out's
+	 * explorer generation or its announcement.
+	 */
+	public retrySignOutWritesAfterWipe(): void {
 		if (this.explorerSignOutUnwritten) {
 			this.bumpExplorerAuthEpochAll();
+		}
+		const user = this.unannouncedSignOutUser;
+		this.unannouncedSignOutUser = null;
+		if (user !== null && this.writeAppSignOut(user)) {
+			// The other tabs have the value from the event; leaving it would carry the ended user into the next
+			// account's session, which the wipe exists to prevent.
+			this.removeStoredItem(this.appSignOutKey);
 		}
 	}
 
@@ -752,6 +768,7 @@ class AuthStore {
 		const endedUser = this.heldAppUser;
 		this.heldAppUser = null;
 		try {
+			this.explorerBumpsDeferred = true;
 			this.bumpSignOutGeneration('*');
 			forgetAllEntitySettings();
 			// Snapshot keys first — signOutLocally mutates the flags as it goes.
@@ -761,6 +778,7 @@ class AuthStore {
 			this.dropFabricConnectState();
 			this.setUserForEntity(OverallAppSignIn, null);
 		} finally {
+			this.explorerBumpsDeferred = false;
 			// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
 			// in this tab's potentiallyAuthenticated set, or skipped by a step above that threw.
 			this.bumpExplorerAuthEpochAll();
@@ -773,14 +791,17 @@ class AuthStore {
 	}
 
 	private announceAppSignOut(user: string | null): void {
-		if (user === null) {
-			return;
-		}
+		this.unannouncedSignOutUser = user !== null && !this.writeAppSignOut(user) ? user : null;
+	}
+
+	private writeAppSignOut(user: string): boolean {
 		try {
 			// A new value every time, since storage fires an event only for a change.
 			localStorage.setItem(this.appSignOutKey, JSON.stringify({ user, at: `${Date.now()}:${Math.random()}` }));
+			return true;
 		} catch (error) {
 			console.debug('Could not tell the other tabs about this sign-out', error);
+			return false;
 		}
 	}
 

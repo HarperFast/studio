@@ -86,6 +86,34 @@ describe('authStore.signOutAllLocally and the explorer generation', () => {
 		entities.forEach((id, index) => expect(authStore.getExplorerAuthEpoch(id)).toBeGreaterThan(before[index]));
 	});
 
+	it('writes the record once, and calls each subscriber once', () => {
+		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
+		authStore.setUserForIdAndKey('ins-b', 'https://ins-b', { username: 'u' } as SetArgs[2]);
+		const mine = vi.fn();
+		const stop = authStore.onExplorerAuthInvalidated('ins-a', mine);
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+
+		authStore.signOutAllLocally();
+		stop();
+
+		expect(setItem.mock.calls.filter(([key]) => key === KEY)).toHaveLength(1);
+		expect(mine).toHaveBeenCalledTimes(1);
+	});
+
+	it('still bumps an entity signed out on its own after a full sign-out that threw', () => {
+		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
+		const signOutLocally = vi.spyOn(authStore, 'signOutLocally').mockImplementationOnce(() => {
+			throw new Error('teardown failed');
+		});
+		expect(() => authStore.signOutAllLocally()).toThrow('teardown failed');
+		signOutLocally.mockRestore();
+		const before = authStore.getExplorerAuthEpoch('ins-a');
+
+		authStore.signOutLocally('ins-a');
+
+		expect(authStore.getExplorerAuthEpoch('ins-a')).toBe(before + 1);
+	});
+
 	it('still moves every entity when an explorer subscriber throws', () => {
 		authStore.setUserForIdAndKey('ins-a', 'https://ins-a', { username: 'u' } as SetArgs[2]);
 		const failure = new Error('explorer subscriber failed');

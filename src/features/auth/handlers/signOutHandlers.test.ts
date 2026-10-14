@@ -37,6 +37,28 @@ async function reloadTabHolding(explorerSettings: string): Promise<unknown> {
 	return JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? 'null');
 }
 
+/** Refuses every localStorage write while the filler is stored, as a full store does until the wipe removes it. */
+function fillStorageUntilTheWipe() {
+	localStorage.setItem('filler', 'the rest of the quota');
+	const setItem = Storage.prototype.setItem;
+	return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
+		if (this === localStorage && localStorage.getItem('filler') !== null) {
+			throw new DOMException('Storage is full.', 'QuotaExceededError');
+		}
+		setItem.call(this, key, value);
+	});
+}
+
+/** The users named by the sign-out announcements that storage accepted. */
+function announcedUsers(setItem: ReturnType<typeof vi.spyOn<Storage, 'setItem'>>): unknown[] {
+	const { calls, results } = setItem.mock;
+	return calls.flatMap(([key, value], index) =>
+		key === 'Studio:AppSignOut' && results[index]?.type === 'return'
+			? [(JSON.parse(value) as { user: unknown }).user]
+			: []
+	);
+}
+
 function failWith(name: string) {
 	return () => {
 		throw new DOMException('Storage refused.', name);
@@ -103,19 +125,31 @@ describe.each(
 				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
 			},
 		});
-		localStorage.setItem('filler', 'the rest of the quota');
-		const setItem = Storage.prototype.setItem;
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
-			if (this === localStorage && localStorage.getItem('filler') !== null) {
-				throw new DOMException('Storage is full.', 'QuotaExceededError');
-			}
-			setItem.call(this, key, value);
-		});
+		fillStorageUntilTheWipe();
 
 		await signOut();
 		vi.restoreAllMocks();
 
 		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+	});
+
+	it('announces the sign-out after the wipe when a full store refused it', async () => {
+		seedSignedInTab();
+		const setItem = fillStorageUntilTheWipe();
+
+		await signOut();
+
+		expect(announcedUsers(setItem)).toEqual(['usr_a']);
+		expect(localStorage.getItem('Studio:AppSignOut')).toBeNull();
+	});
+
+	it('announces the sign-out once when storage has room', async () => {
+		seedSignedInTab();
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+
+		await signOut();
+
+		expect(announcedUsers(setItem)).toEqual(['usr_a']);
 	});
 
 	it('keeps a credential stored after the sign-out when that tab reloads', async () => {
