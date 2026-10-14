@@ -22,6 +22,13 @@ change once the table holds records (HarperFast/harper#2480). Dropping and recre
 deletes the records, and this view disables Export for it. So the panel's only advice is to copy the
 records into a new table that has a primary key.
 
+The grid's `hasPrimaryKey` reads true until a describe arrives, so that the spinner covers the
+schema load. Add Records, Import and Export CSV need the key itself, so they wait for a describe
+that names one (`hasKnownPrimaryKey`, in the toolbar and in
+[`TableContextMenuItems`](components/TableContextMenuItems.tsx), the tree and overview menus). A
+table nothing has described yet gets the same answer as one without a key, rather than an Export
+that then reports "no primary key found" (#1941).
+
 `$id` is not a stand-in key. These are live-probe observations on `harperdb:4.7.36` and
 `harper-pro:5.2.13` (2026-09), not covered by a test here:
 
