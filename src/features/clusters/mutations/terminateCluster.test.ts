@@ -29,6 +29,10 @@ function rememberedEntities() {
 	return ENTITIES.filter((id) => !!authStore.getOperationsUrl(id) || !!authStore.checkForBasicAuth(id));
 }
 
+function fullyRememberedEntities() {
+	return ENTITIES.filter((id) => !!authStore.getOperationsUrl(id) && !!authStore.checkForBasicAuth(id));
+}
+
 function loggedOut() {
 	return onInstanceLogoutSubmit.mock.calls.map(([{ entityId }]) => entityId);
 }
@@ -72,7 +76,7 @@ describe(terminateCluster, () => {
 		await expect(terminateCluster('clu-1')).resolves.toEqual(DELETED.data);
 
 		await vi.waitFor(() => expect(console.debug).toHaveBeenCalledTimes(2));
-		expect(rememberedEntities()).toEqual(ENTITIES);
+		expect(fullyRememberedEntities()).toEqual(ENTITIES);
 		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 	});
 
@@ -82,7 +86,7 @@ describe(terminateCluster, () => {
 		await expect(terminateCluster('clu-1')).rejects.toThrow('400');
 
 		await new Promise((resolve) => setTimeout(resolve));
-		expect(rememberedEntities()).toEqual(ENTITIES);
+		expect(fullyRememberedEntities()).toEqual(ENTITIES);
 	});
 });
 

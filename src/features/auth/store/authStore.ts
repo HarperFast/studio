@@ -712,12 +712,12 @@ class AuthStore {
 		await Promise.all(logouts);
 	}
 
-	private buildLogoutClient(entityId: EntityIds): ReturnType<typeof getInstanceClient> | null {
+	private buildLogoutClient(entityId: EntityIds, operationsUrl?: string): ReturnType<typeof getInstanceClient> | null {
 		if (entityId === OverallAppSignIn) {
 			return null;
 		}
 		try {
-			const instanceClient = getInstanceClient({ id: entityId });
+			const instanceClient = getInstanceClient({ id: entityId, operationsUrl });
 			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
 			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.
 			instanceClient.interceptors.response.clear();
@@ -759,11 +759,19 @@ class AuthStore {
 	/** For a server that outlives Studio's record of it. Never rejects. */
 	public async signOutEntities(ids: Iterable<EntityIds>): Promise<void> {
 		const unique = [...new Set(ids)];
-		const logouts = unique.map((entityId) => ({
-			entityId,
-			instanceClient: this.potentiallyAuthenticated[entityId] ? this.buildLogoutClient(entityId) : null,
-		}));
+		// Another tab may have signed in since this one read the markers.
+		const remembered = { ...this.potentiallyAuthenticated, ...this.storedMarkers() };
+		const logouts = unique.map((entityId) => {
+			const operationsUrl = remembered[entityId];
+			return {
+				entityId,
+				instanceClient: typeof operationsUrl === 'string' && operationsUrl
+					? this.buildLogoutClient(entityId, operationsUrl)
+					: null,
+			};
+		});
 		this.signOutEntitiesLocally(unique);
+		this.forgetStoredMarkers(unique);
 		await Promise.all(
 			logouts.map(({ entityId, instanceClient }) =>
 				instanceClient ? this.sendBestEffortLogout(entityId, instanceClient) : Promise.resolve()
@@ -771,14 +779,56 @@ class AuthStore {
 		);
 	}
 
+	/** Sent after the caller has forgotten `entityId`, so whatever is recorded for it by the answer, in any tab, is newer. */
 	private sendBestEffortLogout(
 		entityId: EntityIds,
 		instanceClient: ReturnType<typeof getInstanceClient>,
 	): Promise<void> {
-		return onInstanceLogoutSubmit({ entityId, instanceClient }).then(
+		const sentWith = this.signInSnapshot(entityId);
+		const signedInSince = () => this.signInSnapshot(entityId) !== sentWith;
+		return onInstanceLogoutSubmit({ entityId, instanceClient, signedInSince }).then(
 			() => undefined,
 			(err: unknown) => reportLogoutFailure(entityId, err),
 		);
+	}
+
+	private storedMarkers(): Record<string, string> {
+		try {
+			const markers: unknown = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
+			return markers && typeof markers === 'object' ? markers as Record<string, string> : {};
+		} catch {
+			return {};
+		}
+	}
+
+	/** `signOutLocally` drops only the markers this tab holds, so one another tab added would otherwise outlive its logout. */
+	private forgetStoredMarkers(ids: EntityIds[]): void {
+		const stored = this.storedMarkers();
+		if (!ids.some((id) => Object.hasOwn(stored, id))) {
+			return;
+		}
+		const remaining = Object.fromEntries(Object.entries(stored).filter(([id]) => !ids.includes(id)));
+		try {
+			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(remaining));
+		} catch {
+			this.removeStoredItem(this.potentiallyAuthenticatedKey);
+		}
+	}
+
+	/** Read raw, not through `readStoredItem`, because another tab may have written them. */
+	private signInSnapshot(id: EntityIds): string {
+		const stored = (key: string) => {
+			try {
+				return localStorage.getItem(key);
+			} catch {
+				return null;
+			}
+		};
+		return JSON.stringify([
+			stored(this.basicAuthKeyPrefix + id),
+			stored(this.fabricConnectKeyPrefix + id),
+			this.getConnectionGeneration(id),
+		]);
 	}
 
 	private clearSignIn(id: EntityIds): void {
