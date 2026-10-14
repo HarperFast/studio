@@ -1,5 +1,5 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/contextMenu';
-import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import { browsePrimaryKey } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import {
 	useInstanceBrowseManagePermission,
@@ -30,11 +30,11 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 
 	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
 	const instanceTable = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const primaryKey = browsePrimaryKey(instanceTable);
 	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.
-	const hasPrimaryKey = !instanceTable || !!(instanceTable.primary_key ?? instanceTable.hash_attribute);
+	const hasKnownPrimaryKey = !!primaryKey;
 
 	const onExport = () => {
-		const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
 		void exportCsv({
 			databaseName,
 			tableName,
@@ -47,19 +47,19 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 
 	return (
 		<>
-			{canInsert && hasPrimaryKey && (
+			{canInsert && hasKnownPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowAddTableRecords', { databaseName, tableName })}>
 					<PlusIcon />
 					Add New Record(s)
 				</ContextMenuItem>
 			)}
-			{canImport && hasPrimaryKey && (
+			{canImport && hasKnownPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowImportData', { databaseName, tableName })}>
 					<CloudUploadIcon />
 					Import Data
 				</ContextMenuItem>
 			)}
-			<ContextMenuItem onSelect={onExport} disabled={!hasPrimaryKey}>
+			<ContextMenuItem onSelect={onExport} disabled={!hasKnownPrimaryKey}>
 				<CloudDownloadIcon />
 				Export CSV
 			</ContextMenuItem>
