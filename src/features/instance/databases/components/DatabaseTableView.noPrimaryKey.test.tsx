@@ -4,6 +4,7 @@
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
@@ -22,6 +23,7 @@ vi.mock('@tanstack/react-router', () => {
 
 const instance = vi.hoisted(() => ({
 	describeTable: undefined as unknown,
+	describePending: false,
 	operations: [] as string[],
 }));
 
@@ -31,7 +33,9 @@ vi.mock('@/config/useInstanceClient', () => {
 			instance.operations.push(body.operation);
 			switch (body.operation) {
 				case 'describe_table':
-					return { data: instance.describeTable, status: 200 };
+					return instance.describePending
+						? new Promise(() => undefined)
+						: { data: instance.describeTable, status: 200 };
 				case 'registration_info':
 					return { data: { version: '4.7.32' }, status: 200 };
 				default:
@@ -75,7 +79,9 @@ beforeAll(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 	instance.describeTable = undefined;
+	instance.describePending = false;
 	instance.operations = [];
 });
 
@@ -146,5 +152,30 @@ describe('DatabaseTableView on a table with no primary key', () => {
 		openTableOptions();
 		expect(screen.getByRole('menuitem', { name: 'Import Data' })).toBeTruthy();
 		expect(screen.getByRole('menuitem', { name: 'Export CSV' }).getAttribute('aria-disabled')).toBeNull();
+	});
+});
+
+describe('DatabaseTableView before the table is described', () => {
+	it('waits for the schema before offering the actions that need its key', async () => {
+		const toastError = vi.spyOn(toast, 'error');
+		instance.describePending = true;
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const { container } = render(
+			<QueryClientProvider client={queryClient}>
+				<DatabaseTableView databaseName="data" tableName="ws" instanceDatabaseMapLoading />
+			</QueryClientProvider>,
+		);
+		await waitFor(() => expect(instance.operations).toContain('describe_table'));
+
+		// The grid still reads the table as keyed, so its spinner covers the load (#1748).
+		expect(container.querySelector('.animate-spin')).not.toBeNull();
+		expect(screen.queryByRole('heading', { name: /no primary key/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: /Add New Record/ })).toBeNull();
+		openTableOptions();
+		expect(screen.queryByRole('menuitem', { name: 'Import Data' })).toBeNull();
+		const exportCsv = screen.getByRole('menuitem', { name: 'Export CSV' });
+		expect(exportCsv.getAttribute('aria-disabled')).toBe('true');
+		fireEvent.click(exportCsv);
+		expect(toastError).not.toHaveBeenCalled();
 	});
 });

@@ -355,6 +355,7 @@ export function DatabaseTableView({
 	// would read that "no data" as rows still in flight (#1748). True until the schema arrives without
 	// one, so the spinner still covers the schema load.
 	const hasPrimaryKey = !instanceTable || !!primaryKey;
+	const hasKnownPrimaryKey = !!primaryKey;
 	// Null until the user picks a column, so the default follows the primary key, which on a fresh
 	// load only arrives after mount.
 	const [chosenSort, setSort] = useEffectedState<{ attribute: string; descending: boolean } | null>(
@@ -951,7 +952,7 @@ export function DatabaseTableView({
 		<>
 			<div className="shrink-0 flex flex-col md:flex-row md:flex-wrap items-center justify-between gap-3 pt-15 pb-4 px-4">
 				<div className="flex space-x-2">
-					{canAddRecords && hasPrimaryKey && (
+					{canAddRecords && hasKnownPrimaryKey && (
 						<Button
 							variant="positiveOutline"
 							onClick={onAddClicked}
@@ -1041,13 +1042,13 @@ export function DatabaseTableView({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
-							{canImportData && hasPrimaryKey && (
+							{canImportData && hasKnownPrimaryKey && (
 								<DropdownMenuItem onClick={onImportDataClicked}>
 									<CloudUploadIcon />
 									Import Data
 								</DropdownMenuItem>
 							)}
-							<DropdownMenuItem onClick={onExportCSVClicked} disabled={isExportingCSV || !hasPrimaryKey}>
+							<DropdownMenuItem onSelect={onExportCSVClicked} disabled={isExportingCSV || !hasKnownPrimaryKey}>
 								<CloudDownloadIcon />
 								Export CSV
 							</DropdownMenuItem>
