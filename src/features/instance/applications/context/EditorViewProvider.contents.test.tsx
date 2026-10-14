@@ -8,6 +8,11 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
+import {
+	getComponentFileQueryKey,
+	type GetComponentFileResponse,
+} from '@/integrations/api/instance/applications/getComponentFile';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -23,8 +28,10 @@ const server = vi.hoisted(() => {
 		const instanceClient = {
 			post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
 				if (body.operation === 'get_component_file') {
+					// As the file was when the read reached the server.
+					const message = files[body.file!];
 					await reads.pending;
-					return { data: { message: files[body.file!], size: files[body.file!].length } };
+					return { data: { message, size: message.length, mtime: 'when it was read' } };
 				}
 				if (body.operation === 'set_component_file') {
 					await writes.pending;
@@ -102,7 +109,9 @@ function SuspendWhileOpen({ path }: { path: string }) {
 	return null;
 }
 
-function renderProvider(extra?: ReactNode) {
+let queryClient: QueryClient;
+
+function renderProvider(extra?: ReactNode, client = new QueryClient()) {
 	Object.assign(server.instances['instance-1'].files, {
 		'schemas/README.md': README,
 		'resources.js': SCRIPT,
@@ -111,16 +120,18 @@ function renderProvider(extra?: ReactNode) {
 	server.instances['instance-2'].files['resources.js'] = OTHER_SCRIPT;
 	server.current = server.instances['instance-1'];
 	renders = [];
-	const tree = (
-		<QueryClientProvider client={new QueryClient()}>
+	queryClient = client;
+	// A new element each time: React skips rendering an element it was handed before.
+	const tree = () => (
+		<QueryClientProvider client={queryClient}>
 			<EditorViewProvider>
 				<Probe />
 				{extra}
 			</EditorViewProvider>
 		</QueryClientProvider>
 	);
-	const view = render(tree);
-	return { rerender: () => view.rerender(tree) };
+	const view = render(tree());
+	return { rerender: () => view.rerender(tree()) };
 }
 
 async function openEntry(entry: DirectoryEntry | FileEntry, contents: string) {
@@ -134,12 +145,32 @@ function startSave(payload: string) {
 	const { files, params } = server.current;
 	const entry = editorView.openedEntry!;
 	const file = entry.path.split('/').slice(1).join('/');
-	act(() => editorView.saveFile({ ...params, file, payload, project: entry.project }, entry.path));
+	act(() => editorView.saveFile({ ...params, file, payload, project: entry.project }));
 	return async () => {
 		await act(async () => finishWrite());
 		await waitFor(() => expect(files[file]).toBe(payload));
 		await act(async () => {});
 	};
+}
+
+function cachedFile(entry: FileEntry) {
+	const file = entry.path.split('/').slice(1).join('/');
+	return queryClient.getQueryData<GetComponentFileResponse>(
+		getComponentFileQueryKey({ ...server.current.params, project: entry.project, file }),
+	);
+}
+
+function cachedContents(entry: FileEntry) {
+	return cachedFile(entry)?.message;
+}
+
+function writeScript(payload: string) {
+	return editorView.writeFile({ ...server.current.params, file: 'resources.js', payload, project: 'punch' });
+}
+
+function bufferedContents(entry: FileEntry) {
+	const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${entry.path}`));
+	return key && JSON.parse(sessionStorage.getItem(key)!);
 }
 
 afterEach(() => {
@@ -237,8 +268,178 @@ describe('EditorViewProvider openedEntryContents', () => {
 		await openEntry(newSchema, '');
 		await finishSave();
 
-		const key = Object.keys(sessionStorage).find(k => k.endsWith(`/${script.path}`));
-		expect(key && JSON.parse(sessionStorage.getItem(key)!)).toBe(left);
+		expect(bufferedContents(script)).toBe(left);
+	});
+
+	it('settles a save that lands after the page has gone', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		act(() => buffer.setContent(SAVED_SCRIPT));
+		const finishSave = startSave(SAVED_SCRIPT);
+
+		cleanup();
+		await finishSave();
+
+		expect(cachedContents(script)).toBe(SAVED_SCRIPT);
+		expect(bufferedContents(script)).toBeUndefined();
+	});
+
+	it('caches the size that was written and no time, which the save does not report', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		expect(cachedFile(script)).toMatchObject({ size: SCRIPT.length, mtime: 'when it was read' });
+		const accented = 'export const café = 43;\n';
+
+		await startSave(accented)();
+
+		expect(cachedFile(script)).toMatchObject({ message: accented, size: accented.length + 1 });
+		expect(cachedFile(script)?.mtime).toBeUndefined();
+	});
+
+	it('writes through the same save, and settles it before the write resolves', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		act(() => buffer.setContent(SAVED_SCRIPT));
+		let finishWrite!: () => void;
+		server.writes.pending = new Promise(resolve => (finishWrite = resolve));
+		let written!: Promise<void>;
+		act(() => {
+			written = writeScript(SAVED_SCRIPT);
+		});
+		await waitFor(() => expect(editorView.isSavingFile).toBe(true));
+		const cachedOnceWritten = written.then(() => cachedContents(script));
+
+		await act(async () => finishWrite());
+
+		expect(await cachedOnceWritten).toBe(SAVED_SCRIPT);
+		expect(bufferedContents(script)).toBeUndefined();
+	});
+
+	it.each([
+		['while that file is saving', 'is still saving'],
+		['while a rename is in flight', 'was not saved'],
+	])('refuses a write %s, and says why', async (when, reason) => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		const endRename = when.includes('rename') ? startRename(server.current.params.entityId) : undefined;
+		if (!endRename) {
+			startSave(SAVED_SCRIPT);
+			await waitFor(() => expect(editorView.isSavingFile).toBe(true));
+		}
+
+		await expect(writeScript('export const answer = 44;\n')).rejects.toThrow(`resources.js ${reason}`);
+
+		endRename?.();
+		expect(server.current.files['resources.js']).toBe(SCRIPT);
+	});
+
+	it('leaves nothing in the caches when sign-out clears them while the save cancels a read', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		const finishSave = startSave(SAVED_SCRIPT);
+		cleanup();
+		const cancel = queryClient.cancelQueries.bind(queryClient);
+		vi.spyOn(queryClient, 'cancelQueries').mockImplementation(filters => {
+			const cancelled = cancel(filters);
+			queryClient.getMutationCache().clear();
+			queryClient.getQueryCache().clear();
+			return cancelled;
+		});
+
+		await finishSave();
+
+		expect(vi.mocked(queryClient.cancelQueries)).toHaveBeenCalledOnce();
+		expect(cachedContents(script)).toBeUndefined();
+	});
+
+	it('leaves nothing of a save that lands after sign-out in the cleared caches', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		const finishSave = startSave(SAVED_SCRIPT);
+
+		cleanup();
+		act(() => {
+			queryClient.getMutationCache().clear();
+			queryClient.getQueryCache().clear();
+		});
+		await finishSave();
+
+		expect(cachedContents(script)).toBeUndefined();
+	});
+
+	it("leaves the next session's read alone when a save from before sign-out lands", async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		const finishSave = startSave(SAVED_SCRIPT);
+		cleanup();
+		act(() => {
+			queryClient.getMutationCache().clear();
+			queryClient.getQueryCache().clear();
+		});
+		let finishRead!: () => void;
+		server.reads.pending = new Promise(resolve => (finishRead = resolve));
+		renderProvider(undefined, queryClient);
+		act(() => editorView.setOpenedEntry(script));
+		await waitFor(() => expect(queryClient.isFetching()).toBe(1));
+
+		await finishSave();
+		await act(async () => finishRead());
+
+		await waitFor(() => expect(editorView.openedEntryContents).toBe(SCRIPT));
+	});
+
+	it('keeps what was saved when a read already in flight lands after the save', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		let finishRead!: () => void;
+		server.reads.pending = new Promise(resolve => (finishRead = resolve));
+		act(() => void queryClient.invalidateQueries({ queryKey: [server.current.params.entityId, 'get_component_file'] }));
+		await waitFor(() => expect(queryClient.isFetching()).toBe(1));
+
+		await startSave(SAVED_SCRIPT)();
+		await act(async () => finishRead());
+
+		expect(cachedContents(script)).toBe(SAVED_SCRIPT);
+		expect(editorView.openedEntryContents).toBe(SAVED_SCRIPT);
+	});
+
+	it('keeps the unsaved copy, and lets it be saved again, when the save fails', async () => {
+		renderProvider();
+		await openEntry(script, SCRIPT);
+		act(() => buffer.setContent(SAVED_SCRIPT));
+		let failWrite!: () => void;
+		server.writes.pending = new Promise((
+			_,
+			reject,
+		) => (failWrite = () => reject(new Error('Request failed with status code 503'))));
+		act(() =>
+			editorView.saveFile({ ...server.current.params, file: 'resources.js', payload: SAVED_SCRIPT, project: 'punch' })
+		);
+		await waitFor(() => expect(editorView.isSavingFile).toBe(true));
+
+		await act(async () => failWrite());
+
+		await waitFor(() => expect(editorView.isSavingFile).toBe(false));
+		expect(bufferedContents(script)).toBe(SAVED_SCRIPT);
+		expect(cachedContents(script)).toBe(SCRIPT);
+		server.writes.pending = undefined;
+		await startSave(SAVED_SCRIPT)();
+		expect(bufferedContents(script)).toBeUndefined();
+	});
+
+	it('does not hold up the same path on another instance while it saves', async () => {
+		const { rerender } = renderProvider();
+		await openEntry(script, SCRIPT);
+		const finishSave = startSave(SAVED_SCRIPT);
+		await waitFor(() => expect(editorView.isSavingFile).toBe(true));
+
+		server.current = server.instances['instance-2'];
+		rerender();
+		await waitFor(() => expect(editorView.openedEntryContents).toBe(OTHER_SCRIPT));
+
+		expect(editorView.isSavingFile).toBe(false);
+		expect(editorView.isSavingAnyFile).toBe(false);
+		await finishSave();
 	});
 
 	it('ignores a contents setter kept from an entry that is no longer open', async () => {

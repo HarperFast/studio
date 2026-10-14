@@ -70,7 +70,9 @@ function mount() {
 		selectedItems: [],
 		setSelectedItems: () => {},
 		saveFile: () => {},
+		writeFile: () => Promise.resolve(),
 		isSavingFile: false,
+		isSavingAnyFile: false,
 	};
 	return render(
 		<QueryClientProvider client={new QueryClient()}>

@@ -46,11 +46,32 @@ Buffers are read and written through the session-storage store (`sessionStorageS
 `useSessionStorage` on a key renders, so an open editor or the tree's unsaved marker updates at once. Writing to
 session storage directly would leave a mounted editor showing the old buffer. The store keeps a write that storage
 refuses in memory, so a full storage doesn't lose edits mid-rename. The buffers under a folder are found from what
-session storage persisted and from the keys the store holds only in memory (`refusedSessionKeys`). A save that lands
-after another file was opened clears the saved file's buffer the same way, if it still equals what was saved.
+session storage persisted and from the keys the store holds only in memory (`refusedSessionKeys`).
 
 The assistant's `setComponentFile` tool leaves the buffer alone: it writes to a file the person may be editing, which
 is a conflict between two editors rather than a path naming a different file.
+
+## Saving a file
+
+The editor's save settles in the mutation's own `onSuccess`, from the request alone
+([`EditorViewProvider`](context/EditorViewProvider.tsx)), so a save that lands after another file was opened, or after
+the page is gone, still does it: it puts what was saved in the file's cached contents, and clears the file's buffer if
+the buffer still equals what was saved. `set_component_file` reports neither a size nor a time, so the cached size is
+the UTF-8 length of what was written and the time stays unknown until the next read. It cancels any read of the file
+first, since a read sent before the save landed would answer with the old contents after it. A save that lands after
+sign-out cleared the caches settles nothing.
+
+Every whole-file write of an open file is this save: the text and schema editors call `saveFile`, and the `.env` secrets
+view calls `writeFile`, which rejects instead of toasting so its dialog reports the outcome. Saves are tracked per file
+in the mutation cache, so another file can be edited and saved while one is in flight, and a remounted page still sees a
+save it started. A second save of the same file is refused until the first settles, with a toast when it would have
+written something newer.
+
+A rename or move reads a file, copies it and its buffer, then drops it, so a save that lands in between writes to the
+file being dropped and clears the buffer the copy needs. Within a tab the two never overlap on an instance
+([`editorSaveInterlock`](lib/editorSaveInterlock.ts)): `useRenameFiles` refuses while an editor save is in flight, and
+the save refuses while a rename is, each saying why. Another tab's saves and renames are not seen (#1964). The Rename
+dialog and the toolbar's Rename and Restart are disabled while a save is in flight.
 
 ## When a deploy is done
 

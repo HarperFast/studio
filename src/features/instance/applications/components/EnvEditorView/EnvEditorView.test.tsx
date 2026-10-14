@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import { discardEditorFileContentIfSaved } from '@/features/instance/applications/context/editorFileContent';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -28,15 +29,21 @@ vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ instanceClient, entityId: 'test-instance', entityType: 'instance' }),
 }));
 
-vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
-	useEditorView: () => ({ openedEntry }),
-}));
+// The provider's save, which the plaintext mode writes through, without the provider around it.
+vi.mock('@/features/instance/applications/hooks/useEditorView', async () => {
+	const { setComponentFile } = await import('@/integrations/api/instance/applications/setComponentFile');
+	const writeFile = vi.fn(setComponentFile);
+	return { useEditorView: () => ({ openedEntry, writeFile }) };
+});
 
 // Avoids the router dependency of the real sessionStorage-backed hook; the raw-buffer
 // interplay it powers isn't under test here.
 const setContent = vi.fn();
+const buffer = vi.hoisted(() => ({ content: undefined as string | undefined }));
 vi.mock('@/features/instance/applications/context/editorFileContent', () => ({
-	useEditorFileContent: () => ({ content: undefined, setContent }),
+	useEditorFileContent: () => ({ content: buffer.content, setContent }),
+	editorFileContentKey: (id: string, path: string) => `EditorFileContent/${id}}/${path}`,
+	discardEditorFileContentIfSaved: vi.fn(),
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({
@@ -62,6 +69,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	buffer.content = undefined;
 });
 
 const PLAINTEXT_FILE = '# note\nAPI_KEY=secret123\nDB_URL=postgres://x\n';
@@ -119,6 +127,29 @@ describe('EnvEditorView (plaintext mode — Harper < 5.2 returns raw text)', () 
 		// And it can be hidden again.
 		fireEvent.click(screen.getByTitle('Hide value'));
 		expect(screen.queryByText('secret123')).toBeNull();
+	});
+
+	it('treats unsaved raw edits it wrote as saved, unless they changed since', async () => {
+		mockPlaintext();
+		buffer.content = `${PLAINTEXT_FILE}EDITED=1\n`;
+		renderView();
+		await screen.findByText('EDITED');
+
+		fireEvent.click(screen.getByRole('button', { name: /add/i }));
+		fireEvent.change(await screen.findByLabelText('Key'), { target: { value: 'NEW_KEY' } });
+		fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'x' } });
+		const submit = screen.getByRole('button', { name: /add secret/i });
+		await waitFor(() => expect(submit.hasAttribute('disabled')).toBe(false));
+		fireEvent.click(submit);
+
+		await waitFor(() => expect(vi.mocked(discardEditorFileContentIfSaved)).toHaveBeenCalledOnce());
+		expect(vi.mocked(discardEditorFileContentIfSaved)).toHaveBeenCalledWith(
+			'EditorFileContent/test-instance}/myapp/.env',
+			`${PLAINTEXT_FILE}EDITED=1\n`,
+		);
+		expect(operationCalls('set_component_file')[0]).toMatchObject({
+			payload: `${PLAINTEXT_FILE}EDITED=1\nNEW_KEY=x\n`,
+		});
 	});
 
 	it('adds a secret by rewriting the whole file, preserving comments and other keys', async () => {

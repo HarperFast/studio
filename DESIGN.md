@@ -12,7 +12,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, why a table without a primary key can't be listed, why a filtered list pages without a count, why Export CSV writes the file in the browser instead of asking Harper for `text/csv`, where columns for undeclared properties come from, why a filter no index can answer asks first, and why an import job Studio stopped following reads as outcome unknown.
 
-- [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — what happens to a path's unsaved edits, loaded contents and Monaco model when its file is deleted, replaced or moved; when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again.
+- [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — what happens to a path's unsaved edits, loaded contents and Monaco model when its file is deleted, replaced or moved; how an editor save settles after the page is gone, one file at a time; when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again.
 - [`src/features/instance/config/roles/DESIGN.md`](src/features/instance/config/roles/DESIGN.md) — why the role editor's JSON text is the only source of truth, what forces the JSON view, and what Save changes on purpose.
 - [`src/router/DESIGN.md`](src/router/DESIGN.md) — why a failed route load is reported and shown only by its route, and why a preload still toasts.
 
