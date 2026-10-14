@@ -173,7 +173,7 @@ describe('a deep link into a remembered cluster that has been terminated since',
 		expect(registrationInfo).not.toHaveBeenCalled();
 	});
 
-	it.each(remembered)('keeps the sign-in when the overview loads and /$page is only preloaded', async ({
+	it.each(remembered)('keeps the sign-in through route loads and preloads, which render nothing (/$page)', async ({
 		page,
 		entity,
 		url,
