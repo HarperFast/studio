@@ -94,8 +94,11 @@ which is not final. Never from a route guard: guards also run on hover preloads,
 credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host, and a
 stored Basic Auth credential would stay in localStorage for good.
 
-A self-hosted cluster removed from Fabric keeps its sign-ins. Its servers may still run, and forgetting them locally
-would leave their cookie sessions open; kept, the next app sign-out still logs them out.
+A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
+sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a
+logout the way app sign-out does (`signOutEntities`: one attempt, a 10s timeout, not awaited by the removal), and forgets
+the sign-in without waiting for the answer. So a failed logout still forgets it, and a server unreachable at that moment
+keeps its session. Removed elsewhere, its sign-ins stay until an app sign-out logs them out.
 
 None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
 that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left

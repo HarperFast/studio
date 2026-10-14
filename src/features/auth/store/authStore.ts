@@ -703,12 +703,7 @@ class AuthStore {
 			const instanceClient = this.buildLogoutClient(entityId);
 			this.signOutLocally(entityId);
 			if (instanceClient) {
-				logouts.push(
-					onInstanceLogoutSubmit({ entityId, instanceClient }).then(
-						() => undefined,
-						(err: unknown) => reportLogoutFailure(entityId, err),
-					),
-				);
+				logouts.push(this.sendBestEffortLogout(entityId, instanceClient));
 			}
 		}
 		// After the logout clients are built, which carry their credential in a header of their own. A
@@ -759,6 +754,31 @@ class AuthStore {
 				console.error(error);
 			}
 		}
+	}
+
+	/** For a server that outlives Studio's record of it. Never rejects. */
+	public async signOutEntities(ids: Iterable<EntityIds>): Promise<void> {
+		const unique = [...new Set(ids)];
+		const logouts = unique.map((entityId) => ({
+			entityId,
+			instanceClient: this.potentiallyAuthenticated[entityId] ? this.buildLogoutClient(entityId) : null,
+		}));
+		this.signOutEntitiesLocally(unique);
+		await Promise.all(
+			logouts.map(({ entityId, instanceClient }) =>
+				instanceClient ? this.sendBestEffortLogout(entityId, instanceClient) : Promise.resolve()
+			),
+		);
+	}
+
+	private sendBestEffortLogout(
+		entityId: EntityIds,
+		instanceClient: ReturnType<typeof getInstanceClient>,
+	): Promise<void> {
+		return onInstanceLogoutSubmit({ entityId, instanceClient }).then(
+			() => undefined,
+			(err: unknown) => reportLogoutFailure(entityId, err),
+		);
 	}
 
 	private clearSignIn(id: EntityIds): void {
