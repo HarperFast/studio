@@ -6,10 +6,12 @@ import {
 import { componentFilesAtOrUnder } from '@/integrations/api/instance/applications/getComponentFile';
 import { loader } from '@monaco-editor/react';
 import type { QueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 export function forgetDeletedPath(queryClient: QueryClient, entityId: string, path: string) {
 	discardEditorFileContent(entityId, path);
 	forgetFilesThatAreGone(queryClient, entityId, path);
+	countReplacement(entityId, path);
 	disposeEditorModels(path);
 }
 
@@ -17,6 +19,7 @@ export function forgetReplacedPath(queryClient: QueryClient, entityId: string, p
 	discardEditorFileContent(entityId, path);
 	// Reset rather than invalidate, so the replaced contents aren't handed out while the new ones load.
 	void queryClient.resetQueries(componentFilesAtOrUnder(entityId, path));
+	countReplacement(entityId, path);
 	disposeEditorModels(path);
 }
 
@@ -24,7 +27,40 @@ export function forgetReplacedPath(queryClient: QueryClient, entityId: string, p
 export function moveEditedPath(queryClient: QueryClient, entityId: string, from: string, to: string) {
 	moveEditorFileContent(entityId, from, to);
 	forgetFilesThatAreGone(queryClient, entityId, from);
+	countReplacement(entityId, from);
 	disposeEditorModels(from);
+}
+
+const replacements = new Map<string, number>();
+const replacementListeners = new Set<() => void>();
+let replacementCount = 0;
+
+function countReplacement(entityId: string, path: string) {
+	replacements.set(`${entityId}:${path}`, ++replacementCount);
+	for (const listener of replacementListeners) {
+		listener();
+	}
+}
+
+function subscribeToReplacements(listener: () => void) {
+	replacementListeners.add(listener);
+	return () => void replacementListeners.delete(listener);
+}
+
+/** Changes whenever the file at `path`, or a folder holding it, is deleted, replaced or moved away. */
+export function useReplacementCount(entityId: string, path: string | undefined) {
+	const keys = useMemo(() => {
+		const parts = path?.split('/') ?? [];
+		return parts.map((_, i) => `${entityId}:${parts.slice(0, i + 1).join('/')}`);
+	}, [entityId, path]);
+	const count = useCallback(() => {
+		let latest = 0;
+		for (const key of keys) {
+			latest = Math.max(latest, replacements.get(key) ?? 0);
+		}
+		return latest;
+	}, [keys]);
+	return useSyncExternalStore(subscribeToReplacements, count);
 }
 
 // The open file's query is still observed until the editor moves off it, and removing that one would

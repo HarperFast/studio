@@ -75,7 +75,7 @@ vi.mock('@monaco-editor/react', () => ({
 	},
 }));
 
-import { forgetDeletedPath, forgetReplacedPath, moveEditedPath } from './editorPathState';
+import { forgetDeletedPath, forgetReplacedPath, moveEditedPath, useReplacementCount } from './editorPathState';
 
 const entityId = 'ins-1';
 
@@ -341,6 +341,48 @@ describe("the text editor's kept models", () => {
 
 		expect(() => forgetDeletedPath(queryClient, entityId, 'app/a.js')).not.toThrow();
 		expect(bufferAt('app/a.js')).toBeUndefined();
+	});
+});
+
+describe('useReplacementCount', () => {
+	function counts(...paths: Array<[string, string?]>) {
+		const hooks = paths.map(([path, entity = entityId]) => renderHook(() => useReplacementCount(entity, path)));
+		const before = hooks.map(hook => hook.result.current);
+		return () => hooks.map((hook, i) => hook.result.current !== before[i]);
+	}
+
+	it('changes for a replaced file, and for nothing beside it', () => {
+		const changed = counts(['app/a.js'], ['app/a.jsx'], ['app/b.js'], ['app/a.js', 'ins-2']);
+
+		act(() => forgetReplacedPath(queryClient, entityId, 'app/a.js'));
+
+		expect(changed()).toEqual([true, false, false, false]);
+	});
+
+	it('changes for every file under a deleted folder, but not a sibling whose name starts the same', () => {
+		const changed = counts(['app/lib/x.js'], ['app/lib/deep/y.js'], ['app/library.js'], ['app/lib.js']);
+
+		act(() => forgetDeletedPath(queryClient, entityId, 'app/lib'));
+
+		expect(changed()).toEqual([true, true, false, false]);
+	});
+
+	it('changes for the path a file was moved away from', () => {
+		const changed = counts(['app/a.js'], ['app/lib/a.js']);
+
+		act(() => moveEditedPath(queryClient, entityId, 'app/a.js', 'app/lib/a.js'));
+
+		expect(changed()).toEqual([true, false]);
+	});
+
+	it('changes again for each replacement', () => {
+		const { result } = renderHook(() => useReplacementCount(entityId, 'app/a.js'));
+		act(() => forgetReplacedPath(queryClient, entityId, 'app/a.js'));
+		const first = result.current;
+
+		act(() => forgetReplacedPath(queryClient, entityId, 'app/a.js'));
+
+		expect(result.current).not.toBe(first);
 	});
 });
 

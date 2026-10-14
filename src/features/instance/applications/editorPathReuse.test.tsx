@@ -151,10 +151,11 @@ vi.mock('@/features/instance/applications/modals/confirmOverwrite', () => ({
 	confirmOverwrite: () => Promise.resolve(true),
 }));
 vi.mock('@monaco-editor/react', () => ({ loader: { __getMonacoInstance: () => harness.monaco } }));
-// A textarea over the path's model, with @monaco-editor/react's rules: an existing model is reused as
-// it is, `value` seeds a new model and is applied only once it changes, never when undefined, and as
-// an undoable edit unless the editor is read-only. Typing and Ctrl+Z are refused while read-only, and
-// changes reach the last `onChange` subscribed, which a read-only editor's undefined prop doesn't drop.
+// A textarea over the path's model, with @monaco-editor/react 4.7.0's rules: an existing model is reused
+// as it is, `value` seeds a new model and is applied only once it changes, never when undefined. A
+// read-only editor takes it with `setValue` even when the text is unchanged; an editable one takes a
+// different text as an undoable edit. Typing and Ctrl+Z are refused while read-only, and changes reach
+// the last `onChange` subscribed, which a read-only editor's undefined prop doesn't drop.
 vi.mock('@/lib/monaco/MonacoEditor', async () => {
 	const { useEffect, useReducer, useRef } = await import('react');
 	function Editor({ path, value, onChange, onMount, options }: {
@@ -207,12 +208,13 @@ vi.mock('@/lib/monaco/MonacoEditor', async () => {
 				return;
 			}
 			appliedValue.current = value;
-			if (value !== undefined && shownModel.text !== value) {
-				if (live.current.readOnly) {
-					shownModel.setValue(value);
-				} else {
-					shownModel.applyValue(value);
-				}
+			if (value === undefined) {
+				return;
+			}
+			if (live.current.readOnly) {
+				shownModel.setValue(value);
+			} else if (shownModel.text !== value) {
+				shownModel.applyValue(value);
 			}
 		}, [value, shownModel]);
 		// Declared after the `value` effect, as in @monaco-editor/react, so a commit that changes both hands
@@ -463,6 +465,14 @@ async function renameOpenedEntry(name: string) {
 
 function save() {
 	act(() => emitToListeners('SaveFile', true));
+}
+
+async function upload(name: string, content: string) {
+	const input = document.getElementById('dropTarget') as HTMLInputElement;
+	await act(async () => {
+		fireEvent.change(input, { target: { files: [new File([content], name, { type: 'text/javascript' })] } });
+	});
+	await waitFor(() => expect(writesOf(`app/${name}`)).toContain(content));
 }
 
 function cachedContents(path: string) {
@@ -1248,14 +1258,6 @@ describe('a renamed folder', () => {
 });
 
 describe('an upload', () => {
-	async function upload(name: string, content: string) {
-		const input = document.getElementById('dropTarget') as HTMLInputElement;
-		await act(async () => {
-			fireEvent.change(input, { target: { files: [new File([content], name, { type: 'text/javascript' })] } });
-		});
-		await waitFor(() => expect(writesOf(`app/${name}`)).toContain(content));
-	}
-
 	it('over a file with unsaved edits opens with the uploaded contents', async () => {
 		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
 		renderEditor();
@@ -1296,5 +1298,134 @@ describe('an upload', () => {
 		await upload('a.js', 'uploaded a');
 
 		await waitFor(() => expect(editor().value).toBe('uploaded a'));
+	});
+});
+
+describe('a file replaced while open with the text it already shows', () => {
+	async function typeAndSave(text: string) {
+		type(text);
+		save();
+		await waitFor(() => expect(files.get('app/a.js')).toBe(text));
+		await waitFor(() => expect(bufferAt('app/a.js')).toBeUndefined());
+	}
+
+	async function replacedAndLoaded(replace: () => Promise<void>, text: string) {
+		const reads = readsOf('app/a.js');
+		await replace();
+		await waitFor(() => expect(readsOf('app/a.js')).toBeGreaterThan(reads));
+		await loaded(text);
+	}
+
+	async function loaded(text: string) {
+		await waitFor(() => expect(view.openedEntryContents).toBe(text));
+		await waitFor(() => expect(editor().readOnly).toBe(false));
+		await act(async () => {});
+	}
+
+	it.each([
+		['an upload', 'uploaded a', () => upload('a.js', 'uploaded a')],
+		['New File', '', () => newFile('a.js')],
+		[
+			'a move onto it',
+			'moved a',
+			async () => {
+				await act(() => harness.tree.onDrop!([{ index: 'app/lib/a.js' }], { targetType: 'item', targetItem: 'app' }));
+				await waitFor(() => expect(view.entryExists('app/lib/a.js')).toBe(false));
+			},
+		],
+	])('cannot be undone back to the replaced file after %s', async (_, text, replace) => {
+		seed({ 'app/a.js': 'saved a', 'app/lib/a.js': text });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave(text);
+
+		await replacedAndLoaded(replace, text);
+		const writes = writesOf('app/a.js').length;
+		act(() => harness.editor.undo());
+		save();
+
+		expect(editor().value).toBe(text);
+		expect(bufferAt('app/a.js')).toBeUndefined();
+		expect(writesOf('app/a.js')).toHaveLength(writes);
+		expect(files.get('app/a.js')).toBe(text);
+	});
+
+	it('cannot be undone back when the new contents load before the editor ever sees them missing', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave('uploaded a');
+		harness.shown.length = 0;
+
+		await replacedAndLoaded(() => upload('a.js', 'uploaded a'), 'uploaded a');
+		act(() => harness.editor.undo());
+
+		expect(harness.shown.filter(shown => shown.path === 'app/a.js').map(shown => shown.incoming)).not.toContain(
+			undefined,
+		);
+		expect(editor().value).toBe('uploaded a');
+	});
+
+	it('cannot be undone back when the editor sees the contents missing while they reload', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave('uploaded a');
+		const reloaded = hold('get_component_file', 'app/a.js');
+		harness.shown.length = 0;
+
+		await upload('a.js', 'uploaded a');
+		await waitFor(() => expect(view.openedEntryContents).toBeUndefined());
+		await reloaded();
+		await loaded('uploaded a');
+		act(() => harness.editor.undo());
+
+		expect(harness.shown.filter(shown => shown.path === 'app/a.js').map(shown => shown.incoming)).toContain(undefined);
+		expect(editor().value).toBe('uploaded a');
+	});
+
+	it('cannot be undone back when the editor went to another file and returned before the reload', async () => {
+		seed({ 'app/a.js': 'saved a', 'app/b.js': 'saved b' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave('uploaded a');
+		const reloaded = hold('get_component_file', 'app/a.js');
+
+		await upload('a.js', 'uploaded a');
+		// Back before the model left on the switch is disposed, which waits a tick after it detaches.
+		act(() => view.setFocusedItem('app/b.js'));
+		act(() => view.setFocusedItem('app/a.js'));
+		expect(harness.models.get('app/a.js')?.disposed).toBe(false);
+		await reloaded();
+		await loaded('uploaded a');
+		act(() => harness.editor.undo());
+
+		expect(editor().value).toBe('uploaded a');
+	});
+
+	it("cannot be undone into another instance's file at the same path", async () => {
+		seed({ 'app/a.js': 'saved a' });
+		const { rerender } = renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave('saved a, edited');
+
+		act(() => switchInstance(rerender, 'ins-2'));
+		await loaded('saved a, edited');
+		act(() => harness.editor.undo());
+		save();
+
+		expect(editor().value).toBe('saved a, edited');
+		expect(bufferAt('app/a.js', 'ins-2')).toBeUndefined();
+	});
+
+	it('still undoes typing and saving that came before nothing was replaced', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		await typeAndSave('saved a, edited');
+
+		act(() => harness.editor.undo());
+
+		expect(editor().value).toBe('saved a');
 	});
 });
