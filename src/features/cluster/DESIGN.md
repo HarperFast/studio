@@ -31,6 +31,15 @@ in a 400 ([HarperFast/studio#1784](https://github.com/HarperFast/studio/issues/1
 "Copied" is the new instance's whole-disk usage, and "expected" is the source's usage when the copy started. The ratio
 can therefore pass 100% or plateau below it, which is why it is clamped and both figures are labelled `~`.
 
+Both figures are fractional. Host manager reports each instance's usage every 90 seconds, in base-10 GB to four decimal
+places
+([`monitoringController.js#L421-L423`](https://github.com/HarperDB/host-manager/blob/b4ab9ada5324bde2e26f9b79c9291b7266d091e6/src/controllers/monitoringController.js#L421-L423)),
+and central manager stores any growth over 10 MB
+([`cloneProgress.js#L75-L80`](https://github.com/HarperFast/central-manager/blob/63bba08b68f26111223d294273af6aaa9ef191bb/src/lib/cloneProgress.js#L75-L80)).
+So the caption shows a copy under 1 GB in MB rather than rounding it to `~0 GB`, and hides an amount that would still
+read as `~0`. In practice that is the 0 central manager stamps on entry to `CLONE_READY`, which stays until the first
+report over 10 MB ([HarperFast/studio#1925](https://github.com/HarperFast/studio/issues/1925)).
+
 There is no "stalled" or "host not reporting" state. Telling those apart needs the host's last report time, which CM
 does not expose.
 

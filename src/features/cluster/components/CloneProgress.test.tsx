@@ -28,8 +28,13 @@ describe('InstanceCloneProgress', () => {
 	});
 
 	it('shows the copied amount alone without an expected size', () => {
+		render(<InstanceCloneProgress instance={instance({ status: 'CLONING', cloneProgressGb: 0.0312 })} />);
+		expect(screen.getByText('Syncing data · ~31 MB copied')).toBeTruthy();
+	});
+
+	it('shows no amount before any data has copied', () => {
 		render(<InstanceCloneProgress instance={instance({ status: 'CLONING', cloneProgressGb: 0 })} />);
-		expect(screen.getByText('Syncing data · ~0 GB copied')).toBeTruthy();
+		expect(screen.getByText('Syncing data')).toBeTruthy();
 	});
 
 	it('shows a static clock icon while the copy is pending', () => {
@@ -76,7 +81,7 @@ describe('CloneProgressList', () => {
 		const items = screen.getAllByRole('listitem').map((item) => item.textContent);
 		expect(items).toEqual([
 			'b.example.comWaiting to sync data',
-			'gammaSyncing data · ~0 GB copied',
+			'gammaSyncing data',
 		]);
 	});
 
