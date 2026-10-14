@@ -138,9 +138,8 @@ class AuthStore {
 			// The value changes on every write, so other tabs' `storage` listeners still fire.
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify(next(this.readExplorerGenerations())));
 		} catch {
-			// Storage disabled or full. The durable generation therefore doesn't move, so there is nothing to
-			// tell the subscribers, and this tab's explorer keeps its credential until the render-time
-			// comparison is re-run against a generation that does move. Pre-existing, and tracked separately.
+			// Storage disabled or full: the durable generation doesn't move, and this tab's explorer keeps its
+			// credential until the render-time comparison is re-run against a generation that does.
 			return false;
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
