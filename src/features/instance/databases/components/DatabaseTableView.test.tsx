@@ -45,9 +45,9 @@ vi.mock('@/hooks/useAuth', () => ({
 	useStaffPermission: () => staffState.isInstanceOperator,
 }));
 
-const cleanupOrphanBlobs = vi.hoisted(() => ({ mutate: vi.fn() }));
+const cleanupOrphanBlobs = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false }));
 vi.mock('@/integrations/api/instance/database/cleanupOrphanBlobs', () => ({
-	useCleanupOrphanBlobsMutation: () => ({ mutate: cleanupOrphanBlobs.mutate, isPending: false }),
+	useCleanupOrphanBlobsMutation: () => ({ mutate: cleanupOrphanBlobs.mutate, isPending: cleanupOrphanBlobs.isPending }),
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({
@@ -174,6 +174,7 @@ afterEach(() => {
 	watchedValues.calls = [];
 	deleteRecords.mutate.mockReset();
 	cleanupOrphanBlobs.mutate.mockReset();
+	cleanupOrphanBlobs.isPending = false;
 	routerState.params = {};
 	staffState.isInstanceOperator = false;
 	vi.restoreAllMocks();
@@ -635,6 +636,22 @@ describe('DatabaseTableView asking before an action', () => {
 		expect(cleanupOrphanBlobs.mutate).toHaveBeenCalledTimes(1);
 		expect(cleanupOrphanBlobs.mutate.mock.calls[0][0]).toMatchObject({ databaseName: 'data' });
 		expect(document.body.style.pointerEvents).not.toBe('none');
+	});
+
+	it('does not ask again while a cleanup is already running', () => {
+		staffState.isInstanceOperator = true;
+		routerState.params = { instanceId: 'instance-1' };
+		cleanupOrphanBlobs.isPending = true;
+		renderView();
+
+		openTableOptions();
+		const cleanup = screen.getByRole('menuitem', { name: 'Cleanup Orphan Blobs' });
+		expect(cleanup.getAttribute('aria-disabled')).toBe('true');
+		fireEvent.click(cleanup);
+		fireEvent.keyDown(cleanup, { key: 'Enter' });
+
+		expect(question('Clean up orphan blobs?')).toBeNull();
+		expect(cleanupOrphanBlobs.mutate).not.toHaveBeenCalled();
 	});
 
 	// The view stays mounted when the route moves to another table, so a question asked about one
