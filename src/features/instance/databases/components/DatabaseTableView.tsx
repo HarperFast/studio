@@ -1157,7 +1157,7 @@ export function DatabaseTableView({
 								&& !!instanceId && (
 								<DropdownMenuItem
 									className="focus:bg-yellow/70 focus:text-white"
-									onClick={onCleanupOrphanBlobs}
+									onSelect={onCleanupOrphanBlobs}
 									disabled={isCleanupOrphanBlobsPending}
 								>
 									<BrushCleaningIcon className="text-yellow " />
