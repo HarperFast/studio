@@ -169,14 +169,15 @@ duplicates every record without an id.
 
 ## An import job Studio stopped following is not a failed import
 
-Once Harper accepts a CSV load, which answers with a `job_id`, only the job's own `ERROR` is a failure
-(`ImportJobError`). [`waitForJob`](../../../integrations/api/instance/database/getJob.ts) also stops after five
-failed `get_job` polls in a row, after `get_job` has answered `[]` for 20 seconds straight, and at its 10-minute
-deadline whatever the last poll read. All three reject with `ImportJobUnconfirmedError`, which `describeError`
-shows as "Outcome unknown": the load may still be running or may have finished, so check the table (and, for a
-role that can list jobs, the job on a Jobs tab). A retry is the thing to avoid: a CSV row with no primary key gets
-a new id on every load (harper `resources/Table.ts`, `getNewId`), so a second load duplicates it. Any new way to
-stop following rejects the same way.
+Once Harper accepts a CSV load, which answers with a `job_id`, only an `ERROR` Studio reads from the job is a
+failure (`ImportJobError`). [`waitForJob`](../../../integrations/api/instance/database/getJob.ts) also stops
+after five failed `get_job` polls in a row, after `get_job` has answered `[]` for 20 seconds straight, and at its
+10-minute deadline whatever the last poll read. All three reject with `ImportJobUnconfirmedError`, which
+`describeError` shows as "Outcome unknown": the load may still be running or may have finished, so check the
+table (and, for a role that can list jobs, the job on a Jobs tab). That holds even for a job that failed after the
+last poll Studio could read: Studio can't report an outcome it never observed. A retry is the thing to avoid: a
+CSV row with no primary key gets a new id on every load (harper `resources/Table.ts`, `getNewId`), so a second
+load duplicates it. Any new way to stop following rejects the same way.
 
 The `[]` case is a cluster reached through its own address, which can send a poll to a node other than the one
 that ran the job. Studio can't poll the right node, because nothing names it: the load answers only `message` and
