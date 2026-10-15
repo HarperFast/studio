@@ -134,9 +134,36 @@ describe('the app sign-in', () => {
 		signInApp({ id: 'usr_a' });
 		localStorage.removeItem(signInMarkerKey(OverallAppSignIn));
 
-		signInApp({ id: 'usr_a' });
+		authStore.syncAppUser({ id: 'usr_a' } as never);
 
 		expect(storedSignInMarkers()).toEqual({});
+	});
+
+	it('records an explicit sign-in again, even while this tab still holds the marker', () => {
+		signInApp({ id: 'usr_a' });
+		localStorage.removeItem(signInMarkerKey(OverallAppSignIn));
+
+		signInApp({ id: 'usr_a' });
+
+		expect(storedSignInMarkers()).toEqual({ [OverallAppSignIn]: OverallAppSignIn });
+	});
+
+	it('still applies its own answer when a /User/current answer lands while it is out', async () => {
+		signInApp({ id: 'usr_a' });
+		let answer: (user: unknown) => void = () => undefined;
+		fetchCurrentUser.mockReturnValue(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		const check = authStore.reloadUser(OverallAppSignIn);
+		const checked = { id: 'usr_a', checked: true };
+
+		authStore.syncAppUser({ id: 'usr_a', synced: true } as never);
+		answer(checked);
+		await check;
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(checked);
 	});
 
 	it('stays signed in when a check that was out during a new sign-in fails', async () => {

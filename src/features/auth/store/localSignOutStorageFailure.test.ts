@@ -203,6 +203,31 @@ describe('authStore local sign-out when storage writes throw', () => {
 		['ins-v', 'ins-w'].forEach((id) => authStore.signOutLocally(id));
 	});
 
+	it('still owes the removal of a marker this tab signed back into at another URL while writes were refused', async () => {
+		authStore.setUserForIdAndKey('ins-x' as SetArgs[0], 'https://ins-x' as SetArgs[1], { username: 'u' } as SetArgs[2]);
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		authStore.signOutLocally('ins-x');
+		authStore.setUserForIdAndKey(
+			'ins-x' as SetArgs[0],
+			'https://ins-x-2' as SetArgs[1],
+			{ username: 'u' } as SetArgs[2],
+		);
+		vi.restoreAllMocks();
+		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		await authStore.reloadUser('ins-x');
+
+		signIn('ins-y');
+
+		expect(storedSignInMarkers()).not.toHaveProperty('ins-x');
+		authStore.signOutLocally('ins-y');
+	});
+
 	it('still removes a marker it cannot read at sign-out', () => {
 		signIn('ins-u');
 		const getItem = Storage.prototype.getItem;

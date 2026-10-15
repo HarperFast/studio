@@ -75,7 +75,8 @@ export function migrateLegacySignInMarkers(): boolean {
 		migrated = !!localStorage.getItem(legacyMigratedKey);
 		raw = localStorage.getItem(legacySignInMarkersKey);
 	} catch {
-		return migrated;
+		// Reported as migrated: the record could be a previous-release write-back, which must not seed this load.
+		return true;
 	}
 	const legacy = parseLegacySignInMarkers(raw);
 	try {
