@@ -34,6 +34,12 @@ describe('hostsQueryString', () => {
 	});
 
 	// The endpoint 400s a blank filter, so an unset or emptied one must not be sent at all.
+	it('sends running + degraded as one comma list', () => {
+		expect(new URLSearchParams(hostsQueryString({ status: 'RUNNING,DEGRADED' })).get('status')).toBe(
+			'RUNNING,DEGRADED',
+		);
+	});
+
 	it('leaves out unset and empty filters', () => {
 		expect(hostsQueryString({ status: 'RUNNING', organizationId: '', locationId: undefined })).toBe('status=RUNNING');
 	});
