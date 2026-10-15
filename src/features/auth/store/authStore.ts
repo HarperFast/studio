@@ -23,12 +23,12 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 import {
+	legacyMigratedKey,
 	migrateLegacySignInMarkers,
 	mirrorLegacySignInMarker,
 	readLegacySignInMarkers,
 	readSignInMarkers,
 	signInMarkerKey,
-	signInMarkerPrefix,
 } from './signInMarkers';
 
 type AuthStoreListenerCleanup = () => void;
@@ -77,6 +77,10 @@ class AuthStore {
 	private readonly unremovedKeys = new Set<string>();
 	// Sign-ins storage refused to record, which the next sign-in or check of them writes again.
 	private readonly unrecordedSignIns = new Set<EntityIds>();
+	// Markers storage refused to remove, by key, with the value they held then (null when it couldn't be read).
+	private readonly unremovedSignInMarkers = new Map<string, string | null>();
+	// Bumped by every sign-in, so a check can tell its answer is about one that has since been replaced.
+	private readonly signInRevisions = new Map<EntityIds, number>();
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -120,8 +124,9 @@ class AuthStore {
 	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
-		migrateLegacySignInMarkers();
-		this.potentiallyAuthenticated = Object.fromEntries(readSignInMarkers());
+		// Until a migration lands (a full quota refuses one), the previous release's record still holds the sign-ins.
+		const unmigrated = migrateLegacySignInMarkers() ? {} : readLegacySignInMarkers();
+		this.potentiallyAuthenticated = { ...unmigrated, ...Object.fromEntries(readSignInMarkers()) };
 	}
 
 	private readExplorerGenerations(): Record<string, number> {
@@ -195,12 +200,12 @@ class AuthStore {
 
 	/**
 	 * Keeps the explorer's sign-out generation: a tab that missed the sign-out compares its stored explorer
-	 * credential against it when it reloads, so removing it would make that credential current again. Then,
-	 * with room made, writes what a full store refused.
+	 * credential against it when it reloads, so removing it would make that credential current again. Keeps the
+	 * sign-in markers' migration flag too (`signInMarkers.ts`). Then, with room made, writes what a full store refused.
 	 */
 	public wipeLocalStorageForSignOut(): void {
 		try {
-			clearLocalStorage([this.explorerAuthEpochKey]);
+			clearLocalStorage([this.explorerAuthEpochKey, legacyMigratedKey]);
 		} finally {
 			this.retrySignOutWritesAfterWipe();
 		}
@@ -364,6 +369,7 @@ class AuthStore {
 		user: AuthenticatedConnection['user'],
 	): void {
 		if (user) {
+			this.signInRevisions.set(id, (this.signInRevisions.get(id) ?? 0) + 1);
 			this.flagKeyAsSignedIn(id, key);
 			this.updateConnectionIfChanged(id, false, user);
 		} else {
@@ -962,24 +968,30 @@ class AuthStore {
 		void this.updateListeners(id);
 	}
 
-	/** Other tabs, and the next load, read a marker this tab couldn't remove, so every marker write tries again. */
+	/**
+	 * Other tabs, and the next load, read a marker this tab couldn't remove, so every marker write tries again. One
+	 * rewritten since is a newer sign-in, and is left alone.
+	 */
 	private retryUnremovedSignInMarkers(): void {
-		for (const key of this.unremovedKeys) {
-			if (key.startsWith(signInMarkerPrefix)) {
-				try {
+		for (const [key, value] of this.unremovedSignInMarkers) {
+			try {
+				if (value === null || localStorage.getItem(key) === value) {
 					localStorage.removeItem(key);
-					this.unremovedKeys.delete(key);
-				} catch {
-					// The next marker write tries again.
 				}
+				this.unremovedSignInMarkers.delete(key);
+				this.unremovedKeys.delete(key);
+			} catch {
+				// Still refused.
 			}
 		}
 	}
 
-	// A check of a sign-in this tab already marked writes nothing, so it can't put back a marker another tab's
-	// sign-out removed.
-	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
-		if (this.potentiallyAuthenticated[id] === key && !this.unrecordedSignIns.has(id)) {
+	/**
+	 * `checked`: a check's passing answer for a sign-in this tab already marked writes nothing, so it can't put back a
+	 * marker another tab's sign-out removed. A sign-in itself always writes.
+	 */
+	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey, checked = false) {
+		if (checked && this.potentiallyAuthenticated[id] === key && !this.unrecordedSignIns.has(id)) {
 			return;
 		}
 		this.potentiallyAuthenticated[id] = key;
@@ -1000,19 +1012,24 @@ class AuthStore {
 		delete this.potentiallyAuthenticated[id];
 		this.unrecordedSignIns.delete(id);
 		this.retryUnremovedSignInMarkers();
+		const markerKey = signInMarkerKey(id);
 		let stored: string | null = null;
+		let unreadable = false;
 		try {
-			stored = localStorage.getItem(signInMarkerKey(id));
+			stored = localStorage.getItem(markerKey);
 		} catch {
-			// Unreadable, so there is nothing this tab can remove.
+			unreadable = true;
 		}
 		if (checkedKey !== undefined && stored && stored !== checkedKey) {
 			return;
 		}
-		if (stored) {
+		if (stored || unreadable) {
 			// Blanks or hides a marker storage won't remove: one left behind makes the next page load probe this
 			// entity with its cookies, and a session that outlived the sign-out would sign it back in.
-			this.removeStoredItem(signInMarkerKey(id));
+			this.removeStoredItem(markerKey);
+			if (this.unremovedKeys.has(markerKey)) {
+				this.unremovedSignInMarkers.set(markerKey, stored);
+			}
 		}
 		mirrorLegacySignInMarker(id, null, checkedKey);
 	}
@@ -1073,6 +1090,7 @@ class AuthStore {
 	private async loadUser(id: EntityIds): Promise<AuthenticatedConnection['user']> {
 		const key = this.potentiallyAuthenticated[id];
 		const signOutGeneration = this.getSignOutGeneration(id);
+		const signInRevision = this.signInRevisions.get(id);
 		this.updateConnectionIfChanged(id, true, null);
 		let user: AuthenticatedConnection['user'] = null;
 		try {
@@ -1097,12 +1115,12 @@ class AuthStore {
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
 			return null;
 		}
-		if (this.potentiallyAuthenticated[id] !== key) {
-			// This tab signed in again at another URL while the check was out, so its answer is about a sign-in that ended.
+		// The app sign-in's own check signs in through getCurrentUser, so only an entity's answer can be stale this way.
+		if (id !== OverallAppSignIn && this.signInRevisions.get(id) !== signInRevision) {
 			return this.getConnectionById(id).user;
 		}
 		if (user) {
-			this.flagKeyAsSignedIn(id, key);
+			this.flagKeyAsSignedIn(id, key, true);
 		} else {
 			this.flagKeyAsSignedOut(id, key);
 		}

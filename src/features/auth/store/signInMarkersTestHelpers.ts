@@ -7,7 +7,6 @@ export function seedSignInMarkers(markers: Record<string, string>): void {
 	}
 }
 
-/** The stored sign-in markers, as one record. */
 export function storedSignInMarkers(): Record<string, string> {
 	return Object.fromEntries(readSignInMarkers());
 }

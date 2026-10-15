@@ -117,9 +117,10 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   restore each other's markers; app and full sign-outs act on every stored marker, at each URL an entity is marked at
   here or in storage. A check never undoes another tab's change: a passing one of a sign-in this tab already marked
   writes nothing, and a failing one leaves a newer URL another tab stored. So a marker removed elsewhere stays removed
-  even while this tab still holds that sign-in (`crossTabMarkers.test.ts`). A sign-in storage refuses to record still
-  signs in, and its next sign-in or check writes it; a marker storage won't remove is retried at every marker write
-  (`localSignOutStorageFailure.test.ts`).
+  while this tab still holds that sign-in, until this tab signs in again, which always writes. A check's answer is
+  dropped when this tab signed in again while it was out (`crossTabMarkers.test.ts`). A sign-in storage refuses to
+  record still signs in, and its next sign-in or check writes it; a marker storage won't remove is retried at every
+  marker write, unless another tab has rewritten it since (`localSignOutStorageFailure.test.ts`).
 - **The previous release's one shared record is kept in step for one more release.** Its tabs read
   `Studio:PotentiallyAuthenticated` once at load and write their whole copy back, and know nothing of the per-entity
   keys. So this release copies that record into the keys once per storage (a marker already stored per entity wins),
@@ -127,9 +128,11 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   therefore still sees this release's sign-ins and sign-outs, and an app sign-out here reaches a sign-in only that tab
   recorded. Its sign-in reaches this release's keys only at that first copy, and its sign-out of an entity doesn't
   remove the entity's key, which matters only if its logout also failed; its full sign-out wipes both. The copy is
-  never repeated, because that tab's whole-copy writes would bring back what this release signed out
-  (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). A record that isn't one is removed at every load: the
-  previous release can't start on it. The release after this one stops the mirror and removes the record.
+  never repeated, because that tab's whole-copy writes would bring back what this release signed out, so the sign-out
+  wipe keeps the flag that records it. Until the copy lands, as when a full quota refuses it, the record also seeds
+  this tab's markers (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). Every load also removes a record
+  that isn't one, which the previous release can't start on, and drops entries that aren't markers; a sign-in leaves
+  one it can't read alone. The release after this one stops the mirror and removes the record.
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the
