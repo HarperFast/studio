@@ -4,12 +4,12 @@ import { authStore, OverallAppSignIn } from './authStore';
 import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
-const { getCurrentUser, getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
-	getCurrentUser: vi.fn(),
+const { fetchCurrentUser, getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
+	fetchCurrentUser: vi.fn(),
 	getInstanceUserInfo: vi.fn(),
 	onInstanceLogoutSubmit: vi.fn(),
 }));
-vi.mock('@/features/auth/queries/getCurrentUser', () => ({ getCurrentUser }));
+vi.mock('@/features/auth/queries/getCurrentUser', () => ({ fetchCurrentUser }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo }));
 vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
 
@@ -142,7 +142,7 @@ describe('the app sign-in', () => {
 	it('stays signed in when a check that was out during a new sign-in fails', async () => {
 		signInApp({ id: 'usr_a' });
 		let answer: (reason: unknown) => void = () => undefined;
-		getCurrentUser.mockReturnValue(
+		fetchCurrentUser.mockReturnValue(
 			new Promise((_, reject) => {
 				answer = reject;
 			}),
@@ -156,6 +156,23 @@ describe('the app sign-in', () => {
 
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toEqual({ id: 'usr_b' });
 		expect(storedSignInMarkers()).toHaveProperty(OverallAppSignIn);
+	});
+
+	it("drops a passing check's answer about the session a sign-in made meanwhile replaced", async () => {
+		signInApp({ id: 'usr_a' });
+		let answer: (user: unknown) => void = () => undefined;
+		fetchCurrentUser.mockReturnValue(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		const check = authStore.reloadUser(OverallAppSignIn);
+
+		signInApp({ id: 'usr_b' });
+		answer({ id: 'usr_a' });
+		await check;
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toEqual({ id: 'usr_b' });
 	});
 });
 
