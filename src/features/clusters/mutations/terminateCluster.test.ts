@@ -61,6 +61,20 @@ describe(terminateCluster, () => {
 		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 	});
 
+	it('forgets sign-ins only another tab remembers', async () => {
+		const markers = JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}');
+		const otherTab = { 'clu-9': 'https://clu-9.example.com:9925/', 'ins-9': 'https://ins-9.example.com:9925/' };
+		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ ...markers, ...otherTab }));
+		apiDelete.mockResolvedValue({ data: { id: 'clu-9', deleted: true } });
+		apiGet.mockResolvedValue({ data: { id: 'clu-9', status: 'RUNNING', instances: [{ id: 'ins-9' }] } });
+
+		await terminateCluster('clu-9');
+
+		await vi.waitFor(() =>
+			expect(JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}')).toEqual(markers)
+		);
+	});
+
 	it('reads the instances back after the terminate when the read alongside it failed', async () => {
 		apiGet.mockRejectedValueOnce(new Error('Network Error'));
 
