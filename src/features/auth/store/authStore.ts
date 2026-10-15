@@ -1,5 +1,5 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
-import { getInstanceClient } from '@/config/getInstanceClient';
+import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
 	forgetAllEntitySettings,
@@ -750,6 +750,10 @@ class AuthStore {
 			return null;
 		}
 		try {
+			// Through the proxy the instance holds no credential of the user's for `logout` to end.
+			if (connectsThroughProxy(entityId)) {
+				return null;
+			}
 			const instanceClient = getInstanceClient({ id: entityId, operationsUrl });
 			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
 			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.

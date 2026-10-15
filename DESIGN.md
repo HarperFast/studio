@@ -142,6 +142,17 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   an expired session — and let still-mounted pages rebuild their queries after the sign-out's cache clear and fetch
   again on the dead session. The guard redirects every signed-out dashboard load, so the spinner only covers the moment
   before it does (`endedSessionRouteFailures.test.tsx`, HarperFast/studio#1546).
+- **App sign-out and cluster removal post `logout` only to an instance that holds a credential of the user's.**
+  `buildLogoutClient`, shared by the app sign-out sweep and by removing a self-hosted cluster (`signOutEntities`),
+  returns no client for a sign-in that `connectsThroughProxy` (the Disconnect button and `signOutOfInstance` still
+  post one, HarperFast/studio#1974): the central manager hands a proxied operation to the host manager, which calls the
+  instance over its socket with no cookie or token, so Harper's `logout` has no session of the user's to end and
+  answers 500 (RUM: 16 of 24 proxied logouts at app sign-out in the 30 days to 2026-10-15, each a round trip
+  `/Logout/` waited on). The Fabric Connect flag outlives the tab while the direct token does not, so a second tab sees
+  another tab's direct sign-in as proxied and would post the same doomed logout. On app sign-out the central-manager
+  `/Logout/` ends the only session that path has; on cluster removal there was never one to end. Direct, basic-auth
+  and cookie sign-ins still get their `logout` on both paths (`signOutFromPotentiallyAuthenticatedInstances.test.ts`,
+  `signOutEntities.test.ts`).
 - **Signing out in one tab signs out every tab.** `signOutAllLocally` rewrites `Studio:AppSignOut`, and each other tab
   holding the app sign-in runs `clearAuthStateAfterSignOutElsewhere` on that `storage` event (`installCrossTabSignOut`).
   Without it, a tab learns the session ended only from its next central-manager request, whose 403 toasts as a

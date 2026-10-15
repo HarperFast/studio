@@ -1,5 +1,4 @@
 /** @vitest-environment jsdom */
-import { apiClient } from '@/config/apiClient';
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { authStore, OverallAppSignIn } from './authStore';
@@ -102,18 +101,32 @@ describe('authStore.signOutFromPotentiallyAuthenticatedInstances', () => {
 		expect(authStore.getOperationToken('ins-direct')).toBeUndefined();
 	});
 
-	it('routes a Fabric Connect proxy entity through the central-manager proxy', async () => {
+	it('posts no logout for a Fabric Connect proxy entity, and still clears it locally', async () => {
+		// The flag with no operation token is also what another tab's direct sign-in looks like from here.
 		authStore.flagForFabricConnect('ins-proxy', true);
 		signInToInstance('ins-proxy');
+		// getInstanceClient lets the flag outrank a stored Basic Auth credential, so this one is proxied too.
+		authStore.flagForFabricConnect('ins-flagged-basic', true);
+		authStore.flagForBasicAuth('ins-flagged-basic', { username: 'u', password: 'p' });
+		signInToInstance('ins-flagged-basic');
+		authStore.flagForBasicAuth('ins-basic', { username: 'u', password: 'p' });
+		signInToInstance('ins-basic');
+		signInToInstance('ins-cookie');
 		onInstanceLogoutSubmit.mockResolvedValue({ message: 'ok' });
 
 		await authStore.signOutFromPotentiallyAuthenticatedInstances();
 
-		expect(loggedOutTargets()).toEqual([[
-			'ins-proxy',
-			`${apiClient.defaults.baseURL}/HDBInstance/ins-proxy/operation`,
-		]]);
-		expect(authStore.checkForFabricConnect('ins-proxy')).toBe(false);
+		expect(loggedOutTargets()).toEqual([['ins-basic', 'https://ins-basic'], ['ins-cookie', 'https://ins-cookie']]);
+		expect(onInstanceLogoutSubmit.mock.calls[0][0].instanceClient.defaults.auth).toEqual({
+			username: 'u',
+			password: 'p',
+		});
+		for (const id of ['ins-proxy', 'ins-flagged-basic']) {
+			expect(authStore.checkForFabricConnect(id)).toBe(false);
+			expect(userOf(id)).toBeNull();
+		}
+		expect(authStore.checkForBasicAuth('ins-flagged-basic')).toBeUndefined();
+		expect(consoleDebug).not.toHaveBeenCalled();
 	});
 
 	it('clears every entity locally up front, then waits for every logout', async () => {
