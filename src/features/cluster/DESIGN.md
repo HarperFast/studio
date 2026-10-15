@@ -91,13 +91,14 @@ organization's cluster list doesn't carry them; with neither read it forgets not
 cluster was self-hosted. And when any page of a terminated cluster renders, `ClusterLayout` does
 it, which covers a terminate done in another tab, by another member or by central manager. It skips `TERMINATING`,
 which is not final. Never from a route guard: guards also run on hover preloads, so a hover would delete stored
-credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host, and a
-stored Basic Auth credential would stay in localStorage for good.
+credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host except
+one reached through the Fabric Connect proxy (the root `DESIGN.md` says why), and a stored Basic Auth credential would
+stay in localStorage for good.
 
 A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
 sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a
-logout the way app sign-out does (`signOutEntities`: one attempt, a 10s timeout, not awaited by the removal), and forgets
-the sign-in without waiting for the answer. So a failed logout still forgets it, and a server unreachable at that moment
+logout the way app sign-out does (`signOutEntities`: one attempt, a 10s timeout, not awaited by the removal, none for a
+sign-in reached through the Fabric Connect proxy), and forgets the sign-in without waiting for the answer. So a failed logout still forgets it, and a server unreachable at that moment
 keeps its session. Removed elsewhere, its sign-ins stay until an app sign-out logs them out.
 
 None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster

@@ -112,6 +112,17 @@ describe('authStore.signOutEntities', () => {
 		expect(storedSignInMarkers()).toEqual(markers);
 	});
 
+	it('posts no logout for a sign-in reached through the Fabric Connect proxy, and still forgets it', async () => {
+		authStore.flagForBasicAuth('clu-2', null);
+		authStore.flagForFabricConnect('clu-2', true);
+
+		await authStore.signOutEntities(['clu-2', 'ins-1']);
+
+		expect(loggedOut().map(({ entityId }) => entityId)).toEqual(['ins-1']);
+		expect(authStore.checkForFabricConnect('clu-2')).toBe(false);
+		expect(rememberedEntities()).toEqual(['clu-1']);
+	});
+
 	it('posts no logout for an id with nothing remembered', async () => {
 		await authStore.signOutEntities(['ins-unknown']);
 
