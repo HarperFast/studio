@@ -29,6 +29,7 @@ import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
+import { regionCohortsOfPlans } from './lib/describeRegionSwap';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
 import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
@@ -136,6 +137,21 @@ export function UpsertCluster() {
 		}
 		return false;
 	}, [cluster?.id, organization?.clusters, planTypes]);
+
+	const currentRegions = useMemo(
+		() =>
+			clusterId
+				? regionCohortsOfPlans(
+					cluster?.plans ?? [],
+					buildRegionLookup(
+						[...(regionLocationsColocated ?? []), ...(regionLocationsDedicated ?? [])],
+						organizationRegions,
+						cloudProvider,
+					),
+				)
+				: [],
+		[cloudProvider, cluster, clusterId, organizationRegions, regionLocationsColocated, regionLocationsDedicated],
+	);
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
 		() =>
@@ -337,6 +353,7 @@ export function UpsertCluster() {
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
+				currentRegions={currentRegions}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
 				harperVersions={harperVersions}
