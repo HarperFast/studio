@@ -21,9 +21,10 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useCallback, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
+import { draftClusterIdOf } from './draftClusterIdOf';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
 import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
@@ -63,12 +64,21 @@ export function UpsertCluster() {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<
+	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
 			clusterId?: string;
 		} & (UpsertClusterSchemaType | Cluster))
 	>(LocalStorageKeys.SavedClusterState, null);
+	// A draft belongs to the form it was saved from: only that form reads it, and only that form may
+	// clear it. The clear checks the draft stored at that moment, because the billing step saves one
+	// and clears it again across an await, from a render that never saw it.
+	const savedClusterState = draftClusterIdOf(storedClusterState) === clusterId ? storedClusterState : null;
+	const setSavedClusterState = useCallback(
+		(value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) =>
+			setStoredClusterState((stored) => value === null && draftClusterIdOf(stored) !== clusterId ? stored : value),
+		[clusterId, setStoredClusterState],
+	);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
