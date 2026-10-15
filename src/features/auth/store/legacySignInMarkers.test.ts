@@ -179,6 +179,24 @@ describe('a later load', () => {
 		expect(next.getOperationsUrl('ins-a')).toBeUndefined();
 	});
 
+	it("doesn't sign back in on a write-back when it can't read the migration flag", async () => {
+		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		const store = await loadPage();
+		store.signOutLocally('ins-a');
+		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
+			if (key === 'Studio:PotentiallyAuthenticatedMigrated') {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			}
+			return getItem.call(this, key);
+		});
+
+		const next = await loadPage();
+
+		expect(next.getOperationsUrl('ins-a')).toBeUndefined();
+	});
+
 	it('still removes a legacy record that is not one', async () => {
 		await loadPage();
 		localStorage.setItem(legacySignInMarkersKey, JSON.stringify([url('ins-a')]));

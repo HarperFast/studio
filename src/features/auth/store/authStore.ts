@@ -372,14 +372,22 @@ class AuthStore {
 	): void {
 		if (user) {
 			this.signInRevisions.set(id, (this.signInRevisions.get(id) ?? 0) + 1);
-			// getCurrentUser re-signs the app in on every fetch, so for it this is a check.
-			this.flagKeyAsSignedIn(id, key, id === OverallAppSignIn);
+			this.flagKeyAsSignedIn(id, key);
 			this.updateConnectionIfChanged(id, false, user);
 		} else {
 			// Clears the API explorer's stored credentials too, or the next user to sign into this entity
 			// would inherit them.
 			this.clearSignIn(id);
 		}
+	}
+
+	/**
+	 * A `/User/current` answer: the current session's fuller record, not a new sign-in. So, like a check, it writes no
+	 * marker this tab already holds and leaves the sign-in revision alone.
+	 */
+	public syncAppUser(user: User): void {
+		this.flagKeyAsSignedIn(OverallAppSignIn, OverallAppSignIn, true);
+		this.updateConnectionIfChanged(OverallAppSignIn, false, user);
 	}
 
 	public updateUserForEntity(entity: EntityTypes, changes: Partial<AuthenticatedConnection['user']>): void {
@@ -470,15 +478,15 @@ class AuthStore {
 		return value === 'fabric' || value === 'direct' ? value : undefined;
 	}
 
-	/**
-	 * Moves on every sign-out of `id`, and of everything. An auth resolution reads it before its first
-	 * await and commits only if it has not moved, so a result that outlived its session is dropped.
-	 */
 	/** Advances at every sign-in, so an answer fetched before one can tell it is about a session that ended. */
 	public getSignInRevision(id: EntityIds): number {
 		return this.signInRevisions.get(id) ?? 0;
 	}
 
+	/**
+	 * Moves on every sign-out of `id`, and of everything. An auth resolution reads it before its first
+	 * await and commits only if it has not moved, so a result that outlived its session is dropped.
+	 */
 	public getSignOutGeneration(id: EntityIds): number {
 		return (this.signOutGenerations.get(id) ?? 0) + (this.signOutGenerations.get('*') ?? 0);
 	}
@@ -1003,11 +1011,15 @@ class AuthStore {
 			return;
 		}
 		this.potentiallyAuthenticated[id] = key;
-		// This sign-in replaces whatever removal of its marker was still owed.
-		this.unremovedSignInMarkers.delete(signInMarkerKey(id));
+		const markerKey = signInMarkerKey(id);
+		// A marker storage refused to remove that already holds this URL is this sign-in's, even if the write below fails.
+		if (this.unremovedSignInMarkers.get(markerKey) === key) {
+			this.unremovedSignInMarkers.delete(markerKey);
+		}
 		this.retryUnremovedSignInMarkers();
 		try {
-			this.writeStoredItem(signInMarkerKey(id), key);
+			this.writeStoredItem(markerKey, key);
+			this.unremovedSignInMarkers.delete(markerKey);
 			this.unrecordedSignIns.delete(id);
 		} catch (error) {
 			// Not thrown: the sign-in itself worked, and unrecorded it only looks signed out on the next load.

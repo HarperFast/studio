@@ -26,7 +26,7 @@ export async function getCurrentUser(): Promise<User> {
 		authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
 		&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision
 	) {
-		authStore.setUserForEntity(OverallAppSignIn, user);
+		authStore.syncAppUser(user);
 	}
 	return user;
 }
