@@ -109,19 +109,27 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
   navigation re-resolves its href one level too deep (HarperFast/studio#1710, #1711).
   `EntityMenuItem.to` accepts only the helper's `AbsolutePath`, so a relative menu target fails `tsc`.
-- **Remembered instance/cluster sign-ins are checked on demand**: `Studio:PotentiallyAuthenticated` spans every
-  organization ever visited, so the root auth subscription checks only the app sign-in; an entity is checked by
+- **Remembered instance/cluster sign-ins are checked on demand**: the sign-in markers span every organization ever
+  visited, so the root auth subscription checks only the app sign-in; an entity is checked by
   `useInstanceAuth`/`listenToEntity` or the instance-layout guard (`entityAuthCheckScope.test.ts`, HarperFast/studio#1329).
-- **Every tab shares those markers, so a write changes one entity.** A sign-in or sign-out re-reads the record and adds
-  or drops only its own entity; app and full sign-outs act on every stored marker, not only this tab's, and log out
-  each URL an entity is marked at in this tab or storage. A check never undoes another tab's change: a passing one of
-  a sign-in this tab already marked writes nothing, and a failing one leaves a newer URL another tab stored
-  (`crossTabMarkers.test.ts`, HarperFast/studio#1968). So a marker removed elsewhere, or dropped with the whole record
-  when storage refused a write, stays removed even while this tab still holds that sign-in. Storage has no atomic
-  read-modify-write, so two tabs writing at the same moment can still lose one change. A missing marker looks signed
-  out on the next load and gets no logout from another tab's app sign-out; a lost sign-out leaves a marker that load
-  probes. When storage refuses to take a signed-out entity out, this tab's later writes leave it out until one lands
-  (`localSignOutStorageFailure.test.ts`); an unreadable record is replaced.
+- **Each sign-in marker has its own key, `Studio:PotentiallyAuthenticated:<entityId>`, holding the URL signed into**
+  (`signInMarkers.ts`, HarperFast/studio#1968). A tab writes only the entity it signs in or out, so tabs can't erase or
+  restore each other's markers; app and full sign-outs act on every stored marker, at each URL an entity is marked at
+  here or in storage. A check never undoes another tab's change: a passing one of a sign-in this tab already marked
+  writes nothing, and a failing one leaves a newer URL another tab stored. So a marker removed elsewhere stays removed
+  even while this tab still holds that sign-in (`crossTabMarkers.test.ts`). A sign-in storage refuses to record still
+  signs in, and its next sign-in or check writes it; a marker storage won't remove is retried at every marker write
+  (`localSignOutStorageFailure.test.ts`).
+- **The previous release's one shared record is kept in step for one more release.** Its tabs read
+  `Studio:PotentiallyAuthenticated` once at load and write their whole copy back, and know nothing of the per-entity
+  keys. So this release copies that record into the keys once per storage (a marker already stored per entity wins),
+  mirrors every marker change into it, and reads it in every sign-out sweep. A previous-release tab, or a rollback,
+  therefore still sees this release's sign-ins and sign-outs, and an app sign-out here reaches a sign-in only that tab
+  recorded. Its sign-in reaches this release's keys only at that first copy, and its sign-out of an entity doesn't
+  remove the entity's key, which matters only if its logout also failed; its full sign-out wipes both. The copy is
+  never repeated, because that tab's whole-copy writes would bring back what this release signed out
+  (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). A record that isn't one is removed at every load: the
+  previous release can't start on it. The release after this one stops the mirror and removes the record.
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the
@@ -142,9 +150,9 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   from their next request. A tab follows only when the name is its own app user: a late 401 or event from user U's session must not sign out a
   tab that has since signed in as V. A tab whose check is still out remembers the user, and if the check comes back as
   them, asks again: central manager may have confirmed them just before the session ended.
-  Tabs follow that key, not the marker record, because a tab also drops the app sign-in from the record when its own
-  check merely fails (a timeout, a 5xx). A tab that follows writes no `localStorage`: its copy of the markers is a
-  snapshot from its own load, and writing it back could undo the other tab's next sign-in (`crossTabSignOut.test.tsx`).
+  Tabs follow that key, not the app sign-in's marker, because a tab also drops that marker when its own check merely
+  fails (a timeout, a 5xx). A tab that follows writes no `localStorage`: the other tab already wiped it, and a write
+  could undo that tab's next sign-in (`crossTabSignOut.test.tsx`).
 - **Data fetching**: TanStack React Query 5. Query keys must be instance-scoped when the request targets a specific instance.
 - **Polling**: every `refetchInterval` on a query that can reject against an instance or a cluster goes through [`pollUnlessForbidden`](src/react-query/pollUnlessForbidden.ts), which stops the timer on a 403 and backs off a sustained 400 or 5xx; a raw number polls a failing endpoint at full rate for as long as the page is open. When the interval depends on the data, compute it and hand it over per tick: `(query) => pollUnlessForbidden(base(query))(query)` (the back-off state is per query, not per wrapper).
 - **Forms**: react-hook-form with a zod `zodResolver`. A form whose submit button waits on `formState.isValid` must not use the default `onSubmit` mode, which keeps `isValid` current but shows errors only after a submit the disabled button never allows, so the user is blocked with no reason given (HarperFast/studio#1550). Use `mode: 'onTouched'`: a field's error appears once it is first left and then follows each change, while `isValid` still tracks every keystroke (`onBlur` recomputes `isValid` only on blur, so the button lags the text). Enter neither submits past a disabled button nor leaves the field, so give the `<form>` `onKeyDown={revealFieldErrorOnEnter(form)}`, which treats Enter in a text input as leaving it. A refine that compares two fields reports on one of them; re-check that field from the other's `onChange` once it has been touched (`getFieldState(name).isTouched`, then `trigger(name)`), because `rules={{ deps }}` fires on the other field's first blur, before the user reaches it. react-hook-form only updates the `formState` fields a render has read, and `disabled={!isDirty || !isValid}` skips `isValid` while the form is pristine, so where one change can complete the form (a single field, a paste, a checkbox) the button stays disabled on a valid form. Read the fields before the JSX (`const { isDirty, isValid } = form.formState;`) and pin it with a test that makes one change and checks the button.

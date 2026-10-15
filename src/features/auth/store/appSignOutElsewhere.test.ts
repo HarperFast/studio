@@ -14,10 +14,12 @@ vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getIn
 
 import { apiClient } from '@/config/apiClient';
 import { authStore, OverallAppSignIn } from './authStore';
+import { signInMarkerKey } from './signInMarkers';
+import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
 
-const MARKER = 'Studio:PotentiallyAuthenticated';
+const MARKER = signInMarkerKey(OverallAppSignIn);
 const SIGNAL = 'Studio:AppSignOut';
 const DIRECT_URL = 'https://ins-direct.example.com:9925/';
 
@@ -56,8 +58,8 @@ describe('authStore.onAppSignedOutElsewhere', () => {
 		const signedOut = vi.fn();
 		const stop = authStore.onAppSignedOutElsewhere(signedOut);
 
-		storageEventFromAnotherTab(MARKER, JSON.stringify({ OverallAppSignIn }));
-		storageEventFromAnotherTab(MARKER, '{}');
+		storageEventFromAnotherTab(MARKER, OverallAppSignIn);
+		storageEventFromAnotherTab(MARKER, null);
 		storageEventFromAnotherTab('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 1 }));
 		storageEventFromAnotherTab(null, null);
 		storageEventFromAnotherTab(SIGNAL, signOutOf('usr_v'));
@@ -220,7 +222,7 @@ describe('authStore.forgetAppSignInEndedElsewhere', () => {
 		authStore.setUserForIdAndKey('ins-a', 'https://ins-a.example.com', { username: 'u' } as SetArgs[2]);
 		// What the other tab wrote after signing out: a sign-in, perhaps as someone else.
 		localStorage.clear();
-		localStorage.setItem(MARKER, JSON.stringify({ OverallAppSignIn }));
+		seedSignInMarkers({ OverallAppSignIn });
 		const writes = [
 			vi.spyOn(Storage.prototype, 'setItem'),
 			vi.spyOn(Storage.prototype, 'removeItem'),
@@ -234,7 +236,7 @@ describe('authStore.forgetAppSignInEndedElsewhere', () => {
 		expect(authStore.getOperationsUrl('ins-a')).toBeUndefined();
 		const localWrites = writes.flatMap((spy) => spy.mock.contexts).filter((storage) => storage === localStorage);
 		expect(localWrites).toEqual([]);
-		expect(localStorage.getItem(MARKER)).toBe(JSON.stringify({ OverallAppSignIn }));
+		expect(storedSignInMarkers()).toEqual({ OverallAppSignIn });
 	});
 
 	it('drops a direct-connect token, and a sign-in check still in flight', async () => {

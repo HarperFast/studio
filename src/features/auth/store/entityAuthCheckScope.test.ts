@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Transformed here, while the file is collected, which has no timeout, rather than inside the first test's 5s.
 // Each test still evaluates a fresh copy.
 import '@/features/instance/instanceLayoutRoute';
+import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { get, getInstanceUserInfo, createInstanceAuthenticationTokens, onInstanceLogoutSubmit, routeParams } = vi
 	.hoisted(() => ({
@@ -54,14 +55,11 @@ function guardParams(clusterId: string) {
 beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
-	localStorage.setItem(
-		'Studio:PotentiallyAuthenticated',
-		JSON.stringify({
-			OverallAppSignIn: 'OverallAppSignIn',
-			[OTHER_ORG_CLUSTER]: OTHER_ORG_URL,
-			[THIS_ORG_CLUSTER]: THIS_ORG_URL,
-		}),
-	);
+	seedSignInMarkers({
+		OverallAppSignIn: 'OverallAppSignIn',
+		[OTHER_ORG_CLUSTER]: OTHER_ORG_URL,
+		[THIS_ORG_CLUSTER]: THIS_ORG_URL,
+	});
 	get.mockResolvedValue({ data: { id: 'cloud-user' } });
 	getInstanceUserInfo.mockResolvedValue({ username: 'admin' });
 	onInstanceLogoutSubmit.mockResolvedValue({ message: 'ok' });
@@ -137,7 +135,7 @@ describe('which remembered sign-ins a page load checks (#1329)', () => {
 
 		expect(onInstanceLogoutSubmit.mock.calls.map(([{ entityId }]) => entityId).sort())
 			.toEqual([OTHER_ORG_CLUSTER, THIS_ORG_CLUSTER]);
-		expect(localStorage.getItem('Studio:PotentiallyAuthenticated')).toBe('{}');
+		expect(storedSignInMarkers()).toEqual({});
 	});
 
 	it('checks the entity of the route a component is on when it names none', async () => {

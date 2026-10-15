@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStore } from './authStore';
+import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
+import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
 	getInstanceUserInfo: vi.fn(),
@@ -10,22 +12,24 @@ vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getIn
 vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
-const MARKERS = 'Studio:PotentiallyAuthenticated';
 const ENTITIES = ['ins-here', 'ins-other-tab'];
 const url = (id: string) => `https://${id}.example.com:9925/`;
+const newer = 'https://ins-here-2.example.com:9925/';
 
-function signInHere(id: string) {
-	authStore.setUserForIdAndKey(id as SetArgs[0], url(id) as SetArgs[1], { username: 'admin' } as SetArgs[2]);
+function signInHere(id: string, at = url(id)) {
+	authStore.setUserForIdAndKey(id as SetArgs[0], at as SetArgs[1], { username: 'admin' } as SetArgs[2]);
 }
 
-function stored(): Record<string, string> {
-	return JSON.parse(localStorage.getItem(MARKERS) || '{}');
-}
-
-// What another tab's sign-in leaves: its marker and Basic Auth credential, written after this tab read its copy.
 function signInInAnotherTab(id: string) {
-	localStorage.setItem(MARKERS, JSON.stringify({ ...stored(), [id]: url(id) }));
+	seedSignInMarkers({ [id]: url(id) });
 	localStorage.setItem(`Studio:BasicAuth:${id}`, btoa(JSON.stringify({ username: 'admin', password: 'hunter2' })));
+}
+
+function loggedOut() {
+	return onInstanceLogoutSubmit.mock.calls.map(([{ entityId, instanceClient }]) => [
+		entityId,
+		instanceClient.defaults.baseURL,
+	]);
 }
 
 beforeEach(() => {
@@ -47,7 +51,7 @@ describe('sign-in markers another tab added', () => {
 
 		signInHere('ins-here');
 
-		expect(stored()).toEqual({ 'ins-other-tab': url('ins-other-tab'), 'ins-here': url('ins-here') });
+		expect(storedSignInMarkers()).toEqual({ 'ins-other-tab': url('ins-other-tab'), 'ins-here': url('ins-here') });
 	});
 
 	it('survive a sign-out in this tab', () => {
@@ -56,7 +60,7 @@ describe('sign-in markers another tab added', () => {
 
 		authStore.signOutLocally('ins-here');
 
-		expect(stored()).toEqual({ 'ins-other-tab': url('ins-other-tab') });
+		expect(storedSignInMarkers()).toEqual({ 'ins-other-tab': url('ins-other-tab') });
 	});
 
 	it('go when this tab signs the same entity out', () => {
@@ -64,7 +68,7 @@ describe('sign-in markers another tab added', () => {
 
 		authStore.signOutLocally('ins-other-tab');
 
-		expect(stored()).toEqual({});
+		expect(storedSignInMarkers()).toEqual({});
 	});
 
 	it('get a logout, and go, at an app sign-out from this tab', async () => {
@@ -73,12 +77,8 @@ describe('sign-in markers another tab added', () => {
 
 		await authStore.signOutFromPotentiallyAuthenticatedInstances();
 
-		const loggedOut = onInstanceLogoutSubmit.mock.calls.map(([{ entityId, instanceClient }]) => [
-			entityId,
-			instanceClient.defaults.baseURL,
-		]);
-		expect(loggedOut).toEqual([['ins-here', url('ins-here')], ['ins-other-tab', url('ins-other-tab')]]);
-		expect(stored()).toEqual({});
+		expect(loggedOut()).toEqual([['ins-here', url('ins-here')], ['ins-other-tab', url('ins-other-tab')]]);
+		expect(storedSignInMarkers()).toEqual({});
 		expect(authStore.checkForBasicAuth('ins-other-tab')).toBeUndefined();
 	});
 
@@ -87,46 +87,40 @@ describe('sign-in markers another tab added', () => {
 
 		authStore.signOutAllLocally();
 
-		expect(stored()).toEqual({});
+		expect(storedSignInMarkers()).toEqual({});
 		expect(authStore.checkForBasicAuth('ins-other-tab')).toBeUndefined();
 	});
+});
 
-	it('stay out of a sign-in this tab makes when it cannot read them', () => {
+describe("a sign-in's marker", () => {
+	it('is the only one its sign-in writes, beside the legacy record', () => {
+		signInInAnotherTab('ins-other-tab');
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+
 		signInHere('ins-here');
-		localStorage.setItem(MARKERS, JSON.stringify({}));
-		const getItem = Storage.prototype.getItem;
-		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
-			if (key === MARKERS) {
-				throw new DOMException('Storage refused.', 'SecurityError');
-			}
-			return getItem.call(this, key);
-		});
 
-		signInHere('ins-other-tab');
-		vi.restoreAllMocks();
-
-		expect(stored()).toEqual({ 'ins-other-tab': url('ins-other-tab') });
+		expect(setItem.mock.calls.map(([key]) => key)).toEqual([signInMarkerKey('ins-here'), legacySignInMarkersKey]);
 	});
 
-	it('that are not a record get no logout at an app sign-out', async () => {
-		localStorage.setItem(MARKERS, JSON.stringify([url('ins-other-tab')]));
+	it('is the only one its sign-out removes', () => {
+		signInHere('ins-here');
+		signInInAnotherTab('ins-other-tab');
+		const removeItem = vi.spyOn(Storage.prototype, 'removeItem');
 
-		await authStore.signOutFromPotentiallyAuthenticatedInstances();
+		authStore.signOutLocally('ins-here');
 
-		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
+		expect(removeItem.mock.calls.map(([key]) => key)).not.toContain(signInMarkerKey('ins-other-tab'));
 	});
 });
 
 describe('a sign-in another tab made again at a newer URL', () => {
-	const newer = 'https://ins-here-2.example.com:9925/';
-
 	function loggedOutAt() {
 		return onInstanceLogoutSubmit.mock.calls.map(([{ instanceClient }]) => instanceClient.defaults.baseURL);
 	}
 
 	beforeEach(() => {
 		signInHere('ins-here');
-		localStorage.setItem(MARKERS, JSON.stringify({ 'ins-here': newer }));
+		seedSignInMarkers({ 'ins-here': newer });
 	});
 
 	it('gets a logout at both URLs at an app sign-out', async () => {
@@ -149,32 +143,50 @@ describe('a check of a sign-in this tab remembers', () => {
 
 	it('leaves out, when it passes, the marker of another tab that signed it out', async () => {
 		signInHere('ins-here');
-		localStorage.setItem(MARKERS, JSON.stringify({}));
+		localStorage.removeItem(signInMarkerKey('ins-here'));
 
 		await authStore.reloadUser('ins-here');
 
-		expect(stored()).toEqual({});
+		expect(storedSignInMarkers()).toEqual({});
 	});
 
 	it('keeps, when it passes, the operations URL another tab has signed in with since', async () => {
 		signInHere('ins-here');
-		const newer = { 'ins-here': 'https://ins-here-2.example.com:9925/' };
-		localStorage.setItem(MARKERS, JSON.stringify(newer));
+		seedSignInMarkers({ 'ins-here': newer });
 
 		await authStore.reloadUser('ins-here');
 
-		expect(stored()).toEqual(newer);
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': newer });
 	});
 
 	it("keeps that newer URL when it fails against this tab's older one", async () => {
 		signInHere('ins-here');
-		const newer = { 'ins-here': 'https://ins-here-2.example.com:9925/' };
-		localStorage.setItem(MARKERS, JSON.stringify(newer));
+		seedSignInMarkers({ 'ins-here': newer });
 		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 		await authStore.reloadUser('ins-here');
 
-		expect(stored()).toEqual(newer);
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': newer });
+	});
+
+	it('leaves a sign-in this tab made at another URL while it was out', async () => {
+		signInHere('ins-here');
+		let answer: (reason: unknown) => void = () => undefined;
+		getInstanceUserInfo.mockReturnValue(
+			new Promise((_, reject) => {
+				answer = reject;
+			}),
+		);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const check = authStore.reloadUser('ins-here');
+
+		signInHere('ins-here', newer);
+		answer(new Error('Network Error'));
+		await check;
+
+		expect(authStore.getOperationsUrl('ins-here')).toBe(newer);
+		expect(authStore.getConnectionById('ins-here').user).toEqual({ username: 'admin' });
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': newer });
 	});
 });

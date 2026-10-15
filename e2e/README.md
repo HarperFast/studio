@@ -121,7 +121,7 @@ Naming drives which project runs a spec: `*.anon.spec.ts` = no session,
 - **Hash routing.** Routes are `/#/sign-in`, `/#/verifying`, `/#/<orgId>/users`.
 - **No test-ids** in these flows — drive by role/label/text (`getByRole`, `getByLabel`).
   The only `data-testid`s in the app are in instance analytics.
-- **Auth is a cookie** (`POST /Login/`); the `Studio:PotentiallyAuthenticated`
+- **Auth is a cookie** (`POST /Login/`); the `Studio:PotentiallyAuthenticated:<entity>`
   localStorage flag is only a hint. `storageState` captures the cookie.
 - **Sign-in and sign-up render every submit failure inline**
   (`p[role="alert"][data-slot="form-message"]`). **Forgot-password renders only CAPTCHA rejections

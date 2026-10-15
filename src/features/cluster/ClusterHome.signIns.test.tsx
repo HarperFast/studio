@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { seedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import type { Cluster } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -58,10 +59,7 @@ async function renderOverview(status: string) {
 
 beforeEach(() => {
 	localStorage.clear();
-	localStorage.setItem(
-		'Studio:PotentiallyAuthenticated',
-		JSON.stringify({ 'clu-1': 'https://clu-1.example.com:9925/' }),
-	);
+	seedSignInMarkers({ 'clu-1': 'https://clu-1.example.com:9925/' });
 	getInstanceUserInfo.mockResolvedValue({ username: 'admin' });
 });
 

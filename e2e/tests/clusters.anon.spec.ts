@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { rememberAppSignIn } from './signInMarkers';
 
 const clusters = [
 	{ id: 'clu-production', name: 'Production', status: 'RUNNING', regionId: 'reg-east' },
@@ -26,9 +27,7 @@ const user = {
 };
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() => {
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }));
-	});
+	await rememberAppSignIn(page);
 	await page.route('**/User/current', route => route.fulfill({ json: user }));
 	await page.route('**/Organization/org-fixture', route => route.fulfill({ json: organization }));
 	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: { ...clusters[0], instances: [] } }));

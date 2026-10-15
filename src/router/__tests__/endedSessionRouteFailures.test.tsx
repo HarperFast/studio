@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { seedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
@@ -177,7 +178,7 @@ function reportedAuthorizationFailures() {
 beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
-	localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn' }));
+	seedSignInMarkers({ OverallAppSignIn: 'OverallAppSignIn' });
 	// Not `location.hash =`: jsdom dispatches its popstate a task later, and a render that beats it gets a second
 	// router load wherever that lands. Between the sign-out and the router hearing of it, that is the load the
 	// last case starts on purpose.

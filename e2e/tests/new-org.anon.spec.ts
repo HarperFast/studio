@@ -1,11 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { rememberAppSignIn } from './signInMarkers';
 
 const user = { id: 'new-org-user', email: 'org@example.test', firstname: 'Taylor', lastname: 'River', roles: {} };
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() =>
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }))
-	);
+	await rememberAppSignIn(page);
 	await page.route('**/*', route =>
 		['fetch', 'xhr'].includes(route.request().resourceType())
 			? route.fulfill({ status: 404, json: {} })

@@ -22,6 +22,14 @@ import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
+import {
+	migrateLegacySignInMarkers,
+	mirrorLegacySignInMarker,
+	readLegacySignInMarkers,
+	readSignInMarkers,
+	signInMarkerKey,
+	signInMarkerPrefix,
+} from './signInMarkers';
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -61,15 +69,14 @@ class AuthStore {
 		Array<(connection: AuthenticatedConnection, id: EntityIds) => void>
 	> = {};
 
-	private readonly potentiallyAuthenticatedKey = 'Studio:PotentiallyAuthenticated';
 	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
 	private readonly fabricConnectKeyPrefix = 'Studio:FabricConnect:';
 	private readonly lastConnectModeKeyPrefix = 'Studio:LastConnectMode:';
 	// Storage can refuse a removal yet still answer reads, so a credential it kept belongs to the session
 	// that ended. This tab reads such a key as absent until a write replaces it.
 	private readonly unremovedKeys = new Set<string>();
-	// Signed-out entities storage still marks, because it refused this tab's write. The next one must leave them out.
-	private readonly unremovedMarkers = new Set<EntityIds>();
+	// Sign-ins storage refused to record, which the next sign-in or check of them writes again.
+	private readonly unrecordedSignIns = new Set<EntityIds>();
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -113,7 +120,8 @@ class AuthStore {
 	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
-		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
+		migrateLegacySignInMarkers();
+		this.potentiallyAuthenticated = Object.fromEntries(readSignInMarkers());
 	}
 
 	private readExplorerGenerations(): Record<string, number> {
@@ -790,54 +798,17 @@ class AuthStore {
 		);
 	}
 
-	/** Read raw, since other tabs write it too. Null when unreadable. */
-	private readMarkers(): Record<EntityIds, AuthenticatedConnectionKey> | null {
-		try {
-			const markers: unknown = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
-			if (!markers || typeof markers !== 'object' || Array.isArray(markers)) {
-				return null;
-			}
-			return Object.fromEntries(
-				Object.entries(markers).filter((entry): entry is [string, string] =>
-					typeof entry[1] === 'string' && !!entry[1]
-				),
-			);
-		} catch {
-			return null;
-		}
-	}
-
-	private storedMarkers(): Record<EntityIds, AuthenticatedConnectionKey> | null {
-		const markers = this.readMarkers();
-		if (markers) {
-			for (const id of this.unremovedMarkers) {
-				delete markers[id];
-			}
-		}
-		return markers;
-	}
-
-	private writeMarkers(markers: Record<EntityIds, AuthenticatedConnectionKey>): void {
-		this.writeStoredItem(this.potentiallyAuthenticatedKey, JSON.stringify(markers));
-		this.unremovedMarkers.clear();
-	}
-
-	/** Fail closed: losing every marker only makes the other entities look signed out on the next load. */
-	private removeMarkers(signedOut: EntityIds | undefined): void {
-		this.removeStoredItem(this.potentiallyAuthenticatedKey);
-		if (!this.unremovedKeys.has(this.potentiallyAuthenticatedKey)) {
-			this.unremovedMarkers.clear();
-		} else if (signedOut !== undefined) {
-			this.unremovedMarkers.add(signedOut);
-		}
-	}
-
 	/**
-	 * This tab's sign-ins and every stored one, raw, once per URL: another tab may have signed in again at a newer
-	 * URL, and the older one's session is still open. A sweep that reaches more only signs more out.
+	 * This tab's sign-ins, every stored one, and every one a previous-release tab recorded, once per URL: another tab
+	 * may have signed in again at a newer URL, and the older one's session is still open. A sweep that reaches more
+	 * only signs more out.
 	 */
 	private rememberedSignIns(): Array<[EntityIds, AuthenticatedConnectionKey]> {
-		const signIns = [...Object.entries(this.potentiallyAuthenticated), ...Object.entries(this.readMarkers() ?? {})];
+		const signIns = [
+			...Object.entries(this.potentiallyAuthenticated),
+			...readSignInMarkers(),
+			...Object.entries(readLegacySignInMarkers() ?? {}),
+		];
 		return signIns.filter(([id, key], index) => signIns.findIndex(([i, k]) => i === id && k === key) === index);
 	}
 
@@ -991,40 +962,59 @@ class AuthStore {
 		void this.updateListeners(id);
 	}
 
-	// Writing this tab's copy would erase what other tabs signed into since it loaded, so both writes change one entity
-	// in the record as stored now. A check of a sign-in this tab already marked writes nothing, which leaves out a
-	// marker another tab's sign-out removed.
+	/** Other tabs, and the next load, read a marker this tab couldn't remove, so every marker write tries again. */
+	private retryUnremovedSignInMarkers(): void {
+		for (const key of this.unremovedKeys) {
+			if (key.startsWith(signInMarkerPrefix)) {
+				try {
+					localStorage.removeItem(key);
+					this.unremovedKeys.delete(key);
+				} catch {
+					// The next marker write tries again.
+				}
+			}
+		}
+	}
+
+	// A check of a sign-in this tab already marked writes nothing, so it can't put back a marker another tab's
+	// sign-out removed.
 	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
-		if (this.potentiallyAuthenticated[id] === key) {
+		if (this.potentiallyAuthenticated[id] === key && !this.unrecordedSignIns.has(id)) {
 			return;
 		}
-		// Then this tab's copy: one that storage refused would make every later sign-in skip the write.
-		this.writeMarkers({ ...this.storedMarkers(), [id]: key });
 		this.potentiallyAuthenticated[id] = key;
+		this.retryUnremovedSignInMarkers();
+		try {
+			this.writeStoredItem(signInMarkerKey(id), key);
+			this.unrecordedSignIns.delete(id);
+		} catch (error) {
+			// Not thrown: the sign-in itself worked, and unrecorded it only looks signed out on the next load.
+			this.unrecordedSignIns.add(id);
+			console.debug('Could not record a sign-in', error);
+		}
+		mirrorLegacySignInMarker(id, key);
 	}
 
 	/** `checkedKey`: the URL a failed check used, which says nothing about a newer one another tab stored. */
 	private flagKeyAsSignedOut(id: EntityIds, checkedKey?: AuthenticatedConnectionKey) {
 		delete this.potentiallyAuthenticated[id];
-		const stored = this.storedMarkers();
-		if (!stored) {
-			this.removeMarkers(id);
-			return;
-		}
-		const marked = Object.hasOwn(stored, id) && (checkedKey === undefined || stored[id] === checkedKey);
-		if (!marked && !this.unremovedMarkers.size) {
-			return;
-		}
-		if (marked) {
-			delete stored[id];
-		}
+		this.unrecordedSignIns.delete(id);
+		this.retryUnremovedSignInMarkers();
+		let stored: string | null = null;
 		try {
-			this.writeMarkers(stored);
+			stored = localStorage.getItem(signInMarkerKey(id));
 		} catch {
-			// A marker left behind makes the next page load probe this entity with its cookies, and a session that
-			// outlived the sign-out would sign it back in.
-			this.removeMarkers(marked ? id : undefined);
+			// Unreadable, so there is nothing this tab can remove.
 		}
+		if (checkedKey !== undefined && stored && stored !== checkedKey) {
+			return;
+		}
+		if (stored) {
+			// Blanks or hides a marker storage won't remove: one left behind makes the next page load probe this
+			// entity with its cookies, and a session that outlived the sign-out would sign it back in.
+			this.removeStoredItem(signInMarkerKey(id));
+		}
+		mirrorLegacySignInMarker(id, null, checkedKey);
 	}
 
 	private async updateListeners(id: EntityIds): Promise<void> {
@@ -1106,6 +1096,10 @@ class AuthStore {
 		}
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
 			return null;
+		}
+		if (this.potentiallyAuthenticated[id] !== key) {
+			// This tab signed in again at another URL while the check was out, so its answer is about a sign-in that ended.
+			return this.getConnectionById(id).user;
 		}
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
