@@ -118,10 +118,11 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   here or in storage. A check never undoes another tab's change: a passing one of a sign-in this tab already marked
   writes nothing, and a failing one removes only the marker it checked. So a marker removed elsewhere stays removed
   while this tab still holds that sign-in, until this tab signs into the entity again, which always writes; for the
-  app sign-in, which every `/User/current` answer re-signs, those answers count as checks. A check's answer is dropped
-  when this tab signed in again while it was out (`crossTabMarkers.test.ts`). A sign-in storage refuses to
-  record still signs in, and its next sign-in or check writes it; a marker storage won't remove is retried at every
-  marker write, unless another tab has rewritten it since (`localSignOutStorageFailure.test.ts`).
+  app sign-in, which every `/User/current` answer re-signs, those answers count as checks. A check's answer, or a
+  `/User/current` answer, is dropped when this tab signed in again while it was out (`crossTabMarkers.test.ts`,
+  `getCurrentUser.test.ts`). A sign-in storage refuses to record still signs in, and its next sign-in or check writes
+  it; a marker storage won't remove is retried at every marker write, unless another tab has rewritten it since
+  (`localSignOutStorageFailure.test.ts`).
 - **The previous release's one shared record is kept in step for one more release.** Its tabs read
   `Studio:PotentiallyAuthenticated` once at load and write their whole copy back, and know nothing of the per-entity
   keys. So this release copies that record into the keys once per storage (a marker already stored per entity wins),
@@ -133,7 +134,7 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   wipe keeps the flag that records it. Until the copy lands, as when a full quota refuses it, the record also seeds
   this tab's markers (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). Every load also removes a record
   that isn't one, which the previous release can't start on, and drops entries that aren't markers; a sign-in leaves
-  one it can't read alone. The release after this one stops the mirror and removes the record.
+  one it can't read alone. The release after this one stops the mirror and removes the record (HarperFast/studio#1970).
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the

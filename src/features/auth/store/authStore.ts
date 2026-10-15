@@ -1,6 +1,6 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
-import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
 	forgetAllEntitySettings,
 	forgetEntitySettings,
@@ -474,6 +474,11 @@ class AuthStore {
 	 * Moves on every sign-out of `id`, and of everything. An auth resolution reads it before its first
 	 * await and commits only if it has not moved, so a result that outlived its session is dropped.
 	 */
+	/** Advances at every sign-in, so an answer fetched before one can tell it is about a session that ended. */
+	public getSignInRevision(id: EntityIds): number {
+		return this.signInRevisions.get(id) ?? 0;
+	}
+
 	public getSignOutGeneration(id: EntityIds): number {
 		return (this.signOutGenerations.get(id) ?? 0) + (this.signOutGenerations.get('*') ?? 0);
 	}
@@ -1104,7 +1109,7 @@ class AuthStore {
 				if (isLocalStudio) {
 					user = await getInstanceUserInfo({ instanceClient: getInstanceClient() });
 				} else {
-					user = await getCurrentUser();
+					user = await fetchCurrentUser();
 				}
 			} else if (id) {
 				user = await getInstanceUserInfo({ instanceClient: getInstanceClient({ id }) });
@@ -1121,8 +1126,7 @@ class AuthStore {
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
 			return null;
 		}
-		// A passing app check signs in itself, through getCurrentUser, so only its failure can be stale this way.
-		if (this.signInRevisions.get(id) !== signInRevision && (id !== OverallAppSignIn || !user)) {
+		if (this.signInRevisions.get(id) !== signInRevision) {
 			return this.getConnectionById(id).user;
 		}
 		if (user) {
