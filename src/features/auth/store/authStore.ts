@@ -24,6 +24,7 @@ import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInsta
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 import {
 	legacyMigratedKey,
+	markLegacySignInMarkersMigrated,
 	migrateLegacySignInMarkers,
 	mirrorLegacySignInMarker,
 	readLegacySignInMarkers,
@@ -206,6 +207,7 @@ class AuthStore {
 	public wipeLocalStorageForSignOut(): void {
 		try {
 			clearLocalStorage([this.explorerAuthEpochKey, legacyMigratedKey]);
+			markLegacySignInMarkersMigrated();
 		} finally {
 			this.retrySignOutWritesAfterWipe();
 		}
@@ -370,7 +372,8 @@ class AuthStore {
 	): void {
 		if (user) {
 			this.signInRevisions.set(id, (this.signInRevisions.get(id) ?? 0) + 1);
-			this.flagKeyAsSignedIn(id, key);
+			// getCurrentUser re-signs the app in on every fetch, so for it this is a check.
+			this.flagKeyAsSignedIn(id, key, id === OverallAppSignIn);
 			this.updateConnectionIfChanged(id, false, user);
 		} else {
 			// Clears the API explorer's stored credentials too, or the next user to sign into this entity
@@ -981,7 +984,7 @@ class AuthStore {
 				this.unremovedSignInMarkers.delete(key);
 				this.unremovedKeys.delete(key);
 			} catch {
-				// Still refused.
+				// Storage still refuses, so the entry stays queued.
 			}
 		}
 	}
@@ -995,6 +998,8 @@ class AuthStore {
 			return;
 		}
 		this.potentiallyAuthenticated[id] = key;
+		// This sign-in replaces whatever removal of its marker was still owed.
+		this.unremovedSignInMarkers.delete(signInMarkerKey(id));
 		this.retryUnremovedSignInMarkers();
 		try {
 			this.writeStoredItem(signInMarkerKey(id), key);
@@ -1020,7 +1025,8 @@ class AuthStore {
 		} catch {
 			unreadable = true;
 		}
-		if (checkedKey !== undefined && stored && stored !== checkedKey) {
+		// A failed check is a probe, not a sign-out: it removes only the marker it checked.
+		if (checkedKey !== undefined && (unreadable || (stored && stored !== checkedKey))) {
 			return;
 		}
 		if (stored || unreadable) {
@@ -1115,8 +1121,8 @@ class AuthStore {
 		if (this.getSignOutGeneration(id) !== signOutGeneration) {
 			return null;
 		}
-		// The app sign-in's own check signs in through getCurrentUser, so only an entity's answer can be stale this way.
-		if (id !== OverallAppSignIn && this.signInRevisions.get(id) !== signInRevision) {
+		// A passing app check signs in itself, through getCurrentUser, so only its failure can be stale this way.
+		if (this.signInRevisions.get(id) !== signInRevision && (id !== OverallAppSignIn || !user)) {
 			return this.getConnectionById(id).user;
 		}
 		if (user) {

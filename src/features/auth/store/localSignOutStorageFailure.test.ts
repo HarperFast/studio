@@ -185,6 +185,24 @@ describe('authStore local sign-out when storage writes throw', () => {
 		});
 	});
 
+	it('keeps a marker this tab signed back into while storage still refused its removal', () => {
+		signIn('ins-v');
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		authStore.signOutLocally('ins-v');
+		signIn('ins-v');
+		vi.restoreAllMocks();
+
+		signIn('ins-w');
+
+		expect(storedSignInMarkers()).toHaveProperty('ins-v');
+		['ins-v', 'ins-w'].forEach((id) => authStore.signOutLocally(id));
+	});
+
 	it('still removes a marker it cannot read at sign-out', () => {
 		signIn('ins-u');
 		const getItem = Storage.prototype.getItem;

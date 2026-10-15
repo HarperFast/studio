@@ -1,13 +1,15 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { authStore } from './authStore';
+import { authStore, OverallAppSignIn } from './authStore';
 import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
-const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
+const { getCurrentUser, getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
+	getCurrentUser: vi.fn(),
 	getInstanceUserInfo: vi.fn(),
 	onInstanceLogoutSubmit: vi.fn(),
 }));
+vi.mock('@/features/auth/queries/getCurrentUser', () => ({ getCurrentUser }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo }));
 vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
 
@@ -41,7 +43,7 @@ beforeEach(() => {
 afterEach(() => {
 	vi.resetAllMocks();
 	vi.restoreAllMocks();
-	ENTITIES.forEach((id) => authStore.signOutLocally(id));
+	[...ENTITIES, OverallAppSignIn].forEach((id) => authStore.signOutLocally(id));
 	localStorage.clear();
 });
 
@@ -124,6 +126,39 @@ describe('a sign-in this tab already remembers', () => {
 	});
 });
 
+describe('the app sign-in', () => {
+	const signInApp = (user: object) =>
+		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, user as SetArgs[2]);
+
+	it("isn't put back by a /User/current answer after another tab's failed check dropped it", () => {
+		signInApp({ id: 'usr_a' });
+		localStorage.removeItem(signInMarkerKey(OverallAppSignIn));
+
+		signInApp({ id: 'usr_a' });
+
+		expect(storedSignInMarkers()).toEqual({});
+	});
+
+	it('stays signed in when a check that was out during a new sign-in fails', async () => {
+		signInApp({ id: 'usr_a' });
+		let answer: (reason: unknown) => void = () => undefined;
+		getCurrentUser.mockReturnValue(
+			new Promise((_, reject) => {
+				answer = reject;
+			}),
+		);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const check = authStore.reloadUser(OverallAppSignIn);
+
+		signInApp({ id: 'usr_b' });
+		answer(new Error('timeout of 60000ms exceeded'));
+		await check;
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toEqual({ id: 'usr_b' });
+		expect(storedSignInMarkers()).toHaveProperty(OverallAppSignIn);
+	});
+});
+
 describe('a sign-in another tab made again at a newer URL', () => {
 	function loggedOutAt() {
 		return onInstanceLogoutSubmit.mock.calls.map(([{ instanceClient }]) => instanceClient.defaults.baseURL);
@@ -199,6 +234,24 @@ describe('a check of a sign-in this tab remembers', () => {
 		expect(authStore.getOperationsUrl('ins-here')).toBe(newer);
 		expect(authStore.getConnectionById('ins-here').user).toEqual({ username: 'admin' });
 		expect(storedSignInMarkers()).toEqual({ 'ins-here': newer });
+	});
+
+	it("leaves the marker alone when it fails and can't read it", async () => {
+		signInHere('ins-here');
+		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
+			if (key === signInMarkerKey('ins-here')) {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			}
+			return getItem.call(this, key);
+		});
+
+		await authStore.reloadUser('ins-here');
+		vi.mocked(Storage.prototype.getItem).mockRestore();
+
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': url('ins-here') });
 	});
 
 	it('leaves a sign-in this tab made at the same URL while it was out', async () => {
