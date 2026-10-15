@@ -8,7 +8,7 @@ import type { AuthenticatedConnectionKey, EntityIds } from './authStore';
  * While those tabs can still be open, or a rollback can bring that release back, this one mirrors each change into the
  * record too and reads it in sign-out sweeps (DESIGN.md).
  */
-export const signInMarkerPrefix = 'Studio:PotentiallyAuthenticated:';
+const signInMarkerPrefix = 'Studio:PotentiallyAuthenticated:';
 export const legacySignInMarkersKey = 'Studio:PotentiallyAuthenticated';
 /** Survives the sign-out wipe: a previous-release tab writing its copy back afterwards must not be migrated again. */
 export const legacyMigratedKey = 'Studio:PotentiallyAuthenticatedMigrated';
@@ -69,17 +69,28 @@ export function readLegacySignInMarkers(): SignIns | null {
  * removed, and entries that aren't markers are dropped from one that is.
  */
 export function migrateLegacySignInMarkers(): boolean {
+	let migrated = false;
+	let raw: string | null = null;
 	try {
-		const raw = localStorage.getItem(legacySignInMarkersKey);
-		const legacy = parseLegacySignInMarkers(raw);
+		migrated = !!localStorage.getItem(legacyMigratedKey);
+		raw = localStorage.getItem(legacySignInMarkersKey);
+	} catch {
+		return migrated;
+	}
+	const legacy = parseLegacySignInMarkers(raw);
+	try {
 		if (raw !== null && !legacy) {
 			localStorage.removeItem(legacySignInMarkersKey);
 		} else if (legacy && JSON.stringify(legacy) !== raw) {
 			localStorage.setItem(legacySignInMarkersKey, JSON.stringify(legacy));
 		}
-		if (localStorage.getItem(legacyMigratedKey)) {
-			return true;
-		}
+	} catch {
+		// Cleaned at the next load instead.
+	}
+	if (migrated) {
+		return true;
+	}
+	try {
 		for (const [id, url] of Object.entries(legacy ?? {})) {
 			if (!localStorage.getItem(signInMarkerKey(id))) {
 				localStorage.setItem(signInMarkerKey(id), url);
@@ -92,11 +103,21 @@ export function migrateLegacySignInMarkers(): boolean {
 	}
 }
 
+/** After the sign-out wipe nothing of the legacy record is left, so a write-back after it is never migrated. */
+export function markLegacySignInMarkersMigrated(): void {
+	try {
+		localStorage.setItem(legacyMigratedKey, '1');
+	} catch {
+		// The wipe kept the flag if it was already set.
+	}
+}
+
 /**
  * Keeps the legacy record current for the previous release's tabs. Best effort: one that misses a sign-in only shows
  * it signed out. A removal it can't write takes the whole record, as that release does itself, since a marker it kept
  * would make its next load probe the entity with its cookies. A sign-in leaves a record it can't read alone, rather
- * than replace other tabs' markers with this one. `removing` limits a removal to the URL a failed check used.
+ * than replace other tabs' markers with this one. `removing` limits a removal to the URL a failed check used, and a
+ * failed check, being a probe rather than a sign-out, never takes the whole record.
  */
 export function mirrorLegacySignInMarker(
 	id: EntityIds,
@@ -122,7 +143,7 @@ export function mirrorLegacySignInMarker(
 		}
 		localStorage.setItem(legacySignInMarkersKey, JSON.stringify(markers));
 	} catch {
-		if (url === null) {
+		if (url === null && removing === undefined) {
 			try {
 				localStorage.removeItem(legacySignInMarkersKey);
 			} catch {

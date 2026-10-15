@@ -116,9 +116,10 @@ Central manager only ever sends the boolean, never the other organizations' ids;
   (`signInMarkers.ts`, HarperFast/studio#1968). A tab writes only the entity it signs in or out, so tabs can't erase or
   restore each other's markers; app and full sign-outs act on every stored marker, at each URL an entity is marked at
   here or in storage. A check never undoes another tab's change: a passing one of a sign-in this tab already marked
-  writes nothing, and a failing one leaves a newer URL another tab stored. So a marker removed elsewhere stays removed
-  while this tab still holds that sign-in, until this tab signs in again, which always writes. A check's answer is
-  dropped when this tab signed in again while it was out (`crossTabMarkers.test.ts`). A sign-in storage refuses to
+  writes nothing, and a failing one removes only the marker it checked. So a marker removed elsewhere stays removed
+  while this tab still holds that sign-in, until this tab signs into the entity again, which always writes; for the
+  app sign-in, which every `/User/current` answer re-signs, those answers count as checks. A check's answer is dropped
+  when this tab signed in again while it was out (`crossTabMarkers.test.ts`). A sign-in storage refuses to
   record still signs in, and its next sign-in or check writes it; a marker storage won't remove is retried at every
   marker write, unless another tab has rewritten it since (`localSignOutStorageFailure.test.ts`).
 - **The previous release's one shared record is kept in step for one more release.** Its tabs read
