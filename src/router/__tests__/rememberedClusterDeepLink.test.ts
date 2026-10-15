@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { seedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Transformed here, while the file is collected, which has no timeout, rather than inside the first test's 5s.
 // Each test still evaluates a fresh copy.
@@ -71,10 +72,7 @@ beforeEach(() => {
 	cluster = { status: 'RUNNING' };
 	localStorage.clear();
 	sessionStorage.clear();
-	localStorage.setItem(
-		'Studio:PotentiallyAuthenticated',
-		JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn', [CLUSTER_ID]: CLUSTER_URL }),
-	);
+	seedSignInMarkers({ OverallAppSignIn: 'OverallAppSignIn', [CLUSTER_ID]: CLUSTER_URL });
 	get.mockImplementation(async (url: string) => {
 		if (url === '/User/current') {
 			return { data: cloudUser };
@@ -136,10 +134,7 @@ describe('a deep link into a remembered cluster that has been terminated since',
 	});
 
 	function remember(entity: string, url: string) {
-		localStorage.setItem(
-			'Studio:PotentiallyAuthenticated',
-			JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn', [CLUSTER_ID]: CLUSTER_URL, [entity]: url }),
-		);
+		seedSignInMarkers({ [entity]: url });
 	}
 
 	it.each(remembered)('sends /$page to the overview before checking the sign-in or loading the page', async ({

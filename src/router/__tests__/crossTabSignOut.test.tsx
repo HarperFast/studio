@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
@@ -295,7 +296,7 @@ function reportedAuthorizationFailures() {
 beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
-	localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn' }));
+	seedSignInMarkers({ OverallAppSignIn: 'OverallAppSignIn' });
 	window.history.replaceState(null, '', `#${PAGE}`);
 	session = 'live';
 	requests.length = 0;
@@ -445,13 +446,13 @@ describe('a sign-out in another tab', () => {
 		const thisTab = await openClusterPage();
 		const otherTab = await openAnotherTab();
 		// A reload during a central-manager blip: that tab reads the failed check as signed out, and drops the app
-		// sign-in from the marker record both tabs share.
+		// sign-in's marker, which both tabs share.
 		otherTab.apiClient.defaults.adapter = async (config) => {
 			throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config);
 		};
 
 		await otherTab.run(() => otherTab.authStore.reloadUser('OverallAppSignIn'));
-		expect(localStorage.getItem('Studio:PotentiallyAuthenticated')).toBe('{}');
+		expect(storedSignInMarkers()).toEqual({});
 
 		await expectStillSignedIn(thisTab);
 	});

@@ -784,8 +784,8 @@ Three traps when reading this from RUM data:
 
 A boot-time redirect does **not** cost you that first view, and the deciding factor is whether
 `getAllConnections()` can answer synchronously. It synthesizes `{ user: null, isLoading: false }`
-for `OverallAppSignIn` only when the `Studio:PotentiallyAuthenticated` localStorage record has no
-entry for it; with an entry it returns the record untouched, so the key is simply **absent**.
+for `OverallAppSignIn` only when no `Studio:PotentiallyAuthenticated:OverallAppSignIn` marker is
+stored; with one it returns the record untouched, so the key is simply **absent**.
 `dashboardLayout.beforeLoad` guards on `auth && !auth.isLoading && !auth.user`, so those are two
 different outcomes: a signed-out deep link redirects _during_ the router's initial load and the root
 component never commits the deep-link location — one `startView`, named `/sign-in/` — while an

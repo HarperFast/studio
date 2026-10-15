@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 // jsdom: authStore touches localStorage at module load and throughout.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { seedSignInMarkers } from './signInMarkersTestHelpers';
 
 const user = { id: 'usr_a', email: 'a@example.com', roles: {} };
 
@@ -26,7 +27,7 @@ describe('authStore.isKnownSignedOut', () => {
 	});
 
 	it('knows at once when a sign-out clears the session', async () => {
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn' }));
+		seedSignInMarkers({ OverallAppSignIn: 'OverallAppSignIn' });
 		const { authStore, OverallAppSignIn } = await freshStore();
 		authStore.setUserForIdAndKey(OverallAppSignIn, OverallAppSignIn, user as never);
 

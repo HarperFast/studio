@@ -17,6 +17,7 @@ vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getIn
 
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from './authStore';
+import { storedSignInMarkers } from './signInMarkersTestHelpers';
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
 
@@ -69,7 +70,7 @@ describe('auth resolutions that outlive a sign-out', () => {
 
 		await expect(reload).resolves.toBeNull();
 		expectNothingRestored('ins-load');
-		expect(localStorage.getItem('Studio:PotentiallyAuthenticated') ?? '').not.toContain('ins-load');
+		expect(storedSignInMarkers()).not.toHaveProperty('ins-load');
 	});
 
 	it('getCurrentUser hands back its answer but does not sign the cloud slot back in', async () => {

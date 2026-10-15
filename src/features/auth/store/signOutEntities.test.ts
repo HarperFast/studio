@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStore } from './authStore';
+import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { onInstanceLogoutSubmit } = vi.hoisted(() => ({ onInstanceLogoutSubmit: vi.fn() }));
 vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
@@ -95,11 +96,8 @@ describe('authStore.signOutEntities', () => {
 	});
 
 	it('logs out, and forgets, a sign-in another tab made after this one read the markers', async () => {
-		const markers = JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}');
-		localStorage.setItem(
-			'Studio:PotentiallyAuthenticated',
-			JSON.stringify({ ...markers, 'ins-other-tab': 'https://ins-other-tab.example.com:9925/' }),
-		);
+		const markers = storedSignInMarkers();
+		seedSignInMarkers({ 'ins-other-tab': 'https://ins-other-tab.example.com:9925/' });
 
 		await authStore.signOutEntities(['ins-other-tab']);
 
@@ -111,7 +109,7 @@ describe('authStore.signOutEntities', () => {
 				auth: undefined,
 			},
 		]);
-		expect(JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}')).toEqual(markers);
+		expect(storedSignInMarkers()).toEqual(markers);
 	});
 
 	it('posts no logout for an id with nothing remembered', async () => {

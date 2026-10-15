@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { InternalAxiosRequestConfig } from 'axios';
@@ -116,7 +117,7 @@ async function openBookmark(path: string, cluster: object = {}) {
 }
 
 function rememberedEntities() {
-	const markers = JSON.parse(localStorage.getItem('Studio:PotentiallyAuthenticated') || '{}');
+	const markers = storedSignInMarkers();
 	return Object.keys(SIGN_INS).filter((id) =>
 		markers[id] || localStorage.getItem(`Studio:BasicAuth:${id}`) || localStorage.getItem(`Studio:FabricConnect:${id}`)
 	);
@@ -125,10 +126,7 @@ function rememberedEntities() {
 beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
-	localStorage.setItem(
-		'Studio:PotentiallyAuthenticated',
-		JSON.stringify({ OverallAppSignIn: 'OverallAppSignIn', ...SIGN_INS }),
-	);
+	seedSignInMarkers({ OverallAppSignIn: 'OverallAppSignIn', ...SIGN_INS });
 	for (const id of Object.keys(SIGN_INS)) {
 		localStorage.setItem(`Studio:BasicAuth:${id}`, btoa(JSON.stringify({ username: 'admin', password: 'hunter2' })));
 		localStorage.setItem(`Studio:FabricConnect:${id}`, 'true');

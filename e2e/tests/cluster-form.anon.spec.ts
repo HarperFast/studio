@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { rememberAppSignIn } from './signInMarkers';
 
 const region = { id: 'us-1', region: 'US', latencyDescription: '83ms', instanceCount: 2 };
 const plan = {
@@ -33,9 +34,7 @@ const organizationWith = (clusterRecord: typeof cluster) => ({
 });
 
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() =>
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }))
-	);
+	await rememberAppSignIn(page);
 	await page.route(
 		'**/*',
 		route =>

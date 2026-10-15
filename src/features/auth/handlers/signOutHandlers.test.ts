@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { queryClient } from '@/react-query/queryClient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthStateAfterSignOutElsewhere, clearAuthStateLocally } from './clearAuthStateLocally';
@@ -244,7 +245,7 @@ describe('clearAuthStateAfterSignOutElsewhere', () => {
 	it('signs this tab out and wipes both caches and its sessionStorage, but leaves the shared localStorage', () => {
 		seedSignedInTab();
 		localStorage.clear();
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn }));
+		seedSignInMarkers({ OverallAppSignIn });
 
 		clearAuthStateAfterSignOutElsewhere();
 
@@ -253,7 +254,7 @@ describe('clearAuthStateAfterSignOutElsewhere', () => {
 		expectCachesEmpty();
 		expect(sessionStorage.length).toBe(0);
 		expect(localStorage.length).toBe(1);
-		expect(localStorage.getItem('Studio:PotentiallyAuthenticated')).toBe(JSON.stringify({ OverallAppSignIn }));
+		expect(storedSignInMarkers()).toEqual({ OverallAppSignIn });
 	});
 
 	it('still wipes the caches and sessionStorage when the store teardown throws', () => {
