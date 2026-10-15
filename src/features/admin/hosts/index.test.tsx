@@ -2,7 +2,12 @@
  * @vitest-environment jsdom
  */
 import { apiClient } from '@/config/apiClient';
-import { hostMatchesSearch, HostsIndex, resolveOrganization } from '@/features/admin/hosts/index';
+import {
+	describeUnresolvedOrganization,
+	hostMatchesSearch,
+	HostsIndex,
+	resolveOrganization,
+} from '@/features/admin/hosts/index';
 import type { AdminHost } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -77,14 +82,16 @@ const requests = (prefix: string) =>
 const hostRequests = () => requests('/Admin/Host/');
 
 let failHosts = false;
+let organizationsResponse: () => Promise<unknown>;
 
 beforeEach(() => {
 	auth.canReadOrganizations = true;
 	failHosts = false;
+	organizationsResponse = async () => ({ data: ORGS });
 	mockedGet.mockReset();
 	mockedGet.mockImplementation(async (url) => {
 		const path = url as string;
-		if (path.startsWith('/Admin/Organization/')) { return { data: ORGS } as never; }
+		if (path.startsWith('/Admin/Organization/')) { return organizationsResponse() as never; }
 		if (path.startsWith('/Location/')) { return { data: [] } as never; }
 		if (failHosts) { throw new Error('boom'); }
 		return { data: HOSTS } as never;
@@ -169,10 +176,45 @@ describe('HostsIndex', () => {
 		expect(await screen.findByText('Enter an organization id (org-…).')).toBeTruthy();
 	});
 
+	// A name the directory hasn't listed yet is not a name that matches nothing.
+	it('says the organization list is loading rather than that nothing matches', async () => {
+		organizationsResponse = () => new Promise(() => {});
+		renderPage();
+		await typeOrganization('Globex');
+		expect(await screen.findByText('The organization list is still loading. Paste an org- id to filter now.'))
+			.toBeTruthy();
+		expect(screen.queryByText(/No organization matches/)).toBeNull();
+		expect(hostRequests()).toEqual(['/Admin/Host/?status=RUNNING']);
+
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Organization'), { target: { value: 'org-2' } });
+		});
+		await waitFor(() => expect(hostRequests()).toContain('/Admin/Host/?status=RUNNING&organizationId=org-2'));
+	});
+
+	it('says the organization list failed when it cannot load', async () => {
+		organizationsResponse = async () => {
+			throw new Error('boom');
+		};
+		renderPage();
+		await typeOrganization('Globex');
+		expect(await screen.findByText("Couldn't load the organization list. Paste an org- id to filter.")).toBeTruthy();
+	});
+
 	it('says so when the host list fails to load', async () => {
 		failHosts = true;
 		renderPage();
 		expect(await screen.findByText("Couldn't load hosts.")).toBeTruthy();
+	});
+});
+
+describe('describeUnresolvedOrganization', () => {
+	it('claims no match only for a fully loaded directory', () => {
+		expect(describeUnresolvedOrganization('Acme', 'complete')).toBe('No organization matches “Acme”.');
+		for (const state of ['loading', 'failed', 'truncated', 'unavailable'] as const) {
+			expect(describeUnresolvedOrganization('Acme', state)).not.toMatch(/No organization matches/);
+			expect(describeUnresolvedOrganization('Acme', state)).toMatch(/org-/);
+		}
 	});
 });
 

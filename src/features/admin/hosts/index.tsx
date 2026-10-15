@@ -7,6 +7,7 @@ import {
 	ALL_STATUSES,
 	getHostsQueryOptions,
 	HostStatusFilter,
+	RUNNING_OR_DEGRADED,
 } from '@/features/admin/hosts/queries/getHosts';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
 import {
@@ -24,6 +25,7 @@ import { useMemo, useState } from 'react';
 const ANY = 'any';
 const STATUS_OPTIONS: Array<{ value: HostStatusFilter; label: string }> = [
 	{ value: 'RUNNING', label: 'Running' },
+	{ value: RUNNING_OR_DEGRADED, label: 'Running + degraded' },
 	{ value: 'DEGRADED', label: 'Degraded' },
 	{ value: 'PROVISIONING', label: 'Provisioning' },
 	{ value: 'REMOVING', label: 'Removing' },
@@ -57,6 +59,24 @@ export function resolveOrganization(text: string, organizations: AdminOrganizati
 	if (named.length > 1) { return { ambiguous: named.length }; }
 	const pasted = detectEntityId(trimmed);
 	return pasted?.kind === 'organization' ? { id: pasted.id } : { unresolved: true };
+}
+
+export type DirectoryState = 'complete' | 'loading' | 'failed' | 'truncated' | 'unavailable';
+
+/** "No match" is only true of a directory that fully loaded; otherwise a pasted id is the way through. */
+export function describeUnresolvedOrganization(text: string, directory: DirectoryState): string {
+	switch (directory) {
+		case 'complete':
+			return `No organization matches “${text}”.`;
+		case 'loading':
+			return 'The organization list is still loading. Paste an org- id to filter now.';
+		case 'failed':
+			return "Couldn't load the organization list. Paste an org- id to filter.";
+		case 'truncated':
+			return `“${text}” isn't among the organizations loaded. Paste its org- id.`;
+		case 'unavailable':
+			return 'Enter an organization id (org-…).';
+	}
 }
 
 export function hostMatchesSearch(host: AdminHost, search: string): boolean {
@@ -125,7 +145,19 @@ export function HostsIndex() {
 
 	// The directory endpoint needs org:read, which this page's host:read does not imply.
 	const canReadOrganizations = useStaffPermission('org:read');
-	const { data: orgResult } = useQuery({ ...getOrganizationsQueryOptions(), enabled: canReadOrganizations });
+	const { data: orgResult, isError: organizationsFailed } = useQuery({
+		...getOrganizationsQueryOptions(),
+		enabled: canReadOrganizations,
+	});
+	const directory: DirectoryState = !canReadOrganizations
+		? 'unavailable'
+		: organizationsFailed
+		? 'failed'
+		: !orgResult
+		? 'loading'
+		: orgResult.truncated
+		? 'truncated'
+		: 'complete';
 	const { data: locations } = useQuery(getLocationsQueryOptions());
 	const organizations = useMemo(() => orgResult?.organizations ?? [], [orgResult]);
 	const orgNameById = useMemo(() => new Map(organizations.map((o) => [o.id, o.name])), [organizations]);
@@ -141,9 +173,7 @@ export function HostsIndex() {
 	const organizationProblem = organizationPick && !('id' in organizationPick)
 		? 'ambiguous' in organizationPick
 			? `${organizationPick.ambiguous} organizations are named “${debouncedOrganizationText.trim()}” — pick one from the list.`
-			: canReadOrganizations
-			? `No organization matches “${debouncedOrganizationText.trim()}”.`
-			: 'Enter an organization id (org-…).'
+			: describeUnresolvedOrganization(debouncedOrganizationText.trim(), directory)
 		: null;
 
 	const filters: AdminHostFilters = {

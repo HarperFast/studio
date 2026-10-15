@@ -3,7 +3,8 @@ import { AdminHost, HostStatus } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export const ALL_STATUSES = 'all';
-export type HostStatusFilter = HostStatus | typeof ALL_STATUSES;
+export const RUNNING_OR_DEGRADED = 'RUNNING,DEGRADED';
+export type HostStatusFilter = HostStatus | typeof ALL_STATUSES | typeof RUNNING_OR_DEGRADED;
 
 export interface AdminHostFilters {
 	status: HostStatusFilter;
