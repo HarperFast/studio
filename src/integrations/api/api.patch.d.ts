@@ -53,6 +53,7 @@ export type StaffPermission =
 	| 'instance:read'
 	| 'instance:update'
 	| 'billing:write'
+	| 'host:read'
 	| 'region:read'
 	| 'region:write'
 	| 'systemStatus:write'
@@ -164,6 +165,50 @@ export interface AdminLocation {
 	/** Only these two providers exist today (see central-manager's loadLocations). */
 	cloudProvider: 'linode' | 'gcp';
 	regions: string[];
+}
+
+/** Host lifecycle statuses (central-manager's HOST_STATUS). */
+export type HostStatus = 'PROVISIONING' | 'RUNNING' | 'DEGRADED' | 'REMOVING' | 'REMOVED' | 'TERMINATED';
+
+/**
+ * A row of GET /Admin/Host/ — a fixed summary of a host, not the raw Host record. Location fields are
+ * null (and `regions` empty) when the host's Location no longer exists.
+ */
+export interface AdminHost {
+	id: string;
+	name: string;
+	status: HostStatus | null;
+	fqdn: string | null;
+	ipAddress: string | null;
+	cloudInstanceType: string | null;
+	cloudInstanceId: string | null;
+	locationId: string | null;
+	location: string | null;
+	locationName: string | null;
+	cloudProvider: string | null;
+	regions: string[];
+	/** Dedicated scope: the organizations this host is reserved for. Null or empty = a shared host. */
+	organizationIds: string[] | null;
+	dynamicallyAssignable: boolean | null;
+	underMaintenance: boolean | null;
+	gpu: boolean | null;
+	gpuType: string | null;
+	gpuCount: number | null;
+	embedHub: boolean | null;
+	canaryHost: boolean | null;
+	maxCPUCores: number | null;
+	maxMemoryMb: number | null;
+	maxStorageGb: number | null;
+	usedCPUCores: number | null;
+	usedMemoryMb: number | null;
+	usedStorageGb: number | null;
+	/** Non-terminal instances on the host (STOPPED and ERROR still count). */
+	instanceCount: number;
+	/** Organizations with instances on the host, most instances first. */
+	organizations: Array<{ id: string; instanceCount: number }>;
+	createdAt: string | null;
+	updated: number | null;
+	terminatedAt: string | null;
 }
 
 /**
