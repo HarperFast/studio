@@ -112,6 +112,16 @@ Central manager only ever sends the boolean, never the other organizations' ids;
 - **Remembered instance/cluster sign-ins are checked on demand**: `Studio:PotentiallyAuthenticated` spans every
   organization ever visited, so the root auth subscription checks only the app sign-in; an entity is checked by
   `useInstanceAuth`/`listenToEntity` or the instance-layout guard (`entityAuthCheckScope.test.ts`, HarperFast/studio#1329).
+- **Every tab shares those markers, so a write changes one entity.** A sign-in or sign-out re-reads the record and adds
+  or drops only its own entity; app and full sign-outs act on every stored marker, not only this tab's, and log out
+  each URL an entity is marked at in this tab or storage. A check never undoes another tab's change: a passing one of
+  a sign-in this tab already marked writes nothing, and a failing one leaves a newer URL another tab stored
+  (`crossTabMarkers.test.ts`, HarperFast/studio#1968). So a marker removed elsewhere, or dropped with the whole record
+  when storage refused a write, stays removed even while this tab still holds that sign-in. Storage has no atomic
+  read-modify-write, so two tabs writing at the same moment can still lose one change. A missing marker looks signed
+  out on the next load and gets no logout from another tab's app sign-out; a lost sign-out leaves a marker that load
+  probes. When storage refuses to take a signed-out entity out, this tab's later writes leave it out until one lands
+  (`localSignOutStorageFailure.test.ts`); an unreadable record is replaced.
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the

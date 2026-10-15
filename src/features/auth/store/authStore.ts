@@ -68,6 +68,8 @@ class AuthStore {
 	// Storage can refuse a removal yet still answer reads, so a credential it kept belongs to the session
 	// that ended. This tab reads such a key as absent until a write replaces it.
 	private readonly unremovedKeys = new Set<string>();
+	// Signed-out entities storage still marks, because it refused this tab's write. The next one must leave them out.
+	private readonly unremovedMarkers = new Set<EntityIds>();
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -694,18 +696,19 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
-		// Dooms connects for entities not yet in `potentiallyAuthenticated`, which the loop skips.
+		// Dooms connects for entities not yet marked, which the loop skips.
 		this.bumpSignOutGeneration('*');
 		forgetAllEntitySettings();
-		const logouts: Array<Promise<void>> = [];
-		for (const entityId of Object.keys(this.potentiallyAuthenticated)) {
-			// The clears below drop the operations URL and token the client resolves from.
-			const instanceClient = this.buildLogoutClient(entityId);
+		const signIns = this.rememberedSignIns();
+		// Built first: the clears below drop the credentials and token they are built with.
+		const clients = signIns.map(([entityId, operationsUrl]) => this.buildLogoutClient(entityId, operationsUrl));
+		for (const entityId of new Set(signIns.map(([entityId]) => entityId))) {
 			this.signOutLocally(entityId);
-			if (instanceClient) {
-				logouts.push(this.sendBestEffortLogout(entityId, instanceClient));
-			}
 		}
+		const logouts = signIns.flatMap(([entityId], index) => {
+			const instanceClient = clients[index];
+			return instanceClient ? [this.sendBestEffortLogout(entityId, instanceClient)] : [];
+		});
 		// After the logout clients are built, which carry their credential in a header of their own. A
 		// failed CM logout skips `signOutAllLocally`, so this is the only clear those connects get.
 		this.dropFabricConnectState();
@@ -759,19 +762,14 @@ class AuthStore {
 	/** For a server that outlives Studio's record of it. Never rejects. */
 	public async signOutEntities(ids: Iterable<EntityIds>): Promise<void> {
 		const unique = [...new Set(ids)];
-		// Another tab may have signed in since this one read the markers.
-		const remembered = { ...this.potentiallyAuthenticated, ...this.storedMarkers() };
-		const logouts = unique.map((entityId) => {
-			const operationsUrl = remembered[entityId];
-			return {
+		const signIns = this.rememberedSignIns();
+		const logouts = unique.flatMap((entityId) =>
+			signIns.filter(([id]) => id === entityId).map(([, operationsUrl]) => ({
 				entityId,
-				instanceClient: typeof operationsUrl === 'string' && operationsUrl
-					? this.buildLogoutClient(entityId, operationsUrl)
-					: null,
-			};
-		});
+				instanceClient: this.buildLogoutClient(entityId, operationsUrl),
+			}))
+		);
 		this.signOutEntitiesLocally(unique);
-		this.forgetStoredMarkers(unique);
 		await Promise.all(
 			logouts.map(({ entityId, instanceClient }) =>
 				instanceClient ? this.sendBestEffortLogout(entityId, instanceClient) : Promise.resolve()
@@ -792,27 +790,55 @@ class AuthStore {
 		);
 	}
 
-	private storedMarkers(): Record<string, string> {
+	/** Read raw, since other tabs write it too. Null when unreadable. */
+	private readMarkers(): Record<EntityIds, AuthenticatedConnectionKey> | null {
 		try {
 			const markers: unknown = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
-			return markers && typeof markers === 'object' ? markers as Record<string, string> : {};
+			if (!markers || typeof markers !== 'object' || Array.isArray(markers)) {
+				return null;
+			}
+			return Object.fromEntries(
+				Object.entries(markers).filter((entry): entry is [string, string] =>
+					typeof entry[1] === 'string' && !!entry[1]
+				),
+			);
 		} catch {
-			return {};
+			return null;
 		}
 	}
 
-	/** `signOutLocally` drops only the markers this tab holds, so one another tab added would otherwise outlive its logout. */
-	private forgetStoredMarkers(ids: EntityIds[]): void {
-		const stored = this.storedMarkers();
-		if (!ids.some((id) => Object.hasOwn(stored, id))) {
-			return;
+	private storedMarkers(): Record<EntityIds, AuthenticatedConnectionKey> | null {
+		const markers = this.readMarkers();
+		if (markers) {
+			for (const id of this.unremovedMarkers) {
+				delete markers[id];
+			}
 		}
-		const remaining = Object.fromEntries(Object.entries(stored).filter(([id]) => !ids.includes(id)));
-		try {
-			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(remaining));
-		} catch {
-			this.removeStoredItem(this.potentiallyAuthenticatedKey);
+		return markers;
+	}
+
+	private writeMarkers(markers: Record<EntityIds, AuthenticatedConnectionKey>): void {
+		this.writeStoredItem(this.potentiallyAuthenticatedKey, JSON.stringify(markers));
+		this.unremovedMarkers.clear();
+	}
+
+	/** Fail closed: losing every marker only makes the other entities look signed out on the next load. */
+	private removeMarkers(signedOut: EntityIds | undefined): void {
+		this.removeStoredItem(this.potentiallyAuthenticatedKey);
+		if (!this.unremovedKeys.has(this.potentiallyAuthenticatedKey)) {
+			this.unremovedMarkers.clear();
+		} else if (signedOut !== undefined) {
+			this.unremovedMarkers.add(signedOut);
 		}
+	}
+
+	/**
+	 * This tab's sign-ins and every stored one, raw, once per URL: another tab may have signed in again at a newer
+	 * URL, and the older one's session is still open. A sweep that reaches more only signs more out.
+	 */
+	private rememberedSignIns(): Array<[EntityIds, AuthenticatedConnectionKey]> {
+		const signIns = [...Object.entries(this.potentiallyAuthenticated), ...Object.entries(this.readMarkers() ?? {})];
+		return signIns.filter(([id, key], index) => signIns.findIndex(([i, k]) => i === id && k === key) === index);
 	}
 
 	/** Read raw, not through `readStoredItem`, because another tab may have written them. */
@@ -868,7 +894,7 @@ class AuthStore {
 			this.bumpSignOutGeneration('*');
 			forgetAllEntitySettings();
 			// Snapshot keys first — signOutLocally mutates the flags as it goes.
-			for (const id of Object.keys(this.potentiallyAuthenticated)) {
+			for (const id of new Set(this.rememberedSignIns().map(([id]) => id))) {
 				this.signOutLocally(id);
 			}
 			this.dropFabricConnectState();
@@ -965,24 +991,39 @@ class AuthStore {
 		void this.updateListeners(id);
 	}
 
+	// Writing this tab's copy would erase what other tabs signed into since it loaded, so both writes change one entity
+	// in the record as stored now. A check of a sign-in this tab already marked writes nothing, which leaves out a
+	// marker another tab's sign-out removed.
 	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
-		if (this.potentiallyAuthenticated[id] !== key) {
-			this.potentiallyAuthenticated[id] = key;
-			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
+		if (this.potentiallyAuthenticated[id] === key) {
+			return;
 		}
+		// Then this tab's copy: one that storage refused would make every later sign-in skip the write.
+		this.writeMarkers({ ...this.storedMarkers(), [id]: key });
+		this.potentiallyAuthenticated[id] = key;
 	}
 
-	private flagKeyAsSignedOut(id: EntityIds) {
-		if (this.potentiallyAuthenticated[id]) {
-			delete this.potentiallyAuthenticated[id];
-			try {
-				localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
-			} catch {
-				// Fail closed. A marker left behind makes the next page load probe this entity with its
-				// cookies, and a session that outlived the sign-out would sign it back in; losing every
-				// marker only makes the other entities look signed out on that load.
-				this.removeStoredItem(this.potentiallyAuthenticatedKey);
-			}
+	/** `checkedKey`: the URL a failed check used, which says nothing about a newer one another tab stored. */
+	private flagKeyAsSignedOut(id: EntityIds, checkedKey?: AuthenticatedConnectionKey) {
+		delete this.potentiallyAuthenticated[id];
+		const stored = this.storedMarkers();
+		if (!stored) {
+			this.removeMarkers(id);
+			return;
+		}
+		const marked = Object.hasOwn(stored, id) && (checkedKey === undefined || stored[id] === checkedKey);
+		if (!marked && !this.unremovedMarkers.size) {
+			return;
+		}
+		if (marked) {
+			delete stored[id];
+		}
+		try {
+			this.writeMarkers(stored);
+		} catch {
+			// A marker left behind makes the next page load probe this entity with its cookies, and a session that
+			// outlived the sign-out would sign it back in.
+			this.removeMarkers(marked ? id : undefined);
 		}
 	}
 
@@ -1069,7 +1110,7 @@ class AuthStore {
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
-			this.flagKeyAsSignedOut(id);
+			this.flagKeyAsSignedOut(id, key);
 		}
 		this.updateConnectionIfChanged(id, false, user);
 		if (signOutHeard !== null && signOutHeard === this.appUser()) {
