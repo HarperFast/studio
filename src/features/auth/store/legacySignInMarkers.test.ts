@@ -87,6 +87,25 @@ describe('the first load of this release', () => {
 		expect(localStorage.getItem(legacySignInMarkersKey)).toBeNull();
 		expect(storedSignInMarkers()).toEqual({});
 	});
+
+	it("drops entries that aren't markers from the legacy record", async () => {
+		localStorage.setItem(legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), 'ins-b': 123, 'ins-c': '' }));
+
+		await loadPage();
+
+		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
+	});
+
+	it("still signs in on the previous release's markers when storage refuses the migration", async () => {
+		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+
+		const store = await loadPage();
+
+		expect(store.getOperationsUrl('ins-a')).toBe(url('ins-a'));
+	});
 });
 
 describe('a later load', () => {
@@ -94,6 +113,18 @@ describe('a later load', () => {
 		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
 		const store = await loadPage();
 		store.signOutLocally('ins-a');
+
+		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		await loadPage();
+
+		expect(storedSignInMarkers()).toEqual({});
+	});
+
+	it('brings back nothing written after a full sign-out, which keeps the record migrated', async () => {
+		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		const store = await loadPage();
+		store.signOutAllLocally();
+		store.wipeLocalStorageForSignOut();
 
 		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
 		await loadPage();
@@ -141,6 +172,15 @@ describe('for tabs still on the previous release', () => {
 		await store.reloadUser('ins-a');
 
 		expect(legacy()).toEqual({ 'ins-a': 'https://ins-a-2.example.com:9925/' });
+	});
+
+	it("leaves a legacy record it can't read alone at a sign-in", async () => {
+		const store = await loadPage();
+		localStorage.setItem(legacySignInMarkersKey, 'not a record');
+
+		signIn(store, 'ins-a');
+
+		expect(localStorage.getItem(legacySignInMarkersKey)).toBe('not a record');
 	});
 
 	it('takes the whole legacy record when it cannot mirror a sign-out', async () => {

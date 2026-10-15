@@ -166,6 +166,14 @@ describe('authStore local sign-out when storage writes throw', () => {
 			expect(storedSignInMarkers()).not.toHaveProperty('ins-p');
 		});
 
+		it('leaves it once another tab has signed in there again', () => {
+			seedSignInMarkers({ 'ins-p': 'https://ins-p-2' });
+
+			signIn('ins-r');
+
+			expect(storedSignInMarkers()).toHaveProperty('ins-p', 'https://ins-p-2');
+		});
+
 		it('reaches it at a full sign-out after another tab signs it back in', () => {
 			seedSignInMarkers({ 'ins-p': 'https://ins-p' });
 			localStorage.setItem('Studio:BasicAuth:ins-p', btoa(JSON.stringify({ username: 'u', password: 'p' })));
@@ -175,6 +183,22 @@ describe('authStore local sign-out when storage writes throw', () => {
 			// Raw: this tab still reads the credential it could not remove at the first sign-out as absent.
 			expect(localStorage.getItem('Studio:BasicAuth:ins-p')).toBeNull();
 		});
+	});
+
+	it('still removes a marker it cannot read at sign-out', () => {
+		signIn('ins-u');
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
+			if (key === 'Studio:PotentiallyAuthenticated:ins-u') {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			}
+			return getItem.call(this, key);
+		});
+
+		authStore.signOutLocally('ins-u');
+		vi.restoreAllMocks();
+
+		expect(storedSignInMarkers()).not.toHaveProperty('ins-u');
 	});
 
 	describe('a sign-in storage refused to record', () => {

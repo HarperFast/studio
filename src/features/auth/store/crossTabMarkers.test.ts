@@ -113,6 +113,17 @@ describe("a sign-in's marker", () => {
 	});
 });
 
+describe('a sign-in this tab already remembers', () => {
+	it('records itself again when another tab signed it out', () => {
+		signInHere('ins-here');
+		localStorage.removeItem(signInMarkerKey('ins-here'));
+
+		signInHere('ins-here');
+
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': url('ins-here') });
+	});
+});
+
 describe('a sign-in another tab made again at a newer URL', () => {
 	function loggedOutAt() {
 		return onInstanceLogoutSubmit.mock.calls.map(([{ instanceClient }]) => instanceClient.defaults.baseURL);
@@ -188,5 +199,24 @@ describe('a check of a sign-in this tab remembers', () => {
 		expect(authStore.getOperationsUrl('ins-here')).toBe(newer);
 		expect(authStore.getConnectionById('ins-here').user).toEqual({ username: 'admin' });
 		expect(storedSignInMarkers()).toEqual({ 'ins-here': newer });
+	});
+
+	it('leaves a sign-in this tab made at the same URL while it was out', async () => {
+		signInHere('ins-here');
+		let answer: (reason: unknown) => void = () => undefined;
+		getInstanceUserInfo.mockReturnValue(
+			new Promise((_, reject) => {
+				answer = reject;
+			}),
+		);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const check = authStore.reloadUser('ins-here');
+
+		signInHere('ins-here');
+		answer(new Error('Network Error'));
+		await check;
+
+		expect(authStore.getConnectionById('ins-here').user).toEqual({ username: 'admin' });
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': url('ins-here') });
 	});
 });
