@@ -21,6 +21,7 @@ describe('admin section visibility', () => {
 			'Regions',
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
+		expect(labels(user('fabric_readonly', ['systemStatus:write']))).toEqual(['Notifications']);
 	});
 
 	it('hides the section entirely from customers', () => {

@@ -60,7 +60,7 @@ export function ClusterPerformanceDescription({
 													{performanceDescription.isPremium && <Badge>Premium</Badge>}
 												</dt>
 												{performanceDescription.description && (
-													<dd className="text-left font-light">{performanceDescription.description}</dd>
+													<dd className="truncate text-left font-light">{performanceDescription.description}</dd>
 												)}
 											</SelectItem>
 										))}

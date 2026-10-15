@@ -71,6 +71,10 @@ function renderVersionForm() {
 				mode="version"
 				organization={{ id: 'org-1' } as Organization}
 				organizationId="org-1"
+				organizationRegions={[]}
+				canUseCustomRegions={false}
+				canDefineCustomRegions={false}
+				lockedOrganizationRegionIds={[]}
 				partialUpgrade={{ latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false }}
 				planTypes={[plan]}
 				regionLocationsColocated={[]}
