@@ -9,6 +9,7 @@ import { type AxiosInstance, isAxiosError } from 'axios';
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
 import { onDeleteUser } from './deleteUser';
+import { getListUsers } from './getListUsers';
 import { onInstanceLogoutSubmit } from './onInstanceLogoutSubmit';
 import { LoginInfoResponse, onInstanceLoginSubmit } from './useInstanceLoginMutation';
 
@@ -80,13 +81,20 @@ async function onInstanceResetPassword({
 			});
 		} else {
 			// ... or create a new user!
-			await onAddUserSubmit({
-				username: desiredUsername,
-				password: newPassword,
-				role: 'super_user',
-				active: true,
-				instanceClient,
-			});
+			try {
+				await onAddUserSubmit({
+					username: desiredUsername,
+					password: newPassword,
+					role: 'super_user',
+					active: true,
+					instanceClient,
+				});
+			} catch (err) {
+				if (!isUserAlreadyExists(err, desiredUsername)) {
+					throw err;
+				}
+				await adoptExistingAdmin({ clusterId, operationsUrl, desiredUsername, newPassword, instanceClient });
+			}
 			// since we created a new user, we should log in with the new one
 			loginResponse = await onInstanceLoginSubmit({
 				username: desiredUsername,
@@ -130,6 +138,12 @@ function isLoginRefused(error: unknown): boolean {
 	return isAxiosError(error) && error.response?.status === 401 && operationOf(error.config?.data) === 'login';
 }
 
+/** Harper's `add_user` refusal for a username already taken, told apart from its other 409 (duplicate roles) by text. */
+function isUserAlreadyExists(error: unknown, username: string): boolean {
+	return isAxiosError(error)
+		&& (error.response?.data as { error?: unknown } | undefined)?.error === `User ${username} already exists`;
+}
+
 /**
  * Never throws: a failed logout must not replace the error that ended setup. Setup is still pending, so nothing may stay
  * signed in either way; through the proxy there is no session of the user's to end (see `buildLogoutClient`).
@@ -145,6 +159,62 @@ async function signOutAfterFailedSetup(clusterId: string, instanceClient: AxiosI
 	authStore.signOutEntitiesLocally([clusterId]);
 }
 
+type FormCredentials = Pick<
+	InstanceResetPasswordParams,
+	'clusterId' | 'operationsUrl' | 'desiredUsername' | 'newPassword'
+>;
+
+function signInWithFormCredentials({ clusterId, operationsUrl, desiredUsername, newPassword }: FormCredentials) {
+	return onInstanceLoginSubmit({
+		username: desiredUsername,
+		password: newPassword,
+		instanceClient: getInstanceClient({ id: clusterId, operationsUrl, disableFabricConnect: true }),
+		entityId: clusterId,
+	});
+}
+
+function assertSignedInAsAdmin(user: LocalUser, desiredUsername: string): void {
+	if (user.username !== desiredUsername) {
+		// Login's own Fabric Connect fallback can reach an instance the drop has not replicated to yet.
+		throw new Error(
+			`Couldn't finish setup: signing in as "${desiredUsername}" answered as "${user.username}". Try again in a moment, or contact support to reset this cluster's setup.`,
+		);
+	}
+	if (user.role?.permission?.super_user !== true) {
+		throw new Error(
+			`Couldn't finish setup: "${desiredUsername}" can sign in, but the cluster doesn't report it as a super user. Contact support to reset this cluster's setup.`,
+		);
+	}
+}
+
+/**
+ * `add_user` found the form's admin already there: an earlier attempt created it and stopped before dropping the setup
+ * account, which still signs in and so can set the typed password if that does not sign in already.
+ */
+async function adoptExistingAdmin({
+	instanceClient,
+	...credentials
+}: FormCredentials & { instanceClient: AxiosInstance }): Promise<void> {
+	const { desiredUsername, newPassword } = credentials;
+	const existing = (await getListUsers({ instanceClient })).find((user) => user.username === desiredUsername);
+	if (existing?.role?.permission?.super_user !== true) {
+		throw new Error(
+			`Couldn't finish setup: "${desiredUsername}" already exists on this cluster but isn't a super user. Choose another username.`,
+		);
+	}
+	let admin: LocalUser;
+	try {
+		({ user: admin } = await signInWithFormCredentials(credentials));
+	} catch (err) {
+		if (!isLoginRefused(err)) {
+			throw err;
+		}
+		await onAlterUser({ username: desiredUsername, password: newPassword, instanceClient });
+		({ user: admin } = await signInWithFormCredentials(credentials));
+	}
+	assertSignedInAsAdmin(admin, desiredUsername);
+}
+
 /** See "An interrupted setup finishes from the admin it already created" in `src/features/cluster/DESIGN.md`. */
 async function finishInterruptedSetup({
 	clusterId,
@@ -156,26 +226,10 @@ async function finishInterruptedSetup({
 	InstanceResetPasswordParams,
 	'clusterId' | 'operationsUrl' | 'initialUsername' | 'desiredUsername' | 'newPassword'
 >): Promise<InstanceResetPasswordResponse> {
-	const signInAsAdmin = () =>
-		onInstanceLoginSubmit({
-			username: desiredUsername,
-			password: newPassword,
-			instanceClient: getInstanceClient({ id: clusterId, operationsUrl, disableFabricConnect: true }),
-			entityId: clusterId,
-		});
+	const signInAsAdmin = () => signInWithFormCredentials({ clusterId, operationsUrl, desiredUsername, newPassword });
 	try {
 		const { message, user } = await signInAsAdmin();
-		if (user.username !== desiredUsername) {
-			// Login's own Fabric Connect fallback can reach an instance the drop has not replicated to yet.
-			throw new Error(
-				`Couldn't finish setup: signing in as "${desiredUsername}" answered as "${user.username}". Try again in a moment, or contact support to reset this cluster's setup.`,
-			);
-		}
-		if (user.role?.permission?.super_user !== true) {
-			throw new Error(
-				`Couldn't finish setup: "${desiredUsername}" can sign in, but the cluster doesn't report it as a super user. Contact support to reset this cluster's setup.`,
-			);
-		}
+		assertSignedInAsAdmin(user, desiredUsername);
 		await resetPasswordUpdater(clusterId);
 		return { message, user };
 	} catch (err) {
