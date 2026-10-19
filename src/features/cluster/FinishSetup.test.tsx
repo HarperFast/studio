@@ -80,6 +80,15 @@ describe(FinishSetup, () => {
 		expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'clu-1' }), newAdmin);
 	});
 
+	it('says to connect when setup finished but could not connect again', async () => {
+		mutate.mockImplementationOnce((_params, { onSuccess }) => onSuccess({ message: 'Login successful', user: null }));
+		const setUser = vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
+		await createAdminUser();
+		await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+		expect(toastSuccess).toHaveBeenCalledWith('Admin user created. Connect to your cluster to continue.');
+		expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'clu-1' }), null);
+	});
+
 	it('hands setup the direct URL and every id it must sign out first', async () => {
 		vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
 		await createAdminUser();
