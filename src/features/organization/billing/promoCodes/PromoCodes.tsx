@@ -154,8 +154,8 @@ export function PromoCodes() {
 						</p>
 					)}
 				<p className="text-xs text-muted-foreground">
-					A credit code needs a payment method on file. Promo credit has no cash value, can&rsquo;t be refunded or
-					transferred, and expires on its use-by date.
+					Promo credit comes off your invoices as a discount, before tax. It has no cash value, can&rsquo;t be refunded
+					or transferred, and expires on its use-by date.
 				</p>
 			</section>
 
@@ -173,7 +173,7 @@ export function PromoCodes() {
 								<TableRow>
 									<TableHead>Code</TableHead>
 									<TableHead>Gives</TableHead>
-									<TableHead>Balance</TableHead>
+									<TableHead>Remaining</TableHead>
 									<TableHead>Use by</TableHead>
 									<TableHead>Redeemed</TableHead>
 								</TableRow>
@@ -201,8 +201,8 @@ export function PromoCodes() {
 					)}
 				{redemptions?.some((redemption) => redemption.kind === 'credit' && redemption.status === 'APPLIED') && (
 					<p className="text-xs text-muted-foreground">
-						The balance shows credit not yet used by an invoice. Usage above your plan this month is charged at renewal,
-						so it is taken from the credit then.
+						Remaining is credit no invoice has used yet. Usage above your plan this month is charged at renewal, so it
+						is taken from the credit then.
 					</p>
 				)}
 			</section>

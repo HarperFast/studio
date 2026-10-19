@@ -132,15 +132,7 @@ export function ClusterPromoCode({
 		if (!result.ok) {
 			setOutcome({
 				tone: 'error',
-				message: result.status === 402
-					? (
-						<>
-							A credit code needs a payment method. Create the cluster first, then redeem the code under Billing
-							{' → '}
-							{promoCodesPage}.
-						</>
-					)
-					: result.message,
+				message: result.message,
 			});
 			return;
 		}

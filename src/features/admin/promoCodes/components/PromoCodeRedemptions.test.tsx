@@ -48,9 +48,9 @@ const open = (kind: 'credit' | 'voucher') =>
 const rowFor = async (text: string) => (await screen.findByText(text)).closest('tr') as HTMLElement;
 
 describe('PromoCodeRedemptions', () => {
-	it('names each organization and who redeemed, with a credit’s amount and what expired', async () => {
+	it('names each organization and who redeemed, with a credit’s amount, what is left and what expired', async () => {
 		redemptionList = [
-			redemption({ creditCents: 10_000, creditExpiresAt: '2099-12-31T00:00:00.000Z' }),
+			redemption({ creditCents: 10_000, creditExpiresAt: '2099-12-31T00:00:00.000Z', remainingCents: 1_500 }),
 			redemption({
 				id: 'CODE:org-2',
 				organizationId: 'org-2',
@@ -67,7 +67,7 @@ describe('PromoCodeRedemptions', () => {
 		const acme = await rowFor('Acme');
 		expect(within(acme).getByText('a@acme.test')).toBeTruthy();
 		expect(within(acme).getByText('Applied')).toBeTruthy();
-		expect(within(acme).getByText(/\$100\.00, use by/)).toBeTruthy();
+		expect(within(acme).getByText(/\$100\.00, use by .*; \$15\.00 left$/)).toBeTruthy();
 		expect(within(acme).getByRole('link', { name: 'Acme' }).getAttribute('href')).toMatch(
 			/\/org-1\/billing\/promo-codes$/,
 		);

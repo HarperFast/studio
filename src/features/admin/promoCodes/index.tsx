@@ -28,9 +28,9 @@ function redeemed(code: AdminPromoCode) {
 
 function creditTotals(code: AdminPromoCode) {
 	if (code.kind !== 'credit') { return '—'; }
-	return `${formatCents(code.issuedCents)} issued · ${formatCents(code.expiredCents)} expired · up to ${
+	return `${formatCents(code.issuedCents)} issued · ${formatCents(code.expiredCents)} expired · ${
 		formatCents(code.liveCreditCents)
-	} live`;
+	} left`;
 }
 
 function statusOf(code: AdminPromoCode) {
