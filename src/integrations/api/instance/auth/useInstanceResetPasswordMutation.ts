@@ -195,13 +195,11 @@ async function finishInterruptedSetup({
 	}
 	// While the setup account exists, Fabric Connect resolves to it: Harper's first super user.
 	if (user.username === initialUsername || user.role?.permission?.super_user !== true) {
-		authStore.signOutLocally(clusterId);
 		throw new Error(
 			`Couldn't finish setup: Fabric Connect signs in as "${user.username}", not as an admin user setup created. Contact support to reset this cluster's setup.`,
 		);
 	}
 	if (user.username !== desiredUsername) {
-		authStore.signOutLocally(clusterId);
 		throw new Error(
 			`Couldn't finish setup: this cluster's admin user is already "${user.username}". Enter that username to finish.`,
 		);
