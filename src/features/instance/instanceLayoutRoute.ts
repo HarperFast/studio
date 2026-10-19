@@ -52,6 +52,11 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	params: { organizationId: string; clusterId: string; instanceId?: string };
 }) {
 	redirectAwayFromDeletedCluster({ context, params });
+	// Until setup, Fabric Connect would connect as the provisioning account, which Finish Setup drops. The overview
+	// routes on to setup.
+	if (context.cluster?.resetPassword) {
+		throw redirect({ to: `/${params.organizationId}/${params.clusterId}` });
+	}
 
 	const entityId = params.instanceId || params.clusterId;
 

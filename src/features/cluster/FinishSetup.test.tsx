@@ -18,7 +18,6 @@ vi.mock('@tanstack/react-router', () => {
 });
 vi.mock('@/components/Breadcrumbs', () => ({ Breadcrumbs: () => null }));
 vi.mock('@/hooks/useAuth', () => ({ useCloudAuth: () => ({ user: { email: 'owner@example.com' } }) }));
-vi.mock('@/config/useInstanceClient', () => ({ useInstanceClient: () => ({}) }));
 vi.mock('@/lib/urls/getOperationsUrlForCluster', () => ({
 	getOperationsUrlForCluster: () => 'https://clu-1.example.com:9925/',
 }));
@@ -39,12 +38,11 @@ vi.mock('./queries/getClusterInfoQuery', () => ({
 }));
 
 const newAdmin = { username: 'owner@example.com' } as LocalUser;
+const mutate = vi.fn((_params: unknown, { onSuccess }: { onSuccess: (response: unknown) => Promise<void> }) =>
+	onSuccess({ message: 'Login successful', user: newAdmin })
+);
 vi.mock('@/integrations/api/instance/auth/useInstanceResetPasswordMutation', () => ({
-	useInstanceResetPasswordMutation: () => ({
-		isPending: false,
-		mutate: (_params: unknown, { onSuccess }: { onSuccess: (response: unknown) => Promise<void> }) =>
-			onSuccess({ message: 'Login successful', user: newAdmin }),
-	}),
+	useInstanceResetPasswordMutation: () => ({ isPending: false, mutate }),
 }));
 
 const toastSuccess = vi.fn();
@@ -56,6 +54,7 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	toastSuccess.mockReset();
+	mutate.mockClear();
 });
 
 async function createAdminUser() {
@@ -79,5 +78,15 @@ describe(FinishSetup, () => {
 		await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
 		expect(toastSuccess).toHaveBeenCalledWith("Admin user created. You're now signed in to your cluster.");
 		expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'clu-1' }), newAdmin);
+	});
+
+	it('hands setup the direct URL and every id it must sign out first', async () => {
+		vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
+		await createAdminUser();
+		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+		expect(mutate).toHaveBeenCalledWith(
+			expect.objectContaining({ operationsUrl: 'https://clu-1.example.com:9925/', signInIds: ['clu-1', 'ins-1'] }),
+			expect.anything(),
+		);
 	});
 });

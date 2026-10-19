@@ -68,6 +68,22 @@ The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING`
 non-admin on a new cluster lands on that message instead of a dead card
 ([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
 
+## Nothing connects to a cluster before its setup, and setup keeps no earlier connection
+
+Fabric Connect is whoever Harper resolves the central-manager proxy's request to, its first super user: the proxy
+forwards no credential, and Harper answers a credential-less request on its operations socket as that user. Until Finish
+Setup runs, that is the provisioning `HDB_ADMIN`, which setup then drops. A token minted for it still verifies after
+that, but resolves to a user with no role, so every operation through it answers 403 "not authorized due to role
+restrictions". Studio recovers a token only on a 401, so the pages stay denied until a reload mints again.
+
+So the in-cluster pages' guard, `checkClusterInstanceAuthenticationBeforeLoad`, sends a cluster whose `resetPassword` is
+still set to its overview, which routes on to Starting-up or Finish-setup, before it restores or mints any connection.
+The setup flow ([`useInstanceResetPasswordMutation`](../../integrations/api/instance/auth/useInstanceResetPasswordMutation.ts))
+also forgets the cluster's and its instances' connections (`clusterSignInIds`) first and runs on a fresh direct
+client. Otherwise every step would run as the Bearer's account, whatever credentials it presented, because Harper reads
+the `Authorization` header before the session cookie. If its own login still falls back to Fabric Connect, it connects
+again once `HDB_ADMIN` is gone.
+
 ## A terminated cluster keeps only its overview and usage
 
 Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`
