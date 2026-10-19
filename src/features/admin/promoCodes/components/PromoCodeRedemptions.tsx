@@ -20,7 +20,10 @@ function gave(kind: PromoKind, redemption: AdminPromoRedemption) {
 		if (redemption.status === 'EXPIRED') {
 			return `${amount}; ${formatCents(redemption.expiredCents ?? 0)} expired unused`;
 		}
-		return redemption.creditExpiresAt ? `${amount}, use by ${formatDay(redemption.creditExpiresAt)}` : amount;
+		const left = redemption.remainingCents == null ? '' : `; ${formatCents(redemption.remainingCents)} left`;
+		return redemption.creditExpiresAt
+			? `${amount}, use by ${formatDay(redemption.creditExpiresAt)}${left}`
+			: `${amount}${left}`;
 	}
 	if (redemption.clusterId) {
 		return (
