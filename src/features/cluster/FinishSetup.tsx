@@ -8,7 +8,6 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
-import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
@@ -24,6 +23,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { allClusterInstancesRunning } from './allInstancesRunning';
 import { getClusterInfoQueryOptions, markClusterPasswordSet } from './queries/getClusterInfoQuery';
+import { clusterSignInIds } from './terminatedClusterSignIns';
 
 export function FinishSetup() {
 	const { user } = useCloudAuth();
@@ -35,7 +35,6 @@ export function FinishSetup() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
-	const instanceClient = useInstanceClient({ operationsUrl });
 
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
@@ -70,7 +69,8 @@ export function FinishSetup() {
 			return;
 		}
 		submitInstanceResetPassword({
-			instanceClient,
+			operationsUrl,
+			signInIds: clusterSignInIds(cluster!),
 			clusterId,
 			newPassword: formData.password,
 			tempPassword,
@@ -91,7 +91,6 @@ export function FinishSetup() {
 	}, [
 		cluster,
 		clusterId,
-		instanceClient,
 		instancesReady,
 		navigate,
 		operationsUrl,

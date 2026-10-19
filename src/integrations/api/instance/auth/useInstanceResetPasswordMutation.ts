@@ -1,5 +1,6 @@
 import { defaultClusterUsername } from '@/config/constants';
-import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { getInstanceClient } from '@/config/getInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
 import { useMutation } from '@tanstack/react-query';
 import { onAddUserSubmit } from './addUser';
@@ -8,8 +9,12 @@ import { onDeleteUser } from './deleteUser';
 import { onInstanceLogoutSubmit } from './onInstanceLogoutSubmit';
 import { LoginInfoResponse, onInstanceLoginSubmit } from './useInstanceLoginMutation';
 
-interface InstanceResetPasswordParams extends InstanceClientConfig {
+interface InstanceResetPasswordParams {
 	clusterId: string;
+	/** The cluster's direct operations URL. */
+	operationsUrl: string;
+	/** The cluster's and its instances' ids (`clusterSignInIds`). */
+	signInIds: string[];
 	initialUsername: string;
 	desiredUsername: string;
 	newPassword: string;
@@ -18,20 +23,25 @@ interface InstanceResetPasswordParams extends InstanceClientConfig {
 
 async function onInstanceResetPassword({
 	clusterId,
+	operationsUrl,
+	signInIds,
 	initialUsername,
 	desiredUsername,
 	newPassword,
 	tempPassword,
-	instanceClient: initialInstanceClient,
 }: InstanceResetPasswordParams): Promise<LoginInfoResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
 		throw new Error('You may not have permission to set the password on this cluster.');
 	}
-	let instanceClient = initialInstanceClient;
+	// A connection made before setup is the provisioning account's: every step below would run as it, whatever
+	// credentials they present, and it stops working once that account is dropped.
+	authStore.signOutEntitiesLocally(signInIds);
+	let instanceClient = getInstanceClient({ id: clusterId, operationsUrl });
+	let loginResponse: LoginInfoResponse;
 	try {
 		// Sign in with the temporary password,
-		let loginResponse = await onInstanceLoginSubmit({
+		loginResponse = await onInstanceLoginSubmit({
 			username: initialUsername,
 			password: tempPassword,
 			instanceClient,
@@ -71,7 +81,6 @@ async function onInstanceResetPassword({
 		}
 		// and finally, tell the central manager that we changed their password.
 		await resetPasswordUpdater(clusterId);
-		return loginResponse;
 	} catch (err) {
 		// If something went wrong, logout as well.
 		await onInstanceLogoutSubmit({
@@ -80,6 +89,12 @@ async function onInstanceResetPassword({
 		});
 		throw err;
 	}
+	if (desiredUsername !== defaultClusterUsername && authStore.hasResolvedFabricConnect(clusterId)) {
+		// Login fell back to Fabric Connect, which connected as the account just dropped.
+		const user = await authStore.establishFabricConnectAuth({ id: clusterId, operationsUrl });
+		return { message: loginResponse.message, user };
+	}
+	return loginResponse;
 }
 
 export function useInstanceResetPasswordMutation() {
