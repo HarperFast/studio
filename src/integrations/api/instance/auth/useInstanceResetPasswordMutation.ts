@@ -3,7 +3,9 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
 import { LocalUser } from '@/integrations/api/api.patch';
+import { operationOf } from '@/integrations/api/isReadOperation';
 import { useMutation } from '@tanstack/react-query';
+import { type AxiosInstance, isAxiosError } from 'axios';
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
 import { onDeleteUser } from './deleteUser';
@@ -52,6 +54,15 @@ async function onInstanceResetPassword({
 			instanceClient,
 			entityId: clusterId,
 		});
+	} catch (err) {
+		if (!isLoginRefused(err)) {
+			await logOutBestEffort(clusterId, instanceClient);
+			throw err;
+		}
+		// An earlier attempt changed or dropped the setup account but never told central manager setup was done.
+		return finishInterruptedSetup({ clusterId, operationsUrl, initialUsername, desiredUsername, newPassword });
+	}
+	try {
 		if (loginResponse.instanceClient) {
 			instanceClient = loginResponse.instanceClient;
 		}
@@ -88,10 +99,7 @@ async function onInstanceResetPassword({
 		await resetPasswordUpdater(clusterId);
 	} catch (err) {
 		// If something went wrong, logout as well.
-		await onInstanceLogoutSubmit({
-			entityId: clusterId,
-			instanceClient,
-		});
+		await logOutBestEffort(clusterId, instanceClient);
 		throw err;
 	}
 	if (desiredUsername !== defaultClusterUsername && authStore.hasResolvedFabricConnect(clusterId)) {
@@ -111,6 +119,99 @@ async function onInstanceResetPassword({
 		return { message: loginResponse.message, user };
 	}
 	return loginResponse;
+}
+
+/** Harper answered the `login` operation itself with a 401: it refused that username and password. */
+function isLoginRefused(error: unknown): boolean {
+	return isAxiosError(error) && error.response?.status === 401 && operationOf(error.config?.data) === 'login';
+}
+
+/** Never throws: a failed logout must not replace the error that ended setup. */
+async function logOutBestEffort(entityId: string, instanceClient: AxiosInstance): Promise<void> {
+	try {
+		await onInstanceLogoutSubmit({ entityId, instanceClient });
+	} catch (error) {
+		console.debug('Could not log out after setup failed', error instanceof Error ? error.message : error);
+	}
+}
+
+/**
+ * The setup account no longer signs in, so the admin the earlier attempt created already exists. The form's own
+ * credentials may still sign in as it; failing that, Fabric Connect can, once nothing but that admin is left for it to
+ * resolve to.
+ */
+async function finishInterruptedSetup({
+	clusterId,
+	operationsUrl,
+	initialUsername,
+	desiredUsername,
+	newPassword,
+}: Pick<
+	InstanceResetPasswordParams,
+	'clusterId' | 'operationsUrl' | 'initialUsername' | 'desiredUsername' | 'newPassword'
+>): Promise<InstanceResetPasswordResponse> {
+	const signInAsAdmin = () =>
+		onInstanceLoginSubmit({
+			username: desiredUsername,
+			password: newPassword,
+			instanceClient: getInstanceClient({ id: clusterId, operationsUrl, disableFabricConnect: true }),
+			entityId: clusterId,
+		});
+	try {
+		const { message, user } = await signInAsAdmin();
+		if (user.username !== desiredUsername || user.role?.permission?.super_user !== true) {
+			throw new Error(
+				`Couldn't finish setup: "${desiredUsername}" can sign in, but the cluster doesn't report it as a super user. Contact support to reset this cluster's setup.`,
+			);
+		}
+		await resetPasswordUpdater(clusterId);
+		return { message, user };
+	} catch (err) {
+		if (!isLoginRefused(err)) {
+			throw err;
+		}
+	}
+
+	let user: LocalUser;
+	try {
+		user = await authStore.establishFabricConnectAuth({ id: clusterId, operationsUrl });
+	} catch (err) {
+		throw new Error(
+			`Couldn't finish setup: the password you entered doesn't sign in as "${desiredUsername}", and Fabric Connect couldn't reach the cluster to finish instead. Try again, or contact support to reset this cluster's setup.`,
+			{ cause: err },
+		);
+	}
+	// While the setup account exists, Fabric Connect resolves to it: Harper's first super user.
+	if (user.username === initialUsername || user.role?.permission?.super_user !== true) {
+		authStore.signOutLocally(clusterId);
+		throw new Error(
+			`Couldn't finish setup: Fabric Connect signs in as "${user.username}", not as an admin user setup created. Contact support to reset this cluster's setup.`,
+		);
+	}
+	if (user.username !== desiredUsername) {
+		authStore.signOutLocally(clusterId);
+		throw new Error(
+			`Couldn't finish setup: this cluster's admin user is already "${user.username}". Enter that username to finish.`,
+		);
+	}
+	await onAlterUser({
+		username: desiredUsername,
+		password: newPassword,
+		instanceClient: getInstanceClient({ id: clusterId, operationsUrl }),
+	});
+	await resetPasswordUpdater(clusterId);
+	try {
+		const direct = await signInAsAdmin();
+		if (!direct.instanceClient) {
+			// Signed in directly with the password just set, so the Fabric Connect connection is no longer needed.
+			authStore.flagForFabricConnect(clusterId, false);
+		}
+		return { message: direct.message, user: direct.user };
+	} catch (error) {
+		// The instance the cluster's address reached may not have the new password yet; Fabric Connect still works.
+		console.debug('Could not sign in directly after finishing setup', error instanceof Error ? error.message : error);
+		return { message: 'Login successful', user };
+	}
 }
 
 export function useInstanceResetPasswordMutation() {

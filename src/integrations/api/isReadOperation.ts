@@ -13,7 +13,7 @@ export function isReadOperation(operation: unknown): boolean {
 	return typeof operation === 'string' && READ_OPERATION.test(operation);
 }
 
-function operationOf(data: unknown): unknown {
+export function operationOf(data: unknown): unknown {
 	if (typeof data !== 'string') {
 		return (data as { operation?: unknown } | undefined)?.operation;
 	}
