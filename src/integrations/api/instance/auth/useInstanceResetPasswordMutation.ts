@@ -93,7 +93,7 @@ async function onInstanceResetPassword({
 				if (!isUserAlreadyExists(err, desiredUsername)) {
 					throw err;
 				}
-				await adoptExistingAdmin({ clusterId, operationsUrl, desiredUsername, newPassword, instanceClient });
+				await adoptExistingAdmin({ desiredUsername, newPassword, instanceClient });
 			}
 			// since we created a new user, we should log in with the new one
 			loginResponse = await onInstanceLoginSubmit({
@@ -189,30 +189,22 @@ function assertSignedInAsAdmin(user: LocalUser, desiredUsername: string): void {
 
 /**
  * `add_user` found the form's admin already there: an earlier attempt created it and stopped before dropping the setup
- * account, which still signs in and so can set the typed password if that does not sign in already.
+ * account. That account still signs in, so it sets the typed password, and the sign-in that follows proves it. Signing
+ * in first instead would not tell the admin apart where Fabric Connect is the fallback: it still resolves to the setup
+ * account.
  */
-async function adoptExistingAdmin({
-	instanceClient,
-	...credentials
-}: FormCredentials & { instanceClient: AxiosInstance }): Promise<void> {
-	const { desiredUsername, newPassword } = credentials;
+async function adoptExistingAdmin(
+	{ desiredUsername, newPassword, instanceClient }: Pick<FormCredentials, 'desiredUsername' | 'newPassword'> & {
+		instanceClient: AxiosInstance;
+	},
+): Promise<void> {
 	const existing = (await getListUsers({ instanceClient })).find((user) => user.username === desiredUsername);
 	if (existing?.role?.permission?.super_user !== true) {
 		throw new Error(
 			`Couldn't finish setup: "${desiredUsername}" already exists on this cluster but isn't a super user. Choose another username.`,
 		);
 	}
-	let admin: LocalUser;
-	try {
-		({ user: admin } = await signInWithFormCredentials(credentials));
-	} catch (err) {
-		if (!isLoginRefused(err)) {
-			throw err;
-		}
-		await onAlterUser({ username: desiredUsername, password: newPassword, instanceClient });
-		({ user: admin } = await signInWithFormCredentials(credentials));
-	}
-	assertSignedInAsAdmin(admin, desiredUsername);
+	await onAlterUser({ username: desiredUsername, password: newPassword, instanceClient });
 }
 
 /** See "An interrupted setup finishes from the admin it already created" in `src/features/cluster/DESIGN.md`. */

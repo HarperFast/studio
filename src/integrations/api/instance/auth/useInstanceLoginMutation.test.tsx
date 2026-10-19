@@ -55,6 +55,8 @@ describe('a sign-out while signing in', () => {
 
 		expect(authStore.checkForBasicAuth(ENTITY)).toBeUndefined();
 		expect(authStore.getLastConnectMode(ENTITY)).toBeUndefined();
+		// Nor does the client keep sending the typed credentials.
+		expect(instanceClient.defaults.auth).toBeUndefined();
 	});
 
 	it('also refuses when the sign-out lands during the user lookup, and one of this entity is enough', async () => {

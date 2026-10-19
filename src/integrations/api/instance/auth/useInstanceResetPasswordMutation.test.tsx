@@ -201,28 +201,26 @@ describe(useInstanceResetPasswordMutation, () => {
 			});
 		});
 
-		it("finishes with the existing admin when the form's password signs in", async () => {
-			ownerPassword = 'new-password';
+		it.each([
+			['matches the one it already has', 'new-password'],
+			['differs from the one it already has', 'first-password'],
+		])(
+			'adopts it: sets the typed password as the setup account, signs in, then drops the setup account, when the form %s',
+			async (_, existingPassword) => {
+				ownerPassword = existingPassword;
 
-			const { user } = await resetPassword(OWNER);
+				const { user } = await resetPassword(OWNER);
 
-			expect(user?.username).toBe(OWNER);
-			expect(onAlterUser).not.toHaveBeenCalled();
-			expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ username: defaultClusterUsername }));
-			expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
-		});
-
-		it("sets the typed password, as the setup account, when the form's password doesn't sign in", async () => {
-			const { user } = await resetPassword(OWNER);
-
-			expect(user?.username).toBe(OWNER);
-			expect(onAlterUser).toHaveBeenCalledTimes(1);
-			expect(vi.mocked(onAlterUser).mock.calls[0][0]).toMatchObject({ username: OWNER, password: 'new-password' });
-			expect(vi.mocked(onDeleteUser).mock.invocationCallOrder[0]).toBeGreaterThan(
-				vi.mocked(onAlterUser).mock.invocationCallOrder[0],
-			);
-			expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
-		});
+				expect(user?.username).toBe(OWNER);
+				expect(onAlterUser).toHaveBeenCalledTimes(1);
+				expect(vi.mocked(onAlterUser).mock.calls[0][0]).toMatchObject({ username: OWNER, password: 'new-password' });
+				expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ username: defaultClusterUsername }));
+				expect(vi.mocked(onDeleteUser).mock.invocationCallOrder[0]).toBeGreaterThan(
+					vi.mocked(onAlterUser).mock.invocationCallOrder[0],
+				);
+				expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+			},
+		);
 
 		it("refuses, changing nothing, when that user isn't a super user", async () => {
 			vi.mocked(getListUsers).mockResolvedValue([localUser(defaultClusterUsername), localUser(OWNER, false)]);
@@ -234,19 +232,14 @@ describe(useInstanceResetPasswordMutation, () => {
 			expect(resetPasswordUpdater).not.toHaveBeenCalled();
 		});
 
-		it("doesn't set the password when the form's sign-in fails for another reason", async () => {
-			const unavailable = failedRequest(503);
-			onInstanceLoginSubmit.mockImplementation(async ({ username }: { username: string }) => {
-				if (username === OWNER) {
-					throw unavailable;
-				}
-				return { message: 'Login successful', user: localUser(username) };
-			});
+		it('drops nothing when setting the password fails', async () => {
+			const refused = new Error('alter_user refused');
+			vi.mocked(onAlterUser).mockRejectedValueOnce(refused);
 
-			await expect(resetPassword(OWNER)).rejects.toBe(unavailable);
+			await expect(resetPassword(OWNER)).rejects.toBe(refused);
 
-			expect(onAlterUser).not.toHaveBeenCalled();
 			expect(onDeleteUser).not.toHaveBeenCalled();
+			expect(resetPasswordUpdater).not.toHaveBeenCalled();
 		});
 
 		it('treats no other add_user conflict as an existing admin', async () => {
