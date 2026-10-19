@@ -123,6 +123,33 @@ function resetPassword(desiredUsername: string) {
 }
 
 describe(useInstanceResetPasswordMutation, () => {
+	it.each([
+		[
+			'over a stored Basic credential, and the logout fails too',
+			() => authStore.flagForBasicAuth('clu-1', { username: defaultClusterUsername, password: 'temp-password' }),
+			true,
+		],
+		[
+			'through the Fabric Connect proxy, where there is no session to log out',
+			() => authStore.flagForFabricConnect('clu-1', true),
+			false,
+		],
+	])('reports the failed step and leaves nothing signed in when setup fails %s', async (_, connect, logsOut) => {
+		onInstanceLoginSubmit.mockImplementationOnce(async ({ username }: { username: string }) => {
+			connect();
+			return { message: 'Login successful', user: localUser(username) };
+		});
+		const failure = new Error('add_user refused');
+		vi.mocked(onAddUserSubmit).mockRejectedValueOnce(failure);
+		vi.mocked(onInstanceLogoutSubmit).mockRejectedValueOnce(new Error('logout refused'));
+
+		await expect(resetPassword(OWNER)).rejects.toBe(failure);
+
+		expect(vi.mocked(onInstanceLogoutSubmit).mock.calls.length > 0).toBe(logsOut);
+		expect(authStore.checkForBasicAuth('clu-1')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+	});
+
 	it('resolves to the new admin, not the temporary user it deleted', async () => {
 		const { user } = await resetPassword(OWNER);
 		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(2);
@@ -211,18 +238,23 @@ describe(useInstanceResetPasswordMutation, () => {
 describe('an interrupted setup: the setup account is gone, the admin exists, and central manager was never told', () => {
 	let ownerPassword: string;
 	let answeredAs: string;
+	let loginFellBackToFabricConnect: boolean;
 
 	beforeEach(() => {
 		provisioningAccountDropped = true;
 		ownerPassword = 'first-password';
 		answeredAs = OWNER;
+		loginFellBackToFabricConnect = false;
 		onInstanceLoginSubmit.mockImplementation(async ({ username, password }: { username: string; password: string }) => {
 			if (username !== OWNER || password !== ownerPassword) {
 				throw refusedLogin();
 			}
-			// What a Basic sign-in leaves behind.
 			authStore.flagForBasicAuth('clu-1', { username, password });
-			return { message: 'Login successful', user: localUser(answeredAs, ownerIsSuperUser) };
+			return {
+				message: 'Login successful',
+				user: localUser(answeredAs, ownerIsSuperUser),
+				...(loginFellBackToFabricConnect ? { instanceClient: getInstanceClient({ id: 'clu-1' }) } : {}),
+			};
 		});
 		vi.mocked(onAlterUser).mockImplementation(async ({ password }) => {
 			ownerPassword = password!;
@@ -305,6 +337,22 @@ describe('an interrupted setup: the setup account is gone, the admin exists, and
 		);
 		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
 		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+	});
+
+	it('finishes signed out when the direct sign-in falls back to a Fabric Connect that names someone else', async () => {
+		vi.mocked(onAlterUser).mockImplementationOnce(async ({ password }) => {
+			ownerPassword = password!;
+			answeredAs = defaultClusterUsername;
+			loginFellBackToFabricConnect = true;
+			return { message: 'updated', skipped_hashes: [], txn_time: 0, update_hashes: [] };
+		});
+
+		const { user } = await resetPassword(OWNER);
+
+		expect(user).toBeNull();
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+		expect(authStore.getConnectionById('clu-1').user).toBeNull();
 	});
 
 	it.each([
