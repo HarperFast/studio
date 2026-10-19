@@ -1,5 +1,5 @@
 import { defaultClusterUsername } from '@/config/constants';
-import { getInstanceClient } from '@/config/getInstanceClient';
+import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
 import { LocalUser } from '@/integrations/api/api.patch';
@@ -56,15 +56,13 @@ async function onInstanceResetPassword({
 		});
 	} catch (err) {
 		if (!isLoginRefused(err)) {
-			await logOutBestEffort(clusterId, instanceClient);
+			await signOutAfterFailedSetup(clusterId, instanceClient);
 			throw err;
 		}
 		// An earlier attempt changed or dropped the setup account but never told central manager setup was done.
 		return finishInterruptedSetup({ clusterId, operationsUrl, initialUsername, desiredUsername, newPassword }).catch(
 			async (error: unknown) => {
-				// Setup is still pending, so nothing may stay signed in: the next attempt starts from scratch.
-				await logOutBestEffort(clusterId, getInstanceClient({ id: clusterId, operationsUrl }));
-				authStore.signOutLocally(clusterId);
+				await signOutAfterFailedSetup(clusterId, getInstanceClient({ id: clusterId, operationsUrl }));
 				throw error;
 			},
 		);
@@ -106,7 +104,7 @@ async function onInstanceResetPassword({
 		await resetPasswordUpdater(clusterId);
 	} catch (err) {
 		// If something went wrong, logout as well.
-		await logOutBestEffort(clusterId, instanceClient);
+		await signOutAfterFailedSetup(clusterId, instanceClient);
 		throw err;
 	}
 	if (desiredUsername !== defaultClusterUsername && authStore.hasResolvedFabricConnect(clusterId)) {
@@ -128,18 +126,23 @@ async function onInstanceResetPassword({
 	return loginResponse;
 }
 
-/** Harper answered the `login` operation itself with a 401: it refused that username and password. */
 function isLoginRefused(error: unknown): boolean {
 	return isAxiosError(error) && error.response?.status === 401 && operationOf(error.config?.data) === 'login';
 }
 
-/** Never throws: a failed logout must not replace the error that ended setup. */
-async function logOutBestEffort(entityId: string, instanceClient: AxiosInstance): Promise<void> {
-	try {
-		await onInstanceLogoutSubmit({ entityId, instanceClient });
-	} catch (error) {
-		console.debug('Could not log out after setup failed', error instanceof Error ? error.message : error);
+/**
+ * Never throws: a failed logout must not replace the error that ended setup. Setup is still pending, so nothing may stay
+ * signed in either way; through the proxy there is no session of the user's to end (see `buildLogoutClient`).
+ */
+async function signOutAfterFailedSetup(clusterId: string, instanceClient: AxiosInstance): Promise<void> {
+	if (!connectsThroughProxy(clusterId)) {
+		try {
+			await onInstanceLogoutSubmit({ entityId: clusterId, instanceClient });
+		} catch (error) {
+			console.debug('Could not log out after setup failed', error instanceof Error ? error.message : error);
+		}
 	}
+	authStore.signOutEntitiesLocally([clusterId]);
 }
 
 /** See "An interrupted setup finishes from the admin it already created" in `src/features/cluster/DESIGN.md`. */
@@ -213,6 +216,10 @@ async function finishInterruptedSetup({
 		const direct = await signInAsAdmin();
 		if (!direct.instanceClient) {
 			authStore.flagForFabricConnect(clusterId, false);
+		} else if (direct.user.username !== desiredUsername) {
+			// Login's own Fabric Connect fallback reached an instance the earlier drop has not replicated to.
+			authStore.signOutLocally(clusterId);
+			return { message: direct.message, user: null };
 		}
 		return { message: direct.message, user: direct.user };
 	} catch (error) {
