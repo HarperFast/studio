@@ -97,7 +97,8 @@ From there the form's credentials are tried first, and if they sign in as a supe
 re-sent. Otherwise setup falls back to Fabric Connect, which is safe only once nothing but that admin is left to resolve
 to: setup refuses if the connection names `HDB_ADMIN`, a user who is not a super user, or an admin other than the
 form's. It then sets the typed password with `alter_user`, re-sends the PATCH, and signs in directly with the new
-password, keeping the Fabric Connect connection only if that sign-in fails.
+password, keeping the Fabric Connect connection only if that sign-in fails. A recovery that fails on the way signs the
+cluster out again, since setup is still pending.
 
 ## A terminated cluster keeps only its overview and usage
 

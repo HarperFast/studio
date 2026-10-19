@@ -79,7 +79,6 @@ function failedRequest(status?: number, operation = 'login') {
 	});
 }
 
-/** What Harper's `login` operation answers for a username and password it refuses. */
 const refusedLogin = () => failedRequest(401);
 
 beforeEach(() => {
@@ -211,15 +210,19 @@ describe(useInstanceResetPasswordMutation, () => {
 
 describe('an interrupted setup: the setup account is gone, the admin exists, and central manager was never told', () => {
 	let ownerPassword: string;
+	let answeredAs: string;
 
 	beforeEach(() => {
 		provisioningAccountDropped = true;
 		ownerPassword = 'first-password';
+		answeredAs = OWNER;
 		onInstanceLoginSubmit.mockImplementation(async ({ username, password }: { username: string; password: string }) => {
 			if (username !== OWNER || password !== ownerPassword) {
 				throw refusedLogin();
 			}
-			return { message: 'Login successful', user: localUser(OWNER, ownerIsSuperUser) };
+			// What a Basic sign-in leaves behind.
+			authStore.flagForBasicAuth('clu-1', { username, password });
+			return { message: 'Login successful', user: localUser(answeredAs, ownerIsSuperUser) };
 		});
 		vi.mocked(onAlterUser).mockImplementation(async ({ password }) => {
 			ownerPassword = password!;
@@ -240,13 +243,52 @@ describe('an interrupted setup: the setup account is gone, the admin exists, and
 		expect(onDeleteUser).not.toHaveBeenCalled();
 	});
 
-	it("does not finish when the form's credentials sign in as a user who is not a super user", async () => {
+	it.each([
+		[
+			'as a user who is not a super user',
+			() => {
+				ownerIsSuperUser = false;
+			},
+			"doesn't report it as a super user",
+		],
+		[
+			'but the answer names someone else',
+			() => {
+				answeredAs = defaultClusterUsername;
+			},
+			'answered as "HDB_ADMIN"',
+		],
+	])("does not finish when the form's credentials sign in %s", async (_, arrange, message) => {
 		ownerPassword = 'new-password';
-		ownerIsSuperUser = false;
+		arrange();
 
-		await expect(resetPassword(OWNER)).rejects.toThrow("doesn't report it as a super user");
+		await expect(resetPassword(OWNER)).rejects.toThrow(message);
 
 		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+		expect(authStore.checkForBasicAuth('clu-1')).toBeUndefined();
+	});
+
+	it.each([
+		[
+			"the PATCH fails after the form's credentials signed in",
+			() => {
+				ownerPassword = 'new-password';
+				vi.mocked(resetPasswordUpdater).mockRejectedValueOnce(new Error('central manager down'));
+			},
+		],
+		[
+			'alter_user fails after Fabric Connect connected',
+			() => vi.mocked(onAlterUser).mockRejectedValueOnce(new Error('alter refused')),
+		],
+	])('leaves nothing signed in when %s', async (_, arrange) => {
+		arrange();
+
+		await expect(resetPassword(OWNER)).rejects.toThrow();
+
+		expect(authStore.checkForBasicAuth('clu-1')).toBeUndefined();
+		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+		expect(authStore.getConnectionById('clu-1').user).toBeNull();
 	});
 
 	it('finishes through Fabric Connect, sets the typed password, then signs in directly', async () => {

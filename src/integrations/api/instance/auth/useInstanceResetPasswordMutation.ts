@@ -60,7 +60,14 @@ async function onInstanceResetPassword({
 			throw err;
 		}
 		// An earlier attempt changed or dropped the setup account but never told central manager setup was done.
-		return finishInterruptedSetup({ clusterId, operationsUrl, initialUsername, desiredUsername, newPassword });
+		return finishInterruptedSetup({ clusterId, operationsUrl, initialUsername, desiredUsername, newPassword }).catch(
+			async (error: unknown) => {
+				// Setup is still pending, so nothing may stay signed in: the next attempt starts from scratch.
+				await logOutBestEffort(clusterId, getInstanceClient({ id: clusterId, operationsUrl }));
+				authStore.signOutLocally(clusterId);
+				throw error;
+			},
+		);
 	}
 	try {
 		if (loginResponse.instanceClient) {
@@ -135,11 +142,7 @@ async function logOutBestEffort(entityId: string, instanceClient: AxiosInstance)
 	}
 }
 
-/**
- * The setup account no longer signs in, so the admin the earlier attempt created already exists. The form's own
- * credentials may still sign in as it; failing that, Fabric Connect can, once nothing but that admin is left for it to
- * resolve to.
- */
+/** See "An interrupted setup finishes from the admin it already created" in `src/features/cluster/DESIGN.md`. */
 async function finishInterruptedSetup({
 	clusterId,
 	operationsUrl,
@@ -159,7 +162,13 @@ async function finishInterruptedSetup({
 		});
 	try {
 		const { message, user } = await signInAsAdmin();
-		if (user.username !== desiredUsername || user.role?.permission?.super_user !== true) {
+		if (user.username !== desiredUsername) {
+			// Login's own Fabric Connect fallback can reach an instance the drop has not replicated to yet.
+			throw new Error(
+				`Couldn't finish setup: signing in as "${desiredUsername}" answered as "${user.username}". Try again in a moment, or contact support to reset this cluster's setup.`,
+			);
+		}
+		if (user.role?.permission?.super_user !== true) {
 			throw new Error(
 				`Couldn't finish setup: "${desiredUsername}" can sign in, but the cluster doesn't report it as a super user. Contact support to reset this cluster's setup.`,
 			);
@@ -203,7 +212,6 @@ async function finishInterruptedSetup({
 	try {
 		const direct = await signInAsAdmin();
 		if (!direct.instanceClient) {
-			// Signed in directly with the password just set, so the Fabric Connect connection is no longer needed.
 			authStore.flagForFabricConnect(clusterId, false);
 		}
 		return { message: direct.message, user: direct.user };
