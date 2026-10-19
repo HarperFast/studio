@@ -12,8 +12,10 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { post, put } }));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 
-// Instance sign-in asks the store which auth mode the entity uses before it sends anything.
-vi.mock('@/features/auth/store/authStore', () => ({ authStore: { checkForBasicAuth: () => false } }));
+// Instance sign-in asks the store which auth mode the entity uses, and its sign-out generation, before it sends anything.
+vi.mock('@/features/auth/store/authStore', () => ({
+	authStore: { checkForBasicAuth: () => false, getSignOutGeneration: () => 0 },
+}));
 
 import { useInstanceLoginMutation } from '@/integrations/api/instance/auth/useInstanceLoginMutation';
 // The app's own routing, so a failure that also reached the global toast would show up here.
