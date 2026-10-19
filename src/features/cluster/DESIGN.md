@@ -85,6 +85,20 @@ the `Authorization` header before the session cookie. If its own login still fal
 again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
 not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
 
+## An interrupted setup finishes from the admin it already created
+
+Central manager's `ResetPasswordUpdater` takes no body and only clears `resetPassword`
+([`Cluster.js#L465-L469`](https://github.com/HarperFast/central-manager/blob/63bba08b/src/resources/cluster/Cluster.js#L465-L469)).
+So an attempt that got past `drop_user` (or `alter_user`) but not that PATCH leaves the cluster pending setup, with the
+admin already created and the temporary password refused. A retry tells that state apart only by Harper's own refusal:
+the `login` request itself answering 401. A network error or a 5xx stays an ordinary failure.
+
+From there the form's credentials are tried first, and if they sign in as a super user of that name, only the PATCH is
+re-sent. Otherwise setup falls back to Fabric Connect, which is safe only once nothing but that admin is left to resolve
+to: setup refuses if the connection names `HDB_ADMIN`, a user who is not a super user, or an admin other than the
+form's. It then sets the typed password with `alter_user`, re-sends the PATCH, and signs in directly with the new
+password, keeping the Fabric Connect connection only if that sign-in fails.
+
 ## A terminated cluster keeps only its overview and usage
 
 Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`
