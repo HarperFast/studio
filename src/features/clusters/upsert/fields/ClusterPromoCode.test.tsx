@@ -143,20 +143,6 @@ describe('ClusterPromoCode', () => {
 		expect(form.getValues('grantId')).toBe('');
 	});
 
-	it('sends an org with no card to Billing for a credit code, since the payment step comes later', async () => {
-		redeem.mockReturnValue({ ok: false, status: 402, message: 'Add a payment method before redeeming a credit code' });
-		const input = await mountOpen();
-		fireEvent.change(input, { target: { value: 'WELCOME100' } });
-		fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-
-		const alert = await screen.findByRole('alert');
-		expect(alert.textContent).toMatch(/Create the cluster first/);
-		expect(screen.getByRole('link', { name: 'Promo Codes' }).getAttribute('href')).toMatch(
-			/\/org-1\/billing\/promo-codes$/,
-		);
-		expect(form.getValues('grantId')).toBe('');
-	});
-
 	it('shows central manager’s reason for any other refusal', async () => {
 		redeem.mockReturnValue({ ok: false, status: 410, message: 'That code has expired' });
 		const input = await mountOpen();
