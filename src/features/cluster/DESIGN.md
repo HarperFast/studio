@@ -103,8 +103,10 @@ step's own.
 
 An attempt that stopped after `add_user` but before `drop_user` looks different: the temporary password still signs
 in, and `add_user` answers "User … already exists". Setup then adopts that user, but only if `list_users` reports it as
-a super user. If the form's password doesn't sign in as it, setup sets that password with `alter_user` as `HDB_ADMIN`,
-which still can. It then drops `HDB_ADMIN` and sends the PATCH as usual. It never alters or drops any other user.
+a super user. It sets the typed password on it with `alter_user` as `HDB_ADMIN`, which still can, and the usual sign-in
+as the new admin then proves the password. It does not sign in first to see whether the old password matches: where
+the sign-in falls back to Fabric Connect, that still resolves to `HDB_ADMIN` and could not confirm the admin. Then it
+drops `HDB_ADMIN` and sends the PATCH as usual. It never alters or drops any other user.
 
 ## A terminated cluster keeps only its overview and usage
 
