@@ -5,7 +5,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import type { LocalUser } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,32 +29,63 @@ vi.mock('@/integrations/api/instance/auth/createInstanceAuthenticationTokens', (
 	createInstanceAuthenticationTokens: (...args: unknown[]) => createInstanceAuthenticationTokens(...args),
 	refreshInstanceOperationToken: vi.fn(),
 }));
+let ownerIsSuperUser = true;
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({
 	getInstanceUserInfo: async ({ instanceClient }: { instanceClient: AxiosInstance }) =>
-		localUser(instanceClient.defaults.headers.Authorization === 'Bearer owner-token' ? OWNER : defaultClusterUsername),
+		instanceClient.defaults.headers.Authorization === 'Bearer owner-token'
+			? localUser(OWNER, ownerIsSuperUser)
+			: localUser(defaultClusterUsername),
 }));
 
+import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
 import { onAddUserSubmit } from './addUser';
+import { onAlterUser } from './alterUser';
 import { onDeleteUser } from './deleteUser';
+import { onInstanceLogoutSubmit } from './onInstanceLogoutSubmit';
 import { useInstanceResetPasswordMutation } from './useInstanceResetPasswordMutation';
 
 const OWNER = 'owner@example.com';
 const CLUSTER_URL = 'https://clu-1.example.com:9925/';
 const INSTANCE_URL = 'https://ins-1.example.com:9925/';
 
-function localUser(username: string): LocalUser {
+function localUser(username: string, superUser = true): LocalUser {
 	return {
 		active: true,
 		username,
-		role: { id: 'r1', role: 'super_user', permission: { super_user: true }, __createdtime__: 0, __updatedtime__: 0 },
+		role: {
+			id: 'r1',
+			role: superUser ? 'super_user' : 'reader',
+			permission: { super_user: superUser },
+			__createdtime__: 0,
+			__updatedtime__: 0,
+		},
 		__createdtime__: 0,
 		__updatedtime__: 0,
 	};
 }
 
+/** A failed operations request as axios rejects it; no `status` is a network error. */
+function failedRequest(status?: number, operation = 'login') {
+	const config = { data: JSON.stringify({ operation }), headers: new AxiosHeaders() };
+	if (status === undefined) {
+		return new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
+	}
+	return new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_REQUEST, config, undefined, {
+		status,
+		statusText: '',
+		data: { error: status === 401 ? 'Login failed' : 'Unavailable' },
+		headers: {},
+		config,
+	});
+}
+
+/** What Harper's `login` operation answers for a username and password it refuses. */
+const refusedLogin = () => failedRequest(401);
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	provisioningAccountDropped = false;
+	ownerIsSuperUser = true;
 	onInstanceLoginSubmit.mockReset();
 	onInstanceLoginSubmit.mockImplementation(async ({ username }: { username: string }) => ({
 		message: 'Login successful',
@@ -175,5 +206,119 @@ describe(useInstanceResetPasswordMutation, () => {
 		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
 		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
 		expect(authStore.getConnectionById('clu-1').user).toBeNull();
+	});
+});
+
+describe('an interrupted setup: the setup account is gone, the admin exists, and central manager was never told', () => {
+	let ownerPassword: string;
+
+	beforeEach(() => {
+		provisioningAccountDropped = true;
+		ownerPassword = 'first-password';
+		onInstanceLoginSubmit.mockImplementation(async ({ username, password }: { username: string; password: string }) => {
+			if (username !== OWNER || password !== ownerPassword) {
+				throw refusedLogin();
+			}
+			return { message: 'Login successful', user: localUser(OWNER, ownerIsSuperUser) };
+		});
+		vi.mocked(onAlterUser).mockImplementation(async ({ password }) => {
+			ownerPassword = password!;
+			return { message: 'updated', skipped_hashes: [], txn_time: 0, update_hashes: [] };
+		});
+	});
+
+	it("finishes by signing in with the form's credentials when they still work", async () => {
+		ownerPassword = 'new-password';
+
+		const { user } = await resetPassword(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+		expect(onAddUserSubmit).not.toHaveBeenCalled();
+		expect(onAlterUser).not.toHaveBeenCalled();
+		expect(onDeleteUser).not.toHaveBeenCalled();
+	});
+
+	it("does not finish when the form's credentials sign in as a user who is not a super user", async () => {
+		ownerPassword = 'new-password';
+		ownerIsSuperUser = false;
+
+		await expect(resetPassword(OWNER)).rejects.toThrow("doesn't report it as a super user");
+
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+	});
+
+	it('finishes through Fabric Connect, sets the typed password, then signs in directly', async () => {
+		const { user } = await resetPassword(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(onAlterUser).toHaveBeenCalledTimes(1);
+		const [{ username, password, instanceClient }] = vi.mocked(onAlterUser).mock.calls[0];
+		expect({ username, password }).toEqual({ username: OWNER, password: 'new-password' });
+		expect(instanceClient.defaults.headers.Authorization).toBe('Bearer owner-token');
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(resetPasswordUpdater).mock.invocationCallOrder[0]).toBeGreaterThan(
+			vi.mocked(onAlterUser).mock.invocationCallOrder[0],
+		);
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+	});
+
+	it.each([
+		[
+			'Fabric Connect still resolves to the setup account',
+			() => {
+				provisioningAccountDropped = false;
+			},
+			OWNER,
+			'Fabric Connect signs in as "HDB_ADMIN"',
+		],
+		[
+			'Fabric Connect resolves to a user that is not a super user',
+			() => {
+				ownerIsSuperUser = false;
+			},
+			OWNER,
+			`Fabric Connect signs in as "${OWNER}"`,
+		],
+		['the form names a different admin than the one setup created', () => {}, 'someone@example.com', `"${OWNER}"`],
+	])('refuses to finish when %s', async (_, arrange, desiredUsername, message) => {
+		arrange();
+
+		await expect(resetPassword(desiredUsername)).rejects.toThrow(message);
+
+		expect(onAlterUser).not.toHaveBeenCalled();
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+	});
+
+	it('says what happened when Fabric Connect is unavailable', async () => {
+		const unreachable = new Error('proxy down');
+		createInstanceAuthenticationTokens.mockRejectedValueOnce(unreachable);
+
+		const failure = await resetPassword(OWNER).then(() => undefined, (error: unknown) => error as Error);
+
+		expect(failure?.message).toContain("Fabric Connect couldn't reach the cluster");
+		expect(failure?.message).toContain('contact support');
+		expect(failure?.cause).toBe(unreachable);
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['a 5xx from login', () => failedRequest(503)],
+		['a network error on login', () => failedRequest()],
+		["a 401 from a request that isn't login", () => failedRequest(401, 'create_authentication_tokens')],
+	])('does not take the recovery path, or hide the error, on %s', async (_, failure) => {
+		const original = failure();
+		onInstanceLoginSubmit.mockRejectedValueOnce(original);
+		vi.mocked(onInstanceLogoutSubmit).mockRejectedValueOnce(new Error('logout refused'));
+
+		await expect(resetPassword(OWNER)).rejects.toBe(original);
+
+		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(1);
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
 	});
 });
