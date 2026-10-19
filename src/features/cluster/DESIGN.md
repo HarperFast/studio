@@ -82,7 +82,8 @@ The setup flow ([`useInstanceResetPasswordMutation`](../../integrations/api/inst
 also forgets the cluster's and its instances' connections (`clusterSignInIds`) first and runs on a fresh direct
 client. Otherwise every step would run as the Bearer's account, whatever credentials it presented, because Harper reads
 the `Authorization` header before the session cookie. If its own login still falls back to Fabric Connect, it connects
-again once `HDB_ADMIN` is gone.
+again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
+not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
 
 ## A terminated cluster keeps only its overview and usage
 

@@ -97,14 +97,14 @@ describe(useInstanceResetPasswordMutation, () => {
 		const { user } = await resetPassword(OWNER);
 		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(2);
 		expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ username: defaultClusterUsername }));
-		expect(user.username).toBe(OWNER);
+		expect(user?.username).toBe(OWNER);
 	});
 
 	it('resolves to the default admin when that is the user whose password was set', async () => {
 		const { user } = await resetPassword(defaultClusterUsername);
 		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(1);
 		expect(onDeleteUser).not.toHaveBeenCalled();
-		expect(user.username).toBe(defaultClusterUsername);
+		expect(user?.username).toBe(defaultClusterUsername);
 	});
 
 	it('keeps no Fabric Connect connection made before setup, and does not run on one', async () => {
@@ -127,7 +127,7 @@ describe(useInstanceResetPasswordMutation, () => {
 		}
 	});
 
-	it('reconnects Fabric Connect after the drop when login had to fall back to it', async () => {
+	function fallBackToFabricConnectOnLogin() {
 		onInstanceLoginSubmit.mockImplementation(async ({ username }: { username: string }) => {
 			if (username !== defaultClusterUsername) {
 				// Asked over the Bearer, `user_info` names the provisioning account, not the one that signed in.
@@ -140,14 +140,40 @@ describe(useInstanceResetPasswordMutation, () => {
 				instanceClient: getInstanceClient({ id: 'clu-1', operationsUrl: CLUSTER_URL }),
 			};
 		});
+	}
+
+	it('reconnects Fabric Connect after the drop when login had to fall back to it', async () => {
+		fallBackToFabricConnectOnLogin();
 
 		const { user } = await resetPassword(OWNER);
 
-		expect(user.username).toBe(OWNER);
+		expect(user?.username).toBe(OWNER);
 		expect(authStore.getOperationToken('clu-1')).toBe('owner-token');
 		expect(authStore.getConnectionById('clu-1').user).toMatchObject({ username: OWNER });
 		expect(createInstanceAuthenticationTokens.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
 			vi.mocked(onDeleteUser).mock.invocationCallOrder[0],
 		);
+	});
+
+	it.each([
+		['the reconnect fails', () => createInstanceAuthenticationTokens.mockRejectedValueOnce(new Error('proxy down'))],
+		[
+			'the proxy reaches an instance the drop has not reached',
+			() => createInstanceAuthenticationTokens.mockResolvedValueOnce({ operationToken: 'provisioning-token' }),
+		],
+	])('finishes setup signed out when %s', async (_, afterTheDrop) => {
+		fallBackToFabricConnectOnLogin();
+		vi.mocked(onDeleteUser).mockImplementation(async () => {
+			provisioningAccountDropped = true;
+			afterTheDrop();
+			return { message: 'dropped' };
+		});
+
+		const { user } = await resetPassword(OWNER);
+
+		expect(user).toBeNull();
+		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+		expect(authStore.getConnectionById('clu-1').user).toBeNull();
 	});
 });

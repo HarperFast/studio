@@ -2,6 +2,7 @@ import { defaultClusterUsername } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
+import { LocalUser } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
@@ -11,14 +12,18 @@ import { LoginInfoResponse, onInstanceLoginSubmit } from './useInstanceLoginMuta
 
 interface InstanceResetPasswordParams {
 	clusterId: string;
-	/** The cluster's direct operations URL. */
 	operationsUrl: string;
-	/** The cluster's and its instances' ids (`clusterSignInIds`). */
 	signInIds: string[];
 	initialUsername: string;
 	desiredUsername: string;
 	newPassword: string;
 	tempPassword: string | undefined;
+}
+
+interface InstanceResetPasswordResponse {
+	message: string;
+	/** Null when setup finished but could not connect again afterwards. */
+	user: LocalUser | null;
 }
 
 async function onInstanceResetPassword({
@@ -29,7 +34,7 @@ async function onInstanceResetPassword({
 	desiredUsername,
 	newPassword,
 	tempPassword,
-}: InstanceResetPasswordParams): Promise<LoginInfoResponse> {
+}: InstanceResetPasswordParams): Promise<InstanceResetPasswordResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
 		throw new Error('You may not have permission to set the password on this cluster.');
@@ -90,15 +95,26 @@ async function onInstanceResetPassword({
 		throw err;
 	}
 	if (desiredUsername !== defaultClusterUsername && authStore.hasResolvedFabricConnect(clusterId)) {
-		// Login fell back to Fabric Connect, which connected as the account just dropped.
-		const user = await authStore.establishFabricConnectAuth({ id: clusterId, operationsUrl });
+		// Login fell back to Fabric Connect, which connected as the account just dropped. Setup is done either way, so a
+		// failed reconnect signs the cluster out instead of failing setup.
+		const user = await authStore.establishFabricConnectAuth({ id: clusterId, operationsUrl }).catch(
+			(error: unknown) => {
+				console.debug('Could not reconnect after setup', error instanceof Error ? error.message : error);
+				return null;
+			},
+		);
+		// The proxy can reach an instance the drop has not replicated to yet.
+		if (!user || user.username === defaultClusterUsername) {
+			authStore.signOutLocally(clusterId);
+			return { message: loginResponse.message, user: null };
+		}
 		return { message: loginResponse.message, user };
 	}
 	return loginResponse;
 }
 
 export function useInstanceResetPasswordMutation() {
-	return useMutation<LoginInfoResponse, Error, InstanceResetPasswordParams>({
+	return useMutation<InstanceResetPasswordResponse, Error, InstanceResetPasswordParams>({
 		mutationFn: onInstanceResetPassword,
 	});
 }
