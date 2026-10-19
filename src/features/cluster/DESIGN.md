@@ -101,6 +101,11 @@ password, keeping the Fabric Connect connection only if that sign-in fails. Any 
 cluster out again, since setup is still pending; its logout is best effort, so the failure the user sees is the
 step's own.
 
+An attempt that stopped after `add_user` but before `drop_user` looks different: the temporary password still signs
+in, and `add_user` answers "User … already exists". Setup then adopts that user, but only if `list_users` reports it as
+a super user. If the form's password doesn't sign in as it, setup sets that password with `alter_user` as `HDB_ADMIN`,
+which still can. It then drops `HDB_ADMIN` and sends the PATCH as usual. It never alters or drops any other user.
+
 ## A terminated cluster keeps only its overview and usage
 
 Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`
