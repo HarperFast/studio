@@ -337,7 +337,7 @@ export interface AdminPromoCode {
 	redemptions: number;
 	issuedCents: number;
 	expiredCents: number;
-	/** Face value of credit not yet expired; what is still unspent is at most this. */
+	/** Credit not yet expired that no invoice has taken yet. */
 	liveCreditCents: number;
 	overCap: boolean;
 }
@@ -353,8 +353,10 @@ export interface AdminPromoRedemption {
 	status: PromoRedemptionView['status'];
 	creditCents?: number | null;
 	creditExpiresAt?: string | null;
-	/** Credit removed at its use-by date, net of corrections; set once the redemption is EXPIRED. */
+	/** Credit removed at its use-by date, plus any released afterwards; set once the redemption is EXPIRED. */
 	expiredCents?: number | null;
+	/** Credit no invoice has taken yet; 0 once EXPIRED. */
+	remainingCents?: number | null;
 	grantId?: string | null;
 	voucherEndsAt?: string | null;
 	/** The cluster that claimed the voucher; null while it is unclaimed. */
