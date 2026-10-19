@@ -16,6 +16,7 @@ vi.mock('./useInstanceLoginMutation', () => ({
 vi.mock('./addUser', () => ({ onAddUserSubmit: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('./alterUser', () => ({ onAlterUser: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('./deleteUser', () => ({ onDeleteUser: vi.fn() }));
+vi.mock('./getListUsers', () => ({ getListUsers: vi.fn() }));
 vi.mock('./onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/features/cluster/queries/resetPasswordUpdater', () => ({
 	resetPasswordUpdater: vi.fn().mockResolvedValue(undefined),
@@ -41,6 +42,7 @@ import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUp
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
 import { onDeleteUser } from './deleteUser';
+import { getListUsers } from './getListUsers';
 import { onInstanceLogoutSubmit } from './onInstanceLogoutSubmit';
 import { useInstanceResetPasswordMutation } from './useInstanceResetPasswordMutation';
 
@@ -80,6 +82,17 @@ function failedRequest(status?: number, operation = 'login') {
 }
 
 const refusedLogin = () => failedRequest(401);
+
+function conflict(error: string) {
+	const config = { data: JSON.stringify({ operation: 'add_user' }), headers: new AxiosHeaders() };
+	return new AxiosError('Request failed with status code 409', AxiosError.ERR_BAD_REQUEST, config, undefined, {
+		status: 409,
+		statusText: 'Conflict',
+		data: { error },
+		headers: {},
+		config,
+	});
+}
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -162,6 +175,90 @@ describe(useInstanceResetPasswordMutation, () => {
 		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(1);
 		expect(onDeleteUser).not.toHaveBeenCalled();
 		expect(user?.username).toBe(defaultClusterUsername);
+	});
+
+	describe('when an earlier attempt created the admin but never dropped the setup account', () => {
+		let ownerPassword: string;
+
+		beforeEach(() => {
+			ownerPassword = 'first-password';
+			vi.mocked(onAddUserSubmit).mockRejectedValueOnce(conflict(`User ${OWNER} already exists`));
+			vi.mocked(getListUsers).mockResolvedValue([
+				localUser(defaultClusterUsername),
+				localUser(OWNER, ownerIsSuperUser),
+			]);
+			onInstanceLoginSubmit.mockImplementation(
+				async ({ username, password }: { username: string; password: string }) => {
+					if (username === OWNER && password !== ownerPassword) {
+						throw refusedLogin();
+					}
+					return { message: 'Login successful', user: localUser(username) };
+				},
+			);
+			vi.mocked(onAlterUser).mockImplementation(async ({ password }) => {
+				ownerPassword = password!;
+				return { message: 'updated', skipped_hashes: [], txn_time: 0, update_hashes: [] };
+			});
+		});
+
+		it("finishes with the existing admin when the form's password signs in", async () => {
+			ownerPassword = 'new-password';
+
+			const { user } = await resetPassword(OWNER);
+
+			expect(user?.username).toBe(OWNER);
+			expect(onAlterUser).not.toHaveBeenCalled();
+			expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ username: defaultClusterUsername }));
+			expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		});
+
+		it("sets the typed password, as the setup account, when the form's password doesn't sign in", async () => {
+			const { user } = await resetPassword(OWNER);
+
+			expect(user?.username).toBe(OWNER);
+			expect(onAlterUser).toHaveBeenCalledTimes(1);
+			expect(vi.mocked(onAlterUser).mock.calls[0][0]).toMatchObject({ username: OWNER, password: 'new-password' });
+			expect(vi.mocked(onDeleteUser).mock.invocationCallOrder[0]).toBeGreaterThan(
+				vi.mocked(onAlterUser).mock.invocationCallOrder[0],
+			);
+			expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		});
+
+		it("refuses, changing nothing, when that user isn't a super user", async () => {
+			vi.mocked(getListUsers).mockResolvedValue([localUser(defaultClusterUsername), localUser(OWNER, false)]);
+
+			await expect(resetPassword(OWNER)).rejects.toThrow("already exists on this cluster but isn't a super user");
+
+			expect(onAlterUser).not.toHaveBeenCalled();
+			expect(onDeleteUser).not.toHaveBeenCalled();
+			expect(resetPasswordUpdater).not.toHaveBeenCalled();
+		});
+
+		it("doesn't set the password when the form's sign-in fails for another reason", async () => {
+			const unavailable = failedRequest(503);
+			onInstanceLoginSubmit.mockImplementation(async ({ username }: { username: string }) => {
+				if (username === OWNER) {
+					throw unavailable;
+				}
+				return { message: 'Login successful', user: localUser(username) };
+			});
+
+			await expect(resetPassword(OWNER)).rejects.toBe(unavailable);
+
+			expect(onAlterUser).not.toHaveBeenCalled();
+			expect(onDeleteUser).not.toHaveBeenCalled();
+		});
+
+		it('treats no other add_user conflict as an existing admin', async () => {
+			vi.mocked(onAddUserSubmit).mockReset();
+			const duplicateRoles = conflict('Multiple roles found with the name super_user');
+			vi.mocked(onAddUserSubmit).mockRejectedValueOnce(duplicateRoles);
+
+			await expect(resetPassword(OWNER)).rejects.toBe(duplicateRoles);
+
+			expect(getListUsers).not.toHaveBeenCalled();
+			expect(onDeleteUser).not.toHaveBeenCalled();
+		});
 	});
 
 	it('keeps no Fabric Connect connection made before setup, and does not run on one', async () => {
