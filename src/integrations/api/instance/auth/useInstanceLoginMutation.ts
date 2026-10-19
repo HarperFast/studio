@@ -34,6 +34,8 @@ export async function onInstanceLoginSubmit({
 	const signOutGeneration = authStore.getSignOutGeneration(entityId);
 	const throwIfSignedOut = () => {
 		if (authStore.getSignOutGeneration(entityId) !== signOutGeneration) {
+			instanceClient.defaults.auth = undefined;
+			instanceClient.defaults.withCredentials = true;
 			throw new SignedOutDuringLoginError();
 		}
 	};
