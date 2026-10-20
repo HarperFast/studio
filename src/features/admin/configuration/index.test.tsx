@@ -4,7 +4,7 @@
 import { apiClient } from '@/config/apiClient';
 import { ConfigurationIndex, jsonType, parseConfigValue } from '@/features/admin/configuration/index';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn(), patch: vi.fn() } }));
@@ -114,7 +114,54 @@ describe('ConfigurationIndex', () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
-		expect(await screen.findByText(/can only be changed by the core super user/)).toBeTruthy();
+		expect(await within(screen.getByRole('dialog')).findByText(/can only be changed by the core super user/))
+			.toBeTruthy();
+	});
+
+	it('refuses a number JSON would silently turn into null', async () => {
+		renderPage();
+		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
+		await type(textarea, '1e400');
+		expect(screen.getByText('A number is too large to save exactly.')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	// Closing would unmount the dialog and drop the save's outcome, so it stays open until it settles.
+	it('stays open while a save is in flight, then refreshes the list', async () => {
+		let finish: () => void = () => {};
+		mockedPatch.mockImplementation(() =>
+			new Promise((resolve) => (finish = () => resolve({ data: undefined }))) as never
+		);
+		renderPage();
+		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
+		await type(textarea, '25');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true)
+		);
+		await act(async () => {
+			fireEvent.keyDown(textarea, { key: 'Escape' });
+		});
+		expect(screen.getByLabelText('Value (JSON)')).toBeTruthy();
+
+		await act(async () => finish());
+		await waitFor(() => expect(screen.queryByLabelText('Value (JSON)')).toBeNull());
+		await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+	});
+
+	it('clears a refused save once the value is edited again', async () => {
+		mockedPatch.mockRejectedValue(new Error('refused by central-manager'));
+		renderPage();
+		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
+		await type(textarea, '30');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(await screen.findByText(/refused by central-manager/)).toBeTruthy();
+		await type(textarea, '31');
+		expect(screen.queryByText(/refused by central-manager/)).toBeNull();
 	});
 
 	it('disables Save until the value changes', async () => {
@@ -129,6 +176,14 @@ describe('parseConfigValue / jsonType', () => {
 		expect(parseConfigValue('[1, 2]')).toEqual({ ok: true, value: [1, 2] });
 		expect(parseConfigValue('false')).toEqual({ ok: true, value: false });
 		expect(parseConfigValue('nope').ok).toBe(false);
+	});
+
+	it('rejects numbers that would not survive the round trip, nested ones too', () => {
+		for (const text of ['1e400', '[1, -1e400]', '{"a": {"b": 9007199254740993}}']) {
+			expect(parseConfigValue(text).ok).toBe(false);
+		}
+		expect(parseConfigValue('9007199254740991').ok).toBe(true);
+		expect(parseConfigValue('0.1').ok).toBe(true);
 	});
 
 	it('names JSON types, telling null and arrays apart from objects', () => {

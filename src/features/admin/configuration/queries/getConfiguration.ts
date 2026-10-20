@@ -2,10 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
-/**
- * GET /Admin/Configuration/ → every configuration row, sorted by name. Cast: the generated schema
- * predates the computed `superUserOnly` flag.
- */
+/** Cast: the generated schema predates the computed `superUserOnly` flag. */
 export async function getConfiguration(): Promise<AdminConfigurationEntry[]> {
 	// Trailing slash required to get the records array rather than the collection descriptor.
 	const { data } = await apiClient.get('/Admin/Configuration/');
