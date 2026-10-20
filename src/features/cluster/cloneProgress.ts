@@ -55,21 +55,38 @@ export function describeCloneProgress(progress: CloneProgress, now: number): str
 	if (progress.waiting) {
 		return 'Waiting to sync data';
 	}
-	const amount = progress.expectedGb === undefined || progress.ratio === undefined
-		? `~${formatGb(progress.copiedGb)} GB copied`
-		: `~${formatGb(progress.copiedGb)} of ~${formatGb(progress.expectedGb)} GB (${clonePercent(progress.ratio)}%)`;
 	const age = progress.lastProgressAt !== undefined
 		? `last progress ${ago(progress.lastProgressAt, now)}`
 		: progress.startedAt !== undefined
 		? `started ${ago(progress.startedAt, now)}`
 		: undefined;
-	return ['Syncing data', amount, age].filter(Boolean).join(' · ');
+	return ['Syncing data', describeAmount(progress), age].filter(Boolean).join(' · ');
 }
 
-const gbFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+function describeAmount({ copiedGb, expectedGb, ratio }: CloneProgress): string | undefined {
+	const copied = sizeOf(copiedGb);
+	if (!copied) {
+		return undefined;
+	}
+	const expected = expectedGb === undefined ? undefined : sizeOf(expectedGb);
+	if (!expected || ratio === undefined) {
+		return `~${copied.value} ${copied.unit} copied`;
+	}
+	const copiedLabel = copied.unit === expected.unit ? copied.value : `${copied.value} ${copied.unit}`;
+	return `~${copiedLabel} of ~${expected.value} ${expected.unit} (${clonePercent(ratio)}%)`;
+}
 
-function formatGb(gb: number): string {
-	return gbFormat.format(gb);
+/** Host manager reports base-10 GB. */
+const MB_PER_GB = 1000;
+const gbFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+const mbFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+
+function sizeOf(gb: number): { value: string; unit: 'MB' | 'GB' } | undefined {
+	const mb = Math.round(gb * MB_PER_GB);
+	if (!(mb > 0)) {
+		return undefined;
+	}
+	return mb < MB_PER_GB ? { value: mbFormat.format(mb), unit: 'MB' } : { value: gbFormat.format(gb), unit: 'GB' };
 }
 
 function ago(timeMs: number, now: number): string {

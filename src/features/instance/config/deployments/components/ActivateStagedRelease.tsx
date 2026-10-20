@@ -25,6 +25,7 @@ import { deployFailureDetails } from '@/integrations/api/instance/applications/d
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
@@ -35,7 +36,25 @@ export function activationMutationKey(entityId: string | undefined, deploymentId
 	return ['activate_deployment', entityId, deploymentId] as const;
 }
 
-export function ActivateStagedRelease({ deployment }: { deployment: Deployment }) {
+/** `rollback`: a later deploy replaced this release. `again`: a deploy failed, so it may not be live everywhere. */
+type ActivationIntent = 'activate' | 'rollback' | 'again';
+
+const BUTTON_LABEL: Record<ActivationIntent, string> = {
+	activate: 'Activate',
+	rollback: 'Roll back to this release',
+	again: 'Activate again',
+};
+
+export function ActivateStagedRelease({
+	deployment,
+	intent = 'activate',
+	offer = true,
+}: {
+	deployment: Deployment;
+	intent?: ActivationIntent;
+	/** Whether the records say it is worth offering. The progress of an activation started here shows either way. */
+	offer?: boolean;
+}) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const sseDeploy = useSupportsDeploymentSSE();
@@ -49,8 +68,7 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 		instanceParams.entityId,
 		deploymentId,
 	]);
-	// Every outcome is reported below, so the global toast would only contradict an unknown one.
-	const { mutateAsync } = useDeployComponentMutation(mutationKey, { skipGlobalErrorToast: true });
+	const { mutateAsync } = useDeployComponentMutation(mutationKey);
 	const isPending = useIsMutating({ mutationKey }) > 0;
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
@@ -75,8 +93,6 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
 		} catch (error) {
-			// What the skipped global handler would have done for Datadog; RUM reports `console.error` (AGENTS.md).
-			console.error(error);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			if (error instanceof SSEInconclusiveError) {
 				stream.markSettled('inconclusive');
@@ -87,7 +103,13 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			}
 			stream.markSettled(
 				'error',
-				error instanceof DeployRolloutError ? undefined : error instanceof Error ? error.message : String(error),
+				error instanceof DeployRolloutError
+					? undefined
+					: isUnansweredWrite(error)
+					? UNANSWERED_WRITE_MESSAGE
+					: error instanceof Error
+					? error.message
+					: String(error),
 				{ failure: error },
 			);
 			reportDeployFailure(project, error, 'activate', {
@@ -110,16 +132,25 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 		return null;
 	}
 
+	// What this activation showed here outranks the records until they catch up, and where they cannot: the record
+	// reads `success` before the rolling restart reaches the other nodes, and after it fails there.
+	const lifecycle = started ? stream.state.lifecycle : 'idle';
+	const retry = lifecycle === 'error' || lifecycle === 'inconclusive';
+	const showButton = isPending || retry || (offer && lifecycle !== 'success');
+	const shownIntent = retry && !offer ? 'again' : intent;
+
 	return (
 		<>
-			<Button
-				variant="positiveOutline"
-				className="self-start"
-				onClick={() => setConfirming(true)}
-				disabled={isPending}
-			>
-				<RocketIcon /> {isPending ? 'Activating…' : 'Activate'}
-			</Button>
+			{showButton && (
+				<Button
+					variant="positiveOutline"
+					className="self-start"
+					onClick={() => setConfirming(true)}
+					disabled={isPending}
+				>
+					<RocketIcon /> {isPending ? 'Activating…' : BUTTON_LABEL[shownIntent]}
+				</Button>
+			)}
 			{started && (
 				<>
 					<Separator />
@@ -129,16 +160,33 @@ export function ActivateStagedRelease({ deployment }: { deployment: Deployment }
 			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Activate this release of {project}?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{shownIntent === 'rollback'
+								? `Roll ${project} back to this release?`
+								: `Activate this release of ${project}${shownIntent === 'again' ? ' again' : ''}?`}
+						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Deployment <span className="font-mono">{deploymentId}</span>{' '}
-							goes live on every node, which restart one at a time. Nothing is installed: each node swaps in the release
-							it staged.
+							{shownIntent === 'rollback'
+								? (
+									<>
+										Deployment <span className="font-mono">{deploymentId}</span>{' '}
+										goes live again on all nodes, which restart one at a time. Each node kept this release installed
+										when it was replaced, so it just switches back. A node that no longer keeps it refuses.
+									</>
+								)
+								: (
+									<>
+										Deployment <span className="font-mono">{deploymentId}</span>{' '}
+										goes live on all nodes, which restart one at a time. Everything was installed when this release was
+										staged, so each node just switches to it.{shownIntent === 'again'
+											&& ' A node already running it restarts without changing anything.'}
+									</>
+								)}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void activate()}>Activate</AlertDialogAction>
+						<AlertDialogAction onClick={() => void activate()}>{BUTTON_LABEL[shownIntent]}</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>

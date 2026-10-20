@@ -65,6 +65,27 @@ function memberOrganizationPermissions(user: User | null, orgId: string): UR {
 	return { update: role.organization.update, remove: role.organization.delete };
 }
 
+/**
+ * Mirrors central manager's service-account and API-token endpoints: an admin of the organization (or
+ * the core super user). Staff who are not members don't qualify.
+ */
+export function canManageServiceAccounts(user: User | null, orgId: string): boolean {
+	if (user?.fabricRole === 'super_user') {
+		return true;
+	}
+	const role = user?.roles?.[orgId];
+	if (!role || 'oauthProviders' in role) {
+		return false;
+	}
+	return role.role === 'admin';
+}
+
+export function useCanManageServiceAccounts(orgId?: string): boolean {
+	const { user } = useCloudAuth();
+	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
+	return canManageServiceAccounts(user, orgId ?? orgIdFromRoute);
+}
+
 export function useOrganizationRolePermissions(orgId?: string): CRUV {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });

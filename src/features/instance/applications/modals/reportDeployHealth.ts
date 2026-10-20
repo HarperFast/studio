@@ -5,6 +5,7 @@ import {
 import { ComponentHealthResult } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
+import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { toast } from 'sonner';
 
 interface DeployNotes {
@@ -135,20 +136,38 @@ export function reportDeployResult(
 	toast.success(success.title, { ...options, description: withNotes(success.description, notes) });
 }
 
+type DeployVerb = 'import' | 'stage' | 'redeploy' | 'activate';
+
+const DONE: Record<DeployVerb, string> = {
+	import: 'imported',
+	stage: 'staged',
+	redeploy: 'redeployed',
+	activate: 'activated',
+};
+
+/** Never "Failed" for a deploy that got no verdict: it may be live, and its message says to check first. */
+export function deployFailureTitle(error: unknown, project: string, verb: DeployVerb): string {
+	return isUnansweredWrite(error) ? `Couldn't confirm ${project} was ${DONE[verb]}` : `Failed to ${verb} ${project}`;
+}
+
 /** A deploy that failed: a rollout failure says the release is live where it was received, not that nothing landed. */
 export function reportDeployFailure(
 	project: string,
 	error: unknown,
-	verb: string,
+	verb: DeployVerb,
 	options: DeployToastOptions = {},
 ): void {
 	if (error instanceof DeployRolloutError) {
 		toast.error(`${project} did not reach every node`, { ...options, description: error.message });
 		return;
 	}
-	toast.error(`Failed to ${verb} ${project}`, {
+	toast.error(deployFailureTitle(error, project, verb), {
 		...options,
-		description: error instanceof Error ? error.message : undefined,
+		description: isUnansweredWrite(error)
+			? UNANSWERED_WRITE_MESSAGE
+			: error instanceof Error
+			? error.message
+			: undefined,
 	});
 }
 

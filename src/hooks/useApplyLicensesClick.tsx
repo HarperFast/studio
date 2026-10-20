@@ -3,7 +3,9 @@ import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstan
 import { SchemaLicense } from '@/integrations/api/api.gen';
 import { installUsageLicense } from '@/integrations/api/instance/auth/installUsageLicense';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
+import { describeUnansweredWrites, isUnansweredWrite, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
@@ -50,6 +52,8 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 		});
 
 		let licensesApplied = 0;
+		let licensesUnanswered = 0;
+		let licensesFailed = 0;
 
 		for (let i = 0; i < licenses.length; i++) {
 			const license = licenses[i];
@@ -74,16 +78,23 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 					await getInstanceUserInfo({
 						instanceClient,
 					});
+					if (canceled) {
+						break;
+					}
 					// Then install the usage license to it.
 					await installUsageLicense({
 						license: license.license,
 						instanceClient,
 					});
 					licensesApplied += 1;
-				} catch {
+				} catch (error) {
+					const unanswered = isUnansweredWrite(error);
+					licensesUnanswered += unanswered ? 1 : 0;
+					licensesFailed += unanswered ? 0 : 1;
 					if (i + 1 !== licenses.length) {
 						// If it fails to applyLicenses, or wasn't available, warn for a bit then move on.
-						toast.loading(`Failed Applying License ${i + 1} of ${licenses.length}`, {
+						const verdict = unanswered ? 'Could Not Confirm' : 'Failed Applying';
+						toast.loading(`${verdict} License ${i + 1} of ${licenses.length}`, {
 							...toastConfig,
 							id: toastId,
 							description: 'We will carry on momentarily.',
@@ -124,13 +135,19 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 				},
 			});
 		} else {
-			toast.error('Error', {
+			toast.error(licensesUnanswered ? OUTCOME_UNKNOWN_TITLE : 'Error', {
 				id: toastId,
-				description: `${licenseWord} not applied.\n`
-					+ ([
-						licensesApplied > 0 && licenses.length !== licensesApplied
-						&& `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
-					].filter(excludeFalsy).shift() || ''),
+				description: licensesUnanswered
+					? [
+						`${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} confirmed applied.`,
+						describeUnansweredWrites(licensesUnanswered),
+						licensesFailed > 0 && `${pluralize(licensesFailed, 'other license', 'other licenses')} failed to apply.`,
+					].filter(excludeFalsy).join(' ')
+					: `${licenseWord} not applied.\n`
+						+ ([
+							licensesApplied > 0 && licenses.length !== licensesApplied
+							&& `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
+						].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {
 					label: 'Dismiss',

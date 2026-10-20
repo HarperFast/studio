@@ -159,8 +159,8 @@ export function AddUserModal({
 						/>
 
 						{shouldInvite && (
-							<DialogDescription className="p-3 my-5 text-white rounded-md bg-amber-600 flex">
-								<MailWarningIcon className="inline-block size-12 pr-2" />
+							<DialogDescription className="p-3 my-5 rounded-md border border-amber-600 dark:border-amber-500 bg-amber-500/10 text-foreground flex">
+								<MailWarningIcon className="inline-block size-12 pr-2 text-amber-700 dark:text-amber-400" />
 								<span>This person doesn’t have a Fabric account. Do you want to invite them?</span>
 							</DialogDescription>
 						)}

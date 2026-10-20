@@ -1,11 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 vi.mock('./deployComponentStream', () => ({
 	deployComponentStream: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
-import { deployAndFollowComponent, deployRequestBody, onDeployComponentSubmit } from './deployComponent';
+import { mutationErrorHandler } from '@/react-query/queryClient';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react';
+import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import { createElement } from 'react';
+import { toast } from 'sonner';
+import {
+	deployAndFollowComponent,
+	deployRequestBody,
+	onDeployComponentSubmit,
+	useDeployComponentMutation,
+} from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
 import { DeployRolloutError } from './restartJob';
 
@@ -176,6 +191,73 @@ describe('onDeployComponentSubmit', () => {
 		).rejects.toBeInstanceOf(SSEOperationError);
 		expect(client.post).not.toHaveBeenCalled();
 	});
+
+	describe('a git repository with no root package.json', () => {
+		const raw = "ENOENT: no such file or directory, open '/tmp/harper-git-clone-oXPS7c/package.json'";
+		const GUIDANCE = /^This repository has no package\.json in its root folder\./;
+
+		it('rejects a streamed deploy with guidance, never the clone path', async () => {
+			mockStream.mockRejectedValue(new SSEOperationError(raw, { phase: 'prepare' }));
+			const error = await onDeployComponentSubmit({
+				...baseArgs,
+				useSSE: true,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				instanceClient: fakeClient({}) as any,
+			}).catch((rejection: unknown) => rejection);
+
+			expect(error).toBeInstanceOf(SSEOperationError);
+			expect((error as SSEOperationError).message).toMatch(GUIDANCE);
+			expect((error as SSEOperationError).phase).toBe('prepare');
+		});
+
+		it('rejects a buffered deploy with guidance, never the clone path', async () => {
+			const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+			const client = {
+				post: vi.fn().mockRejectedValue(
+					new AxiosError('Request failed with status code 500', AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+						data: { error: 'ENOENT', message: raw },
+						status: 500,
+						statusText: 'Internal Server Error',
+						headers: {},
+						config,
+					}),
+				),
+			};
+
+			await expect(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				onDeployComponentSubmit({ ...baseArgs, instanceClient: client as any }),
+			).rejects.toThrow(GUIDANCE);
+		});
+
+		it('reaches RUM as guidance, without the global toast, even once its caller has unmounted', async () => {
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			onTestFinished(() => consoleError.mockRestore());
+			let failStream!: (error: unknown) => void;
+			mockStream.mockReturnValue(
+				new Promise((_, reject) => {
+					failStream = reject;
+				}),
+			);
+			const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
+			const { result, unmount } = renderHook(() => useDeployComponentMutation(), {
+				wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+			});
+
+			const settled = result.current
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				.mutateAsync({ ...baseArgs, useSSE: true, instanceClient: fakeClient({}) as any })
+				.catch((rejection: unknown) => rejection);
+			unmount();
+			failStream(new SSEOperationError(raw));
+			const error = await settled;
+
+			expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+			expect(consoleError).toHaveBeenCalledOnce();
+			expect(consoleError).toHaveBeenCalledWith(error);
+			expect((error as SSEOperationError).message).toMatch(GUIDANCE);
+		});
+	});
 });
 
 describe('deployAndFollowComponent', () => {
@@ -256,6 +338,32 @@ describe('deployAndFollowComponent', () => {
 		await expect(pending).rejects.toMatchObject({ message: 'not activated on node-c', deploymentId: 'd1' });
 		// Following the job never deploys again.
 		expect(post.mock.calls.filter(([, body]) => body.operation === 'deploy_component')).toHaveLength(1);
+	});
+
+	it('reports a rollout that fails after its caller left once, to RUM, and not through the global toast', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		onTestFinished(() => consoleError.mockRestore());
+		const post = rolloutClient({ message: 'ok', deployment_id: 'd1', restartJobId: 'job-1' }, [
+			[{ id: 'job-1', status: 'IN_PROGRESS' }],
+			[{ id: 'job-1', status: 'ERROR', message: 'node-c did not restart' }],
+		]);
+		const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
+		const { result, unmount } = renderHook(() => useDeployComponentMutation(), {
+			wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+		});
+
+		const settled = result.current
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			.mutateAsync({ ...baseArgs, instanceClient: { post } as any })
+			.catch((rejection: unknown) => rejection);
+		unmount();
+		await vi.advanceTimersByTimeAsync(5_000);
+		const error = await settled;
+
+		expect(error).toBeInstanceOf(DeployRolloutError);
+		expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledOnce();
+		expect(consoleError).toHaveBeenCalledWith(error);
 	});
 
 	it('resolves an unfollowable rollout as unknown rather than as a success or a failure', async () => {

@@ -2,13 +2,21 @@
  * @vitest-environment jsdom
  */
 import { EntityIds } from '@/features/auth/store/authStore';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { webcrypto } from 'node:crypto';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { secretsPublicKeyQueryOptions, useDeleteSecret, useSetSecret } from './secrets';
+import {
+	SecretsOperationError,
+	secretsPublicKeyQueryOptions,
+	useDeleteSecret,
+	useGrantSecret,
+	useRevokeSecret,
+	useSetSecret,
+} from './secrets';
 
 /*
  Exercises the hdb_secret client flow against a mocked operations client and a REAL RSA keypair:
@@ -60,6 +68,17 @@ function harness() {
 	);
 	const params = { instanceClient, entityId: 'test-cluster' as EntityIds };
 	return { post, queryClient, wrapper, params };
+}
+
+/** Datadog reads the `name`, so match it as well as the class: dropping the assignment keeps `instanceof`. */
+async function expectSecretsOperationError(pending: Promise<unknown>, message: string) {
+	const error = await pending.then(() => undefined, (rejection: unknown) => rejection);
+	expect(error).toBeInstanceOf(SecretsOperationError);
+	expect(error).toMatchObject({ name: 'SecretsOperationError', message });
+}
+
+function networkError() {
+	return Object.assign(new Error('Network Error'), { name: 'AxiosError', code: 'ERR_NETWORK' });
 }
 
 describe('useSetSecret', () => {
@@ -134,9 +153,24 @@ describe('useSetSecret', () => {
 		});
 
 		const { result } = renderHook(() => useSetSecret(), { wrapper });
-		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' })).rejects.toThrow(
+		await expectSecretsOperationError(
+			result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' }),
 			'secrets custody is not initialized on this node',
 		);
+	});
+
+	it('leaves a failure Harper did not explain as it was thrown', async () => {
+		const { post, wrapper, params } = harness();
+		const key = await generateKey();
+		const failure = networkError();
+		post.mockImplementation((_url: string, body: { operation: string }) =>
+			body.operation === 'get_secrets_public_key'
+				? Promise.resolve({ data: { public_key: key.pem, fingerprint: key.fingerprint } })
+				: Promise.reject(failure)
+		);
+
+		const { result } = renderHook(() => useSetSecret(), { wrapper });
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' })).rejects.toBe(failure);
 	});
 
 	it('fetches the key from central-manager for managed clusters (central-manager#409)', async () => {
@@ -196,8 +230,104 @@ describe('useDeleteSecret', () => {
 		expect(post).toHaveBeenCalledWith('/', { operation: 'delete_secret', name: 'API_KEY' });
 
 		post.mockRejectedValueOnce({ response: { data: { error: "No secret found with name 'NOPE'" } } });
-		await expect(result.current.mutateAsync({ ...params, name: 'NOPE' })).rejects.toThrow(
+		await expectSecretsOperationError(
+			result.current.mutateAsync({ ...params, name: 'NOPE' }),
 			"No secret found with name 'NOPE'",
 		);
+
+		const failure = networkError();
+		post.mockRejectedValueOnce(failure);
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(failure);
+	});
+
+	it('takes the string message when the error field is structured', async () => {
+		const { post, wrapper, params } = harness();
+		post.mockRejectedValueOnce({
+			response: { data: { error: { code: 'NOT_FOUND' }, message: "No secret found with name 'NOPE'" } },
+		});
+
+		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
+		await expectSecretsOperationError(
+			result.current.mutateAsync({ ...params, name: 'NOPE' }),
+			"No secret found with name 'NOPE'",
+		);
+	});
+});
+
+describe.each(
+	[
+		['useGrantSecret', useGrantSecret, 'grant_secret'],
+		['useRevokeSecret', useRevokeSecret, 'revoke_secret'],
+	] as const,
+)('%s', (_hook, useHook, operation) => {
+	it(`posts ${operation} and surfaces the body error message on failure`, async () => {
+		const { post, wrapper, params } = harness();
+		post.mockResolvedValueOnce({ data: { name: 'API_KEY', grants: ['app'], changed: true } });
+
+		const { result } = renderHook(() => useHook(), { wrapper });
+		await result.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' });
+		expect(post).toHaveBeenCalledWith('/', { operation, name: 'API_KEY', component: 'app' });
+
+		post.mockRejectedValueOnce({ response: { data: { error: "No secret found with name 'NOPE'" } } });
+		await expectSecretsOperationError(
+			result.current.mutateAsync({ ...params, name: 'NOPE', component: 'app' }),
+			"No secret found with name 'NOPE'",
+		);
+
+		const failure = networkError();
+		post.mockRejectedValueOnce(failure);
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' })).rejects.toBe(failure);
+	});
+});
+
+describe('a secrets write that got no verdict', () => {
+	function unanswered(body: { operation: string }) {
+		const config = { method: 'post', data: JSON.stringify(body) } as InternalAxiosRequestConfig;
+		return new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config);
+	}
+
+	it('rejects with the AxiosError itself, so its failure can say the outcome is unknown', async () => {
+		const { post, wrapper, params } = harness();
+		const key = await generateKey();
+		post.mockImplementation((_url: string, body: { operation: string }) => {
+			if (body.operation === 'get_secrets_public_key') {
+				return Promise.resolve({ data: { public_key: key.pem, fingerprint: key.fingerprint } });
+			}
+			return Promise.reject(unanswered(body));
+		});
+
+		const set = renderHook(() => useSetSecret(), { wrapper }).result;
+		const remove = renderHook(() => useDeleteSecret(), { wrapper }).result;
+		const grant = renderHook(() => useGrantSecret(), { wrapper }).result;
+		const failures = await Promise.all([
+			set.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' }).catch((e: unknown) => e),
+			remove.current.mutateAsync({ ...params, name: 'API_KEY' }).catch((e: unknown) => e),
+			grant.current.mutateAsync({ ...params, name: 'API_KEY', component: 'app' }).catch((e: unknown) => e),
+		]);
+
+		for (const failure of failures) {
+			expect(isUnansweredWrite(failure)).toBe(true);
+		}
+	});
+
+	// Central manager's proxy answers a 504 with a JSON `error` after forwarding the operation, so the
+	// body has the shape a Harper refusal has; the status, not the body, decides.
+	it('keeps a gateway 504 that carries a JSON message as the AxiosError, not a SecretsOperationError', async () => {
+		const { post, wrapper, params } = harness();
+		const config = {
+			method: 'post',
+			data: JSON.stringify({ operation: 'delete_secret' }),
+		} as InternalAxiosRequestConfig;
+		const gateway = new AxiosError('Request failed with status code 504', AxiosError.ERR_BAD_RESPONSE, config, null, {
+			status: 504,
+			statusText: 'Gateway Timeout',
+			headers: {},
+			config,
+			data: { error: 'Proxied operation timed out after 30s on instance ins-1' },
+		});
+		post.mockRejectedValueOnce(gateway);
+
+		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
+		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(gateway);
 	});
 });

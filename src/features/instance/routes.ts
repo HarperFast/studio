@@ -4,6 +4,7 @@ import { createConfigRouteTree } from '@/features/instance/config/routes';
 import { createBrowseRouteTree } from '@/features/instance/databases/routes';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { createLogRouteTree } from '@/features/instance/log/routes';
+import { createOperationsRouteTree } from '@/features/instance/operations/routes';
 import { createStatusRouteTree } from '@/features/instance/status/routes';
 
 export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') {
@@ -13,6 +14,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 		createLogRouteTree(instanceLayoutRoute),
 		...createApplicationsRoutes(instanceLayoutRoute, mode),
 		createAPIsRouteTree(instanceLayoutRoute),
+		createOperationsRouteTree(instanceLayoutRoute),
 		createStatusRouteTree(instanceLayoutRoute),
 		createConfigRouteTree(instanceLayoutRoute),
 		createBrowseRouteTree(instanceLayoutRoute),

@@ -6,6 +6,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+import { SecretsOperationError } from '@/integrations/api/instance/secrets/secrets';
+import { toast } from 'sonner';
 import { AddSecretModal, EditSecretModal } from './SecretModals';
 
 beforeAll(() => {
@@ -31,6 +33,29 @@ async function clearAndLeave(field: HTMLElement) {
 }
 
 describe('AddSecretModal', () => {
+	// A named error class is how Datadog knows to withhold the text; the toast must not show the name.
+	it("toasts a failed save's message without its error class", async () => {
+		const message = "Secret 'ACME_STRIPE_KEY' cannot be both processEnv and grant-scoped";
+		render(
+			<AddSecretModal
+				description="Add a secret."
+				existingKeys={[]}
+				onSubmit={vi.fn().mockRejectedValue(new SecretsOperationError(message))}
+				isModalOpen
+				setIsModalOpen={() => {}}
+			/>,
+		);
+		await act(async () => {
+			fireEvent.change(screen.getByRole('textbox', { name: /key/i }), { target: { value: 'ACME_STRIPE_KEY' } });
+			fireEvent.change(screen.getByRole('textbox', { name: /value/i }), { target: { value: 'sk_live' } });
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: /add secret/i }));
+		});
+
+		expect(toast.error).toHaveBeenCalledWith(message);
+	});
+
 	it('asks for a key and a value once each is left empty', async () => {
 		render(
 			<AddSecretModal

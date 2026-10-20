@@ -3,6 +3,7 @@
 import type { User } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
+	canManageServiceAccounts,
 	getContainerOpsPermission,
 	getOrganizationClusterInstancePermissions,
 	getOrganizationClusterPermissions,
@@ -107,5 +108,40 @@ describe('getContainerOpsPermission', () => {
 		expect(getContainerOpsPermission(staff(['cluster:update', 'cluster:read', 'instance:read']), ORG)).toBe(false);
 		// An API that predates staffPermissions: hasStaffPermission falls back to the role name.
 		expect(getContainerOpsPermission({ fabricRole: 'super_user', roles: {} } as unknown as User, ORG)).toBe(true);
+	});
+});
+
+describe('canManageServiceAccounts', () => {
+	const withRole = (role: object | undefined, overrides: Partial<User> = {}) =>
+		({
+			fabricRole: 'least_privileged',
+			staffPermissions: [],
+			roles: role ? { [ORG]: role } : {},
+			...overrides,
+		}) as unknown as User;
+
+	it('admits an admin of the organization, as central manager does', () => {
+		expect(canManageServiceAccounts(withRole({ role: 'admin', organization: {} }), ORG)).toBe(true);
+	});
+
+	it('refuses a member whose role is not admin, and a non-member', () => {
+		expect(canManageServiceAccounts(withRole({ role: 'developer', organization: {} }), ORG)).toBe(false);
+		expect(canManageServiceAccounts(withRole({ role: 'admin', organization: {} }), 'org-other')).toBe(false);
+		expect(canManageServiceAccounts(null, ORG)).toBe(false);
+	});
+
+	it('admits the core super user, and staff only as admins of the organization', () => {
+		expect(canManageServiceAccounts(withRole(undefined, { fabricRole: 'super_user' }), ORG)).toBe(true);
+		expect(canManageServiceAccounts(withRole(undefined, { fabricRole: 'fabric_admin' }), ORG)).toBe(false);
+		expect(
+			canManageServiceAccounts(withRole({ role: 'admin', organization: {} }, { fabricRole: 'fabric_admin' }), ORG),
+		).toBe(true);
+	});
+
+	it("refuses an admin membership locked behind the organization's required OAuth", () => {
+		expect(canManageServiceAccounts(withRole({ oauthProviders: [{ name: 'okta', oauthConfigId: 'oac-1' }] }), ORG))
+			.toBe(
+				false,
+			);
 	});
 });

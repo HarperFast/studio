@@ -7,18 +7,18 @@ import { CertificationDecision } from '@/integrations/api/instance/applications/
 import { RolloutNode, RolloutSnapshot } from '@/integrations/api/instance/applications/restartJob';
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
-import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, useParams } from '@tanstack/react-router';
 import {
 	CheckIcon,
 	CircleDashedIcon,
-	CircleIcon,
+	CircleMinusIcon,
 	Loader2Icon,
 	ShieldCheckIcon,
 	TriangleAlertIcon,
 	XIcon,
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { DeployFailure } from './DeployFailure';
 import {
 	describeCertification,
 	describeDecision,
@@ -37,16 +37,27 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 /**
- * A deploy that failed because the *instance* couldn't reach a private repository over SSH is
- * fixed in Config > SSH Keys (install a key, grant it access to the repo, add the git host to
- * `known_hosts`), so link the user there instead of leaving them to find it. Harper's message
- * already spells out the remediation, and this UI is now the only place the failure surfaces:
- * it's an instance configuration state, not a Studio bug, so `shouldKeepEvent` drops the RUM
- * event (which also kept the customer's private repo URL out of Error Tracking).
+ * Phases Harper passed over: it sent nothing for them, and a later phase has already reported. Harper sends no
+ * Load when it skips the validation load (harper `components/operations.js:467-473`, v5.3.2) and no Restart for a
+ * deploy that does not restart (`operations.js:992-1013`), so drawing those as pending says they are still to come.
  */
-const SSH_ACCESS_FAILURE = /Failed to deploy private repository\b|SSH access failed/i;
+function skippedPhases(order: readonly string[], phases: Record<string, PhaseStatus>): Set<string> {
+	const skipped = new Set<string>();
+	let laterReported = false;
+	for (let i = order.length - 1; i >= 0; i--) {
+		if (phases[order[i]]) {
+			laterReported = true;
+		} else if (laterReported) {
+			skipped.add(order[i]);
+		}
+	}
+	return skipped;
+}
 
-function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boolean }) {
+function PhaseIcon({ status, isCurrent, skipped }: { status?: PhaseStatus; isCurrent: boolean; skipped: boolean }) {
+	if (skipped) {
+		return <CircleMinusIcon className="size-4 text-muted-foreground" />;
+	}
 	if (status === 'done') {
 		return <CheckIcon className="size-4 text-success" />;
 	}
@@ -78,19 +89,23 @@ export function DeployProgress({
 	}, [state.installLog.length]);
 
 	const phasesFailed = state.lifecycle === 'error';
+	const phaseOrder = staging ? STAGE_PHASE_ORDER : DEPLOY_PHASE_ORDER;
+	const skipped = skippedPhases(phaseOrder, state.phases);
 
 	return (
 		<div className="flex flex-col gap-4">
 			<ol className="flex flex-col gap-2">
-				{(staging ? STAGE_PHASE_ORDER : DEPLOY_PHASE_ORDER).map((phase) => {
+				{phaseOrder.map((phase) => {
 					const status = state.phases[phase];
 					const isCurrent = state.currentPhase === phase && status !== 'done';
+					const isSkipped = skipped.has(phase);
 					return (
 						<li key={phase} className="flex items-center gap-2 text-sm">
-							<PhaseIcon status={status} isCurrent={isCurrent} />
+							<PhaseIcon status={status} isCurrent={isCurrent} skipped={isSkipped} />
 							<span className={cn(status ? 'text-foreground' : 'text-muted-foreground')}>
 								{PHASE_LABELS[phase] ?? phase}
 							</span>
+							{isSkipped && <span className="text-xs text-muted-foreground">skipped</span>}
 						</li>
 					);
 				})}
@@ -164,21 +179,7 @@ export function DeployProgress({
 			{phasesFailed && state.decision && <DecisionBlock decision={state.decision} />}
 
 			{phasesFailed && state.error && !state.decision && (
-				<div className="flex flex-col gap-2 text-sm text-destructive">
-					<div className="flex items-start gap-2">
-						<CircleIcon className="mt-0.5 size-4 shrink-0" />
-						<span>{state.error}</span>
-					</div>
-					{SSH_ACCESS_FAILURE.test(state.error) && (
-						<Link
-							to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
-							onClick={onNavigateAway}
-							className="self-start pl-6 underline"
-						>
-							Manage SSH keys
-						</Link>
-					)}
-				</div>
+				<DeployFailure message={state.error} onNavigateAway={onNavigateAway} />
 			)}
 
 			{state.lifecycle === 'inconclusive' && !state.rollout && (

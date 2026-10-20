@@ -3,14 +3,14 @@
  */
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseActionModals } from './DatabaseActionModals';
 
+const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
-	const navigate = () => undefined;
 	const router = { invalidate: async () => undefined };
 	return { useParams: () => params, useNavigate: () => navigate, useRouter: () => router };
 });
@@ -43,7 +43,15 @@ vi.mock('@/features/instance/databases/modals/AddTableRowModal', () => ({
 	),
 }));
 vi.mock('@/features/instance/databases/modals/CreateNewTableModal', () => ({ CreateNewTableModal: () => null }));
-vi.mock('@/features/instance/databases/modals/ImportDataModal', () => ({ ImportDataModal: () => null }));
+const importModal = vi.hoisted(() => ({
+	onImported: undefined as undefined | ((databaseName: string, tableName: string) => Promise<void>),
+}));
+vi.mock('@/features/instance/databases/modals/ImportDataModal', () => ({
+	ImportDataModal: ({ onImported }: { onImported: typeof importModal.onImported }) => {
+		importModal.onImported = onImported;
+		return null;
+	},
+}));
 vi.mock('@/features/instance/databases/modals/DeleteTableModal', () => ({ DeleteTableModal: () => null }));
 vi.mock('@/features/instance/databases/modals/DeleteDatabaseModal', () => ({ DeleteDatabaseModal: () => null }));
 
@@ -160,5 +168,39 @@ describe('DatabaseActionModals opening Add Records', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(screen.getByRole('dialog', { name: 'Add to Dog' })).toBeTruthy();
 		expect(screen.getByRole('status', { name: 'add target' }).textContent).toContain('"Dog"');
+	});
+});
+
+describe('DatabaseActionModals after an import', () => {
+	afterEach(() => navigate.mockClear());
+
+	it('goes to the imported table only once describe_all is back, so a table the import created is in the map', async () => {
+		const refetched = deferred<object>();
+		const tree = vi.fn<() => Promise<object>>().mockResolvedValueOnce(instanceDatabaseMap).mockReturnValueOnce(
+			refetched.promise,
+		);
+		const treeKey = ['instance-1', 'describe_all', true, true];
+		function DatabasesPage() {
+			useQuery({ queryKey: treeKey, queryFn: tree, staleTime: 60_000 });
+			return null;
+		}
+		const client = new QueryClient();
+		render(
+			<QueryClientProvider client={client}>
+				<DatabasesPage />
+				<DatabaseActionModals instanceDatabaseMap={instanceDatabaseMap} />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() => expect(client.getQueryData(treeKey)).toBe(instanceDatabaseMap));
+
+		const imported = importModal.onImported!('data', 'Cat');
+		await vi.waitFor(() => expect(tree).toHaveBeenCalledTimes(2));
+		expect(navigate).not.toHaveBeenCalled();
+
+		await act(async () => {
+			refetched.resolve({ data: { ...instanceDatabaseMap.data, Cat: table('Cat', ['id']) } });
+			await imported;
+		});
+		expect(navigate).toHaveBeenCalledTimes(1);
 	});
 });

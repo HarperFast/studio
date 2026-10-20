@@ -1,5 +1,10 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/contextMenu';
-import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import {
+	describedDatabase,
+	describedTable,
+	describedTableNames,
+} from '@/features/instance/databases/functions/describedTable';
+import { browsePrimaryKey } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import {
 	useInstanceBrowseManagePermission,
@@ -28,42 +33,43 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const canImport = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const { exportCsv } = useExportTableCsv();
 
-	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
-	const instanceTable = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
+	const isLastTable = describedTableNames(instanceDatabaseMap, databaseName).length <= 1;
+	const instanceTable = describedTable(instanceDatabaseMap, databaseName, tableName);
+	const primaryKey = browsePrimaryKey(instanceTable);
 	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.
-	const hasPrimaryKey = !instanceTable || !!(instanceTable.primary_key ?? instanceTable.hash_attribute);
+	const hasKnownPrimaryKey = !!primaryKey;
 
 	const onExport = () => {
-		const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
 		void exportCsv({
 			databaseName,
 			tableName,
 			primaryKey,
 			conditions: null,
 			instanceTable,
-			databaseTables: instanceDatabaseMap?.[databaseName],
+			databaseTables,
 		});
 	};
 
 	return (
 		<>
-			{canInsert && hasPrimaryKey && (
+			{canInsert && hasKnownPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowAddTableRecords', { databaseName, tableName })}>
 					<PlusIcon />
 					Add New Record(s)
 				</ContextMenuItem>
 			)}
-			{canImport && hasPrimaryKey && (
+			{canImport && hasKnownPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowImportData', { databaseName, tableName })}>
 					<CloudUploadIcon />
 					Import Data
 				</ContextMenuItem>
 			)}
-			<ContextMenuItem onSelect={onExport} disabled={!hasPrimaryKey}>
+			<ContextMenuItem onSelect={onExport} disabled={!hasKnownPrimaryKey}>
 				<CloudDownloadIcon />
 				Export CSV
 			</ContextMenuItem>
-			{canManage && !isLastTable && (
+			{canManage && instanceTable && !isLastTable && (
 				<>
 					<ContextMenuSeparator />
 					<ContextMenuItem

@@ -1,10 +1,9 @@
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { Control } from 'react-hook-form';
 import { z } from 'zod';
 import { NewApplicationSchema } from './schema';
@@ -32,16 +31,15 @@ export function CommonInstructions({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel className="pb-1">Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										autoCapitalize="words"
-										autoComplete="off"
-										autoFocus={true}
-										placeholder={defaultApplicationName}
-										{...field}
-									/>
-								</FormControl>
+								<LengthLimitedInput
+									type="text"
+									autoCapitalize="words"
+									autoComplete="off"
+									autoFocus={true}
+									placeholder={defaultApplicationName}
+									maxLength={NewApplicationSchema.shape.applicationName.maxLength!}
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}

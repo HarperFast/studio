@@ -1,7 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { TableRowContextMenu } from '@/features/instance/databases/components/TableRowContextMenu';
+import { describedDatabase, describedTableNames } from '@/features/instance/databases/functions/describedTable';
+import { summarizeDatabaseCounts } from '@/features/instance/databases/functions/summarizeDatabaseCounts';
 import { useInstanceBrowseManagePermission, useInstanceImportOperationsPermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
@@ -16,11 +19,28 @@ import { useCallback } from 'react';
 /** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, note }: { label: string; value: string; note?: { spoken: string; reason: string } }) {
 	return (
 		<div className="rounded-md border border-border dark:border-grey-700 p-4">
 			<div className="text-sm text-muted-foreground">{label}</div>
-			<div className="text-2xl font-medium">{value}</div>
+			<div className="text-2xl font-medium">
+				{note
+					? (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									className="cursor-help underline decoration-dotted underline-offset-4"
+									aria-label={note.spoken}
+								>
+									{value}
+								</button>
+							</TooltipTrigger>
+							<TooltipContent side="top" align="start" className="max-w-60">{note.reason}</TooltipContent>
+						</Tooltip>
+					)
+					: value}
+			</div>
 		</div>
 	);
 }
@@ -39,8 +59,8 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 	const canManage = useInstanceBrowseManagePermission();
 	const canImport = useInstanceImportOperationsPermission();
 
-	const tables = instanceDatabaseMap?.[databaseName] ?? {};
-	const tableNames = Object.keys(tables).sort();
+	const tables = describedDatabase(instanceDatabaseMap, databaseName) ?? {};
+	const tableNames = describedTableNames(instanceDatabaseMap, databaseName);
 
 	// Sizes/schema are already in the fast (count-skipping) map, so they render instantly. Row counts
 	// aren't, so fetch them per-table via describe_table's cheap estimate path -- but only for the
@@ -51,27 +71,13 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 			getDescribeTableQueryOptions({ ...instanceParams, databaseName, tableName })
 		),
 	});
-	const countByTable: Record<string, { recordCount?: number; estimated: boolean }> = {};
-	tableNames.forEach((tableName, index) => {
-		const data = countQueries[index]?.data;
-		if (data) {
-			countByTable[tableName] = { recordCount: data.record_count, estimated: !!data.estimated_record_range };
-		}
-	});
-	// Settled, not "has data": describe_table uses retry:false, so a single failed/never-resolving count
-	// would otherwise hang the total on "…" forever even though every other table counted fine. Sum the
-	// ones that resolved, and flag the total as an estimate if any contributing count was estimated.
-	const allCountsSettled = countQueries.every((query) => !query.isPending);
-	const anyEstimated = tableNames.some((tableName) => countByTable[tableName]?.estimated);
+	const { totalLabel, totalNote, recordLabels } = summarizeDatabaseCounts(tableNames, countQueries);
 
 	// Every table in a database shares the same underlying store, so db_size/db_audit_size are the same
 	// on each -- read them off any table.
 	const anyTable = tableNames.length ? tables[tableNames[0]] : undefined;
 	const dbSize = anyTable?.db_size ?? 0;
 	const auditSize = anyTable?.db_audit_size ?? 0;
-	const totalRecords = allCountsSettled
-		? tableNames.reduce((sum, tableName) => sum + (countByTable[tableName]?.recordCount ?? 0), 0)
-		: undefined;
 
 	const goToTable = useCallback((tableName: string) => {
 		void navigate({ to: buildAbsoluteLinkToDatabasePage({ ...params, databaseName, tableName }) });
@@ -123,10 +129,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 
 			<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-6">
 				<Stat label="Tables" value={tableNames.length.toLocaleString()} />
-				<Stat
-					label="Records"
-					value={totalRecords === undefined ? '…' : `${anyEstimated ? '~' : ''}${totalRecords.toLocaleString()}`}
-				/>
+				<Stat label="Records" value={totalLabel} note={totalNote} />
 				<Stat label="Size" value={formatBytes(dbSize)} />
 				<Stat label="Audit Size" value={formatBytes(auditSize)} />
 			</div>
@@ -153,13 +156,9 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 									</tr>
 								</thead>
 								<tbody>
-									{tableNames.map((tableName) => {
+									{tableNames.map((tableName, index) => {
 										const table = tables[tableName];
-										const counted = countByTable[tableName];
 										const primaryKey = table.primary_key ?? table.hash_attribute ?? '—';
-										const recordLabel = counted?.recordCount === undefined
-											? '…'
-											: `${counted.estimated ? '~' : ''}${counted.recordCount.toLocaleString()}`;
 										return (
 											<tr
 												key={tableName}
@@ -168,7 +167,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 												className="border-b border-border dark:border-grey-700 last:border-0 cursor-pointer hover:bg-accent dark:hover:bg-grey-700/80"
 											>
 												<td className="p-3 font-medium">{tableName}</td>
-												<td className="p-3 text-right tabular-nums">{recordLabel}</td>
+												<td className="p-3 text-right tabular-nums">{recordLabels[index]}</td>
 												<td className="p-3 text-right tabular-nums">{formatBytes(table.table_size ?? 0)}</td>
 												<td className="p-3 text-right tabular-nums">{table.attributes.length.toLocaleString()}</td>
 												<td className="p-3">{primaryKey}</td>

@@ -44,6 +44,27 @@ describe('resolveDatabasesRedirect', () => {
 		expect(resolveDatabasesRedirect(map, { databaseName: 'alpha', tableName: 'widgets' })).toBeNull();
 	});
 
+	it('treats a database or table named like an Object.prototype member as missing unless the map has it', () => {
+		expect(resolveDatabasesRedirect(map, { databaseName: 'constructor' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+		expect(resolveDatabasesRedirect(map, { databaseName: 'alpha', tableName: 'toString' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+	});
+
+	it('treats a database with no describe as missing rather than throwing', () => {
+		const withHole = { alpha: {}, broken: null } as unknown as InstanceDatabaseMap;
+		expect(resolveDatabasesRedirect(withHole, { databaseName: 'broken', tableName: 'orders' })).toEqual({
+			databaseName: 'alpha',
+			tableName: undefined,
+		});
+		const holeFirst = { aaa: null, beta: {} } as unknown as InstanceDatabaseMap;
+		expect(resolveDatabasesRedirect(holeFirst, {})).toEqual({ databaseName: 'beta', tableName: undefined });
+	});
+
 	it('stays put on an empty database (shows its overview, no redirect loop)', () => {
 		expect(resolveDatabasesRedirect(map, { databaseName: 'empty' })).toBeNull();
 	});

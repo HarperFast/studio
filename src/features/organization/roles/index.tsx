@@ -74,8 +74,18 @@ export function OrgConfigRolesIndex() {
 		<>
 			<SubNavMenu />
 			<OrgPageLayout>
+				<div className="mb-4">
+					<h2 className="text-2xl text-foreground font-light">Roles</h2>
+					<p className="text-sm text-muted-foreground">Manage access to this organization and its clusters.</p>
+				</div>
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-					<SimpleBrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
+					<SimpleBrowseDataTable
+						data={orgRoles}
+						columns={dataTableColumns}
+						onRowClick={onRowClick}
+						filter={{ label: 'Filter roles', placeholder: 'Filter by role name' }}
+						paginated
+					>
 						<Button
 							variant="defaultOutline"
 							onClick={onRefreshClick}

@@ -1,5 +1,84 @@
 # Applications — design notes
 
+## Unsaved edits belong to the file, not the path
+
+The editor keeps three things for each path: the file's unsaved edits, in a session-storage buffer
+(`EditorFileContent/{entityId}/{path}`, [`editorFileContent`](context/editorFileContent.ts)); its loaded contents, in
+the `get_component_file` query; and the text editor's Monaco model, which `keepCurrentModel` keeps after the file is
+closed. All three are keyed by path. So anything that changes which file a path names has to update them, or the next
+file at that path opens with the last one's text and Save writes it into it (#1934). Every such operation goes through
+[`editorPathState`](lib/editorPathState.ts) once the server confirms it:
+
+- **Delete** (the delete modal, the assistant's `dropComponentFile`, the old folder after a folder rename) discards the
+  unsaved edits and the cached contents, for the file or for everything under the folder or project. The open file's
+  query is emptied rather than removed: its observer would otherwise fetch a file that is gone, into an error toast.
+- **Replace** (New File over an existing file, an upload, the destination of a move) discards the unsaved edits, which
+  were made to the file that is gone, and resets the cached contents so the old ones aren't handed out while the new
+  ones load. New File and uploads do this even when nothing was at the path, which clears edits a delete left behind
+  before this was in place.
+- **Rename or move** carries the unsaved edits to the new path, as a desktop editor would, and replaces any there. A
+  folder rename moves file by file, so the rest of a destination folder keeps its own. The edits are copied once the
+  copy at the new path lands, and leave the old path only once its drop is confirmed. An unanswered drop leaves them
+  on both paths, so they stay reachable whether or not the old file is gone; a refused one, on the original only.
+  Edits typed at the new path while the drop is in flight are newer than the copy, and stay there either way.
+
+All three dispose the Monaco models at the old path, because @monaco-editor/react reuses a path's model as it is and
+applies `value` only when it changes. A model still on screen goes a tick after the editor lets go of it, since Monaco
+keeps using it while it detaches. They reach Monaco through the loader, so a chunk that deletes files, such as the
+assistant's, doesn't pull Monaco in. For the file that is open, `TextEditorView` covers two more gaps:
+
+- It is read-only until the file's contents are known, and while the provider's contents still trail the query after
+  a replace. Monaco ignores an undefined `value` and keeps showing the model's last text, and typing into that would
+  save it here. The library also keeps an old `onChange` subscribed, and fires it when it writes `value` into a
+  read-only editor, so the editor passes one handler for good. That handler reads the open file's setter and the
+  read-only state, which are set on commit. The editor subscribes to the query for this, since a reload that brings
+  back the text the provider already holds changes nothing else it renders from.
+- When its `value` changes to text nobody typed, as when the file is replaced while open or moved edits land on it,
+  the library writes it into the model as an undoable edit. The editor then sets the same text with `setValue`, which
+  drops the history, so Ctrl+Z can't bring the replaced file back for Save to write. A replacement with the same text
+  changes nothing the editor is handed, and its reload can land before the provider even shows the contents missing.
+  So `editorPathState` also counts each delete, replace and move away per path (`useReplacementCount`), and the
+  editor drops the history once the contents after a counted replacement are loaded, whatever the text. It records
+  per model which file and count its history follows, because a model taken back before its disposal keeps its
+  history, and the same path on another instance shares the model. Typing, saving, and switching to another file and
+  back keep their history; switching instances does not.
+
+Apart from the rename's copy, an operation whose outcome is unknown (an unanswered write) changes nothing, because
+discarding edits for a file that may still be there loses work. Call sites run these where an unmount can't skip them:
+after an `await`, or in a mutation's own `onSuccess`, which takes the instance from the request because the page can
+have moved to another by then. A `mutate()` call's `onSuccess` is dropped once its component unmounts.
+
+Buffers are read and written through the session-storage store (`sessionStorageStore`), which every mounted
+`useSessionStorage` on a key renders, so an open editor or the tree's unsaved marker updates at once. Writing to
+session storage directly would leave a mounted editor showing the old buffer. The store keeps a write that storage
+refuses in memory, so a full storage doesn't lose edits mid-rename. The buffers under a folder are found from what
+session storage persisted and from the keys the store holds only in memory (`refusedSessionKeys`).
+
+The assistant's `setComponentFile` tool leaves the buffer alone: it writes to a file the person may be editing, which
+is a conflict between two editors rather than a path naming a different file.
+
+## Saving a file
+
+The editor's save settles in the mutation's own `onSuccess`, from the request alone
+([`EditorViewProvider`](context/EditorViewProvider.tsx)), so a save that lands after another file was opened, or after
+the page is gone, still does it: it puts what was saved in the file's cached contents, and clears the file's buffer if
+the buffer still equals what was saved. `set_component_file` reports neither a size nor a time, so the cached size is
+the UTF-8 length of what was written and the time stays unknown until the next read. It cancels any read of the file
+first, since a read sent before the save landed would answer with the old contents after it. A save that lands after
+sign-out cleared the caches settles nothing.
+
+Every whole-file write of an open file is this save: the text and schema editors call `saveFile`, and the `.env` secrets
+view calls `writeFile`, which rejects instead of toasting so its dialog reports the outcome. Saves are tracked per file
+in the mutation cache, so another file can be edited and saved while one is in flight, and a remounted page still sees a
+save it started. A second save of the same file is refused until the first settles, with a toast when it would have
+written something newer.
+
+A rename or move reads a file, copies it and its buffer, then drops it, so a save that lands in between writes to the
+file being dropped and clears the buffer the copy needs. Within a tab the two never overlap on an instance
+([`editorSaveInterlock`](lib/editorSaveInterlock.ts)): `useRenameFiles` refuses while an editor save is in flight, and
+the save refuses while a rename is, each saying why. Another tab's saves and renames are not seen (#1964). The Rename
+dialog and the toolbar's Rename and Restart are disabled while a save is in flight.
+
 ## When a deploy is done
 
 Studio deploys with `restart: 'rolling'`. The node that receives the deploy answers once its own part is done and hands
@@ -55,3 +134,15 @@ tell it from a gateway's. So [`onDeployComponentSubmit`](../../../integrations/a
 turns those into `SSEInconclusiveError`, which every deploy caller already answers by checking rather than resending.
 `streamOperation` stays neutral: it puts the `status` on `SSEUnsupportedError` and leaves the decision to the caller,
 because a read (`get_deployment`) may fall back on anything.
+
+## Who reports a failed deploy
+
+Every caller of [`useDeployComponentMutation`](../../../integrations/api/instance/applications/deployComponent.ts)
+shows its own failure. The mutation opts out of the global error toast and reports the failure to RUM itself, with a
+mutation-level `console.error` that still runs after the caller unmounts. A new caller has to render or toast the
+rejection, or the person sees nothing.
+
+Callers await `mutateAsync` rather than reporting from `mutate()` callbacks, which React Query drops once the caller
+unmounts. Following a rollout keeps a deploy pending for up to 30 minutes, so its outcome often lands after the form
+or modal that started it is gone. A failure that lands while its progress panel or import form is still on screen is
+shown there only; one that lands later goes to a toast, with the deployment record when the failure named one.

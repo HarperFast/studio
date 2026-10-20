@@ -1,11 +1,12 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
-import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
+import { activeClusterStatuses, deletedClusterStatuses, isDeletedCluster } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
+import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
 import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -39,58 +40,8 @@ import { toast } from 'sonner';
 
 export function ClusterHome() {
 	const { clusterId } = useParams({ strict: false }) as { clusterId?: string };
-	const router = useRouter();
-	const navigate = useNavigate();
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, true));
-
-	const { user, isLoading } = useInstanceAuth(clusterId);
 	const { view, update } = useOrganizationClusterPermissions(cluster?.organizationId, cluster?.id);
-	const [isConnecting, setIsConnecting] = useState(false);
-
-	const clusterHost = cluster?.domains?.[0]?.domain || cluster?.fqdn || '';
-	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
-
-	const base = cluster ? `/${cluster.organizationId}/${cluster.id}` : '';
-
-	const onFabricConnect = useCallback(async () => {
-		if (!cluster) { return; }
-		setIsConnecting(true);
-		try {
-			await authStore.establishFabricConnectAuth({
-				id: cluster.id,
-				operationsUrl: getOperationsUrlForCluster(cluster),
-			});
-			await router.invalidate();
-		} catch {
-			toast.error('Could not connect to this cluster through Fabric Connect.');
-		} finally {
-			setIsConnecting(false);
-		}
-	}, [cluster, router]);
-
-	const onDirectSignIn = useCallback(() => {
-		if (cluster) {
-			authStore.setUserForEntity(cluster, null);
-			authStore.flagForFabricConnect(cluster.id, false);
-		}
-		void navigate({ to: `${base}/sign-in` });
-	}, [base, cluster, navigate]);
-
-	const onDisconnect = useCallback(async () => {
-		if (!cluster) { return; }
-		try {
-			await onInstanceLogoutSubmit({ instanceClient: getInstanceClient({ id: cluster.id }), entityId: cluster.id });
-		} catch {
-			// Ignore: we're clearing local state regardless of the server response.
-		}
-		authStore.setUserForEntity(cluster, null);
-		// Clear the persisted connection flags too, and do it even if the logout POST above failed —
-		// onInstanceLogoutSubmit clears them on success, but a swallowed error would otherwise leave the
-		// Fabric Connect flag and Basic Auth credentials behind in localStorage.
-		authStore.flagForFabricConnect(cluster.id, false);
-		authStore.flagForBasicAuth(cluster.id, null);
-		await router.invalidate();
-	}, [cluster, router]);
 
 	if (!cluster) {
 		return (
@@ -102,9 +53,17 @@ export function ClusterHome() {
 	if (!view) {
 		return <Navigate to={`/${cluster.organizationId}`} replace />;
 	}
+	if (isDeletedCluster(cluster)) {
+		return (
+			<ClusterHomeShell>
+				<ClusterTerminated cluster={cluster} />
+			</ClusterHomeShell>
+		);
+	}
 	if (clusterIsSelfManaged(cluster)) {
 		return <SelfHostedClusterHome cluster={cluster} />;
 	}
+	const base = `/${cluster.organizationId}/${cluster.id}`;
 	if (!cluster.fqdn) {
 		return <Navigate to={`${base}/instances`} replace />;
 	}
@@ -126,6 +85,55 @@ export function ClusterHome() {
 			&& allClusterInstancesRunning(cluster);
 		return <Navigate to={`${base}/${readyForSetup ? 'finish-setup' : 'starting-up'}`} replace />;
 	}
+	return <ManagedClusterHome cluster={cluster} update={update} />;
+}
+
+function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boolean }) {
+	const router = useRouter();
+	const navigate = useNavigate();
+	const { user, isLoading } = useInstanceAuth(cluster.id);
+	const [isConnecting, setIsConnecting] = useState(false);
+
+	const clusterHost = cluster.domains?.[0]?.domain || cluster.fqdn || '';
+	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
+
+	const base = `/${cluster.organizationId}/${cluster.id}`;
+
+	const onFabricConnect = useCallback(async () => {
+		setIsConnecting(true);
+		try {
+			await authStore.establishFabricConnectAuth({
+				id: cluster.id,
+				operationsUrl: getOperationsUrlForCluster(cluster),
+			});
+			await router.invalidate();
+		} catch {
+			toast.error('Could not connect to this cluster through Fabric Connect.');
+		} finally {
+			setIsConnecting(false);
+		}
+	}, [cluster, router]);
+
+	const onDirectSignIn = useCallback(() => {
+		authStore.setUserForEntity(cluster, null);
+		authStore.flagForFabricConnect(cluster.id, false);
+		void navigate({ to: `${base}/sign-in` });
+	}, [base, cluster, navigate]);
+
+	const onDisconnect = useCallback(async () => {
+		try {
+			await onInstanceLogoutSubmit({ instanceClient: getInstanceClient({ id: cluster.id }), entityId: cluster.id });
+		} catch {
+			// Ignore: we're clearing local state regardless of the server response.
+		}
+		authStore.setUserForEntity(cluster, null);
+		// Clear the persisted connection flags too, and do it even if the logout POST above failed —
+		// onInstanceLogoutSubmit clears them on success, but a swallowed error would otherwise leave the
+		// Fabric Connect flag and Basic Auth credentials behind in localStorage.
+		authStore.flagForFabricConnect(cluster.id, false);
+		authStore.flagForBasicAuth(cluster.id, null);
+		await router.invalidate();
+	}, [cluster, router]);
 
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const connected = !!user;
@@ -420,7 +428,7 @@ function StatusPill({ status }: { status?: string }) {
 		: status === 'STOPPED'
 		? 'text-destructive bg-destructive/10'
 		: status === 'PARTIAL'
-		? 'text-yellow bg-yellow/10'
+		? 'text-amber-800 dark:text-yellow bg-yellow/10'
 		: 'text-muted-foreground bg-muted';
 	return (
 		<span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${colorClass}`}>
@@ -436,7 +444,7 @@ function SafeModePill() {
 	return (
 		<span
 			title="All instances running in safe mode — user apps/components are not loaded"
-			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-yellow bg-yellow/10"
+			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-amber-800 dark:text-yellow bg-yellow/10"
 		>
 			<LifeBuoy className="size-3" />
 			Safe mode

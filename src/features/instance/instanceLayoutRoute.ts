@@ -5,6 +5,7 @@ import {
 	OverallAppSignIn,
 } from '@/features/auth/store/authStore';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
+import { redirectAwayFromDeletedCluster } from '@/features/cluster/redirectAwayFromDeletedCluster';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
@@ -50,6 +51,8 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	context: { authentication: Record<string, AuthenticatedConnection>; cluster?: Cluster };
 	params: { organizationId: string; clusterId: string; instanceId?: string };
 }) {
+	redirectAwayFromDeletedCluster({ context, params });
+
 	const entityId = params.instanceId || params.clusterId;
 
 	// The Fabric Connect JWT lives only in memory, so after a reload we still have the persisted flag

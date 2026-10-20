@@ -60,15 +60,47 @@ function serializeDirectives(directives: Directive[], order: string[]): string {
 		.join(' ');
 }
 
-/** Append a stored comment/description block to `lines`, re-indented to the canonical indent. */
+const BLANK_LINE = /^[ \t]*$/;
+const LEADING_WHITESPACE = /^[ \t]+/;
+const CLOSING_DELIMITER_LINE = /^[ \t]*"""$/;
+
+function commonPrefix(a: string, b: string): string {
+	let length = 0;
+	while (length < a.length && length < b.length && a[length] === b[length]) {
+		length++;
+	}
+	return a.slice(0, length);
+}
+
+/**
+ * Append a stored comment/description block to `lines`, re-indented to the canonical indent.
+ *
+ * Only the margin a `"""` block's content lines share is replaced, so nesting inside the
+ * description survives and re-editing never compounds the indent. As in GraphQL's block-string
+ * rules, the first line and a closing-delimiter-only line are not content: both go on the
+ * canonical indent outright.
+ */
 function appendCommentLines(lines: string[], comment: string, indent: string): void {
-	for (const rawLine of comment.split('\n')) {
-		// Strip any indentation the line already carried (e.g. interior lines of a
-		// multi-line """description""") before applying the canonical indent, so
-		// re-editing a table doesn't compound the indentation each time. Blank
-		// lines stay blank.
-		const line = rawLine.replace(/\r$/, '').replace(/^[ \t]+/, '');
-		lines.push(line ? `${indent}${line}` : '');
+	const commentLines = comment.split('\n').map(line => line.replace(/\r$/, ''));
+	const isOutsideMargin = (line: string, index: number) =>
+		index === 0 || (index === commentLines.length - 1 && CLOSING_DELIMITER_LINE.test(line));
+
+	let margin: string | undefined;
+	for (const [index, line] of commentLines.entries()) {
+		if (!BLANK_LINE.test(line) && !isOutsideMargin(line, index)) {
+			const lineIndent = line.match(LEADING_WHITESPACE)?.[0] ?? '';
+			margin = margin === undefined ? lineIndent : commonPrefix(margin, lineIndent);
+		}
+	}
+
+	for (const [index, line] of commentLines.entries()) {
+		if (BLANK_LINE.test(line)) {
+			lines.push('');
+		} else if (isOutsideMargin(line, index)) {
+			lines.push(`${indent}${line.replace(LEADING_WHITESPACE, '')}`);
+		} else {
+			lines.push(`${indent}${line.slice(margin?.length ?? 0)}`);
+		}
 	}
 }
 

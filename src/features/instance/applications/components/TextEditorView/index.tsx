@@ -5,15 +5,21 @@ import { useEditorFileContent } from '@/features/instance/applications/context/e
 import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useReplacementCount } from '@/features/instance/applications/lib/editorPathState';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import {
+	getComponentFileQueryKey,
+	type GetComponentFileResponse,
+} from '@/integrations/api/instance/applications/getComponentFile';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useState } from 'react';
+import { hashKey, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
 import './monaco-customizations.css';
@@ -61,8 +67,13 @@ function lookupEditorShortcuts(editor: Parameters<OnMount>[0], ids: string[]): R
 	return labels;
 }
 
+// Per model, which file and replacement its undo history follows. A model outlives a switch to another
+// file, and one taken back before its disposal still holds the history from before the replacement.
+const historyAsOf = new WeakMap<object, { entry: string; replacement: number }>();
+
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile, rootEntries } =
 		useEditorView();
 	const { typeAcquisitionBudgetExhausted } = useApplicationTypeIntelligence(openedEntry, rootEntries);
@@ -71,9 +82,21 @@ export function TextEditorView() {
 		setContent,
 	} = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
+	const typed = useRef<string | undefined>(undefined);
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
+		typed.current = newValue;
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
 	}, [openedEntryContents, setContent]);
+	// @monaco-editor/react keeps an `onChange` subscribed after the prop changes or becomes undefined, and
+	// it writes a new `value` into a read-only editor with `setValue`, which fires it. So it gets one handler
+	// for good, which reads the open file's setter and read-only state when it runs.
+	const readOnlyRef = useRef(true);
+	const setUpdatedFileContentRef = useRef(setUpdatedFileContent);
+	const handleEditorChange = useCallback((newValue: string | undefined) => {
+		if (!readOnlyRef.current) {
+			setUpdatedFileContentRef.current(newValue);
+		}
+	}, []);
 
 	const monacoTheme = useMonacoTheme();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
@@ -87,6 +110,32 @@ export function TextEditorView() {
 
 	const extension = parseFileExtension(openedEntry?.path);
 	const fileContent = updatedFileContent ?? openedEntryContents;
+	// Monaco keeps the model's last text for an undefined `value`, and the provider's contents trail the
+	// query by an effect after a replace; typing into either would save the old file's text here.
+	const openedFileHash = useMemo(() =>
+		openedEntry && hashKey(getComponentFileQueryKey({
+			...instanceParams,
+			project: openedEntry.project,
+			file: openedEntry.path.slice(openedEntry.project.length + 1),
+		})), [instanceParams, openedEntry]);
+	const subscribeToOpenedFile = useCallback(
+		(listener: () => void) =>
+			queryClient.getQueryCache().subscribe(event => {
+				if (event.query.queryHash === openedFileHash) {
+					listener();
+				}
+			}),
+		[queryClient, openedFileHash],
+	);
+	const readCachedContents = useCallback(
+		() =>
+			openedFileHash
+				? (queryClient.getQueryCache().get(openedFileHash)?.state.data as GetComponentFileResponse | undefined)?.message
+				: undefined,
+		[queryClient, openedFileHash],
+	);
+	const cachedContents = useSyncExternalStore(subscribeToOpenedFile, readCachedContents);
+	const contentsBehind = updatedFileContent === undefined && cachedContents !== openedEntryContents;
 	// A huge open file would feed its full text to the language worker the same
 	// way sibling models do, overflowing the structured-clone buffer
 	// ("DataCloneError: ... out of memory."). Render it as plaintext so no
@@ -102,6 +151,54 @@ export function TextEditorView() {
 		setMounted([editor, monaco]);
 	}, []);
 
+	// The library writes a `value` nobody typed into the model as an undoable edit, so after the file is
+	// replaced while open (or moved edits land on it) Ctrl+Z and Save would put the replaced file back.
+	// `setValue` puts the same text in with no history.
+	const lastSeen = useRef<{ model: unknown; text: string } | undefined>(undefined);
+	useEffect(() => {
+		const model = mounted?.[0].getModel();
+		if (!model) {
+			return;
+		}
+		// `onChange` hands back the string it produced, so typing needs no read of the model.
+		if (typed.current !== undefined && typed.current === fileContent) {
+			typed.current = undefined;
+			lastSeen.current = { model, text: fileContent };
+			return;
+		}
+		typed.current = undefined;
+		const seen = lastSeen.current?.model === model ? lastSeen.current : undefined;
+		const text = model.getValue();
+		if (seen && fileContent !== undefined && text === fileContent && seen.text !== fileContent) {
+			model.setValue(fileContent);
+			typed.current = undefined;
+		}
+		lastSeen.current = { model, text };
+	}, [mounted, fileContent]);
+
+	const openedPath = openedEntry?.path;
+	const replacement = useReplacementCount(instanceParams.entityId, openedPath);
+	useEffect(() => {
+		const model = mounted?.[0].getModel();
+		if (!model) {
+			return;
+		}
+		const entry = `${instanceParams.entityId}:${openedPath}`;
+		const history = historyAsOf.get(model);
+		if (history === undefined) {
+			historyAsOf.set(model, { entry, replacement });
+			return;
+		}
+		// Another instance's file at the same path shares the model, and so its history.
+		const current = history.entry === entry && history.replacement === replacement;
+		if (current || fileContent === undefined || contentsBehind) {
+			return;
+		}
+		model.setValue(fileContent);
+		historyAsOf.set(model, { entry, replacement });
+		typed.current = undefined;
+	}, [instanceParams.entityId, openedPath, replacement, mounted, fileContent, contentsBehind]);
+
 	useEffect(() => {
 		if (mounted && canManageBrowseInstance && !openedEntry?.package && !restrictPackageModification) {
 			return registerWithEditor(mounted);
@@ -111,19 +208,16 @@ export function TextEditorView() {
 	useListener(
 		'SaveFile',
 		() => {
-			if (openedEntry && !isSavingFile && updatedFileContent !== undefined) {
-				saveFile(
-					{
-						...instanceParams,
-						file: openedEntry.path.split('/').slice(1).join('/'),
-						payload: updatedFileContent,
-						project: openedEntry.project,
-					},
-					openedEntry.path,
-				);
+			if (openedEntry && updatedFileContent !== undefined) {
+				saveFile({
+					...instanceParams,
+					file: openedEntry.path.split('/').slice(1).join('/'),
+					payload: updatedFileContent,
+					project: openedEntry.project,
+				});
 			}
 		},
-		[openedEntry, instanceParams, updatedFileContent],
+		[openedEntry, instanceParams, updatedFileContent, saveFile],
 	);
 
 	useListener(
@@ -165,11 +259,18 @@ export function TextEditorView() {
 		}
 	}, [mounted]);
 
+	const readOnly = !openedEntry || isSavingFile || !!openedEntry.package || !canManageBrowseInstance
+		|| fileContent === undefined || contentsBehind;
+	// Set on commit, before the library's effects can fire the handler, so a render React throws away
+	// never reaches it.
+	useInsertionEffect(() => {
+		readOnlyRef.current = readOnly;
+		setUpdatedFileContentRef.current = setUpdatedFileContent;
+	});
+
 	if (!openedEntry) {
 		return null;
 	}
-
-	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance;
 
 	// Surface either silent editor degradation as a dismissible notice. Oversized
 	// wins: the file is already plaintext, so the "cannot find module" wording
@@ -205,7 +306,7 @@ export function TextEditorView() {
 					keepCurrentModel
 					beforeMount={handleEditorWillMount}
 					onMount={handleEditorDidMount}
-					onChange={readOnly ? undefined : setUpdatedFileContent}
+					onChange={handleEditorChange}
 					options={{
 						automaticLayout: true,
 						minimap: { enabled: false },

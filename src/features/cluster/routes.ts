@@ -1,3 +1,4 @@
+import { isDeletedCluster } from '@/config/clusterStatuses';
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
@@ -7,6 +8,7 @@ import { clusterLayoutRoute } from './clusterLayoutRoute';
 import { DomainsPage } from './domains/Page';
 import { FinishSetup } from './FinishSetup';
 import { Instances } from './Instances';
+import { redirectAwayFromDeletedCluster } from './redirectAwayFromDeletedCluster';
 import { Scaling } from './Scaling';
 import { StartingUp } from './StartingUp';
 import { UsagePage } from './usage/Page';
@@ -15,6 +17,7 @@ const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instances',
 	head: () => ({ meta: [{ title: 'Instances — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: Instances,
 });
 
@@ -29,6 +32,7 @@ const clusterScalingRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'scaling',
 	head: () => ({ meta: [{ title: 'Scaling — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: Scaling,
 });
 
@@ -36,6 +40,7 @@ const clusterDomainsRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'domains',
 	head: () => ({ meta: [{ title: 'Domains — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: DomainsPage,
 });
 
@@ -52,11 +57,17 @@ const clusterUsageRoute = createRoute({
 // — which would bounce us off the sign-in form and back into Fabric Connect (HarperFast/studio#1333).
 
 export function redirectAwayFromSignInIfConnected(
-	{ location, params }: {
+	{ context, location, params }: {
+		context?: { cluster?: { status?: string; terminatedAt?: string } };
 		location?: { search?: { redirect?: string } };
 		params: { clusterId: string };
 	},
 ) {
+	// A terminated cluster's sign-in page explains that it is gone; a stale connection must not bounce
+	// the user past that into pages that would call the deleted host.
+	if (isDeletedCluster(context?.cluster)) {
+		return;
+	}
 	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
 	if (authStore.getConnectionById(params.clusterId).user && !isFabricConnect) {
 		const redirectTo = location?.search?.redirect;
@@ -67,11 +78,15 @@ export function redirectAwayFromSignInIfConnected(
 }
 
 export function redirectAwayFromInstanceSignInIfConnected(
-	{ location, params }: {
+	{ context, location, params }: {
+		context?: { cluster?: { status?: string; terminatedAt?: string } };
 		location?: { search?: { redirect?: string } };
 		params: { clusterId: string; instanceId: string };
 	},
 ) {
+	if (isDeletedCluster(context?.cluster)) {
+		return;
+	}
 	// Key off the instance's OWN state, mirroring the cluster guard. The parent cluster's Fabric Connect
 	// flag must not suppress the redirect for an instance that is directly connected in its own right.
 	const isFabricConnect = authStore.checkForFabricConnect(params.instanceId);

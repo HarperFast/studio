@@ -14,7 +14,7 @@ const password = process.env.PLAYWRIGHT_USER_PASSWORD;
 
 /**
  * Logs in through the real UI once and persists the session (the cookie set by
- * POST /Login/ — the localStorage `Studio:PotentiallyAuthenticated` flag is only
+ * POST /Login/ — the localStorage `Studio:PotentiallyAuthenticated:*` flags are only
  * a hint, so cookie-bearing storageState is what actually authenticates).
  *
  * Doubles as the sign-in happy-path smoke test.

@@ -43,6 +43,10 @@ vi.mock('../tabs/OverviewTab', () => ({
 	OverviewTab: () => <div data-testid="overview-content">overview content</div>,
 }));
 
+vi.mock('../../jobs/JobsTab', () => ({
+	JobsTab: () => <div data-testid="jobs-content">jobs content</div>,
+}));
+
 let currentSearch: Record<string, unknown> = {};
 const navigateMock = vi.fn(async (opts: { search?: unknown }) => {
 	if (typeof opts.search === 'object' && opts.search !== null) {
@@ -120,8 +124,8 @@ describe('StatusTabs capability gating (#1442)', () => {
 		mount();
 
 		expect(screen.getByTestId('overview-content')).toBeTruthy();
-		// The tab strip stays usable — all 7 tabs are present, not an error wall.
-		expect(screen.getAllByRole('tab')).toHaveLength(7);
+		// The tab strip stays usable — all 8 tabs are present, not an error wall.
+		expect(screen.getAllByRole('tab')).toHaveLength(8);
 		// Already on Overview: no redirect needed.
 		expect(navigateMock).not.toHaveBeenCalled();
 	});
@@ -135,7 +139,7 @@ describe('StatusTabs capability gating (#1442)', () => {
 			isFetching: false,
 			retry: vi.fn(),
 		};
-		currentSearch = { tab: 'health' };
+		currentSearch = { tab: 'health', refresh: 300_000, jobsRefresh: 30_000 };
 		await act(async () => {
 			mount();
 		});
@@ -143,7 +147,8 @@ describe('StatusTabs capability gating (#1442)', () => {
 		const lastCall = navigateMock.mock.calls.at(-1)?.[0] as
 			| { search?: Record<string, unknown>; replace?: boolean }
 			| undefined;
-		expect(lastCall?.search).toMatchObject({ tab: 'overview' });
+		// Both auto-refresh choices survive the redirect.
+		expect(lastCall?.search).toEqual({ tab: 'overview', range: '1h', refresh: 300_000, jobsRefresh: 30_000 });
 		expect(lastCall?.replace).toBe(true);
 	});
 
@@ -225,6 +230,34 @@ describe('StatusTabs capability gating (#1442)', () => {
 		expect(screen.queryByText('Analytics unavailable on this instance.')).toBeNull();
 		// Retry is still offered — re-auth then retry is the recovery path.
 		expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+	});
+
+	it('keeps a Jobs deep link on Jobs when the probe fails, since Jobs reads no analytics', async () => {
+		mockCapability = {
+			supported: false,
+			error: new Error('analytics exploded'),
+			isAuthError: false,
+			isLoading: false,
+			isFetching: false,
+			retry: vi.fn(),
+		};
+		currentSearch = { tab: 'jobs' };
+		await act(async () => {
+			mount();
+		});
+
+		expect(screen.getByTestId('jobs-content')).toBeTruthy();
+		expect(screen.queryByText('Analytics unavailable on this instance.')).toBeNull();
+		expect(navigateMock).not.toHaveBeenCalled();
+	});
+
+	it('renders Jobs immediately while the probe is still loading', () => {
+		mockCapability = { supported: false, isAuthError: false, isLoading: true, isFetching: true, retry: vi.fn() };
+		currentSearch = { tab: 'jobs' };
+		mount();
+
+		expect(screen.getByTestId('jobs-content')).toBeTruthy();
+		expect(screen.queryByText('Checking analytics availability…')).toBeNull();
 	});
 
 	it('renders Overview immediately while the probe is still loading', () => {

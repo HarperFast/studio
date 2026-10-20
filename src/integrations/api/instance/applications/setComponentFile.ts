@@ -1,7 +1,7 @@
-import { InstanceClientConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
-import { useMutation } from '@tanstack/react-query';
+import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { useMutation, UseMutationOptions } from '@tanstack/react-query';
 
-export interface SetComponentFileRequest extends InstanceClientConfig, InstanceTypeConfig {
+export interface SetComponentFileRequest extends InstanceClientIdConfig, InstanceTypeConfig {
 	file: string;
 	payload?: string;
 	project: string;
@@ -27,8 +27,11 @@ export async function setComponentFile({
 	return data;
 }
 
-export function useSetComponentFile() {
+export function useSetComponentFile(
+	options?: Pick<UseMutationOptions<unknown, Error, SetComponentFileRequest>, 'onSuccess' | 'mutationKey'>,
+) {
 	return useMutation({
 		mutationFn: setComponentFile,
+		...options,
 	});
 }

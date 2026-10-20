@@ -197,3 +197,36 @@ describe('DeployProgress warnings and rollout', () => {
 		expect(onNavigateAway).toHaveBeenCalledOnce();
 	});
 });
+
+describe('DeployProgress phases Harper passed over', () => {
+	const phaseRow = (label: string) => screen.getByText(label).closest('li')!;
+
+	// What an activation on Harper 5.3.2 streams: no Load, because the validation load was skipped.
+	it('shows a phase with no events as skipped once a later phase has reported', () => {
+		render(
+			<DeployProgress
+				state={deployedState({ phases: { prepare: 'done', replicate: 'done', restart: 'done', success: 'done' } })}
+			/>,
+		);
+		expect(phaseRow('Load').textContent).toBe('Loadskipped');
+		expect(phaseRow('Replicate').textContent).toBe('Replicate');
+	});
+
+	it('shows a deploy that did not restart as having skipped Restart', () => {
+		render(
+			<DeployProgress
+				state={deployedState({ phases: { prepare: 'done', load: 'done', replicate: 'done', success: 'done' } })}
+			/>,
+		);
+		expect(phaseRow('Restart').textContent).toBe('Restartskipped');
+	});
+
+	it('leaves the phases still to come as pending, not skipped', () => {
+		render(
+			<DeployProgress
+				state={{ lifecycle: 'streaming', phases: { prepare: 'done', load: 'start' }, installLog: [], peers: [] }}
+			/>,
+		);
+		expect(screen.queryByText('skipped')).toBeNull();
+	});
+});

@@ -1,9 +1,15 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
-import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	useRestartInstance,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { markRestarting } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -41,17 +47,27 @@ export function useRestartInstanceClick({
 		// target restarts whichever member the load balancer picked, so the cluster stays reachable.
 		const entityId = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 		const releaseTarget = operation === 'restart' && entityId
-			? markRestarting([entityId], { reach: targetNoun === 'Instance' ? 'down' : 'rolling', ttlMs: 5 * 60_000 })
+			? markRestarting([entityId], {
+				reach: targetNoun === 'Instance' ? 'down' : 'rolling',
+				ttlMs: RESTART_MARK_TTL_MS,
+			})
 			: undefined;
 		// Await the mutation directly rather than using the mutate() callbacks. Those callbacks are
 		// dropped if the component unmounts before the restart finishes (e.g. the user navigates to
 		// another tab while the instance comes back up), which would orphan the loading toast forever
 		// since sonner never auto-dismisses a loading toast. The awaited continuation runs regardless.
+		let holdUntilAnswering = false;
 		try {
 			await restartInstance({
 				operation,
 				replicated: operation === 'restart_service' && targetNoun === 'Cluster',
 				instanceClient,
+				onSlowToReturn: () =>
+					toast.loading('Still restarting', {
+						id: toastId,
+						description: `Harper accepted the restart, but the ${targetNoun.toLowerCase()} isn't back yet. `
+							+ 'Still waiting for it.',
+					}),
 			});
 			// Releasing a tracked target refetches its queries (`onRestartSettled`); invalidating it here
 			// too would cancel those refetches and resend them.
@@ -69,18 +85,28 @@ export function useRestartInstanceClick({
 				},
 			});
 			onRestartedSuccessfully?.();
-		} catch {
+		} catch (error) {
 			toast.dismiss(toastId);
-			toast.error('Error', {
-				description: `Failed to restart ${targetNoun.toLowerCase()}.`,
-				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
-				},
-			});
+			// A gateway can lose the answer to a restart that ran and took the target down mid-reply, so the
+			// mark holds until the target answers again, as it would after an accepted restart.
+			holdUntilAnswering = isUnansweredWrite(error);
+			if (shouldToastOwnFailure(error)) {
+				toast.error('Error', {
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			}
 		} finally {
-			// Released on failure too: once the restart has failed, the errors that follow are real.
-			releaseTarget?.();
+			if (releaseTarget && holdUntilAnswering) {
+				void waitUntilAnsweringAfterRestart({ instanceClient }).then(releaseTarget, releaseTarget);
+			} else {
+				// Released on failure too: once the restart has failed, or the watch for its target has given up,
+				// the errors that follow are real.
+				releaseTarget?.();
+			}
 		}
 	}, [
 		clusterId,

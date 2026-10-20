@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import { queryClient } from '@/react-query/queryClient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearAuthStateLocally } from './clearAuthStateLocally';
+import { clearAuthStateAfterSignOutElsewhere, clearAuthStateLocally } from './clearAuthStateLocally';
 import { logoutOnSuccess } from './logoutOnSuccess';
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
@@ -16,9 +17,46 @@ function seedSignedInTab() {
 	queryClient.getMutationCache().build(queryClient, { mutationKey: ['previous-user-mutation'] });
 }
 
+function localStorageKeys(): Array<string | null> {
+	return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+}
+
 function expectCachesEmpty() {
 	expect(queryClient.getQueryCache().getAll()).toEqual([]);
 	expect(queryClient.getMutationCache().getAll()).toEqual([]);
+}
+
+/**
+ * Another tab that missed the sign-out's `storage` event reloads: fresh modules over the shared localStorage, and its
+ * own sessionStorage, which still holds the explorer credential it stored before the sign-out.
+ */
+async function reloadTabHolding(explorerSettings: string): Promise<unknown> {
+	sessionStorage.setItem('ApiExplorerSettings', explorerSettings);
+	vi.resetModules();
+	const { authStore: reloaded } = await import('@/features/auth/store/authStore');
+	reloaded.installExplorerCrossTabCleanup()();
+	return JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? 'null');
+}
+
+/** Refuses every localStorage write while the filler is stored, as a full store does until the wipe removes it. */
+function fillStorageUntilTheWipe() {
+	localStorage.setItem('filler', 'the rest of the quota');
+	const setItem = Storage.prototype.setItem;
+	return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
+		if (this === localStorage && localStorage.getItem('filler') !== null) {
+			throw new DOMException('Storage is full.', 'QuotaExceededError');
+		}
+		setItem.call(this, key, value);
+	});
+}
+
+function announcedUsers(setItem: ReturnType<typeof vi.spyOn<Storage, 'setItem'>>): unknown[] {
+	const { calls, results } = setItem.mock;
+	return calls.flatMap(([key, value], index) =>
+		key === 'Studio:AppSignOut' && results[index]?.type === 'return'
+			? [(JSON.parse(value) as { user: unknown }).user]
+			: []
+	);
 }
 
 function failWith(name: string) {
@@ -51,8 +89,111 @@ describe.each(
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
 		expect(authStore.getConnectionById('ins-a').user).toBeNull();
 		expectCachesEmpty();
-		expect(localStorage.length).toBe(0);
+		// The migration flag holds no account data, and keeps a previous-release tab's write-back from being migrated.
+		expect(localStorageKeys().sort()).toEqual(['Studio:ExplorerAuthEpoch', 'Studio:PotentiallyAuthenticatedMigrated']);
 		expect(sessionStorage.length).toBe(0);
+	});
+
+	it.each([1, 2])(
+		'drops a credential stored before sign-out %i once a tab that missed the sign-out reloads',
+		async (signOuts) => {
+			for (let earlier = 1; earlier < signOuts; earlier++) {
+				seedSignedInTab();
+				await signOut();
+			}
+			const otherTabSettings = JSON.stringify({
+				'ins-a': {
+					method: 'bearer',
+					auth: { type: 'bearer', token: 'other-tab' },
+					authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+				},
+			});
+			seedSignedInTab();
+
+			await signOut();
+
+			expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+		},
+	);
+
+	it('drops that credential when storage is too full to record the sign-out until the wipe', async () => {
+		seedSignedInTab();
+		localStorage.setItem('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 2 }));
+		const otherTabSettings = JSON.stringify({
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'other-tab' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		});
+		fillStorageUntilTheWipe();
+
+		await signOut();
+		vi.restoreAllMocks();
+
+		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+	});
+
+	it('still writes the refused generation when a removal fails during the wipe', async () => {
+		seedSignedInTab();
+		localStorage.setItem('Studio:ExplorerAuthEpoch', JSON.stringify({ '*': 2 }));
+		const otherTabSettings = JSON.stringify({
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'other-tab' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		});
+		localStorage.setItem('Theme', 'dark');
+		fillStorageUntilTheWipe();
+		const refusal = new DOMException('Storage refused.', 'SecurityError');
+		const removeItem = Storage.prototype.removeItem;
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function(this: Storage, key) {
+			if (this === localStorage && key === 'Theme') {
+				throw refusal;
+			}
+			removeItem.call(this, key);
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		await signOut();
+		expect(consoleError).toHaveBeenCalledWith(refusal);
+		vi.restoreAllMocks();
+
+		expect(await reloadTabHolding(otherTabSettings)).toEqual({ 'ins-a': { method: 'bearer' } });
+	});
+
+	it('announces the sign-out after the wipe when a full store refused it', async () => {
+		seedSignedInTab();
+		const setItem = fillStorageUntilTheWipe();
+
+		await signOut();
+
+		expect(announcedUsers(setItem)).toEqual(['usr_a']);
+		expect(localStorage.getItem('Studio:AppSignOut')).toBeNull();
+	});
+
+	it('announces the sign-out once when storage has room', async () => {
+		seedSignedInTab();
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+
+		await signOut();
+
+		expect(announcedUsers(setItem)).toEqual(['usr_a']);
+	});
+
+	it('keeps a credential stored after the sign-out when that tab reloads', async () => {
+		seedSignedInTab();
+		await signOut();
+		const settings = {
+			'ins-a': {
+				method: 'bearer',
+				auth: { type: 'bearer', token: 'next-session' },
+				authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+			},
+		};
+
+		expect(await reloadTabHolding(JSON.stringify(settings))).toEqual(settings);
 	});
 
 	it('still wipes everything when every storage write throws', async () => {
@@ -70,13 +211,8 @@ describe.each(
 	it('still clears memory, the caches and sessionStorage when localStorage refuses removal', async () => {
 		seedSignedInTab();
 		const refusal = new DOMException('Storage refused.', 'SecurityError');
-		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(failWith('SecurityError'));
-		const clear = Storage.prototype.clear;
-		vi.spyOn(Storage.prototype, 'clear').mockImplementation(function(this: Storage) {
-			if (this === localStorage) {
-				throw refusal;
-			}
-			clear.call(this);
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw refusal;
 		});
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -100,7 +236,39 @@ describe.each(
 		await signOut();
 
 		expectCachesEmpty();
-		expect(localStorage.length).toBe(0);
+		expect(localStorageKeys()).toEqual(['Studio:PotentiallyAuthenticatedMigrated']);
+		expect(sessionStorage.length).toBe(0);
+		expect(consoleError).toHaveBeenCalledWith(failure);
+	});
+});
+
+describe('clearAuthStateAfterSignOutElsewhere', () => {
+	it('signs this tab out and wipes both caches and its sessionStorage, but leaves the shared localStorage', () => {
+		seedSignedInTab();
+		localStorage.clear();
+		seedSignInMarkers({ OverallAppSignIn });
+
+		clearAuthStateAfterSignOutElsewhere();
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(authStore.getConnectionById('ins-a').user).toBeNull();
+		expectCachesEmpty();
+		expect(sessionStorage.length).toBe(0);
+		expect(localStorage.length).toBe(1);
+		expect(storedSignInMarkers()).toEqual({ OverallAppSignIn });
+	});
+
+	it('still wipes the caches and sessionStorage when the store teardown throws', () => {
+		seedSignedInTab();
+		const failure = new Error('teardown failed');
+		vi.spyOn(authStore, 'forgetAppSignInEndedElsewhere').mockImplementation(() => {
+			throw failure;
+		});
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		clearAuthStateAfterSignOutElsewhere();
+
+		expectCachesEmpty();
 		expect(sessionStorage.length).toBe(0);
 		expect(consoleError).toHaveBeenCalledWith(failure);
 	});

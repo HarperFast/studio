@@ -1,4 +1,5 @@
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
+import { redirectAwayFromDeletedCluster } from '@/features/cluster/redirectAwayFromDeletedCluster';
 import { ClustersList as ClusterList } from '@/features/clusters/ClustersList';
 import { UpsertCluster } from '@/features/clusters/upsert';
 import { orgLayoutRoute } from '@/features/organization/routes';
@@ -27,6 +28,7 @@ const editClusterRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/edit',
 	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: UpsertCluster,
 });
 
@@ -34,6 +36,7 @@ const editClusterVersionRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/edit/$mode',
 	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
 	component: UpsertCluster,
 });
 

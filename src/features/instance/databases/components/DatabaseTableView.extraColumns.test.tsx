@@ -3,7 +3,7 @@
  */
 import { InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
@@ -36,7 +36,7 @@ const pageKey = (table: string | undefined, offset: number) => `${table}@${offse
 // undeclared properties included.
 vi.mock('@/config/useInstanceClient', () => {
 	const instanceClient = {
-		post: async (_url: string, body: SearchBody) => {
+		post: async (_url: string, body: SearchBody, config?: { responseType?: string }) => {
 			switch (body.operation) {
 				case 'describe_table':
 					return {
@@ -67,7 +67,8 @@ vi.mock('@/config/useInstanceClient', () => {
 						await new Promise<void>((resolve) => instance.held.set(key, resolve));
 					}
 					const records = instance.tables[body.table!] ?? [];
-					return { data: records.slice(offset, offset + (body.limit ?? 0)), status: 200 };
+					const page = records.slice(offset, offset + (body.limit ?? 0));
+					return { data: config?.responseType === 'text' ? JSON.stringify(page) : page, status: 200 };
 				}
 				default:
 					return { data: [], status: 200 };
@@ -191,5 +192,31 @@ describe('DatabaseTableView on records with properties the schema does not decla
 		await findCell('Ada');
 		expect(screen.getByRole('cell', { name: 'own value' })).toBeTruthy();
 		expect(screen.queryByText(/native code/)).toBeNull();
+	});
+
+	// The grid's extra columns describe one page; the file describes every record it holds.
+	it('exports a property only a record past the loaded page carries', async () => {
+		instance.tables.Thing = Array.from({ length: 25 }, (_, index) => ({
+			id: `t${index + 1}`,
+			name: `n${index + 1}`,
+			...(index === 22 ? { weight: 7 } : { color: 'red' }),
+		}));
+		const createObjectURL = vi.fn((_blob: Blob) => 'blob:export');
+		URL.createObjectURL = createObjectURL;
+		URL.revokeObjectURL ??= () => undefined;
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+		renderView();
+		await findCell('t1');
+		expect(headers()).not.toContain('weight');
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: /table options/i }), { button: 0, ctrlKey: false });
+		fireEvent.click(await screen.findByRole('menuitem', { name: 'Export CSV' }));
+		await waitFor(() => expect(click).toHaveBeenCalled());
+		click.mockRestore();
+
+		const lines = (await createObjectURL.mock.calls[0][0].text()).trimEnd().split('\n');
+		expect(lines[0]).toBe('"id","name","color","weight"');
+		expect(lines).toHaveLength(26);
+		expect(lines[23]).toBe('"t23","n23",,7');
 	});
 });

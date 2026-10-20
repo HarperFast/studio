@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { deleteAllMail, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
+import { deleteSessionAccount, signupApiBase } from './accountCleanup';
+import { deleteMailTo, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
@@ -46,14 +47,19 @@ test.describe('signup → email verification → login', () => {
 	// they don't have today — doubling the very cost this is meant to cap.
 	test.describe.configure({ retries: process.env.CI ? 1 : 0 });
 
+	const addressesUsed: string[] = [];
 	test.afterAll(async () => {
-		await deleteAllMail();
+		for (const address of addressesUsed) {
+			await deleteMailTo(address);
+		}
 	});
 
 	test('a new user can verify their email and sign in @roundtrip', async ({ page }) => {
 		const email = newTestEmailAddress();
+		addressesUsed.push(email);
 		const password = randomPassword();
 		const receivedAfter = new Date(Date.now() - 15_000);
+		let accountApiBase: URL | undefined;
 
 		// Wrap the WHOLE flow so cleanup runs even if an earlier step fails — otherwise a failure
 		// after signup but before the final assertions would leak a throwaway account.
@@ -69,7 +75,7 @@ test.describe('signup → email verification → login', () => {
 			await page.locator('#auth-signup-form').getByRole('checkbox').check();
 
 			const [signupResponse] = await Promise.all([
-				page.waitForResponse((r) => r.url().includes('/User/') && r.request().method() === 'POST'),
+				page.waitForResponse((r) => r.request().method() === 'POST' && signupApiBase(r.url()) !== undefined),
 				page.getByRole('button', { name: 'Sign Up For Free' }).click(),
 			]);
 
@@ -93,6 +99,7 @@ test.describe('signup → email verification → login', () => {
 				);
 			}
 			expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
+			accountApiBase = signupApiBase(signupResponse.url());
 
 			// 2. Success routes to the "check your email" screen for this address.
 			await page.waitForURL(/#\/verifying/, { timeout: 30_000 });
@@ -114,40 +121,29 @@ test.describe('signup → email verification → login', () => {
 			await expect(page).not.toHaveURL(/#\/verifying/);
 			await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		} finally {
-			// Best-effort cleanup on ANY exit. Self-delete needs a logged-in session, so a failure
-			// BEFORE login has no session and nothing to delete (no-op); a failure at/after login is
-			// still cleaned up. Never fails the test (see deleteThrowawayAccount).
-			await deleteThrowawayAccount(page);
+			// Runs on ANY exit once signup has created an account. Self-delete needs a logged-in
+			// session, so a failure BEFORE login cannot delete it and is reported as a leak too.
+			if (accountApiBase) {
+				await deleteThrowawayAccount(page, accountApiBase, email);
+			}
 		}
 	});
 });
 
 /**
  * Delete the throwaway account created above so the target environment doesn't accumulate
- * test users. Uses the logged-in session (page.request shares the browser context's cookies):
- * GET /User/current for the account id, then self-DELETE /User/{id} — allowed because the
- * account owns the session and, being brand-new (no org), isn't the last admin of anything.
- * Best-effort: a cleanup failure never fails the test.
+ * test users — allowed because the account owns the session (page.request shares the browser
+ * context's cookies) and, being brand-new (no org), isn't the last admin of anything.
+ *
+ * A failure is a soft assertion: it fails the test, naming the leaked address, without replacing
+ * whatever error the flow itself may already be throwing.
  */
-async function deleteThrowawayAccount(page: Page): Promise<void> {
+async function deleteThrowawayAccount(page: Page, apiBase: URL, email: string): Promise<void> {
 	try {
-		const meRes = await page.request.get('/User/current');
-		if (!meRes.ok()) {
-			console.warn(`[cleanup] GET /User/current -> ${meRes.status()}; leaving account`);
-			return;
-		}
-		const { id } = await meRes.json();
-		if (!id) {
-			console.warn('[cleanup] no account id on /User/current; leaving account');
-			return;
-		}
-		const delRes = await page.request.delete(`/User/${id}`);
-		if (delRes.ok()) {
-			console.log(`[cleanup] deleted throwaway account ${id}`);
-		} else {
-			console.warn(`[cleanup] DELETE /User/${id} -> ${delRes.status()}; leaving account`);
-		}
+		const id = await deleteSessionAccount(page.request, apiBase);
+		console.log(`[cleanup] deleted throwaway account ${id}`);
 	} catch (err) {
-		console.warn('[cleanup] account cleanup failed (non-fatal):', err);
+		expect.soft(err, `[cleanup] throwaway account ${email} was NOT deleted from ${apiBase.origin}; delete it by hand`)
+			.toBeUndefined();
 	}
 }

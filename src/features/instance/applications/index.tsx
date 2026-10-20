@@ -4,10 +4,11 @@ import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Navigate, useParams } from '@tanstack/react-router';
 import { cx } from 'class-variance-authority';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
-import { SidebarResizeHandle, useResizableSidebar } from './components/ApplicationsSidebar/SidebarResizeHandle';
+import { SidebarResizeHandle } from './components/ApplicationsSidebar/SidebarResizeHandle';
 import { ContentActions } from './components/ContentActions';
 import { ContentViewer } from './components/ContentViewer';
 import { EditorViewProvider } from './context/EditorViewProvider';
+import { useResizableApplicationsSidebar } from './hooks/useResizableApplicationsSidebar';
 import { AddDirectoryOrFileModal } from './modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from './modals/DeleteDirectoryOrFileModal';
 import { DownloadApplicationModal } from './modals/DownloadApplicationModal';
@@ -19,21 +20,20 @@ export function ApplicationsEditor() {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
 	const { toggle, toggled } = useSessionToggler('ApplicationsSidebarOpened', true);
-	const { width, isResizing, startResizing } = useResizableSidebar();
+	// The tray width is a CSS variable, on both the tray and the content pane, so the existing
+	// responsive/collapse classes (which can't be expressed inline) keep working while it is dynamic.
+	const { width, minWidth, maxWidth, isResizing, sidebarRef, startResizing, handleKeyDown } =
+		useResizableApplicationsSidebar();
 
 	if (!canManage) {
 		return <Navigate to={buildAbsoluteLinkToPage(params, 'databases')} />;
 	}
 
-	// Drive the tray width through a CSS variable so the existing responsive/collapse
-	// classes (which can't be expressed inline) keep working while the width is dynamic.
-	const sidebarWidthVar = { '--app-sidebar-width': `${width}px` } as React.CSSProperties;
-
 	return (
 		<EditorViewProvider>
 			<aside
 				id="file-explorer-sidebar"
-				style={sidebarWidthVar}
+				ref={sidebarRef}
 				className={cx(
 					'pt-[calc(--spacing(32))] w-[var(--app-sidebar-width)] fixed top-0 left-0 bottom-0 z-30',
 					'bg-violet-50 border-r border-violet-200 shadow shadow-black/10',
@@ -44,11 +44,18 @@ export function ApplicationsEditor() {
 				aria-label="Sidebar"
 			>
 				<ApplicationsSidebar />
-				<SidebarResizeHandle isResizing={isResizing} onMouseDown={startResizing} />
+				<SidebarResizeHandle
+					width={width}
+					minWidth={minWidth}
+					maxWidth={maxWidth}
+					isResizing={isResizing}
+					onPointerDown={startResizing}
+					onKeyDown={handleKeyDown}
+				/>
 			</aside>
 
 			<div
-				style={sidebarWidthVar}
+				ref={sidebarRef}
 				className={cx(
 					'applications-content',
 					'overflow-y-auto overflow-x-hidden',

@@ -19,6 +19,7 @@
  */
 import { apiClient } from '@/config/apiClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { encryptEnvelope } from '@/lib/crypto/envSecret';
 import { QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
@@ -54,10 +55,28 @@ export interface ListSecretsResponse {
 	custody_fingerprint: string | null;
 }
 
-/** Operations API errors carry the message in the response body; surface that, not the Axios noise. */
-function operationErrorMessage(error: unknown): string {
-	const body = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
-	return body?.error ?? body?.message ?? String(error);
+/** A secrets operation Harper rejected. Datadog withholds its message by this `name`. */
+export class SecretsOperationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'SecretsOperationError';
+	}
+}
+
+/**
+ * Operations API errors carry Harper's message in the response body; surface that, not the Axios
+ * noise. A failure with no such message (the network, a bug) is not Harper's text, so it stays as
+ * thrown and Error Tracking keeps its type and message. A write that got no verdict is rethrown as
+ * is too, even when a gateway body carries a message: re-wrapped, nothing downstream could say its
+ * outcome is unknown.
+ */
+function operationError(error: unknown): unknown {
+	if (isUnansweredWrite(error)) {
+		return error;
+	}
+	const body = (error as { response?: { data?: { error?: unknown; message?: unknown } } })?.response?.data;
+	const message = typeof body?.error === 'string' ? body.error : body?.message;
+	return typeof message === 'string' ? new SecretsOperationError(message) : error;
 }
 
 /**
@@ -163,15 +182,15 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 		});
 		return data;
 	} catch (error) {
-		const message = operationErrorMessage(error);
+		const failure = operationError(error);
 		// A kid mismatch means our cached public key is stale (the custody key rotated). Drop the
 		// cached key (ensureQueryData returns stale entries, so invalidation isn't enough) and
 		// re-encrypt once; anything else (or a second mismatch) surfaces to the caller.
-		if (!isRetry && isKidMismatchError(message)) {
+		if (!isRetry && failure instanceof SecretsOperationError && isKidMismatchError(failure.message)) {
 			queryClient.removeQueries({ queryKey: secretsPublicKeyQueryOptions(args).queryKey });
 			return encryptAndSetSecret(queryClient, args, true);
 		}
-		throw new Error(message);
+		throw failure;
 	}
 }
 
@@ -191,7 +210,7 @@ async function deleteSecret({ instanceClient, name }: DeleteSecretArgs): Promise
 		const { data } = await instanceClient.post('/', { operation: 'delete_secret', name });
 		return data;
 	} catch (error) {
-		throw new Error(operationErrorMessage(error));
+		throw operationError(error);
 	}
 }
 
@@ -218,7 +237,7 @@ async function mutateGrant(
 		const { data } = await instanceClient.post<GrantSecretResponse>('/', { operation, name, component });
 		return data;
 	} catch (error) {
-		throw new Error(operationErrorMessage(error));
+		throw operationError(error);
 	}
 }
 

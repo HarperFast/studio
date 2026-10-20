@@ -1,10 +1,25 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	copyEditorFileContent,
+	discardEditorFileContent,
+	editorFileContentKey,
+	readEditorFileContent,
+} from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import {
+	forgetDeletedPath,
+	forgetReplacedPath,
+	moveEditedPath,
+} from '@/features/instance/applications/lib/editorPathState';
+import { editorSavesInFlight, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { pluralize } from '@/lib/pluralize';
+import { describeError } from '@/react-query/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
 
@@ -16,6 +31,7 @@ export function useRenameFiles() {
 	} = useEditorView();
 
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 
 	return useCallback(async (changes: { from: string; to: string }[]): Promise<boolean> => {
 		let canceled = false;
@@ -23,6 +39,10 @@ export function useRenameFiles() {
 
 		if (actualChanges.length === 0) {
 			return true;
+		}
+		if (editorSavesInFlight(queryClient).some(saving => saving.entityId === instanceParams.entityId)) {
+			toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+			return false;
 		}
 
 		const toastTitle = `Renaming ${pluralize(actualChanges.length, 'File', 'Files')}`;
@@ -55,6 +75,7 @@ export function useRenameFiles() {
 			});
 		}
 
+		const endRename = startRename(instanceParams.entityId);
 		try {
 			for (const change of actualChanges) {
 				const oldParts = change.from.split('/');
@@ -82,30 +103,53 @@ export function useRenameFiles() {
 					encoding: 'base64',
 					payload: fileContents.message,
 				});
+				forgetReplacedPath(queryClient, instanceParams.entityId, change.to);
 				if (canceled) {
 					break;
 				}
 				stepForward();
 
-				await dropComponent({
-					...instanceParams,
-					file: oldFile,
-					project: oldProject,
-				});
+				copyEditorFileContent(instanceParams.entityId, change.from, change.to);
+				const destination = editorFileContentKey(instanceParams.entityId, change.to);
+				const copied = readEditorFileContent(destination);
+				// Edits typed into the destination while the drop was in flight are newer than the copy.
+				try {
+					await dropComponent({
+						...instanceParams,
+						file: oldFile,
+						project: oldProject,
+					});
+				} catch (error) {
+					if (!isUnansweredWrite(error) && readEditorFileContent(destination) === copied) {
+						discardEditorFileContent(instanceParams.entityId, change.to);
+					}
+					throw error;
+				}
+				if (readEditorFileContent(destination) === copied) {
+					moveEditedPath(queryClient, instanceParams.entityId, change.from, change.to);
+				} else {
+					forgetDeletedPath(queryClient, instanceParams.entityId, change.from);
+				}
 				if (canceled) {
 					break;
 				}
 				stepForward();
 			}
 		} catch (error) {
-			toast.error('Rename Failed', {
-				id: toastConfig.id,
+			const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+				title: 'Rename Failed',
 				description: error instanceof Error ? error.message : 'An unexpected error occurred while renaming.',
+			};
+			toast.error(title, {
+				id: toastConfig.id,
+				description,
 				duration: 10000,
 				action: { label: 'OK', onClick: () => undefined },
 			});
 			void reloadRootEntries();
 			return false;
+		} finally {
+			endRename();
 		}
 
 		if (currentStep >= totalSteps) {
@@ -161,5 +205,5 @@ export function useRenameFiles() {
 		// false when the user cancelled partway, so callers don't treat a partial
 		// move as a completed rename.
 		return currentStep >= totalSteps;
-	}, [instanceParams, reloadRootEntries, setFocusedItem, setSelectedItems]);
+	}, [instanceParams, queryClient, reloadRootEntries, setFocusedItem, setSelectedItems]);
 }

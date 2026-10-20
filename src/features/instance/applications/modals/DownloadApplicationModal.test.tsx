@@ -54,6 +54,7 @@ function mount(files: FileEntry[]) {
 		restrictPackageModification: false,
 		openedEntryContents: undefined,
 		setOpenedEntryContents: () => {},
+		openedEntryReadFailed: false,
 		focusedItem: undefined,
 		setFocusedItem: () => {},
 		expandedItems: [],
@@ -61,7 +62,9 @@ function mount(files: FileEntry[]) {
 		selectedItems: [],
 		setSelectedItems: () => {},
 		saveFile: () => {},
+		writeFile: () => Promise.resolve(),
 		isSavingFile: false,
+		isSavingAnyFile: false,
 	} as unknown as EditorViewContextValue;
 	return render(
 		<EditorViewContext.Provider value={value}>

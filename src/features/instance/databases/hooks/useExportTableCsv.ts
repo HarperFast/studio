@@ -1,6 +1,12 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { buildExportGetAttributes } from '@/features/instance/databases/functions/relationshipAttributes';
+import { declaredRelationships } from '@/features/instance/databases/functions/describedTable';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
+import {
+	buildExportGetAttributes,
+	exportedRecords,
+	tableCsvBlob,
+	tableCsvColumns,
+} from '@/features/instance/databases/functions/tableCsv';
 import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { getSearchByConditions, SearchCondition } from '@/integrations/api/instance/database/getSearchByConditions';
 import { getSearchByValue } from '@/integrations/api/instance/database/getSearchByValue';
@@ -18,7 +24,7 @@ interface ExportTableCsvParams {
 	conditions?: SearchCondition[] | null;
 	/** The user agreed that `conditions` may read every record. */
 	allowFullScan?: boolean;
-	/** Read with `include_computed`. */
+	/** Read with `include_computed`: its attributes are the file's first columns, in this order. */
 	instanceTable?: InstanceTable;
 	databaseTables?: InstanceDatabaseTableMap;
 }
@@ -26,7 +32,8 @@ interface ExportTableCsvParams {
 /**
  * Shared "download this table as CSV" plumbing, lifted out of the table view so both the right-pane
  * toolbar (which passes the active filters/sort) and the tree context menu (which exports the whole
- * table) can trigger it. Fetches every row with an `Accept: text/csv` header and downloads the blob.
+ * table) can trigger it. Reads every matching record as JSON in one request and writes the CSV
+ * here, so that it holds every property any of them carries (see DESIGN.md).
  */
 export function useExportTableCsv() {
 	const instanceParams = useInstanceClientIdParams();
@@ -45,18 +52,6 @@ export function useExportTableCsv() {
 			const id = toast.loading('Loading CSV...');
 			setIsExporting(true);
 			try {
-				let getAttributes = buildExportGetAttributes(instanceTable, databaseTables);
-				if (getAttributes) {
-					// Describe can report a declared relationship as a plain attribute, and naming one resolves it.
-					const schemaRelationshipMap = await queryClient.fetchQuery(
-						getSchemaRelationshipsQueryOptions(instanceParams),
-					);
-					getAttributes = buildExportGetAttributes(
-						instanceTable,
-						databaseTables,
-						schemaRelationshipMap[databaseName]?.[tableName],
-					);
-				}
 				const base = {
 					...instanceParams,
 					databaseName,
@@ -65,15 +60,28 @@ export function useExportTableCsv() {
 					pageIndex: 0,
 					pageSize: 1_000_000,
 					onlyIfCached: false,
-					getAttributes,
-					headers: { Accept: 'text/csv' },
+					getAttributes: buildExportGetAttributes(instanceTable),
+					// Parsed here, so an integer too large for a double keeps its digits.
+					responseType: 'text' as const,
 				};
-				const response = await (conditions?.length
-					? getSearchByConditions({ ...base, conditions, allowFullScan })
-					: getSearchByValue({ ...base, searchAttribute: primaryKey }));
-				toast.loading('Preparing CSV...', { id });
-				const content = response.data as unknown as string;
-				const blob = new Blob([content], { type: 'text/csv' });
+				const [records, schemaRelationshipMap] = await Promise.all([
+					// Parsed where it arrives, so nothing holds the response text once the records exist.
+					(conditions?.length
+						? getSearchByConditions<unknown>({ ...base, conditions, allowFullScan })
+						: getSearchByValue<unknown>({ ...base, searchAttribute: primaryKey })).then(({ data }) => {
+							toast.loading('Preparing CSV...', { id });
+							return exportedRecords(data);
+						}),
+					// Describe can report a declared relationship as a plain attribute; it stays out of the file.
+					queryClient.fetchQuery(getSchemaRelationshipsQueryOptions(instanceParams)),
+				]);
+				const columns = tableCsvColumns(
+					records,
+					instanceTable,
+					databaseTables,
+					declaredRelationships(schemaRelationshipMap, databaseName, tableName),
+				);
+				const blob = tableCsvBlob(records, columns);
 				const url = URL.createObjectURL(blob);
 				const downloadLink = document.createElement('a');
 				downloadLink.href = url;

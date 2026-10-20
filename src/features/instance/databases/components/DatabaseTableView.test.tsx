@@ -19,17 +19,15 @@ const permissionState = vi.hoisted(() => ({
 	canDeleteRecords: true,
 }));
 
-vi.mock('@tanstack/react-router', () => {
-	// Stable references: the component keys effects off these objects' identity, and the real
-	// router hooks only produce a new one when params/search actually change.
-	const params = {};
-	const search = {};
-	return {
-		useParams: () => params,
-		useSearch: () => search,
-		Link: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-	};
-});
+// Stable references: the component keys effects off these objects' identity, and the real
+// router hooks only produce a new one when params/search actually change.
+const routerState = vi.hoisted(() => ({ params: {} as Record<string, string>, search: {} }));
+
+vi.mock('@tanstack/react-router', () => ({
+	useParams: () => routerState.params,
+	useSearch: () => routerState.search,
+	Link: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
 
 const instanceClientState = vi.hoisted(() => ({ entityId: 'instance-1' }));
 
@@ -41,8 +39,15 @@ vi.mock('@/config/useInstanceClient', () => ({
 	}),
 }));
 
+const staffState = vi.hoisted(() => ({ isInstanceOperator: false }));
+
 vi.mock('@/hooks/useAuth', () => ({
-	useStaffPermission: () => false,
+	useStaffPermission: () => staffState.isInstanceOperator,
+}));
+
+const cleanupOrphanBlobs = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false }));
+vi.mock('@/integrations/api/instance/database/cleanupOrphanBlobs', () => ({
+	useCleanupOrphanBlobsMutation: () => ({ mutate: cleanupOrphanBlobs.mutate, isPending: cleanupOrphanBlobs.isPending }),
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({
@@ -168,8 +173,15 @@ afterEach(() => {
 	editorProps.syntheticAttributes = undefined;
 	watchedValues.calls = [];
 	deleteRecords.mutate.mockReset();
+	cleanupOrphanBlobs.mutate.mockReset();
+	cleanupOrphanBlobs.isPending = false;
+	routerState.params = {};
+	staffState.isInstanceOperator = false;
 	vi.restoreAllMocks();
 });
+
+const question = (name: string | RegExp) => screen.queryByRole('alertdialog', { name });
+const answer = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 
 const dogTable = {
 	attributes: [{ attribute: 'id', type: 'string', is_primary_key: true, indexed: true }],
@@ -355,12 +367,15 @@ describe('DatabaseTableView bulk delete', () => {
 	});
 
 	it('deletes every selected key once confirmed, then clears the selection', () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 		renderView();
 		selectRecords(['abc', 'def']);
 
 		fireEvent.click(deleteSelectedButton()!);
+		expect(deleteRecords.mutate).not.toHaveBeenCalled();
+		expect(question('Delete 2 records from "dog"?')).not.toBeNull();
+		answer('Delete');
 
+		expect(question(/^Delete/)).toBeNull();
 		expect(deleteRecords.mutate).toHaveBeenCalledTimes(1);
 		const [payload, handlers] = deleteRecords.mutate.mock.calls[0];
 		// Raw primary-key values, not stringified row ids -- `delete` addresses records by the value
@@ -373,12 +388,13 @@ describe('DatabaseTableView bulk delete', () => {
 	});
 
 	it('does not delete anything when the confirmation is declined', () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(false);
 		renderView();
 		selectRecords(['abc']);
 
 		fireEvent.click(deleteSelectedButton()!);
+		answer('Cancel');
 
+		expect(question(/^Delete/)).toBeNull();
 		expect(deleteRecords.mutate).not.toHaveBeenCalled();
 		// The selection survives a declined confirmation -- the user backed out of the delete, not
 		// out of the rows they had picked.
@@ -396,7 +412,6 @@ describe('DatabaseTableView selection scope', () => {
 	const deleteSelectedButton = () => screen.queryByRole('button', { name: /Delete Selected/ });
 
 	it('arms the delete with every key the grid reports as selectable', () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 		renderView();
 
 		// Select-all hands the grid's page keys straight through, so the delete is aimed at the same
@@ -405,6 +420,7 @@ describe('DatabaseTableView selection scope', () => {
 		expect(deleteSelectedButton()!.textContent).toContain('Delete Selected (3)');
 
 		fireEvent.click(deleteSelectedButton()!);
+		answer('Delete');
 
 		expect(deleteRecords.mutate.mock.calls[0][0]).toMatchObject({ hashValues: [1, 2, 3] });
 
@@ -472,13 +488,13 @@ describe('DatabaseTableView selection scope', () => {
 	it('reports a delete the server only partly applied instead of claiming success', () => {
 		// `delete` answers 200 while naming the records it couldn't address. Reporting that as a clean
 		// success is what #1643 was about on the update path.
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 		const warned = vi.spyOn(toast, 'error').mockImplementation(() => '');
 		const succeeded = vi.spyOn(toast, 'success').mockImplementation(() => '');
 		renderView();
 		act(() => tableViewSelection.current!.toggleAll(['a', 'b'], true));
 
 		fireEvent.click(deleteSelectedButton()!);
+		answer('Delete');
 		act(() => deleteRecords.mutate.mock.calls[0][1].onSuccess({ deleted_hashes: ['a'], skipped_hashes: ['b'] }));
 
 		expect(succeeded).not.toHaveBeenCalled();
@@ -486,13 +502,13 @@ describe('DatabaseTableView selection scope', () => {
 	});
 
 	it('treats an unreadable delete answer as unproven rather than successful', () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 		const warned = vi.spyOn(toast, 'error').mockImplementation(() => '');
 		const succeeded = vi.spyOn(toast, 'success').mockImplementation(() => '');
 		renderView();
 		act(() => tableViewSelection.current!.toggleRow('a'));
 
 		fireEvent.click(deleteSelectedButton()!);
+		answer('Delete');
 		// Present but not an array: that responder does answer `delete`, and its answer is unreadable.
 		act(() => deleteRecords.mutate.mock.calls[0][1].onSuccess({ skipped_hashes: null }));
 
@@ -525,7 +541,6 @@ describe('DatabaseTableView selection follows the rows on screen', () => {
 	});
 
 	it('deletes only the keys still on the page', () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 		const { rerender } = renderView({ rows: [{ id: 'abc' }, { id: 'def' }] });
 		act(() => tableViewSelection.current!.toggleAll(['abc', 'def'], true));
 		expect(deleteSelectedButton()!.textContent).toContain('Delete Selected (2)');
@@ -539,6 +554,7 @@ describe('DatabaseTableView selection follows the rows on screen', () => {
 		expect(deleteSelectedButton()!.textContent).toContain('Delete Selected (1)');
 
 		fireEvent.click(deleteSelectedButton()!);
+		answer('Delete');
 
 		// 'abc' is still in the stored set, but it is no longer a row anyone can see.
 		expect(deleteRecords.mutate.mock.calls[0][0]).toMatchObject({ hashValues: ['def'] });
@@ -596,5 +612,99 @@ describe('DatabaseTableView row editor write exclusions', () => {
 		};
 		renderAlbums();
 		expect(editorProps.syntheticAttributes).toEqual(['tracks']);
+	});
+});
+
+describe('DatabaseTableView asking before an action', () => {
+	it('cleans up orphan blobs only after the user agrees, once', () => {
+		staffState.isInstanceOperator = true;
+		routerState.params = { instanceId: 'instance-1' };
+		renderView();
+
+		openTableOptions();
+		fireEvent.click(screen.getByRole('menuitem', { name: 'Cleanup Orphan Blobs' }));
+		expect(question('Clean up orphan blobs?')).not.toBeNull();
+		answer('Cancel');
+		expect(cleanupOrphanBlobs.mutate).not.toHaveBeenCalled();
+		// Opened from a menu: closing it must not leave the page unclickable.
+		expect(document.body.style.pointerEvents).not.toBe('none');
+
+		openTableOptions();
+		fireEvent.click(screen.getByRole('menuitem', { name: 'Cleanup Orphan Blobs' }));
+		answer('Clean Up');
+
+		expect(cleanupOrphanBlobs.mutate).toHaveBeenCalledTimes(1);
+		expect(cleanupOrphanBlobs.mutate.mock.calls[0][0]).toMatchObject({ databaseName: 'data' });
+		expect(document.body.style.pointerEvents).not.toBe('none');
+	});
+
+	it('does not ask again while a cleanup is already running', () => {
+		staffState.isInstanceOperator = true;
+		routerState.params = { instanceId: 'instance-1' };
+		cleanupOrphanBlobs.isPending = true;
+		renderView();
+
+		openTableOptions();
+		const cleanup = screen.getByRole('menuitem', { name: 'Cleanup Orphan Blobs' });
+		expect(cleanup.getAttribute('aria-disabled')).toBe('true');
+		fireEvent.click(cleanup);
+		fireEvent.keyDown(cleanup, { key: 'Enter' });
+
+		expect(question('Clean up orphan blobs?')).toBeNull();
+		expect(cleanupOrphanBlobs.mutate).not.toHaveBeenCalled();
+	});
+
+	// The view stays mounted when the route moves to another table, so a question asked about one
+	// must not be answerable once the view shows the other.
+	it('drops a question once the view is showing another table, and does not bring it back', () => {
+		staffState.isInstanceOperator = true;
+		routerState.params = { instanceId: 'instance-1' };
+		const { rerender } = renderView();
+		const show = (databaseName: string, tableName: string) =>
+			rerender(
+				<QueryClientProvider client={new QueryClient()}>
+					<DatabaseTableView databaseName={databaseName} tableName={tableName} />
+				</QueryClientProvider>,
+			);
+		const ask = () => {
+			openTableOptions();
+			fireEvent.click(screen.getByRole('menuitem', { name: 'Cleanup Orphan Blobs' }));
+			expect(question('Clean up orphan blobs?')).not.toBeNull();
+		};
+
+		ask();
+		show('data', 'cat');
+		expect(question('Clean up orphan blobs?')).toBeNull();
+		show('data', 'dog');
+		expect(question('Clean up orphan blobs?')).toBeNull();
+
+		ask();
+		show('other', 'dog');
+		expect(question('Clean up orphan blobs?')).toBeNull();
+		show('data', 'dog');
+
+		ask();
+		instanceClientState.entityId = 'instance-2';
+		show('data', 'dog');
+		expect(question('Clean up orphan blobs?')).toBeNull();
+		expect(cleanupOrphanBlobs.mutate).not.toHaveBeenCalled();
+	});
+
+	it('drops the delete question once its rows leave the screen', () => {
+		const { rerender } = renderView({ rows: [{ id: 'abc' }, { id: 'def' }] });
+		act(() => tableViewSelection.current!.toggleRow('abc'));
+		fireEvent.click(screen.getByRole('button', { name: /Delete Selected/ }));
+		expect(question('Delete 1 record from "dog"?')).not.toBeNull();
+
+		// A focus refetch, or another writer's record, moving the row onto the next page.
+		pageRows.current = [{ id: 'def' }, { id: 'ghi' }];
+		rerender(
+			<QueryClientProvider client={new QueryClient()}>
+				<DatabaseTableView databaseName="data" tableName="dog" />
+			</QueryClientProvider>,
+		);
+
+		expect(question(/^Delete/)).toBeNull();
+		expect(deleteRecords.mutate).not.toHaveBeenCalled();
 	});
 });

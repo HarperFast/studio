@@ -6,6 +6,7 @@ import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/g
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { JobsTab } from '../jobs/JobsTab';
 import { type StatusTabId, validateStatusSearch } from '../statusSearch';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint';
 import { TimeRangePicker } from './components/TimeRangePicker';
@@ -35,9 +36,13 @@ const TAB_DEFS = [
 	{ id: 'replication', label: 'Replication' },
 	{ id: 'storage', label: 'Storage' },
 	{ id: 'overview', label: 'Overview' },
+	{ id: 'jobs', label: 'Jobs' },
 ] as const satisfies readonly { id: StatusTabId; label: string }[];
 
 type TabId = StatusTabId;
+
+/** Tabs that read no `get_analytics` data, so the capability probe neither gates nor redirects them. */
+const ANALYTICS_FREE_TABS: ReadonlySet<TabId> = new Set(['overview', 'jobs']);
 
 export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 	// The capability probe only gates the analytics-backed chart tabs —
@@ -106,7 +111,10 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 	// only narrows the `strict: false` typing to the same single source of
 	// truth (statusSearch.ts) instead of hand-rolled casts.
 	const raw = useSearch({ strict: false });
-	const { tab, range: presetId, refresh: refreshMs } = validateStatusSearch(raw as Record<string, unknown>);
+	// `jobsRefresh` is only Jobs' own interval; every navigation here passes it through unchanged.
+	const { tab, range: presetId, refresh: refreshMs, jobsRefresh } = validateStatusSearch(
+		raw as Record<string, unknown>,
+	);
 
 	// The analytics window is a fixed [start, end] snapshot baked into every
 	// panel's query key, so "refresh" means sliding the window forward to a
@@ -155,16 +163,16 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 	}, [refreshMs, refresh, queryClient, tick, instanceParams.entityId]);
 
 	const updatePreset = useCallback((id: TimePresetId) => {
-		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs } });
-	}, [navigate, tab, refreshMs]);
+		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs, jobsRefresh } });
+	}, [navigate, tab, refreshMs, jobsRefresh]);
 
 	const updateTab = useCallback((id: TabId) => {
-		void navigate({ to: '.', search: { tab: id, range: presetId, refresh: refreshMs } });
-	}, [navigate, presetId, refreshMs]);
+		void navigate({ to: '.', search: { tab: id, range: presetId, refresh: refreshMs, jobsRefresh } });
+	}, [navigate, presetId, refreshMs, jobsRefresh]);
 
 	const updateRefreshMs = useCallback((ms: number) => {
-		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms } });
-	}, [navigate, tab, presetId]);
+		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms, jobsRefresh } });
+	}, [navigate, tab, presetId, jobsRefresh]);
 
 	// When the probe fails while a chart tab is selected, land on Overview so
 	// the page opens on live data instead of an error. One-shot per failure —
@@ -179,10 +187,14 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		}
 		if (landedOnOverviewRef.current) { return; }
 		landedOnOverviewRef.current = true;
-		if (tab !== 'overview') {
-			void navigate({ to: '.', search: { tab: 'overview', range: presetId, refresh: refreshMs }, replace: true });
+		if (!ANALYTICS_FREE_TABS.has(tab)) {
+			void navigate({
+				to: '.',
+				search: { tab: 'overview', range: presetId, refresh: refreshMs, jobsRefresh },
+				replace: true,
+			});
 		}
-	}, [capability.error, tab, navigate, presetId, refreshMs]);
+	}, [capability.error, tab, navigate, presetId, refreshMs, jobsRefresh]);
 
 	// The window snapshot lives in its own memo keyed ONLY on the preset and
 	// the refresh tick. Nothing else may mint a new window: it is baked into
@@ -209,7 +221,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		syncId: `${instanceParams.entityId}:${tab}`,
 	}), [timeRange, bucketMs, instanceParams, tab]);
 
-	const showTimePicker = tab !== 'overview';
+	const showTimePicker = !ANALYTICS_FREE_TABS.has(tab);
 	const picker = showTimePicker
 		? (
 			<TimeRangePicker
@@ -242,10 +254,10 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		<AnalyticsProvider value={ctxValue}>
 			<Tabs value={tab} onValueChange={(v) => updateTab(v as TabId)} className="px-4 py-2">
 				{
-					/* Hint applies to chart interactions; hide it on Overview which
-				    has none of those affordances. */
+					/* Hint applies to chart interactions; hide it on the tabs that
+				    have none of those affordances. */
 				}
-				{tab !== 'overview' && !capability.isLoading && !capability.error && <AnalyticsOnboardingHint />}
+				{!ANALYTICS_FREE_TABS.has(tab) && !capability.isLoading && !capability.error && <AnalyticsOnboardingHint />}
 				{
 					/*
 					 * Tab strip layout:
@@ -292,6 +304,9 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 				</TabsContent>
 				<TabsContent value="overview">
 					<OverviewTab instanceParams={instanceParams} isLocalStudio={isLocalStudio} />
+				</TabsContent>
+				<TabsContent value="jobs">
+					<JobsTab instanceParams={instanceParams} />
 				</TabsContent>
 			</Tabs>
 		</AnalyticsProvider>

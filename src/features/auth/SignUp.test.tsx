@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,11 +47,15 @@ import {
 	SERVER_UNAVAILABLE_MESSAGE,
 	TOO_MANY_ATTEMPTS_MESSAGE,
 } from './describeAuthFailure';
+import { OFFLINE_MESSAGE } from './failFastOffline';
+import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
 	return { isAxiosError: true, response: { status, data } } as AxiosError;
 }
+
+type Settlers = { resolve: (value: unknown) => void; reject: (reason: unknown) => void };
 
 // Fresh per test, so nothing leaks between them.
 const UNPAIRED_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -89,11 +93,46 @@ beforeEach(() => {
 	captchaState.configured = true;
 	captchaState.token = undefined;
 	captchaState.mints = [];
+	clearCaptchaFailures();
 });
 
 afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
+	it('stops names at their limits but lets an email or a password run long', () => {
+		renderSignUp();
+		const maxLengthOf = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).maxLength;
+
+		expect(maxLengthOf('First Name')).toBe(40);
+		expect(maxLengthOf('Last Name')).toBe(80);
+		expect(maxLengthOf('Email')).toBe(-1);
+		expect(maxLengthOf('Password')).toBe(-1);
+		expect(maxLengthOf('Confirm Password')).toBe(-1);
+	});
+
+	it('refuses a password longer than central manager accepts before sending it', async () => {
+		renderSignUp();
+		fillValidForm();
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(257) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(257) } });
+		submit();
+
+		expect(await screen.findByText('Password cannot be longer than 256 characters.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('sends a password right at central manager’s limit', async () => {
+		post.mockResolvedValue({ data: { id: 'usr-1', email: 'taken@example.com' } });
+		renderSignUp();
+		fillValidForm();
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(256) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(256) } });
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		expect(post.mock.calls[0][1]).toMatchObject({ password: 'p'.repeat(256) });
+	});
+
 	it('reveals each password independently without submitting or losing field values', () => {
 		renderSignUp();
 		const password = screen.getByLabelText('Password') as HTMLInputElement;
@@ -220,6 +259,41 @@ describe('SignUp', () => {
 		consoleError.mockRestore();
 	});
 
+	it('does not report a CAPTCHA rejection, which the form states inline', async () => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(consoleError).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	// central-manager answers an existing address with the uniform 202 now (#630), so a 409 here
+	// is no longer the expected conflict.
+	it.each([
+		[403, 'Sign-up is not available for this email domain'],
+		[400, 'First name is invalid'],
+		[409, 'User already exists'],
+		[500, undefined],
+	])('still reports a %i to telemetry exactly once', async (status, data) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(axiosError(status, data));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(consoleError).toHaveBeenCalledTimes(1);
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ response: { status, data } }));
+		consoleError.mockRestore();
+	});
+
 	// Documents a real defect (#1677), not desired behavior: the server failure outlives a resubmit
 	// the resolver rejected, so it sits next to a contradicting field error. `post` is asserted at
 	// one call to prove the second submit really was rejected client-side rather than re-failing.
@@ -274,6 +348,46 @@ describe('SignUp', () => {
 		settle!();
 		await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
 	});
+
+	it('says when a name reaches its limit, and when a paste was cut, but never on the email or a password', async () => {
+		renderSignUp();
+		const descriptionOf = (label: string) =>
+			screen.getByLabelText(label).getAttribute('aria-describedby')!.split(' ')
+				.map(id => document.getElementById(id)?.textContent).join(' ').trim();
+
+		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(39) } });
+		fireEvent.paste(screen.getByLabelText('Last Name'), { clipboardData: { getData: () => 'l'.repeat(312) } });
+		fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'l'.repeat(80) } });
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: `${'e'.repeat(300)}@example.com` } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'p'.repeat(300) } });
+		fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'p'.repeat(300) } });
+
+		expect(descriptionOf('First Name')).toBe('');
+		fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'A'.repeat(40) } });
+		expect(descriptionOf('First Name')).toBe('Maximum 40 characters reached.');
+		await waitFor(() =>
+			expect(descriptionOf('Last Name')).toBe(
+				'Maximum 80 characters reached. Pasted text was 312 characters; only the first 80 fit.',
+			)
+		);
+		expect(descriptionOf('Email')).toBe('');
+		expect(descriptionOf('Password')).toBe('');
+		expect(descriptionOf('Confirm Password')).toBe('');
+		expect(document.querySelectorAll('[data-slot="form-length-hint"]')).toHaveLength(2);
+	});
+
+	it('lets an over-long email be typed in full and refuses it before sending, as it does a password', async () => {
+		renderSignUp();
+		fillValidForm();
+		const email = screen.getByLabelText('Email') as HTMLInputElement;
+		const address = `${'u'.repeat(69)}@example.com`;
+		fireEvent.change(email, { target: { value: address } });
+		submit();
+
+		expect(email.value).toHaveLength(81);
+		expect(await screen.findByText('Email cannot be longer than 80 characters.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
+	});
 });
 
 describe('SignUp — reCAPTCHA', () => {
@@ -312,9 +426,8 @@ describe('SignUp — reCAPTCHA', () => {
 		fillValidForm();
 		submit();
 
-		await waitFor(() =>
-			expect(screen.getByRole('alert').textContent).toContain('Verification failed. Please try again.')
-		);
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHALLENGE_FAILED));
+		expect(screen.getByRole('alert').textContent).toContain('sign up with Google or GitHub above');
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
@@ -332,8 +445,8 @@ describe('SignUp — reCAPTCHA', () => {
 		submit();
 		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
 		expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toContain('mailto:');
-		// Pins the space a formatter can silently eat, producing "again.Contact us".
-		expect(screen.getByRole('alert').textContent).toContain('again. Contact us if this keeps happening.');
+		// Pins the space a formatter can silently eat, producing "check.Contact us".
+		expect(screen.getByRole('alert').textContent).toContain('check. Contact us if this keeps happening.');
 	});
 
 	it('drops the support offer once a failure is not the CAPTCHA', async () => {
@@ -382,5 +495,89 @@ describe('SignUp — reCAPTCHA', () => {
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
 		expect(captchaState.mints).toEqual(['signup', 'signup']);
 		expect(post.mock.calls[1][1]).toMatchObject({ captchaToken: 'second-token' });
+	});
+
+	it.each([
+		['a success', 'success', (settle: Settlers) => settle.resolve({ data: 'Check your email to continue signing up' })],
+		['a non-CAPTCHA failure', 'error', (settle: Settlers) => settle.reject(axiosError(500))],
+	])('starts the shared refusal count over after %s that lands once the form unmounted', async (
+		_label,
+		status,
+		settleWith,
+	) => {
+		captchaState.token = 'rejected-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+
+		const { unmount } = renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+		let settlers: Settlers | undefined;
+		post.mockReturnValueOnce(new Promise((resolve, reject) => (settlers = { resolve, reject })));
+		submit();
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		unmount();
+		settleWith(settlers!);
+		await waitFor(() => expect(queryClient.getMutationCache().getAll().at(-1)?.state.status).toBe(status));
+		consoleError.mockRestore();
+
+		const nextForm = renderHook(() => useCaptchaChallenge('forgot_password'));
+		act(() => {
+			nextForm.result.current.describeCaptchaError(axiosError(403, 'Verification failed'));
+		});
+		expect(nextForm.result.current.supportSuggested).toBe(false);
+	});
+});
+
+describe('SignUp — offline', () => {
+	afterEach(() => {
+		onlineManager.setOnline(true);
+		vi.restoreAllMocks();
+	});
+
+	it('says it is offline and re-enables the form instead of hanging, without blaming a VPN', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError);
+		onlineManager.setOnline(false);
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+		expect(screen.getByRole('alert').textContent).not.toMatch(/VPN|proxy|ad blocker/);
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Sign Up For Free' }).hasAttribute('disabled')).toBe(false)
+		);
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
+	});
+
+	it('keeps the refusal count across an offline submit, so the next refusal still offers support', async () => {
+		captchaState.token = 'human-token';
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHALLENGE_FAILED));
+
+		onlineManager.setOnline(false);
+		post.mockRejectedValueOnce({ isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' } as AxiosError);
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(OFFLINE_MESSAGE));
+
+		onlineManager.setOnline(true);
+		post.mockRejectedValueOnce(axiosError(403, 'Verification failed'));
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
+		expect(post).toHaveBeenCalledTimes(3);
 	});
 });

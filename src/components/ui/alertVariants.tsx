@@ -9,7 +9,7 @@ export const alertVariants = cva(
 				destructive:
 					'text-destructive bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
 				warning:
-					'border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400',
+					'border-amber-700 dark:border-amber-500 bg-amber-500/10 text-foreground [&>svg]:text-amber-700 dark:[&>svg]:text-amber-400 *:data-[slot=alert-description]:text-foreground',
 			},
 		},
 		defaultVariants: {

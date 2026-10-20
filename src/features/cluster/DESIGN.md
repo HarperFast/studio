@@ -31,6 +31,15 @@ in a 400 ([HarperFast/studio#1784](https://github.com/HarperFast/studio/issues/1
 "Copied" is the new instance's whole-disk usage, and "expected" is the source's usage when the copy started. The ratio
 can therefore pass 100% or plateau below it, which is why it is clamped and both figures are labelled `~`.
 
+Both figures are fractional. Host manager reports each instance's usage every 90 seconds, in base-10 GB to four decimal
+places
+([`monitoringController.js#L421-L423`](https://github.com/HarperDB/host-manager/blob/b4ab9ada5324bde2e26f9b79c9291b7266d091e6/src/controllers/monitoringController.js#L421-L423)),
+and central manager stores any growth over 10 MB
+([`cloneProgress.js#L75-L80`](https://github.com/HarperFast/central-manager/blob/63bba08b68f26111223d294273af6aaa9ef191bb/src/lib/cloneProgress.js#L75-L80)).
+So the caption shows a copy under 1 GB in MB rather than rounding it to `~0 GB`, and hides an amount that would still
+read as `~0`. In practice that is the 0 central manager stamps on entry to `CLONE_READY`, which stays until the first
+report over 10 MB ([HarperFast/studio#1925](https://github.com/HarperFast/studio/issues/1925)).
+
 There is no "stalled" or "host not reporting" state. Telling those apart needs the host's last report time, which CM
 does not expose.
 
@@ -58,6 +67,51 @@ page for anything else. Handle it there, not per page: every page under the rout
 The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING` one to Scaling for every viewer, so a
 non-admin on a new cluster lands on that message instead of a dead card
 ([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
+
+## A terminated cluster keeps only its overview and usage
+
+Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`
+([`clusterStatuses.ts`](../../config/clusterStatuses.ts)) is the one test for "gone": `TERMINATING`, `TERMINATED` or
+`REMOVED`, or `FAILED` with `terminatedAt` (a first build that was rolled back). For such a cluster the overview says it
+is gone, and the cluster rail ([`ClusterPageLayout`](components/ClusterPageLayout.tsx)) keeps only Overview, plus Usage
+on a managed cluster (a self-hosted one never shows Usage). Scaling (Configuration when self-hosted), Version, Domains
+and Instances are hidden, the same way the rail already hides what a member's permissions don't allow. A bookmark to one
+of those pages, or to the `/scaling` update screen, redirects to the overview (`redirectAwayFromDeletedCluster`).
+So does one to the in-cluster pages (apps, databases, APIs, operations, status, logs and config, for the cluster and for
+each instance): their shared guard, `checkClusterInstanceAuthenticationBeforeLoad`, redirects before it checks,
+restores or mints any sign-in, so a sign-in remembered from before the termination can't open them or run their loader
+against the torn-down host. Nor does the overview check one: `ClusterHome` mounts `useInstanceAuth` only for a live
+cluster. Starting-up, where Finish-setup sends a cluster that isn't ready, says the cluster is gone too. It checks for
+`FAILED` first, so a rolled-back build still offers Try Again.
+
+A terminated cluster's sign-ins, its own and each instance's (`terminatedClusterSignIns`), are forgotten locally
+(`signOutEntitiesLocally`, which posts no logout to the gone hosts) at two points. When Studio's terminate succeeds,
+`terminateCluster` takes the instances from the cluster record, read alongside the DELETE or back after it, because the
+organization's cluster list doesn't carry them; with neither read it forgets nothing, since it can't tell whether the
+cluster was self-hosted. And when any page of a terminated cluster renders, `ClusterLayout` does
+it, which covers a terminate done in another tab, by another member or by central manager. It skips `TERMINATING`,
+which is not final. Never from a route guard: guards also run on hover preloads, so a hover would delete stored
+credentials. A sign-in left behind is not harmless. Each app sign-out posts a logout to every remembered host except
+one reached through the Fabric Connect proxy (the root `DESIGN.md` says why), and a stored Basic Auth credential would
+stay in localStorage for good.
+
+A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
+sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a
+logout the way app sign-out does (`signOutEntities`: one attempt, a 10s timeout, not awaited by the removal, none for a
+sign-in reached through the Fabric Connect proxy), and forgets the sign-in without waiting for the answer. So a failed logout still forgets it, and a server unreachable at that moment
+keeps its session. Removed elsewhere, its sign-ins stay until an app sign-out logs them out.
+
+None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
+that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left
+to unbind under Domains: once the instances are torn down, `deleteCluster` sets `clusterId` to null on each of the
+cluster's domains, so the organization can bind them to another cluster or delete them
+([`deleteCluster.js#L133-L141`](https://github.com/HarperFast/central-manager/blob/642af5eadfde95cf174d73d04cec468abaf006f2/src/resources/cluster/deleteCluster.js#L133-L141)).
+It leaves the cluster's own `domainIds` in place, so a terminated cluster's `domains` still lists them, though none is
+bound to it any more.
+
+That unbind is best-effort and runs after the teardown is committed, so a failure is only logged. A domain it missed
+stays bound to the dead cluster, and only support can release it: `DELETE /Domain` refuses a bound domain, and the
+cluster can no longer change.
 
 ## Custom domains: cert intent is cluster-wide, and certificate progress is polled
 

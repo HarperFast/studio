@@ -7,7 +7,8 @@
  *
  * The buffer is the source of truth; the reducer's document is an editable
  * projection re-derived from the buffer on mount, on revert, and whenever we
- * return from the text editor (so manual text edits are never lost).
+ * return from the text editor (so manual text edits are never lost). Saving
+ * from the visual editor writes that document, which is what the user sees.
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -22,23 +23,47 @@ import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { CodeIcon, PlusIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { TextEditorView } from '../TextEditorView';
 import { documentTables, hasUnmodeledContent, parseDocument, schemaEditorReducer } from './schemaEditorReducer';
 import { TableCard } from './TableCard';
 
 export function SchemaEditorView() {
-	const { openedEntry, openedEntryContents, isSavingFile, saveFile } = useEditorView();
-	const instanceParams = useInstanceClientIdParams();
-	const canManage = useInstanceBrowseManagePermission();
+	const { openedEntry, openedEntryContents, openedEntryReadFailed } = useEditorView();
 	const path = !!openedEntry && !openedEntry.package && openedEntry.path;
 	const { content: updatedFileContent, setContent } = useEditorFileContent(path);
 
-	const buffer = updatedFileContent ?? openedEntryContents ?? '';
-	// Latest buffer available to effects that must not list it as a dependency
-	// (they'd otherwise re-run — and clobber the doc — on our own writes).
-	const bufferRef = useRef(buffer);
-	bufferRef.current = buffer;
+	if (!openedEntry) {
+		return null;
+	}
+	// The visual editor needs the saved contents as its baseline: against an unknown one, an emptied
+	// draft reads as unchanged and is dropped. When the read failed, an unsaved draft is still shown as text.
+	if (openedEntryContents === undefined) {
+		return openedEntryReadFailed && updatedFileContent !== undefined ? <TextEditorView /> : null;
+	}
+	return (
+		<LoadedSchemaEditorView
+			savedContents={openedEntryContents}
+			updatedFileContent={updatedFileContent}
+			setContent={setContent}
+		/>
+	);
+}
+
+function LoadedSchemaEditorView({
+	savedContents,
+	updatedFileContent,
+	setContent,
+}: {
+	savedContents: string;
+	updatedFileContent: string | undefined;
+	setContent: (content: string | undefined) => void;
+}) {
+	const { openedEntry, isSavingFile, saveFile } = useEditorView();
+	const instanceParams = useInstanceClientIdParams();
+	const canManage = useInstanceBrowseManagePermission();
+
+	const buffer = updatedFileContent ?? savedContents;
 
 	const readOnly = !!openedEntry?.package || !canManage;
 	const canUseVisual = useMemo(
@@ -46,25 +71,25 @@ export function SchemaEditorView() {
 		[buffer],
 	);
 
-	const [doc, dispatch] = useReducer(schemaEditorReducer, bufferRef.current, parseDocument);
+	const [doc, dispatch] = useReducer(schemaEditorReducer, buffer, parseDocument);
 	const [showSource, setShowSource] = useState(() => !canUseVisual);
-	const pendingAddTable = useRef(false);
+	const [pendingAddTable, setPendingAddTable] = useState(false);
 
-	// Re-derive the doc from the buffer on mount, when the saved content changes
-	// (e.g. it finishes loading, or a save lands), and when we return from the
-	// text editor. Deliberately excludes `updatedFileContent` so our own visual
-	// edits don't trigger a re-parse that would discard them.
-	useEffect(() => {
-		if (showSource) {
-			return;
+	// Reconciled during render, before the buffer sync below can see the doc, and never on our own
+	// buffer writes. A doc with edits of its own keeps them when the saved contents change: edits made
+	// during a save are newer than it.
+	const [derivedFrom, setDerivedFrom] = useState({ savedContents, showSource });
+	if (derivedFrom.savedContents !== savedContents || derivedFrom.showSource !== showSource) {
+		setDerivedFrom({ savedContents, showSource });
+		const keepEdits = !derivedFrom.showSource && serializeSchema(doc) !== derivedFrom.savedContents;
+		if (!showSource && !keepEdits) {
+			dispatch({ type: 'reset', source: buffer });
+			if (pendingAddTable) {
+				setPendingAddTable(false);
+				dispatch({ type: 'addTable' });
+			}
 		}
-		dispatch({ type: 'reset', source: bufferRef.current });
-		if (pendingAddTable.current) {
-			pendingAddTable.current = false;
-			dispatch({ type: 'addTable' });
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [openedEntryContents, showSource]);
+	}
 
 	// Push the regenerated schema into the shared buffer, or clear it when the
 	// result matches the saved content (so merely opening the view never dirties
@@ -74,13 +99,17 @@ export function SchemaEditorView() {
 		if (showSource || readOnly) {
 			return;
 		}
-		setContent(serialized === (openedEntryContents ?? '') ? undefined : serialized);
-	}, [serialized, showSource, readOnly, openedEntryContents, setContent]);
+		// While a save is in flight the saved contents are about to change, so a schema back at the old ones
+		// is an edit to keep; cleared, the reconcile would replace it with what lands.
+		setContent(serialized === savedContents && !isSavingFile ? undefined : serialized);
+	}, [serialized, showSource, readOnly, savedContents, isSavingFile, setContent]);
 
 	useListener(
 		'SaveFile',
 		() => {
-			if (showSource || !openedEntry || isSavingFile || updatedFileContent === undefined) {
+			// The schema on screen is what is saved, not the shared buffer, which can trail it. Unchanged from
+			// the saved contents can still differ from a save in flight, which `saveFile` then says it refused.
+			if (showSource || readOnly || !openedEntry || (serialized === savedContents && !isSavingFile)) {
 				return;
 			}
 			// Never write a schema the visual editor knows is invalid — it would break
@@ -88,17 +117,14 @@ export function SchemaEditorView() {
 			if (validateSchema(doc).length > 0) {
 				return;
 			}
-			saveFile(
-				{
-					...instanceParams,
-					file: openedEntry.path.split('/').slice(1).join('/'),
-					payload: updatedFileContent,
-					project: openedEntry.project,
-				},
-				openedEntry.path,
-			);
+			saveFile({
+				...instanceParams,
+				file: openedEntry.path.split('/').slice(1).join('/'),
+				payload: serialized,
+				project: openedEntry.project,
+			});
 		},
-		[showSource, openedEntry, instanceParams, updatedFileContent, isSavingFile, doc],
+		[showSource, readOnly, openedEntry, savedContents, isSavingFile, instanceParams, doc, serialized, saveFile],
 	);
 
 	useListener(
@@ -108,16 +134,16 @@ export function SchemaEditorView() {
 				return;
 			}
 			setContent(undefined);
-			dispatch({ type: 'reset', source: openedEntryContents ?? '' });
+			dispatch({ type: 'reset', source: savedContents });
 		},
-		[showSource, openedEntryContents, setContent],
+		[showSource, savedContents, setContent],
 	);
 
 	useListener(
 		'AddSchemaTable',
 		() => {
 			if (showSource) {
-				pendingAddTable.current = true;
+				setPendingAddTable(true);
 				setShowSource(false);
 			} else {
 				dispatch({ type: 'addTable' });

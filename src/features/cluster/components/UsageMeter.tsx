@@ -108,7 +108,9 @@ export function UsageMeter({ label, used, limit, unlimited, limitKnown, format, 
 						: null}
 				</div>
 				<span
-					className={`w-16 shrink-0 text-right text-xs tabular-nums ${warn ? 'text-yellow' : 'text-muted-foreground'}`}
+					className={`w-16 shrink-0 text-right text-xs tabular-nums ${
+						warn ? 'text-amber-800 dark:text-yellow' : 'text-muted-foreground'
+					}`}
 				>
 					{isKnown ? `${pct}%` : isUnlimited ? 'Unlimited' : '—'}
 				</span>

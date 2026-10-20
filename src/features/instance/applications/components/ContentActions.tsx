@@ -78,7 +78,8 @@ export function ContentActions({
 	toggleSidebar: () => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntryContents, openedEntry, isSavingFile, restrictPackageModification } = useEditorView();
+	const { openedEntryContents, openedEntry, isSavingFile, isSavingAnyFile, restrictPackageModification } =
+		useEditorView();
 	const { content: updatedFileContent } = useEditorFileContent(openedEntry?.path);
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const canManageInstance = useInstanceManagePermission();
@@ -258,7 +259,7 @@ export function ContentActions({
 									</DropdownMenuItem>
 								)}
 								{canRename && (
-									<DropdownMenuItem onSelect={onRenameClick} disabled={!fileIsClean || isSavingFile}>
+									<DropdownMenuItem onSelect={onRenameClick} disabled={!fileIsClean || isSavingAnyFile}>
 										<PencilIcon />
 										Rename
 										<DropdownMenuShortcut>{SHORTCUTS.rename}</DropdownMenuShortcut>
@@ -392,7 +393,7 @@ export function ContentActions({
 								{canManageBrowseInstance && (
 									<DropdownMenuItem
 										onSelect={onRestartClick}
-										disabled={!fileIsClean || isSavingFile || isRestartPending}
+										disabled={!fileIsClean || isSavingAnyFile || isRestartPending}
 										title="Restarts all service threads to apply changes. No downtime expected."
 									>
 										<RotateCcwIcon />

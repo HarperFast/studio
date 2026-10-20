@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { getJob, HarperJob } from '@/integrations/api/instance/database/getJob';
+import { getJob, HarperJob, JOB_NOT_FOUND_GRACE_MS } from '@/integrations/api/instance/database/getJob';
 import { errorText } from '@/lib/errorText';
 import { sleep } from '@/lib/sleep';
 import { isDeterministicRejection } from '@/react-query/pollUnlessForbidden';
@@ -113,10 +113,6 @@ export function rolloutPollDelayMs(elapsedMs: number, fastMs: number): number {
 	return elapsedMs < 5 * 60_000 ? 5_000 : 15_000;
 }
 
-// A cluster's address can reach a node other than the one that received the deploy, and reach that one
-// again on the next request, so a missing row only counts once the job has stayed missing for a while.
-const NOT_FOUND_GRACE_MS = 20_000;
-
 interface FollowRestartJobParams extends InstanceClientConfig {
 	jobId: string;
 	onUpdate?: (snapshot: RolloutSnapshot) => void;
@@ -161,7 +157,7 @@ export async function followRestartJob({
 				}
 			} else {
 				missingSince ??= Date.now();
-				if (Date.now() - missingSince >= NOT_FOUND_GRACE_MS) {
+				if (Date.now() - missingSince >= JOB_NOT_FOUND_GRACE_MS) {
 					return unfollowable('not-found');
 				}
 			}

@@ -524,6 +524,21 @@ describe('ApiExplorer', () => {
 		expect(aside?.style.getPropertyValue('--api-sidebar-width')).toBe('320px');
 	});
 
+	it('resizes the sidebar by dragging its separator and saves the width under its storage key', () => {
+		const { container } = renderExplorer();
+		const separator = screen.getByRole('separator', { name: 'Resize sidebar' });
+		const aside = container.querySelector('aside');
+		expect(separator.className).toContain('touch-none');
+
+		fireEvent.pointerDown(separator, { button: 0, pointerId: 1, clientX: 320 });
+		fireEvent.pointerMove(window, { pointerId: 1, clientX: 400 });
+		expect(aside?.style.getPropertyValue('--api-sidebar-width')).toBe('400px');
+		fireEvent.pointerUp(window, { pointerId: 1, clientX: 400 });
+
+		expect(separator.getAttribute('aria-valuenow')).toBe('400');
+		expect(localStorage.getItem('ApiExplorerSidebarWidth')).toBe('400');
+	});
+
 	it('binds a path-parameter input into the built request URL', () => {
 		renderExplorer();
 		// The single POST is unambiguous; its Monaco body editor is mocked out above, so this

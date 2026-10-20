@@ -284,9 +284,8 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 	});
 
-	// Each field is read twice, by the filter and by the redaction, so one case pins both guards. The
-	// 5xx message makes the filter coerce `resource.url`: under `?? ''` the array stringifies into an
-	// instance endpoint and the event is silently dropped rather than kept.
+	// The filter and the redaction both read `stack`, so that case pins both guards; the redaction alone
+	// reads the other two.
 	it.each([
 		'stack',
 		'handling_stack',
@@ -311,6 +310,98 @@ describe('beforeSend', () => {
 		};
 		expect(beforeSend(event)).toBe(true);
 		expect(event.view?.name).toBe('/o/c/config/users/<redacted>/');
+	});
+
+	describe('error.causes', () => {
+		const abortCause = {
+			source: 'console',
+			type: 'AbortError',
+			message: 'BodyStreamBuffer was aborted',
+			stack:
+				'AbortError: BodyStreamBuffer was aborted\n  at <anonymous> @ https://fabric.harper.fast/assets/index-Dcf_w9Ns.js:26:1557',
+		};
+		const repoUrl = 'https://github.com/acme-corp/billing-service.git';
+
+		function withCauses(causes: unknown, type = 'Error'): DatadogErrorEvent {
+			return {
+				type: 'error',
+				error: { type, message: 'The stream went idle before completing.', causes },
+			} as DatadogErrorEvent;
+		}
+
+		it('keeps an event whose causes need no redaction, and still redacts its own text', () => {
+			const event = errorEvent({ message: `Failed to deploy ${repoUrl}`, causes: [abortCause] });
+			expect(beforeSend(event)).toBe(true);
+			expect(event.error?.message).toBe('Failed to deploy https://github.com/<redacted>');
+			expect(event.error?.causes).toEqual([abortCause]);
+		});
+
+		it('keeps an event with an empty cause chain', () => {
+			expect(beforeSend(withCauses([]))).toBe(true);
+		});
+
+		// How the SDK records a cause that was not an Error: serialised, with no type or stack.
+		it('keeps a non-Error cause whose serialised text needs no redaction', () => {
+			const cause = { source: 'console', type: undefined, message: '{"code":"ECONNRESET"}', stack: undefined };
+			expect(beforeSend(withCauses([cause]))).toBe(true);
+		});
+
+		it.each([
+			['message', { type: 'Error', message: `Failed to clone ${repoUrl}` }],
+			['stack', { type: 'Error', message: 'Failed to clone', stack: `Error: Failed to clone\n  at x @ ${repoUrl}` }],
+			['credential', { type: 'Error', message: 'GET https://api.harper.fast/User/?token=abc.def failed' }],
+		])('drops an event whose cause %s the redaction would change', (_field, cause) => {
+			expect(beforeSend(withCauses([abortCause, cause]))).toBe(false);
+		});
+
+		it('drops the causes of a relayed error, whose text is the server chain', () => {
+			expect(beforeSend(withCauses([abortCause], 'SSEOperationError'))).toBe(false);
+		});
+
+		it('drops a relayed cause', () => {
+			expect(beforeSend(withCauses([abortCause, { type: 'ImportJobError', message: 'row 3: acme' }]))).toBe(false);
+		});
+
+		// The relayed link has no text of its own, so only the propagation can drop this.
+		it('drops a cause below a relayed one', () => {
+			const relayed = { type: 'SSEOperationError', message: '' };
+			expect(beforeSend(withCauses([relayed, { type: 'Error', message: 'acme billing' }]))).toBe(false);
+		});
+
+		it('checks every link of a chain as deep as the SDK records', () => {
+			const chain = [...Array(9).fill(abortCause), { type: 'Error', message: repoUrl }];
+			expect(beforeSend(withCauses(chain))).toBe(false);
+			expect(beforeSend(withCauses(chain.slice(0, 9)))).toBe(true);
+		});
+
+		// Anything but the SDK's own shape can't be checked, and can't be rewritten either.
+		it.each([
+			['a string', 'Failed to clone acme-corp/billing'],
+			['null', null],
+			['a null entry', [null]],
+			['a string entry', ['acme-corp/billing']],
+			['an entry with no message', [{ stack: 'Error\n  at x @ https://fabric.harper.fast/a.js:1:1' }]],
+			['a non-string message', [{ message: { detail: repoUrl } }]],
+			['a non-string stack', [{ message: 'x', stack: [repoUrl] }]],
+			['a non-string type', [{ message: 'x', type: { name: 'SSEOperationError' } }]],
+			['a non-string source', [{ message: 'x', source: { url: repoUrl } }]],
+			['an entry with a field the SDK does not record', [{ message: 'x', detail: repoUrl }]],
+		])('drops, without throwing, an event whose causes are %s', (_shape, causes) => {
+			const event = withCauses(causes);
+			expect(() => beforeSend(event)).not.toThrow();
+			expect(beforeSend(event)).toBe(false);
+		});
+
+		it('drops, without throwing, an event whose cause throws when read', () => {
+			const cause = {
+				get message(): string {
+					throw new Error('hostile getter');
+				},
+			};
+			const event = withCauses([cause]);
+			expect(() => beforeSend(event)).not.toThrow();
+			expect(beforeSend(event)).toBe(false);
+		});
 	});
 
 	it('leaves a parameterised view name untouched', () => {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { appSignInMarker, rememberAppSignIn } from './signInMarkers';
 
 const role = (name: string) => ({ organizationName: name, role: 'owner', permission: { super_user: true } });
 const user = {
@@ -18,9 +19,7 @@ test.beforeEach(async ({ page }) => {
 		['fetch', 'xhr'].includes(route.request().resourceType())
 			? route.fulfill({ status: 404, json: { error: 'Unmocked test request' } })
 			: route.continue());
-	await page.addInitScript(() =>
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }))
-	);
+	await rememberAppSignIn(page);
 	await page.route('**/User/current', route => route.fulfill({ json: user }));
 	await page.route('**/Organization/*', route => {
 		const id = route.request().url().split('/').at(-1)!;
@@ -87,7 +86,56 @@ test('account menu groups profile, organization switching, appearance and sign o
 	await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();
 	await expect(page).toHaveURL(/#\/sign-in/);
 	expect(signedOut).toBe(true);
-	expect(await page.evaluate(() => localStorage.getItem('Studio:PotentiallyAuthenticated'))).toBeNull();
+	expect(await page.evaluate((key) => localStorage.getItem(key), appSignInMarker)).toBeNull();
+});
+
+test.describe('alongside a tab still on the previous release, which keeps every sign-in in one record', () => {
+	const legacyRecord = 'Studio:PotentiallyAuthenticated';
+
+	test('stays signed in on the sign-in that release recorded', async ({ page }) => {
+		await page.addInitScript(({ marker, legacy }) => {
+			if (!localStorage.getItem('Studio:PotentiallyAuthenticatedMigrated')) {
+				localStorage.removeItem(marker);
+				localStorage.setItem(legacy, JSON.stringify({ OverallAppSignIn: 'fixture' }));
+			}
+		}, { marker: appSignInMarker, legacy: legacyRecord });
+
+		await page.goto('/#/org-a');
+
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
+		expect(await page.evaluate((key) => localStorage.getItem(key), appSignInMarker)).toBeTruthy();
+	});
+
+	test('signs out of a server only that tab signed into', async ({ page }) => {
+		const oldTabSignIn = 'https://ins-old.example.test:9925/';
+		const instanceRequests: string[] = [];
+		await page.route(/ins-old\.example\.test/, route => {
+			instanceRequests.push(`${route.request().method()} ${route.request().postData() ?? ''}`);
+			return route.fulfill({
+				json: { message: 'ok' },
+				headers: {
+					'Access-Control-Allow-Origin': route.request().headers()['origin'] ?? '*',
+					'Access-Control-Allow-Credentials': 'true',
+					'Access-Control-Allow-Headers': 'content-type',
+				},
+			});
+		});
+		await page.route(/\/Logout\/?$/, route => route.fulfill({ json: {} }));
+		await page.goto('/#/org-a');
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
+		// That tab writes its whole record back after this one has loaded.
+		await page.evaluate(
+			({ legacy, url }) =>
+				localStorage.setItem(legacy, JSON.stringify({ OverallAppSignIn: 'fixture', 'ins-old': url })),
+			{ legacy: legacyRecord, url: oldTabSignIn },
+		);
+
+		await page.getByRole('button', { name: 'Account menu' }).click();
+		await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();
+
+		await expect(page).toHaveURL(/#\/sign-in/);
+		expect(instanceRequests).toContain('POST {"operation":"logout"}');
+	});
 });
 
 test('account controls remain reachable on a narrow screen with keyboard focus return', async ({ page }) => {

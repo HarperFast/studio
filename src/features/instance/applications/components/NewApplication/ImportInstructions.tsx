@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DeployFailure } from '@/features/instance/applications/components/DeployProgress/DeployFailure';
 import { useStagedDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback } from 'react';
@@ -17,16 +18,19 @@ import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-fo
 import { z } from 'zod';
 import { ImportAuthorization } from './ImportAuthorization';
 import { NewApplicationSchema } from './schema';
+import { ImportFailure } from './useImportApplication';
 
 export function ImportInstructions({
 	control,
 	formState,
+	importFailure,
 	isImportingApplication,
 	setValue,
 	watch,
 }: {
 	control: Control<z.infer<typeof NewApplicationSchema>>;
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
+	importFailure?: ImportFailure;
 	isImportingApplication: boolean;
 	setValue: UseFormSetValue<z.infer<typeof NewApplicationSchema>>;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
@@ -147,7 +151,7 @@ export function ImportInstructions({
 									type="text"
 									autoCapitalize="none"
 									autoComplete="off"
-									placeholder="npm install"
+									placeholder="Leave blank to install dependencies automatically"
 									{...field}
 								/>
 							</FormControl>
@@ -179,6 +183,14 @@ export function ImportInstructions({
 				)}
 
 				<Separator className="bg-border" />
+
+				{importFailure && (
+					<DeployFailure
+						title={importFailure.title}
+						message={importFailure.message}
+						deploymentId={importFailure.deploymentId}
+					/>
+				)}
 
 				<Button
 					className="w-full"

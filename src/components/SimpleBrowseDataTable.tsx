@@ -2,11 +2,16 @@
 
 import { Loading } from '@/components/Loading';
 
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
+import { PAGE_SIZE_OPTIONS, TablePagination } from '@/features/instance/databases/components/TablePagination';
 import { cn } from '@/lib/cn';
-import { ColumnDef, Row, studioTableFeatures } from '@/lib/table';
-import { flexRender, RowData, SortingState, useTable } from '@tanstack/react-table';
-import React from 'react';
+import { ColumnDef, Row, studioClientTableFeatures } from '@/lib/table';
+import { flexRender, PaginationState, RowData, SortingState, useTable } from '@tanstack/react-table';
+import { SearchIcon } from 'lucide-react';
+import React, { useLayoutEffect, useState } from 'react';
+
+const SMALLEST_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 
 interface BrowseDataTableProps<TData extends RowData> {
 	columns: ColumnDef<TData>[];
@@ -15,6 +20,14 @@ interface BrowseDataTableProps<TData extends RowData> {
 	onRowClick?: (row: Row<TData>) => void;
 	onColumnClick?: (accessorKey: string, isAscending: boolean) => void;
 	sortingState?: SortingState;
+	/**
+	 * Adds a search box that filters the rows on the client. It matches every column whose values are
+	 * strings or numbers, except one that sets `enableGlobalFilter: false`. `label` is the box's
+	 * accessible name, and its placeholder unless `placeholder` is given.
+	 */
+	filter?: { label: string; placeholder?: string };
+	/** Pages the rows on the client. The pager appears once the rows outnumber the smallest page. */
+	paginated?: boolean;
 	children?: React.ReactNode;
 }
 
@@ -25,28 +38,70 @@ export function SimpleBrowseDataTable<TData extends RowData>({
 	onRowClick,
 	onColumnClick,
 	sortingState,
+	filter,
+	paginated,
 	children,
 }: BrowseDataTableProps<TData>) {
+	// `?? []` matters: `toggleSorting` reads the previous sorting state as an array, so an undefined one
+	// makes the first header click throw.
+	const [sorting, setSorting] = useState<SortingState>(() => sortingState ?? []);
+	const [globalFilter, setGlobalFilter] = useState('');
+	const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: SMALLEST_PAGE_SIZE });
+	const toFirstPage = () => setPagination((current) => ({ ...current, pageIndex: 0 }));
 	const table = useTable({
-		features: studioTableFeatures,
+		features: studioClientTableFeatures,
 		data,
 		columns,
-		initialState: {
-			// `?? []` matters: TanStack builds the initial state as `{ sorting: [], ...initialState }`,
-			// so an explicit `sorting: undefined` key replaces the default and the first header click
-			// throws in `toggleSorting`.
-			sorting: sortingState ?? [],
+		manualFiltering: !filter,
+		manualPagination: !paginated,
+		// A re-sort or a new filter starts from the first page; new `data` does not. TanStack's own reset
+		// also fires on every new `data` array, and these lists are polled, so any changed record (an org
+		// member's `lastAccessedAt`, say) would throw the user back to page 1.
+		autoResetPageIndex: false,
+		state: { sorting, globalFilter, pagination },
+		onSortingChange: (updater) => {
+			setSorting(updater);
+			toFirstPage();
 		},
+		onGlobalFilterChange: (updater) => {
+			setGlobalFilter(updater);
+			toFirstPage();
+		},
+		onPaginationChange: setPagination,
 	});
+	const matchingRowCount = table.getPrePaginatedRowModel().rows.length;
+	const showPager = paginated && matchingRowCount > SMALLEST_PAGE_SIZE;
+	const lastPageIndex = Math.max(table.getPageCount() - 1, 0);
+	useLayoutEffect(() => {
+		if (pagination.pageIndex > lastPageIndex) {
+			setPagination((current) => ({ ...current, pageIndex: lastPageIndex }));
+		}
+	}, [pagination.pageIndex, lastPageIndex]);
 
 	return (
 		<>
 			<div className="flex items-center justify-end space-x-2 pb-4">
+				{filter && (
+					<div className="relative mr-auto w-full max-w-xs">
+						<SearchIcon
+							className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+							aria-hidden="true"
+						/>
+						<Input
+							type="search"
+							aria-label={filter.label}
+							placeholder={filter.placeholder ?? filter.label}
+							className="pl-9"
+							value={globalFilter}
+							onChange={(event) => table.setGlobalFilter(event.target.value)}
+						/>
+					</div>
+				)}
 				<div className="grow lg:hidden"></div>
 				{children}
 				<div className="grow hidden lg:visible"></div>
 			</div>
-			<Table containerClassName="rounded-md bg-card dark:bg-black-dark">
+			<Table containerClassName="rounded-md border border-border dark:border-grey-700 bg-card dark:bg-black-dark">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
@@ -56,7 +111,7 @@ export function SimpleBrowseDataTable<TData extends RowData>({
 						</TableRow>
 					))}
 				</TableHeader>
-				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
+				<TableBody className="bg-background dark:bg-black">
 					{table.getRowModel().rows?.length
 						? (table.getRowModel().rows.map((row) => (
 							<TableRow
@@ -91,6 +146,16 @@ export function SimpleBrowseDataTable<TData extends RowData>({
 						)}
 				</TableBody>
 			</Table>
+			{showPager && (
+				<TablePagination
+					pageIndex={pagination.pageIndex}
+					pageSize={pagination.pageSize}
+					totalPages={table.getPageCount()}
+					totalRecords={matchingRowCount}
+					setPageIndex={table.setPageIndex}
+					setPageSize={table.setPageSize}
+				/>
+			)}
 		</>
 	);
 }

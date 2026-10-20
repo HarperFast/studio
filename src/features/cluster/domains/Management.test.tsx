@@ -3,7 +3,7 @@
  */
 import { MutationCache, onlineManager, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react';
-import { AxiosError } from 'axios';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { PropsWithChildren, Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,6 +30,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 const { instancePost } = vi.hoisted(() => ({ instancePost: vi.fn() }));
 vi.mock('@/config/getInstanceClient', () => ({ getInstanceClient: () => ({ post: instancePost }) }));
 
+import { describeUnansweredWrites, OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { mutationErrorHandler, queryErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 
@@ -1119,5 +1120,51 @@ describe('DomainsManagement — the Remove Domain tooltip', () => {
 			return current;
 		});
 		expect(pendingCell.querySelectorAll('[tabindex]')).toHaveLength(0);
+	});
+});
+
+describe('validating pending domains', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('says a validation that got no answer may have gone through, and refreshes the list to show it', async () => {
+		get.mockImplementation((url: string) =>
+			url.startsWith('/Domain/')
+				? Promise.resolve({
+					data: [
+						{ id: 'dom-1', domain: 'a.example.com', status: 'PENDING_VALIDATION' },
+						{ id: 'dom-2', domain: 'b.example.com', status: 'PENDING_VALIDATION' },
+					],
+				})
+				: Promise.resolve({ data: { id: 'clu-1', organizationId: 'org-1', status: 'RUNNING', domainIds: [] } })
+		);
+		post.mockImplementation((url: string) => {
+			const config = { method: 'post', url } as InternalAxiosRequestConfig;
+			return Promise.reject(
+				url.includes('dom-1')
+					? new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config)
+					: new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, config, undefined, {
+						status: 400,
+						statusText: '',
+						data: 'TXT record not found',
+						headers: {},
+						config,
+					}),
+			);
+		});
+		const { container } = renderManagement();
+		const validateButton = () => container.querySelector<HTMLButtonElement>('button[accesskey="r"]');
+		await waitFor(() => expect(validateButton()?.disabled).toBe(false));
+		const fetchesBefore = domainListFetches();
+
+		fireEvent.click(validateButton()!);
+
+		await waitFor(() => expect(toast.error).toHaveBeenCalled());
+		expect(toast.error).toHaveBeenCalledWith(OUTCOME_UNKNOWN_TITLE, {
+			description: `${describeUnansweredWrites(1)} 1 other domain failed to validate.`,
+			id: 'validatingDomains',
+		});
+		expect(domainListFetches()).toBeGreaterThan(fetchesBefore);
 	});
 });

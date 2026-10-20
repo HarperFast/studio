@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ComponentGrantCombobox } from '@/features/instance/secrets/ComponentGrantCombobox';
 import { useGrantSecret, useRevokeSecret } from '@/integrations/api/instance/secrets/secrets';
+import { describeError, shouldToastOwnFailure } from '@/react-query/queryClient';
 import { XIcon } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
@@ -40,7 +41,9 @@ export function SecretGrantsEditor({
 			setGrants(response.grants);
 			onChanged?.();
 		} catch (error) {
-			toast.error(String(error));
+			if (shouldToastOwnFailure(error)) {
+				toast.error(describeError(error).message);
+			}
 			// Rethrow so the combobox keeps the typed text for a retry instead of clearing it.
 			throw error;
 		}
@@ -52,7 +55,9 @@ export function SecretGrantsEditor({
 			setGrants(response.grants);
 			onChanged?.();
 		} catch (error) {
-			toast.error(String(error));
+			if (shouldToastOwnFailure(error)) {
+				toast.error(describeError(error).message);
+			}
 		}
 	}, [revokeSecret, instanceParams, name, onChanged]);
 

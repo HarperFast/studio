@@ -1,10 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { rememberAppSignIn } from './signInMarkers';
 
 const role = (organizationName: string) => ({ organizationName, role: 'owner', permission: { super_user: true } });
 test.beforeEach(async ({ page }) => {
-	await page.addInitScript(() =>
-		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }))
-	);
+	await rememberAppSignIn(page);
 	await page.route(
 		'**/*',
 		route =>

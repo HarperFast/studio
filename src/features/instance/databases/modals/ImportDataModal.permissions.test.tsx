@@ -3,7 +3,7 @@
  */
 import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { LocalRolePermission } from '@/integrations/api/api.patch';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Only the auth store and the router are stubbed, so these run the real
@@ -127,5 +127,29 @@ describe('ImportDataModal requested method', () => {
 	it('ignores a requested method the role cannot run', () => {
 		renderModal({ operations: ['csv_url_load', 'get_job'], data: { tables: { dog: tableGrant() } } }, 'sample');
 		expect(selectedMethod()).toBe('import-method-url');
+	});
+});
+
+describe('ImportDataModal name fields', () => {
+	it('stops the database and table names at the lengths the form accepts, and says so there', () => {
+		renderModal({ super_user: true });
+		const database = screen.getByLabelText('Database') as HTMLInputElement;
+		const table = screen.getByLabelText('Table') as HTMLInputElement;
+		expect(database.maxLength).toBe(75);
+		expect(table.maxLength).toBe(250);
+
+		fireEvent.change(database, { target: { value: 'd'.repeat(75) } });
+		fireEvent.change(table, { target: { value: 't'.repeat(250) } });
+		expect(screen.getByText('Maximum 75 characters reached.')).toBeTruthy();
+		expect(screen.getByText('Maximum 250 characters reached.')).toBeTruthy();
+	});
+
+	it('says a table named like an Object.prototype member will be created, as for any new name', () => {
+		renderModal({ super_user: true });
+		expect(screen.queryByText('New table')).toBeNull();
+
+		fireEvent.change(screen.getByLabelText('Table'), { target: { value: 'constructor' } });
+
+		expect(screen.getByText('New table')).toBeTruthy();
 	});
 });

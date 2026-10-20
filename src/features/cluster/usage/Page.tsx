@@ -109,7 +109,9 @@ function RegionSection(
 			header={
 				<HeaderText title={region.region ?? 'Region'} meta={meta}>
 					{region.status === 'exhausted' && (
-						<span className="rounded-full bg-yellow/10 px-2 py-0.5 text-[11px] text-yellow">Cycle exhausted</span>
+						<span className="rounded-full bg-yellow/10 px-2 py-0.5 text-[11px] text-amber-800 dark:text-yellow">
+							Cycle exhausted
+						</span>
 					)}
 					{region.status === 'lapsed' && (
 						<span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">

@@ -8,7 +8,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trash, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, OctagonAlert, Trash } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export function ConfirmDeletionModal({
@@ -49,9 +49,9 @@ export function ConfirmDeletionModal({
 					<DialogDescription>This action cannot be undone.</DialogDescription>
 				</DialogHeader>
 				{!hideDataLossWarning && (
-					<div className="p-3 my-5 text-white rounded-md bg-amber-600">
+					<div className="p-3 my-5 rounded-md border border-destructive bg-destructive/10 text-foreground">
 						<p className="flex space-x-1 font-semibold align-baseline">
-							<TriangleAlert className="inline-block size-5" /> <span>Warning</span>
+							<OctagonAlert className="inline-block size-5 text-destructive" /> <span>Warning</span>
 						</p>
 						<p className="pt-2 text-base">
 							By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}{' '}

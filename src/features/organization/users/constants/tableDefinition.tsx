@@ -8,38 +8,39 @@ export const dataTableColumns: Array<ColumnDef<SchemaUser>> = [
 	{
 		header: 'User Id',
 		accessorKey: 'id',
-		enableSorting: false,
+		enableSorting: true,
+		enableGlobalFilter: false,
 	},
 	{
 		header: 'Email',
 		accessorKey: 'email',
-		enableSorting: false,
+		enableSorting: true,
 	},
 	{
 		header: 'First Name',
 		accessorKey: 'firstname',
-		enableSorting: false,
+		enableSorting: true,
 	},
 	{
 		header: 'Last Name',
 		accessorKey: 'lastname',
-		enableSorting: false,
+		enableSorting: true,
 	},
-	columnHelper.display({
+	{
 		header: 'Roles',
-		enableSorting: false,
 		id: 'roles',
-		cell: (props) => props.row.original.roles?.map(r => r.roleName)?.sort()?.join(', '),
-	}),
+		accessorFn: (user) => (user.roles ?? []).map((role) => role.roleName).sort().join(', '),
+		enableSorting: true,
+	},
 	{
 		header: 'Status',
 		accessorKey: 'status',
-		enableSorting: false,
+		enableSorting: true,
 	},
 	{
 		header: 'Verified',
 		accessorKey: 'isVerified',
-		enableSorting: false,
+		enableSorting: true,
 	},
 	columnHelper.display({
 		header: '',

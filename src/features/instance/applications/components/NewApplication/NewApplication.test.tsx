@@ -2,11 +2,18 @@
  * @vitest-environment jsdom
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const importState = vi.hoisted(() => ({
+	importFailure: undefined as { title: string; message: string; deploymentId?: string } | undefined,
+}));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
 	useRouteContext: () => ({ organization: { name: 'Acme' } }),
+	useParams: () => ({ organizationId: 'org-1', instanceId: 'ins-1' }),
+	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
 }));
 vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
 	useEditorView: () => ({ rootEntries: [{ name: 'taken-app', path: 'taken-app', project: 'taken-app', entries: [] }] }),
@@ -15,7 +22,11 @@ vi.mock('./useCreateFromTemplate', () => ({
 	useCreateFromTemplate: () => ({ isCreatingFromTemplate: false, createFromTemplate: vi.fn() }),
 }));
 vi.mock('./useImportApplication', () => ({
-	useImportApplication: () => ({ isImportingApplication: false, importApplication: vi.fn() }),
+	useImportApplication: () => ({
+		isImportingApplication: false,
+		importApplication: vi.fn(),
+		importFailure: importState.importFailure,
+	}),
 }));
 vi.mock('./useCheckCLI', () => ({ useCheckCLI: () => ({ checkCLI: vi.fn() }) }));
 // These read the instance's SSH keys and auth, which aren't what these tests exercise.
@@ -35,7 +46,10 @@ beforeAll(() => {
 	Element.prototype.scrollIntoView ??= () => undefined;
 });
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	importState.importFailure = undefined;
+});
 
 function button(name: RegExp) {
 	return screen.getByRole('button', { name }) as HTMLButtonElement;
@@ -84,6 +98,15 @@ describe('NewApplication', () => {
 		expect(screen.queryByText('Please enter a URL or package reference.')).toBeNull();
 	});
 
+	it('stops the application name at the 75 characters the form accepts, and says so there', () => {
+		render(<NewApplication />);
+		const name = screen.getByLabelText('Name') as HTMLInputElement;
+		expect(name.maxLength).toBe(75);
+
+		fireEvent.change(name, { target: { value: 'a'.repeat(75) } });
+		expect(screen.getByText('Maximum 75 characters reached.')).toBeTruthy();
+	});
+
 	it('explains a refused application name when Enter is pressed in it', async () => {
 		render(<NewApplication />);
 		await act(async () => {
@@ -112,5 +135,48 @@ describe('NewApplication', () => {
 
 		expect(await screen.findByText(message)).toBeTruthy();
 		expect((screen.getByRole('button', { name: /Create from Template/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("keeps a failed import's reason beside the Import button", async () => {
+		importState.importFailure = {
+			title: 'Failed to import acme',
+			message: 'This repository has no package.json in its root folder.',
+		};
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Failed to import acme');
+		expect(alert.textContent).toContain('This repository has no package.json in its root folder.');
+		expect(screen.queryByRole('link', { name: 'Manage SSH keys' })).toBeNull();
+	});
+
+	it('links a failed private-repository import to SSH keys', async () => {
+		importState.importFailure = {
+			title: 'Failed to import acme',
+			message: 'Failed to deploy private repository ssh://github.com/acme/widgets.git: SSH access failed.',
+		};
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		expect((await screen.findByRole('link', { name: 'Manage SSH keys' })).getAttribute('href'))
+			.toBe('/org-1/instance/ins-1/config/ssh-keys');
+	});
+
+	it('links a failed import to the deployment record it left', async () => {
+		importState.importFailure = {
+			title: 'Failed to stage acme',
+			message: 'Not every node staged it',
+			deploymentId: 'd1',
+		};
+		render(<NewApplication />);
+
+		await switchTo(/Import/);
+
+		expect((await screen.findByRole('alert')).textContent).toContain('Failed to stage acme');
+		expect(screen.getByRole('link', { name: "View this deployment's record" }).getAttribute('href'))
+			.toBe('/org-1/instance/ins-1/config/deployments/d1');
 	});
 });

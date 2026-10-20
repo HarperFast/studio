@@ -1,9 +1,16 @@
+import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
+import {
+	RESTART_UNCONFIRMED_MESSAGE,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
+import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { MutationObserver, QueryObserver } from '@tanstack/react-query';
-import { AxiosError } from 'axios';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
-import { errorHandler, queryClient, queryErrorHandler } from './queryClient';
+import { describeError, errorHandler, queryClient, queryErrorHandler, shouldToastOwnFailure } from './queryClient';
 import { claimForRoute } from './routeQueryClaims';
 
 // Mock the toast module
@@ -366,5 +373,167 @@ describe('queryErrorHandler', () => {
 			queryFor(['ins-1', 'databases']),
 		);
 		expect(toast.error).toHaveBeenCalled();
+	});
+});
+
+describe('a write that got no verdict', () => {
+	const sent = (data: unknown, method = 'post') => ({ method, data }) as InternalAxiosRequestConfig;
+	const gatewayTimeout = (config: InternalAxiosRequestConfig) =>
+		new AxiosError('Request failed with status code 504', AxiosError.ERR_BAD_RESPONSE, config, undefined, {
+			status: 504,
+			statusText: '',
+			data: { type: 'about:blank', code: 'GATEWAY_TIMEOUT', title: 'Proxied operation timed out after 30s' },
+			headers: {},
+			config,
+		});
+	const timedOut = (config: InternalAxiosRequestConfig) =>
+		new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, config);
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('is described by its status, not by whatever the gateway sent', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'insert' })))).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: UNANSWERED_WRITE_MESSAGE,
+			message: UNANSWERED_WRITE_MESSAGE,
+		});
+	});
+
+	it('leaves a read with the same failure to the usual extraction', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'get_job' })))).toEqual({
+			title: 'GATEWAY_TIMEOUT',
+			description: 'Proxied operation timed out after 30s',
+			message: 'Proxied operation timed out after 30s',
+		});
+	});
+
+	it('gets a toast of its own, never collapsed with another write or with read timeouts', () => {
+		errorHandler(timedOut(sent({ operation: 'delete', hash_values: [1] })));
+		errorHandler(timedOut(sent({ operation: 'insert', records: [{ id: 2 }] })));
+		errorHandler(timedOut(sent({ operation: 'describe_all' })));
+
+		const toasts = vi.mocked(toast.error).mock.calls.map(([title, options]) => [title, options?.id]);
+		expect(toasts).toEqual([
+			[OUTCOME_UNKNOWN_TITLE, undefined],
+			[OUTCOME_UNKNOWN_TITLE, undefined],
+			['Error', 'request-timeout'],
+		]);
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'restart' })))).toBe(false);
+		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'get_status' })))).toBe(true);
+		expect(shouldToastOwnFailure(new Error('Secret "x" not found'))).toBe(true);
+	});
+});
+
+describe('a restart Harper accepted whose target was never confirmed back', () => {
+	const unconfirmed = () =>
+		new RestartUnconfirmedError(
+			new AxiosError('timeout of 3000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: { operation: 'user_info' },
+			} as InternalAxiosRequestConfig),
+		);
+
+	it('is described as not back yet, never by the probe’s own failure', () => {
+		expect(describeError(unconfirmed())).toEqual({
+			title: RESTART_UNCONFIRMED_TITLE,
+			description: RESTART_UNCONFIRMED_MESSAGE,
+			message: RESTART_UNCONFIRMED_MESSAGE,
+		});
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(unconfirmed())).toBe(false);
+	});
+});
+
+describe('a load job Studio stopped following before it ended', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	const pollFailure = () => {
+		const config = { method: 'post', data: JSON.stringify({ operation: 'get_job', id: 'job-7' }) };
+		return new AxiosError(
+			'Request failed with status code 502',
+			AxiosError.ERR_BAD_RESPONSE,
+			config as InternalAxiosRequestConfig,
+			undefined,
+			{
+				status: 502,
+				statusText: '',
+				data: '<html>upstream secret-host-01 is down</html>',
+				headers: {},
+				config: config as InternalAxiosRequestConfig,
+			},
+		);
+	};
+
+	const anyNode = "If your role can list jobs, also look for job job-7 on the Status page's Jobs tab.";
+	it.each(
+		[
+			['polling-failed', "Studio could no longer read this import's job", anyNode],
+			[
+				'not-found',
+				"Studio couldn't find this import's job on the node it reached",
+				"If your role can list jobs, look for job job-7 on the Jobs tab of each instance's Status page: "
+				+ 'only the node that ran it lists it.',
+			],
+			['deadline', 'Studio stopped following this import before it could confirm how it ended', anyNode],
+		] as const,
+	)('is described as an unknown outcome when %s, naming the job and where to check', (reason, why, where) => {
+		const described = describeError(new ImportJobUnconfirmedError('job-7', reason, pollFailure()));
+
+		expect(described.title).toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(described.description).toBe(described.message);
+		expect(described.message).toContain(why);
+		expect(described.message).toContain('It may still be running, or it may have finished.');
+		expect(described.message).toContain('Check the table before you import this data again');
+		expect(described.message).toContain(where);
+		expect(described.message).not.toMatch(/try again|retry|fail/i);
+		expect(described.message).not.toContain('secret-host-01');
+		expect(described.message).not.toContain('502');
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(new ImportJobUnconfirmedError('job-7', 'deadline'))).toBe(false);
+		expect(shouldToastOwnFailure(new ImportJobUnconfirmedError('job-7', 'polling-failed', pollFailure()))).toBe(
+			false,
+		);
+	});
+
+	it('gets a toast of its own, never collapsed with read timeouts, whatever it carries', () => {
+		const timeout = new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED);
+		errorHandler(
+			Object.assign(new ImportJobUnconfirmedError('job-7', 'polling-failed', timeout), { code: timeout.code }),
+		);
+		errorHandler(timeout);
+
+		const toasts = vi.mocked(toast.error).mock.calls.map(([title, options]) => [title, options?.id]);
+		expect(toasts).toEqual([[OUTCOME_UNKNOWN_TITLE, undefined], ['Error', 'request-timeout']]);
+	});
+
+	it('leaves a job Harper finished with ERROR an ordinary failure', () => {
+		const failed = new ImportJobError('Value "x" in property age must be a number');
+
+		expect(describeError(failed).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(describeError(failed).message).toBe('Value "x" in property age must be a number');
+		expect(shouldToastOwnFailure(failed)).toBe(true);
+	});
+
+	it('leaves the poll failure itself to the usual extraction, as a read', () => {
+		expect(describeError(pollFailure()).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
 	});
 });

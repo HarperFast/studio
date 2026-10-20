@@ -25,7 +25,6 @@ export interface WatchedValuesTypeMap {
 	// `method` preselects the Import Data modal's method, so a launcher can say whether the user asked
 	// to bring data in or to seed some.
 	ShowImportData: { databaseName?: string; tableName?: string; method?: ImportMethod } | false;
-	'Session:{key}': unknown;
 	ReloadApplicationRootEntries: true;
 	FocusEditor: true;
 	FocusFileTree: true;

@@ -14,6 +14,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import {
@@ -28,9 +29,15 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
+import {
 	generateRandomRecords,
 	randomizableAttributes,
 } from '@/features/instance/databases/functions/generateRandomRecords';
+import { createImportProgressToast } from '@/features/instance/databases/functions/importProgressToast';
 import { parseJsonRecords } from '@/features/instance/databases/functions/parseJsonRecords';
 import { SchemaRelationshipMap } from '@/features/instance/databases/functions/schemaRelationships';
 import { sampleDatasets } from '@/features/instance/databases/sampleDatasets';
@@ -191,15 +198,15 @@ export function ImportDataModal({
 	const watchedTable = form.watch('table');
 	const selectedDataset = sampleDatasets.find((dataset) => dataset.id === datasetId);
 
-	const targetTable = instanceDatabaseMap?.[watchedDatabase || 'data']?.[watchedTable];
+	const targetTable = describedTable(instanceDatabaseMap, watchedDatabase || 'data', watchedTable);
 	const tableExists = !!targetTable;
 	const tableWillBeCreated = !!instanceDatabaseMap && !!watchedTable && !tableExists;
 	// Random data needs existing columns to model values on, so the option only appears
 	// when the target table already has some beyond the primary key and system fields.
 	const fillableAttributes = randomizableAttributes(
 		targetTable?.attributes,
-		instanceDatabaseMap?.[watchedDatabase || 'data'],
-		schemaRelationshipMap?.[watchedDatabase || 'data']?.[watchedTable],
+		describedDatabase(instanceDatabaseMap, watchedDatabase || 'data'),
+		declaredRelationships(schemaRelationshipMap, watchedDatabase || 'data', watchedTable),
 	);
 	const canGenerateRandom = fillableAttributes.length > 0;
 	const isRandomDataset = datasetId === RANDOM_DATASET_ID;
@@ -254,9 +261,9 @@ export function ImportDataModal({
 		let source: ImportSource;
 		if (values.method === 'sample' && values.datasetId === RANDOM_DATASET_ID) {
 			const attributes = randomizableAttributes(
-				instanceDatabaseMap?.[database]?.[table]?.attributes,
-				instanceDatabaseMap?.[database],
-				schemaRelationshipMap?.[database]?.[table],
+				describedTable(instanceDatabaseMap, database, table)?.attributes,
+				describedDatabase(instanceDatabaseMap, database),
+				declaredRelationships(schemaRelationshipMap, database, table),
 			);
 			if (attributes.length === 0) {
 				form.setError('datasetId', {
@@ -312,11 +319,11 @@ export function ImportDataModal({
 				tableExists,
 				replicated: instanceParams.entityType === 'cluster',
 				source,
+				progress: createImportProgressToast(),
 				...instanceParams,
 			},
 			{
-				onSuccess: ({ message }) => {
-					toast.success(message);
+				onSuccess: () => {
 					closeModal();
 					onImported(database, table);
 				},
@@ -524,16 +531,15 @@ export function ImportDataModal({
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>Database</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												type="text"
-												placeholder="data"
-												autoCapitalize="off"
-												autoComplete="off"
-												autoCorrect="off"
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											{...field}
+											type="text"
+											placeholder="data"
+											maxLength={ImportDataFormSchema.shape.database.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -544,15 +550,14 @@ export function ImportDataModal({
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>Table</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												type="text"
-												autoCapitalize="off"
-												autoComplete="off"
-												autoCorrect="off"
-											/>
-										</FormControl>
+										<LengthLimitedInput
+											{...field}
+											type="text"
+											maxLength={ImportDataFormSchema.shape.table.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 										<FormMessage />
 									</FormItem>
 								)}

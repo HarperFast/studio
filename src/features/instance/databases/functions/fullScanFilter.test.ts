@@ -2,7 +2,7 @@ import { RelationshipAttributeInfo } from '@/features/instance/databases/functio
 import { InstanceAttribute } from '@/integrations/api/api.patch';
 import { SearchCondition } from '@/integrations/api/instance/database/getSearchByConditions';
 import { describe, expect, it } from 'vitest';
-import { fullScanAttributes, fullScanWarning } from './fullScanFilter';
+import { fullScanAttributes, fullScanQuestion } from './fullScanFilter';
 
 // harperdb 4.7.40 describe_table for `type Thing @table { id: ID @primaryKey name: String @indexed
 // note: String category: String brand: Brand @relationship(from: brandId) }`: an indexed attribute
@@ -66,19 +66,20 @@ describe('fullScanAttributes', () => {
 	});
 });
 
-describe('fullScanWarning', () => {
+describe('fullScanQuestion', () => {
 	it('names the attributes and the table they make Harper read', () => {
-		const message = fullScanWarning('Thing', [{ attribute: 'note' }, { attribute: 'category' }]);
-		expect(message).toContain('"note", "category"');
-		expect(message).toContain('every record in "Thing" to');
-		expect(message).toMatch(/Run it anyway\?$/);
+		const { title, description } = fullScanQuestion('Thing', [{ attribute: 'note' }, { attribute: 'category' }]);
+		expect(title).toBe('Scan every record in "Thing"?');
+		expect(description).toContain('"note", "category"');
+		expect(description).toContain('every record in "Thing" to');
 	});
 
 	it('names the related table for a join', () => {
-		const message = fullScanWarning('Thing', [
+		const { title, description } = fullScanQuestion('Thing', [
 			{ attribute: 'note' },
 			{ attribute: 'brand.description', relatedTableName: 'Brand' },
 		]);
-		expect(message).toContain('every record in "Thing" and "Brand"');
+		expect(title).toBe('Scan every record in "Thing" and "Brand"?');
+		expect(description).toContain('every record in "Thing" and "Brand"');
 	});
 });

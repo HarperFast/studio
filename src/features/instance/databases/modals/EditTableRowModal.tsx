@@ -1,6 +1,17 @@
 import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alertDialog';
 import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/buttonVariants';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { primaryKeyMismatch } from '@/features/instance/databases/functions/primaryKeyMismatch';
 import {
@@ -180,14 +191,28 @@ export function EditTableRowModal({
 	// dealt with first (Escape is blocked for the same reason). Dropping the draft here rather than
 	// leaving it for the reset above also keeps that reset's warning meaning what it says: the
 	// stored record moved, not the user stepping away from it.
-	const stepToRecord = (step: () => void) => {
-		if (madeChanges && !confirm('Discard your unsaved changes to this record?')) {
+	const takeStep = (direction: 'previous' | 'next') => {
+		const allowed = direction === 'previous' ? recordNavigation?.hasPrevious : recordNavigation?.hasNext;
+		if (!recordNavigation || !allowed || isWritePending) {
 			return;
 		}
 		setUpdatedTableRecordData(undefined);
 		setMadeChanges(false);
 		setDiscardedUnsavedEdits(false);
-		step();
+		(direction === 'previous' ? recordNavigation.onPrevious : recordNavigation.onNext)();
+	};
+	// The question is about this draft. A draft that is gone (the record was replaced, or the dialog
+	// closed) takes the question with it, so a yes can't discard edits made after it was asked.
+	const [pendingStep, setPendingStep] = useState<'previous' | 'next'>();
+	if (pendingStep && !(isModalOpen && madeChanges)) {
+		setPendingStep(undefined);
+	}
+	const stepToRecord = (direction: 'previous' | 'next') => {
+		if (madeChanges) {
+			setPendingStep(direction);
+			return;
+		}
+		takeStep(direction);
 	};
 	const onNavigationKeyDown = (event: KeyboardEvent) => {
 		if (
@@ -197,16 +222,16 @@ export function EditTableRowModal({
 		) {
 			return;
 		}
-		const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-			? (recordNavigation.hasPrevious ? recordNavigation.onPrevious : undefined)
+		const direction = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+			? (recordNavigation.hasPrevious ? 'previous' : undefined)
 			: event.key === 'ArrowRight' || event.key === 'ArrowDown'
-			? (recordNavigation.hasNext ? recordNavigation.onNext : undefined)
+			? (recordNavigation.hasNext ? 'next' : undefined)
 			: undefined;
-		if (!step) {
+		if (!direction) {
 			return;
 		}
 		event.preventDefault();
-		stepToRecord(step);
+		stepToRecord(direction);
 	};
 
 	return (
@@ -340,8 +365,8 @@ export function EditTableRowModal({
 							<RecordNavigationControls
 								{...recordNavigation}
 								disabled={isWritePending}
-								onPrevious={() => stepToRecord(recordNavigation.onPrevious)}
-								onNext={() => stepToRecord(recordNavigation.onNext)}
+								onPrevious={() => stepToRecord('previous')}
+								onNext={() => stepToRecord('next')}
 							/>
 						)}
 						<div className="flex">
@@ -455,6 +480,39 @@ export function EditTableRowModal({
 					</div>
 				</DialogFooter>
 			</DialogContent>
+			{/* Outside the editor's content, so its keys never reach the record navigation. */}
+			<AlertDialog
+				open={!!pendingStep}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPendingStep(undefined);
+					}
+				}}
+			>
+				<AlertDialogContent className="text-popover-foreground">
+					<AlertDialogHeader>
+						<AlertDialogTitle>Discard your unsaved changes?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Moving to another record replaces the editor's contents, so your edits to this record will be lost.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep Editing</AlertDialogCancel>
+						<AlertDialogAction
+							className={buttonVariants({ variant: 'destructive' })}
+							onClick={() => {
+								const direction = pendingStep;
+								setPendingStep(undefined);
+								if (direction) {
+									takeStep(direction);
+								}
+							}}
+						>
+							Discard Changes
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Dialog>
 	);
 }

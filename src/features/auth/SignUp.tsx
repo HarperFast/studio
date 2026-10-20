@@ -11,7 +11,7 @@ import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
-import { zodRequirePassword } from '@/lib/zod/password';
+import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -27,6 +27,9 @@ import { useSignUpMutation } from './hooks/useSignUp';
 
 // The account may already exist: sending them to the inbox beats a resubmit that 409s (#1668).
 const SIGN_UP_OUTCOME_UNKNOWN_RECOVERY = 'Check your email for a verification link before signing up again.';
+// OAuth sign-up never reaches central-manager's CAPTCHA check: only email sign-up and
+// forgot-password call it.
+const CAPTCHA_ALTERNATIVE = 'You can also sign up with Google or GitHub above, which skips this check.';
 
 const SignUpSchema = z.object({
 	email: zodRequireEmail
@@ -50,7 +53,8 @@ const SignUpSchema = z.object({
 		)
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 	password: zodRequirePassword
-		.min(8, { error: 'Password must be at least 8 characters long.' }),
+		.min(8, { error: 'Password must be at least 8 characters long.' })
+		.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR }),
 	confirmPassword: z.string(),
 	acceptTerms: z.boolean().refine(val => val === true, {
 		message: 'You must accept the Privacy Policy and Terms of Service.',
@@ -88,7 +92,7 @@ export function SignUp() {
 	}, [setFocus]);
 
 	const { mutate: submitSignUpData, isPending } = useSignUpMutation();
-	const captcha = useCaptchaChallenge('signup');
+	const captcha = useCaptchaChallenge('signup', CAPTCHA_ALTERNATIVE);
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -219,6 +223,7 @@ export function SignUp() {
 								<AuthInput
 									type="text"
 									autoCapitalize="words"
+									maxLength={SignUpSchema.shape.firstname.maxLength!}
 									{...field}
 									placeholder="Your first name"
 									autoComplete="given-name"
@@ -236,6 +241,7 @@ export function SignUp() {
 								<AuthInput
 									type="text"
 									autoCapitalize="words"
+									maxLength={SignUpSchema.shape.lastname.maxLength!}
 									{...field}
 									placeholder="Your last name"
 									autoComplete="family-name"

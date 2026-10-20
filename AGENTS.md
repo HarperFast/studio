@@ -689,9 +689,9 @@ For a hook whose job is redaction, that is the one failure mode that matters, an
 instead of testing it for truthiness.
 
 Same reason the URL redaction runs **before** `shouldKeepEvent` and the error-text redaction
-**after** it. The filter attributes errors on the raw stack and raw `error.resource.url`, so those
-can't be rewritten ahead of it — but it reads no URL field, and it can itself throw on a malformed
-error field, which would ship the event with its URLs untouched.
+**after** it. The filter attributes errors on the raw stack, so that can't be rewritten ahead of
+it — but it reads no URL field, and it can itself throw on a malformed error field, which would
+ship the event with its URLs untouched.
 
 `error.stack` is **not** the engine's stack string. The SDK parses it and re-serializes every stack
 it records, so what reaches `beforeSend` is always this shape, whatever the engine produced — no V8
@@ -784,8 +784,8 @@ Three traps when reading this from RUM data:
 
 A boot-time redirect does **not** cost you that first view, and the deciding factor is whether
 `getAllConnections()` can answer synchronously. It synthesizes `{ user: null, isLoading: false }`
-for `OverallAppSignIn` only when the `Studio:PotentiallyAuthenticated` localStorage record has no
-entry for it; with an entry it returns the record untouched, so the key is simply **absent**.
+for `OverallAppSignIn` only when no `Studio:PotentiallyAuthenticated:OverallAppSignIn` marker is
+stored; with one it returns the record untouched, so the key is simply **absent**.
 `dashboardLayout.beforeLoad` guards on `auth && !auth.isLoading && !auth.user`, so those are two
 different outcomes: a signed-out deep link redirects _during_ the router's initial load and the root
 component never commits the deep-link location — one `startView`, named `/sign-in/` — while an
@@ -842,12 +842,17 @@ timeouts, 401s and third-party stacks in `beforeSend`. Reaching RUM is not the s
 Error Tracking.
 
 That matters when replacing a toast with inline form copy: drop the `errorHandler` call and the
-failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)` for exactly this
+failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)`
+(`reportAuthFailure`, which logs an offline failure with `console.debug` instead) for exactly this
 reason — **at mutation level, in the `useMutation({ onError })`, not in the caller's `mutate(…, {
 onError })` callback**. React Query skips the latter when the component unmounted mid-flight, which
-is precisely when someone gave up on a slow sign-in and navigated away. Exclude control flow from it —
-`SignIn` skips the unverified-email rejection there, because `submitForm` redirects into the
-verification flow on it and reporting it would file every unverified sign-in.
+is precisely when someone gave up on a slow sign-in and navigated away. All three auth forms
+(sign-in, sign-up, forgot-password) report this way. Exclude control flow and expected answers
+from it — `SignIn` skips the unverified-email rejection there, because `submitForm` redirects into
+the verification flow on it and reporting it would file every unverified sign-in; sign-up and
+forgot-password skip a CAPTCHA rejection, the check's expected verdict, which they state inline
+(#1688). Reported, it arrives only as a generic `Request failed with status code 403`; count
+CAPTCHA refusals from `@type:resource` 403s on `POST /User/` and `/ForgotPassword/` instead.
 
 A related trap when reasoning about these forms: **a minimal `useForm` probe does not reproduce them.**
 react-hook-form clears a `root` error on a resolver-rejected resubmit in isolation, but `SignUp`
@@ -855,10 +860,7 @@ demonstrably does not (#1677), and `handleSubmit(fn, () => clearErrors('root'))`
 that. Reproduce against the real component, and assert the request count so a "stale" alert cannot
 actually be a second identical rejection. **Keeping the failure in component state, outside
 react-hook-form, is the model that clears correctly** — sign-in has always done this and
-forgot-password moved to it; sign-up is the remaining `root` user. (`ForgotPassword` keeps
-its report in the caller because it reports conditionally: its CAPTCHA branch is deliberately silent
-per #1658, and its non-retryable branch routes through `errorHandler`. The consequence is that a
-forgot-password failure is reported only if the form is still mounted when it settles.)
+forgot-password moved to it; sign-up is the remaining `root` user.
 The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.
@@ -893,6 +895,16 @@ non-idempotent POSTs, and each of those means the request may already have been 
 reports a CORS rejection and a connection dropped _after_ the POST both as `ERR_NETWORK`, so none of
 them can claim the server was never reached. RFC 9110 §9.2.2: a retry is only safe once you know the
 request was not applied.
+
+The one `ERR_NETWORK` that gets "check your connection, then try again" instead is a request sent
+while `onlineManager` reported offline, to a host that isn't loopback. Every auth form's mutation
+(sign-in, sign-up, forgot and reset password, email verification, cluster/instance sign-in) spreads
+[`failFastOffline`](src/features/auth/failFastOffline.ts), which sets `networkMode: 'always'` and
+rethrows that failure as an `OfflineSubmitError`. React Query's default `'online'` mode **pauses** a
+mutation while offline rather than failing it, so the form spun with nothing to show, and the request
+went out whenever the connection came back, carrying a CAPTCHA token that had expired by then
+(#1930). An offline failure is logged with `console.debug`, never `console.error`. Sign-out, Finish
+Setup and every non-auth mutation still pause (#1933).
 
 That message **states the uncertainty and stops** — the remediation is the caller's, because only
 the form knows what recovery means for its endpoint ("check your inbox before requesting another

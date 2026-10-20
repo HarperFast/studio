@@ -17,6 +17,7 @@ export interface ExtraRecordAttribute {
 export function extraRecordAttributes(
 	rows: readonly Record<string, unknown>[],
 	knownAttributes: ReadonlySet<string>,
+	limit = MAX_EXTRA_COLUMNS,
 ): ExtraRecordAttribute[] {
 	const seen = new Map<string, { count: number; sample: unknown }>();
 	for (const row of rows) {
@@ -40,9 +41,13 @@ export function extraRecordAttributes(
 		(byCount[count] ??= []).push(attribute);
 	}
 	const extras: ExtraRecordAttribute[] = [];
-	for (let count = byCount.length - 1; count > 0 && extras.length < MAX_EXTRA_COLUMNS; count--) {
-		for (const attribute of byCount[count] ?? []) {
-			if (extras.length === MAX_EXTRA_COLUMNS) {
+	for (let count = byCount.length - 1; count > 0 && extras.length < limit; count--) {
+		const attributes = byCount[count];
+		if (!attributes) {
+			continue;
+		}
+		for (const attribute of attributes) {
+			if (extras.length === limit) {
 				break;
 			}
 			extras.push({ attribute, type: typeOfValue(seen.get(attribute)!.sample) });

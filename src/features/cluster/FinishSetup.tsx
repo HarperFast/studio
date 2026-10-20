@@ -77,8 +77,8 @@ export function FinishSetup() {
 			initialUsername: defaultClusterUsername,
 			desiredUsername: formData.username,
 		}, {
-			onSuccess: async ({ message, user }) => {
-				toast.success(message);
+			onSuccess: async ({ user }) => {
+				toast.success("Admin user created. You're now signed in to your cluster.");
 				authStore.setUserForEntity(cluster!, user);
 				// The mutation already told CM the password changed (resetPasswordUpdater); reflect
 				// that in the cached cluster before navigating so ClusterHome's resetPassword guard

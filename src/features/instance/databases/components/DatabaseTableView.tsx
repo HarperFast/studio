@@ -1,4 +1,15 @@
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alertDialog';
 import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/buttonVariants';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -8,6 +19,12 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+	describedTableNames,
+} from '@/features/instance/databases/functions/describedTable';
+import {
 	ExtraRecordAttribute,
 	extraRecordAttributes,
 	sameExtraRecordAttributes,
@@ -16,7 +33,7 @@ import {
 	browsePrimaryKey,
 	formatBrowseDataTableHeader,
 } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
-import { fullScanAttributes, fullScanWarning } from '@/features/instance/databases/functions/fullScanFilter';
+import { FullScan, fullScanAttributes, fullScanQuestion } from '@/features/instance/databases/functions/fullScanFilter';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
 import {
 	buildSyntheticGetAttributes,
@@ -70,6 +87,7 @@ import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { pluralize } from '@/lib/pluralize';
 import { Row } from '@/lib/table';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
@@ -105,6 +123,16 @@ import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
 const NO_ROWS: Record<string, unknown>[] = [];
 const NO_EXTRA_ATTRIBUTES: ExtraRecordAttribute[] = [];
+
+type FilterValues = Record<string, string | undefined>;
+
+type PendingConfirmation =
+	& { context: string }
+	& (
+		| { kind: 'fullScan'; conditions: SearchCondition[]; scans: FullScan[]; formValues: FilterValues }
+		| { kind: 'cleanupOrphanBlobs' }
+		| { kind: 'deleteSelected'; hashValues: unknown[] }
+	);
 
 export function DatabaseTableView({
 	instanceDatabaseMap,
@@ -147,8 +175,8 @@ export function DatabaseTableView({
 	// describe_table backfills this table's count asynchronously. Render schema from whichever arrives first
 	// -- the map is usually ready before describe_table -- so columns and records are never gated on the
 	// (slower) count scan. describe_table wins once present: it's the per-table, refresh-invalidated copy.
-	const databaseTables = instanceDatabaseMap?.[databaseName];
-	const tableFromMap = databaseTables?.[tableName];
+	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
+	const tableFromMap = describedTable(instanceDatabaseMap, databaseName, tableName);
 	const instanceTable = describeTableData ?? tableFromMap;
 
 	// What the empty state may actually invite, each gated on the source it would use rather than on
@@ -173,7 +201,7 @@ export function DatabaseTableView({
 	const hasReplaceGrants = useInstanceTablePutPermission(instanceId ?? clusterId, databaseName, tableName);
 	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
 	const canReplaceRecords = replaceBlockedReason === undefined;
-	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
+	const schemaRelationships = declaredRelationships(schemaRelationshipMap, databaseName, tableName);
 	// Read the attributes from the same map the modal's Random Data option reads (NOT the
 	// describe-first `instanceTable`): where the two disagree, offering Seed reopens the empty-dropdown
 	// dead end this gate exists to close.
@@ -212,9 +240,9 @@ export function DatabaseTableView({
 	// A step off either end of the page can only open its record once the neighbouring page has been
 	// fetched: which end of it to open, plus the page to put the grid back on if that fetch brings
 	// nothing (an empty page, or a failed request -- both list queries are `retry: false`).
-	const [pendingRecordStep, setPendingRecordStep] = useState<{ end: 'first' | 'last'; fromPage: number } | null>(
-		null,
-	);
+	const [pendingRecordStep, setPendingRecordStep] = useState<
+		{ end: 'first' | 'last'; fromPage: number; totalRecords: number | undefined } | null
+	>(null);
 	// While that page loads, the open record is the one the user stepped away from -- so the editor
 	// shows nothing rather than a record its own header can no longer name.
 	const isStepPending = pendingRecordStep !== null;
@@ -225,8 +253,8 @@ export function DatabaseTableView({
 	// answers `false` when it simply doesn't know, which would offer an irreversible action on a
 	// guess): dropping a table needs positive evidence that another one remains.
 	const canDropTable = useMemo(
-		() => canManageBrowseInstance && !!databaseTables && Object.keys(databaseTables).length > 1,
-		[canManageBrowseInstance, databaseTables],
+		() => canManageBrowseInstance && describedTableNames(instanceDatabaseMap, databaseName).length > 1,
+		[canManageBrowseInstance, instanceDatabaseMap, databaseName],
 	);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
@@ -272,23 +300,47 @@ export function DatabaseTableView({
 		return conditions;
 	}, [attributesMap, relationshipInfoMap]);
 
+	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
+	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
+	const confirmationContext = JSON.stringify([instanceParams.entityId, urlFiltersKey]);
+	const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+	if (pendingConfirmation && pendingConfirmation.context !== confirmationContext) {
+		setPendingConfirmation(null);
+	}
+
+	// Empty rather than left out: an input left out of a reset falls back to an earlier filter's value.
+	const { getValues: getFilterValues } = columnFiltersForm;
+	const onlyThese = useCallback(
+		(formValues: FilterValues) => ({
+			...Object.fromEntries(Object.keys(getFilterValues()).map((name) => [name, ''])),
+			...formValues,
+		}),
+		[getFilterValues],
+	);
+	const commitSearchConditions = useCallback(
+		(conditions: SearchCondition[], allowFullScan: boolean, formValues: FilterValues) => {
+			setFullScanAllowed(allowFullScan);
+			setAppliedSearchConditions(conditions.length ? conditions : null);
+			resetFiltersForm(onlyThese(formValues));
+		},
+		[setFullScanAllowed, setAppliedSearchConditions, onlyThese, resetFiltersForm],
+	);
+
 	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
 	// without the user agreeing to read the whole table.
-	const applySearchConditions = useCallback((conditions: SearchCondition[]) => {
-		const scanned = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
-		if (scanned.length && !confirm(fullScanWarning(tableName, scanned))) {
+	const applySearchConditions = useCallback((conditions: SearchCondition[], formValues: FilterValues) => {
+		const scans = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
+		if (scans.length) {
+			setPendingConfirmation({ kind: 'fullScan', context: confirmationContext, conditions, scans, formValues });
 			return false;
 		}
-		setFullScanAllowed(scanned.length > 0);
-		setAppliedSearchConditions(conditions.length ? conditions : null);
+		commitSearchConditions(conditions, false, formValues);
 		return true;
-	}, [attributesMap, relationshipInfoMap, tableName, setFullScanAllowed, setAppliedSearchConditions]);
+	}, [attributesMap, relationshipInfoMap, confirmationContext, commitSearchConditions]);
 
 	const applyFilters = useCallback(() => {
-		if (applySearchConditions(translateFilterValues(columnFiltersValues))) {
-			resetFiltersForm({ ...columnFiltersValues });
-		}
-	}, [applySearchConditions, translateFilterValues, resetFiltersForm, columnFiltersValues]);
+		applySearchConditions(translateFilterValues(columnFiltersValues), columnFiltersValues);
+	}, [applySearchConditions, translateFilterValues, columnFiltersValues]);
 	const clearFilters = useCallback(() => {
 		// Note sure why we need to resetFiltersForm twice here...
 		resetFiltersForm({}, { keepValues: false, keepDirtyValues: false, keepDefaultValues: false });
@@ -310,8 +362,6 @@ export function DatabaseTableView({
 	// When the URL filters go away (navigating to another table, or back to the bare table), the filter
 	// inputs are cleared too so they don't linger stale — `appliedSearchConditions` already resets on
 	// table change, and the visible inputs should stay in step with it.
-	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
-	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
 	const appliedUrlFiltersKey = useRef<string | null>(null);
 	useEffect(function syncFiltersFromUrl() {
 		if (
@@ -324,11 +374,9 @@ export function DatabaseTableView({
 		const isInitialSync = appliedUrlFiltersKey.current === null;
 		appliedUrlFiltersKey.current = urlFiltersKey;
 		if (urlFilters) {
-			if (applySearchConditions(translateFilterValues(urlFilters))) {
-				resetFiltersForm({ ...urlFilters });
-			} else {
-				// Kept dirty, so Apply Filters stays on offer.
-				resetFiltersForm({ ...urlFilters }, { keepDefaultValues: true });
+			if (!applySearchConditions(translateFilterValues(urlFilters), urlFilters)) {
+				// Kept dirty until the user agrees, so Apply Filters stays on offer if they don't.
+				resetFiltersForm(onlyThese(urlFilters), { keepDefaultValues: true });
 			}
 			showFilters();
 		} else if (!isInitialSync) {
@@ -343,6 +391,7 @@ export function DatabaseTableView({
 		schemaRelationshipsLoading,
 		instanceDatabaseMapLoading,
 		resetFiltersForm,
+		onlyThese,
 		translateFilterValues,
 		applySearchConditions,
 		showFilters,
@@ -354,6 +403,7 @@ export function DatabaseTableView({
 	// would read that "no data" as rows still in flight (#1748). True until the schema arrives without
 	// one, so the spinner still covers the schema load.
 	const hasPrimaryKey = !instanceTable || !!primaryKey;
+	const hasKnownPrimaryKey = !!primaryKey;
 	// Null until the user picks a column, so the default follows the primary key, which on a fresh
 	// load only arrives after mount.
 	const [chosenSort, setSort] = useEffectedState<{ attribute: string; descending: boolean } | null>(
@@ -368,10 +418,13 @@ export function DatabaseTableView({
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName, appliedSearchConditions]);
 	const [pageSize, setPageSize] = useState(20);
 
-	// The index of a page a step has proven to be the last one. A full unfiltered page can't say
-	// whether more records follow, so the step probes; an empty answer is the only proof, and
-	// remembering it keeps the Next button from offering that same dead probe again.
-	const [knownLastPage, setKnownLastPage] = useEffectedState<number | null>(null, [
+	// The page a step has proven to be the last one. A full unfiltered page can't say whether more
+	// records follow, so the step probes; an empty answer is the only proof, and remembering it keeps
+	// the Next button from offering that same dead probe again. It holds only while the record count
+	// the step set out with does.
+	const [knownLastPage, setKnownLastPage] = useEffectedState<
+		{ pageIndex: number; totalRecords: number | undefined } | null
+	>(null, [
 		databaseName,
 		tableName,
 		appliedSearchConditions,
@@ -554,7 +607,8 @@ export function DatabaseTableView({
 	// full one is only proven terminal by a step that found nothing past it.
 	const hasNextPage = uncountedPage
 		? !!uncountedPage.hasNextPage
-		: !!pageRows && pageRows.length === pageSize && knownLastPage !== pageIndex;
+		: !!pageRows && pageRows.length === pageSize
+			&& !(knownLastPage?.pageIndex === pageIndex && knownLastPage.totalRecords === totalRecords);
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -631,11 +685,10 @@ export function DatabaseTableView({
 		[queryClient, instanceParams.entityId, databaseName, tableName],
 	);
 
-	const onCleanupOrphanBlobs = useCallback(async () => {
-		if (!confirm(`Are you sure you want to cleanup orphan blobs for database "${databaseName}"?`)) {
-			return;
-		}
-
+	const onCleanupOrphanBlobs = useCallback(() => {
+		setPendingConfirmation({ kind: 'cleanupOrphanBlobs', context: confirmationContext });
+	}, [confirmationContext]);
+	const cleanupOrphanBlobsNow = useCallback(() => {
 		cleanupOrphanBlobs({
 			...instanceParams,
 			databaseName,
@@ -645,7 +698,9 @@ export function DatabaseTableView({
 				refreshTable();
 			},
 			onError: (error) => {
-				toast.error(error instanceof Error ? error.message : 'Failed to cleanup orphan blobs');
+				if (shouldToastOwnFailure(error)) {
+					toast.error(error instanceof Error ? error.message : 'Failed to cleanup orphan blobs');
+				}
 			},
 		});
 	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);
@@ -777,13 +832,19 @@ export function DatabaseTableView({
 	// Bulk delete from the toolbar. Unlike the editor's single-record delete there is no record in
 	// front of the user to check against, so it confirms first; both read the answer the same way.
 	const onDeleteSelected = useCallback(() => {
-		const hashValues = visibleSelectedKeys;
-		if (!hashValues.length) {
-			return;
+		if (visibleSelectedKeys.length) {
+			setPendingConfirmation({ kind: 'deleteSelected', context: confirmationContext, hashValues: visibleSelectedKeys });
 		}
-		if (!confirm(`Permanently delete ${pluralize(hashValues.length, 'record', 'records')} from "${tableName}"?`)) {
-			return;
-		}
+	}, [visibleSelectedKeys, confirmationContext]);
+	// The question names the rows on screen; once a refetch moves them it names rows nobody can see.
+	if (
+		pendingConfirmation?.kind === 'deleteSelected'
+		&& (pendingConfirmation.hashValues.length !== visibleSelectedKeys.length
+			|| pendingConfirmation.hashValues.some((key) => !visibleSelectedKeys.includes(key)))
+	) {
+		setPendingConfirmation(null);
+	}
+	const deleteSelectedNow = useCallback((hashValues: unknown[]) => {
 		deleteTableRecords(
 			{
 				...instanceParams,
@@ -807,15 +868,24 @@ export function DatabaseTableView({
 				},
 			},
 		);
-	}, [
-		deleteTableRecords,
-		instanceParams,
-		databaseName,
-		tableName,
-		refreshTable,
-		refreshOpenRecord,
-		visibleSelectedKeys,
-	]);
+	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable, refreshOpenRecord]);
+
+	const onConfirmed = () => {
+		const confirmation = pendingConfirmation;
+		setPendingConfirmation(null);
+		switch (confirmation?.kind) {
+			case 'fullScan':
+				commitSearchConditions(confirmation.conditions, true, confirmation.formValues);
+				return;
+			case 'cleanupOrphanBlobs':
+				cleanupOrphanBlobsNow();
+				return;
+			case 'deleteSelected':
+				deleteSelectedNow(confirmation.hashValues);
+				return;
+		}
+	};
+	const confirmationCopy = pendingConfirmation && describeConfirmation(pendingConfirmation, databaseName, tableName);
 
 	// Point the editor at a record on the page the grid is showing. The row is kept as well as its
 	// id because the editor falls back to it when the record can't be fetched by that id.
@@ -843,9 +913,23 @@ export function DatabaseTableView({
 		if (targetPage < 0) {
 			return;
 		}
+		// A copy of that page still in the cache, or a read of it still in flight, can be older than the
+		// page on screen (the probe's empty answer among them), so the step reads it afresh.
+		queryClient.removeQueries({ queryKey: [instanceParams.entityId, databaseName, tableName], type: 'inactive' });
 		setPageIndex(targetPage);
-		setPendingRecordStep({ end: offset === 1 ? 'first' : 'last', fromPage: pageIndex });
-	}, [openRowIndex, pageRows, openRecordAt, pageIndex, setPageIndex]);
+		setPendingRecordStep({ end: offset === 1 ? 'first' : 'last', fromPage: pageIndex, totalRecords });
+	}, [
+		openRowIndex,
+		pageRows,
+		openRecordAt,
+		pageIndex,
+		setPageIndex,
+		totalRecords,
+		queryClient,
+		instanceParams.entityId,
+		databaseName,
+		tableName,
+	]);
 
 	useEffect(function openTheRecordWaitingOnTheNeighbouringPage() {
 		if (!pendingRecordStep) {
@@ -878,15 +962,28 @@ export function DatabaseTableView({
 			return;
 		}
 		if (pendingRecordStep.end === 'first') {
+			// A count that moved while the probe was out leaves its empty answer proving nothing.
+			if (pendingRecordStep.totalRecords !== totalRecords) {
+				return;
+			}
 			// An empty page forward is proof there is nothing past the page we came from -- the only
 			// proof available when that page was full. Backwards it means something else entirely
 			// (records disappeared behind us), so it must not mark that page as the last one.
-			setKnownLastPage(pendingRecordStep.fromPage);
+			setKnownLastPage({ pageIndex: pendingRecordStep.fromPage, totalRecords });
 			toast.info('This is the last record');
 			return;
 		}
 		toast.info('This is the first record');
-	}, [pendingRecordStep, pageRows, isPageError, isEditModalOpen, openRecordAt, setPageIndex, setKnownLastPage]);
+	}, [
+		pendingRecordStep,
+		pageRows,
+		isPageError,
+		isEditModalOpen,
+		openRecordAt,
+		setPageIndex,
+		totalRecords,
+		setKnownLastPage,
+	]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		openRecordAt(rowData.index, rowData.original);
@@ -948,7 +1045,7 @@ export function DatabaseTableView({
 		<>
 			<div className="shrink-0 flex flex-col md:flex-row md:flex-wrap items-center justify-between gap-3 pt-15 pb-4 px-4">
 				<div className="flex space-x-2">
-					{canAddRecords && hasPrimaryKey && (
+					{canAddRecords && hasKnownPrimaryKey && (
 						<Button
 							variant="positiveOutline"
 							onClick={onAddClicked}
@@ -1038,13 +1135,13 @@ export function DatabaseTableView({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
-							{canImportData && hasPrimaryKey && (
+							{canImportData && hasKnownPrimaryKey && (
 								<DropdownMenuItem onClick={onImportDataClicked}>
 									<CloudUploadIcon />
 									Import Data
 								</DropdownMenuItem>
 							)}
-							<DropdownMenuItem onClick={onExportCSVClicked} disabled={isExportingCSV || !hasPrimaryKey}>
+							<DropdownMenuItem onSelect={onExportCSVClicked} disabled={isExportingCSV || !hasKnownPrimaryKey}>
 								<CloudDownloadIcon />
 								Export CSV
 							</DropdownMenuItem>
@@ -1066,7 +1163,7 @@ export function DatabaseTableView({
 								&& !!instanceId && (
 								<DropdownMenuItem
 									className="focus:bg-yellow/70 focus:text-white"
-									onClick={onCleanupOrphanBlobs}
+									onSelect={onCleanupOrphanBlobs}
 									disabled={isCleanupOrphanBlobsPending}
 								>
 									<BrushCleaningIcon className="text-yellow " />
@@ -1169,6 +1266,59 @@ export function DatabaseTableView({
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending || isPutTableRecordsPending}
 				isDeleteTableRecordsPending={isDeleteTableRecordsPending}
 			/>
+			<AlertDialog
+				open={!!confirmationCopy}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPendingConfirmation(null);
+					}
+				}}
+			>
+				{confirmationCopy && (
+					<AlertDialogContent className="text-popover-foreground">
+						<AlertDialogHeader>
+							<AlertDialogTitle>{confirmationCopy.title}</AlertDialogTitle>
+							<AlertDialogDescription>{confirmationCopy.description}</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogAction
+								className={confirmationCopy.variant ? buttonVariants({ variant: confirmationCopy.variant }) : undefined}
+								onClick={onConfirmed}
+							>
+								{confirmationCopy.action}
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				)}
+			</AlertDialog>
 		</>
 	);
+}
+
+function describeConfirmation(
+	confirmation: PendingConfirmation,
+	databaseName: string,
+	tableName: string,
+): { title: string; description: string; action: string; variant?: 'destructive' | 'warning' } {
+	switch (confirmation.kind) {
+		case 'fullScan':
+			return { ...fullScanQuestion(tableName, confirmation.scans), action: 'Scan anyway' };
+		case 'cleanupOrphanBlobs':
+			return {
+				title: 'Clean up orphan blobs?',
+				description: `This starts an orphan blob cleanup for the "${databaseName}" database.`,
+				action: 'Clean Up',
+				variant: 'warning',
+			};
+		case 'deleteSelected': {
+			const records = pluralize(confirmation.hashValues.length, 'record', 'records');
+			return {
+				title: `Delete ${records} from "${tableName}"?`,
+				description: `The ${records} will be permanently deleted.`,
+				action: 'Delete',
+				variant: 'destructive',
+			};
+		}
+	}
 }

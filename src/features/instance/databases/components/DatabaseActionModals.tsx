@@ -1,4 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	declaredRelationships,
+	describedDatabase,
+	describedTable,
+} from '@/features/instance/databases/functions/describedTable';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
@@ -7,6 +12,7 @@ import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTab
 import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { getDescribeTable } from '@/integrations/api/instance/database/getDescribeTable';
+import { awaitDatabaseMapRefresh } from '@/integrations/api/instance/database/importData';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { WatchedValuesTypeMap } from '@/lib/storage/watchedValueKeys';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
@@ -54,7 +60,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	);
 
 	const addTableFromMap = addTarget
-		? instanceDatabaseMap?.[addTarget.databaseName]?.[addTarget.tableName]
+		? describedTable(instanceDatabaseMap, addTarget.databaseName, addTarget.tableName)
 		: undefined;
 	const [describedAddTable, setDescribedAddTable] = useState<{ target: AddTarget; table: InstanceTable }>();
 	const addInstanceTable = addTableFromMap
@@ -91,11 +97,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	}, [addTarget, addTableFromMap, instanceParams]);
 
 	const onImported = useCallback(async (databaseName: string, tableName: string) => {
-		// The import may have created a new table (or even database), so refresh the tree too.
-		await queryClient.invalidateQueries({
-			queryKey: [instanceParams.entityId, 'describe_all'],
-			refetchType: 'all',
-		});
+		await awaitDatabaseMapRefresh(queryClient, instanceParams.entityId);
 		goToTable(databaseName, tableName);
 		await router.invalidate();
 	}, [queryClient, instanceParams.entityId, goToTable, router]);
@@ -126,8 +128,12 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				<AddTableRowModal
 					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
-					databaseTables={instanceDatabaseMap?.[addTarget.databaseName]}
-					schemaRelationships={schemaRelationshipMap?.[addTarget.databaseName]?.[addTarget.tableName]}
+					databaseTables={describedDatabase(instanceDatabaseMap, addTarget.databaseName)}
+					schemaRelationships={declaredRelationships(
+						schemaRelationshipMap,
+						addTarget.databaseName,
+						addTarget.tableName,
+					)}
 					isModalOpen
 					setIsModalOpen={open => {
 						if (!open) {

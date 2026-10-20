@@ -12,16 +12,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { apiClient } from '@/config/apiClient';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { ApiAccessSettings } from '@/features/organization/settings/ApiAccessSettings';
+import { SettingsSection } from '@/features/organization/settings/SettingsSection';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { writeToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { SchemaOrganization } from '@/integrations/api/api.gen';
 import { OAuthConfig } from '@/integrations/api/api.patch';
 import { getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { CopyIcon, ExternalLinkIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react';
+import { CopyIcon, ExternalLinkIcon, LinkIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -36,6 +39,10 @@ async function patchOAuthConfig(orgId: string, payload: Partial<OAuthConfig> & {
 	);
 	return data as unknown as OAuthConfig;
 }
+
+// Central manager stores the scope verbatim and it overrides the provider preset, so a blank field
+// would sign in with an empty scope: submit the default its placeholder shows instead.
+const DEFAULT_OAUTH_SCOPE = 'openid email profile';
 
 // ── Add form ──────────────────────────────────────────────────────────────────
 
@@ -76,18 +83,22 @@ export function OrgSettingsIndex() {
 	const { mutate: patch, isPending } = useMutation({
 		mutationFn: (payload: Partial<OAuthConfig> & { provider: string }) => patchOAuthConfig(organizationId, payload),
 		onSuccess: () => void queryClient.invalidateQueries({ queryKey: [organizationId] }),
-		onError: () => toast.error('Failed to update OAuth settings.'),
+		onError: (error) => {
+			if (shouldToastOwnFailure(error)) {
+				toast.error('Failed to update OAuth settings.');
+			}
+		},
 	});
 
 	// Add
 	const addForm = useForm<AddForm>({
 		resolver: zodResolver(addSchema),
-		defaultValues: { domain: '', clientId: '', clientSecret: '', scope: 'openid email profile' },
+		defaultValues: { domain: '', clientId: '', clientSecret: '', scope: DEFAULT_OAUTH_SCOPE },
 	});
 
 	const onAdd = (data: AddForm) => {
 		patch(
-			{ provider: 'okta', ...data },
+			{ provider: 'okta', ...data, scope: data.scope?.trim() || DEFAULT_OAUTH_SCOPE },
 			{
 				onSuccess: () => {
 					toast.success('OAuth provider added.');
@@ -111,7 +122,7 @@ export function OrgSettingsIndex() {
 			id: config.id!,
 			provider: config.provider,
 			domain: data.domain,
-			scope: data.scope,
+			scope: data.scope?.trim() || DEFAULT_OAUTH_SCOPE,
 		};
 		// Only include secrets if the user actually typed something (blank = keep existing)
 		if (data.clientId) { payload.clientId = data.clientId; }
@@ -161,22 +172,33 @@ export function OrgSettingsIndex() {
 		<>
 			<SubNavMenu />
 			<OrgPageLayout>
-				<div className="max-w-2xl">
-					<h2 className="text-2xl text-foreground font-light mb-6">Authentication</h2>
+				<div className="max-w-5xl space-y-6 pb-12">
+					<div>
+						<h2 className="text-2xl text-foreground font-light">Authentication</h2>
+						<p className="text-sm text-muted-foreground">
+							Manage sign-in methods and API access for your organization.
+						</p>
+					</div>
 
-					<section>
-						<div className="flex items-center justify-between mb-4">
-							<h3 className="text-lg text-foreground font-medium">OAuth Providers</h3>
-							{!isAdding && (
-								<Button variant="positiveOutline" size="sm" onClick={() => setIsAdding(true)}>
-									<PlusIcon />
-									Add Provider
-								</Button>
-							)}
-						</div>
-
+					<SettingsSection
+						title="OAuth providers"
+						actions={!isAdding && (
+							<Button variant="positiveOutline" size="sm" onClick={() => setIsAdding(true)}>
+								<PlusIcon />
+								Add OAuth provider
+							</Button>
+						)}
+					>
 						{configs.length === 0 && !isAdding && (
-							<p className="text-muted-foreground text-sm mb-4">No OAuth providers configured.</p>
+							<div className="flex flex-col items-center gap-2 py-4 text-center">
+								<span className="flex size-10 items-center justify-center rounded-full bg-muted">
+									<LinkIcon aria-hidden className="size-5 text-muted-foreground" />
+								</span>
+								<p className="font-medium">No OAuth providers configured</p>
+								<p className="text-sm text-muted-foreground">
+									Add your organization’s Okta so members can sign in with single sign-on.
+								</p>
+							</div>
 						)}
 
 						{/* Existing provider cards */}
@@ -207,7 +229,7 @@ export function OrgSettingsIndex() {
 														<FormItem>
 															<FormLabel>Domain</FormLabel>
 															<FormControl>
-																<Input placeholder="company.okta.com" {...field} />
+																<Input placeholder="e.g. company.okta.com" {...field} />
 															</FormControl>
 															<FormMessage />
 														</FormItem>
@@ -246,7 +268,7 @@ export function OrgSettingsIndex() {
 														<FormItem>
 															<FormLabel>Scope</FormLabel>
 															<FormControl>
-																<Input placeholder="openid email profile" {...field} />
+																<Input placeholder={DEFAULT_OAUTH_SCOPE} {...field} />
 															</FormControl>
 															<FormMessage />
 														</FormItem>
@@ -377,6 +399,7 @@ export function OrgSettingsIndex() {
 												<Button
 													variant="outline"
 													size="sm"
+													aria-label="Edit provider"
 													onClick={() => startEdit(config)}
 													disabled={isPending}
 												>
@@ -418,7 +441,7 @@ export function OrgSettingsIndex() {
 												<FormItem>
 													<FormLabel>Domain</FormLabel>
 													<FormControl>
-														<Input placeholder="company.okta.com" autoFocus {...field} />
+														<Input placeholder="e.g. company.okta.com" autoFocus {...field} />
 													</FormControl>
 													<FormMessage />
 												</FormItem>
@@ -457,7 +480,7 @@ export function OrgSettingsIndex() {
 												<FormItem>
 													<FormLabel>Scope</FormLabel>
 													<FormControl>
-														<Input placeholder="openid email profile" {...field} />
+														<Input placeholder={DEFAULT_OAUTH_SCOPE} {...field} />
 													</FormControl>
 													<FormMessage />
 												</FormItem>
@@ -482,7 +505,11 @@ export function OrgSettingsIndex() {
 								</Form>
 							</div>
 						)}
-					</section>
+					</SettingsSection>
+					<ApiAccessSettings
+						organizationId={organizationId}
+						apiTokensEnabled={organization.settings?.apiTokensEnabled === true}
+					/>
 				</div>
 			</OrgPageLayout>
 		</>

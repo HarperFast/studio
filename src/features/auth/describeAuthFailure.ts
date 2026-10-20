@@ -1,5 +1,7 @@
+import { NO_RESPONSE_CODES } from '@/integrations/api/unansweredWrite';
 import { describeError } from '@/react-query/queryClient';
 import { AxiosError } from 'axios';
+import { OFFLINE_MESSAGE, OfflineSubmitError } from './failFastOffline';
 
 export const SERVER_UNAVAILABLE_MESSAGE =
 	"The server is temporarily unavailable. It isn't a problem with the details you entered — please try again in a moment.";
@@ -15,24 +17,15 @@ export const OUTCOME_UNKNOWN_MESSAGE =
 	"We didn't get an answer from the server, so we can't tell whether that went through.";
 
 // 503 alone: the server is declining requests, so it very likely never processed this one and a
-// plain retry is honest. (`curryRetryGatewayErrors` also classes 502/504 as retryable, but it is
-// installed on instance clients only, never on `apiClient` — nothing retries these calls
-// automatically, and the retry this copy invites is the user's own.)
+// plain retry is honest. (`curryRetryGatewayErrors` replays 502/503/504, but only for reads and
+// only on instance clients, never on `apiClient` — nothing retries these calls automatically, and
+// the retry this copy invites is the user's own.)
 const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([503]);
 // Every form using this submits a non-idempotent POST, and each of these means the request had
 // already been handed upstream, so the write may have applied (RFC 9110 §9.2.2 — a retry is only
 // safe once you know it did not). Repeating blindly turns a completed sign-up into a 409 with the
 // verification mail already sent (#1668).
 const OUTCOME_UNKNOWN_STATUSES: ReadonlySet<number> = new Set([502, 504]);
-// Axios reports a request that got no response as ERR_NETWORK — including a CORS rejection, and
-// including a connection that dropped *after* the POST was applied — so it cannot be described as
-// "we couldn't reach the server". It is the same unknown outcome. ECONNABORTED/ETIMEDOUT are the
-// timeout pair; which one axios uses depends on `transitional.clarifyTimeoutError`.
-const OUTCOME_UNKNOWN_CODES: ReadonlySet<string> = new Set([
-	AxiosError.ERR_NETWORK,
-	AxiosError.ETIMEDOUT,
-	AxiosError.ECONNABORTED,
-]);
 
 /**
  * Our own copy for a failure the server's own words shouldn't answer, or `undefined` to defer.
@@ -45,6 +38,10 @@ const OUTCOME_UNKNOWN_CODES: ReadonlySet<string> = new Set([
  * would repeat the side effect this branch exists to avoid.
  */
 export function describeRetryableAuthFailure(rawErr: unknown, outcomeUnknownRecovery: string): string | undefined {
+	// Ahead of the `ERR_NETWORK` hedge below: what to check here is the person's own connection.
+	if (rawErr instanceof OfflineSubmitError) {
+		return OFFLINE_MESSAGE;
+	}
 	const outcomeUnknown = `${OUTCOME_UNKNOWN_MESSAGE} ${outcomeUnknownRecovery}`;
 	const axiosErr = rawErr as AxiosError;
 	const status = axiosErr?.response?.status;
@@ -64,7 +61,7 @@ export function describeRetryableAuthFailure(rawErr: unknown, outcomeUnknownReco
 	// ERR_CANCELED is a local abort that reached nothing, and a config fault (ERR_INVALID_URL,
 	// ERR_BAD_OPTION) never left the browser — none of those is ours to describe.
 	const code = axiosErr?.code;
-	return typeof code === 'string' && OUTCOME_UNKNOWN_CODES.has(code) ? outcomeUnknown : undefined;
+	return typeof code === 'string' && NO_RESPONSE_CODES.has(code) ? outcomeUnknown : undefined;
 }
 
 /** Display text for an auth-form rejection, preferring whatever the server said. */

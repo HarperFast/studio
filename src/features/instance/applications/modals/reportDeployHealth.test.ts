@@ -5,6 +5,8 @@ vi.mock('sonner', () => ({ toast }));
 
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
+import { UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import {
 	deployNotes,
 	reportDeployFailure,
@@ -119,6 +121,18 @@ describe('reportDeployFailure', () => {
 	it('says any other failure failed', () => {
 		reportDeployFailure('web', new Error('404: no such deployment'), 'activate');
 		expect(toast.error).toHaveBeenCalledWith('Failed to activate web', { description: '404: no such deployment' });
+	});
+
+	it('never calls an activation that got no verdict failed', () => {
+		const sent = { method: 'post', data: '{"operation":"deploy_component"}' } as InternalAxiosRequestConfig;
+		reportDeployFailure(
+			'web',
+			new AxiosError('timeout of 300000ms exceeded', AxiosError.ECONNABORTED, sent),
+			'activate',
+		);
+		expect(toast.error).toHaveBeenCalledWith("Couldn't confirm web was activated", {
+			description: UNANSWERED_WRITE_MESSAGE,
+		});
 	});
 });
 

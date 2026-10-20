@@ -356,7 +356,12 @@ function BearerForm({ auth, onApply }: { auth: ApiAuth; onApply: (token: string)
 			}}
 		>
 			<Label htmlFor="api-auth-token">Token</Label>
-			<Input id="api-auth-token" value={token} placeholder="eyJhbGciOi…" onChange={e => setToken(e.target.value)} />
+			<Input
+				id="api-auth-token"
+				value={token}
+				placeholder="e.g. eyJhbGciOi…"
+				onChange={e => setToken(e.target.value)}
+			/>
 			<Button type="submit" variant="outline" className="mt-2" disabled={!token}>Authorize</Button>
 		</form>
 	);

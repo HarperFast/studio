@@ -18,7 +18,11 @@
  */
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
+import {
+	discardEditorFileContentIfSaved,
+	editorFileContentKey,
+	useEditorFileContent,
+} from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -28,7 +32,6 @@ import {
 	getComponentFileQueryOptions,
 	GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
-import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { parseEnv, removeEnvKeys, renderMaskedEnv, upsertEnvValues } from '@/lib/env/envFile';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CodeIcon, ShieldCheckIcon, Table2Icon } from 'lucide-react';
@@ -38,7 +41,7 @@ import { TextEditorView } from '../TextEditorView';
 export function EnvEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
-	const { openedEntry } = useEditorView();
+	const { openedEntry, writeFile } = useEditorView();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
 	const path = openedEntry?.path ?? '';
@@ -51,7 +54,7 @@ export function EnvEditorView() {
 
 	// Unsaved edits from the raw text view. The secrets table is a GUI over the same buffer the
 	// text editor shows, so it parses (and writes back) the dirty content when there is any.
-	const { content: updatedFileContent, setContent } = useEditorFileContent(
+	const { content: updatedFileContent } = useEditorFileContent(
 		!!openedEntry && !openedEntry.package && path,
 	);
 
@@ -71,22 +74,21 @@ export function EnvEditorView() {
 	const canManage = !!openedEntry && !openedEntry.package && canManageBrowseInstance;
 
 	/*
-	 Persistence, per mode. Plaintext-mode writes go through the ordinary whole-file save and then
-	 sync the query cache (the EditorViewProvider derives the opened contents from it). Protected-
+	 Persistence, per mode. Plaintext-mode writes are the editor's own save, which settles the query
+	 cache (the EditorViewProvider derives the opened contents from it) and waits for renames. Protected-
 	 mode writes go through the key-level operations, whose responses carry the resulting key list.
 	 */
-	const { mutateAsync: writeComponentFile } = useSetComponentFile();
 	const { mutateAsync: setEnvValueAsync } = useSetEnvValue();
 	const { mutateAsync: deleteEnvValueAsync } = useDeleteEnvValue();
 
 	const writeWholeFile = useCallback(async (next: string) => {
-		await writeComponentFile({ ...instanceParams, project, file, payload: next });
-		queryClient.setQueryData<GetComponentFileResponse>(
-			fileQueryKey,
-			(old) => old && { ...old, message: next },
-		);
-		setContent(undefined); // the raw buffer (dirty edits included) is now saved
-	}, [writeComponentFile, instanceParams, project, file, queryClient, fileQueryKey, setContent]);
+		const included = updatedFileContent;
+		await writeFile({ ...instanceParams, project, file, payload: next });
+		if (included !== undefined) {
+			// The raw buffer went into the write, so it is saved, unless it was edited since.
+			discardEditorFileContentIfSaved(editorFileContentKey(instanceParams.entityId, path), included);
+		}
+	}, [updatedFileContent, writeFile, instanceParams, project, file, path]);
 
 	const applyProtectedKeys = useCallback((keys: string[]) => {
 		queryClient.setQueryData<GetComponentFileResponse>(

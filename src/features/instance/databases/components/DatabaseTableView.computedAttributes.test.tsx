@@ -39,10 +39,10 @@ const computed: Record<string, (record: (typeof stored)[number]) => unknown> = {
 // when `get_attributes` names it ahead of the '*'. A leading '*' returns what is stored.
 vi.mock('@/config/useInstanceClient', () => {
 	const instanceClient = {
-		post: async (_url: string, body: Body, config?: { headers?: Record<string, string> }) => {
-			if (config?.headers?.Accept === 'text/csv') {
+		post: async (_url: string, body: Body, config?: { responseType?: string }) => {
+			const exporting = config?.responseType === 'text';
+			if (exporting) {
 				csvRequests.push(body);
-				return { data: '', status: 200 };
 			}
 			switch (body.operation) {
 				case 'describe_table':
@@ -76,7 +76,7 @@ vi.mock('@/config/useInstanceClient', () => {
 						}
 						return row;
 					});
-					return { data: rows, status: 200 };
+					return { data: exporting ? JSON.stringify(rows) : rows, status: 200 };
 				}
 				case 'registration_info':
 					return { data: { version: '4.7.40' }, status: 200 };
@@ -137,8 +137,9 @@ describe('DatabaseTableView on a table with a @computed attribute', { timeout: 3
 		expect(screen.getByRole('cell', { name: '119' })).toBeTruthy();
 	});
 
-	it('exports the computed attribute by name, with no * to duplicate it', async () => {
-		URL.createObjectURL ??= () => 'blob:export';
+	it('exports the computed attribute once, named ahead of the * as the grid names it', async () => {
+		const createObjectURL = vi.fn((_blob: Blob) => 'blob:export');
+		URL.createObjectURL = createObjectURL;
 		URL.revokeObjectURL ??= () => undefined;
 		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 		render(
@@ -153,7 +154,10 @@ describe('DatabaseTableView on a table with a @computed attribute', { timeout: 3
 
 		await waitFor(() => expect(click).toHaveBeenCalled());
 		expect(csvRequests.map((body) => [body.operation, body.get_attributes])).toEqual([
-			['search_by_value', ['id', 'price', 'taxRate', 'totalPrice']],
+			['search_by_value', ['totalPrice', '*']],
 		]);
+		expect(await createObjectURL.mock.calls[0][0].text()).toBe(
+			'"id","price","taxRate","totalPrice"\n"p1",100,0.19,119\n',
+		);
 	});
 });

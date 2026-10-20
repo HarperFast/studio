@@ -3,8 +3,9 @@ import { NestedContentWithSubNavMenu } from '@/components/NestedContentWithSubNa
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
-import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { activeClusterStatuses, isDeletedCluster } from '@/config/clusterStatuses';
 import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
+import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -64,6 +65,15 @@ export function StartingUp() {
 						Try Again
 					</Button>
 				</div>
+			</NestedContentWithSubNavMenu>
+		);
+	}
+
+	// After the failed check, so a rolled-back build (FAILED with terminatedAt) still offers Try Again.
+	if (isDeletedCluster(cluster)) {
+		return (
+			<NestedContentWithSubNavMenu className="flex justify-center">
+				<ClusterTerminated cluster={cluster} />
 			</NestedContentWithSubNavMenu>
 		);
 	}

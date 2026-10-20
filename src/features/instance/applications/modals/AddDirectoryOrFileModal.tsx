@@ -8,20 +8,21 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { forgetReplacedPath } from '@/features/instance/applications/lib/editorPathState';
 import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -45,7 +46,16 @@ export function AddDirectoryOrFileModal() {
 		setExpandedItems,
 	} = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
-	const { mutate: addFolderFile, isPending } = useSetComponentFile();
+	const queryClient = useQueryClient();
+	const { mutate: addFolderFile, isPending } = useSetComponentFile({
+		// Here rather than in `mutate()`'s `onSuccess`, which is dropped if the modal unmounts first. The
+		// instance comes from the request, since the page can have moved to another one by then.
+		onSuccess: (_data, { entityId, project, file, payload }) => {
+			if (payload !== undefined) {
+				forgetReplacedPath(queryClient, entityId, `${project}/${file}`);
+			}
+		},
+	});
 	const NewFileFolderSchema = z.object({
 		name: z
 			.string()
@@ -165,15 +175,14 @@ export function AddDirectoryOrFileModal() {
 							render={({ field }) => (
 								<FormItem className="my-2">
 									<FormLabel>Name</FormLabel>
-									<FormControl>
-										<Input
-											disabled={isPending}
-											type="text"
-											autoComplete="off"
-											autoCapitalize="off"
-											{...field}
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										disabled={isPending}
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										maxLength={NewFileFolderSchema.shape.name.maxLength!}
+										{...field}
+									/>
 									<FormMessage />
 								</FormItem>
 							)}

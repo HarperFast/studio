@@ -1,3 +1,10 @@
+import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
+import {
+	RESTART_UNCONFIRMED_MESSAGE,
+	RESTART_UNCONFIRMED_TITLE,
+	RestartUnconfirmedError,
+} from '@/integrations/api/instance/status/restartUnconfirmed';
+import { isUnansweredWrite, OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { errorText } from '@/lib/errorText';
 import { isRestartNoise } from '@/lib/restart/restartGate';
 import { onRestartSettled } from '@/lib/restart/restartTracker';
@@ -6,6 +13,26 @@ import { isClaimedByRoute } from '@/react-query/routeQueryClaims';
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
+
+interface DescribedError {
+	title: string;
+	description: string;
+	message: string;
+}
+
+function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
+	const copy = (title: string, message: string) => ({ title, description: message, message });
+	if (isUnansweredWrite(rawErr)) {
+		return copy(OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE);
+	}
+	if (rawErr instanceof RestartUnconfirmedError) {
+		return copy(RESTART_UNCONFIRMED_TITLE, RESTART_UNCONFIRMED_MESSAGE);
+	}
+	if (rawErr instanceof ImportJobUnconfirmedError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, describeImportJobUnconfirmed(rawErr));
+	}
+	return undefined;
+}
 
 /**
  * Turn an error of unknown shape into display text, in both the shapes the UI needs.
@@ -16,7 +43,11 @@ import { toast } from 'sonner';
  * below moves the first clause into `title`: a single line built from `description` alone would
  * lose it. Everything comes from this one extractor so the inline text and the toast can't drift.
  */
-export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
+export function describeError(rawErr: unknown): DescribedError {
+	const unknownOutcome = describeUnknownOutcome(rawErr);
+	if (unknownOutcome) {
+		return unknownOutcome;
+	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
 	let splitTitleFromMsg = true;
@@ -62,6 +93,15 @@ export function describeError(rawErr: unknown): { title: string; description: st
 	return { title: errorTitle, description: errorMsg, message };
 }
 
+/**
+ * For a mutation's caller that toasts its own failure on top of the global toast: whether it should.
+ * Not for a failure whose outcome is not known, whose global toast already says what is known — a
+ * second one saying "failed" would contradict it and invite the retry it warns against.
+ */
+export function shouldToastOwnFailure(rawErr: unknown): boolean {
+	return describeUnknownOutcome(rawErr) === undefined;
+}
+
 export function errorHandler(rawErr: unknown) {
 	console.error(rawErr);
 	const { title: errorTitle, description: errorMsg } = describeError(rawErr);
@@ -75,8 +115,17 @@ export function errorHandler(rawErr: unknown) {
 	// signed out, #1546), and a permission failure repeated N times is still one
 	// thing for the user to know.
 	const isForbidden = axiosWrappedErr?.response?.status === 403;
+	// Never collapsed: each warns about a different write, and a read timing out alongside one must
+	// not replace it through `request-timeout`.
+	const collapseId = describeUnknownOutcome(rawErr)
+		? undefined
+		: isTimeout
+		? 'request-timeout'
+		: isForbidden
+		? 'request-forbidden'
+		: undefined;
 	toast.error(errorTitle, {
-		id: isTimeout ? 'request-timeout' : isForbidden ? 'request-forbidden' : undefined,
+		id: collapseId,
 		description: errorMsg,
 		action: {
 			label: 'Dismiss',

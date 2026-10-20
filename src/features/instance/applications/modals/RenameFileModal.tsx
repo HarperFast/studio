@@ -8,25 +8,29 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
-import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
+import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -47,8 +51,9 @@ export function RenameFileModal() {
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
-	const { openedEntry, entryExists, reloadRootEntries } = useEditorView();
+	const { openedEntry, entryExists, reloadRootEntries, isSavingAnyFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
@@ -112,6 +117,8 @@ export function RenameFileModal() {
 		// drop the old one. `relative` strips the leading project segment.
 		if (renamed && isDir) {
 			const relative = (path: string) => path.split('/').slice(1).join('/');
+			// Saves still wait while the old folder is dropped: that drop is part of the rename.
+			const endRename = startRename(instanceParams.entityId);
 			try {
 				if (changes.length === 0) {
 					await setComponentFile({
@@ -122,13 +129,18 @@ export function RenameFileModal() {
 					});
 				}
 				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
+				forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
 				await reloadRootEntries();
 			} catch (error) {
-				toast.error('Rename Failed', {
+				const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+					title: 'Rename Failed',
 					description: error instanceof Error ? error.message : 'Could not remove the original directory.',
-				});
+				};
+				toast.error(title, { description });
 				setIsPending(false);
 				return;
+			} finally {
+				endRename();
 			}
 		}
 
@@ -139,7 +151,17 @@ export function RenameFileModal() {
 			// Restore focus: a renamed directory stays in the tree; a renamed file is back in the editor.
 			setWatchedValue(isDir ? 'FocusFileTree' : 'FocusEditor', true);
 		}
-	}, [closeModal, entryExists, form, instanceParams, openedEntry, reloadRootEntries, renameFiles, setIsPending]);
+	}, [
+		closeModal,
+		entryExists,
+		form,
+		instanceParams,
+		openedEntry,
+		queryClient,
+		reloadRootEntries,
+		renameFiles,
+		setIsPending,
+	]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();
@@ -180,19 +202,21 @@ export function RenameFileModal() {
 							render={({ field }) => (
 								<FormItem className="my-2">
 									<FormLabel>Name</FormLabel>
-									<FormControl>
-										<Input
-											disabled={isPending}
-											type="text"
-											autoComplete="off"
-											autoCapitalize="off"
-											{...field}
-										/>
-									</FormControl>
+									<LengthLimitedInput
+										disabled={isPending}
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										maxLength={RenameFileSchema.shape.name.maxLength!}
+										{...field}
+									/>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+						{isSavingAnyFile && (
+							<p className="text-sm text-muted-foreground">Rename once the save in progress finishes.</p>
+						)}
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
@@ -202,7 +226,7 @@ export function RenameFileModal() {
 								<Button
 									variant="positiveOutline"
 									type="submit"
-									disabled={isPending || !isDirty || !isValid}
+									disabled={isPending || isSavingAnyFile || !isDirty || !isValid}
 								>
 									<PencilIcon /> Rename
 								</Button>

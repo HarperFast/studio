@@ -8,6 +8,7 @@ const CLUSTER_ID = 'clu-1333';
 const INSTANCE_ID = 'ins-1333';
 const KEY = 'https://instance.example.com:9925/';
 const user = { username: 'admin' } as LocalUser;
+const TERMINATED_AT = '2026-08-13T00:00:00.000Z';
 
 function setConnectedUser(id: string) {
 	authStore.setUserForIdAndKey(id, KEY, user);
@@ -46,6 +47,37 @@ describe('redirectAwayFromSignInIfConnected (cluster)', () => {
 		// snapshot would still hold the old user, but the live store does not — so we must not redirect.
 		authStore.setUserForIdAndKey(CLUSTER_ID, KEY, null);
 		expect(() => redirectAwayFromSignInIfConnected({ params: { clusterId: CLUSTER_ID } })).not.toThrow();
+	});
+
+	it('stays on the sign-in page of a terminated cluster even with a leftover direct connection', () => {
+		setConnectedUser(CLUSTER_ID);
+		expect(() =>
+			redirectAwayFromSignInIfConnected({
+				context: { cluster: { status: 'TERMINATED' } },
+				params: { clusterId: CLUSTER_ID },
+				location: { search: { redirect: '/some/path' } },
+			})
+		).not.toThrow();
+	});
+
+	it('stays on the sign-in page of a rolled-back failed build (FAILED with terminatedAt)', () => {
+		setConnectedUser(CLUSTER_ID);
+		expect(() =>
+			redirectAwayFromSignInIfConnected({
+				context: { cluster: { status: 'FAILED', terminatedAt: TERMINATED_AT } },
+				params: { clusterId: CLUSTER_ID },
+			})
+		).not.toThrow();
+	});
+
+	it('still redirects a connected user away from a FAILED cluster without terminatedAt', () => {
+		setConnectedUser(CLUSTER_ID);
+		expect(() =>
+			redirectAwayFromSignInIfConnected({
+				context: { cluster: { status: 'FAILED' } },
+				params: { clusterId: CLUSTER_ID },
+			})
+		).toThrow();
 	});
 
 	it('honors an absolute redirect target', () => {
@@ -89,6 +121,36 @@ describe('redirectAwayFromInstanceSignInIfConnected (instance)', () => {
 		authStore.flagForFabricConnect(CLUSTER_ID, true); // cluster flag must not suppress the instance redirect
 		expect(() =>
 			redirectAwayFromInstanceSignInIfConnected({ params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID } })
+		).toThrow();
+	});
+
+	it('stays on the sign-in page of an instance whose cluster was terminated, even when connected', () => {
+		setConnectedUser(INSTANCE_ID);
+		expect(() =>
+			redirectAwayFromInstanceSignInIfConnected({
+				context: { cluster: { status: 'TERMINATED' } },
+				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
+			})
+		).not.toThrow();
+	});
+
+	it('stays on the sign-in page of an instance whose cluster build failed and was rolled back', () => {
+		setConnectedUser(INSTANCE_ID);
+		expect(() =>
+			redirectAwayFromInstanceSignInIfConnected({
+				context: { cluster: { status: 'FAILED', terminatedAt: TERMINATED_AT } },
+				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
+			})
+		).not.toThrow();
+	});
+
+	it('still redirects a connected instance away when its cluster is FAILED without terminatedAt', () => {
+		setConnectedUser(INSTANCE_ID);
+		expect(() =>
+			redirectAwayFromInstanceSignInIfConnected({
+				context: { cluster: { status: 'FAILED' } },
+				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
+			})
 		).toThrow();
 	});
 

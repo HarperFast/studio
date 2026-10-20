@@ -28,7 +28,8 @@ async function packageComponent({
 			skip_node_modules: skipNodeModules,
 			skip_symlinks: skipSymlinks,
 		},
-		{ timeout: 300_000 },
+		// A read, but every attempt builds the whole archive again.
+		{ timeout: 300_000, skipGatewayRetry: true },
 	);
 	return data;
 }

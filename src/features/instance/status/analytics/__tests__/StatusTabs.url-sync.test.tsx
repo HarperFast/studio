@@ -30,6 +30,10 @@ vi.mock('../hooks/useAnalyticsCapability', () => ({
 	}),
 }));
 
+vi.mock('../../jobs/JobsTab', () => ({
+	JobsTab: () => <div data-testid="jobs-content">jobs content</div>,
+}));
+
 // Stub the TanStack Router hooks so we can drive search state in tests
 // without spinning up a full RouterProvider.
 let currentSearch: Record<string, unknown> = {};
@@ -144,5 +148,48 @@ describe('StatusTabs URL sync', () => {
 		navigateMock.mockClear();
 		unmount();
 		expect(navigateMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('StatusTabs auto-refresh params', () => {
+	const lastSearch = () => navigateMock.mock.lastCall?.[0].search;
+
+	async function switchTo(name: string) {
+		const trigger = screen.getByRole('tab', { name });
+		await act(async () => {
+			fireEvent.mouseDown(trigger, { button: 0 });
+		});
+	}
+
+	it("opens Jobs with its own auto-refresh off rather than the charts' 60s", async () => {
+		mount();
+		await switchTo('Jobs');
+		expect(lastSearch()).toEqual({ tab: 'jobs', range: '1h', refresh: 60_000, jobsRefresh: 0 });
+	});
+
+	it('carries both intervals across tab switches unchanged', async () => {
+		currentSearch = { tab: 'jobs', refresh: 0, jobsRefresh: 30_000 };
+		mount();
+		await switchTo('Health');
+		expect(lastSearch()).toEqual({ tab: 'health', range: '1h', refresh: 0, jobsRefresh: 30_000 });
+	});
+
+	async function pick(trigger: HTMLElement, option: string | RegExp) {
+		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+		fireEvent.click(await screen.findByRole('option', { name: option }));
+	}
+
+	it("leaves Jobs' interval alone when the charts' range changes", async () => {
+		currentSearch = { tab: 'health', jobsRefresh: 30_000 };
+		mount();
+		await pick(screen.getAllByRole('combobox').find((el) => el.textContent?.includes('Last 1 hour'))!, /Last 6 hours/);
+		expect(lastSearch()).toEqual({ tab: 'health', range: '6h', refresh: 60_000, jobsRefresh: 30_000 });
+	});
+
+	it("leaves Jobs' interval alone when the charts' interval changes", async () => {
+		currentSearch = { tab: 'health', jobsRefresh: 30_000 };
+		mount();
+		await pick(screen.getByRole('combobox', { name: 'Auto-refresh interval' }), '5m');
+		expect(lastSearch()).toEqual({ tab: 'health', range: '1h', refresh: 300_000, jobsRefresh: 30_000 });
 	});
 });

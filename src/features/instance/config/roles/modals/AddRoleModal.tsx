@@ -8,12 +8,11 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
+import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	isOperationsValueUnusable,
@@ -99,9 +98,7 @@ export function AddRoleModal({
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel className="pb-1">Name</FormLabel>
-									<FormControl>
-										<Input type="text" {...field} />
-									</FormControl>
+									<LengthLimitedInput type="text" maxLength={AddRoleFormSchema.shape.role.maxLength!} {...field} />
 									<FormMessage />
 								</FormItem>
 							)}

@@ -1,6 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { GetAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
 import { queryOptions } from '@tanstack/react-query';
+import { ResponseType } from 'axios';
 
 interface GetSearchByValueParams extends InstanceClientIdConfig {
 	enabled: boolean;
@@ -13,7 +14,7 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	onlyIfCached: boolean;
 	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
 	getAttributes?: GetAttribute[];
-	headers?: Record<string, any>;
+	responseType?: ResponseType;
 }
 
 interface SearchByValueRequest {
@@ -75,7 +76,7 @@ export async function getSearchByValue<T = Record<string, unknown>>({
 	pageSize,
 	onlyIfCached,
 	getAttributes,
-	headers,
+	responseType,
 }: Omit<GetSearchByValueParams, 'enabled'>) {
 	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
 	const response = await instanceClient.post<T[]>(
@@ -93,7 +94,7 @@ export async function getSearchByValue<T = Record<string, unknown>>({
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByValueRequest,
-		{ timeout: 0, headers, validateStatus: (status) => status >= 200 && status < 400 || status === 404 },
+		{ timeout: 0, responseType, validateStatus: (status) => status >= 200 && status < 400 || status === 404 },
 	);
 	if (response.status === 404) {
 		return { data: [] };

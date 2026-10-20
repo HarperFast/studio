@@ -32,8 +32,9 @@ export interface ResolvedInstanceConnection {
  * connection/auth resolution in `src/config/getInstanceClient.ts` one-way: `getInstanceClient`
  * is deliberately left untouched so its battle-tested axios path — including the
  * `rejectReplicationFailures` / gateway-retry interceptors that this fetch path intentionally
- * does NOT carry — keeps working for every non-streaming caller. Callers recover gateway/
- * cold-start resilience by falling back to the axios path when the stream can't be established.
+ * does NOT carry — keeps working for every non-streaming caller. Callers fall back to the axios
+ * path when the stream can't be established; a read regains its gateway retry there, a deploy does
+ * not, because that retry replays reads only.
  *
  * Fabric Connect now resolves to a direct Bearer (operation token) connection when it can
  * (see authStore.establishFabricConnectAuth); we prefer that so SSE streams straight from

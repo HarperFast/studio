@@ -2,6 +2,7 @@
 import { readEntitySettings, writeEntitySettings } from '@/features/instance/apis/explorer/settings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStore, OverallAppSignIn } from './authStore';
+import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { createInstanceAuthenticationTokens, getInstanceUserInfo } = vi.hoisted(() => ({
 	createInstanceAuthenticationTokens: vi.fn(),
@@ -14,8 +15,6 @@ vi.mock('@/integrations/api/instance/auth/createInstanceAuthenticationTokens', (
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo }));
 
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
-
-const MARKERS = 'Studio:PotentiallyAuthenticated';
 
 function signIn(id: string) {
 	authStore.setUserForIdAndKey(id as SetArgs[0], `https://${id}` as SetArgs[1], { username: 'u' } as SetArgs[2]);
@@ -53,15 +52,16 @@ describe('authStore local sign-out when storage writes throw', () => {
 		expect(readEntitySettings('ins-a')).toEqual({});
 	});
 
-	it('drops the whole marker record rather than leave a signed-out entity marked', () => {
+	it("removes a signed-out entity's marker, and only it, while writes fail", () => {
 		signIn('ins-a');
 		signIn('ins-b');
 		failEveryStorageWrite();
 
 		authStore.signOutLocally('ins-a');
 
-		expect(localStorage.getItem(MARKERS)).toBeNull();
+		expect(storedSignInMarkers()).toEqual({ 'ins-b': 'https://ins-b' });
 		expect(authStore.getOperationsUrl('ins-b')).toBe('https://ins-b');
+		authStore.signOutLocally('ins-b');
 	});
 
 	it('drops the in-memory direct-connect token even when storage refuses removal', async () => {
@@ -126,9 +126,8 @@ describe('authStore local sign-out when storage writes throw', () => {
 		expect(authStore.checkForFabricConnect('ins-a')).toBe(true);
 	});
 
-	it('reports a marker record it could neither rewrite nor remove', () => {
+	it('reports a marker storage would neither remove nor blank', () => {
 		signIn('ins-a');
-		signIn('ins-b');
 		failEveryStorageWrite();
 		const refusal = new DOMException('Storage refused.', 'SecurityError');
 		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
@@ -138,8 +137,148 @@ describe('authStore local sign-out when storage writes throw', () => {
 
 		expect(() => authStore.signOutLocally('ins-a')).not.toThrow();
 
-		expect(JSON.parse(localStorage.getItem(MARKERS) ?? '{}')).toHaveProperty('ins-a');
+		expect(storedSignInMarkers()).toHaveProperty('ins-a');
 		expect(consoleError).toHaveBeenCalledWith(refusal);
+	});
+
+	describe("once storage works again after keeping a signed-out entity's marker", () => {
+		beforeEach(() => {
+			signIn('ins-p');
+			failEveryStorageWrite();
+			vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			authStore.signOutLocally('ins-p');
+			vi.restoreAllMocks();
+		});
+
+		afterEach(() => {
+			authStore.signOutLocally('ins-r');
+		});
+
+		it.each([
+			['sign-out of another entity', () => authStore.signOutLocally('ins-never-signed-in')],
+			['sign-in', () => signIn('ins-r')],
+		])('removes it at the next %s', (_, write) => {
+			write();
+
+			expect(storedSignInMarkers()).not.toHaveProperty('ins-p');
+		});
+
+		it('leaves it once another tab has signed in there again', () => {
+			seedSignInMarkers({ 'ins-p': 'https://ins-p-2' });
+
+			signIn('ins-r');
+
+			expect(storedSignInMarkers()).toHaveProperty('ins-p', 'https://ins-p-2');
+		});
+
+		it('reaches it at a full sign-out after another tab signs it back in', () => {
+			seedSignInMarkers({ 'ins-p': 'https://ins-p' });
+			localStorage.setItem('Studio:BasicAuth:ins-p', btoa(JSON.stringify({ username: 'u', password: 'p' })));
+
+			authStore.signOutAllLocally();
+
+			// Raw: this tab still reads the credential it could not remove at the first sign-out as absent.
+			expect(localStorage.getItem('Studio:BasicAuth:ins-p')).toBeNull();
+		});
+	});
+
+	it('keeps a marker this tab signed back into while storage still refused its removal', () => {
+		signIn('ins-v');
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		authStore.signOutLocally('ins-v');
+		signIn('ins-v');
+		vi.restoreAllMocks();
+
+		signIn('ins-w');
+
+		expect(storedSignInMarkers()).toHaveProperty('ins-v');
+		['ins-v', 'ins-w'].forEach((id) => authStore.signOutLocally(id));
+	});
+
+	it('still owes the removal of a marker this tab signed back into at another URL while writes were refused', async () => {
+		authStore.setUserForIdAndKey('ins-x' as SetArgs[0], 'https://ins-x' as SetArgs[1], { username: 'u' } as SetArgs[2]);
+		failEveryStorageWrite();
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('Storage refused.', 'SecurityError');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		authStore.signOutLocally('ins-x');
+		authStore.setUserForIdAndKey(
+			'ins-x' as SetArgs[0],
+			'https://ins-x-2' as SetArgs[1],
+			{ username: 'u' } as SetArgs[2],
+		);
+		vi.restoreAllMocks();
+		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		await authStore.reloadUser('ins-x');
+
+		signIn('ins-y');
+
+		expect(storedSignInMarkers()).not.toHaveProperty('ins-x');
+		authStore.signOutLocally('ins-y');
+	});
+
+	it('still removes a marker it cannot read at sign-out', () => {
+		signIn('ins-u');
+		const getItem = Storage.prototype.getItem;
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
+			if (key === 'Studio:PotentiallyAuthenticated:ins-u') {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			}
+			return getItem.call(this, key);
+		});
+
+		authStore.signOutLocally('ins-u');
+		vi.restoreAllMocks();
+
+		expect(storedSignInMarkers()).not.toHaveProperty('ins-u');
+	});
+
+	describe('a sign-in storage refused to record', () => {
+		afterEach(() => {
+			authStore.signOutLocally('ins-refused');
+		});
+
+		it('still signs in, without throwing', () => {
+			failEveryStorageWrite();
+
+			expect(() => signIn('ins-refused')).not.toThrow();
+
+			expect(authStore.getConnectionById('ins-refused').user).toEqual({ username: 'u' });
+		});
+
+		it('is recorded at the next sign-in', () => {
+			failEveryStorageWrite();
+			signIn('ins-refused');
+			vi.restoreAllMocks();
+
+			signIn('ins-refused');
+
+			expect(storedSignInMarkers()).toHaveProperty('ins-refused');
+		});
+
+		it('is recorded at its next check, and a check that still cannot record it settles', async () => {
+			getInstanceUserInfo.mockResolvedValue({ username: 'u' });
+			failEveryStorageWrite();
+			signIn('ins-refused');
+
+			await expect(authStore.reloadUser('ins-refused')).resolves.toEqual({ username: 'u' });
+			expect(authStore.getConnectionById('ins-refused').isLoading).toBe(false);
+
+			vi.restoreAllMocks();
+			await authStore.reloadUser('ins-refused');
+			expect(storedSignInMarkers()).toHaveProperty('ins-refused');
+		});
 	});
 
 	it('lets signOutAllLocally reach every entity and the cloud slot', () => {

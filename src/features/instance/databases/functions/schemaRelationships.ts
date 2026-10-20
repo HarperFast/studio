@@ -41,6 +41,9 @@ export function getSchemaRelationshipsQueryOptions(params: InstanceClientIdConfi
 		queryKey: [params.entityId, 'schema-relationships'] as const,
 		staleTime: 60_000,
 		retry: false,
+		// Structural sharing would rebuild changed levels as plain objects, where a `__proto__` key
+		// sets the prototype instead of staying an entry.
+		structuralSharing: false,
 		enabled: params.enabled !== false,
 		queryFn: async (): Promise<SchemaRelationshipMap> => {
 			// Best-effort: browse must keep working for users who can't read component files
@@ -123,7 +126,9 @@ export function parseSchemaRelationships(sources: string[]): SchemaRelationshipM
 		}
 	}
 
-	const map: SchemaRelationshipMap = {};
+	// Without a prototype, a database or table named `__proto__` or `constructor` is an ordinary key
+	// rather than a write into Object.prototype or onto Object itself.
+	const map: SchemaRelationshipMap = Object.create(null);
 	for (const table of tables) {
 		if (!table.relationships.length) {
 			continue;
@@ -140,7 +145,7 @@ export function parseSchemaRelationships(sources: string[]): SchemaRelationshipM
 			}
 		}
 		if (resolved.length) {
-			(map[table.database] ??= {})[table.tableName] = resolved;
+			(map[table.database] ??= Object.create(null))[table.tableName] = resolved;
 		}
 	}
 	return map;

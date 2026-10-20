@@ -29,18 +29,20 @@ vi.mock('@/features/instance/databases/hooks/useExportTableCsv', () => ({
 const keyedTable = { primary_key: 'id', attributes: [{ attribute: 'id', is_primary_key: true }] };
 
 function renderMenu(rolePermission: Record<string, unknown>, dog: Record<string, unknown> = keyedTable) {
+	return renderMenuOver(rolePermission, { data: { dog, cat: keyedTable } });
+}
+
+function renderMenuOver(rolePermission: Record<string, unknown>, instanceDatabaseMap: unknown, tableName = 'dog') {
 	permission.current = rolePermission as unknown as LocalRolePermission;
-	return render(
+	const menu = (map: unknown) => (
 		<ContextMenu open>
 			<ContextMenuContent forceMount>
-				<TableContextMenuItems
-					databaseName="data"
-					tableName="dog"
-					instanceDatabaseMap={{ data: { dog, cat: keyedTable } } as never}
-				/>
+				<TableContextMenuItems databaseName="data" tableName={tableName} instanceDatabaseMap={map as never} />
 			</ContextMenuContent>
-		</ContextMenu>,
+		</ContextMenu>
 	);
+	const view = render(menu(instanceDatabaseMap));
+	return { ...view, rerenderOver: (map: unknown) => view.rerender(menu(map)) };
 }
 
 const addRecords = () => screen.queryByText('Add New Record(s)');
@@ -103,6 +105,47 @@ describe('TableContextMenuItems on a table with no primary key', () => {
 	it('leaves Export enabled on a keyed table', () => {
 		renderMenu({ super_user: true });
 		expect(exportCsv().hasAttribute('data-disabled')).toBe(false);
+	});
+});
+
+describe('TableContextMenuItems on a table the map does not describe', () => {
+	const dropTable = () => screen.queryByRole('menuitem', { name: 'Drop Table' });
+	// Two other tables, so the database's last table is not what withholds Drop Table.
+	const otherTables = { cat: keyedTable, cow: keyedTable };
+
+	function expectNothingOffered() {
+		expect(addRecords()).toBeNull();
+		expect(importData()).toBeNull();
+		expect(dropTable()).toBeNull();
+		expect(exportCsv().hasAttribute('data-disabled')).toBe(true);
+		fireEvent.click(exportCsv());
+		expect(exportCsvSpy).not.toHaveBeenCalled();
+	}
+
+	it('offers nothing that needs its key while the map is missing', () => {
+		renderMenuOver({ super_user: true }, undefined);
+		expectNothingOffered();
+	});
+
+	it('offers nothing that needs its key when the map lacks the table', () => {
+		renderMenuOver({ super_user: true }, { data: otherTables });
+		expectNothingOffered();
+	});
+
+	it('reads only the map’s own tables, whatever the table is called', () => {
+		renderMenuOver({ super_user: true }, { data: otherTables }, 'constructor');
+		expectNothingOffered();
+	});
+
+	// Both menus list tables from the map, so an open one meets an undescribed table when a refetch
+	// lands without it: another tab or user dropped it.
+	it('withdraws them from an open menu once a refetched map drops the table', () => {
+		const { rerenderOver } = renderMenuOver({ super_user: true }, { data: { dog: keyedTable, ...otherTables } });
+		expect(exportCsv().hasAttribute('data-disabled')).toBe(false);
+		expect(dropTable()).not.toBeNull();
+
+		rerenderOver({ data: otherTables });
+		expectNothingOffered();
 	});
 });
 

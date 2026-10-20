@@ -12,6 +12,12 @@
 			"runtimeExecutable": "bash",
 			"runtimeArgs": [".claude/preview-worktree.sh"],
 			"port": 5173
+		},
+		{
+			"name": "studio local (worktree)",
+			"runtimeExecutable": "bash",
+			"runtimeArgs": [".claude/preview-worktree.sh", "dev:local"],
+			"port": 5173
 		}
 	]
 }
