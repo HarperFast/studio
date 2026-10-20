@@ -24,6 +24,12 @@ describe('admin section visibility', () => {
 		expect(labels(user('fabric_readonly', ['region:read', 'host:read']))).toEqual(['Regions', 'Hosts']);
 	});
 
+	// Reading the policy is cluster:read, which every staff role holds; changing it is gated inside the page.
+	it('shows Monitoring to every role that can read clusters', () => {
+		expect(labels(user('fabric_readonly', ['cluster:read', 'region:read']))).toEqual(['Regions', 'Monitoring']);
+		expect(labels(user('fabric_staff', ['cluster:read', 'monitoringPolicy:write']))).toEqual(['Monitoring']);
+	});
+
 	it('hides the section entirely from customers', () => {
 		expect(canSeeAdminSection(user('least_privileged', []))).toBe(false);
 		expect(canSeeAdminSection(null)).toBe(false);
@@ -35,10 +41,10 @@ describe('admin section visibility', () => {
 		const withField = user('super_user', ['systemStatus:write', 'region:read', 'host:read', 'apiToken:create']);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'API Token']);
 	});
 });
