@@ -1,11 +1,10 @@
+// Central manager's staff-only `/Admin/ClusterMonitoringPolicy` endpoint, hand-typed: the generated SDK does
+// not carry these paths, so URLs are cast as elsewhere. The endpoint enforces every permission the page gates on.
 import { apiClient } from '@/config/apiClient';
+import { checkStatus } from '@/features/admin/monitoring/checkStatus';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
-/**
- * Central manager's staff-only `/Admin/ClusterMonitoringPolicy` endpoint. Hand-typed: the generated SDK
- * does not carry these paths, so URLs are cast as elsewhere. The endpoint enforces every permission the
- * page gates on (cluster:read, monitoringPolicy:write, and the restart rights `apply: rolling` needs).
- */
 export type MonitoringPolicy = 'page' | 'notify';
 export type MonitoringPolicyApply = 'none' | 'rolling';
 
@@ -23,7 +22,7 @@ export interface MonitoringPolicyProjectionError {
 }
 
 /** Outcome of the last synthetic-check projection; its `setAt` names the change it projected. */
-export interface MonitoringPolicyCheckProjection {
+interface MonitoringPolicyCheckProjection {
 	setAt?: string | null;
 	finishedAt?: string | null;
 	errors?: MonitoringPolicyProjectionError[] | null;
@@ -40,7 +39,7 @@ export interface ClusterMonitoringPolicyRow extends MonitoringPolicyChange {
 }
 
 /** One `?search=` match: the cluster with its effective policy (`page` when it has no row). */
-export interface ClusterPolicySearchResult extends MonitoringPolicyChange {
+interface ClusterPolicySearchResult extends MonitoringPolicyChange {
 	clusterId: string;
 	clusterName: string;
 	clusterStatus?: string | null;
@@ -48,7 +47,7 @@ export interface ClusterPolicySearchResult extends MonitoringPolicyChange {
 	organizationName: string;
 }
 
-export interface SetMonitoringPolicyRequest {
+interface SetMonitoringPolicyRequest {
 	clusterId: string;
 	monitoringPolicy: MonitoringPolicy;
 	reason: string;
@@ -66,21 +65,29 @@ export interface SetMonitoringPolicyResult extends MonitoringPolicyChange {
 
 const BASE = '/Admin/ClusterMonitoringPolicy/';
 
-export const monitoringPolicyQueryKey = ['fabric-admin', 'monitoring-policy'] as const;
+const monitoringPolicyQueryKey = ['fabric-admin', 'monitoring-policy'] as const;
 
-export async function getNotifyPolicies(): Promise<ClusterMonitoringPolicyRow[]> {
+async function getNotifyPolicies(): Promise<ClusterMonitoringPolicyRow[]> {
 	const { data } = await apiClient.get(`${BASE}?monitoringPolicy=notify` as '/Cluster/');
 	return data as unknown as ClusterMonitoringPolicyRow[];
 }
 
+const PENDING_POLL_MS = 30_000;
+
 export function notifyPoliciesQueryOptions() {
+	const poll = pollUnlessForbidden(PENDING_POLL_MS);
 	return queryOptions({
 		queryKey: [...monitoringPolicyQueryKey, 'notify'],
 		queryFn: getNotifyPolicies,
+		// Only while a change is still reaching its checks; it also re-renders a change that is now stuck.
+		refetchInterval: (query) =>
+			query.state.data?.some((row) => checkStatus(row, query.state.dataUpdatedAt).state === 'pending')
+				? poll(query)
+				: false,
 	});
 }
 
-export async function searchClusterPolicies(term: string): Promise<ClusterPolicySearchResult[]> {
+async function searchClusterPolicies(term: string): Promise<ClusterPolicySearchResult[]> {
 	const { data } = await apiClient.get(`${BASE}?search=${encodeURIComponent(term)}` as '/Cluster/');
 	return data as unknown as ClusterPolicySearchResult[];
 }

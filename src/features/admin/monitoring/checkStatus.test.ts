@@ -22,7 +22,6 @@ describe('checkStatus', () => {
 		});
 	});
 
-	// The row keeps the previous attempt's outcome until the new attempt finishes.
 	it.each([
 		['skipped', { setAt: null, finishedAt: before(1000), errors: [], skipped: 'grafana-sm-disabled' }],
 		['errors', { setAt: before(2000), finishedAt: before(1000), errors: [{ target: 'synthetic-check:ins-1' }] }],
@@ -47,6 +46,14 @@ describe('checkStatus', () => {
 			errors,
 			at: setMs + 500,
 		});
+	});
+
+	it('does not pin errors from an attempt for an older change on the new one', () => {
+		const errors = [{ target: 'synthetic-check:ins-1', error: 'timeout' }];
+		expect(
+			checkStatus({ setAt, checkProjection: { setAt: before(1000), finishedAt: after(500), errors } }, setMs + 600)
+				.state,
+		).toBe('pending');
 	});
 
 	it('is applied when the current attempt projected this change', () => {

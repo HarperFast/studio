@@ -8,10 +8,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 let granted = new Set<string>();
 let canRestart = false;
+const restartChecks: Array<string | undefined> = [];
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: (permission: string) => granted.has(permission) }));
-vi.mock('@/hooks/usePermissions', () => ({ useContainerOpsPermission: () => canRestart }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useContainerOpsPermission: (organizationId?: string) => {
+		restartChecks.push(organizationId);
+		return canRestart;
+	},
+}));
 vi.mock('@/hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }));
 
 import { MonitoringPolicyAdminIndex } from './index';
@@ -64,6 +70,7 @@ beforeAll(() => {
 beforeEach(() => {
 	granted = new Set(['cluster:read', 'monitoringPolicy:write']);
 	canRestart = false;
+	restartChecks.length = 0;
 	get.mockReset();
 	patch.mockReset();
 	get.mockImplementation(async (url: string) => {
@@ -166,6 +173,7 @@ describe('MonitoringPolicyAdminIndex', () => {
 		await pickClusterFromSearch();
 		expect(screen.getByRole('radio', { name: /Rolling restart now/ }).hasAttribute('disabled')).toBe(true);
 		expect(screen.getByText('Needs instance:update.')).toBeTruthy();
+		expect(new Set(restartChecks)).toEqual(new Set(['org-1']));
 	});
 
 	it('sends apply: rolling and reports a restart the server refused', async () => {
@@ -212,5 +220,48 @@ describe('MonitoringPolicyAdminIndex', () => {
 			'/Admin/ClusterMonitoringPolicy/clu-1',
 			{ monitoringPolicy: 'page', reason: 'load test over', apply: 'none' },
 		]);
+	});
+
+	it('never claims every cluster pages when the list could not be read', async () => {
+		get.mockRejectedValue(new Error('503'));
+		renderPage();
+		expect(await screen.findByText('Could not load the clusters on notify.')).toBeTruthy();
+		expect(screen.queryByText(/every cluster pages/)).toBeNull();
+	});
+
+	it('keeps the dialog open while a save is in flight, so its outcome is shown', async () => {
+		let answer: (value: unknown) => void = () => {};
+		patch.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+		renderPage();
+		await pickClusterFromSearch();
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'chaos run' } });
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Set to notify' }));
+		});
+		// TanStack flips isPending on a later tick, not inside the click.
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true));
+		expect(screen.getByRole('button', { name: 'Change cluster' }).hasAttribute('disabled')).toBe(true);
+		await act(async () => {
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+		});
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		await act(async () => {
+			answer({
+				data: {
+					clusterId: 'clu-2',
+					monitoringPolicy: 'notify',
+					apply: 'rolling',
+					instanceIds: ['ins-1'],
+					projectionErrors: [{ target: 'instance:ins-2', error: null }],
+					restart: { status: 'RESTARTING' },
+					applyError: null,
+				},
+			});
+		});
+		expect(await screen.findByText('Rolling restart started.')).toBeTruthy();
+		expect(screen.getByText(/instance:ins-2 \(failed\)/)).toBeTruthy();
 	});
 });

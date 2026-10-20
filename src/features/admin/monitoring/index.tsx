@@ -26,15 +26,16 @@ import { useMemo, useState } from 'react';
 const formatTime = (value?: string | number | null) => (value == null ? '—' : new Date(value).toLocaleString());
 
 export function MonitoringPolicyAdminIndex() {
-	const { data, isLoading } = useQuery(notifyPoliciesQueryOptions());
+	// dataUpdatedAt is the clock for "stuck": reading it re-renders on every poll, even when the rows are unchanged.
+	const { data, isLoading, isError, dataUpdatedAt } = useQuery(notifyPoliciesQueryOptions());
 	const canWrite = useStaffPermission('monitoringPolicy:write');
 	// undefined: closed; null: open on the cluster search; a target: open on that cluster.
 	const [editing, setEditing] = useState<PolicyTarget | null | undefined>(undefined);
 	const [historyOf, setHistoryOf] = useState<ClusterMonitoringPolicyRow | null>(null);
 
 	const columns = useMemo(
-		() => buildColumns({ canWrite, onChange: setEditing, onHistory: setHistoryOf }),
-		[canWrite],
+		() => buildColumns({ canWrite, now: dataUpdatedAt, onChange: setEditing, onHistory: setHistoryOf }),
+		[canWrite, dataUpdatedAt],
 	);
 
 	return (
@@ -56,8 +57,17 @@ export function MonitoringPolicyAdminIndex() {
 			</div>
 
 			<div className="mt-6">
+				{isError && (
+					<p className="mb-3 text-sm text-destructive">
+						{data
+							? 'Could not refresh the list; showing the last one loaded.'
+							: 'Could not load the clusters on notify.'}
+					</p>
+				)}
 				{isLoading
 					? <Skeleton className="h-40 w-full" />
+					: isError && !data
+					? null
 					: data?.length
 					? <DataTable columns={columns} data={data} />
 					: <p className="text-sm text-muted-foreground">No cluster is on notify: every cluster pages.</p>}
@@ -75,8 +85,9 @@ export function MonitoringPolicyAdminIndex() {
 	);
 }
 
-function buildColumns({ canWrite, onChange, onHistory }: {
+function buildColumns({ canWrite, now, onChange, onHistory }: {
 	canWrite: boolean;
+	now: number;
 	onChange: (target: PolicyTarget) => void;
 	onHistory: (row: ClusterMonitoringPolicyRow) => void;
 }): ColumnDef<ClusterMonitoringPolicyRow>[] {
@@ -116,7 +127,7 @@ function buildColumns({ canWrite, onChange, onHistory }: {
 		{
 			header: 'Checks',
 			size: 12,
-			cell: ({ row }) => <CheckStatusBadge status={checkStatus(row.original)} />,
+			cell: ({ row }) => <CheckStatusBadge status={checkStatus(row.original, now)} />,
 		},
 		{
 			header: '',
