@@ -20,7 +20,7 @@ import {
 	getComponentFileQueryOptions,
 	GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
-import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
+import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
@@ -105,11 +105,10 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		return calculateRootEntries(apiComponents.entries);
 	}, [apiComponents]);
 
-	const reloadRootEntries = useCallback(async () =>
-		queryClient.fetchQuery<APIDirectoryEntry>({
-			queryKey: [instanceParams.entityId, 'get_components'],
-			networkMode: 'online',
-		}), [queryClient, instanceParams]);
+	const reloadRootEntries = useCallback(
+		async () => queryClient.fetchQuery({ ...getComponentsQueryOptions(instanceParams), networkMode: 'online' }),
+		[queryClient, instanceParams],
+	);
 
 	useListener('ReloadApplicationRootEntries', reloadRootEntries, [reloadRootEntries]);
 
