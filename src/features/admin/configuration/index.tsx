@@ -8,19 +8,24 @@ import { useUpdateConfigurationMutation } from '@/features/admin/configuration/m
 import { getConfigurationQueryOptions } from '@/features/admin/configuration/queries/getConfiguration';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
-import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { LockIcon, PencilIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-export type ParsedValue = { ok: true; value: unknown } | { ok: false; error: string };
+export type ParsedValue = { ok: true; value: unknown; json: string } | { ok: false; error: string };
 
 // JSON.parse turns 1e400 into Infinity, which serializes back as null, and rounds integers past 2^53.
-function hasInexactNumber(value: unknown): boolean {
-	if (typeof value === 'number') {
-		return !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value));
+// A loop, not recursion: deeply nested input would overflow the stack during render.
+function hasInexactNumber(root: unknown): boolean {
+	const pending = [root];
+	while (pending.length) {
+		const value = pending.pop();
+		if (typeof value === 'number') {
+			if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) { return true; }
+		} else if (value && typeof value === 'object') {
+			for (const child of Object.values(value)) { pending.push(child); }
+		}
 	}
-	if (value && typeof value === 'object') { return Object.values(value).some(hasInexactNumber); }
 	return false;
 }
 
@@ -34,7 +39,13 @@ export function parseConfigValue(text: string): ParsedValue {
 	if (hasInexactNumber(value)) {
 		return { ok: false, error: 'A number is too large to save exactly.' };
 	}
-	return { ok: true, value };
+	let json: string;
+	try {
+		json = JSON.stringify(value);
+	} catch {
+		return { ok: false, error: 'This value is nested too deeply to save.' };
+	}
+	return { ok: true, value, json };
 }
 
 export function jsonType(value: unknown): string {
@@ -50,22 +61,22 @@ function formatValue(value: unknown): string {
 function EditConfigurationDialog(
 	{ entry, onOpenChange }: { entry: AdminConfigurationEntry | null; onOpenChange: (open: boolean) => void },
 ) {
-	const { mutate, isPending, error, reset } = useUpdateConfigurationMutation();
-	const original = useMemo(() => JSON.stringify(entry?.value ?? null, null, 2), [entry]);
+	const { mutate, isPending } = useUpdateConfigurationMutation();
+	// A row with no value edits as null.
+	const current = entry?.value ?? null;
+	const original = useMemo(() => JSON.stringify(current, null, 2), [current]);
 	const [text, setText] = useState(original);
 	const parsed = parseConfigValue(text);
-	const typeChanged = parsed.ok && entry != null && jsonType(parsed.value) !== jsonType(entry.value);
-	const unchanged = parsed.ok && JSON.stringify(parsed.value) === JSON.stringify(entry?.value ?? null);
+	const typeChanged = parsed.ok && entry != null && jsonType(parsed.value) !== jsonType(current);
+	const unchanged = parsed.ok && parsed.json === JSON.stringify(current);
 
-	// Not while a save is in flight: unmounting would drop its outcome, success or failure.
+	// Not while a save is in flight, so a refused save leaves the edit in place to fix.
 	const close = () => {
-		if (isPending) { return; }
-		reset();
-		onOpenChange(false);
+		if (!isPending) { onOpenChange(false); }
 	};
 	const save = () => {
 		if (!entry || !parsed.ok) { return; }
-		mutate({ name: entry.name, value: parsed.value }, { onSuccess: close });
+		mutate({ name: entry.name, value: parsed.value, expected: current }, { onSuccess: () => onOpenChange(false) });
 	};
 
 	return (
@@ -75,10 +86,8 @@ function EditConfigurationDialog(
 				<DialogDescription>{entry?.description || 'No description.'}</DialogDescription>
 				<Textarea
 					value={text}
-					onChange={(e) => {
-						setText(e.target.value);
-						if (error) { reset(); }
-					}}
+					onChange={(e) => setText(e.target.value)}
+					disabled={isPending}
 					aria-label="Value (JSON)"
 					className="min-h-48 font-mono text-xs"
 					spellCheck={false}
@@ -86,11 +95,10 @@ function EditConfigurationDialog(
 				{!parsed.ok && <p className="text-sm text-destructive">{parsed.error}</p>}
 				{typeChanged && parsed.ok && (
 					<p className="text-sm text-yellow-600 dark:text-yellow-400">
-						This changes the value from {jsonType(entry?.value)} to{' '}
+						This changes the value from {jsonType(current)} to{' '}
 						{jsonType(parsed.value)}. Check that central-manager expects it.
 					</p>
 				)}
-				{error && <p className="text-sm text-destructive">{describeError(error).message}</p>}
 				<DialogFooter>
 					<Button variant="outline" onClick={close} disabled={isPending}>Cancel</Button>
 					<Button variant="submit" onClick={save} disabled={!parsed.ok || unchanged || isPending}>
@@ -195,7 +203,7 @@ export function ConfigurationIndex() {
 
 			{/* Keyed so each open starts from the entry's current value. */}
 			<EditConfigurationDialog
-				key={editing?.name ?? 'closed'}
+				key={editing ? `edit:${editing.name}` : 'closed'}
 				entry={editing}
 				onOpenChange={(open) => !open && setEditing(null)}
 			/>

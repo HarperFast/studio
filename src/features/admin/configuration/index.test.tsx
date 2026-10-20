@@ -3,8 +3,10 @@
  */
 import { apiClient } from '@/config/apiClient';
 import { ConfigurationIndex, jsonType, parseConfigValue } from '@/features/admin/configuration/index';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { mutationErrorHandler } from '@/react-query/queryClient';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn(), patch: vi.fn() } }));
@@ -19,6 +21,19 @@ const ROWS = [
 	{ name: 'OVERALLOCATED_CPU_MULTIPLIER', description: 'CPU overallocation', value: 20, superUserOnly: false },
 	{ name: 'HOST_SSH_KEYS', description: 'SSH keys', value: ['ssh-ed25519 AAAA'], superUserOnly: true },
 ];
+const LIST_PATH = '/Admin/Configuration/';
+
+/** Serves the list and each single-key read from `rows`. */
+function serve(rows: Array<Record<string, unknown>>) {
+	mockedGet.mockImplementation(
+		((path: string) =>
+			Promise.resolve({
+				data: path === LIST_PATH ? rows : rows.find((row) => path === `${LIST_PATH}${row.name as string}`) ?? null,
+			})) as never,
+	);
+}
+
+const listReads = () => mockedGet.mock.calls.filter(([path]) => path === LIST_PATH).length;
 
 beforeAll(() => {
 	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
@@ -32,13 +47,17 @@ beforeEach(() => {
 	auth.fabricRole = 'fabric_admin';
 	mockedGet.mockReset();
 	mockedPatch.mockReset();
-	mockedGet.mockResolvedValue({ data: ROWS } as never);
+	vi.mocked(toast.error).mockReset();
+	serve(ROWS);
 	mockedPatch.mockResolvedValue({ data: undefined } as never);
 });
 afterEach(cleanup);
 
 function renderPage() {
-	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
+	});
 	render(
 		<QueryClientProvider client={queryClient}>
 			<ConfigurationIndex />
@@ -103,10 +122,10 @@ describe('ConfigurationIndex', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
 		expect(mockedPatch).toHaveBeenCalledWith('/Admin/Configuration/OVERALLOCATED_CPU_MULTIPLIER', { value: 25 });
-		await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+		await waitFor(() => expect(listReads()).toBe(2));
 	});
 
-	it('shows a refused save in the dialog', async () => {
+	it('reports a refused save and keeps the edit open to fix', async () => {
 		mockedPatch.mockRejectedValue(new Error('Configuration key X can only be changed by the core super user'));
 		renderPage();
 		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
@@ -114,8 +133,44 @@ describe('ConfigurationIndex', () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
-		expect(await within(screen.getByRole('dialog')).findByText(/can only be changed by the core super user/))
-			.toBeTruthy();
+		await waitFor(() =>
+			expect(toast.error).toHaveBeenCalledWith(
+				'Error',
+				expect.objectContaining({ description: 'Configuration key X can only be changed by the core super user' }),
+			)
+		);
+		expect((screen.getByLabelText('Value (JSON)') as HTMLTextAreaElement).value).toBe('30');
+	});
+
+	it('refuses to overwrite a value someone changed after the editor opened', async () => {
+		renderPage();
+		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
+		serve([{ ...ROWS[0], value: 21 }, ROWS[1]]);
+		await type(textarea, '25');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		await waitFor(() =>
+			expect(toast.error).toHaveBeenCalledWith(
+				'Error',
+				expect.objectContaining({ description: expect.stringMatching(/changed by someone else/) }),
+			)
+		);
+		expect(mockedPatch).not.toHaveBeenCalled();
+		await waitFor(() => expect(listReads()).toBe(2));
+	});
+
+	it('opens a key named like the closed-dialog key with its own value', async () => {
+		serve([{ name: 'closed', description: null, value: 7, superUserOnly: false }]);
+		renderPage();
+		expect(((await openEditor('closed')) as HTMLTextAreaElement).value).toBe('7');
+	});
+
+	it('edits a row with no value as null, without a type warning', async () => {
+		serve([{ name: 'UNSET_KEY', description: null, superUserOnly: false }]);
+		renderPage();
+		expect(((await openEditor('UNSET_KEY')) as HTMLTextAreaElement).value).toBe('null');
+		expect(screen.queryByText(/changes the value from/)).toBeNull();
 	});
 
 	it('refuses a number JSON would silently turn into null', async () => {
@@ -126,8 +181,7 @@ describe('ConfigurationIndex', () => {
 		expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	// Closing would unmount the dialog and drop the save's outcome, so it stays open until it settles.
-	it('stays open while a save is in flight, then refreshes the list', async () => {
+	it('locks the editor while a save is in flight, then closes and refreshes the list', async () => {
 		let finish: () => void = () => {};
 		mockedPatch.mockImplementation(() =>
 			new Promise((resolve) => (finish = () => resolve({ data: undefined }))) as never
@@ -141,6 +195,7 @@ describe('ConfigurationIndex', () => {
 		await waitFor(() =>
 			expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true)
 		);
+		expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
 		await act(async () => {
 			fireEvent.keyDown(textarea, { key: 'Escape' });
 		});
@@ -148,20 +203,7 @@ describe('ConfigurationIndex', () => {
 
 		await act(async () => finish());
 		await waitFor(() => expect(screen.queryByLabelText('Value (JSON)')).toBeNull());
-		await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
-	});
-
-	it('clears a refused save once the value is edited again', async () => {
-		mockedPatch.mockRejectedValue(new Error('refused by central-manager'));
-		renderPage();
-		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
-		await type(textarea, '30');
-		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		});
-		expect(await screen.findByText(/refused by central-manager/)).toBeTruthy();
-		await type(textarea, '31');
-		expect(screen.queryByText(/refused by central-manager/)).toBeNull();
+		await waitFor(() => expect(listReads()).toBe(2));
 	});
 
 	it('disables Save until the value changes', async () => {
@@ -173,8 +215,8 @@ describe('ConfigurationIndex', () => {
 
 describe('parseConfigValue / jsonType', () => {
 	it('parses JSON and reports a parse failure', () => {
-		expect(parseConfigValue('[1, 2]')).toEqual({ ok: true, value: [1, 2] });
-		expect(parseConfigValue('false')).toEqual({ ok: true, value: false });
+		expect(parseConfigValue('[1, 2]')).toEqual({ ok: true, value: [1, 2], json: '[1,2]' });
+		expect(parseConfigValue('false')).toEqual({ ok: true, value: false, json: 'false' });
 		expect(parseConfigValue('nope').ok).toBe(false);
 	});
 
@@ -184,6 +226,12 @@ describe('parseConfigValue / jsonType', () => {
 		}
 		expect(parseConfigValue('9007199254740991').ok).toBe(true);
 		expect(parseConfigValue('0.1').ok).toBe(true);
+	});
+
+	it('handles deep nesting without throwing', () => {
+		const nested = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
+		expect(parseConfigValue(nested(5_000)).ok).toBe(true);
+		expect(parseConfigValue(nested(100_000))).toEqual({ ok: false, error: 'This value is nested too deeply to save.' });
 	});
 
 	it('names JSON types, telling null and arrays apart from objects', () => {
