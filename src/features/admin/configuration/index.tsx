@@ -5,26 +5,36 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useUpdateConfigurationMutation } from '@/features/admin/configuration/mutations/useUpdateConfiguration';
-import {
-	configurationQueryKey,
-	getConfigurationQueryOptions,
-} from '@/features/admin/configuration/queries/getConfiguration';
+import { getConfigurationQueryOptions } from '@/features/admin/configuration/queries/getConfiguration';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { LockIcon, PencilIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 export type ParsedValue = { ok: true; value: unknown } | { ok: false; error: string };
 
-export function parseConfigValue(text: string): ParsedValue {
-	try {
-		return { ok: true, value: JSON.parse(text) };
-	} catch (error) {
-		return { ok: false, error: (error as Error).message };
+// JSON.parse turns 1e400 into Infinity, which serializes back as null, and rounds integers past 2^53.
+function hasInexactNumber(value: unknown): boolean {
+	if (typeof value === 'number') {
+		return !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value));
 	}
+	if (value && typeof value === 'object') { return Object.values(value).some(hasInexactNumber); }
+	return false;
+}
+
+export function parseConfigValue(text: string): ParsedValue {
+	let value: unknown;
+	try {
+		value = JSON.parse(text);
+	} catch (error) {
+		return { ok: false, error: `Not valid JSON: ${(error as Error).message}` };
+	}
+	if (hasInexactNumber(value)) {
+		return { ok: false, error: 'A number is too large to save exactly.' };
+	}
+	return { ok: true, value };
 }
 
 export function jsonType(value: unknown): string {
@@ -40,7 +50,6 @@ function formatValue(value: unknown): string {
 function EditConfigurationDialog(
 	{ entry, onOpenChange }: { entry: AdminConfigurationEntry | null; onOpenChange: (open: boolean) => void },
 ) {
-	const queryClient = useQueryClient();
 	const { mutate, isPending, error, reset } = useUpdateConfigurationMutation();
 	const original = useMemo(() => JSON.stringify(entry?.value ?? null, null, 2), [entry]);
 	const [text, setText] = useState(original);
@@ -48,19 +57,15 @@ function EditConfigurationDialog(
 	const typeChanged = parsed.ok && entry != null && jsonType(parsed.value) !== jsonType(entry.value);
 	const unchanged = parsed.ok && JSON.stringify(parsed.value) === JSON.stringify(entry?.value ?? null);
 
+	// Not while a save is in flight: unmounting would drop its outcome, success or failure.
 	const close = () => {
+		if (isPending) { return; }
 		reset();
 		onOpenChange(false);
 	};
 	const save = () => {
 		if (!entry || !parsed.ok) { return; }
-		mutate({ name: entry.name, value: parsed.value }, {
-			onSuccess: () => {
-				toast.success(`${entry.name} updated`);
-				void queryClient.invalidateQueries({ queryKey: configurationQueryKey });
-				close();
-			},
-		});
+		mutate({ name: entry.name, value: parsed.value }, { onSuccess: close });
 	};
 
 	return (
@@ -70,12 +75,15 @@ function EditConfigurationDialog(
 				<DialogDescription>{entry?.description || 'No description.'}</DialogDescription>
 				<Textarea
 					value={text}
-					onChange={(e) => setText(e.target.value)}
+					onChange={(e) => {
+						setText(e.target.value);
+						if (error) { reset(); }
+					}}
 					aria-label="Value (JSON)"
 					className="min-h-48 font-mono text-xs"
 					spellCheck={false}
 				/>
-				{!parsed.ok && <p className="text-sm text-destructive">Not valid JSON: {parsed.error}</p>}
+				{!parsed.ok && <p className="text-sm text-destructive">{parsed.error}</p>}
 				{typeChanged && parsed.ok && (
 					<p className="text-sm text-yellow-600 dark:text-yellow-400">
 						This changes the value from {jsonType(entry?.value)} to{' '}
@@ -84,7 +92,7 @@ function EditConfigurationDialog(
 				)}
 				{error && <p className="text-sm text-destructive">{describeError(error).message}</p>}
 				<DialogFooter>
-					<Button variant="outline" onClick={close}>Cancel</Button>
+					<Button variant="outline" onClick={close} disabled={isPending}>Cancel</Button>
 					<Button variant="submit" onClick={save} disabled={!parsed.ok || unchanged || isPending}>
 						{isPending ? 'Saving…' : 'Save'}
 					</Button>
