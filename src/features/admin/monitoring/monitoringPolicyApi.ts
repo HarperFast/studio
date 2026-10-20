@@ -79,13 +79,19 @@ export function notifyPoliciesQueryOptions() {
 	return queryOptions({
 		queryKey: [...monitoringPolicyQueryKey, 'notify'],
 		queryFn: getNotifyPolicies,
-		// Only while a change is still reaching its checks; it also re-renders a change that is now stuck.
+		// Only while a change can still reach its checks; the poll that marks it stuck is the last one.
 		refetchInterval: (query) =>
-			query.state.data?.some((row) => checkStatus(row, query.state.dataUpdatedAt).state === 'pending')
+			query.state.data?.some((row) => {
+					const status = checkStatus(row, query.state.dataUpdatedAt);
+					return status.state === 'pending' && !status.stuck;
+				})
 				? poll(query)
 				: false,
 	});
 }
+
+/** Shared with the page, which keeps a second save from starting while one is in flight, even after a remount. */
+export const setMonitoringPolicyMutationKey = [...monitoringPolicyQueryKey, 'set'] as const;
 
 async function searchClusterPolicies(term: string): Promise<ClusterPolicySearchResult[]> {
 	const { data } = await apiClient.get(`${BASE}?search=${encodeURIComponent(term)}` as '/Cluster/');
@@ -110,6 +116,7 @@ export function clusterPolicySearchQueryOptions(term: string) {
 export function useSetMonitoringPolicyMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
+		mutationKey: setMonitoringPolicyMutationKey,
 		mutationFn: async ({ clusterId, ...body }: SetMonitoringPolicyRequest) => {
 			const { data } = await apiClient.patch(`${BASE}${encodeURIComponent(clusterId)}` as '/Cluster/{id}', body);
 			return data as unknown as SetMonitoringPolicyResult;

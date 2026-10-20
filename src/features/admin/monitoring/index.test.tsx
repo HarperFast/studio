@@ -243,6 +243,7 @@ describe('MonitoringPolicyAdminIndex', () => {
 		// TanStack flips isPending on a later tick, not inside the click.
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true));
 		expect(screen.getByRole('button', { name: 'Change cluster' }).hasAttribute('disabled')).toBe(true);
+		expect(screen.getByRole('button', { name: /Set policy/, hidden: true }).hasAttribute('disabled')).toBe(true);
 		await act(async () => {
 			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 		});
