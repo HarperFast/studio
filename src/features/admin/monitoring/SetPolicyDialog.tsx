@@ -44,8 +44,8 @@ export function PolicyBadge({ policy }: { policy: MonitoringPolicy }) {
 export function SetPolicyDialog({ initial, onClose }: { initial: PolicyTarget | null; onClose: () => void }) {
 	const [target, setTarget] = useState<PolicyTarget | null>(initial);
 	const [result, setResult] = useState<SetMonitoringPolicyResult | null>(null);
-	// The dialog's close paths stay shut while a save is in flight, so its outcome (a refused restart,
-	// projection errors) is shown rather than dropped.
+	// Owned here so the dialog's close paths can stay shut while a save is in flight: its outcome (a refused
+	// restart, projection errors) is only shown while the dialog is mounted.
 	const mutation = useSetMonitoringPolicyMutation();
 
 	return (

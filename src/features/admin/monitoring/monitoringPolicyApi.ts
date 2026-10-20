@@ -90,7 +90,7 @@ export function notifyPoliciesQueryOptions() {
 	});
 }
 
-/** Shared with the page, which keeps a second save from starting while one is in flight, even after a remount. */
+/** One key for every save, so an in-flight one is visible from the mutation cache, even after a remount. */
 export const setMonitoringPolicyMutationKey = [...monitoringPolicyQueryKey, 'set'] as const;
 
 async function searchClusterPolicies(term: string): Promise<ClusterPolicySearchResult[]> {
