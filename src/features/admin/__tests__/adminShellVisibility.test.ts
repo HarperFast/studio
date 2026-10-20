@@ -16,10 +16,11 @@ describe('admin section visibility', () => {
 			'region:read',
 			'host:read',
 			'cluster:read',
+			'config:write',
 			'apiToken:create',
 			'apiToken:self',
 		]);
-		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'API Tokens']);
+		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Configuration', 'API Tokens']);
 	});
 
 	it('shows only the pages a narrower role holds', () => {
@@ -28,6 +29,8 @@ describe('admin section visibility', () => {
 			'Regions',
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
+		// Every staff role can read Configuration; only a config:write holder gets the page.
+		expect(labels(user('fabric_readonly', ['region:read', 'config:read']))).toEqual(['Regions']);
 		expect(labels(user('fabric_readonly', ['region:read', 'host:read']))).toEqual(['Regions', 'Hosts']);
 	});
 
@@ -60,11 +63,11 @@ describe('admin section visibility', () => {
 		]);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users', 'Configuration']);
 	});
 
 	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users', 'Configuration']);
 	});
 
 	it('shows Users only to holders of user:status, not to every role that can read users', () => {
