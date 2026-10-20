@@ -1,9 +1,11 @@
 /** @vitest-environment jsdom */
+import { authStore } from '@/features/auth/store/authStore';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { AxiosInstance } from 'axios';
+import type { PropsWithChildren } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const tree = vi.hoisted(() => ({ name: 'components', entries: [] }));
@@ -22,11 +24,23 @@ vi.mock('@tanstack/react-router', () => {
 
 import { EditorViewProvider } from './EditorViewProvider';
 
-let editorView: ReturnType<typeof useEditorView>;
+const key = ['instance-1', 'get_components'];
 
-function Probe() {
-	editorView = useEditorView();
-	return null;
+async function captureReloadThenUnmount() {
+	const queryClient = new QueryClient();
+	function wrapper({ children }: PropsWithChildren) {
+		return (
+			<QueryClientProvider client={queryClient}>
+				<EditorViewProvider>{children}</EditorViewProvider>
+			</QueryClientProvider>
+		);
+	}
+	const { result, unmount } = renderHook(() => useEditorView(), { wrapper });
+	await waitFor(() => expect(queryClient.getQueryData(key)).toEqual(tree));
+	const { reloadRootEntries } = result.current;
+	unmount();
+	post.mockClear();
+	return { queryClient, reloadRootEntries };
 }
 
 afterEach(() => {
@@ -37,20 +51,22 @@ afterEach(() => {
 
 describe('EditorViewProvider reloadRootEntries', () => {
 	it('still fetches the component tree after the editor has unmounted', async () => {
-		const queryClient = new QueryClient();
-		const view = render(
-			<QueryClientProvider client={queryClient}>
-				<EditorViewProvider>
-					<Probe />
-				</EditorViewProvider>
-			</QueryClientProvider>,
-		);
-		await waitFor(() => expect(queryClient.getQueryData(['instance-1', 'get_components'])).toEqual(tree));
-		const { reloadRootEntries } = editorView;
-		view.unmount();
-		post.mockClear();
+		const { reloadRootEntries } = await captureReloadThenUnmount();
 
 		await expect(reloadRootEntries()).resolves.toEqual(tree);
 		expect(post).toHaveBeenCalledWith('/', { operation: 'get_components' });
+	});
+
+	it.each([
+		['the app signs out', () => authStore.signOutAllLocally()],
+		['the instance signs out', () => authStore.signOutLocally('instance-1')],
+	])('sends no read once %s', async (_, signOut) => {
+		const { queryClient, reloadRootEntries } = await captureReloadThenUnmount();
+		signOut();
+		queryClient.getQueryCache().clear();
+
+		await expect(reloadRootEntries()).rejects.toThrow('Signed out');
+		expect(post).not.toHaveBeenCalled();
+		expect(queryClient.getQueryData(key)).toBeUndefined();
 	});
 });
