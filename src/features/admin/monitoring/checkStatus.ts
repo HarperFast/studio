@@ -37,15 +37,17 @@ export function checkStatus(
 	if (!projection || finishedAt === null || setAt === null || finishedAt < setAt) {
 		return pending();
 	}
+	// A skip keeps the previous projected setAt, so only its finish time can tie it to this change.
 	if (projection.skipped) {
 		return { state: 'skipped', gate: projection.skipped, at: finishedAt };
 	}
-	if (projection.errors?.length) {
-		return { state: 'errors', errors: projection.errors, at: finishedAt };
-	}
-	// Finished after the change but projected an older one: a newer change outran its passes.
+	// Finished after the change but projected an older one (a newer change outran its passes, or a sweep
+	// for the previous change): its outcome, errors included, is not this change's.
 	if (toMs(projection.setAt) !== setAt) {
 		return pending();
+	}
+	if (projection.errors?.length) {
+		return { state: 'errors', errors: projection.errors, at: finishedAt };
 	}
 	return { state: 'applied', at: finishedAt };
 }

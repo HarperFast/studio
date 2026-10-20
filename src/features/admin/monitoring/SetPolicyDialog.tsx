@@ -26,8 +26,8 @@ import { useContainerOpsPermission } from '@/hooks/usePermissions';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-/** Central manager's limit on `reason`. */
-export const REASON_MAX_LENGTH = 500;
+// Central manager's limit on `reason`.
+const REASON_MAX_LENGTH = 500;
 
 export interface PolicyTarget extends MonitoringPolicyChange {
 	clusterId: string;
@@ -40,16 +40,16 @@ export function PolicyBadge({ policy }: { policy: MonitoringPolicy }) {
 	return <Badge variant={policy === 'notify' ? 'warning' : 'outline'}>{policy}</Badge>;
 }
 
-/**
- * Pick a cluster, then set its policy. Mount it only while open (with a key per target): its state then
- * starts fresh each time instead of describing the session the user abandoned.
- */
+/** Mount only while open, keyed per target, so its state starts fresh instead of describing an abandoned session. */
 export function SetPolicyDialog({ initial, onClose }: { initial: PolicyTarget | null; onClose: () => void }) {
 	const [target, setTarget] = useState<PolicyTarget | null>(initial);
 	const [result, setResult] = useState<SetMonitoringPolicyResult | null>(null);
+	// Owned here, not by the form: every way out of the dialog is closed while a save is in flight, so its
+	// outcome (a refused restart, projection errors) is never dropped and a second write cannot race it.
+	const mutation = useSetMonitoringPolicyMutation();
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !mutation.isPending && onClose()}>
 			<DialogContent className="sm:max-w-xl">
 				<DialogHeader>
 					<DialogTitle>{result ? 'Policy set' : 'Set monitoring policy'}</DialogTitle>
@@ -65,6 +65,7 @@ export function SetPolicyDialog({ initial, onClose }: { initial: PolicyTarget | 
 					? (
 						<PolicyForm
 							target={target}
+							mutation={mutation}
 							onChangeCluster={initial ? undefined : () => setTarget(null)}
 							onDone={setResult}
 							onCancel={onClose}
@@ -129,8 +130,9 @@ function ClusterSearch({ onPick }: { onPick: (target: PolicyTarget) => void }) {
 	);
 }
 
-function PolicyForm({ target, onChangeCluster, onDone, onCancel }: {
+function PolicyForm({ target, mutation, onChangeCluster, onDone, onCancel }: {
 	target: PolicyTarget;
+	mutation: ReturnType<typeof useSetMonitoringPolicyMutation>;
 	onChangeCluster?: () => void;
 	onDone: (result: SetMonitoringPolicyResult) => void;
 	onCancel: () => void;
@@ -141,7 +143,6 @@ function PolicyForm({ target, onChangeCluster, onDone, onCancel }: {
 	const [apply, setApply] = useState<MonitoringPolicyApply>('none');
 	const [error, setError] = useState<string | null>(null);
 	const canRestart = useContainerOpsPermission(target.organizationId);
-	const mutation = useSetMonitoringPolicyMutation();
 
 	const submit = () => {
 		const trimmed = reason.trim();
@@ -168,7 +169,11 @@ function PolicyForm({ target, onChangeCluster, onDone, onCancel }: {
 							</span>
 						)}
 					</span>
-					{onChangeCluster && <Button variant="ghost" size="sm" onClick={onChangeCluster}>Change cluster</Button>}
+					{onChangeCluster && (
+						<Button variant="ghost" size="sm" disabled={mutation.isPending} onClick={onChangeCluster}>
+							Change cluster
+						</Button>
+					)}
 				</div>
 
 				<fieldset className="space-y-2">
@@ -216,7 +221,7 @@ function PolicyForm({ target, onChangeCluster, onDone, onCancel }: {
 				{error && <p className="text-sm text-destructive">{error}</p>}
 			</div>
 			<DialogFooter>
-				<Button variant="outline" onClick={onCancel}>Cancel</Button>
+				<Button variant="outline" disabled={mutation.isPending} onClick={onCancel}>Cancel</Button>
 				<Button variant="submit" disabled={mutation.isPending} onClick={submit}>
 					{mutation.isPending ? 'Saving…' : `Set to ${policy}`}
 				</Button>
@@ -255,8 +260,8 @@ function PolicyResult({ result, onClose }: { result: SetMonitoringPolicyResult; 
 				{result.projectionErrors.length > 0 && (
 					<li className="text-destructive">
 						Not recorded on:{' '}
-						{result.projectionErrors.map((entry) => `${entry.target} (${entry.error})`).join(', ')}. Set it again to
-						retry.
+						{result.projectionErrors.map((entry) => `${entry.target} (${entry.error ?? 'failed'})`).join(', ')}. Set it
+						again to retry.
 					</li>
 				)}
 				{rolling && result.applyError && (
@@ -264,7 +269,7 @@ function PolicyResult({ result, onClose }: { result: SetMonitoringPolicyResult; 
 						Restart did not start: {result.applyError}
 					</li>
 				)}
-				{rolling && !result.applyError && <li>Rolling restart started.</li>}
+				{rolling && result.restart && <li>Rolling restart started.</li>}
 			</ul>
 			<DialogFooter>
 				<Button variant="submit" onClick={onClose}>Done</Button>
