@@ -53,6 +53,8 @@ export type StaffPermission =
 	| 'instance:read'
 	| 'instance:update'
 	| 'billing:write'
+	| 'config:read'
+	| 'config:write'
 	| 'region:read'
 	| 'region:write'
 	| 'systemStatus:write'
@@ -150,6 +152,17 @@ export interface AdminRegionPayload {
 	forceLocations?: boolean;
 	active?: boolean;
 	organizationIds?: string[] | null;
+}
+
+/**
+ * A row of GET /Admin/Configuration/. `superUserOnly` is computed by central-manager, not stored: true
+ * when only the core super user may change the key (staff hold config:write only for the rest).
+ */
+export interface AdminConfigurationEntry {
+	name: string;
+	description?: string | null;
+	value: unknown;
+	superUserOnly: boolean;
 }
 
 /**
