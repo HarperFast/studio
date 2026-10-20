@@ -10,9 +10,9 @@ const user = (fabricRole: User['fabricRole'], staffPermissions?: string[]) =>
 const labels = (u: User | null) => visibleAdminItems(u).map((item) => item.label);
 
 describe('admin section visibility', () => {
-	it('shows every page to a holder of all three page permissions', () => {
-		const admin = user('fabric_admin', ['systemStatus:write', 'region:read', 'apiToken:create']);
-		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'API Token']);
+	it('shows every page to a holder of all four page permissions', () => {
+		const admin = user('fabric_admin', ['systemStatus:write', 'region:read', 'config:write', 'apiToken:create']);
+		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Configuration', 'API Token']);
 	});
 
 	it('shows only the pages a narrower role holds', () => {
@@ -21,6 +21,8 @@ describe('admin section visibility', () => {
 			'Regions',
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
+		// Every staff role can read Configuration; only a config:write holder gets the page.
+		expect(labels(user('fabric_readonly', ['region:read', 'config:read']))).toEqual(['Regions']);
 	});
 
 	it('hides the section entirely from customers', () => {
@@ -34,10 +36,10 @@ describe('admin section visibility', () => {
 		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Configuration']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Configuration', 'API Token']);
 	});
 });
