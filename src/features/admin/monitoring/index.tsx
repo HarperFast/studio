@@ -15,11 +15,12 @@ import { CheckStatus, checkStatus } from '@/features/admin/monitoring/checkStatu
 import {
 	ClusterMonitoringPolicyRow,
 	notifyPoliciesQueryOptions,
+	setMonitoringPolicyMutationKey,
 } from '@/features/admin/monitoring/monitoringPolicyApi';
 import { PolicyBadge, PolicyTarget, SetPolicyDialog } from '@/features/admin/monitoring/SetPolicyDialog';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { ColumnDef } from '@/lib/table';
-import { useQuery } from '@tanstack/react-query';
+import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { HistoryIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -29,13 +30,14 @@ export function MonitoringPolicyAdminIndex() {
 	// dataUpdatedAt is the clock for "stuck": reading it re-renders on every poll, even when the rows are unchanged.
 	const { data, isLoading, isError, dataUpdatedAt } = useQuery(notifyPoliciesQueryOptions());
 	const canWrite = useStaffPermission('monitoringPolicy:write');
+	const saving = useIsMutating({ mutationKey: setMonitoringPolicyMutationKey }) > 0;
 	// undefined: closed; null: open on the cluster search; a target: open on that cluster.
 	const [editing, setEditing] = useState<PolicyTarget | null | undefined>(undefined);
 	const [historyOf, setHistoryOf] = useState<ClusterMonitoringPolicyRow | null>(null);
 
 	const columns = useMemo(
-		() => buildColumns({ canWrite, now: dataUpdatedAt, onChange: setEditing, onHistory: setHistoryOf }),
-		[canWrite, dataUpdatedAt],
+		() => buildColumns({ canWrite, saving, now: dataUpdatedAt, onChange: setEditing, onHistory: setHistoryOf }),
+		[canWrite, saving, dataUpdatedAt],
 	);
 
 	return (
@@ -49,7 +51,7 @@ export function MonitoringPolicyAdminIndex() {
 					</p>
 				</div>
 				{canWrite && (
-					<Button variant="submit" onClick={() => setEditing(null)} className="shrink-0">
+					<Button variant="submit" disabled={saving} onClick={() => setEditing(null)} className="shrink-0">
 						<PlusIcon />
 						Set policy
 					</Button>
@@ -85,8 +87,9 @@ export function MonitoringPolicyAdminIndex() {
 	);
 }
 
-function buildColumns({ canWrite, now, onChange, onHistory }: {
+function buildColumns({ canWrite, saving, now, onChange, onHistory }: {
 	canWrite: boolean;
+	saving: boolean;
 	now: number;
 	onChange: (target: PolicyTarget) => void;
 	onHistory: (row: ClusterMonitoringPolicyRow) => void;
@@ -139,7 +142,13 @@ function buildColumns({ canWrite, now, onChange, onHistory }: {
 						<HistoryIcon />
 					</Button>
 					{canWrite && (
-						<Button variant="ghost" size="icon" aria-label="Change" onClick={() => onChange(row.original)}>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Change"
+							disabled={saving}
+							onClick={() => onChange(row.original)}
+						>
 							<PencilIcon />
 						</Button>
 					)}

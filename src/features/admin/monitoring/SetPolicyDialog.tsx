@@ -44,8 +44,8 @@ export function PolicyBadge({ policy }: { policy: MonitoringPolicy }) {
 export function SetPolicyDialog({ initial, onClose }: { initial: PolicyTarget | null; onClose: () => void }) {
 	const [target, setTarget] = useState<PolicyTarget | null>(initial);
 	const [result, setResult] = useState<SetMonitoringPolicyResult | null>(null);
-	// Owned here, not by the form: every way out of the dialog is closed while a save is in flight, so its
-	// outcome (a refused restart, projection errors) is never dropped and a second write cannot race it.
+	// The dialog's close paths stay shut while a save is in flight, so its outcome (a refused restart,
+	// projection errors) is shown rather than dropped.
 	const mutation = useSetMonitoringPolicyMutation();
 
 	return (
