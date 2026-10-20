@@ -21,7 +21,6 @@ describe('admin section visibility', () => {
 			'Regions',
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
-		// Every staff role can read Configuration; only a config:write holder gets the page.
 		expect(labels(user('fabric_readonly', ['region:read', 'config:read']))).toEqual(['Regions']);
 	});
 

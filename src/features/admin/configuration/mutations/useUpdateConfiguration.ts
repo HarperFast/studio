@@ -4,7 +4,6 @@ import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-/** `expected` is the value the editor opened with. */
 export type UpdateConfigurationInput = { name: string; value: unknown; expected: unknown };
 
 /** Central-manager refuses a key this account may not change. */

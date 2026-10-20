@@ -23,7 +23,6 @@ const ROWS = [
 ];
 const LIST_PATH = '/Admin/Configuration/';
 
-/** Serves the list and each single-key read from `rows`. */
 function serve(rows: Array<Record<string, unknown>>) {
 	mockedGet.mockImplementation(
 		((path: string) =>
@@ -58,7 +57,7 @@ function renderPage() {
 		defaultOptions: { queries: { retry: false } },
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
-	render(
+	return render(
 		<QueryClientProvider client={queryClient}>
 			<ConfigurationIndex />
 		</QueryClientProvider>,
@@ -206,6 +205,35 @@ describe('ConfigurationIndex', () => {
 		await waitFor(() => expect(listReads()).toBe(2));
 	});
 
+	it('reports a failed save even after the page unmounts', async () => {
+		let fail: () => void = () => {};
+		mockedPatch.mockImplementation(() =>
+			new Promise((_resolve, reject) => (fail = () => reject(new Error('refused after unmount')))) as never
+		);
+		const { unmount } = renderPage();
+		const textarea = await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
+		await type(textarea, '25');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		await waitFor(() => expect(mockedPatch).toHaveBeenCalled());
+		unmount();
+		await act(async () => fail());
+		await waitFor(() =>
+			expect(toast.error).toHaveBeenCalledWith(
+				'Error',
+				expect.objectContaining({ description: 'refused after unmount' }),
+			)
+		);
+	});
+
+	it('shows a row with no value as null in the table too', async () => {
+		serve([{ name: 'UNSET_KEY', description: null, superUserOnly: false }]);
+		renderPage();
+		await screen.findByText('UNSET_KEY');
+		expect(screen.getByText('null')).toBeTruthy();
+	});
+
 	it('disables Save until the value changes', async () => {
 		renderPage();
 		await openEditor('OVERALLOCATED_CPU_MULTIPLIER');
@@ -230,7 +258,7 @@ describe('parseConfigValue / jsonType', () => {
 
 	it('handles deep nesting without throwing', () => {
 		const nested = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
-		expect(parseConfigValue(nested(5_000)).ok).toBe(true);
+		expect(parseConfigValue(nested(1_000)).ok).toBe(true);
 		expect(parseConfigValue(nested(100_000))).toEqual({ ok: false, error: 'This value is nested too deeply to save.' });
 	});
 

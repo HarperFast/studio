@@ -55,14 +55,13 @@ export function jsonType(value: unknown): string {
 }
 
 function formatValue(value: unknown): string {
-	return JSON.stringify(value) ?? 'undefined';
+	return JSON.stringify(value ?? null);
 }
 
 function EditConfigurationDialog(
 	{ entry, onOpenChange }: { entry: AdminConfigurationEntry | null; onOpenChange: (open: boolean) => void },
 ) {
 	const { mutate, isPending } = useUpdateConfigurationMutation();
-	// A row with no value edits as null.
 	const current = entry?.value ?? null;
 	const original = useMemo(() => JSON.stringify(current, null, 2), [current]);
 	const [text, setText] = useState(original);
@@ -70,7 +69,7 @@ function EditConfigurationDialog(
 	const typeChanged = parsed.ok && entry != null && jsonType(parsed.value) !== jsonType(current);
 	const unchanged = parsed.ok && parsed.json === JSON.stringify(current);
 
-	// Not while a save is in flight, so a refused save leaves the edit in place to fix.
+	// Blocked while saving: closing then would discard the edit if the save is refused.
 	const close = () => {
 		if (!isPending) { onOpenChange(false); }
 	};
