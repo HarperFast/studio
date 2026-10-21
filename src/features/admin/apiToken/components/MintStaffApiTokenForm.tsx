@@ -45,6 +45,8 @@ function defaultValues(ownerUserId: string): MintTokenValues {
 interface MintStaffApiTokenFormProps {
 	self: StaffUserSummary;
 	onMinted: (token: MintedStaffApiToken) => void;
+	/** The page still shows a secret; a second mint would replace it before it was copied. */
+	holdingSecret?: boolean;
 }
 
 /**
@@ -74,7 +76,7 @@ async function revokeUnseen(token: MintedStaffApiToken, queryClient: QueryClient
 	void queryClient.invalidateQueries({ queryKey: staffApiTokensQueryKey });
 }
 
-export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormProps) {
+export function MintStaffApiTokenForm({ self, onMinted, holdingSecret = false }: MintStaffApiTokenFormProps) {
 	const { mutateAsync, isPending, reset } = useGenerateApiTokenMutation();
 	const queryClient = useQueryClient();
 	const [owner, setOwner] = useState<StaffUserSummary | null>(self);
@@ -109,6 +111,7 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 	};
 
 	const onSubmit = async (values: MintTokenValues) => {
+		if (holdingSecret) { return; }
 		let result: MintedStaffApiToken;
 		try {
 			result = await mutateAsync(values);
@@ -127,7 +130,6 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 			void revokeUnseen(result, queryClient);
 			return;
 		}
-		// Page state first, then out of the MutationCache (see useGenerateApiTokenMutation).
 		onMinted(result);
 		reset();
 		form.reset(defaultValues(self.id));
@@ -243,11 +245,14 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 								)}
 							/>
 						</div>
-						<div>
-							<Button type="submit" variant="submit" disabled={isPending}>
+						<div className="flex flex-wrap items-center gap-3">
+							<Button type="submit" variant="submit" disabled={isPending || holdingSecret}>
 								<KeyRoundIcon />
 								{isPending ? 'Minting…' : 'Mint token'}
 							</Button>
+							{holdingSecret && (
+								<p className="text-sm text-muted-foreground">Copy or dismiss the token above before minting another.</p>
+							)}
 						</div>
 					</form>
 				</Form>
