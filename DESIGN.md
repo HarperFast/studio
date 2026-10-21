@@ -114,9 +114,13 @@ Central manager only ever sends the boolean, never the other organizations' ids;
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.
 - **Styling stack**: Tailwind 4 + Radix UI + design tokens in `src/index.css`. `cn()` from `src/lib/cn` is the canonical class-merge helper.
 - **Routing**: TanStack Router, file-based, lazy-loaded. Build a link to another org/cluster/instance
-  with `buildAbsoluteLinkToPage`. A relative `../…` is only safe from a component that unmounts with
-  its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
-  navigation re-resolves its href one level too deep (HarperFast/studio#1710, #1711).
+  with `buildAbsoluteLinkToPage`, and give a `<Link>` or `<Navigate>` an absolute target too. A
+  relative `../…` resolves against the location current when it renders, and a route's own page stays
+  mounted while a navigation away from it loads. A row re-resolved its href too deep
+  (HarperFast/studio#1710, #1711); Finish Setup's `<Navigate to="../sign-in">` rendered after its own
+  `navigate('../')` had moved the location and sent the user to `/<org>/sign-in`, which reads
+  `sign-in` as a cluster id. A page that changes the state its redirect guard reads must also hold
+  that guard until its own navigation finishes (`FinishSetup`'s `isPending`/`isSuccess`).
   `EntityMenuItem.to` accepts only the helper's `AbsolutePath`, so a relative menu target fails `tsc`.
 - **Remembered instance/cluster sign-ins are checked on demand**: the sign-in markers span every organization ever
   visited, so the root auth subscription checks only the app sign-in; an entity is checked by
