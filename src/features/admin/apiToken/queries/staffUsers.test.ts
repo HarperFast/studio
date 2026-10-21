@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get } }));
 
-import { getStaffUser, isStaffEmail, searchStaffUsers, STAFF_USER_SEARCH_LIMIT } from './staffUsers';
+import {
+	getStaffUser,
+	isStaffEmail,
+	searchStaffUsers,
+	STAFF_USER_SEARCH_LIMIT,
+	STAFF_USER_SEARCH_PAGE_LIMIT,
+	STAFF_USER_SEARCH_PAGE_SIZE,
+} from './staffUsers';
 
 const user = (id: string, email: string) => ({ id, email, firstname: 'F', lastname: 'L', status: 'ACTIVE' });
 
@@ -23,7 +30,51 @@ describe('searchStaffUsers', () => {
 		expect(url).toContain('status=ACTIVE');
 		expect(url).toContain('isVerified=true');
 		expect(url).toContain('sort(email)');
-		expect(url).toContain(`limit(0,${STAFF_USER_SEARCH_LIMIT})`);
+		expect(url).toContain(`limit(0,${STAFF_USER_SEARCH_PAGE_SIZE})`);
+	});
+
+	// The table holds customers under the same prefix and offers no suffix match, so one page of
+	// customers must not read as "no staff member matches".
+	it('reads past a page of customers to find the staff behind them', async () => {
+		const customers = Array.from(
+			{ length: STAFF_USER_SEARCH_PAGE_SIZE },
+			(_, i) => user(`usr-c${i}`, `da${String(i).padStart(3, '0')}@example.com`),
+		);
+		get
+			.mockResolvedValueOnce({ data: customers })
+			.mockResolvedValueOnce({ data: [user('usr-dawn', 'dawn@harperdb.io')] });
+
+		const found = await searchStaffUsers('da');
+
+		expect(found.map((u) => u.id)).toEqual(['usr-dawn']);
+		expect(get.mock.calls.map(([url]) => /limit\((\d+),(\d+)\)/.exec(url as string)![0])).toEqual([
+			`limit(0,${STAFF_USER_SEARCH_PAGE_SIZE})`,
+			`limit(${STAFF_USER_SEARCH_PAGE_SIZE},${STAFF_USER_SEARCH_PAGE_SIZE * 2})`,
+		]);
+	});
+
+	it('stops at a short page, at enough staff, and at the page limit', async () => {
+		get.mockResolvedValueOnce({ data: [user('usr-1', 'a@harperdb.io')] });
+		expect(await searchStaffUsers('a')).toHaveLength(1);
+		expect(get).toHaveBeenCalledTimes(1);
+
+		get.mockReset();
+		const staffPage = Array.from(
+			{ length: STAFF_USER_SEARCH_PAGE_SIZE },
+			(_, i) => user(`usr-${i}`, `s${i}@harperdb.io`),
+		);
+		get.mockResolvedValue({ data: staffPage });
+		expect(await searchStaffUsers('s')).toHaveLength(STAFF_USER_SEARCH_LIMIT);
+		expect(get).toHaveBeenCalledTimes(1);
+
+		get.mockReset();
+		const customerPage = Array.from(
+			{ length: STAFF_USER_SEARCH_PAGE_SIZE },
+			(_, i) => user(`usr-${i}`, `c${i}@example.com`),
+		);
+		get.mockResolvedValue({ data: customerPage });
+		expect(await searchStaffUsers('c')).toEqual([]);
+		expect(get).toHaveBeenCalledTimes(STAFF_USER_SEARCH_PAGE_LIMIT);
 	});
 
 	// A token can only act as Harper staff; the mint refuses any other owner, so the picker must
@@ -66,5 +117,14 @@ describe('getStaffUser', () => {
 			lastname: 'L',
 		});
 		expect(get).toHaveBeenCalledWith('/Admin/User/usr%2F1');
+	});
+
+	// A label is not worth a toast or a RUM error per missing user; the id stands in.
+	it('answers null instead of throwing when the lookup fails', async () => {
+		// Once: a persistent rejecting implementation on a reset mock is reported as an unhandled
+		// rejection by vitest 5 even though the call catches it.
+		get.mockRejectedValueOnce(new Error('404'));
+
+		expect(await getStaffUser('usr-gone')).toBeNull();
 	});
 });

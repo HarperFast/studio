@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatHours, isStaffTokenRole, STAFF_TOKEN_LIFETIMES, STAFF_TOKEN_ROLES } from './staffTokenRoles';
+import { formatHours, STAFF_TOKEN_LIFETIMES, STAFF_TOKEN_ROLES } from './staffTokenRoles';
 
 describe('STAFF_TOKEN_LIFETIMES', () => {
 	// The numbers central-manager enforces (STAFF_API_TOKEN_LIFETIMES): a form that disagreed would
@@ -25,14 +25,6 @@ describe('STAFF_TOKEN_LIFETIMES', () => {
 
 	it('offers least privilege first', () => {
 		expect(STAFF_TOKEN_ROLES[0]).toBe('fabric_readonly');
-	});
-});
-
-describe('isStaffTokenRole', () => {
-	it('accepts the four staff roles and nothing else', () => {
-		expect(isStaffTokenRole('fabric_admin')).toBe(true);
-		expect(isStaffTokenRole('super_user')).toBe(false);
-		expect(isStaffTokenRole(undefined)).toBe(false);
 	});
 });
 

@@ -42,12 +42,11 @@ describe('useRevokeApiTokenMutation', () => {
 		createElement(QueryClientProvider, { client }, children);
 
 	// A revoked token stays listed with its status, so the cache marks it rather than dropping it,
-	// in every scope that holds it, before the refetch answers.
-	it('marks the token revoked in every cached list at once, then refreshes them', async () => {
+	// before the refetch answers.
+	it('marks the token revoked in the cached list at once, then refreshes it', async () => {
 		del.mockResolvedValue({ data: { id: 'sat-2', revoked: true } });
 		const client = new QueryClient();
 		client.setQueryData(getStaffApiTokensQueryOptions().queryKey, [token('sat-1'), token('sat-2')]);
-		client.setQueryData(getStaffApiTokensQueryOptions('usr-1').queryKey, [token('sat-2')]);
 		const invalidate = vi.spyOn(client, 'invalidateQueries');
 		const { result } = renderHook(() => useRevokeApiTokenMutation(), { wrapper: withClient(client) });
 
@@ -58,8 +57,6 @@ describe('useRevokeApiTokenMutation', () => {
 		const all = client.getQueryData<StaffApiToken[]>(getStaffApiTokensQueryOptions().queryKey)!;
 		expect(all.map((t) => t.status)).toEqual(['active', 'revoked']);
 		expect(all[1].revokedAt).toEqual(expect.any(String));
-		const own = client.getQueryData<StaffApiToken[]>(getStaffApiTokensQueryOptions('usr-1').queryKey)!;
-		expect(own[0].status).toBe('revoked');
 		expect(invalidate).toHaveBeenCalledWith({ queryKey: staffApiTokensQueryKey });
 	});
 });

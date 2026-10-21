@@ -9,7 +9,6 @@ import { CopyIcon } from 'lucide-react';
 interface MintedTokenCardProps {
 	token: MintedStaffApiToken;
 	selfId: string;
-	/** Takes the secret off the screen; it is gone for good. */
 	onDismiss: () => void;
 }
 
