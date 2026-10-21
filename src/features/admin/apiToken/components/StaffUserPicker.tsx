@@ -24,11 +24,7 @@ export function formatStaffUserLabel(user: StaffUserSummary, selfId: string): st
 	return user.id === selfId ? `${who} — you` : who;
 }
 
-/**
- * Picks a token owner by email prefix: an input with a listbox under it, since the repo has no
- * combobox. Matches belong to the prefix the typing settled on, so an edit shows "Searching…" until
- * the next settle rather than the previous prefix's matches.
- */
+/** An input with a listbox under it, since the repo has no combobox. */
 export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUserPickerProps) {
 	const listboxId = useId();
 	const [prefix, setPrefix] = useState('');
@@ -45,9 +41,10 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 	const settled = prefix.trim() === debouncedPrefix;
 	const { data, isError } = useQuery({
 		...searchStaffUsersQueryOptions(debouncedPrefix),
-		enabled: canSearch,
+		enabled: canSearch && open,
 	});
-	const matches = settled && canSearch ? data : undefined;
+	// Only the settled prefix's matches: an edit shows "Searching…" rather than the old ones.
+	const matches = settled && canSearch ? data?.staff : undefined;
 
 	useEffect(() => setHighlighted(0), [debouncedPrefix]);
 
@@ -66,12 +63,10 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 			event.preventDefault();
 			setHighlighted((index) => Math.max(index - 1, 0));
 		} else if (event.key === 'Enter') {
-			if (open) {
-				// Never the enclosing form's submit, even with nothing to pick yet.
-				event.preventDefault();
-				const match = matches?.[highlighted];
-				if (match) { pick(match); }
-			}
+			// Never the enclosing form's submit, open or not.
+			event.preventDefault();
+			const match = open ? matches?.[highlighted] : undefined;
+			if (match) { pick(match); }
 		} else if (event.key === 'Escape') {
 			setOpen(false);
 		}
@@ -136,7 +131,13 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 					{!matches
 						? <li className="px-2 py-1.5 text-muted-foreground">Searching…</li>
 						: matches.length === 0
-						? <li className="px-2 py-1.5 text-muted-foreground">No staff member matches “{prefix.trim()}”.</li>
+						? (
+							<li className="px-2 py-1.5 text-muted-foreground">
+								{data?.truncated
+									? `No staff member among the first matches for “${prefix.trim()}”; type more of the address.`
+									: `No staff member matches “${prefix.trim()}”.`}
+							</li>
+						)
 						: matches.map((user, index) => (
 							<li
 								key={user.id}

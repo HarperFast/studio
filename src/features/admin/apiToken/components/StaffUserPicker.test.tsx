@@ -95,14 +95,39 @@ describe('StaffUserPicker', () => {
 		expect(onChange).not.toHaveBeenCalled();
 	});
 
-	it('never lets Enter reach the enclosing form', async () => {
+	it('never lets Enter reach the enclosing form, even after Escape closed the list', async () => {
 		renderPicker();
-
 		const input = await typeAndSettle('d');
+		fireEvent.keyDown(input, { key: 'Escape' });
+
 		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
 		fireEvent(input, enter);
 
 		expect(enter.defaultPrevented).toBe(true);
+	});
+
+	it('does not search once the picker has lost focus', async () => {
+		renderPicker();
+		const input = screen.getByRole('combobox');
+		fireEvent.focus(input);
+		fireEvent.change(input, { target: { value: 'da' } });
+		fireEvent.blur(input);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(400);
+		});
+
+		expect(get).not.toHaveBeenCalled();
+	});
+
+	it('says to type more when the search ran out of pages rather than staff', async () => {
+		const customers = Array.from({ length: 100 }, (_, i) => ({ ...dawn, id: `c${i}`, email: `da${i}@example.com` }));
+		get.mockResolvedValue(rows(...customers));
+		renderPicker();
+
+		await typeAndSettle('da');
+
+		expect(screen.getByText(/type more of the address/)).toBeDefined();
 	});
 
 	it('offers the signed-in account without a search', () => {

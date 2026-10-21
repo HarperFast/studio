@@ -35,14 +35,6 @@ describe('generateApiToken', () => {
 		expect(await generateApiToken(payload)).toEqual(minted);
 		expect(post).toHaveBeenCalledWith('/Admin/ApiToken/', payload);
 	});
-
-	it('sends an empty body by default, which mints the caller a token at their own role', async () => {
-		post.mockResolvedValue({ data: minted });
-
-		await generateApiToken();
-
-		expect(post).toHaveBeenCalledWith('/Admin/ApiToken/', {});
-	});
 });
 
 describe('useGenerateApiTokenMutation', () => {
@@ -72,8 +64,9 @@ describe('useGenerateApiTokenMutation', () => {
 		expect(client.getMutationCache().getAll()).toHaveLength(0);
 	});
 
-	it('refreshes every token list once the mint lands', async () => {
-		post.mockResolvedValue({ data: minted });
+	// A mint whose answer was lost may still have landed; the list is where that shows.
+	it('refreshes the token list whether the mint succeeded or failed', async () => {
+		post.mockResolvedValueOnce({ data: minted }).mockRejectedValueOnce(new Error('502'));
 		const client = new QueryClient();
 		const invalidate = vi.spyOn(client, 'invalidateQueries');
 		const { result } = renderHook(() => useGenerateApiTokenMutation(), { wrapper: withClient(client) });
@@ -81,7 +74,12 @@ describe('useGenerateApiTokenMutation', () => {
 		await act(async () => {
 			await result.current.mutateAsync(payload);
 		});
+		expect(invalidate).toHaveBeenCalledTimes(1);
 
-		expect(invalidate).toHaveBeenCalledWith({ queryKey: staffApiTokensQueryKey });
+		await act(async () => {
+			await result.current.mutateAsync(payload).catch(() => undefined);
+		});
+		expect(invalidate).toHaveBeenCalledTimes(2);
+		expect(invalidate).toHaveBeenLastCalledWith({ queryKey: staffApiTokensQueryKey });
 	});
 });

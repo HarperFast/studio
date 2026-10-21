@@ -41,7 +41,7 @@ export function ApiTokenIndex() {
 
 			{minted && (
 				<div className="mt-6">
-					<MintedTokenCard token={minted} selfId={user.id} onDismiss={() => setMinted(null)} />
+					<MintedTokenCard token={minted} self={self} onDismiss={() => setMinted(null)} />
 				</div>
 			)}
 
@@ -70,7 +70,7 @@ export function ApiTokenIndex() {
 							/>
 							{filtered.length === 0
 								? <p className="text-sm text-muted-foreground">No tokens match “{filter}”.</p>
-								: <StaffApiTokenTable tokens={filtered} selfId={user.id} />}
+								: <StaffApiTokenTable tokens={filtered} self={self} />}
 						</>
 					)}
 			</div>

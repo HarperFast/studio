@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RevokeStaffApiTokenButton } from '@/features/admin/apiToken/components/RevokeStaffApiTokenButton';
 import { StaffUserLabel } from '@/features/admin/apiToken/components/StaffUserLabel';
+import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import { StaffApiToken, StaffApiTokenStatus } from '@/integrations/api/api.patch';
 
 const STATUS_BADGES: Record<
@@ -26,7 +27,7 @@ function When({ value }: { value: string | null }) {
 	return <>{new Date(value).toLocaleString()}</>;
 }
 
-export function StaffApiTokenTable({ tokens, selfId }: { tokens: StaffApiToken[]; selfId: string }) {
+export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; self: StaffUserSummary }) {
 	return (
 		<Table>
 			<TableHeader>
@@ -49,11 +50,11 @@ export function StaffApiTokenTable({ tokens, selfId }: { tokens: StaffApiToken[]
 					<TableRow key={token.id} className={token.status === 'active' ? undefined : 'opacity-60'}>
 						<TableCell className="font-medium">{token.name}</TableCell>
 						<TableCell>
-							<StaffUserLabel userId={token.ownerUserId} selfId={selfId} />
+							<StaffUserLabel userId={token.ownerUserId} self={self} />
 						</TableCell>
 						<TableCell className="font-mono text-xs">{token.role}</TableCell>
 						<TableCell>
-							<StaffUserLabel userId={token.createdByUserId} selfId={selfId} />
+							<StaffUserLabel userId={token.createdByUserId} self={self} />
 						</TableCell>
 						<TableCell className="whitespace-nowrap">
 							<When value={token.createdAt} />
