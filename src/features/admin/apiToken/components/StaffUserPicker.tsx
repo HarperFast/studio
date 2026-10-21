@@ -95,7 +95,6 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 		);
 	}
 
-	// A failed search is the toast's to report.
 	const showList = open && !isError && prefix.trim().length >= SEARCH_MIN_LENGTH;
 	return (
 		<div className="relative">

@@ -47,7 +47,9 @@ export async function searchStaffUsers(prefix: string, signal?: AbortSignal): Pr
 		const rows = data as unknown as SchemaUser[];
 		staff.push(...rows.filter((user) => isStaffEmail(user.email)).map(toSummary));
 		if (staff.length >= STAFF_USER_SEARCH_LIMIT || rows.length < STAFF_USER_SEARCH_PAGE_SIZE) {
-			return { staff: staff.slice(0, STAFF_USER_SEARCH_LIMIT), truncated: false };
+			// Cut at the limit with a full page behind it: the next staff member may be past the cut.
+			const truncated = staff.length > STAFF_USER_SEARCH_LIMIT || rows.length === STAFF_USER_SEARCH_PAGE_SIZE;
+			return { staff: staff.slice(0, STAFF_USER_SEARCH_LIMIT), truncated };
 		}
 	}
 	return { staff, truncated: true };
