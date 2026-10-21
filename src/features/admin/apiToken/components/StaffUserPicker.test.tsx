@@ -80,7 +80,6 @@ describe('StaffUserPicker', () => {
 		expect(onChange).toHaveBeenCalledWith(dawn);
 	});
 
-	// Until the typing settles again, the previous prefix's matches are neither shown nor pickable.
 	it('shows no match for an edited prefix until the search settles', async () => {
 		get.mockResolvedValue(rows(dawn));
 		const onChange = renderPicker();

@@ -151,7 +151,6 @@ describe('MintStaffApiTokenForm', () => {
 		expect(errorHandler).toHaveBeenCalledWith(limit);
 	});
 
-	// The refusal named the previous owner's role; it is stale the moment the owner changes.
 	it('clears the refusal once the owner changes', async () => {
 		const mint = pendingMint();
 		renderForm();
@@ -164,7 +163,6 @@ describe('MintStaffApiTokenForm', () => {
 		expect(screen.queryByText(refusal)).toBeNull();
 	});
 
-	// A token nobody saw is a live credential with no holder; it must not stay live.
 	it('revokes a token minted after the page was left', async () => {
 		const mint = pendingMint();
 		const { onMinted, unmount } = renderForm();
@@ -196,7 +194,6 @@ describe('MintStaffApiTokenForm', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 
-	// A definite refusal means the token is still live; say so and where to revoke it.
 	it('says an unseen token is still live when its revoke is refused', async () => {
 		const mint = pendingMint();
 		const { unmount } = renderForm();
@@ -211,7 +208,6 @@ describe('MintStaffApiTokenForm', () => {
 		expect(errorHandler).not.toHaveBeenCalled();
 	});
 
-	// The page is gone but the token may exist; the admin still hears about it.
 	it('toasts a mint that failed after the page was left', async () => {
 		const mint = pendingMint();
 		const { unmount } = renderForm();
