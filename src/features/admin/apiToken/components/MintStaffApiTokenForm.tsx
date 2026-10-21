@@ -13,6 +13,7 @@ import { StaffUserPicker } from '@/features/admin/apiToken/components/StaffUserP
 import { MintTokenSchema, MintTokenValues, TOKEN_NAME_MAX_LENGTH } from '@/features/admin/apiToken/mintTokenSchema';
 import { useGenerateApiTokenMutation } from '@/features/admin/apiToken/mutations/useGenerateApiToken';
 import { revokeApiToken } from '@/features/admin/apiToken/mutations/useRevokeApiToken';
+import { staffApiTokensQueryKey } from '@/features/admin/apiToken/queries/getStaffApiTokens';
 import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import {
 	formatHours,
@@ -23,6 +24,7 @@ import {
 import { MintedStaffApiToken, StaffApiTokenRole } from '@/integrations/api/api.patch';
 import { describeError, errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { KeyRoundIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -57,19 +59,20 @@ export function roleRefusalMessage(error: unknown): string | null {
 	return /exceed the owner's/i.test(description) ? description : null;
 }
 
-/** A token minted after the page was left was never seen, so it is revoked rather than left live. */
-async function revokeUnseen(token: MintedStaffApiToken) {
+async function revokeUnseen(token: MintedStaffApiToken, queryClient: QueryClient) {
 	try {
 		await revokeApiToken(token.id);
 		toast.warning('An API token minted after its page was left was revoked.');
 	} catch (error) {
-		console.error('Failed to revoke an API token that was never shown', error);
-		toast.error('An API token minted after its page was left could not be revoked; revoke it from the list.');
+		// The shared handler keeps a lost answer (502, timeout) from reading as a failed revoke.
+		errorHandler(error);
 	}
+	void queryClient.invalidateQueries({ queryKey: staffApiTokensQueryKey });
 }
 
 export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormProps) {
 	const { mutateAsync, isPending, reset } = useGenerateApiTokenMutation();
+	const queryClient = useQueryClient();
 	const [owner, setOwner] = useState<StaffUserSummary | null>(self);
 	const isMounted = useRef(false);
 	useEffect(() => {
@@ -88,7 +91,9 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 
 	const changeOwner = (user: StaffUserSummary | null) => {
 		setOwner(user);
-		form.setValue('ownerUserId', user?.id ?? '', { shouldValidate: true, shouldDirty: true });
+		// Clearing the owner is the start of a pick, not a mistake to flag yet.
+		form.setValue('ownerUserId', user?.id ?? '', { shouldValidate: user !== null, shouldDirty: true });
+		if (user === null) { form.clearErrors('ownerUserId'); }
 		// A refusal named the previous owner's role.
 		form.clearErrors('role');
 	};
@@ -115,7 +120,8 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 			return;
 		}
 		if (!isMounted.current) {
-			void revokeUnseen(result);
+			reset();
+			void revokeUnseen(result, queryClient);
 			return;
 		}
 		// Page state first, then out of the MutationCache (see useGenerateApiTokenMutation).

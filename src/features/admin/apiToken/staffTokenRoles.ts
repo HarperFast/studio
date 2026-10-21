@@ -11,9 +11,7 @@ export const STAFF_TOKEN_ROLES = [
 const HOURS_PER_DAY = 24;
 
 interface StaffTokenLifetime {
-	/** The longest lifetime POST /Admin/ApiToken accepts for the role, in whole hours. */
 	maxHours: number;
-	/** The lifetime the server applies when the request names none. */
 	defaultHours: number;
 }
 

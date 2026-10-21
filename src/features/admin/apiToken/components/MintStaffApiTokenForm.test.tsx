@@ -15,6 +15,10 @@ vi.mock('@/features/admin/apiToken/mutations/useGenerateApiToken', () => ({
 	useGenerateApiTokenMutation: () => ({ mutateAsync, reset, isPending: false }),
 }));
 vi.mock('@/features/admin/apiToken/mutations/useRevokeApiToken', () => ({ revokeApiToken }));
+vi.mock(
+	'@/features/admin/apiToken/queries/getStaffApiTokens',
+	() => ({ staffApiTokensQueryKey: ['fabric-admin', 'apiTokens'] }),
+);
 vi.mock('@/react-query/queryClient', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/react-query/queryClient')>()),
 	errorHandler,
@@ -50,7 +54,6 @@ function axiosFailure(status: number, body: unknown): AxiosError {
 	});
 }
 
-/** A mint whose answer the test controls. */
 function pendingMint() {
 	let resolve!: (value: unknown) => void;
 	let reject!: (reason: unknown) => void;
@@ -173,6 +176,31 @@ describe('MintStaffApiTokenForm', () => {
 		expect(onMinted).not.toHaveBeenCalled();
 		expect(revokeApiToken).toHaveBeenCalledWith('sat-1');
 		expect(toast.warning).toHaveBeenCalled();
+		expect(reset).toHaveBeenCalledTimes(1);
+	});
+
+	// A revoke whose answer was lost may have landed; the shared handler words that, a flat
+	// "could not be revoked" would not.
+	it('reports a failed unseen-token revoke through the shared handler', async () => {
+		const mint = pendingMint();
+		const { unmount } = renderForm();
+		await fillAndSubmit();
+		unmount();
+		const lost = new Error('timeout');
+		revokeApiToken.mockRejectedValueOnce(lost);
+
+		await mint.succeed();
+
+		expect(errorHandler).toHaveBeenCalledWith(lost);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('does not demand an owner the moment the picker is cleared', async () => {
+		renderForm();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Change owner' }));
+
+		expect(screen.queryByText('Pick an owner.')).toBeNull();
 	});
 
 	it('refuses an empty name before asking the server', async () => {
