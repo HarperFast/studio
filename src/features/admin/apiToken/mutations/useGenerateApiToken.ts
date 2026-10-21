@@ -35,6 +35,8 @@ export function useGenerateApiTokenMutation() {
 		// only the QueryCache). gcTime:0 discards it the moment the observer
 		// unmounts; the page also reset()s right after copying it into local state.
 		gcTime: 0,
+		// The form toasts failures itself, so a role refusal can sit under the role field instead.
+		meta: { skipGlobalErrorToast: true },
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: staffApiTokensQueryKey });
 		},

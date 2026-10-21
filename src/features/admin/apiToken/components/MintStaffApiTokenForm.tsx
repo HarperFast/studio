@@ -20,7 +20,9 @@ import {
 	STAFF_TOKEN_ROLES,
 } from '@/features/admin/apiToken/staffTokenRoles';
 import { MintedStaffApiToken, StaffApiTokenRole } from '@/integrations/api/api.patch';
+import { describeError, errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { isAxiosError } from 'axios';
 import { KeyRoundIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -44,9 +46,20 @@ interface MintStaffApiTokenFormProps {
 }
 
 /**
+ * The server's refusal of a role wider than the owner's (central-manager's ApiToken.post), whose
+ * message names the owner's role; null for any other failure. Nothing the API exposes says which
+ * role another account holds, so this answer is how the admin learns it.
+ */
+export function roleRefusalMessage(error: unknown): string | null {
+	if (!isAxiosError(error) || error.response?.status !== 403) { return null; }
+	const { description } = describeError(error);
+	return /exceed the owner's/i.test(description) ? description : null;
+}
+
+/**
  * Mints a token for a staff owner. The role list is every staff role: nothing the API exposes
  * says which role another account holds, so a role wider than the owner's is refused by the
- * server (403) and surfaced by the global error toast rather than prevented here.
+ * server and that refusal is shown under the role field; every other failure toasts as usual.
  */
 export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormProps) {
 	const { mutate, isPending, reset } = useGenerateApiTokenMutation();
@@ -71,8 +84,15 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 	};
 
 	const onSubmit = (values: MintTokenValues) => {
-		// The global MutationCache.onError surfaces failures (400/403/404/409) with a toast.
 		mutate(values, {
+			onError: (error) => {
+				const refusal = roleRefusalMessage(error);
+				if (refusal) {
+					form.setError('role', { message: refusal });
+				} else {
+					errorHandler(error);
+				}
+			},
 			onSuccess: (result) => {
 				// Hand the credential to the page's local state, then drop it from the shared
 				// MutationCache so it can't be read there or outlive the page.
