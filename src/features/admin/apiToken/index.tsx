@@ -1,72 +1,81 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useGenerateApiTokenMutation } from '@/features/admin/apiToken/mutations/useGenerateApiToken';
-import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
-import { ApiTokenResult } from '@/integrations/api/api.patch';
-import { CopyIcon, KeyRoundIcon } from 'lucide-react';
-import { useState } from 'react';
+import { MintedTokenCard } from '@/features/admin/apiToken/components/MintedTokenCard';
+import { MintStaffApiTokenForm } from '@/features/admin/apiToken/components/MintStaffApiTokenForm';
+import { StaffApiTokenTable } from '@/features/admin/apiToken/components/StaffApiTokenTable';
+import { getStaffApiTokensQueryOptions } from '@/features/admin/apiToken/queries/getStaffApiTokens';
+import { STAFF_TOKEN_IDLE_DAYS } from '@/features/admin/apiToken/staffTokenRoles';
+import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
+import { MintedStaffApiToken, StaffApiToken } from '@/integrations/api/api.patch';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+
+export function matchesTokenFilter(token: StaffApiToken, query: string): boolean {
+	const q = query.trim().toLowerCase();
+	if (!q) { return true; }
+	return [token.name, token.role, token.status, token.ownerUserId, token.createdByUserId].some((value) =>
+		value.toLowerCase().includes(q)
+	);
+}
 
 export function ApiTokenIndex() {
-	const { mutate, isPending, reset } = useGenerateApiTokenMutation();
-	const [token, setToken] = useState<ApiTokenResult | null>(null);
-	const copyText = useCopyTextToClipboard();
+	const { user } = useCloudAuth();
+	// Minting is a permission, not a role name: a role that gains it needs no Studio release.
+	const canMint = useStaffPermission('apiToken:create');
+	const { data: tokens, isLoading, isError } = useQuery(getStaffApiTokensQueryOptions());
+	// The credential lives in this component's state only (see useGenerateApiTokenMutation).
+	const [minted, setMinted] = useState<MintedStaffApiToken | null>(null);
+	const [filter, setFilter] = useState('');
+	const filtered = useMemo(() => (tokens ?? []).filter((token) => matchesTokenFilter(token, filter)), [tokens, filter]);
 
-	const onGenerate = () => {
-		// The global MutationCache.onError (react-query/queryClient) already surfaces
-		// failures with a toast, so no local onError.
-		mutate(undefined, {
-			onSuccess: (result) => {
-				// Hold the credential in local component state only, then drop it from
-				// the shared MutationCache so it can't be read there or outlive the page.
-				setToken(result);
-				reset();
-			},
-		});
-	};
+	if (!user) { return null; }
+	const self = { id: user.id, email: user.email, firstname: user.firstname, lastname: user.lastname };
 
 	return (
-		<div className="max-w-2xl">
-			<h1 className="text-2xl font-light">API Token</h1>
+		<div className="max-w-6xl">
+			<h1 className="text-2xl font-light">API Tokens</h1>
 			<p className="mt-2 text-sm text-muted-foreground">
-				Generate a short-lived token for programmatic API access. It authenticates as you, with your permissions. Send
-				it as a bearer token:{' '}
-				<code className="rounded bg-muted px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>
+				{canMint
+					? 'Bearer tokens for scripts and automation against the Fabric API. A token acts as its owner with the role it was minted with, '
+					: 'Bearer tokens a Fabric admin minted for you. A token acts as you with the role it was minted with, '}
+				stops working after {STAFF_TOKEN_IDLE_DAYS} days unused, and can be revoked here at any time. Send one as{' '}
+				<code className="rounded bg-muted px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>.
 			</p>
 
-			<Button className="mt-4" variant="submit" onClick={onGenerate} disabled={isPending}>
-				<KeyRoundIcon />
-				{isPending ? 'Generating…' : 'Generate token'}
-			</Button>
-
-			{token && (
-				<Card className="mt-6">
-					<CardHeader>
-						<CardTitle>Your API token</CardTitle>
-						<CardDescription>
-							Copy it now — it won't be shown again. Expires {new Date(token.expiresAt).toLocaleString()}.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="flex items-center gap-2">
-						<Input
-							readOnly
-							value={token.operationToken}
-							className="font-mono text-xs"
-							onClick={() => copyText(token.operationToken)}
-						/>
-						<Button
-							type="button"
-							size="icon"
-							variant="ghost"
-							className="shrink-0"
-							aria-label="Copy token"
-							onClick={() => copyText(token.operationToken)}
-						>
-							<CopyIcon />
-						</Button>
-					</CardContent>
-				</Card>
+			{minted && (
+				<div className="mt-6">
+					<MintedTokenCard token={minted} selfId={user.id} onDismiss={() => setMinted(null)} />
+				</div>
 			)}
+
+			{canMint && (
+				<div className="mt-6">
+					<MintStaffApiTokenForm self={self} onMinted={setMinted} />
+				</div>
+			)}
+
+			<div className="mt-8">
+				<h2 className="text-lg font-light">{canMint ? 'All tokens' : 'Your tokens'}</h2>
+				{isLoading
+					? <p className="mt-2 text-sm text-muted-foreground">Loading tokens…</p>
+					: isError
+					? <p className="mt-2 text-sm text-destructive">Couldn't load tokens.</p>
+					: !tokens || tokens.length === 0
+					? <p className="mt-2 text-sm text-muted-foreground">No tokens yet.</p>
+					: (
+						<>
+							<Input
+								value={filter}
+								onChange={(e) => setFilter(e.target.value)}
+								placeholder="Filter by name, role, status or user id…"
+								aria-label="Filter tokens"
+								className="my-4 max-w-md"
+							/>
+							{filtered.length === 0
+								? <p className="text-sm text-muted-foreground">No tokens match “{filter}”.</p>
+								: <StaffApiTokenTable tokens={filtered} selfId={user.id} />}
+						</>
+					)}
+			</div>
 		</div>
 	);
 }

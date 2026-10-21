@@ -51,7 +51,7 @@ const monitoringRoute = createRoute({
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
-	head: () => ({ meta: [{ title: 'API Token — Harper Fabric' }] }),
+	head: () => ({ meta: [{ title: 'API Tokens — Harper Fabric' }] }),
 	component: lazyRouteComponent(async () => import('@/features/admin/apiToken/index'), 'ApiTokenIndex'),
 });
 

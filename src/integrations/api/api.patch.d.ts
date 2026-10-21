@@ -58,7 +58,8 @@ export type StaffPermission =
 	| 'region:write'
 	| 'monitoringPolicy:write'
 	| 'systemStatus:write'
-	| 'apiToken:create';
+	| 'apiToken:create'
+	| 'apiToken:self';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
@@ -110,10 +111,32 @@ export interface CreatedOrganizationApiToken extends OrganizationApiToken {
 	token: string;
 }
 
-/** Response of POST /Admin/ApiToken — a short-lived Bearer token for programmatic API access. */
-export interface ApiTokenResult {
-	operationToken: string;
+/** The staff roles a staff API token can carry (POST /Admin/ApiToken `role`). */
+export type StaffApiTokenRole = 'fabric_readonly' | 'fabric_support' | 'fabric_staff' | 'fabric_admin';
+
+/**
+ * Whether a staff API token still authenticates. `idle` is a token that outlived its 5-day idle
+ * window before its expiry; `expired` one that reached its expiry.
+ */
+export type StaffApiTokenStatus = 'active' | 'idle' | 'expired' | 'revoked';
+
+/** A staff API token as listed by GET /Admin/ApiToken — never its secret. */
+export interface StaffApiToken {
+	id: string;
+	name: string;
+	role: StaffApiTokenRole;
+	ownerUserId: string;
+	createdByUserId: string;
+	createdAt: string;
 	expiresAt: string;
+	lastUsedAt: string | null;
+	revokedAt: string | null;
+	status: StaffApiTokenStatus;
+}
+
+/** Response of POST /Admin/ApiToken — the token's one and only appearance of its secret. */
+export interface MintedStaffApiToken extends StaffApiToken {
+	operationToken: string;
 }
 
 /**
