@@ -64,8 +64,22 @@ describe('searchStaffUsers', () => {
 			(_, i) => user(`usr-${i}`, `s${i}@harperdb.io`),
 		);
 		get.mockResolvedValue({ data: staffPage });
-		expect((await searchStaffUsers('s')).staff).toHaveLength(STAFF_USER_SEARCH_LIMIT);
+		// Cut at the limit, so the 21st staff member must not read as nonexistent.
+		expect(await searchStaffUsers('s')).toEqual({
+			staff: staffPage.slice(0, STAFF_USER_SEARCH_LIMIT).map(({ id, email, firstname, lastname }) => ({
+				id,
+				email,
+				firstname,
+				lastname,
+			})),
+			truncated: true,
+		});
 		expect(get).toHaveBeenCalledTimes(1);
+
+		get.mockReset();
+		const exactly = Array.from({ length: STAFF_USER_SEARCH_LIMIT }, (_, i) => user(`usr-${i}`, `e${i}@harperdb.io`));
+		get.mockResolvedValue({ data: exactly });
+		expect((await searchStaffUsers('e')).truncated).toBe(false);
 
 		get.mockReset();
 		const customerPage = Array.from(
