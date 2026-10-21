@@ -71,12 +71,12 @@ function pendingMint() {
 	};
 }
 
-function renderForm() {
+function renderForm(holdingSecret = false) {
 	const onMinted = vi.fn();
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const { unmount } = render(
 		<QueryClientProvider client={client}>
-			<MintStaffApiTokenForm self={self} onMinted={onMinted} />
+			<MintStaffApiTokenForm self={self} onMinted={onMinted} holdingSecret={holdingSecret} />
 		</QueryClientProvider>,
 	);
 	return { onMinted, unmount };
@@ -226,6 +226,18 @@ describe('MintStaffApiTokenForm', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Change owner' }));
 
 		expect(screen.queryByText('Pick an owner.')).toBeNull();
+	});
+
+	// A second mint would replace the card before its secret was copied, leaving a live token
+	// nobody can use.
+	it('does not mint while the page still shows a secret', async () => {
+		renderForm(true);
+
+		expect((screen.getByRole('button', { name: 'Mint token' }) as HTMLButtonElement).disabled).toBe(true);
+		await fillAndSubmit();
+
+		expect(mutateAsync).not.toHaveBeenCalled();
+		expect(screen.getByText(/before minting another/)).toBeDefined();
 	});
 
 	it('refuses an empty name before asking the server', async () => {

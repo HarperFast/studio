@@ -47,7 +47,7 @@ export function ApiTokenIndex() {
 
 			{canMint && (
 				<div className="mt-6">
-					<MintStaffApiTokenForm self={self} onMinted={setMinted} />
+					<MintStaffApiTokenForm self={self} onMinted={setMinted} holdingSecret={minted !== null} />
 				</div>
 			)}
 
