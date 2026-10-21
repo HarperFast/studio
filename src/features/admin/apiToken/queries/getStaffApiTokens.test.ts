@@ -12,7 +12,6 @@ describe('getStaffApiTokens', () => {
 		get.mockResolvedValue({ data: [{ id: 'sat-1' }] });
 
 		expect(await getStaffApiTokens()).toEqual([{ id: 'sat-1' }]);
-		// Without the trailing slash Harper returns the collection descriptor, not the rows.
 		expect(get).toHaveBeenCalledWith('/Admin/ApiToken/');
 	});
 });
