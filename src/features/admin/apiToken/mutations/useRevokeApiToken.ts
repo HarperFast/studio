@@ -22,7 +22,7 @@ export function useRevokeApiTokenMutation() {
 	return useMutation<RevokedStaffApiToken, Error, string>({
 		mutationFn: revokeApiToken,
 		// Shown as revoked at once, so a failed refetch can't leave it looking live; a revoked token
-		// stays listed, so it is marked rather than dropped. The refetch isn't awaited.
+		// stays listed, so it is marked rather than dropped.
 		onSuccess: (_, id) => {
 			const revokedAt = new Date().toISOString();
 			queryClient.setQueriesData<StaffApiToken[]>(
