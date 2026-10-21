@@ -59,7 +59,6 @@ describe('useGenerateApiTokenMutation', () => {
 		const client = new QueryClient();
 		const { result, unmount } = renderHook(() => useGenerateApiTokenMutation(), { wrapper: withClient(client) });
 
-		// Mint, then do what the form does: copy into local state and reset().
 		await act(async () => {
 			await result.current.mutateAsync(payload);
 			result.current.reset();

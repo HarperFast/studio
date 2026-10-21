@@ -9,7 +9,7 @@ import { MintedStaffApiToken, StaffApiToken } from '@/integrations/api/api.patch
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-export function matchesTokenFilter(token: StaffApiToken, query: string): boolean {
+function matchesTokenFilter(token: StaffApiToken, query: string): boolean {
 	const q = query.trim().toLowerCase();
 	if (!q) { return true; }
 	return [token.name, token.role, token.status, token.ownerUserId, token.createdByUserId].some((value) =>
@@ -19,10 +19,8 @@ export function matchesTokenFilter(token: StaffApiToken, query: string): boolean
 
 export function ApiTokenIndex() {
 	const { user } = useCloudAuth();
-	// Minting is a permission, not a role name: a role that gains it needs no Studio release.
 	const canMint = useStaffPermission('apiToken:create');
 	const { data: tokens, isLoading, isError } = useQuery(getStaffApiTokensQueryOptions());
-	// The credential lives in this component's state only (see useGenerateApiTokenMutation).
 	const [minted, setMinted] = useState<MintedStaffApiToken | null>(null);
 	const [filter, setFilter] = useState('');
 	const filtered = useMemo(() => (tokens ?? []).filter((token) => matchesTokenFilter(token, filter)), [tokens, filter]);

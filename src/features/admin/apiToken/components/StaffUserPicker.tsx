@@ -6,14 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { XIcon } from 'lucide-react';
 import { KeyboardEvent, useEffect, useId, useState } from 'react';
 
-/** Characters typed before the first search; one letter matches most of the company. */
-export const SEARCH_MIN_LENGTH = 2;
+/** One letter matches most of the company. */
+const SEARCH_MIN_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 250;
 
 interface StaffUserPickerProps {
 	value: StaffUserSummary | null;
 	onChange: (user: StaffUserSummary | null) => void;
-	/** The signed-in account, offered as a shortcut and labelled as such. */
 	self: StaffUserSummary;
 	id?: string;
 	disabled?: boolean;
@@ -26,10 +25,9 @@ export function formatStaffUserLabel(user: StaffUserSummary, selfId: string): st
 }
 
 /**
- * Picks a token owner by email prefix. The repo has no combobox, so this is a plain input with a
- * listbox under it: typing searches once the prefix is long enough and the typing pauses, arrow keys
- * move through the matches, Enter picks. A picked owner replaces the input with their address and an
- * X to pick again.
+ * Picks a token owner by email prefix: an input with a listbox under it, since the repo has no
+ * combobox. Matches belong to the prefix the typing settled on, so an edit shows "Searching…" until
+ * the next settle rather than the previous prefix's matches.
  */
 export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUserPickerProps) {
 	const listboxId = useId();
@@ -44,10 +42,14 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 	}, [prefix]);
 
 	const canSearch = debouncedPrefix.length >= SEARCH_MIN_LENGTH;
-	const { data: matches = [], isFetching, isError } = useQuery({
+	const settled = prefix.trim() === debouncedPrefix;
+	const { data, isError } = useQuery({
 		...searchStaffUsersQueryOptions(debouncedPrefix),
 		enabled: canSearch,
 	});
+	const matches = settled && canSearch ? data : undefined;
+
+	useEffect(() => setHighlighted(0), [debouncedPrefix]);
 
 	const pick = (user: StaffUserSummary) => {
 		onChange(user);
@@ -59,14 +61,16 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
 			setOpen(true);
-			setHighlighted((index) => Math.min(index + 1, Math.max(matches.length - 1, 0)));
+			setHighlighted((index) => Math.min(index + 1, Math.max((matches?.length ?? 0) - 1, 0)));
 		} else if (event.key === 'ArrowUp') {
 			event.preventDefault();
 			setHighlighted((index) => Math.max(index - 1, 0));
 		} else if (event.key === 'Enter') {
-			if (open && matches[highlighted]) {
+			if (open) {
+				// Never the enclosing form's submit, even with nothing to pick yet.
 				event.preventDefault();
-				pick(matches[highlighted]);
+				const match = matches?.[highlighted];
+				if (match) { pick(match); }
 			}
 		} else if (event.key === 'Escape') {
 			setOpen(false);
@@ -92,7 +96,8 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 		);
 	}
 
-	const showList = open && prefix.trim().length >= SEARCH_MIN_LENGTH;
+	// A failed search is the toast's to report.
+	const showList = open && !isError && prefix.trim().length >= SEARCH_MIN_LENGTH;
 	return (
 		<div className="relative">
 			<div className="flex items-center gap-2">
@@ -128,10 +133,8 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 					// Keep the input focused so its blur doesn't close the list before the click lands.
 					onMouseDown={(event) => event.preventDefault()}
 				>
-					{!canSearch || (isFetching && matches.length === 0)
+					{!matches
 						? <li className="px-2 py-1.5 text-muted-foreground">Searching…</li>
-						: isError
-						? <li className="px-2 py-1.5 text-destructive">Couldn't search users.</li>
 						: matches.length === 0
 						? <li className="px-2 py-1.5 text-muted-foreground">No staff member matches “{prefix.trim()}”.</li>
 						: matches.map((user, index) => (

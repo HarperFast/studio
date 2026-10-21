@@ -8,9 +8,9 @@ export const STAFF_TOKEN_ROLES = [
 	'fabric_admin',
 ] as const satisfies readonly StaffApiTokenRole[];
 
-export const HOURS_PER_DAY = 24;
+const HOURS_PER_DAY = 24;
 
-export interface StaffTokenLifetime {
+interface StaffTokenLifetime {
 	/** The longest lifetime POST /Admin/ApiToken accepts for the role, in whole hours. */
 	maxHours: number;
 	/** The lifetime the server applies when the request names none. */
@@ -32,11 +32,7 @@ export const STAFF_TOKEN_LIFETIMES: Record<StaffApiTokenRole, StaffTokenLifetime
 /** Days a token may go unused before it stops authenticating (central-manager's STAFF_API_TOKEN_IDLE_MS). */
 export const STAFF_TOKEN_IDLE_DAYS = 5;
 
-export function isStaffTokenRole(value: unknown): value is StaffApiTokenRole {
-	return typeof value === 'string' && (STAFF_TOKEN_ROLES as readonly string[]).includes(value);
-}
-
-/** Whole days when the count divides evenly, otherwise hours: "14 days", "1 day", "36 hours", "1 hour". */
+/** "14 days", "1 day", "36 hours", "1 hour". */
 export function formatHours(hours: number): string {
 	if (hours >= HOURS_PER_DAY && hours % HOURS_PER_DAY === 0) {
 		const days = hours / HOURS_PER_DAY;

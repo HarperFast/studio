@@ -14,7 +14,7 @@ const STATUS_BADGES: Record<
 	revoked: { label: 'Revoked', variant: 'outline' },
 };
 
-export function StatusBadge({ status }: { status: StaffApiTokenStatus }) {
+function StatusBadge({ status }: { status: StaffApiTokenStatus }) {
 	const badge = STATUS_BADGES[status] ?? { label: status, variant: 'outline' };
 	return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }

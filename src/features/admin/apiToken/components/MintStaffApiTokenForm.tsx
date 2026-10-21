@@ -41,7 +41,6 @@ function defaultValues(ownerUserId: string): MintTokenValues {
 
 interface MintStaffApiTokenFormProps {
 	self: StaffUserSummary;
-	/** Receives the token with its secret; the caller holds it, this form forgets it at once. */
 	onMinted: (token: MintedStaffApiToken) => void;
 }
 
@@ -94,8 +93,7 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 				}
 			},
 			onSuccess: (result) => {
-				// Hand the credential to the page's local state, then drop it from the shared
-				// MutationCache so it can't be read there or outlive the page.
+				// Page state first, then out of the MutationCache (see useGenerateApiTokenMutation).
 				onMinted(result);
 				reset();
 				form.reset(defaultValues(self.id));

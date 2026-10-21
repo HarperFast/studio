@@ -37,7 +37,6 @@ async function typeAndSettle(text: string) {
 	const input = screen.getByRole('combobox');
 	fireEvent.focus(input);
 	fireEvent.change(input, { target: { value: text } });
-	// Past the debounce, then let the query resolve and react-query's batched notify land.
 	await act(async () => {
 		await vi.advanceTimersByTimeAsync(300);
 	});
@@ -79,6 +78,31 @@ describe('StaffUserPicker', () => {
 		fireEvent.keyDown(input, { key: 'Enter' });
 
 		expect(onChange).toHaveBeenCalledWith(dawn);
+	});
+
+	// Until the typing settles again, the previous prefix's matches are neither shown nor pickable.
+	it('shows no match for an edited prefix until the search settles', async () => {
+		get.mockResolvedValue(rows(dawn));
+		const onChange = renderPicker();
+
+		const input = await typeAndSettle('da');
+		expect(screen.getByRole('option', { name: 'dawn@harperdb.io (Dawn)' })).toBeDefined();
+
+		fireEvent.change(input, { target: { value: 'me' } });
+		expect(screen.queryByRole('option')).toBeNull();
+		expect(screen.getByText('Searching…')).toBeDefined();
+		fireEvent.keyDown(input, { key: 'Enter' });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it('never lets Enter reach the enclosing form', async () => {
+		renderPicker();
+
+		const input = await typeAndSettle('d');
+		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+		fireEvent(input, enter);
+
+		expect(enter.defaultPrevented).toBe(true);
 	});
 
 	it('offers the signed-in account without a search', () => {
