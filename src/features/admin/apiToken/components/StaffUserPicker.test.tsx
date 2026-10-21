@@ -120,7 +120,6 @@ describe('StaffUserPicker', () => {
 		expect(get).not.toHaveBeenCalled();
 	});
 
-	// With or without matches: a staff member past the read pages must not look nonexistent.
 	it('says to type more when the search ran out of pages before the table', async () => {
 		const customers = (page: number) =>
 			Array.from({ length: 100 }, (_, i) => ({ ...dawn, id: `c${page}-${i}`, email: `da${page}${i}@example.com` }));
@@ -136,6 +135,34 @@ describe('StaffUserPicker', () => {
 
 		expect(screen.getByRole('option', { name: /dan@harperdb.io/ })).toBeDefined();
 		expect(screen.getByText(/type more of the address/)).toBeDefined();
+	});
+
+	it('cancels a search in flight when the picker closes', async () => {
+		let resolvePage!: (value: unknown) => void;
+		get.mockImplementationOnce(
+			(_url: string, { signal }: { signal: AbortSignal }) =>
+				new Promise((resolve, reject) => {
+					resolvePage = resolve;
+					signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+				}),
+		);
+		renderPicker();
+		const input = screen.getByRole('combobox');
+		fireEvent.focus(input);
+		fireEvent.change(input, { target: { value: 'da' } });
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(300);
+		});
+		const signal = get.mock.calls[0][1].signal as AbortSignal;
+		expect(signal.aborted).toBe(false);
+
+		fireEvent.keyDown(input, { key: 'Escape' });
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(50);
+		});
+
+		expect(signal.aborted).toBe(true);
+		resolvePage(rows());
 	});
 
 	it('passes the query signal down so later pages stop when the picker moves on', async () => {

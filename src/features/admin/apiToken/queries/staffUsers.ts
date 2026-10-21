@@ -58,7 +58,7 @@ const staffUsersQueryKey = ['fabric-admin', 'users'];
 export function searchStaffUsersQueryOptions(prefix: string) {
 	return queryOptions({
 		queryKey: [...staffUsersQueryKey, 'search', prefix.trim().toLowerCase()],
-		// The signal stops later pages once the picker moves on.
+		// The signal stops later pages when the prefix changes or the picker cancels the search.
 		queryFn: ({ signal }) => searchStaffUsers(prefix, signal),
 		retry: false,
 	});

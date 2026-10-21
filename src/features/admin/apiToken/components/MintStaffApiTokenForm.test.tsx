@@ -23,6 +23,7 @@ vi.mock('@/react-query/queryClient', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/react-query/queryClient')>()),
 	errorHandler,
 }));
+
 vi.mock('sonner', () => ({ toast }));
 
 import { MintStaffApiTokenForm, roleRefusalMessage } from './MintStaffApiTokenForm';
@@ -43,8 +44,8 @@ const minted = {
 } as const;
 const refusal = "A fabric_admin token would exceed the owner's fabric_support role";
 
-function axiosFailure(status: number, body: unknown): AxiosError {
-	const config = { headers: new AxiosHeaders() };
+function axiosFailure(status: number, body: unknown, method = 'post'): AxiosError {
+	const config = { headers: new AxiosHeaders(), method };
 	return new AxiosError('Request failed', String(status), config, undefined, {
 		status,
 		statusText: '',
@@ -186,13 +187,41 @@ describe('MintStaffApiTokenForm', () => {
 		const { unmount } = renderForm();
 		await fillAndSubmit();
 		unmount();
-		const lost = new Error('timeout');
+		const lost = axiosFailure(502, 'Bad Gateway', 'delete');
 		revokeApiToken.mockRejectedValueOnce(lost);
 
 		await mint.succeed();
 
 		expect(errorHandler).toHaveBeenCalledWith(lost);
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	// A definite refusal means the token is still live; say so and where to revoke it.
+	it('says an unseen token is still live when its revoke is refused', async () => {
+		const mint = pendingMint();
+		const { unmount } = renderForm();
+		await fillAndSubmit();
+		unmount();
+		revokeApiToken.mockRejectedValueOnce(axiosFailure(404, { title: 'API token not found' }));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		await mint.succeed();
+
+		expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('still live'));
+		expect(errorHandler).not.toHaveBeenCalled();
+	});
+
+	// The page is gone but the token may exist; the admin still hears about it.
+	it('toasts a mint that failed after the page was left', async () => {
+		const mint = pendingMint();
+		const { unmount } = renderForm();
+		await fillAndSubmit();
+		unmount();
+		const lost = new Error('timeout');
+
+		await mint.fail(lost);
+
+		expect(errorHandler).toHaveBeenCalledWith(lost);
 	});
 
 	it('does not demand an owner the moment the picker is cleared', async () => {
