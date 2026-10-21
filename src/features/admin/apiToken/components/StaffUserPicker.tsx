@@ -43,7 +43,6 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 		...searchStaffUsersQueryOptions(debouncedPrefix),
 		enabled: canSearch && open,
 	});
-	// Only the settled prefix's matches: an edit shows "Searching…" rather than the old ones.
 	const matches = settled && canSearch ? data?.staff : undefined;
 
 	useEffect(() => setHighlighted(0), [debouncedPrefix]);

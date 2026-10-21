@@ -18,7 +18,6 @@ export const MintTokenSchema = z
 			.int({ error: 'Enter a whole number of hours.' })
 			.min(1, { error: 'Must be at least 1 hour.' }),
 	})
-	// The cap depends on the role, so it can't sit on the field itself.
 	.superRefine((values, ctx) => {
 		const { maxHours } = STAFF_TOKEN_LIFETIMES[values.role];
 		if (values.expiresInHours > maxHours) {

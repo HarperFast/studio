@@ -31,7 +31,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-/** The safest choice is the one the form opens on; an admin token is a deliberate pick. */
 const DEFAULT_ROLE: StaffApiTokenRole = 'fabric_readonly';
 
 function defaultValues(ownerUserId: string): MintTokenValues {
@@ -99,7 +98,6 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 		// Clearing the owner is the start of a pick, not a mistake to flag yet.
 		form.setValue('ownerUserId', user?.id ?? '', { shouldValidate: user !== null, shouldDirty: true });
 		if (user === null) { form.clearErrors('ownerUserId'); }
-		// A refusal named the previous owner's role.
 		form.clearErrors('role');
 	};
 

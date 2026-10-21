@@ -82,7 +82,6 @@ export function getStaffUserQueryOptions(id: string) {
 	return queryOptions({
 		queryKey: [...staffUsersQueryKey, id],
 		queryFn: () => getStaffUser(id),
-		// An address rarely changes; the table asks for the same few ids on every render.
 		staleTime: 5 * 60 * 1000,
 		retry: false,
 	});
