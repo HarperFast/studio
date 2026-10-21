@@ -120,14 +120,31 @@ describe('StaffUserPicker', () => {
 		expect(get).not.toHaveBeenCalled();
 	});
 
-	it('says to type more when the search ran out of pages rather than staff', async () => {
-		const customers = Array.from({ length: 100 }, (_, i) => ({ ...dawn, id: `c${i}`, email: `da${i}@example.com` }));
-		get.mockResolvedValue(rows(...customers));
+	// With or without matches: a staff member past the read pages must not look nonexistent.
+	it('says to type more when the search ran out of pages before the table', async () => {
+		const customers = (page: number) =>
+			Array.from({ length: 100 }, (_, i) => ({ ...dawn, id: `c${page}-${i}`, email: `da${page}${i}@example.com` }));
+		get
+			.mockResolvedValueOnce(rows(...customers(0).slice(1), { ...dawn, id: 'usr-dan', email: 'dan@harperdb.io' }))
+			.mockResolvedValueOnce(rows(...customers(1)))
+			.mockResolvedValueOnce(rows(...customers(2)))
+			.mockResolvedValueOnce(rows(...customers(3)))
+			.mockResolvedValueOnce(rows(...customers(4)));
 		renderPicker();
 
 		await typeAndSettle('da');
 
+		expect(screen.getByRole('option', { name: /dan@harperdb.io/ })).toBeDefined();
 		expect(screen.getByText(/type more of the address/)).toBeDefined();
+	});
+
+	it('passes the query signal down so later pages stop when the picker moves on', async () => {
+		get.mockResolvedValue(rows(dawn));
+		renderPicker();
+
+		await typeAndSettle('da');
+
+		expect(get.mock.calls[0][1]).toEqual({ signal: expect.any(AbortSignal) });
 	});
 
 	it('offers the signed-in account without a search', () => {

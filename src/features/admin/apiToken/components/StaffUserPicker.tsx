@@ -24,7 +24,6 @@ export function formatStaffUserLabel(user: StaffUserSummary, selfId: string): st
 	return user.id === selfId ? `${who} — you` : who;
 }
 
-/** An input with a listbox under it, since the repo has no combobox. */
 export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUserPickerProps) {
 	const listboxId = useId();
 	const [prefix, setPrefix] = useState('');
@@ -63,7 +62,6 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 			event.preventDefault();
 			setHighlighted((index) => Math.max(index - 1, 0));
 		} else if (event.key === 'Enter') {
-			// Never the enclosing form's submit, open or not.
 			event.preventDefault();
 			const match = open ? matches?.[highlighted] : undefined;
 			if (match) { pick(match); }
@@ -130,14 +128,8 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 				>
 					{!matches
 						? <li className="px-2 py-1.5 text-muted-foreground">Searching…</li>
-						: matches.length === 0
-						? (
-							<li className="px-2 py-1.5 text-muted-foreground">
-								{data?.truncated
-									? `No staff member among the first matches for “${prefix.trim()}”; type more of the address.`
-									: `No staff member matches “${prefix.trim()}”.`}
-							</li>
-						)
+						: matches.length === 0 && !data?.truncated
+						? <li className="px-2 py-1.5 text-muted-foreground">No staff member matches “{prefix.trim()}”.</li>
 						: matches.map((user, index) => (
 							<li
 								key={user.id}
@@ -153,6 +145,11 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 								{formatStaffUserLabel(user, self.id)}
 							</li>
 						))}
+					{matches && data?.truncated && (
+						<li className="px-2 py-1.5 text-muted-foreground">
+							Not every account sharing “{prefix.trim()}” was read; type more of the address if someone is missing.
+						</li>
+					)}
 				</ul>
 			)}
 		</div>

@@ -30,7 +30,7 @@ function toSummary(user: SchemaUser): StaffUserSummary {
  * The user table holds customers too and offers no suffix match, so pages are read until enough
  * staff turn up or the table runs out; the server still has the last word on the mint.
  */
-export async function searchStaffUsers(prefix: string): Promise<StaffUserSearch> {
+export async function searchStaffUsers(prefix: string, signal?: AbortSignal): Promise<StaffUserSearch> {
 	const staff: StaffUserSummary[] = [];
 	for (let page = 0; page < STAFF_USER_SEARCH_PAGE_LIMIT; page++) {
 		const start = page * STAFF_USER_SEARCH_PAGE_SIZE;
@@ -43,7 +43,7 @@ export async function searchStaffUsers(prefix: string): Promise<StaffUserSearch>
 			`limit(${start},${start + STAFF_USER_SEARCH_PAGE_SIZE})`,
 		].join('&');
 		// Trailing slash required to get the records array rather than the collection descriptor.
-		const { data } = await apiClient.get(`/Admin/User/?${query}` as '/Admin/User/');
+		const { data } = await apiClient.get(`/Admin/User/?${query}` as '/Admin/User/', { signal });
 		const rows = data as unknown as SchemaUser[];
 		staff.push(...rows.filter((user) => isStaffEmail(user.email)).map(toSummary));
 		if (staff.length >= STAFF_USER_SEARCH_LIMIT || rows.length < STAFF_USER_SEARCH_PAGE_SIZE) {
@@ -58,7 +58,8 @@ const staffUsersQueryKey = ['fabric-admin', 'users'];
 export function searchStaffUsersQueryOptions(prefix: string) {
 	return queryOptions({
 		queryKey: [...staffUsersQueryKey, 'search', prefix.trim().toLowerCase()],
-		queryFn: () => searchStaffUsers(prefix),
+		// The signal stops later pages once the picker moves on.
+		queryFn: ({ signal }) => searchStaffUsers(prefix, signal),
 		retry: false,
 	});
 }
