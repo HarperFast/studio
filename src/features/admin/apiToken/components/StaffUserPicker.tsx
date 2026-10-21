@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { searchStaffUsersQueryOptions, StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import { cn } from '@/lib/cn';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { XIcon } from 'lucide-react';
 import { KeyboardEvent, useEffect, useId, useState } from 'react';
 
@@ -26,6 +26,7 @@ export function formatStaffUserLabel(user: StaffUserSummary, selfId: string): st
 
 export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUserPickerProps) {
 	const listboxId = useId();
+	const queryClient = useQueryClient();
 	const [prefix, setPrefix] = useState('');
 	const [debouncedPrefix, setDebouncedPrefix] = useState('');
 	const [open, setOpen] = useState(false);
@@ -47,10 +48,16 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 
 	useEffect(() => setHighlighted(0), [debouncedPrefix]);
 
+	// Disabling the query does not abort a search in flight; cancelling it does, pages and all.
+	const close = () => {
+		setOpen(false);
+		void queryClient.cancelQueries({ queryKey: searchStaffUsersQueryOptions(debouncedPrefix).queryKey });
+	};
+
 	const pick = (user: StaffUserSummary) => {
 		onChange(user);
 		setPrefix('');
-		setOpen(false);
+		close();
 	};
 
 	const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -66,7 +73,7 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 			const match = open ? matches?.[highlighted] : undefined;
 			if (match) { pick(match); }
 		} else if (event.key === 'Escape') {
-			setOpen(false);
+			close();
 		}
 	};
 
@@ -110,7 +117,7 @@ export function StaffUserPicker({ value, onChange, self, id, disabled }: StaffUs
 						setOpen(true);
 					}}
 					onFocus={() => setOpen(true)}
-					onBlur={() => setOpen(false)}
+					onBlur={close}
 					onKeyDown={onKeyDown}
 				/>
 				<Button type="button" variant="outline" className="shrink-0" disabled={disabled} onClick={() => pick(self)}>

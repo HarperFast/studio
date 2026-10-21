@@ -75,7 +75,6 @@ describe('searchStaffUsers', () => {
 			(_, i) => user(`usr-${i}`, `c${i}@example.com`),
 		);
 		get.mockResolvedValue({ data: customerPage });
-		// Reported as truncated, so the picker can say "type more" rather than "no such staff member".
 		expect(await searchStaffUsers('c')).toEqual({ staff: [], truncated: true });
 		expect(get).toHaveBeenCalledTimes(STAFF_USER_SEARCH_PAGE_LIMIT);
 	});

@@ -22,7 +22,7 @@ import {
 	STAFF_TOKEN_ROLES,
 } from '@/features/admin/apiToken/staffTokenRoles';
 import { MintedStaffApiToken, StaffApiTokenRole } from '@/integrations/api/api.patch';
-import { describeError, errorHandler } from '@/react-query/queryClient';
+import { describeError, errorHandler, shouldToastOwnFailure } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
@@ -64,8 +64,13 @@ async function revokeUnseen(token: MintedStaffApiToken, queryClient: QueryClient
 		await revokeApiToken(token.id);
 		toast.warning('An API token minted after its page was left was revoked.');
 	} catch (error) {
-		// The shared handler keeps a lost answer (502, timeout) from reading as a failed revoke.
-		errorHandler(error);
+		// A lost answer (502, timeout) may still have revoked it; only a definite refusal says so.
+		if (shouldToastOwnFailure(error)) {
+			console.error('Failed to revoke an API token that was never shown', error);
+			toast.error('An API token minted after its page was left is still live; revoke it from the list.');
+		} else {
+			errorHandler(error);
+		}
 	}
 	void queryClient.invalidateQueries({ queryKey: staffApiTokensQueryKey });
 }
@@ -110,8 +115,8 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 		try {
 			result = await mutateAsync(values);
 		} catch (error) {
-			if (!isMounted.current) { return; }
-			const refusal = roleRefusalMessage(error);
+			// A lost answer after leaving the page still gets its toast: the token may exist.
+			const refusal = isMounted.current ? roleRefusalMessage(error) : null;
 			if (refusal) {
 				form.setError('role', { message: refusal });
 			} else {
