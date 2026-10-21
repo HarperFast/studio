@@ -24,9 +24,7 @@ describe('searchStaffUsers', () => {
 
 		const url = get.mock.calls[0][0] as string;
 		expect(get.mock.calls[0][1]).toEqual({ signal: undefined });
-		// Trailing slash required for the rows rather than the collection descriptor.
 		expect(url.startsWith('/Admin/User/?')).toBe(true);
-		// The `*` is Harper's prefix match and must stay unencoded; the prefix itself is encoded.
 		expect(url).toContain('email=dav%40harper*');
 		expect(url).toContain('status=ACTIVE');
 		expect(url).toContain('isVerified=true');
