@@ -41,8 +41,6 @@ describe('useRevokeApiTokenMutation', () => {
 	const withClient = (client: QueryClient) => ({ children }: { children: ReactNode }) =>
 		createElement(QueryClientProvider, { client }, children);
 
-	// A revoked token stays listed with its status, so the cache marks it rather than dropping it,
-	// before the refetch answers.
 	it('marks the token revoked in the cached list at once, then refreshes it', async () => {
 		del.mockResolvedValue({ data: { id: 'sat-2', revoked: true } });
 		const client = new QueryClient();

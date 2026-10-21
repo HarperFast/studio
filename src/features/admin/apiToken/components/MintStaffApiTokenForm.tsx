@@ -65,8 +65,11 @@ async function revokeUnseen(token: MintedStaffApiToken, queryClient: QueryClient
 		await revokeApiToken(token.id);
 		toast.warning('An API token minted after its page was left was revoked.');
 	} catch (error) {
-		// A lost answer (502, timeout) may still have revoked it; only a definite refusal says so.
-		if (shouldToastOwnFailure(error)) {
+		// A lost answer (502, timeout) may still have revoked it; only a definite refusal says so,
+		// and a 404 means the token is already gone.
+		if (isAxiosError(error) && error.response?.status === 404) {
+			toast.warning('An API token minted after its page was left is already gone.');
+		} else if (shouldToastOwnFailure(error)) {
 			console.error('Failed to revoke an API token that was never shown', error);
 			toast.error('An API token minted after its page was left is still live; revoke it from the list.');
 		} else {

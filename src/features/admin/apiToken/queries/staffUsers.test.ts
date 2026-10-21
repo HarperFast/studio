@@ -133,7 +133,6 @@ describe('getStaffUser', () => {
 		expect(get).toHaveBeenCalledWith('/Admin/User/usr%2F1');
 	});
 
-	// A label is not worth a toast or a RUM error per missing user; the id stands in.
 	it('answers null instead of throwing when the lookup fails', async () => {
 		// Once: a persistent rejecting implementation on a reset mock is reported as an unhandled
 		// rejection by vitest 5 even though the call catches it.

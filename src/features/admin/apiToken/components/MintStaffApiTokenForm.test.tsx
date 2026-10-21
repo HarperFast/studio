@@ -199,13 +199,26 @@ describe('MintStaffApiTokenForm', () => {
 		const { unmount } = renderForm();
 		await fillAndSubmit();
 		unmount();
-		revokeApiToken.mockRejectedValueOnce(axiosFailure(404, { title: 'API token not found' }));
+		revokeApiToken.mockRejectedValueOnce(axiosFailure(403, { title: 'Forbidden' }));
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 		await mint.succeed();
 
 		expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('still live'));
 		expect(errorHandler).not.toHaveBeenCalled();
+	});
+
+	it('says an unseen token is already gone when its revoke finds nothing', async () => {
+		const mint = pendingMint();
+		const { unmount } = renderForm();
+		await fillAndSubmit();
+		unmount();
+		revokeApiToken.mockRejectedValueOnce(axiosFailure(404, { title: 'API token not found' }));
+
+		await mint.succeed();
+
+		expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('already gone'));
+		expect(toast.error).not.toHaveBeenCalled();
 	});
 
 	it('toasts a mint that failed after the page was left', async () => {
@@ -228,8 +241,6 @@ describe('MintStaffApiTokenForm', () => {
 		expect(screen.queryByText('Pick an owner.')).toBeNull();
 	});
 
-	// A second mint would replace the card before its secret was copied, leaving a live token
-	// nobody can use.
 	it('does not mint while the page still shows a secret', async () => {
 		renderForm(true);
 
