@@ -32,7 +32,6 @@ export const STAFF_TOKEN_LIFETIMES: Record<StaffApiTokenRole, StaffTokenLifetime
 /** Days a token may go unused before it stops authenticating (central-manager's STAFF_API_TOKEN_IDLE_MS). */
 export const STAFF_TOKEN_IDLE_DAYS = 5;
 
-/** "14 days", "1 day", "36 hours", "1 hour". */
 export function formatHours(hours: number): string {
 	if (hours >= HOURS_PER_DAY && hours % HOURS_PER_DAY === 0) {
 		const days = hours / HOURS_PER_DAY;

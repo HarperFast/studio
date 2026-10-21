@@ -4,14 +4,22 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mutate, reset, errorHandler } = vi.hoisted(() => ({ mutate: vi.fn(), reset: vi.fn(), errorHandler: vi.fn() }));
-vi.mock('@/features/admin/apiToken/mutations/useGenerateApiToken', () => ({
-	useGenerateApiTokenMutation: () => ({ mutate, reset, isPending: false }),
+const { mutateAsync, reset, errorHandler, revokeApiToken, toast } = vi.hoisted(() => ({
+	mutateAsync: vi.fn(),
+	reset: vi.fn(),
+	errorHandler: vi.fn(),
+	revokeApiToken: vi.fn(),
+	toast: { warning: vi.fn(), error: vi.fn() },
 }));
+vi.mock('@/features/admin/apiToken/mutations/useGenerateApiToken', () => ({
+	useGenerateApiTokenMutation: () => ({ mutateAsync, reset, isPending: false }),
+}));
+vi.mock('@/features/admin/apiToken/mutations/useRevokeApiToken', () => ({ revokeApiToken }));
 vi.mock('@/react-query/queryClient', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/react-query/queryClient')>()),
 	errorHandler,
 }));
+vi.mock('sonner', () => ({ toast }));
 
 import { MintStaffApiTokenForm, roleRefusalMessage } from './MintStaffApiTokenForm';
 
@@ -29,6 +37,7 @@ const minted = {
 	revokedAt: null,
 	status: 'active',
 } as const;
+const refusal = "A fabric_admin token would exceed the owner's fabric_support role";
 
 function axiosFailure(status: number, body: unknown): AxiosError {
 	const config = { headers: new AxiosHeaders() };
@@ -41,15 +50,32 @@ function axiosFailure(status: number, body: unknown): AxiosError {
 	});
 }
 
+/** A mint whose answer the test controls. */
+function pendingMint() {
+	let resolve!: (value: unknown) => void;
+	let reject!: (reason: unknown) => void;
+	mutateAsync.mockImplementationOnce(
+		() =>
+			new Promise((res, rej) => {
+				resolve = res;
+				reject = rej;
+			}),
+	);
+	return {
+		succeed: () => act(async () => resolve(minted)),
+		fail: (error: unknown) => act(async () => reject(error)),
+	};
+}
+
 function renderForm() {
 	const onMinted = vi.fn();
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	render(
+	const { unmount } = render(
 		<QueryClientProvider client={client}>
 			<MintStaffApiTokenForm self={self} onMinted={onMinted} />
 		</QueryClientProvider>,
 	);
-	return onMinted;
+	return { onMinted, unmount };
 }
 
 async function fillAndSubmit(name = 'nightly report') {
@@ -57,7 +83,6 @@ async function fillAndSubmit(name = 'nightly report') {
 	await act(async () => {
 		fireEvent.submit(screen.getByRole('button', { name: 'Mint token' }).closest('form')!);
 	});
-	return mutate.mock.calls.at(-1)?.[1] as { onSuccess: (result: unknown) => void; onError: (error: unknown) => void };
 }
 
 beforeAll(() => {
@@ -66,20 +91,25 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-	mutate.mockReset();
+	mutateAsync.mockReset();
 	reset.mockReset();
 	errorHandler.mockReset();
+	revokeApiToken.mockReset();
+	toast.warning.mockReset();
+	toast.error.mockReset();
 });
 
 afterEach(cleanup);
 
 describe('MintStaffApiTokenForm', () => {
 	it('mints for the signed-in owner at read-only for 14 days by default', async () => {
+		const mint = pendingMint();
 		renderForm();
 
 		await fillAndSubmit();
+		await mint.succeed();
 
-		expect(mutate.mock.calls[0][0]).toEqual({
+		expect(mutateAsync.mock.calls[0][0]).toEqual({
 			ownerUserId: 'usr-me',
 			role: 'fabric_readonly',
 			name: 'nightly report',
@@ -89,10 +119,11 @@ describe('MintStaffApiTokenForm', () => {
 
 	// The order matters: the page must hold the secret before the mutation forgets it.
 	it('hands the minted token to the page, then clears the mutation and the form', async () => {
-		const onMinted = renderForm();
-		const callbacks = await fillAndSubmit();
+		const mint = pendingMint();
+		const { onMinted } = renderForm();
 
-		await act(async () => callbacks.onSuccess(minted));
+		await fillAndSubmit();
+		await mint.succeed();
 
 		expect(onMinted).toHaveBeenCalledWith(minted);
 		expect(reset).toHaveBeenCalledTimes(1);
@@ -101,17 +132,47 @@ describe('MintStaffApiTokenForm', () => {
 	});
 
 	it('shows a role wider than the owner holds under the role field, and toasts anything else', async () => {
+		const first = pendingMint();
 		renderForm();
-		const callbacks = await fillAndSubmit();
-		const refusal = "A fabric_admin token would exceed the owner's fabric_support role";
 
-		await act(async () => callbacks.onError(axiosFailure(403, { code: 'Forbidden', title: refusal })));
+		await fillAndSubmit();
+		await first.fail(axiosFailure(403, { code: 'Forbidden', title: refusal }));
 		expect(screen.getByText(refusal)).toBeDefined();
 		expect(errorHandler).not.toHaveBeenCalled();
 
+		const second = pendingMint();
 		const limit = axiosFailure(409, { title: 'Limit of 3 live API tokens per owner reached' });
-		await act(async () => callbacks.onError(limit));
+		await fillAndSubmit();
+		await second.fail(limit);
 		expect(errorHandler).toHaveBeenCalledWith(limit);
+	});
+
+	// The refusal named the previous owner's role; it is stale the moment the owner changes.
+	it('clears the refusal once the owner changes', async () => {
+		const mint = pendingMint();
+		renderForm();
+		await fillAndSubmit();
+		await mint.fail(axiosFailure(403, { title: refusal }));
+		expect(screen.getByText(refusal)).toBeDefined();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Change owner' }));
+
+		expect(screen.queryByText(refusal)).toBeNull();
+	});
+
+	// A token nobody saw is a live credential with no holder; it must not stay live.
+	it('revokes a token minted after the page was left', async () => {
+		const mint = pendingMint();
+		const { onMinted, unmount } = renderForm();
+		await fillAndSubmit();
+
+		unmount();
+		revokeApiToken.mockResolvedValue({ id: 'sat-1', revoked: true });
+		await mint.succeed();
+
+		expect(onMinted).not.toHaveBeenCalled();
+		expect(revokeApiToken).toHaveBeenCalledWith('sat-1');
+		expect(toast.warning).toHaveBeenCalled();
 	});
 
 	it('refuses an empty name before asking the server', async () => {
@@ -119,7 +180,7 @@ describe('MintStaffApiTokenForm', () => {
 
 		await fillAndSubmit('   ');
 
-		expect(mutate).not.toHaveBeenCalled();
+		expect(mutateAsync).not.toHaveBeenCalled();
 		expect(screen.getByText('Enter a name.')).toBeDefined();
 	});
 });

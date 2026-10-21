@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StaffUserPicker } from '@/features/admin/apiToken/components/StaffUserPicker';
 import { MintTokenSchema, MintTokenValues, TOKEN_NAME_MAX_LENGTH } from '@/features/admin/apiToken/mintTokenSchema';
 import { useGenerateApiTokenMutation } from '@/features/admin/apiToken/mutations/useGenerateApiToken';
+import { revokeApiToken } from '@/features/admin/apiToken/mutations/useRevokeApiToken';
 import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import {
 	formatHours,
@@ -24,8 +25,9 @@ import { describeError, errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
 import { KeyRoundIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 /** The safest choice is the one the form opens on; an admin token is a deliberate pick. */
 const DEFAULT_ROLE: StaffApiTokenRole = 'fabric_readonly';
@@ -55,14 +57,27 @@ export function roleRefusalMessage(error: unknown): string | null {
 	return /exceed the owner's/i.test(description) ? description : null;
 }
 
-/**
- * Mints a token for a staff owner. The role list is every staff role: nothing the API exposes
- * says which role another account holds, so a role wider than the owner's is refused by the
- * server and that refusal is shown under the role field; every other failure toasts as usual.
- */
+/** A token minted after the page was left was never seen, so it is revoked rather than left live. */
+async function revokeUnseen(token: MintedStaffApiToken) {
+	try {
+		await revokeApiToken(token.id);
+		toast.warning('An API token minted after its page was left was revoked.');
+	} catch (error) {
+		console.error('Failed to revoke an API token that was never shown', error);
+		toast.error('An API token minted after its page was left could not be revoked; revoke it from the list.');
+	}
+}
+
 export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormProps) {
-	const { mutate, isPending, reset } = useGenerateApiTokenMutation();
+	const { mutateAsync, isPending, reset } = useGenerateApiTokenMutation();
 	const [owner, setOwner] = useState<StaffUserSummary | null>(self);
+	const isMounted = useRef(false);
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 	const form = useForm<MintTokenValues>({
 		resolver: zodResolver(MintTokenSchema),
 		mode: 'onTouched',
@@ -74,32 +89,40 @@ export function MintStaffApiTokenForm({ self, onMinted }: MintStaffApiTokenFormP
 	const changeOwner = (user: StaffUserSummary | null) => {
 		setOwner(user);
 		form.setValue('ownerUserId', user?.id ?? '', { shouldValidate: true, shouldDirty: true });
+		// A refusal named the previous owner's role.
+		form.clearErrors('role');
 	};
 
 	const changeRole = (next: StaffApiTokenRole) => {
 		form.setValue('role', next, { shouldDirty: true });
+		form.clearErrors('role');
 		// Each role has its own cap and default; carrying the old value over would mostly be invalid.
 		form.setValue('expiresInHours', STAFF_TOKEN_LIFETIMES[next].defaultHours, { shouldValidate: true });
 	};
 
-	const onSubmit = (values: MintTokenValues) => {
-		mutate(values, {
-			onError: (error) => {
-				const refusal = roleRefusalMessage(error);
-				if (refusal) {
-					form.setError('role', { message: refusal });
-				} else {
-					errorHandler(error);
-				}
-			},
-			onSuccess: (result) => {
-				// Page state first, then out of the MutationCache (see useGenerateApiTokenMutation).
-				onMinted(result);
-				reset();
-				form.reset(defaultValues(self.id));
-				setOwner(self);
-			},
-		});
+	const onSubmit = async (values: MintTokenValues) => {
+		let result: MintedStaffApiToken;
+		try {
+			result = await mutateAsync(values);
+		} catch (error) {
+			if (!isMounted.current) { return; }
+			const refusal = roleRefusalMessage(error);
+			if (refusal) {
+				form.setError('role', { message: refusal });
+			} else {
+				errorHandler(error);
+			}
+			return;
+		}
+		if (!isMounted.current) {
+			void revokeUnseen(result);
+			return;
+		}
+		// Page state first, then out of the MutationCache (see useGenerateApiTokenMutation).
+		onMinted(result);
+		reset();
+		form.reset(defaultValues(self.id));
+		setOwner(self);
 	};
 
 	return (

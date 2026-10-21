@@ -2,17 +2,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { StaffUserLabel } from '@/features/admin/apiToken/components/StaffUserLabel';
+import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { MintedStaffApiToken } from '@/integrations/api/api.patch';
 import { CopyIcon } from 'lucide-react';
 
 interface MintedTokenCardProps {
 	token: MintedStaffApiToken;
-	selfId: string;
+	self: StaffUserSummary;
 	onDismiss: () => void;
 }
 
-export function MintedTokenCard({ token, selfId, onDismiss }: MintedTokenCardProps) {
+export function MintedTokenCard({ token, self, onDismiss }: MintedTokenCardProps) {
 	const copyText = useCopyTextToClipboard();
 
 	return (
@@ -20,9 +21,9 @@ export function MintedTokenCard({ token, selfId, onDismiss }: MintedTokenCardPro
 			<CardHeader>
 				<CardTitle>Token “{token.name}” minted</CardTitle>
 				<CardDescription>
-					Copy it now — it won't be shown again. It acts as{' '}
-					<StaffUserLabel userId={token.ownerUserId} selfId={selfId} /> as {token.role} and expires{' '}
-					{new Date(token.expiresAt).toLocaleString()}.
+					Copy it now — it won't be shown again. It acts as <StaffUserLabel userId={token.ownerUserId} self={self} /> as
+					{' '}
+					{token.role} and expires {new Date(token.expiresAt).toLocaleString()}.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex items-center gap-2">

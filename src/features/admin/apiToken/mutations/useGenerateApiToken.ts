@@ -19,7 +19,7 @@ export interface MintStaffApiTokenPayload {
  *
  * The endpoint isn't in the generated API types, so the URL and response are cast.
  */
-export async function generateApiToken(payload: MintStaffApiTokenPayload = {}): Promise<MintedStaffApiToken> {
+export async function generateApiToken(payload: MintStaffApiTokenPayload): Promise<MintedStaffApiToken> {
 	const { data } = await apiClient.post('/Admin/ApiToken/' as '/Cluster/', payload);
 	return data as unknown as MintedStaffApiToken;
 }
@@ -34,7 +34,9 @@ export function useGenerateApiTokenMutation() {
 		gcTime: 0,
 		// The form toasts failures itself, so a role refusal can sit under the role field instead.
 		meta: { skipGlobalErrorToast: true },
-		onSuccess: () => {
+		// Settled, not success: a mint whose answer was lost (502, timeout) may have landed, and the
+		// list is where the admin would see it before minting another.
+		onSettled: () => {
 			void queryClient.invalidateQueries({ queryKey: staffApiTokensQueryKey });
 		},
 	});

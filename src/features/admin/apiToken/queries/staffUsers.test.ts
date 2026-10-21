@@ -44,9 +44,10 @@ describe('searchStaffUsers', () => {
 			.mockResolvedValueOnce({ data: customers })
 			.mockResolvedValueOnce({ data: [user('usr-dawn', 'dawn@harperdb.io')] });
 
-		const found = await searchStaffUsers('da');
+		const { staff, truncated } = await searchStaffUsers('da');
 
-		expect(found.map((u) => u.id)).toEqual(['usr-dawn']);
+		expect(staff.map((u) => u.id)).toEqual(['usr-dawn']);
+		expect(truncated).toBe(false);
 		expect(get.mock.calls.map(([url]) => /limit\((\d+),(\d+)\)/.exec(url as string)![0])).toEqual([
 			`limit(0,${STAFF_USER_SEARCH_PAGE_SIZE})`,
 			`limit(${STAFF_USER_SEARCH_PAGE_SIZE},${STAFF_USER_SEARCH_PAGE_SIZE * 2})`,
@@ -55,7 +56,7 @@ describe('searchStaffUsers', () => {
 
 	it('stops at a short page, at enough staff, and at the page limit', async () => {
 		get.mockResolvedValueOnce({ data: [user('usr-1', 'a@harperdb.io')] });
-		expect(await searchStaffUsers('a')).toHaveLength(1);
+		expect((await searchStaffUsers('a')).staff).toHaveLength(1);
 		expect(get).toHaveBeenCalledTimes(1);
 
 		get.mockReset();
@@ -64,7 +65,7 @@ describe('searchStaffUsers', () => {
 			(_, i) => user(`usr-${i}`, `s${i}@harperdb.io`),
 		);
 		get.mockResolvedValue({ data: staffPage });
-		expect(await searchStaffUsers('s')).toHaveLength(STAFF_USER_SEARCH_LIMIT);
+		expect((await searchStaffUsers('s')).staff).toHaveLength(STAFF_USER_SEARCH_LIMIT);
 		expect(get).toHaveBeenCalledTimes(1);
 
 		get.mockReset();
@@ -73,7 +74,8 @@ describe('searchStaffUsers', () => {
 			(_, i) => user(`usr-${i}`, `c${i}@example.com`),
 		);
 		get.mockResolvedValue({ data: customerPage });
-		expect(await searchStaffUsers('c')).toEqual([]);
+		// Reported as truncated, so the picker can say "type more" rather than "no such staff member".
+		expect(await searchStaffUsers('c')).toEqual({ staff: [], truncated: true });
 		expect(get).toHaveBeenCalledTimes(STAFF_USER_SEARCH_PAGE_LIMIT);
 	});
 
@@ -88,7 +90,7 @@ describe('searchStaffUsers', () => {
 			],
 		});
 
-		expect(await searchStaffUsers('da')).toEqual([
+		expect((await searchStaffUsers('da')).staff).toEqual([
 			{ id: 'usr-1', email: 'dave@harperdb.io', firstname: 'F', lastname: 'L' },
 			{ id: 'usr-3', email: 'Dawn@HarperDB.io', firstname: 'F', lastname: 'L' },
 		]);

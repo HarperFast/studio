@@ -2,18 +2,20 @@ import { apiClient } from '@/config/apiClient';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { queryOptions } from '@tanstack/react-query';
 
-/** Just what the owner picker and the token table need from a user record. */
 export type StaffUserSummary = Pick<SchemaUser, 'id' | 'email' | 'firstname' | 'lastname'>;
 
 /** The one domain central-manager treats as Harper staff (its isHarperEmail). */
 const STAFF_EMAIL_DOMAIN = 'harperdb.io';
 
-/** Matches rendered at once; the rest stay reachable by typing more of the address. */
 export const STAFF_USER_SEARCH_LIMIT = 20;
-/** Rows read per request while looking for staff among customers who share the prefix. */
 export const STAFF_USER_SEARCH_PAGE_SIZE = 100;
-/** Requests per search before giving up on a prefix that mostly matches customers. */
 export const STAFF_USER_SEARCH_PAGE_LIMIT = 5;
+
+export interface StaffUserSearch {
+	staff: StaffUserSummary[];
+	/** The page limit ended the search before the table ran out: a longer prefix may find more. */
+	truncated: boolean;
+}
 
 export function isStaffEmail(email: string): boolean {
 	return email.split('@')[1]?.toLowerCase() === STAFF_EMAIL_DOMAIN;
@@ -28,7 +30,7 @@ function toSummary(user: SchemaUser): StaffUserSummary {
  * The user table holds customers too and offers no suffix match, so pages are read until enough
  * staff turn up or the table runs out; the server still has the last word on the mint.
  */
-export async function searchStaffUsers(prefix: string): Promise<StaffUserSummary[]> {
+export async function searchStaffUsers(prefix: string): Promise<StaffUserSearch> {
 	const staff: StaffUserSummary[] = [];
 	for (let page = 0; page < STAFF_USER_SEARCH_PAGE_LIMIT; page++) {
 		const start = page * STAFF_USER_SEARCH_PAGE_SIZE;
@@ -44,9 +46,11 @@ export async function searchStaffUsers(prefix: string): Promise<StaffUserSummary
 		const { data } = await apiClient.get(`/Admin/User/?${query}` as '/Admin/User/');
 		const rows = data as unknown as SchemaUser[];
 		staff.push(...rows.filter((user) => isStaffEmail(user.email)).map(toSummary));
-		if (staff.length >= STAFF_USER_SEARCH_LIMIT || rows.length < STAFF_USER_SEARCH_PAGE_SIZE) { break; }
+		if (staff.length >= STAFF_USER_SEARCH_LIMIT || rows.length < STAFF_USER_SEARCH_PAGE_SIZE) {
+			return { staff: staff.slice(0, STAFF_USER_SEARCH_LIMIT), truncated: false };
+		}
 	}
-	return staff.slice(0, STAFF_USER_SEARCH_LIMIT);
+	return { staff, truncated: true };
 }
 
 const staffUsersQueryKey = ['fabric-admin', 'users'];
