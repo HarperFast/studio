@@ -19,13 +19,16 @@ export async function updateOrganizationRegion(
 	return data as unknown as OrganizationRegion;
 }
 
-// The modal puts failures on the form; the global handler must not toast them a second time.
+// The modal puts failures on the form, so the global handler must not toast them a second time;
+// skipping it also skips its error report, which onError keeps.
 const meta = { skipGlobalErrorToast: true };
+const onError = (error: Error) => console.error(error);
 
 export function useCreateOrganizationRegionMutation() {
 	return useMutation<OrganizationRegion, Error, OrganizationRegionPayload>({
 		mutationFn: createOrganizationRegion,
 		meta,
+		onError,
 	});
 }
 
@@ -33,5 +36,6 @@ export function useUpdateOrganizationRegionMutation() {
 	return useMutation<OrganizationRegion, Error, { id: string; changes: OrganizationRegionPatch }>({
 		mutationFn: updateOrganizationRegion,
 		meta,
+		onError,
 	});
 }

@@ -31,6 +31,7 @@ import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/compone
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrganizationRegion } from '@/integrations/api/api.patch';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
@@ -49,16 +50,6 @@ interface OrganizationRegionFormModalProps {
 	region?: OrganizationRegion | null;
 	/** Called with the created or updated row, after the caches are invalidated. */
 	onSaved?: (region: OrganizationRegion) => void;
-}
-
-function describeApiError(error: unknown): string {
-	if (isAxiosError(error)) {
-		const title = (error.response?.data as { title?: string } | undefined)?.title;
-		if (title) {
-			return title;
-		}
-	}
-	return error instanceof Error ? error.message : 'Request failed';
 }
 
 export function OrganizationRegionFormModal(
@@ -152,7 +143,7 @@ export function OrganizationRegionFormModal(
 			onSaved?.(saved);
 		};
 		const onError = (error: unknown) => {
-			const message = describeApiError(error);
+			const { message } = describeError(error);
 			const status = isAxiosError(error) ? error.response?.status : undefined;
 			// 409 is either the name collision or the freeze; both belong on the form, not a toast.
 			form.setError(status === 409 && !frozen ? 'name' : 'root', { message });
