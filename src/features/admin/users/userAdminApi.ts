@@ -1,5 +1,4 @@
-// Central manager's staff-only `/Admin/User` endpoint. The generated SDK types the paths but not the membership preview
-// or the deactivation result, so those are hand-typed. The endpoint enforces every permission the page gates on.
+// The generated SDK types these paths but not the membership preview or the deactivation result, so those are typed here.
 import { apiClient } from '@/config/apiClient';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -23,11 +22,10 @@ export interface AdminUser {
 	organizations: MembershipPreview[];
 }
 
+/** Null when the server's answer did not say, though the write went through. */
 export interface DeactivateUserResult {
-	id: string;
-	status: string;
-	removedFrom: OrganizationMembership[];
-	retainedIn: OrganizationMembership[];
+	removedFrom: OrganizationMembership[] | null;
+	retainedIn: OrganizationMembership[] | null;
 }
 
 const BASE = '/Admin/User/';
@@ -75,7 +73,11 @@ export function useDeactivateUserMutation() {
 			const { data } = await apiClient.patch(`${BASE}${encodeURIComponent(userId)}` as '/Admin/User/{id}', {
 				status: 'DEACTIVATED',
 			});
-			return data as unknown as DeactivateUserResult;
+			const result = data as unknown as Partial<DeactivateUserResult> | undefined;
+			return {
+				removedFrom: Array.isArray(result?.removedFrom) ? result.removedFrom : null,
+				retainedIn: Array.isArray(result?.retainedIn) ? result.retainedIn : null,
+			};
 		},
 		onSettled: () => queryClient.invalidateQueries({ queryKey: userAdminQueryKey }),
 	});

@@ -32,7 +32,6 @@ export function UsersAdminIndex() {
 	const lookUp = (event: FormEvent) => {
 		event.preventDefault();
 		const next = normalizeEmail(input);
-		// The same address keeps the same query key, so it needs an explicit refetch to retry or refresh the preview.
 		if (next === email) { void refetch(); }
 		else { setEmail(next); }
 	};
@@ -204,7 +203,8 @@ function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: () => v
 								<Button
 									variant="destructive"
 									disabled={mutation.isPending}
-									onClick={() => mutation.mutate(user.id, { onSuccess: setResult })}
+									// On failure the toast reports the outcome and the refetch shows the account as it now is.
+									onClick={() => mutation.mutate(user.id, { onSuccess: setResult, onError: onClose })}
 								>
 									{mutation.isPending ? 'Deactivating…' : 'Deactivate'}
 								</Button>
@@ -218,13 +218,15 @@ function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: () => v
 
 function MembershipList({ title, memberships, empty }: {
 	title: string;
-	memberships: OrganizationMembership[];
+	memberships: OrganizationMembership[] | null;
 	empty: string;
 }) {
 	return (
 		<div>
 			<h3 className="font-medium">{title}</h3>
-			{memberships.length
+			{memberships === null
+				? <p className="mt-1 text-muted-foreground">Not reported by the server.</p>
+				: memberships.length
 				? (
 					<ul className="mt-1 list-disc pl-5">
 						{memberships.map((membership) => <li key={membership.organizationId}>{organizationLabel(membership)}</li>)}
