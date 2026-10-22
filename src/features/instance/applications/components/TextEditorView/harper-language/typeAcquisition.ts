@@ -739,7 +739,9 @@ export function createBudgetedFetcher(
 			if (budget.isSpent) {
 				return budgetSpentResponse();
 			}
-			const response = await fetchImpl(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+			const timeout = AbortSignal.timeout(timeoutMs);
+			const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+			const response = await fetchImpl(input, { ...init, signal });
 			if (!response.ok || budget.isSpent) {
 				await response.body?.cancel();
 				return response.ok ? budgetSpentResponse() : new Response(null, { status: response.status });

@@ -486,6 +486,20 @@ describe('createBudgetedFetcher', () => {
 		expect(stalled).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1);
 	});
 
+	it('still honours an abort from the caller', async () => {
+		const stalled = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+			new Promise<Response>((_resolve, reject) =>
+				init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+			)
+		);
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), stalled as unknown as typeof fetch);
+		const caller = new AbortController();
+		const response = fetcher('https://cdn.test/cancelled', { signal: caller.signal });
+		await vi.waitFor(() => expect(stalled).toHaveBeenCalled());
+		caller.abort();
+		await expect(response).resolves.toHaveProperty('ok', false);
+	});
+
 	it('drops a body that finishes arriving after the budget is spent', async () => {
 		const budget = new ExtraLibBudget();
 		let deliver: (() => void) | undefined;
