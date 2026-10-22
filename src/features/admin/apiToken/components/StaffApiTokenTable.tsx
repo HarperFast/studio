@@ -38,6 +38,12 @@ function formatStamp(value: string): string {
 	return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+// Columns leave as the viewport narrows, least-read first; the owner folds under the token name
+// below `lg`; Revoke, Expires and Status always stay, and nothing has to scroll sideways.
+const OWNER_COLUMN = 'hidden lg:table-cell';
+const CREATED_COLUMN = 'hidden 2xl:table-cell';
+const LAST_USED_COLUMN = 'hidden xl:table-cell';
+
 /** A timestamp with its relative reading underneath, or a quiet dash. */
 function When({ value, now, relative = true }: { value: string | null; now: number; relative?: boolean }) {
 	if (!value) {
@@ -45,7 +51,7 @@ function When({ value, now, relative = true }: { value: string | null; now: numb
 	}
 	return (
 		<div className="flex flex-col leading-tight">
-			<span className="whitespace-nowrap">{formatStamp(value)}</span>
+			<span className="sm:whitespace-nowrap">{formatStamp(value)}</span>
 			{relative && <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(value, now)}
 			</span>}
 		</div>
@@ -63,10 +69,10 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 							<span className="sr-only">Actions</span>
 						</TableHead>
 						<TableHead>Token</TableHead>
-						<TableHead>Owner</TableHead>
-						<TableHead>Created</TableHead>
+						<TableHead className={OWNER_COLUMN}>Owner</TableHead>
+						<TableHead className={CREATED_COLUMN}>Created</TableHead>
 						<TableHead>Expires</TableHead>
-						<TableHead>Last used</TableHead>
+						<TableHead className={LAST_USED_COLUMN}>Last used</TableHead>
 						<TableHead>Status</TableHead>
 					</TableRow>
 				</TableHeader>
@@ -76,16 +82,19 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 						return (
 							<TableRow key={token.id} className={cn('align-top', !live && 'text-muted-foreground')}>
 								{/* First, so a wide row never scrolls the one control off the screen. */}
-								<TableCell className="pl-3 pr-0 py-2">
+								<TableCell className="pl-2 pr-0 py-2 sm:pl-3">
 									{live && <RevokeStaffApiTokenButton token={token} />}
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className="py-2.5 whitespace-normal">
 									<div className="flex flex-col gap-0.5 leading-tight">
-										<span className={cn('font-medium', live && 'text-foreground')}>{token.name}</span>
+										<span className={cn('font-medium break-words', live && 'text-foreground')}>{token.name}</span>
 										<span className="font-mono text-xs text-muted-foreground">{token.role}</span>
+										<span className="text-xs text-muted-foreground break-words lg:hidden">
+											<StaffUserLabel userId={token.ownerUserId} self={self} />
+										</span>
 									</div>
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className={cn('py-2.5 whitespace-normal break-words', OWNER_COLUMN)}>
 									<div className="flex flex-col gap-0.5 leading-tight">
 										<span className={cn(live && 'text-foreground')}>
 											<StaffUserLabel userId={token.ownerUserId} self={self} />
@@ -97,16 +106,16 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 										)}
 									</div>
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className={cn('py-2.5 whitespace-normal', CREATED_COLUMN)}>
 									<When value={token.createdAt} now={now} relative={false} />
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className="py-2.5 whitespace-normal">
 									<When value={token.expiresAt} now={now} relative={live} />
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className={cn('py-2.5 whitespace-normal', LAST_USED_COLUMN)}>
 									<When value={token.lastUsedAt} now={now} relative={live} />
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className="py-2.5 whitespace-normal">
 									<StatusBadge status={token.status} />
 								</TableCell>
 							</TableRow>
