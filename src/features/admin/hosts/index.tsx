@@ -21,7 +21,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { AdminHost, HostStatus } from '@/integrations/api/api.patch';
 import { detectEntityId } from '@/lib/string/entityId';
 import { useQuery } from '@tanstack/react-query';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useMemo, useRef, useState } from 'react';
 
 const ANY = 'any';
 const STATUS_OPTIONS: Array<{ value: HostStatusFilter; label: string }> = [
@@ -93,18 +93,28 @@ function reported(value: number | null): number | null {
 	return value != null && value >= 0 ? value : null;
 }
 
-export function formatUsage(used: number | null, max: number | null, divisor = 1): string {
-	if (max == null) { return '—'; }
-	const format = (value: number) => Number((value / divisor).toFixed(1)).toString();
-	const value = reported(used);
-	return `${value == null ? '?' : format(value)} / ${format(max)}`;
+function capacity(max: number | null): number | null {
+	const value = reported(max);
+	return value ? value : null;
 }
 
-/** `usedCPUCores` is the cores busy during the host's last 100 ms sample, not an allocation. */
-export function formatCpu(used: number | null, max: number | null): string {
-	if (max == null || max <= 0) { return '—'; }
+export function formatUsage(used: number | null, max: number | null, divisor = 1): string {
+	const limit = capacity(max);
+	if (limit == null) { return '—'; }
+	const format = (value: number) => Number((value / divisor).toFixed(1)).toString();
 	const value = reported(used);
-	return `${value == null ? '?' : `${Math.round((value / max) * 100)}%`} of ${max} cores`;
+	return `${value == null ? '?' : format(value)} / ${format(limit)}`;
+}
+
+export function formatCpu(used: number | null, max: number | null): string {
+	const limit = capacity(max);
+	if (limit == null) { return '—'; }
+	const value = reported(used);
+	return `${value == null ? '?' : `${Math.round((value / limit) * 100)}%`} of ${limit} cores`;
+}
+
+function formatLocation(host: AdminHost): string | null {
+	return [host.location, host.cloudProvider].filter(Boolean).join(' · ') || null;
 }
 
 function HostOrganizations(
@@ -150,15 +160,16 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 function HostDetails(
-	{ host, orgNameById, onClose }: {
+	{ host, orgNameById, onClose, onCloseAutoFocus }: {
 		host: AdminHost | null;
 		orgNameById: Map<string, string>;
 		onClose: () => void;
+		onCloseAutoFocus: (event: Event) => void;
 	},
 ) {
 	return (
 		<Sheet open={host !== null} onOpenChange={(open) => !open && onClose()}>
-			<SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+			<SheetContent className="w-full overflow-y-auto sm:max-w-lg" onCloseAutoFocus={onCloseAutoFocus}>
 				{host && (
 					<>
 						<SheetHeader>
@@ -170,9 +181,7 @@ function HostDetails(
 							<DetailRow label="FQDN">{host.fqdn ?? '—'}</DetailRow>
 							<DetailRow label="IP address">{host.ipAddress ?? '—'}</DetailRow>
 							<DetailRow label="Location">
-								{[host.locationName, [host.location, host.cloudProvider].filter(Boolean).join(' · ')]
-									.filter(Boolean)
-									.join(' — ') || host.locationId || '—'}
+								{[host.locationName, formatLocation(host)].filter(Boolean).join(' — ') || host.locationId || '—'}
 							</DetailRow>
 							<DetailRow label="Regions">{host.regions.join(', ') || '—'}</DetailRow>
 							<DetailRow label="Cloud instance">
@@ -226,7 +235,15 @@ export function HostsIndex() {
 	const [locationId, setLocationId] = useState(ANY);
 	const [region, setRegion] = useState(ANY);
 	const [search, setSearch] = useState('');
-	const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
+	// The clicked row, so a refetch or filter change that drops the host cannot close or reopen the panel.
+	const [selected, setSelected] = useState<AdminHost | null>(null);
+	const hostButtons = useRef(new Map<string, HTMLButtonElement>());
+	// Outlives `selected`, which is already null by the time the closing sheet asks where focus goes.
+	const openedHostId = useRef<string | null>(null);
+	const openHost = (host: AdminHost) => {
+		openedHostId.current = host.id;
+		setSelected(host);
+	};
 	const debouncedOrganizationText = useDebounce(organizationText, 300);
 
 	// The directory endpoint needs org:read, which this page's host:read does not imply.
@@ -273,7 +290,7 @@ export function HostsIndex() {
 		...getHostsQueryOptions(filters),
 		enabled: organizationProblem === null,
 	});
-	const selectedHost = hosts?.find((host) => host.id === selectedHostId) ?? null;
+	const selectedHost = selected && (hosts?.find((host) => host.id === selected.id) ?? selected);
 	const visible = useMemo(
 		() => (search.trim() ? (hosts ?? []).filter((host) => hostMatchesSearch(host, search)) : hosts ?? []),
 		[hosts, search],
@@ -408,14 +425,17 @@ export function HostsIndex() {
 											<TableRow
 												key={host.id}
 												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => setSelectedHostId(host.id)}
+												onClick={() => openHost(host)}
 											>
 												<TableCell>
 													<div className="flex flex-col gap-1">
 														<button
 															type="button"
+															ref={(button) => {
+																if (button) { hostButtons.current.set(host.id, button); }
+																else { hostButtons.current.delete(host.id); }
+															}}
 															className="self-start text-left font-medium hover:underline"
-															onClick={() => setSelectedHostId(host.id)}
 														>
 															{host.name}
 														</button>
@@ -436,9 +456,9 @@ export function HostsIndex() {
 														: <span className="text-muted-foreground">—</span>}
 												</TableCell>
 												<TableCell>
-													{host.location
-														? [host.location, host.cloudProvider].filter(Boolean).join(' · ')
-														: <span className="text-muted-foreground">{host.locationId ?? '—'}</span>}
+													{formatLocation(host) ?? (
+														<span className="text-muted-foreground">{host.locationId ?? '—'}</span>
+													)}
 												</TableCell>
 												<TableCell>
 													<HostOrganizations host={host} orgNameById={orgNameById} />
@@ -462,7 +482,16 @@ export function HostsIndex() {
 					)}
 			</div>
 
-			<HostDetails host={selectedHost} orgNameById={orgNameById} onClose={() => setSelectedHostId(null)} />
+			<HostDetails
+				host={selectedHost}
+				orgNameById={orgNameById}
+				onClose={() => setSelected(null)}
+				// Opened from state, not a SheetTrigger, so Radix has nowhere to return focus on its own.
+				onCloseAutoFocus={(event) => {
+					event.preventDefault();
+					if (openedHostId.current) { hostButtons.current.get(openedHostId.current)?.focus(); }
+				}}
+			/>
 		</div>
 	);
 }
