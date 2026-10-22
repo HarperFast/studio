@@ -700,8 +700,7 @@ const extraLibBudget = new ExtraLibBudget();
 
 /** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
 export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
-/** The fetcher's slots live for the whole tab, so a stalled request must not hold one indefinitely. */
-export const CDN_REQUEST_TIMEOUT_MS = 30_000;
+const CDN_REQUEST_TIMEOUT_MS = 30_000;
 
 function budgetSpentResponse(): Response {
 	return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
@@ -713,6 +712,7 @@ export function createBudgetedFetcher(
 	timeoutMs = CDN_REQUEST_TIMEOUT_MS,
 ): typeof fetch {
 	let inFlight = 0;
+	let reportedFailure = false;
 	const waiting: Array<() => void> = [];
 	const acquireSlot = async (): Promise<void> => {
 		if (inFlight < MAX_CDN_REQUESTS_IN_FLIGHT) {
@@ -744,15 +744,22 @@ export function createBudgetedFetcher(
 				await response.body?.cancel();
 				return response.ok ? budgetSpentResponse() : new Response(null, { status: response.status });
 			}
-			// `fetch` resolves on headers; the slot has to cover the body too, or a slow link
-			// downloads far past the budget before ata's `receivedFile` can charge it.
-			return new Response(await response.arrayBuffer(), {
+			// `fetch` resolves on headers, so the slot has to cover the body too.
+			const body = await response.arrayBuffer();
+			if (budget.isSpent) {
+				return budgetSpentResponse();
+			}
+			return new Response(body, {
 				status: response.status,
 				statusText: response.statusText,
 				headers: response.headers,
 			});
-		} catch {
-			// ata lets a rejected fetch reject the whole pass; a failed file should only lose that file.
+		} catch (error) {
+			if (!reportedFailure) {
+				reportedFailure = true;
+				console.warn('[harper] type acquisition: a CDN request failed; affected packages stay unresolved', error);
+			}
+			// A rejected fetch would reject ata's whole pass; this loses only the one file.
 			return new Response(null, { status: 504, statusText: 'Type acquisition request failed' });
 		} finally {
 			releaseSlot();

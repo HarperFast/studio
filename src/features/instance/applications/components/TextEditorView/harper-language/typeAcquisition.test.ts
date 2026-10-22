@@ -442,7 +442,7 @@ describe('createBudgetedFetcher', () => {
 		expect(calls).toHaveBeenCalledTimes(30);
 	});
 
-	it('answers queued requests, and drops bodies in flight, once the budget is spent', async () => {
+	it('answers queued requests, and ones whose headers land after the spend, without a body', async () => {
 		const { fetchImpl, calls, pending } = deferredFetch();
 		const budget = new ExtraLibBudget();
 		const fetcher = createBudgetedFetcher(budget, fetchImpl);
@@ -486,9 +486,38 @@ describe('createBudgetedFetcher', () => {
 		expect(stalled).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1);
 	});
 
-	it('turns a failed request into a non-OK response rather than a rejection', async () => {
+	it('drops a body that finishes arriving after the budget is spent', async () => {
+		const budget = new ExtraLibBudget();
+		let deliver: (() => void) | undefined;
+		const fetchImpl = () =>
+			Promise.resolve(
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							deliver = () => {
+								controller.enqueue(new TextEncoder().encode('export {};'));
+								controller.close();
+							};
+						},
+					}),
+				),
+			);
+		const response = createBudgetedFetcher(budget, fetchImpl)('https://cdn.test/slow');
+		await vi.waitFor(() => expect(deliver).toBeDefined());
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		deliver?.();
+		await expect(response).resolves.toHaveProperty('status', 503);
+	});
+
+	it('turns a failed request into a non-OK response, and warns once', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), () => Promise.reject(new TypeError('Failed to fetch')));
 		await expect(fetcher('https://cdn.test/offline')).resolves.toHaveProperty('ok', false);
+		await expect(fetcher('https://cdn.test/offline-again')).resolves.toHaveProperty('ok', false);
+		expect(warn).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
 	});
 });
 
