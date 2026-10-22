@@ -155,4 +155,7 @@ reaches the language worker, not how much is downloaded: one large dependency gr
 and the RUM SDK dropped events once its 20 MiB upload queue filled. Every acquisition request therefore goes through
 [`createBudgetedFetcher`](components/TextEditorView/harper-language/typeAcquisition.ts), which keeps at most
 `MAX_CDN_REQUESTS_IN_FLIGHT` on the network and answers anything still queued with a 503 once the budget is spent.
-A replacement for ata's fetch path has to keep both limits.
+A slot covers the response body, not just its headers: `fetch` resolves on headers, and the budget is only charged
+once ata has read the body, so releasing earlier lets a slow link download far past it. The slots live for the whole
+tab, so each request also times out, and a failed one becomes a non-OK response that loses only that file instead of
+rejecting ata's whole pass. A replacement for ata's fetch path has to keep all of these.

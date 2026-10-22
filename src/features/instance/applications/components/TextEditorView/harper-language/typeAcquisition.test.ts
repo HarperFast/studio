@@ -2,7 +2,7 @@ import { ExtraLibBudget, MAX_EXTRA_LIB_CHARS_TOTAL, MAX_WORKER_MODEL_CHARS } fro
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `typeAcquisition` re-exports monaco's language-service registrations at module
-// scope, which need a DOM. The scanner under test touches none of it.
+// scope, which need a DOM. Only `addExtraLib` is reached, by acquired declarations.
 vi.mock('@/lib/monaco/languageServices', () => ({
 	json: {},
 	typescript: {
@@ -442,12 +442,12 @@ describe('createBudgetedFetcher', () => {
 		expect(calls).toHaveBeenCalledTimes(30);
 	});
 
-	it('answers queued requests without the network once the budget is spent', async () => {
+	it('answers queued requests, and drops bodies in flight, once the budget is spent', async () => {
 		const { fetchImpl, calls, pending } = deferredFetch();
 		const budget = new ExtraLibBudget();
 		const fetcher = createBudgetedFetcher(budget, fetchImpl);
 		const responses = Array.from({ length: 30 }, (_, index) => fetcher(`https://cdn.test/${index}`));
-		await Promise.resolve();
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT));
 		while (!budget.isSpent) {
 			budget.admit(MAX_WORKER_MODEL_CHARS);
 		}
@@ -455,9 +455,40 @@ describe('createBudgetedFetcher', () => {
 
 		const statuses = (await Promise.all(responses)).map((response) => response.status);
 		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
-		expect(statuses.filter((status) => status === 503)).toHaveLength(30 - MAX_CDN_REQUESTS_IN_FLIGHT);
+		expect(statuses.every((status) => status === 503)).toBe(true);
 		await expect(fetcher('https://cdn.test/late')).resolves.toHaveProperty('ok', false);
 		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+	});
+
+	it('answers a request made after the budget is spent without waiting for a slot', async () => {
+		const { fetchImpl, calls } = deferredFetch();
+		const budget = new ExtraLibBudget();
+		const fetcher = createBudgetedFetcher(budget, fetchImpl);
+		Array.from({ length: MAX_CDN_REQUESTS_IN_FLIGHT }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT));
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		await expect(fetcher('https://cdn.test/late')).resolves.toHaveProperty('status', 503);
+	});
+
+	it('frees the slot of a request that never answers', async () => {
+		const stalled = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+			new Promise<Response>((_resolve, reject) =>
+				init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+			)
+		);
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), stalled as unknown as typeof fetch, 20);
+		const responses = await Promise.all(
+			Array.from({ length: MAX_CDN_REQUESTS_IN_FLIGHT + 1 }, (_, index) => fetcher(`https://cdn.test/${index}`)),
+		);
+		expect(responses.every((response) => !response.ok)).toBe(true);
+		expect(stalled).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1);
+	});
+
+	it('turns a failed request into a non-OK response rather than a rejection', async () => {
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), () => Promise.reject(new TypeError('Failed to fetch')));
+		await expect(fetcher('https://cdn.test/offline')).resolves.toHaveProperty('ok', false);
 	});
 });
 
@@ -467,18 +498,40 @@ describe('acquireApplicationTypes', () => {
 		vi.resetModules();
 	});
 
-	it('stops requesting declarations from the CDN once the budget is spent (RUM 2026-10-22)', async () => {
-		// One package whose tree holds far more declaration volume than the budget, the
-		// shape behind ~1,000 jsDelivr requests in two seconds from one editor view.
+	it('stops requesting declarations from the CDN once the budget is spent', async () => {
 		const fileCount = 200;
 		const declaration = `export declare const x: ${'0'.repeat(MAX_WORKER_MODEL_CHARS - 64)};\n`;
 		const filesToSpendBudget = Math.ceil(MAX_EXTRA_LIB_CHARS_TOTAL / declaration.length);
 		let inFlight = 0;
 		let peakInFlight = 0;
 		const declarationRequests: string[] = [];
+		// Like real `fetch`: headers resolve at once, and the request stays on the network
+		// until its body has arrived.
+		const streamed = (body: string) => {
+			let arrival: ReturnType<typeof setTimeout>;
+			return new Response(
+				new ReadableStream({
+					start(controller) {
+						arrival = setTimeout(() => {
+							controller.enqueue(new TextEncoder().encode(body));
+							controller.close();
+							inFlight--;
+						}, 2);
+					},
+					cancel() {
+						clearTimeout(arrival);
+						inFlight--;
+					},
+				}),
+			);
+		};
 		vi.stubGlobal('fetch', async (input: string) => {
 			inFlight++;
 			peakInFlight = Math.max(peakInFlight, inFlight);
+			if (input.endsWith('.d.ts')) {
+				declarationRequests.push(input);
+				return streamed(declaration);
+			}
 			await new Promise((resolve) => setTimeout(resolve));
 			inFlight--;
 			if (input.endsWith('/resolve/npm/huge-types@latest')) {
@@ -489,10 +542,6 @@ describe('acquireApplicationTypes', () => {
 			}
 			if (input.endsWith('/package.json')) {
 				return new Response('{}');
-			}
-			if (input.endsWith('.d.ts')) {
-				declarationRequests.push(input);
-				return new Response(declaration);
 			}
 			return new Response(null, { status: 404 });
 		});

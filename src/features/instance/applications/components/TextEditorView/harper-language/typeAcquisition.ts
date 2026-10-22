@@ -698,15 +698,20 @@ const acquiredPaths = new Set<string>();
  */
 const extraLibBudget = new ExtraLibBudget();
 
-/**
- * ata requests every declaration file in a package's tree at once and keeps walking
- * the imports of files `receivedFile` rejects, so one pass can issue thousands of CDN
- * requests after the budget is spent. Queuing them lets each re-check the budget
- * before it goes out, bounding the overshoot to the requests already in flight.
- */
+/** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
 export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
+/** The fetcher's slots live for the whole tab, so a stalled request must not hold one indefinitely. */
+export const CDN_REQUEST_TIMEOUT_MS = 30_000;
 
-export function createBudgetedFetcher(budget: ExtraLibBudget, fetchImpl: typeof fetch): typeof fetch {
+function budgetSpentResponse(): Response {
+	return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
+}
+
+export function createBudgetedFetcher(
+	budget: ExtraLibBudget,
+	fetchImpl: typeof fetch,
+	timeoutMs = CDN_REQUEST_TIMEOUT_MS,
+): typeof fetch {
 	let inFlight = 0;
 	const waiting: Array<() => void> = [];
 	const acquireSlot = async (): Promise<void> => {
@@ -726,12 +731,29 @@ export function createBudgetedFetcher(budget: ExtraLibBudget, fetchImpl: typeof 
 		}
 	};
 	return async (input, init) => {
+		if (budget.isSpent) {
+			return budgetSpentResponse();
+		}
 		await acquireSlot();
 		try {
 			if (budget.isSpent) {
-				return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
+				return budgetSpentResponse();
 			}
-			return await fetchImpl(input, init);
+			const response = await fetchImpl(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+			if (!response.ok || budget.isSpent) {
+				await response.body?.cancel();
+				return response.ok ? budgetSpentResponse() : new Response(null, { status: response.status });
+			}
+			// `fetch` resolves on headers; the slot has to cover the body too, or a slow link
+			// downloads far past the budget before ata's `receivedFile` can charge it.
+			return new Response(await response.arrayBuffer(), {
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+			});
+		} catch {
+			// ata lets a rejected fetch reject the whole pass; a failed file should only lose that file.
+			return new Response(null, { status: 504, statusText: 'Type acquisition request failed' });
 		} finally {
 			releaseSlot();
 		}
