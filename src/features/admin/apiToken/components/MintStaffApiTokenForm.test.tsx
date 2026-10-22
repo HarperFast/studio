@@ -208,17 +208,38 @@ describe('MintStaffApiTokenForm', () => {
 		expect(errorHandler).not.toHaveBeenCalled();
 	});
 
-	it('says an unseen token is already gone when its revoke finds nothing', async () => {
+	// Central manager answers 404 for another owner's token when the caller lacks apiToken:create,
+	// so a 404 here is an unconfirmed clean-up, never proof the token is gone.
+	it('reports an unconfirmed clean-up, naming the token and owner, when the revoke answers 404', async () => {
 		const mint = pendingMint();
 		const { unmount } = renderForm();
 		await fillAndSubmit();
 		unmount();
 		revokeApiToken.mockRejectedValueOnce(axiosFailure(404, { title: 'API token not found' }));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 		await mint.succeed();
 
-		expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('already gone'));
-		expect(toast.error).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be confirmed revoked'));
+		expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('sat-1 for usr-me'));
+		expect(toast.warning).not.toHaveBeenCalled();
+	});
+
+	// Disabling the button through isPending does not serialize a submit already in the handler.
+	it('sends one mint for two submits that race the first response', async () => {
+		const mint = pendingMint();
+		const { onMinted } = renderForm();
+		fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'nightly report' } });
+		const form = screen.getByRole('button', { name: 'Mint token' }).closest('form')!;
+
+		await act(async () => {
+			fireEvent.submit(form);
+			fireEvent.submit(form);
+		});
+		await mint.succeed();
+
+		expect(mutateAsync).toHaveBeenCalledTimes(1);
+		expect(onMinted).toHaveBeenCalledTimes(1);
 	});
 
 	it('toasts a mint that failed after the page was left', async () => {
