@@ -11,7 +11,7 @@ export function StaffUserLabel({ userId, self }: { userId: string; self: StaffUs
 	const { data } = useQuery({ ...getStaffUserQueryOptions(userId), enabled: !isSelf });
 	const user = isSelf ? self : data;
 	const suffix = isSelf ? ' (you)' : '';
-	if (!user) {
+	if (!user || user === 'removed') {
 		return <span className="font-mono text-xs">{userId}{suffix}</span>;
 	}
 	return <span title={userId}>{user.email}{suffix}</span>;

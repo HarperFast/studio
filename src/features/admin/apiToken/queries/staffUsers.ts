@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { queryOptions } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 
 export type StaffUserSummary = Pick<SchemaUser, 'id' | 'email' | 'firstname' | 'lastname'>;
 
@@ -66,14 +67,21 @@ export function searchStaffUsersQueryOptions(prefix: string) {
 }
 
 /**
- * GET /Admin/User/:id → one user, for naming a token's owner and minter; null when the lookup
- * fails, since the id stands in and a label is not worth a toast or a RUM error per missing user.
+ * What naming a token's owner or minter found: the user, `removed` for an account that no longer
+ * exists (a 404), or null when the lookup failed some other way.
  */
-export async function getStaffUser(id: string): Promise<StaffUserSummary | null> {
+export type StaffUserLookup = StaffUserSummary | 'removed' | null;
+
+/**
+ * GET /Admin/User/:id → one user, for naming a token's owner and minter. A failure never throws:
+ * the id stands in, and a label is not worth a toast or a RUM error per missing user.
+ */
+export async function getStaffUser(id: string): Promise<StaffUserLookup> {
 	try {
 		const { data } = await apiClient.get(`/Admin/User/${encodeURIComponent(id)}` as '/Admin/User/{id}');
 		return toSummary(data as unknown as SchemaUser);
 	} catch (error) {
+		if (isAxiosError(error) && error.response?.status === 404) { return 'removed'; }
 		console.debug('Could not name a token user; showing its id', id, error);
 		return null;
 	}
