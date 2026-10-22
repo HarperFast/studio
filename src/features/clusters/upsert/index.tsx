@@ -152,14 +152,13 @@ export function UpsertCluster() {
 			return null;
 		}
 
+		const lookupFor = (plans: Cluster['plans'] | undefined) => {
+			const plan = planTypes.find(planType => planType.id === plans?.[0]?.planId);
+			const catalog = plan?.deploymentDescription !== 'Dedicated' ? regionLocationsColocated : regionLocationsDedicated;
+			return { plan, regionLookup: buildRegionLookup(catalog, organizationRegions, cloudProvider) };
+		};
+
 		let clusterToLoad = cluster;
-
-		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
-		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
-			? regionLocationsColocated
-			: regionLocationsDedicated;
-		const regionLookup = buildRegionLookup(regionLocations, organizationRegions, cloudProvider);
-
 		if (savedClusterState) {
 			if (isUpsertClusterSchema(savedClusterState)) {
 				const draftLookup = buildRegionLookup(
@@ -167,26 +166,35 @@ export function UpsertCluster() {
 					organizationRegions,
 					cloudProvider,
 				);
-				return {
-					values: {
-						...savedClusterState,
-						clusterName: savedClusterState.clusterName || '',
-						abbreviatedName: savedClusterState.abbreviatedName || '',
-						version: savedClusterState.version,
-						deploymentDescription: savedClusterState.deploymentDescription || '',
-						performanceDescription: savedClusterState.performanceDescription || '',
-						fqdn: savedClusterState.fqdn || '',
-						regionPlans: migrateDraftRegionPlans(savedClusterState.regionPlans, draftLookup),
-						instances: savedClusterState.instances || [],
-					},
-					// The draft may have lost a region the live cluster still deploys; the refusal below
-					// keys on the server's plans, not the draft.
-					unresolvedRegionIds: buildRegionPlanDefaults(cluster?.plans, regionLookup).unresolvedRegionIds,
-				};
+				const draftRegionPlans = migrateDraftRegionPlans(savedClusterState.regionPlans, draftLookup);
+				if (draftRegionPlans) {
+					return {
+						values: {
+							...savedClusterState,
+							clusterName: savedClusterState.clusterName || '',
+							abbreviatedName: savedClusterState.abbreviatedName || '',
+							version: savedClusterState.version,
+							deploymentDescription: savedClusterState.deploymentDescription || '',
+							performanceDescription: savedClusterState.performanceDescription || '',
+							fqdn: savedClusterState.fqdn || '',
+							regionPlans: draftRegionPlans,
+							instances: savedClusterState.instances || [],
+						},
+						// The draft may have lost a region the live cluster still deploys; the refusal below
+						// keys on the server's plans, not the draft.
+						unresolvedRegionIds: buildRegionPlanDefaults(cluster?.plans, lookupFor(cluster?.plans).regionLookup)
+							.unresolvedRegionIds,
+					};
+				}
 			} else {
 				clusterToLoad = savedClusterState;
 			}
 		}
+
+		const { plan: selectedPlan, regionLookup } = lookupFor(clusterToLoad?.plans);
+		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
+			? regionLocationsColocated
+			: regionLocationsDedicated;
 
 		const regionPlans: RegionPlanEntry[] = [];
 		let unresolvedRegionIds: string[] = [];
@@ -271,9 +279,9 @@ export function UpsertCluster() {
 	}
 
 	// Editing with a region the form cannot resolve would save without it, which central-manager
-	// treats as removing that region — so the form refuses to open instead.
-	// A version-only edit never sends region plans, so an unresolvable one cannot be lost by it.
-	if (mode !== 'version' && defaultsResult?.unresolvedRegionIds.length) {
+	// treats as removing that region — so the form refuses to open instead. A create (retrying a failed
+	// cluster) removes nothing and a version-only edit sends no region plans, so both open without it.
+	if (clusterId && mode !== 'version' && defaultsResult?.unresolvedRegionIds.length) {
 		return (
 			<UpsertClusterLayout isEdit={!!clusterId}>
 				<ErrorComponent

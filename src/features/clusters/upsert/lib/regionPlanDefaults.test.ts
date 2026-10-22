@@ -70,8 +70,22 @@ describe('migrateDraftRegionPlans', () => {
 		]);
 	});
 
-	it('drops a legacy entry the catalog no longer matches', () => {
-		expect(migrateDraftRegionPlans([{ regionName: 'EU', latencyDescription: 'Lowest' }, {}], lookup)).toEqual([]);
+	it('refuses the draft when a legacy entry no longer matches the catalog', () => {
+		expect(
+			migrateDraftRegionPlans(
+				[{ regionName: 'US', latencyDescription: 'Low (1 region)' }, {
+					regionName: 'EU',
+					latencyDescription: 'Lowest',
+				}],
+				lookup,
+			),
+		).toBeNull();
+	});
+
+	it('skips a blank row', () => {
+		expect(migrateDraftRegionPlans([{ regionId: 'us-1' }, {}, { regionId: '' }], lookup)).toEqual([
+			{ regionId: 'us-1' },
+		]);
 	});
 
 	it('tolerates an absent list', () => {

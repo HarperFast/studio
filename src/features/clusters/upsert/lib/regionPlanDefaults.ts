@@ -38,29 +38,31 @@ interface LegacyDraftEntry {
 /**
  * A saved draft may predate id-keyed entries: its name + latency pairs resolve through the catalog
  * where they still match a row. An id-keyed entry is kept as-is even when the lookup lacks it, so
- * validation reports it on the row instead of the draft silently losing a selection.
+ * validation reports it on the row instead of the draft silently losing a selection. `null` when a
+ * legacy pair matches no row: saved without it, an edit would remove that region, so the caller
+ * discards the draft rather than open it short.
  */
 export function migrateDraftRegionPlans(
 	entries: readonly (Partial<RegionPlanEntry> & LegacyDraftEntry)[] | undefined,
 	lookup: RegionLookup,
-): RegionPlanEntry[] {
+): RegionPlanEntry[] | null {
 	const migrated: RegionPlanEntry[] = [];
 	for (const entry of entries ?? []) {
 		if (entry.regionId) {
 			migrated.push({ regionId: entry.regionId, ...(entry.quantity ? { quantity: entry.quantity } : {}) });
 			continue;
 		}
-		if (entry.regionName && entry.latencyDescription) {
-			for (const region of lookup.values()) {
-				if (
-					region.kind === 'catalog' && region.name === entry.regionName
-					&& region.latencyDescription === entry.latencyDescription
-				) {
-					migrated.push({ regionId: region.id });
-					break;
-				}
-			}
+		if (!entry.regionName) {
+			continue;
 		}
+		const match = [...lookup.values()].find(region =>
+			region.kind === 'catalog' && region.name === entry.regionName
+			&& region.latencyDescription === entry.latencyDescription
+		);
+		if (!match) {
+			return null;
+		}
+		migrated.push({ regionId: match.id });
 	}
 	return migrated;
 }
