@@ -4,6 +4,7 @@ import { RevokeStaffApiTokenButton } from '@/features/admin/apiToken/components/
 import { StaffUserLabel } from '@/features/admin/apiToken/components/StaffUserLabel';
 import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import { StaffApiToken, StaffApiTokenStatus } from '@/integrations/api/api.patch';
+import { cn } from '@/lib/cn';
 
 const STATUS_BADGES: Record<
 	StaffApiTokenStatus,
@@ -20,61 +21,99 @@ function StatusBadge({ status }: { status: StaffApiTokenStatus }) {
 	return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }
 
-function When({ value }: { value: string | null }) {
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** "in 13 days", "2 hours ago": the unit a reader would pick, never seconds. */
+export function formatRelative(value: string, now: number): string {
+	const diffMs = new Date(value).getTime() - now;
+	const abs = Math.abs(diffMs);
+	const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+	if (abs >= 2 * DAY_MS) { return format.format(Math.round(diffMs / DAY_MS), 'day'); }
+	if (abs >= HOUR_MS) { return format.format(Math.round(diffMs / HOUR_MS), 'hour'); }
+	return format.format(Math.round(diffMs / 60000), 'minute');
+}
+
+function formatStamp(value: string): string {
+	return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** A timestamp with its relative reading underneath, or a quiet dash. */
+function When({ value, now, relative = true }: { value: string | null; now: number; relative?: boolean }) {
 	if (!value) {
-		return <span className="text-muted-foreground">Never</span>;
+		return <span className="text-muted-foreground">—</span>;
 	}
-	return <>{new Date(value).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</>;
+	return (
+		<div className="flex flex-col leading-tight">
+			<span className="whitespace-nowrap">{formatStamp(value)}</span>
+			{relative && <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(value, now)}
+			</span>}
+		</div>
+	);
 }
 
 export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; self: StaffUserSummary }) {
+	const now = Date.now();
 	return (
-		<Table>
-			<TableHeader>
-				<TableRow>
-					<TableHead className="w-0">
-						<span className="sr-only">Actions</span>
-					</TableHead>
-					<TableHead>Name</TableHead>
-					<TableHead>Owner</TableHead>
-					<TableHead>Role</TableHead>
-					<TableHead>Created by</TableHead>
-					<TableHead>Created</TableHead>
-					<TableHead>Expires</TableHead>
-					<TableHead>Last used</TableHead>
-					<TableHead>Status</TableHead>
-				</TableRow>
-			</TableHeader>
-			<TableBody>
-				{tokens.map((token) => (
-					<TableRow key={token.id} className={token.status === 'active' ? undefined : 'opacity-60'}>
-						{/* First, so a wide row never scrolls the one control off the screen. */}
-						<TableCell className="whitespace-nowrap">
-							{token.status === 'active' && <RevokeStaffApiTokenButton token={token} />}
-						</TableCell>
-						<TableCell className="font-medium">{token.name}</TableCell>
-						<TableCell>
-							<StaffUserLabel userId={token.ownerUserId} self={self} />
-						</TableCell>
-						<TableCell className="font-mono text-xs">{token.role}</TableCell>
-						<TableCell>
-							<StaffUserLabel userId={token.createdByUserId} self={self} />
-						</TableCell>
-						<TableCell className="whitespace-nowrap">
-							<When value={token.createdAt} />
-						</TableCell>
-						<TableCell className="whitespace-nowrap">
-							<When value={token.expiresAt} />
-						</TableCell>
-						<TableCell className="whitespace-nowrap">
-							<When value={token.lastUsedAt} />
-						</TableCell>
-						<TableCell>
-							<StatusBadge status={token.status} />
-						</TableCell>
+		<div className="rounded-md border">
+			<Table>
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						<TableHead className="w-0 pl-3 pr-0">
+							<span className="sr-only">Actions</span>
+						</TableHead>
+						<TableHead>Token</TableHead>
+						<TableHead>Owner</TableHead>
+						<TableHead>Created</TableHead>
+						<TableHead>Expires</TableHead>
+						<TableHead>Last used</TableHead>
+						<TableHead>Status</TableHead>
 					</TableRow>
-				))}
-			</TableBody>
-		</Table>
+				</TableHeader>
+				<TableBody>
+					{tokens.map((token) => {
+						const live = token.status === 'active';
+						return (
+							<TableRow key={token.id} className={cn('align-top', !live && 'text-muted-foreground')}>
+								{/* First, so a wide row never scrolls the one control off the screen. */}
+								<TableCell className="pl-3 pr-0 py-2">
+									{live && <RevokeStaffApiTokenButton token={token} />}
+								</TableCell>
+								<TableCell className="py-2.5">
+									<div className="flex flex-col gap-0.5 leading-tight">
+										<span className={cn('font-medium', live && 'text-foreground')}>{token.name}</span>
+										<span className="font-mono text-xs text-muted-foreground">{token.role}</span>
+									</div>
+								</TableCell>
+								<TableCell className="py-2.5">
+									<div className="flex flex-col gap-0.5 leading-tight">
+										<span className={cn(live && 'text-foreground')}>
+											<StaffUserLabel userId={token.ownerUserId} self={self} />
+										</span>
+										{token.createdByUserId !== token.ownerUserId && (
+											<span className="text-xs text-muted-foreground">
+												minted by <StaffUserLabel userId={token.createdByUserId} self={self} />
+											</span>
+										)}
+									</div>
+								</TableCell>
+								<TableCell className="py-2.5">
+									<When value={token.createdAt} now={now} relative={false} />
+								</TableCell>
+								<TableCell className="py-2.5">
+									<When value={token.expiresAt} now={now} relative={live} />
+								</TableCell>
+								<TableCell className="py-2.5">
+									<When value={token.lastUsedAt} now={now} relative={live} />
+								</TableCell>
+								<TableCell className="py-2.5">
+									<StatusBadge status={token.status} />
+								</TableCell>
+							</TableRow>
+						);
+					})}
+				</TableBody>
+			</Table>
+		</div>
 	);
 }
