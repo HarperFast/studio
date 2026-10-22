@@ -32,10 +32,12 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
 vi.mock('./ClusterForm', () => ({
-	ClusterForm: ({ defaultValues }: { defaultValues: { regionPlans: unknown } }) => (
-		<output>{JSON.stringify(defaultValues.regionPlans)}</output>
-	),
+	ClusterForm: ({ defaultValues, startOffOnBilling }: {
+		defaultValues: { regionPlans: unknown };
+		startOffOnBilling: boolean;
+	}) => <output data-billing={startOffOnBilling}>{JSON.stringify(defaultValues.regionPlans)}</output>,
 }));
+vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
 const colocatedPlan = { id: 'plan-colo', deploymentType: 'colocated', deploymentDescription: 'Shared' } as SchemaPlan;
 const dedicatedPlan = { id: 'plan-ded', deploymentType: 'dedicated', deploymentDescription: 'Dedicated' } as SchemaPlan;
@@ -57,6 +59,7 @@ vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', (
 	getOrganizationRegionsQueryOptions: () => answer('organizationRegions', []),
 }));
 
+import { toast } from 'sonner';
 import { UpsertCluster } from './index';
 
 const organization = { id: 'org-1', clusters: [] } as unknown as Organization;
@@ -104,10 +107,19 @@ describe('UpsertCluster', () => {
 		route.context = { organization, cluster: { ...dedicatedCluster, status: 'RUNNING' } as unknown as Cluster };
 		localStorage.setItem(
 			LocalStorageKeys.SavedClusterState,
-			JSON.stringify({ clusterName: 'ded', regionPlans: [{ regionName: 'EU', latencyDescription: 'Lowest' }] }),
+			JSON.stringify({
+				clusterName: 'ded',
+				skipToBilling: true,
+				regionPlans: [{ regionName: 'EU', latencyDescription: 'Lowest' }],
+			}),
 		);
 		renderUpsert();
 
-		expect((await screen.findByRole('status')).textContent).toBe('[{"regionId":"eu-ded"}]');
+		const form = await screen.findByRole('status');
+		expect(form.textContent).toBe('[{"regionId":"eu-ded"}]');
+		expect(form.getAttribute('data-billing')).toBe('false');
+		expect(toast.warning).toHaveBeenCalledWith(
+			'Your saved cluster changes could not be restored. Please make them again.',
+		);
 	});
 });

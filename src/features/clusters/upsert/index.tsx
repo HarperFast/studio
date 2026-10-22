@@ -21,7 +21,8 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
@@ -144,7 +145,9 @@ export function UpsertCluster() {
 		[planTypes],
 	);
 
-	const defaultsResult = useMemo<null | { values: UpsertClusterSchemaType; unresolvedRegionIds: string[] }>(() => {
+	const defaultsResult = useMemo<
+		null | { values: UpsertClusterSchemaType; unresolvedRegionIds: string[]; draftDiscarded: boolean }
+	>(() => {
 		if (
 			!planTypes || !harperVersions || !regionLocationsColocated || !regionLocationsDedicated || !organizationRegions
 			|| (clusterId && !cluster)
@@ -159,6 +162,7 @@ export function UpsertCluster() {
 		};
 
 		let clusterToLoad = cluster;
+		let draftDiscarded = false;
 		if (savedClusterState) {
 			if (isUpsertClusterSchema(savedClusterState)) {
 				const draftLookup = buildRegionLookup(
@@ -184,8 +188,10 @@ export function UpsertCluster() {
 						// keys on the server's plans, not the draft.
 						unresolvedRegionIds: buildRegionPlanDefaults(cluster?.plans, lookupFor(cluster?.plans).regionLookup)
 							.unresolvedRegionIds,
+						draftDiscarded,
 					};
 				}
+				draftDiscarded = true;
 			} else {
 				clusterToLoad = savedClusterState;
 			}
@@ -251,6 +257,7 @@ export function UpsertCluster() {
 				regionPlans,
 			},
 			unresolvedRegionIds,
+			draftDiscarded,
 		};
 	}, [
 		alreadyUsingFree,
@@ -267,6 +274,12 @@ export function UpsertCluster() {
 		savedClusterState,
 	]);
 	const defaultValues = defaultsResult?.values ?? null;
+	const draftDiscarded = defaultsResult?.draftDiscarded ?? false;
+	useEffect(() => {
+		if (draftDiscarded) {
+			toast.warning('Your saved cluster changes could not be restored. Please make them again.');
+		}
+	}, [draftDiscarded]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated
 		|| !regionLocationsDedicated || !organizationRegions;
@@ -361,7 +374,8 @@ export function UpsertCluster() {
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
-				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
+				startOffOnBilling={!draftDiscarded && isUpsertClusterSchema(savedClusterState)
+					&& savedClusterState.skipToBilling === true}
 			/>
 		</UpsertClusterLayout>
 	);
