@@ -226,4 +226,20 @@ describe('UsersAdminIndex', () => {
 		expect(within(done).getByText('User deactivated')).toBeTruthy();
 		expect(within(done).getAllByText('Not reported by the server.')).toHaveLength(2);
 	});
+
+	it('keeps the result open when the refetch finds no account any more', async () => {
+		renderPage();
+		await lookUp('pat@example.com');
+		await act(async () => {
+			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+		});
+		get.mockResolvedValue({ data: [] });
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
+		});
+
+		expect(await screen.findByText('No account uses pat@example.com.')).toBeTruthy();
+		const done = screen.getByRole('dialog');
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
 });
