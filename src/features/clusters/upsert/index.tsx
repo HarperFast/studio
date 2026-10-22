@@ -78,13 +78,14 @@ export function UpsertCluster() {
 	const { data: organizationRegionsData, isError: organizationRegionsFailed } = useQuery(
 		getOrganizationRegionsQueryOptions(organizationId),
 	);
-	// A failed fetch must not strand a catalog-only form on "Loading…"; an edit that needs one of
-	// the missing rows is refused below instead.
-	const organizationRegions = organizationRegionsFailed ? organizationRegionsData ?? [] : organizationRegionsData;
+	// A failed fetch, or a central-manager without custom regions (null), must not strand a
+	// catalog-only form on "Loading…"; an edit that needs one of the missing rows is refused below.
+	const organizationRegionsUnavailable = organizationRegionsFailed || organizationRegionsData === null;
+	const organizationRegions = organizationRegionsUnavailable ? organizationRegionsData ?? [] : organizationRegionsData;
 	// Central-manager lets staff with the matching cluster permission place custom regions.
 	const canUseCustomRegions = useStaffPermission(clusterId ? 'cluster:update' : 'cluster:create');
 	const canWriteRegions = useStaffPermission('region:write');
-	const canDefineCustomRegions = canUseCustomRegions && canWriteRegions;
+	const canDefineCustomRegions = canUseCustomRegions && canWriteRegions && !organizationRegionsUnavailable;
 	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
 	const lockedOrganizationRegionIds = useMemo(
 		() => (cluster?.plans ?? []).map(plan => plan.regionId).filter((id): id is string => isOrganizationRegionId(id)),

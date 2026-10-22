@@ -5,10 +5,10 @@ import { isAxiosError } from 'axios';
 
 /**
  * GET /OrganizationRegion/?organizationId= → the organization's custom regions (members and staff).
- * A central-manager that predates the resource answers 404; that reads as "none", so a catalog-only
- * cluster form keeps working across the rollout.
+ * `null` when the central-manager predates the resource (404): callers read that as "none", so a
+ * catalog-only cluster form keeps working across the rollout, and offer nothing that would write one.
  */
-export async function getOrganizationRegions(organizationId: string): Promise<OrganizationRegion[]> {
+export async function getOrganizationRegions(organizationId: string): Promise<OrganizationRegion[] | null> {
 	try {
 		const { data } = await apiClient.get(
 			`/OrganizationRegion/?organizationId=${encodeURIComponent(organizationId)}` as '/Region/',
@@ -16,7 +16,7 @@ export async function getOrganizationRegions(organizationId: string): Promise<Or
 		return data as unknown as OrganizationRegion[];
 	} catch (error) {
 		if (isAxiosError(error) && error.response?.status === 404) {
-			return [];
+			return null;
 		}
 		throw error;
 	}
