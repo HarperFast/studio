@@ -55,8 +55,7 @@ describe('admin section visibility', () => {
 		]);
 	});
 
-	// Deactivating is the Users page's only action; reading users (every staff role) is not enough to see it.
-	it('shows Users only to holders of user:status', () => {
+	it('shows Users only to holders of user:status, not to every role that can read users', () => {
 		expect(labels(user('fabric_admin', ['user:read', 'user:status']))).toEqual(['Users']);
 		expect(labels(user('fabric_readonly', ['user:read']))).toEqual([]);
 	});

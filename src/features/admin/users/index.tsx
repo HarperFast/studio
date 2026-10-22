@@ -27,11 +27,14 @@ export function UsersAdminIndex() {
 	const [input, setInput] = useState('');
 	// Held in state, never in the URL: addresses must stay out of the page URL that RUM and third-party pixels read.
 	const [email, setEmail] = useState('');
-	const { data: user, isFetching, isError, error } = useQuery(adminUserQueryOptions(email));
+	const { data: user, isFetching, isError, error, refetch } = useQuery(adminUserQueryOptions(email));
 
 	const lookUp = (event: FormEvent) => {
 		event.preventDefault();
-		setEmail(normalizeEmail(input));
+		const next = normalizeEmail(input);
+		// The same address keeps the same query key, so it needs an explicit refetch to retry or refresh the preview.
+		if (next === email) { void refetch(); }
+		else { setEmail(next); }
 	};
 
 	return (
@@ -63,10 +66,20 @@ export function UsersAdminIndex() {
 					? null
 					: isFetching && user === undefined
 					? <Skeleton className="h-40 w-full" />
+					: user
+					? (
+						// A failed refetch keeps the loaded account, so an open deactivation result stays mounted.
+						<>
+							{isError && (
+								<p className="mb-3 text-sm text-destructive">
+									Could not refresh this account; showing the last one loaded.
+								</p>
+							)}
+							<UserDetails user={user} />
+						</>
+					)
 					: isError
 					? <p className="text-sm text-destructive">{error?.message || 'Could not look up that address.'}</p>
-					: user
-					? <UserDetails user={user} />
 					: <p className="text-sm text-muted-foreground">No account uses {email}.</p>}
 			</div>
 		</div>
