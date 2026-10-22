@@ -477,6 +477,13 @@ export function ClusterForm({
 	}, [queryClient, router, navigate, organizationId, form]);
 
 	const executeChangesToCluster = useCallback(async () => {
+		// Payment review submits without the details form, and a draft restored after a billing redirect
+		// can be stale: a region, a custom region's shape or the staff rules may have changed meanwhile.
+		if (!(await form.trigger())) {
+			toast.error('Some cluster details are no longer valid. Please review them.');
+			setConfirmingPaymentDetails(false);
+			return;
+		}
 		const formData = form.getValues();
 		const plans: ClusterUpsertRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
@@ -494,19 +501,9 @@ export function ClusterForm({
 			}
 		} else if (mode !== 'version') {
 			for (const regionPlan of formData.regionPlans) {
-				// Re-resolve at submit: the catalog or the custom-region list may have changed since validation.
 				const region = regionLookup.get(regionPlan.regionId);
 				if (!region) {
 					toast.error('A selected region is no longer available. Please review your regions.');
-					void form.trigger();
-					return;
-				}
-				// Payment review submits without re-validating, and the shape can change while the user is away.
-				if (region.kind === 'organization' && region.instanceCount === 0) {
-					toast.error(
-						`${region.name} has no datacenters on the organization's cloud provider. Please review your regions.`,
-					);
-					void form.trigger();
 					return;
 				}
 				plans.push({
