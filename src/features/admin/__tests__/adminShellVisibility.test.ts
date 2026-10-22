@@ -60,10 +60,16 @@ describe('admin section visibility', () => {
 		]);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
 	});
 
 	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
+	});
+
+	// Reading users (every staff role) is not enough to see the Users page.
+	it('shows Users only to holders of user:status', () => {
+		expect(labels(user('fabric_admin', ['user:read', 'user:status']))).toEqual(['Users']);
+		expect(labels(user('fabric_readonly', ['user:read']))).toEqual([]);
 	});
 });

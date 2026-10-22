@@ -2,7 +2,7 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, UsersIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -20,6 +20,8 @@ const items: Array<
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon, permission: 'region:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// Gated on deactivation's permission rather than user:read, which keeps the page fabric_admin-only.
+	{ to: '/admin/users', label: 'Users', icon: UsersIcon, permission: 'user:status' },
 	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
 	// super_user cannot mint a staff credential.
 	{
