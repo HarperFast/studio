@@ -160,15 +160,16 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 function HostDetails(
-	{ host, orgNameById, onClose, onCloseAutoFocus }: {
+	{ host, open, orgNameById, onClose, onCloseAutoFocus }: {
 		host: AdminHost | null;
+		open: boolean;
 		orgNameById: Map<string, string>;
 		onClose: () => void;
 		onCloseAutoFocus: (event: Event) => void;
 	},
 ) {
 	return (
-		<Sheet open={host !== null} onOpenChange={(open) => !open && onClose()}>
+		<Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
 			<SheetContent className="w-full overflow-y-auto sm:max-w-lg" onCloseAutoFocus={onCloseAutoFocus}>
 				{host && (
 					<>
@@ -236,13 +237,13 @@ export function HostsIndex() {
 	const [region, setRegion] = useState(ANY);
 	const [search, setSearch] = useState('');
 	// The clicked row, so a refetch or filter change that drops the host cannot close or reopen the panel.
+	// Kept after closing so the panel still has its content while it slides out.
 	const [selected, setSelected] = useState<AdminHost | null>(null);
+	const [detailsOpen, setDetailsOpen] = useState(false);
 	const hostButtons = useRef(new Map<string, HTMLButtonElement>());
-	// Outlives `selected`, which is already null by the time the closing sheet asks where focus goes.
-	const openedHostId = useRef<string | null>(null);
 	const openHost = (host: AdminHost) => {
-		openedHostId.current = host.id;
 		setSelected(host);
+		setDetailsOpen(true);
 	};
 	const debouncedOrganizationText = useDebounce(organizationText, 300);
 
@@ -484,12 +485,13 @@ export function HostsIndex() {
 
 			<HostDetails
 				host={selectedHost}
+				open={detailsOpen}
 				orgNameById={orgNameById}
-				onClose={() => setSelected(null)}
+				onClose={() => setDetailsOpen(false)}
 				// Opened from state, not a SheetTrigger, so Radix has nowhere to return focus on its own.
 				onCloseAutoFocus={(event) => {
 					event.preventDefault();
-					if (openedHostId.current) { hostButtons.current.get(openedHostId.current)?.focus(); }
+					if (selected) { hostButtons.current.get(selected.id)?.focus(); }
 				}}
 			/>
 		</div>
