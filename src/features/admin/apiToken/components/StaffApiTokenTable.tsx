@@ -89,14 +89,14 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
-						<TableHead>Token</TableHead>
-						<TableHead className={OWNER_COLUMN}>Owner</TableHead>
-						<TableHead className={ROLE_COLUMN}>Role</TableHead>
-						<TableHead>Expires</TableHead>
-						<TableHead className={LAST_USED_COLUMN}>Last used</TableHead>
-						<TableHead className={CREATED_COLUMN}>Created</TableHead>
-						<TableHead>Status</TableHead>
-						<TableHead className="w-0 pr-2">
+						<TableHead className="pl-4 pr-3">Token</TableHead>
+						<TableHead className={cn('px-3', OWNER_COLUMN)}>Owner</TableHead>
+						<TableHead className={cn('px-3', ROLE_COLUMN)}>Role</TableHead>
+						<TableHead className="px-3">Expires</TableHead>
+						<TableHead className={cn('px-3', LAST_USED_COLUMN)}>Last used</TableHead>
+						<TableHead className={cn('px-3', CREATED_COLUMN)}>Created</TableHead>
+						<TableHead className="px-3">Status</TableHead>
+						<TableHead className="w-0 pr-3">
 							<span className="sr-only">Actions</span>
 						</TableHead>
 					</TableRow>
@@ -106,7 +106,7 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 						const live = token.status === 'active';
 						return (
 							<TableRow key={token.id} className={cn(!live && 'text-muted-foreground')}>
-								<TableCell className="py-2.5 whitespace-normal">
+								<TableCell className="py-2.5 pl-4 pr-3 whitespace-normal">
 									<div className="flex flex-col gap-1 leading-tight">
 										<span className={cn('font-medium break-words', live && 'text-foreground')}>{token.name}</span>
 										<span className="font-mono text-xs text-muted-foreground" title={token.id}>
@@ -120,19 +120,19 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 										</div>
 									</div>
 								</TableCell>
-								<TableCell className={cn('py-2.5 whitespace-normal', OWNER_COLUMN)}>
+								<TableCell className={cn('py-2.5 px-3 whitespace-normal', OWNER_COLUMN)}>
 									<StaffUserCell userId={token.ownerUserId} self={self} muted={!live} />
 								</TableCell>
-								<TableCell className={cn('py-2.5', ROLE_COLUMN)}>
+								<TableCell className={cn('py-2.5 px-3', ROLE_COLUMN)}>
 									<RoleDot role={token.role} />
 								</TableCell>
-								<TableCell className="py-2.5 whitespace-normal">
+								<TableCell className="py-2.5 px-3 whitespace-normal">
 									<When value={token.expiresAt} now={now} relative={live} />
 								</TableCell>
-								<TableCell className={cn('py-2.5 whitespace-normal', LAST_USED_COLUMN)}>
+								<TableCell className={cn('py-2.5 px-3 whitespace-normal', LAST_USED_COLUMN)}>
 									<When value={token.lastUsedAt} now={now} relative={live} />
 								</TableCell>
-								<TableCell className={cn('py-2.5 whitespace-normal', CREATED_COLUMN)}>
+								<TableCell className={cn('py-2.5 px-3 whitespace-normal', CREATED_COLUMN)}>
 									<StaffUserCell
 										userId={token.createdByUserId}
 										self={self}
@@ -140,10 +140,10 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 										detail={formatDay(token.createdAt)}
 									/>
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className="py-2.5 px-3">
 									<StatusBadge status={token.status} />
 								</TableCell>
-								<TableCell className="py-2 pr-2 text-right">
+								<TableCell className="py-2 pr-3 text-right">
 									<StaffApiTokenRowMenu token={token} />
 								</TableCell>
 							</TableRow>

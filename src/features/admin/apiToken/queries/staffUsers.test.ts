@@ -1,3 +1,4 @@
+import { AxiosError, AxiosHeaders } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
@@ -133,11 +134,22 @@ describe('getStaffUser', () => {
 		expect(get).toHaveBeenCalledWith('/Admin/User/usr%2F1');
 	});
 
-	it('answers null instead of throwing when the lookup fails', async () => {
+	it('reports a removed account on 404 and null on any other failure, never throwing', async () => {
 		// Once: a persistent rejecting implementation on a reset mock is reported as an unhandled
 		// rejection by vitest 5 even though the call catches it.
-		get.mockRejectedValueOnce(new Error('404'));
+		const config = { headers: new AxiosHeaders() };
+		get.mockRejectedValueOnce(
+			new AxiosError('Not found', '404', config, undefined, {
+				status: 404,
+				statusText: '',
+				headers: {},
+				config,
+				data: {},
+			}),
+		);
+		expect(await getStaffUser('usr-gone')).toBe('removed');
 
+		get.mockRejectedValueOnce(new Error('network'));
 		expect(await getStaffUser('usr-gone')).toBeNull();
 	});
 });

@@ -11,7 +11,8 @@ export function initialsOf(user: StaffUserSummary): string {
 /**
  * A user as the console shows one: an initial, the name, and a second line that is the address
  * by default or whatever the caller puts there. Every staff role holds user:read, so the lookup
- * works for whoever can see the list; until it answers, or if it never does, the id stands in.
+ * works for whoever can see the list. An account that no longer exists says so over its id; until
+ * the lookup answers, or if it fails some other way, the id stands in.
  */
 export function StaffUserCell({
 	userId,
@@ -27,26 +28,38 @@ export function StaffUserCell({
 }) {
 	const isSelf = userId === self.id;
 	const { data } = useQuery({ ...getStaffUserQueryOptions(userId), enabled: !isSelf });
-	const user = isSelf ? self : data;
-	const name = user ? [user.firstname, user.lastname].filter(Boolean).join(' ') || user.email : userId;
+	const lookup = isSelf ? self : data;
+	const removed = lookup === 'removed';
+	const user = lookup && !removed ? lookup : undefined;
+	const name = user
+		? [user.firstname, user.lastname].filter(Boolean).join(' ') || user.email
+		: removed
+		? 'Removed account'
+		: userId;
+	const second = detail ?? (user ? user.email : removed ? userId : '');
 	return (
 		<div className="flex items-center gap-2.5">
 			<span
 				className={cn(
 					'flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-					muted ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary dark:text-violet-200',
+					muted || removed ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary dark:text-violet-200',
 				)}
 				aria-hidden
 			>
-				{user ? initialsOf(user) : '?'}
+				{user ? initialsOf(user) : removed ? '—' : '?'}
 			</span>
 			<div className="flex min-w-0 flex-col leading-tight">
-				<span className={cn('[overflow-wrap:anywhere]', !user && 'font-mono text-xs')} title={userId}>
+				<span
+					className={cn('[overflow-wrap:anywhere]', !user && !removed && 'font-mono text-xs', removed && 'italic')}
+					title={userId}
+				>
 					{name}
 					{isSelf && <span className="text-muted-foreground">{' '}(you)</span>}
 				</span>
-				<span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-					{detail ?? (user ? user.email : '')}
+				<span
+					className={cn('text-xs text-muted-foreground [overflow-wrap:anywhere]', removed && !detail && 'font-mono')}
+				>
+					{second}
 				</span>
 			</div>
 		</div>
