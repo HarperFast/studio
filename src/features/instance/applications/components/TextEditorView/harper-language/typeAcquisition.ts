@@ -730,7 +730,7 @@ export function createBudgetedFetcher(
 			inFlight--;
 		}
 	};
-	return async (input, init) => {
+	return async (input: RequestInfo | URL, init?: RequestInit) => {
 		if (budget.isSpent) {
 			return budgetSpentResponse();
 		}
