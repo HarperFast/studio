@@ -63,6 +63,14 @@ describe('ClusterCustomRegions', () => {
 		expect(screen.getByRole('listitem').textContent).toBe('EU edge · 1 unit of europe-west1-b');
 	});
 
+	it('holds back the shape until the organization says which provider it uses', () => {
+		state.regions = [region()];
+		render(
+			<ClusterCustomRegions cluster={cluster([{ planId: 'p', regionId: 'oreg-1', region: 'EU edge', quantity: 2 }])} />,
+		);
+		expect(screen.getByRole('list', { name: 'Custom regions' }).textContent).toBe('EU edge · 2 units');
+	});
+
 	it('falls back to the stored plan name when the region list is unavailable', () => {
 		state.regions = null;
 		render(

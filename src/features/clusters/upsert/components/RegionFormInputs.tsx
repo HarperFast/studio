@@ -95,7 +95,6 @@ function pickLatencyDescription(options: readonly string[], preferred: string | 
 	return options.find(description => !tier ? true : description.split(' ')[0].toLowerCase() === tier) || options[0];
 }
 
-// The form stores a region id; the name and latency selects are a view over the catalog for it.
 export function RegionFormInputs({
 	control,
 	fieldArray,

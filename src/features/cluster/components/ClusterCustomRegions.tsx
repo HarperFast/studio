@@ -21,14 +21,15 @@ export function ClusterCustomRegions({ cluster }: { cluster: Cluster }) {
 	if (!customPlans.length) {
 		return null;
 	}
-	const provider = organization?.channel === 'Akamai' ? 'linode' : 'gcp';
+	// The shape is per provider: until the organization says which, showing GCP's could be wrong.
+	const provider = organization && (organization.channel === 'Akamai' ? 'linode' : 'gcp');
 	const regionsById = new Map((regions ?? []).map((region) => [region.id, region]));
 	return (
 		<ul aria-label="Custom regions" className="mt-1 space-y-0.5 text-sm text-muted-foreground">
 			{customPlans.map((plan) => {
 				const region = regionsById.get(plan.regionId!);
 				const units = plan.quantity ?? 1;
-				const shape = region ? describeShape(organizationRegionShape(region, provider)) : '';
+				const shape = region && provider ? describeShape(organizationRegionShape(region, provider)) : '';
 				return (
 					<li key={plan.regionId}>
 						<span className="text-foreground">{region?.name ?? plan.region ?? plan.regionId}</span>
