@@ -11,7 +11,7 @@ import { formatStaffUserLabel, StaffUserPicker } from './StaffUserPicker';
 const self = { id: 'usr-me', email: 'me@harperdb.io', firstname: 'Me', lastname: 'Myself' };
 const dawn = { id: 'usr-dawn', email: 'dawn@harperdb.io', firstname: 'Dawn', lastname: '' };
 const rows = (...users: Array<typeof self>) => ({ data: users.map((user) => ({ ...user, status: 'ACTIVE' })) });
-const searchedPrefixes = () => get.mock.calls.map(([url]) => /email=([^&*]*)\*/.exec(url as string)?.[1]);
+const searchedPrefixes = () => get.mock.calls.map(([url]) => /email=starts_with=([^&]*)/.exec(url as string)?.[1]);
 
 function renderPicker(onChange = vi.fn(), value: typeof self | null = null) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

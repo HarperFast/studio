@@ -25,7 +25,7 @@ describe('searchStaffUsers', () => {
 		const url = get.mock.calls[0][0] as string;
 		expect(get.mock.calls[0][1]).toEqual({ signal: undefined });
 		expect(url.startsWith('/Admin/User/?')).toBe(true);
-		expect(url).toContain('email=dav%40harper*');
+		expect(url).toContain('email=starts_with=dav%40harper');
 		expect(url).toContain('status=ACTIVE');
 		expect(url).toContain('isVerified=true');
 		expect(url).toContain('sort(email)');
