@@ -24,7 +24,7 @@ function When({ value }: { value: string | null }) {
 	if (!value) {
 		return <span className="text-muted-foreground">Never</span>;
 	}
-	return <>{new Date(value).toLocaleString()}</>;
+	return <>{new Date(value).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</>;
 }
 
 export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; self: StaffUserSummary }) {
@@ -32,6 +32,9 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 		<Table>
 			<TableHeader>
 				<TableRow>
+					<TableHead className="w-0">
+						<span className="sr-only">Actions</span>
+					</TableHead>
 					<TableHead>Name</TableHead>
 					<TableHead>Owner</TableHead>
 					<TableHead>Role</TableHead>
@@ -40,14 +43,15 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 					<TableHead>Expires</TableHead>
 					<TableHead>Last used</TableHead>
 					<TableHead>Status</TableHead>
-					<TableHead className="w-0">
-						<span className="sr-only">Actions</span>
-					</TableHead>
 				</TableRow>
 			</TableHeader>
 			<TableBody>
 				{tokens.map((token) => (
 					<TableRow key={token.id} className={token.status === 'active' ? undefined : 'opacity-60'}>
+						{/* First, so a wide row never scrolls the one control off the screen. */}
+						<TableCell className="whitespace-nowrap">
+							{token.status === 'active' && <RevokeStaffApiTokenButton token={token} />}
+						</TableCell>
 						<TableCell className="font-medium">{token.name}</TableCell>
 						<TableCell>
 							<StaffUserLabel userId={token.ownerUserId} self={self} />
@@ -67,9 +71,6 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 						</TableCell>
 						<TableCell>
 							<StatusBadge status={token.status} />
-						</TableCell>
-						<TableCell className="text-right">
-							{token.status === 'active' && <RevokeStaffApiTokenButton token={token} />}
 						</TableCell>
 					</TableRow>
 				))}
