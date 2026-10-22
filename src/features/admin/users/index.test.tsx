@@ -9,7 +9,7 @@ const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 
-import { UsersAdminIndex } from './index';
+import { UsersAdminIndex } from '@/features/admin/users/index';
 
 const USER = {
 	id: 'usr-1',
@@ -195,5 +195,35 @@ describe('UsersAdminIndex', () => {
 
 		const message = await screen.findByText(/More than one live account/);
 		expect(message.textContent).not.toContain('pat@example.com');
+	});
+
+	it('closes the confirm dialog when the PATCH fails', async () => {
+		patch.mockRejectedValueOnce(new Error('no answer'));
+		renderPage();
+		await lookUp('pat@example.com');
+		await act(async () => {
+			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+		});
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
+		});
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('says so when a successful PATCH does not report the organizations', async () => {
+		patch.mockResolvedValueOnce({ data: '' });
+		renderPage();
+		await lookUp('pat@example.com');
+		await act(async () => {
+			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+		});
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
+		});
+
+		const done = await screen.findByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(done).getAllByText('Not reported by the server.')).toHaveLength(2);
 	});
 });
