@@ -35,8 +35,8 @@ export async function searchStaffUsers(prefix: string, signal?: AbortSignal): Pr
 	for (let page = 0; page < STAFF_USER_SEARCH_PAGE_LIMIT; page++) {
 		const start = page * STAFF_USER_SEARCH_PAGE_SIZE;
 		const query = [
-			// A trailing `*` is Harper's prefix match; the rest of the value is URL-encoded as usual.
-			`email=${encodeURIComponent(prefix.trim().toLowerCase())}*`,
+			// The FIQL comparator, not a trailing `*`: the deployed Harper line (5.3) reads `*` as literal.
+			`email=starts_with=${encodeURIComponent(prefix.trim().toLowerCase())}`,
 			'status=ACTIVE',
 			'isVerified=true',
 			'sort(email)',
