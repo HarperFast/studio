@@ -2,7 +2,7 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, UsersIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -18,6 +18,8 @@ const items: Array<SubNavItem & { permission: StaffPermission; ssoAccountOnly?: 
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon, permission: 'region:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// Deactivation is the page's only action, so the page needs the permission that does it, not user:read.
+	{ to: '/admin/users', label: 'Users', icon: UsersIcon, permission: 'user:status' },
 	// Minting a token requires the Google SSO session only staff sign-ins have;
 	// super_user may password-login, so the mint would 403 for it.
 	{
