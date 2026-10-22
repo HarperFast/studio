@@ -41,11 +41,13 @@ export function StaffUserCell({
 				{user ? initialsOf(user) : '?'}
 			</span>
 			<div className="flex min-w-0 flex-col leading-tight">
-				<span className={cn('truncate', !user && 'font-mono text-xs')} title={userId}>
+				<span className={cn('[overflow-wrap:anywhere]', !user && 'font-mono text-xs')} title={userId}>
 					{name}
 					{isSelf && <span className="text-muted-foreground">{' '}(you)</span>}
 				</span>
-				<span className="truncate text-xs text-muted-foreground">{detail ?? (user ? user.email : '')}</span>
+				<span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+					{detail ?? (user ? user.email : '')}
+				</span>
 			</div>
 		</div>
 	);
