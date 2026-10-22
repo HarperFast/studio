@@ -46,7 +46,6 @@ interface OrganizationRegionFormModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	organizationId: string;
-	/** The region being edited; omit/null to create a new one. */
 	region?: OrganizationRegion | null;
 	/** Called with the created or updated row, after the caches are invalidated. */
 	onSaved?: (region: OrganizationRegion) => void;

@@ -1,6 +1,5 @@
 import { describeShape } from '@/features/clusters/upsert/lib/regionLookup';
 
-// The pickers allow repeats but render one chip per entry; this is where the count shows.
 export function DatacenterCountSummary(
 	{ datacenters, ariaLabel }: { datacenters: readonly string[]; ariaLabel: string },
 ) {
