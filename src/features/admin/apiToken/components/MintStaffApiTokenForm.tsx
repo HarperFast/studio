@@ -65,10 +65,13 @@ async function revokeUnseen(token: MintedStaffApiToken, queryClient: QueryClient
 		await revokeApiToken(token.id);
 		toast.warning('An API token minted after its page was left was revoked.');
 	} catch (error) {
-		// A lost answer (502, timeout) may still have revoked it; only a definite refusal says so,
-		// and a 404 means the token is already gone.
+		// A lost answer (502, timeout) may still have revoked it, and a 404 proves nothing either:
+		// central manager answers 404 for another owner's token when the caller lacks apiToken:create.
 		if (isAxiosError(error) && error.response?.status === 404) {
-			toast.warning('An API token minted after its page was left is already gone.');
+			console.error('Could not confirm the revoke of an API token that was never shown', error);
+			toast.error(
+				`An API token minted after its page was left could not be confirmed revoked: ${token.id} for ${token.ownerUserId}. An admin should check the list.`,
+			);
 		} else if (shouldToastOwnFailure(error)) {
 			console.error('Failed to revoke an API token that was never shown', error);
 			toast.error('An API token minted after its page was left is still live; revoke it from the list.');
@@ -84,6 +87,8 @@ export function MintStaffApiTokenForm({ self, onMinted, holdingSecret = false }:
 	const queryClient = useQueryClient();
 	const [owner, setOwner] = useState<StaffUserSummary | null>(self);
 	const isMounted = useRef(false);
+	// A second submit can enter before the first response flips isPending or holdingSecret.
+	const isSubmitting = useRef(false);
 	useEffect(() => {
 		isMounted.current = true;
 		return () => {
@@ -114,11 +119,13 @@ export function MintStaffApiTokenForm({ self, onMinted, holdingSecret = false }:
 	};
 
 	const onSubmit = async (values: MintTokenValues) => {
-		if (holdingSecret) { return; }
+		if (holdingSecret || isSubmitting.current) { return; }
+		isSubmitting.current = true;
 		let result: MintedStaffApiToken;
 		try {
 			result = await mutateAsync(values);
 		} catch (error) {
+			isSubmitting.current = false;
 			// A lost answer after leaving the page still gets its toast: the token may exist.
 			const refusal = isMounted.current ? roleRefusalMessage(error) : null;
 			if (refusal) {
@@ -137,6 +144,7 @@ export function MintStaffApiTokenForm({ self, onMinted, holdingSecret = false }:
 		reset();
 		form.reset(defaultValues(self.id));
 		setOwner(self);
+		isSubmitting.current = false;
 	};
 
 	return (
