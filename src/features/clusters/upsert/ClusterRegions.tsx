@@ -97,7 +97,6 @@ export function ClusterRegions({
 		toast.success(`${region.name} is ready to pick under Custom regions`);
 	}, []);
 
-	// An empty catalog leaves nothing to deploy only when no custom region can stand in for it.
 	const offersCustomRegion = lockedOrganizationRegionIds.length > 0 || canDefineCustomRegions
 		|| (canUseCustomRegions
 			&& [...regionLookup.values()].some(region =>
