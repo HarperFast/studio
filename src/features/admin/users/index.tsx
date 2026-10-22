@@ -28,6 +28,7 @@ export function UsersAdminIndex() {
 	// Held in state, never in the URL: addresses must stay out of the page URL that RUM and third-party pixels read.
 	const [email, setEmail] = useState('');
 	const { data: user, isFetching, isError, error, refetch } = useQuery(adminUserQueryOptions(email));
+	const [deactivating, setDeactivating] = useState<AdminUser | null>(null);
 
 	const lookUp = (event: FormEvent) => {
 		event.preventDefault();
@@ -67,26 +68,26 @@ export function UsersAdminIndex() {
 					? <Skeleton className="h-40 w-full" />
 					: user
 					? (
-						// A failed refetch keeps the loaded account, so an open deactivation result stays mounted.
 						<>
 							{isError && (
 								<p className="mb-3 text-sm text-destructive">
 									Could not refresh this account; showing the last one loaded.
 								</p>
 							)}
-							<UserDetails user={user} />
+							<UserDetails user={user} onDeactivate={() => setDeactivating(user)} />
 						</>
 					)
 					: isError
 					? <p className="text-sm text-destructive">{error?.message || 'Could not look up that address.'}</p>
 					: <p className="text-sm text-muted-foreground">No account uses {email}.</p>}
 			</div>
+
+			{deactivating && <DeactivateDialog user={deactivating} onClose={() => setDeactivating(null)} />}
 		</div>
 	);
 }
 
-function UserDetails({ user }: { user: AdminUser }) {
-	const [confirming, setConfirming] = useState(false);
+function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
 	const name = [user.firstname, user.lastname].filter(Boolean).join(' ');
 	const removable = user.organizations.filter((membership) => !membership.lastAdmin);
 	const deactivated = user.status === 'DEACTIVATED';
@@ -124,11 +125,9 @@ function UserDetails({ user }: { user: AdminUser }) {
 								Already deactivated: deactivating again removes the memberships marked for removal.
 							</span>
 						)}
-						<Button variant="destructive" onClick={() => setConfirming(true)}>Deactivate</Button>
+						<Button variant="destructive" onClick={onDeactivate}>Deactivate</Button>
 					</div>
 				)}
-
-			{confirming && <DeactivateDialog user={user} onClose={() => setConfirming(false)} />}
 		</div>
 	);
 }
@@ -150,7 +149,10 @@ function MembershipRow({ membership }: { membership: MembershipPreview }) {
 const organizationLabel = (membership: OrganizationMembership) =>
 	membership.organizationName || membership.organizationId;
 
-/** Mount only while open, so a result never outlives the session that produced it. */
+/**
+ * Mount only while open. It holds the account as it was when Deactivate was pressed, so the refetch that follows the
+ * PATCH can't change or unmount it, whatever that refetch finds.
+ */
 function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: () => void }) {
 	const mutation = useDeactivateUserMutation();
 	const [result, setResult] = useState<DeactivateUserResult | null>(null);
@@ -203,7 +205,7 @@ function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: () => v
 								<Button
 									variant="destructive"
 									disabled={mutation.isPending}
-									// On failure the toast reports the outcome and the refetch shows the account as it now is.
+									// On failure the toast reports the outcome, and the refetch tries to show the account as it now is.
 									onClick={() => mutation.mutate(user.id, { onSuccess: setResult, onError: onClose })}
 								>
 									{mutation.isPending ? 'Deactivating…' : 'Deactivate'}
