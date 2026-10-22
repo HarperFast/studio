@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RevokeStaffApiTokenButton } from '@/features/admin/apiToken/components/RevokeStaffApiTokenButton';
-import { StaffUserLabel } from '@/features/admin/apiToken/components/StaffUserLabel';
+import { StaffApiTokenRowMenu } from '@/features/admin/apiToken/components/StaffApiTokenRowMenu';
+import { StaffUserCell } from '@/features/admin/apiToken/components/StaffUserCell';
 import { StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
-import { StaffApiToken, StaffApiTokenStatus } from '@/integrations/api/api.patch';
+import { StaffApiToken, StaffApiTokenRole, StaffApiTokenStatus } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 
 const STATUS_BADGES: Record<
@@ -21,6 +21,28 @@ function StatusBadge({ status }: { status: StaffApiTokenStatus }) {
 	return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }
 
+/** Reach, as a dot: cool for read-only, warmer as the role widens. */
+const ROLE_DOTS: Record<StaffApiTokenRole, string> = {
+	fabric_readonly: 'bg-sky-500',
+	fabric_support: 'bg-amber-500',
+	fabric_staff: 'bg-violet-500',
+	fabric_admin: 'bg-red-500',
+};
+
+function RoleDot({ role }: { role: StaffApiTokenRole }) {
+	return (
+		<span className="inline-flex items-center gap-2 whitespace-nowrap">
+			<span className={cn('size-2 shrink-0 rounded-sm', ROLE_DOTS[role] ?? 'bg-muted-foreground')} aria-hidden />
+			<span className="font-mono text-xs">{role}</span>
+		</span>
+	);
+}
+
+/** `sat-amxi…hko4`: enough to match against a log line, short enough for a column. */
+export function maskTokenId(id: string): string {
+	return id.length <= 14 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -34,29 +56,29 @@ export function formatRelative(value: string, now: number): string {
 	return format.format(Math.round(diffMs / 60000), 'minute');
 }
 
-function formatStamp(value: string): string {
-	return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+function formatDay(value: string): string {
+	return new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-// Columns leave as the viewport narrows, least-read first; the owner folds under the token name
-// below `lg`; Revoke, Expires and Status always stay, and nothing has to scroll sideways.
-const OWNER_COLUMN = 'hidden lg:table-cell';
-const CREATED_COLUMN = 'hidden 2xl:table-cell';
-const LAST_USED_COLUMN = 'hidden xl:table-cell';
-
-/** A timestamp with its relative reading underneath, or a quiet dash. */
+/** A date with its relative reading underneath, or a quiet dash. */
 function When({ value, now, relative = true }: { value: string | null; now: number; relative?: boolean }) {
 	if (!value) {
 		return <span className="text-muted-foreground">—</span>;
 	}
 	return (
 		<div className="flex flex-col leading-tight">
-			<span className="sm:whitespace-nowrap">{formatStamp(value)}</span>
+			<span className="whitespace-nowrap">{formatDay(value)}</span>
 			{relative && <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(value, now)}
 			</span>}
 		</div>
 	);
 }
+
+// Columns leave as the viewport narrows, least-read first; the owner folds under the token name
+// below `lg`. Token, Role, Expires, Status and the row menu always stay, so nothing scrolls sideways.
+const OWNER_COLUMN = 'hidden lg:table-cell';
+const LAST_USED_COLUMN = 'hidden xl:table-cell';
+const CREATED_COLUMN = 'hidden 2xl:table-cell';
 
 export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; self: StaffUserSummary }) {
 	const now = Date.now();
@@ -65,49 +87,39 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
-						<TableHead className="w-0 pl-3 pr-0">
-							<span className="sr-only">Actions</span>
-						</TableHead>
 						<TableHead>Token</TableHead>
 						<TableHead className={OWNER_COLUMN}>Owner</TableHead>
-						<TableHead className={CREATED_COLUMN}>Created</TableHead>
+						<TableHead>Role</TableHead>
 						<TableHead>Expires</TableHead>
 						<TableHead className={LAST_USED_COLUMN}>Last used</TableHead>
+						<TableHead className={CREATED_COLUMN}>Created</TableHead>
 						<TableHead>Status</TableHead>
+						<TableHead className="w-0 pr-2">
+							<span className="sr-only">Actions</span>
+						</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
 					{tokens.map((token) => {
 						const live = token.status === 'active';
 						return (
-							<TableRow key={token.id} className={cn('align-top', !live && 'text-muted-foreground')}>
-								{/* First, so a wide row never scrolls the one control off the screen. */}
-								<TableCell className="pl-2 pr-0 py-2 sm:pl-3">
-									{live && <RevokeStaffApiTokenButton token={token} />}
-								</TableCell>
+							<TableRow key={token.id} className={cn(!live && 'text-muted-foreground')}>
 								<TableCell className="py-2.5 whitespace-normal">
-									<div className="flex flex-col gap-0.5 leading-tight">
+									<div className="flex flex-col gap-1 leading-tight">
 										<span className={cn('font-medium break-words', live && 'text-foreground')}>{token.name}</span>
-										<span className="font-mono text-xs text-muted-foreground">{token.role}</span>
-										<span className="text-xs text-muted-foreground break-words lg:hidden">
-											<StaffUserLabel userId={token.ownerUserId} self={self} />
+										<span className="font-mono text-xs text-muted-foreground" title={token.id}>
+											{maskTokenId(token.id)}
 										</span>
+										<div className="pt-1 lg:hidden">
+											<StaffUserCell userId={token.ownerUserId} self={self} muted={!live} />
+										</div>
 									</div>
 								</TableCell>
-								<TableCell className={cn('py-2.5 whitespace-normal break-words', OWNER_COLUMN)}>
-									<div className="flex flex-col gap-0.5 leading-tight">
-										<span className={cn(live && 'text-foreground')}>
-											<StaffUserLabel userId={token.ownerUserId} self={self} />
-										</span>
-										{token.createdByUserId !== token.ownerUserId && (
-											<span className="text-xs text-muted-foreground">
-												minted by <StaffUserLabel userId={token.createdByUserId} self={self} />
-											</span>
-										)}
-									</div>
+								<TableCell className={cn('py-2.5 whitespace-normal', OWNER_COLUMN)}>
+									<StaffUserCell userId={token.ownerUserId} self={self} muted={!live} />
 								</TableCell>
-								<TableCell className={cn('py-2.5 whitespace-normal', CREATED_COLUMN)}>
-									<When value={token.createdAt} now={now} relative={false} />
+								<TableCell className="py-2.5">
+									<RoleDot role={token.role} />
 								</TableCell>
 								<TableCell className="py-2.5 whitespace-normal">
 									<When value={token.expiresAt} now={now} relative={live} />
@@ -115,8 +127,19 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 								<TableCell className={cn('py-2.5 whitespace-normal', LAST_USED_COLUMN)}>
 									<When value={token.lastUsedAt} now={now} relative={live} />
 								</TableCell>
-								<TableCell className="py-2.5 whitespace-normal">
+								<TableCell className={cn('py-2.5 whitespace-normal', CREATED_COLUMN)}>
+									<StaffUserCell
+										userId={token.createdByUserId}
+										self={self}
+										muted={!live}
+										detail={formatDay(token.createdAt)}
+									/>
+								</TableCell>
+								<TableCell className="py-2.5">
 									<StatusBadge status={token.status} />
+								</TableCell>
+								<TableCell className="py-2 pr-2 text-right">
+									<StaffApiTokenRowMenu token={token} />
 								</TableCell>
 							</TableRow>
 						);

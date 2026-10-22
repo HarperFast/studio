@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRelative } from './StaffApiTokenTable';
+import { formatRelative, maskTokenId } from './StaffApiTokenTable';
 
 const now = Date.parse('2026-10-22T12:00:00Z');
 const at = (ms: number) => new Date(now + ms).toISOString();
@@ -14,5 +14,12 @@ describe('formatRelative', () => {
 	it('never shows seconds or a bare zero', () => {
 		expect(formatRelative(at(10_000), now)).toBe('this minute');
 		expect(formatRelative(at(-20_000), now)).toBe('this minute');
+	});
+});
+
+describe('maskTokenId', () => {
+	it('keeps the prefix and the tail, and leaves a short id alone', () => {
+		expect(maskTokenId('sat-amxihhzaylk5mtrf')).toBe('sat-amxi…mtrf');
+		expect(maskTokenId('sat-short')).toBe('sat-short');
 	});
 });
