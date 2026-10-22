@@ -1,10 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { ExtraLibBudget, MAX_EXTRA_LIB_CHARS_TOTAL, MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `typeAcquisition` re-exports monaco's language-service registrations at module
 // scope, which need a DOM. The scanner under test touches none of it.
-vi.mock('@/lib/monaco/languageServices', () => ({ json: {}, typescript: {} }));
+vi.mock('@/lib/monaco/languageServices', () => ({
+	json: {},
+	typescript: {
+		typescriptDefaults: { addExtraLib: vi.fn() },
+		javascriptDefaults: { addExtraLib: vi.fn() },
+	},
+}));
 
-const { findAcquirableSpecifiers } = await import('./typeAcquisition');
+const { findAcquirableSpecifiers, createBudgetedFetcher, MAX_CDN_REQUESTS_IN_FLIGHT } = await import(
+	'./typeAcquisition'
+);
 
 describe('findAcquirableSpecifiers', () => {
 	describe('real imports it must keep finding', () => {
@@ -406,4 +415,93 @@ describe('findAcquirableSpecifiers', () => {
 			expect(findAcquirableSpecifiers(`import { a } from 'react'\n`.repeat(8_000))).toHaveLength(8_000);
 		}, 30_000);
 	});
+});
+
+describe('createBudgetedFetcher', () => {
+	function deferredFetch() {
+		const pending: Array<() => void> = [];
+		const fetchImpl = vi.fn(() => new Promise<Response>((resolve) => pending.push(() => resolve(new Response('ok')))));
+		return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: fetchImpl, pending };
+	}
+
+	it('never has more than its limit of requests on the network at once', async () => {
+		const { fetchImpl, calls, pending } = deferredFetch();
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), fetchImpl);
+		const responses = Array.from({ length: 30 }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await Promise.resolve();
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+
+		pending.shift()?.();
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1));
+
+		while (pending.length) {
+			pending.shift()?.();
+			await new Promise((resolve) => setTimeout(resolve));
+		}
+		await Promise.all(responses);
+		expect(calls).toHaveBeenCalledTimes(30);
+	});
+
+	it('answers queued requests without the network once the budget is spent', async () => {
+		const { fetchImpl, calls, pending } = deferredFetch();
+		const budget = new ExtraLibBudget();
+		const fetcher = createBudgetedFetcher(budget, fetchImpl);
+		const responses = Array.from({ length: 30 }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await Promise.resolve();
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		pending.splice(0).forEach((resolve) => resolve());
+
+		const statuses = (await Promise.all(responses)).map((response) => response.status);
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+		expect(statuses.filter((status) => status === 503)).toHaveLength(30 - MAX_CDN_REQUESTS_IN_FLIGHT);
+		await expect(fetcher('https://cdn.test/late')).resolves.toHaveProperty('ok', false);
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+	});
+});
+
+describe('acquireApplicationTypes', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.resetModules();
+	});
+
+	it('stops requesting declarations from the CDN once the budget is spent (RUM 2026-10-22)', async () => {
+		// One package whose tree holds far more declaration volume than the budget, the
+		// shape behind ~1,000 jsDelivr requests in two seconds from one editor view.
+		const fileCount = 200;
+		const declaration = `export declare const x: ${'0'.repeat(MAX_WORKER_MODEL_CHARS - 64)};\n`;
+		const filesToSpendBudget = Math.ceil(MAX_EXTRA_LIB_CHARS_TOTAL / declaration.length);
+		let inFlight = 0;
+		let peakInFlight = 0;
+		const declarationRequests: string[] = [];
+		vi.stubGlobal('fetch', async (input: string) => {
+			inFlight++;
+			peakInFlight = Math.max(peakInFlight, inFlight);
+			await new Promise((resolve) => setTimeout(resolve));
+			inFlight--;
+			if (input.endsWith('/resolve/npm/huge-types@latest')) {
+				return Response.json({ version: '1.0.0' });
+			}
+			if (input.endsWith('/npm/huge-types@1.0.0/flat')) {
+				return Response.json({ files: Array.from({ length: fileCount }, (_, index) => ({ name: `/d${index}.d.ts` })) });
+			}
+			if (input.endsWith('/package.json')) {
+				return new Response('{}');
+			}
+			if (input.endsWith('.d.ts')) {
+				declarationRequests.push(input);
+				return new Response(declaration);
+			}
+			return new Response(null, { status: 404 });
+		});
+
+		const { acquireApplicationTypes, isTypeAcquisitionBudgetSpent } = await import('./typeAcquisition');
+		await acquireApplicationTypes([`import { x } from 'huge-types';`]);
+
+		expect(isTypeAcquisitionBudgetSpent()).toBe(true);
+		expect(peakInFlight).toBeLessThanOrEqual(MAX_CDN_REQUESTS_IN_FLIGHT);
+		expect(declarationRequests.length).toBeLessThanOrEqual(filesToSpendBudget + MAX_CDN_REQUESTS_IN_FLIGHT);
+	}, 30_000);
 });

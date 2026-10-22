@@ -698,6 +698,46 @@ const acquiredPaths = new Set<string>();
  */
 const extraLibBudget = new ExtraLibBudget();
 
+/**
+ * ata requests every declaration file in a package's tree at once and keeps walking
+ * the imports of files `receivedFile` rejects, so one pass can issue thousands of CDN
+ * requests after the budget is spent. Queuing them lets each re-check the budget
+ * before it goes out, bounding the overshoot to the requests already in flight.
+ */
+export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
+
+export function createBudgetedFetcher(budget: ExtraLibBudget, fetchImpl: typeof fetch): typeof fetch {
+	let inFlight = 0;
+	const waiting: Array<() => void> = [];
+	const acquireSlot = async (): Promise<void> => {
+		if (inFlight < MAX_CDN_REQUESTS_IN_FLIGHT) {
+			inFlight++;
+			return;
+		}
+		// The releasing request hands its slot straight over, so `inFlight` is unchanged.
+		await new Promise<void>((resolve) => waiting.push(resolve));
+	};
+	const releaseSlot = (): void => {
+		const next = waiting.shift();
+		if (next) {
+			next();
+		} else {
+			inFlight--;
+		}
+	};
+	return async (input, init) => {
+		await acquireSlot();
+		try {
+			if (budget.isSpent) {
+				return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
+			}
+			return await fetchImpl(input, init);
+		} finally {
+			releaseSlot();
+		}
+	};
+}
+
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
 		runnerPromise = import('@typescript/ata').then(({ setupTypeAcquisition }) => {
@@ -705,6 +745,7 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 			return setupTypeAcquisition({
 				projectName: 'Harper Application',
 				typescript: createImportScannerShim() as unknown as typeof import('typescript'),
+				fetcher: createBudgetedFetcher(extraLibBudget, (input, init) => fetch(input, init)),
 				delegate: {
 					receivedFile(code: string, path: string) {
 						if (acquiredPaths.has(path)) {

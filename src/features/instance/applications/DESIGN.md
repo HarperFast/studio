@@ -146,3 +146,13 @@ Callers await `mutateAsync` rather than reporting from `mutate()` callbacks, whi
 unmounts. Following a rollout keeps a deploy pending for up to 30 minutes, so its outcome often lands after the form
 or modal that started it is gone. A failure that lands while its progress panel or import form is still on screen is
 shown there only; one that lands later goes to a toast, with the deployment record when the failure named one.
+
+## Type acquisition stops at its budget
+
+The editor's type acquisition (`@typescript/ata`) asks jsDelivr for every declaration file in a package's tree at once,
+and it keeps reading the imports of files the extra-lib budget has already turned away. So the budget alone limits what
+reaches the language worker, not how much is downloaded: one large dependency graph took ~1,000 requests in two seconds,
+and the RUM SDK dropped events once its 20 MiB upload queue filled. Every acquisition request therefore goes through
+[`createBudgetedFetcher`](components/TextEditorView/harper-language/typeAcquisition.ts), which keeps at most
+`MAX_CDN_REQUESTS_IN_FLIGHT` on the network and answers anything still queued with a 503 once the budget is spent.
+A replacement for ata's fetch path has to keep both limits.
