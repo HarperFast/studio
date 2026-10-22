@@ -41,10 +41,22 @@ describe('admin section visibility', () => {
 		const withField = user('super_user', ['systemStatus:write', 'region:read', 'host:read', 'apiToken:create']);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual([
+			'Notifications',
+			'Regions',
+			'Hosts',
+			'Monitoring',
+			'Users',
+			'API Token',
+		]);
+	});
+
+	it('shows Users only to holders of user:status, not to every role that can read users', () => {
+		expect(labels(user('fabric_admin', ['user:read', 'user:status']))).toEqual(['Users']);
+		expect(labels(user('fabric_readonly', ['user:read']))).toEqual([]);
 	});
 });
