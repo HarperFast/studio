@@ -129,7 +129,6 @@ describe('HostsIndex', () => {
 		renderPage();
 		await waitFor(() => expect(screen.getByText('org-2 (Globex)')).toBeTruthy());
 		expect(screen.getByText('Shared')).toBeTruthy();
-		// org-1 only has instances on the shared host.
 		expect(screen.queryByText('org-1 (Acme)')).toBeNull();
 		expect(screen.getByText('GPU 1× nvidia-l4')).toBeTruthy();
 	});
@@ -147,12 +146,44 @@ describe('HostsIndex', () => {
 		expect(within(panel).getByText('10.0.0.7')).toBeTruthy();
 	});
 
-	it('opens the details from the host name for keyboard users', async () => {
+	it('opens the details from the host name button', async () => {
 		renderPage();
 		await act(async () => {
 			fireEvent.click(await screen.findByRole('button', { name: 'dedicated-1' }));
 		});
 		expect(within(screen.getByRole('dialog')).getByText('None.')).toBeTruthy();
+	});
+
+	it('keeps the panel on the clicked host while a filter change refetches without it', async () => {
+		renderPage();
+		await act(async () => {
+			fireEvent.click(await screen.findByText('h-shared'));
+		});
+		mockedGet.mockImplementation(async (url) => {
+			const path = url as string;
+			if (path.startsWith('/Admin/Organization/')) { return { data: ORGS } as never; }
+			if (path.startsWith('/Location/')) { return { data: [] } as never; }
+			return { data: HOSTS.filter((candidate) => candidate.id !== 'h-shared') } as never;
+		});
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Organization'), { target: { value: 'org-2' } });
+		});
+		await waitFor(() => expect(hostRequests()).toContain('/Admin/Host/?status=RUNNING&organizationId=org-2'));
+		await waitFor(() => expect(screen.queryByText('dedicated-1')).toBeTruthy());
+		expect(within(screen.getByRole('dialog')).getByText('shared-1')).toBeTruthy();
+	});
+
+	it('returns focus to the host name when the details close', async () => {
+		renderPage();
+		const button = await screen.findByRole('button', { name: 'shared-1' });
+		await act(async () => {
+			fireEvent.click(button);
+		});
+		await act(async () => {
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(document.activeElement).toBe(button);
 	});
 
 	it('shows the location code and provider, and a host id only when it differs from the name', async () => {
@@ -166,6 +197,7 @@ describe('HostsIndex', () => {
 		await screen.findByText('shared-1');
 		expect(screen.getAllByText('us-ord · linode')).toHaveLength(3);
 		expect(screen.queryByText('Chicago, Illinois, USA')).toBeNull();
+		expect(screen.getAllByText('25% of 8 cores')).toHaveLength(3);
 		expect(screen.getByText('h-shared')).toBeTruthy();
 		expect(screen.getAllByText('hos-same')).toHaveLength(1);
 		expect(screen.getByText('hos-same.example.com')).toBeTruthy();
@@ -269,6 +301,9 @@ describe('formatCpu / formatUsage', () => {
 		expect(formatCpu(-1, 4)).toBe('? of 4 cores');
 		expect(formatUsage(-1, 16384, 1024)).toBe('? / 16');
 		expect(formatUsage(8499.2, 16384, 1024)).toBe('8.3 / 16');
+		expect(formatUsage(5, -1)).toBe('—');
+		expect(formatUsage(5, 0)).toBe('—');
+		expect(formatCpu(1, -1)).toBe('—');
 	});
 });
 
