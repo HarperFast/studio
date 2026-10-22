@@ -4,14 +4,16 @@
 import { apiClient } from '@/config/apiClient';
 import {
 	describeUnresolvedOrganization,
+	formatCpu,
+	formatUsage,
 	hostMatchesSearch,
 	HostsIndex,
 	resolveOrganization,
 } from '@/features/admin/hosts/index';
 import type { AdminHost } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn() } }));
 const mockedGet = vi.mocked(apiClient.get);
@@ -99,6 +101,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+beforeAll(() => {
+	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 function renderPage() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
@@ -115,11 +125,50 @@ describe('HostsIndex', () => {
 		expect(hostRequests()).toEqual(['/Admin/Host/?status=RUNNING']);
 	});
 
-	it('labels tenant and dedicated organizations by name', async () => {
+	it('lists only the organizations a host is dedicated to, by name', async () => {
 		renderPage();
-		await waitFor(() => expect(screen.getByText('org-1 (Acme)')).toBeTruthy());
-		expect(screen.getByText('Dedicated to org-2 (Globex)')).toBeTruthy();
+		await waitFor(() => expect(screen.getByText('org-2 (Globex)')).toBeTruthy());
+		expect(screen.getByText('Shared')).toBeTruthy();
+		// org-1 only has instances on the shared host.
+		expect(screen.queryByText('org-1 (Acme)')).toBeNull();
 		expect(screen.getByText('GPU 1× nvidia-l4')).toBeTruthy();
+	});
+
+	it("opens a host's details from its row, with the organizations that have instances on it", async () => {
+		renderPage();
+		await screen.findByText('shared-1');
+		expect(screen.queryByRole('dialog')).toBeNull();
+		await act(async () => {
+			fireEvent.click(screen.getByText('h-shared'));
+		});
+		const panel = screen.getByRole('dialog');
+		expect(await within(panel).findByText('org-1 (Acme)')).toBeTruthy();
+		expect(within(panel).getByText('3 instances')).toBeTruthy();
+		expect(within(panel).getByText('10.0.0.7')).toBeTruthy();
+	});
+
+	it('opens the details from the host name for keyboard users', async () => {
+		renderPage();
+		await act(async () => {
+			fireEvent.click(await screen.findByRole('button', { name: 'dedicated-1' }));
+		});
+		expect(within(screen.getByRole('dialog')).getByText('None.')).toBeTruthy();
+	});
+
+	it('shows the location code and provider, and a host id only when it differs from the name', async () => {
+		mockedGet.mockImplementation(async (url) => {
+			const path = url as string;
+			if (path.startsWith('/Admin/Organization/')) { return { data: ORGS } as never; }
+			if (path.startsWith('/Location/')) { return { data: [] } as never; }
+			return { data: [...HOSTS, host({ id: 'hos-same', name: 'hos-same', fqdn: 'hos-same.example.com' })] } as never;
+		});
+		renderPage();
+		await screen.findByText('shared-1');
+		expect(screen.getAllByText('us-ord · linode')).toHaveLength(3);
+		expect(screen.queryByText('Chicago, Illinois, USA')).toBeNull();
+		expect(screen.getByText('h-shared')).toBeTruthy();
+		expect(screen.getAllByText('hos-same')).toHaveLength(1);
+		expect(screen.getByText('hos-same.example.com')).toBeTruthy();
 	});
 
 	it('narrows the rows client-side without another request', async () => {
@@ -205,6 +254,21 @@ describe('HostsIndex', () => {
 		failHosts = true;
 		renderPage();
 		expect(await screen.findByText("Couldn't load hosts.")).toBeTruthy();
+	});
+});
+
+describe('formatCpu / formatUsage', () => {
+	it('shows sampled CPU as a share of the host cores', () => {
+		expect(formatCpu(2, 8)).toBe('25% of 8 cores');
+		expect(formatCpu(0.1, 4)).toBe('3% of 4 cores');
+		expect(formatCpu(null, 4)).toBe('? of 4 cores');
+		expect(formatCpu(1, null)).toBe('—');
+	});
+
+	it('treats the -1 a host leaves for an unreported value as unknown', () => {
+		expect(formatCpu(-1, 4)).toBe('? of 4 cores');
+		expect(formatUsage(-1, 16384, 1024)).toBe('? / 16');
+		expect(formatUsage(8499.2, 16384, 1024)).toBe('8.3 / 16');
 	});
 });
 
