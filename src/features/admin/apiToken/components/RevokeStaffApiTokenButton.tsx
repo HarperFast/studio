@@ -1,6 +1,5 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRevokeApiTokenMutation } from '@/features/admin/apiToken/mutations/useRevokeApiToken';
 import { StaffApiToken } from '@/integrations/api/api.patch';
 import { BanIcon } from 'lucide-react';
@@ -39,19 +38,14 @@ export function RevokeStaffApiTokenButton({ token }: { token: StaffApiToken }) {
 			transitiveVerb="Revoke"
 			presentParticiple="Revoking"
 			trigger={
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							variant="destructiveGhost"
-							size="icon"
-							className="size-8 text-destructive/75 hover:text-destructive focus-visible:text-destructive"
-							aria-label={`Revoke ${token.name}`}
-						>
-							<BanIcon />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Revoke</TooltipContent>
-				</Tooltip>
+				<Button
+					variant="destructiveGhost"
+					size="sm"
+					className="text-destructive/80 hover:text-destructive focus-visible:text-destructive"
+					aria-label={`Revoke ${token.name}`}
+				>
+					<BanIcon /> Revoke
+				</Button>
 			}
 		/>
 	);
