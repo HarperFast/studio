@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
 	AdminHostFilters,
@@ -20,7 +21,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { AdminHost, HostStatus } from '@/integrations/api/api.patch';
 import { detectEntityId } from '@/lib/string/entityId';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 
 const ANY = 'any';
 const STATUS_OPTIONS: Array<{ value: HostStatusFilter; label: string }> = [
@@ -87,50 +88,134 @@ export function hostMatchesSearch(host: AdminHost, search: string): boolean {
 	);
 }
 
-function formatUsage(used: number | null, max: number | null, divisor = 1): string {
+// Central-manager stores -1 when a host's report left the value out.
+function reported(value: number | null): number | null {
+	return value != null && value >= 0 ? value : null;
+}
+
+export function formatUsage(used: number | null, max: number | null, divisor = 1): string {
 	if (max == null) { return '—'; }
 	const format = (value: number) => Number((value / divisor).toFixed(1)).toString();
-	return `${used == null ? '?' : format(used)} / ${format(max)}`;
+	const value = reported(used);
+	return `${value == null ? '?' : format(value)} / ${format(max)}`;
+}
+
+/** `usedCPUCores` is the cores busy during the host's last 100 ms sample, not an allocation. */
+export function formatCpu(used: number | null, max: number | null): string {
+	if (max == null || max <= 0) { return '—'; }
+	const value = reported(used);
+	return `${value == null ? '?' : `${Math.round((value / max) * 100)}%`} of ${max} cores`;
 }
 
 function HostOrganizations(
 	{ host, orgNameById }: { host: AdminHost; orgNameById: Map<string, string> },
 ) {
 	const dedicated = host.organizationIds ?? [];
-	if (dedicated.length === 0 && host.organizations.length === 0) {
-		return <span className="text-muted-foreground">—</span>;
-	}
+	if (dedicated.length === 0) { return <span className="text-muted-foreground">Shared</span>; }
 	return (
 		<div className="flex flex-col gap-0.5">
-			{dedicated.length > 0 && (
-				<span className="text-xs text-muted-foreground">
-					Dedicated to {dedicated.map((id) => formatOrgLabel(id, orgNameById.get(id))).join(', ')}
-				</span>
-			)}
-			{host.organizations.map((org) => (
-				<span key={org.id} className="break-words">
-					{formatOrgLabel(org.id, orgNameById.get(org.id))}
-					<span className="text-muted-foreground">{` · ${org.instanceCount}`}</span>
-				</span>
-			))}
+			{dedicated.map((id) => <span key={id}>{formatOrgLabel(id, orgNameById.get(id))}</span>)}
 		</div>
 	);
 }
 
-function HostFlags({ host }: { host: AdminHost }) {
+function hostFlags(host: AdminHost): string[] {
 	const flags: string[] = [];
 	if (host.gpu) {
 		flags.push(['GPU', host.gpuCount && `${host.gpuCount}×`, host.gpuType].filter(Boolean).join(' '));
 	}
-	if ((host.organizationIds ?? []).length > 0) { flags.push('Dedicated'); }
 	if (host.underMaintenance) { flags.push('Maintenance'); }
 	if (host.embedHub) { flags.push('Embed hub'); }
 	if (host.canaryHost) { flags.push('Canary'); }
+	return flags;
+}
+
+function HostFlags({ host }: { host: AdminHost }) {
+	const flags = hostFlags(host);
 	if (flags.length === 0) { return null; }
 	return (
 		<span className="flex flex-wrap gap-1">
 			{flags.map((flag) => <Badge key={flag} variant="secondary" className="text-[10px]">{flag}</Badge>)}
 		</span>
+	);
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+	return (
+		<div className="grid grid-cols-[9rem_1fr] gap-3 text-sm">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd className="min-w-0 break-words">{children}</dd>
+		</div>
+	);
+}
+
+function HostDetails(
+	{ host, orgNameById, onClose }: {
+		host: AdminHost | null;
+		orgNameById: Map<string, string>;
+		onClose: () => void;
+	},
+) {
+	return (
+		<Sheet open={host !== null} onOpenChange={(open) => !open && onClose()}>
+			<SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+				{host && (
+					<>
+						<SheetHeader>
+							<SheetTitle>{host.name}</SheetTitle>
+							<SheetDescription className="font-mono">{host.id}</SheetDescription>
+						</SheetHeader>
+						<dl className="flex flex-col gap-2 px-4">
+							<DetailRow label="Status">{host.status ?? '—'}</DetailRow>
+							<DetailRow label="FQDN">{host.fqdn ?? '—'}</DetailRow>
+							<DetailRow label="IP address">{host.ipAddress ?? '—'}</DetailRow>
+							<DetailRow label="Location">
+								{[host.locationName, [host.location, host.cloudProvider].filter(Boolean).join(' · ')]
+									.filter(Boolean)
+									.join(' — ') || host.locationId || '—'}
+							</DetailRow>
+							<DetailRow label="Regions">{host.regions.join(', ') || '—'}</DetailRow>
+							<DetailRow label="Cloud instance">
+								{[host.cloudInstanceType, host.cloudInstanceId].filter(Boolean).join(' · ') || '—'}
+							</DetailRow>
+							<DetailRow label="Organizations">
+								<HostOrganizations host={host} orgNameById={orgNameById} />
+							</DetailRow>
+							<DetailRow label="Dynamically assignable">
+								{host.dynamicallyAssignable == null ? '—' : host.dynamicallyAssignable ? 'Yes' : 'No'}
+							</DetailRow>
+							{hostFlags(host).length > 0 && (
+								<DetailRow label="Flags">
+									<HostFlags host={host} />
+								</DetailRow>
+							)}
+							<DetailRow label="CPU">{formatCpu(host.usedCPUCores, host.maxCPUCores)}</DetailRow>
+							<DetailRow label="Memory (GB)">{formatUsage(host.usedMemoryMb, host.maxMemoryMb, 1024)}</DetailRow>
+							<DetailRow label="Disk (GB)">{formatUsage(host.usedStorageGb, host.maxStorageGb)}</DetailRow>
+							<DetailRow label="Created">{host.createdAt ?? '—'}</DetailRow>
+							{host.terminatedAt && <DetailRow label="Terminated">{host.terminatedAt}</DetailRow>}
+						</dl>
+						<section className="px-4 pb-6">
+							<h3 className="mb-2 text-sm font-medium">Organizations with instances here</h3>
+							{host.organizations.length === 0
+								? <p className="text-sm text-muted-foreground">None.</p>
+								: (
+									<ul className="flex flex-col gap-1 text-sm">
+										{host.organizations.map((org) => (
+											<li key={org.id} className="flex justify-between gap-4">
+												<span className="min-w-0 break-words">{formatOrgLabel(org.id, orgNameById.get(org.id))}</span>
+												<span className="shrink-0 text-muted-foreground">
+													{org.instanceCount} {org.instanceCount === 1 ? 'instance' : 'instances'}
+												</span>
+											</li>
+										))}
+									</ul>
+								)}
+						</section>
+					</>
+				)}
+			</SheetContent>
+		</Sheet>
 	);
 }
 
@@ -141,6 +226,7 @@ export function HostsIndex() {
 	const [locationId, setLocationId] = useState(ANY);
 	const [region, setRegion] = useState(ANY);
 	const [search, setSearch] = useState('');
+	const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
 	const debouncedOrganizationText = useDebounce(organizationText, 300);
 
 	// The directory endpoint needs org:read, which this page's host:read does not imply.
@@ -187,6 +273,7 @@ export function HostsIndex() {
 		...getHostsQueryOptions(filters),
 		enabled: organizationProblem === null,
 	});
+	const selectedHost = hosts?.find((host) => host.id === selectedHostId) ?? null;
 	const visible = useMemo(
 		() => (search.trim() ? (hosts ?? []).filter((host) => hostMatchesSearch(host, search)) : hosts ?? []),
 		[hosts, search],
@@ -298,7 +385,7 @@ export function HostsIndex() {
 									: `${visible.length} of ${hosts?.length} hosts`}
 							</p>
 							<div className="overflow-x-auto">
-								<Table>
+								<Table className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3">
 									<TableHeader>
 										<TableRow>
 											<TableHead>Host</TableHead>
@@ -306,21 +393,40 @@ export function HostsIndex() {
 											<TableHead>Location</TableHead>
 											<TableHead>Organizations</TableHead>
 											<TableHead className="text-right">Instances</TableHead>
-											<TableHead className="text-right">CPU</TableHead>
+											<TableHead
+												className="text-right"
+												title="Share of the host's cores busy in its last heartbeat sample"
+											>
+												CPU
+											</TableHead>
 											<TableHead className="text-right">Memory (GB)</TableHead>
 											<TableHead className="text-right">Disk (GB)</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
 										{visible.map((host) => (
-											<TableRow key={host.id}>
+											<TableRow
+												key={host.id}
+												className="cursor-pointer hover:bg-muted/50"
+												onClick={() => setSelectedHostId(host.id)}
+											>
 												<TableCell>
 													<div className="flex flex-col gap-1">
-														<span className="font-medium">{host.name}</span>
-														<span className="font-mono text-xs text-muted-foreground">
-															{host.id}
-															{(host.fqdn ?? host.ipAddress) && ` · ${host.fqdn ?? host.ipAddress}`}
-														</span>
+														<button
+															type="button"
+															className="self-start text-left font-medium hover:underline"
+															onClick={() => setSelectedHostId(host.id)}
+														>
+															{host.name}
+														</button>
+														{host.id !== host.name && (
+															<span className="font-mono text-xs text-muted-foreground">{host.id}</span>
+														)}
+														{(host.fqdn ?? host.ipAddress) && (
+															<span className="font-mono text-xs text-muted-foreground">
+																{host.fqdn ?? host.ipAddress}
+															</span>
+														)}
 														<HostFlags host={host} />
 													</div>
 												</TableCell>
@@ -330,15 +436,8 @@ export function HostsIndex() {
 														: <span className="text-muted-foreground">—</span>}
 												</TableCell>
 												<TableCell>
-													{host.locationName
-														? (
-															<div className="flex flex-col">
-																<span>{host.locationName}</span>
-																<span className="text-xs text-muted-foreground">
-																	{[host.location, host.cloudProvider].filter(Boolean).join(' · ')}
-																</span>
-															</div>
-														)
+													{host.location
+														? [host.location, host.cloudProvider].filter(Boolean).join(' · ')
 														: <span className="text-muted-foreground">{host.locationId ?? '—'}</span>}
 												</TableCell>
 												<TableCell>
@@ -346,7 +445,7 @@ export function HostsIndex() {
 												</TableCell>
 												<TableCell className="text-right">{host.instanceCount}</TableCell>
 												<TableCell className="text-right whitespace-nowrap">
-													{formatUsage(host.usedCPUCores, host.maxCPUCores)}
+													{formatCpu(host.usedCPUCores, host.maxCPUCores)}
 												</TableCell>
 												<TableCell className="text-right whitespace-nowrap">
 													{formatUsage(host.usedMemoryMb, host.maxMemoryMb, 1024)}
@@ -362,6 +461,8 @@ export function HostsIndex() {
 						</>
 					)}
 			</div>
+
+			<HostDetails host={selectedHost} orgNameById={orgNameById} onClose={() => setSelectedHostId(null)} />
 		</div>
 	);
 }
