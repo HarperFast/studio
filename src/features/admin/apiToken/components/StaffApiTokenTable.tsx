@@ -67,7 +67,7 @@ function When({ value, now, relative = true }: { value: string | null; now: numb
 	}
 	return (
 		<div className="flex flex-col leading-tight">
-			<span className="whitespace-nowrap">{formatDay(value)}</span>
+			<span className="sm:whitespace-nowrap">{formatDay(value)}</span>
 			{relative && <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(value, now)}
 			</span>}
 		</div>
@@ -75,7 +75,9 @@ function When({ value, now, relative = true }: { value: string | null; now: numb
 }
 
 // Columns leave as the viewport narrows, least-read first; the owner folds under the token name
-// below `lg`. Token, Role, Expires, Status and the row menu always stay, so nothing scrolls sideways.
+// below `lg` and the role below `md`. Token, Expires, Status and the row menu always stay, so nothing
+// scrolls sideways.
+const ROLE_COLUMN = 'hidden md:table-cell';
 const OWNER_COLUMN = 'hidden lg:table-cell';
 const LAST_USED_COLUMN = 'hidden xl:table-cell';
 const CREATED_COLUMN = 'hidden 2xl:table-cell';
@@ -89,7 +91,7 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 					<TableRow className="hover:bg-transparent">
 						<TableHead>Token</TableHead>
 						<TableHead className={OWNER_COLUMN}>Owner</TableHead>
-						<TableHead>Role</TableHead>
+						<TableHead className={ROLE_COLUMN}>Role</TableHead>
 						<TableHead>Expires</TableHead>
 						<TableHead className={LAST_USED_COLUMN}>Last used</TableHead>
 						<TableHead className={CREATED_COLUMN}>Created</TableHead>
@@ -110,6 +112,9 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 										<span className="font-mono text-xs text-muted-foreground" title={token.id}>
 											{maskTokenId(token.id)}
 										</span>
+										<span className="md:hidden">
+											<RoleDot role={token.role} />
+										</span>
 										<div className="pt-1 lg:hidden">
 											<StaffUserCell userId={token.ownerUserId} self={self} muted={!live} />
 										</div>
@@ -118,7 +123,7 @@ export function StaffApiTokenTable({ tokens, self }: { tokens: StaffApiToken[]; 
 								<TableCell className={cn('py-2.5 whitespace-normal', OWNER_COLUMN)}>
 									<StaffUserCell userId={token.ownerUserId} self={self} muted={!live} />
 								</TableCell>
-								<TableCell className="py-2.5">
+								<TableCell className={cn('py-2.5', ROLE_COLUMN)}>
 									<RoleDot role={token.role} />
 								</TableCell>
 								<TableCell className="py-2.5 whitespace-normal">
