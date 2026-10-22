@@ -1,6 +1,5 @@
-// Central manager's staff-only `/Admin/User` endpoint, hand-typed: the generated SDK carries neither the membership
-// preview nor the deactivation result, so URLs are cast as elsewhere. The endpoint enforces every permission the page
-// gates on.
+// Central manager's staff-only `/Admin/User` endpoint. The generated SDK types the paths but not the membership preview
+// or the deactivation result, so those are hand-typed. The endpoint enforces every permission the page gates on.
 import { apiClient } from '@/config/apiClient';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -39,14 +38,20 @@ const userAdminQueryKey = ['fabric-admin', 'users'] as const;
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 async function findUser(email: string): Promise<AdminUser | null> {
-	const { data } = await apiClient.get(`${BASE}?email=${encodeURIComponent(email)}` as '/User/');
+	const { data } = await apiClient.get(`${BASE}?email=${encodeURIComponent(email)}` as '/Admin/User/');
 	const live = (data as unknown as Array<{ id: string; status?: string }>).filter((user) => user.status !== 'DELETED');
-	if (live.length > 1) { throw new Error(`More than one account uses ${email}.`); }
+	// The address stays out of error text: query errors reach the console, and from there RUM.
+	if (live.length > 1) { throw new Error('More than one live account uses this address.'); }
 	if (!live.length) { return null; }
 
 	const { data: user } = await apiClient.get(
-		`${BASE}${encodeURIComponent(live[0].id)}?previewMembershipRemoval=true` as '/User/{id}',
+		`${BASE}${encodeURIComponent(live[0].id)}?previewMembershipRemoval=true` as '/Admin/User/{id}',
 	);
+	// A central manager without the preview answers the plain record; refuse it rather than offer a deactivation
+	// whose effect can't be shown.
+	if (!Array.isArray((user as unknown as Partial<AdminUser>).organizations)) {
+		throw new Error('This central manager cannot preview organization memberships yet.');
+	}
 	return user as unknown as AdminUser;
 }
 
@@ -60,14 +65,14 @@ export function adminUserQueryOptions(email: string) {
 }
 
 /**
- * PATCH the status to DEACTIVATED. Failures toast through the global MutationCache handler, which already words an
- * unanswered write as "outcome unknown". Every settle refetches, because a failed answer can still be a committed write.
+ * Failures toast through the global MutationCache handler, which already words an unanswered write as "outcome
+ * unknown". Every settle refetches, because a failed answer can still be a committed write.
  */
 export function useDeactivateUserMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: async (userId: string) => {
-			const { data } = await apiClient.patch(`${BASE}${encodeURIComponent(userId)}` as '/User/{id}', {
+			const { data } = await apiClient.patch(`${BASE}${encodeURIComponent(userId)}` as '/Admin/User/{id}', {
 				status: 'DEACTIVATED',
 			});
 			return data as unknown as DeactivateUserResult;

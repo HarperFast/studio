@@ -67,8 +67,7 @@ describe('admin section visibility', () => {
 		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
 	});
 
-	// Reading users (every staff role) is not enough to see the Users page.
-	it('shows Users only to holders of user:status', () => {
+	it('shows Users only to holders of user:status, not to every role that can read users', () => {
 		expect(labels(user('fabric_admin', ['user:read', 'user:status']))).toEqual(['Users']);
 		expect(labels(user('fabric_readonly', ['user:read']))).toEqual([]);
 	});

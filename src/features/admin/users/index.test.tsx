@@ -146,4 +146,54 @@ describe('UsersAdminIndex', () => {
 		expect(await screen.findByText(/Already deactivated/)).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Deactivate' })).toBeTruthy();
 	});
+
+	it('keeps the result open when the refetch after deactivating fails', async () => {
+		renderPage();
+		await lookUp('pat@example.com');
+		await act(async () => {
+			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+		});
+		get.mockRejectedValue(new Error('network down'));
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
+		});
+
+		expect(await screen.findByText(/Could not refresh this account/)).toBeTruthy();
+		const done = screen.getByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('looks the same address up again when asked', async () => {
+		const answer = get.getMockImplementation()!;
+		get.mockRejectedValueOnce(new Error('timeout'));
+		renderPage();
+		await lookUp('pat@example.com');
+		expect(await screen.findByText('timeout')).toBeTruthy();
+
+		get.mockImplementation(answer);
+		await lookUp('pat@example.com');
+		expect(await screen.findByText('Pat Lee')).toBeTruthy();
+	});
+
+	it('refuses a central manager that answers without the preview', async () => {
+		const { organizations: _omitted, ...plainRecord } = user;
+		get.mockImplementation(async (url: string) =>
+			url.includes('?email=') ? { data: [{ id: 'usr-1', status: 'ACTIVE' }] } : { data: plainRecord }
+		);
+		renderPage();
+		await lookUp('pat@example.com');
+
+		expect(await screen.findByText(/cannot preview organization memberships/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+	});
+
+	it('keeps the address out of the duplicate-account error', async () => {
+		get.mockResolvedValueOnce({ data: [{ id: 'usr-1', status: 'ACTIVE' }, { id: 'usr-2', status: 'ACTIVE' }] });
+		renderPage();
+		await lookUp('pat@example.com');
+
+		const message = await screen.findByText(/More than one live account/);
+		expect(message.textContent).not.toContain('pat@example.com');
+	});
 });
