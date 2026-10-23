@@ -124,4 +124,19 @@ describe('ClustersList', () => {
 		render(<ClustersList />);
 		expect(screen.getByText('Replace /org-a/new-cluster')).toBeTruthy();
 	});
+
+	it('sends a draft saved while editing back to the edit form of that cluster (#1852)', () => {
+		state.clusters = [cluster('Production', 'RUNNING', 'US East'), cluster('Staging', 'RUNNING', 'US West')];
+		state.saved = { clusterId: 'Staging', clusterName: 'Staging', skipToBilling: true };
+		render(<ClustersList />);
+		expect(screen.getByText('Replace /org-a/Staging/edit')).toBeTruthy();
+	});
+
+	it('stays on the list for an edit draft of a cluster this organization does not have', () => {
+		state.clusters = [cluster('Production', 'RUNNING', 'US East')];
+		state.saved = { clusterId: 'clu-elsewhere', clusterName: 'Elsewhere', skipToBilling: true };
+		render(<ClustersList />);
+		expect(screen.queryByText(/^(Replace|Push) /)).toBeNull();
+		expect(screen.getByRole('article').textContent).toBe('Production');
+	});
 });
