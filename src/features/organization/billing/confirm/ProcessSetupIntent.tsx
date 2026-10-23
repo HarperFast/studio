@@ -32,7 +32,7 @@ export function ProcessSetupIntent() {
 				: '../../new-cluster'
 			: '../';
 		window.history.replaceState(null, '', currentUrlIncludingHash());
-		void navigate({ search: undefined, to });
+		void navigate({ search: undefined, to, replace: true });
 	}, [navigate, savedClusterState]);
 
 	useEffect(() => {
