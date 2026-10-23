@@ -76,6 +76,11 @@ describe(ClusterInstanceSignIn, () => {
 		expect(instanceClient.get).not.toHaveBeenCalled();
 	});
 
+	it('sends a cluster without a domain to its instances by absolute path', async () => {
+		await renderSignIn(clusterWith({ fqdn: undefined }));
+		expect(screen.getByText('redirected to /org-1/clu-1/instances')).toBeTruthy();
+	});
+
 	it('takes precedence over the setup redirect a terminated cluster can still carry', async () => {
 		await renderSignIn(clusterWith({ status: 'TERMINATED', resetPassword: true }));
 		expect(screen.getByRole('heading', { name: 'Cluster Terminated' })).toBeTruthy();
