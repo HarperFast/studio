@@ -91,7 +91,7 @@ const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
 
 /**
  * WebKit locates an inline `<script>` at the page's own URL (`https://host/:1:14`), and the inline
- * scripts that run on Studio's page are the tags GTM injects (#1762). Studio's own code always loads
+ * scripts that run on Studio's page are the tags GTM injects (#1762). Studio's bundles always load
  * from a script file, so such a frame counts for neither side.
  */
 const DOCUMENT_FRAME = /^https?:\/\/[^/\s]+\/(?:index\.html)?(?:[?#]\S*)?:\d+:\d+$/;
