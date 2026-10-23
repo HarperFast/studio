@@ -90,6 +90,13 @@ const NESTED_ORIGIN_PREFIX = /^blob:/;
 const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
 
 /**
+ * WebKit locates an inline `<script>` at the page's own URL (`https://host/:1:14`), and the inline
+ * scripts that run on Studio's page are the tags GTM injects (#1762). Studio's own code always loads
+ * from a script file, so such a frame counts for neither side.
+ */
+const DOCUMENT_FRAME = /^https?:\/\/[^/\s]+\/(?:index\.html)?(?:[?#]\S*)?:\d+:\d+$/;
+
+/**
  * True when the stack carries at least one frame that is provably not ours — a third-party
  * script, a browser extension, or a position inside evaluated code — and none that is, i.e. no
  * Studio code is on the stack at all. Frames the browser left unattributable in any other way
@@ -108,7 +115,7 @@ function originatesInThirdPartyScript(stack: string, type: string | undefined, m
 		}
 		if (THIRD_PARTY_SCRIPT_FRAME.test(url) || BROWSER_EXTENSION_FRAME.test(url)) {
 			sawForeignFrame = true;
-		} else if (!INSTRUMENTATION_FRAME.test(url)) {
+		} else if (!INSTRUMENTATION_FRAME.test(url) && !DOCUMENT_FRAME.test(url)) {
 			// Studio code is on the stack, so the error is ours to answer for.
 			return false;
 		}

@@ -365,6 +365,52 @@ describe('shouldKeepEvent', () => {
 			).toBe(false);
 		});
 
+		// WebKit locates the inline tag at the page URL and shows the guard as native code (#1762).
+		it('discards the WebKit shape', () => {
+			expect(
+				shouldKeepEvent(
+					lintrk('  at insertBefore @ [native code]', '  at global code @ https://fabric.harper.fast/:1:14'),
+				),
+			).toBe(false);
+		});
+
+		it('discards a Reo error whose only other frame is the GTM inline callback', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						type: 'TypeError',
+						source: 'source',
+						message: 'undefined is not a constructor',
+						stack: [
+							'TypeError: undefined is not a constructor',
+							'  at Kt @ https://static.reo.dev/abc123/reo.js:1:9010',
+							'  at c @ https://fabric.harper.fast/:1:68',
+						].join('\r\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps a page-URL frame with no foreign frame beside it', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: ['TypeError: Boom', '  at global code @ https://fabric.harper.fast/:12:3'].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it.each([
+			'https://fabric.harper.fast/assets/index-BmfggGwq.js:5:1234',
+			'https://fabric.harper.fast/src/main.tsx:5:12',
+			'https://fabric.harper.fast/index.html.js:1:1',
+			'blob:https://fabric.harper.fast/0d6c2c38-6d8e-4b0e-9a57-1b2b1f0f9e11:1:1',
+		])('keeps a GTM stack that also holds a Studio script frame (%s)', (studioFrame) => {
+			expect(shouldKeepEvent(lintrk('  at insertBefore @ [native code]', `  at useGTM @ ${studioFrame}`))).toBe(true);
+		});
+
 		// The neutral frame is what the build placement buys: in the app entry it is a Studio frame.
 		it('keeps the same stack while the guard is built into the app entry', () => {
 			expect(
