@@ -366,11 +366,12 @@ describe('shouldKeepEvent', () => {
 		});
 
 		// WebKit locates the inline tag at the page URL and shows the guard as native code (#1762).
-		it('discards the WebKit shape', () => {
+		it.each([
+			'https://fabric.harper.fast/:1:14',
+			'https://fabric.harper.fast/index.html#/sign-in:1:14',
+		])('discards the WebKit shape (%s)', (pageFrame) => {
 			expect(
-				shouldKeepEvent(
-					lintrk('  at insertBefore @ [native code]', '  at global code @ https://fabric.harper.fast/:1:14'),
-				),
+				shouldKeepEvent(lintrk('  at insertBefore @ [native code]', `  at global code @ ${pageFrame}`)),
 			).toBe(false);
 		});
 
