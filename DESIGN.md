@@ -109,6 +109,10 @@ Offering a lower pinned version changes what a mixed-version cluster means. Befo
 
 Central manager only ever sends the boolean, never the other organizations' ids; a missing flag reads as global, so an older central manager leaves the picker exactly as it was.
 
+## The notification banner floats over the page
+
+[`NotificationBanner`](src/components/NotificationBanner.tsx) is fixed to the viewport bottom, so it covers whatever is pinned there. While it shows, it sets `--notification-banner-height` on `<html>` to its measured height (it wraps and stacks), and clears it when the last notice is dismissed. A layout sized to the viewport bottom subtracts `var(--notification-banner-height, 0px)`, as [`SectionRail.css`](src/components/SectionRail.css) does. The full-height database, applications and logs panes don't yet, and are covered until the notice is dismissed.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.

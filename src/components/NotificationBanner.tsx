@@ -6,6 +6,8 @@ import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { XIcon } from 'lucide-react';
 
+export const BANNER_HEIGHT_VAR = '--notification-banner-height';
+
 /**
  * Full-width banner for active, un-acknowledged notifications — the "hey, look at me" surface for
  * system-wide notices (#1259). Dismissing a strip acknowledges it (localStorage), so it drops from
@@ -14,6 +16,8 @@ import { XIcon } from 'lucide-react';
  * Anchored to the bottom of the viewport: Studio's chrome hardcodes the top band (fixed header at
  * top-0, sub-nav bars at top-20, page content at mt-32), so a top banner would require offsetting
  * every page. A bottom bar is robust on every route and never hides the primary navigation.
+ *
+ * Opaque under the severity tint, which is translucent and would let the page's text show through.
  */
 export function NotificationBanner() {
 	const unacked = useUnackedActiveNotifications();
@@ -23,15 +27,42 @@ export function NotificationBanner() {
 	const hasCritical = unacked.some((notification) => getSeverity(notification.type) === 'critical');
 
 	return (
-		<div
-			role="region"
-			aria-label="System notifications"
-			aria-live={hasCritical ? 'assertive' : 'polite'}
-			className="fixed inset-x-0 bottom-0 z-50 flex flex-col shadow-[0_-2px_12px_rgba(0,0,0,0.12)]"
-		>
-			{unacked.map((notification) => <BannerStrip key={notification.id} notification={notification} />)}
-		</div>
+		<>
+			{/* Reserves the banner's height at the end of the page, so a long page can scroll clear of it. */}
+			<div aria-hidden="true" className="h-(--notification-banner-height)" />
+			<div
+				ref={publishBannerHeight}
+				role="region"
+				aria-label="System notifications"
+				aria-live={hasCritical ? 'assertive' : 'polite'}
+				className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-background shadow-[0_-2px_12px_rgba(0,0,0,0.12)]"
+			>
+				{unacked.map((notification) => <BannerStrip key={notification.id} notification={notification} />)}
+			</div>
+		</>
 	);
+}
+
+/**
+ * Module-level so the ref identity is stable: React runs it on mount and its cleanup on unmount, and
+ * the observer follows the wrapping and stacking in between.
+ */
+function publishBannerHeight(region: HTMLDivElement | null) {
+	if (!region) { return; }
+	const root = document.documentElement;
+	let published = -1;
+	const update = () => {
+		if (region.offsetHeight === published) { return; }
+		published = region.offsetHeight;
+		root.style.setProperty(BANNER_HEIGHT_VAR, `${published}px`);
+	};
+	update();
+	const observer = new ResizeObserver(update);
+	observer.observe(region);
+	return () => {
+		observer.disconnect();
+		root.style.removeProperty(BANNER_HEIGHT_VAR);
+	};
 }
 
 function BannerStrip({ notification }: { notification: SystemStatusNotification }) {
