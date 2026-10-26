@@ -101,10 +101,11 @@ export function userDetailsQueryOptions(userId: string) {
 export function useDeactivateUserMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async (userId: string) => {
-			const { data } = await apiClient.patch(`${BASE}${encodeURIComponent(userId)}` as '/Admin/User/{id}', {
-				status: 'DEACTIVATED',
-			});
+		mutationFn: async ({ userId, removeMemberships }: { userId: string; removeMemberships: boolean }) => {
+			const { data } = await apiClient.patch(
+				`${BASE}${encodeURIComponent(userId)}` as '/Admin/User/{id}',
+				removeMemberships ? { status: 'DEACTIVATED' } : { status: 'DEACTIVATED', removeMemberships: false },
+			);
 			const result = data as unknown as Partial<DeactivateUserResult> | undefined;
 			return {
 				removedFrom: Array.isArray(result?.removedFrom) ? result.removedFrom : null,

@@ -118,6 +118,10 @@ test('deactivating confirms the split, then shows what the server did', async ({
 	await expect(dialog.getByText('Will stay in, as the last admin')).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Deactivate' })).toBeDisabled();
 	await page.screenshot({ path: testInfo.outputPath('users-confirm.png'), animations: 'disabled' });
+	await dialog.getByRole('radio', { name: /Only deactivate/ }).click();
+	await expect(dialog.getByText('They stay a member of all 4 organizations.')).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath('users-confirm-status-only.png'), animations: 'disabled' });
+	await dialog.getByRole('radio', { name: /leave organizations/ }).click();
 	await dialog.getByLabel(`Type ${pat.email} to confirm`).fill(pat.email);
 	await expect(dialog.getByRole('button', { name: 'Deactivate' })).toBeEnabled();
 

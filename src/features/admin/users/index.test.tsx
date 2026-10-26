@@ -427,6 +427,48 @@ describe('admin users', () => {
 		expect(await screen.findByText('User deactivated')).toBeTruthy();
 	});
 
+	it('can only deactivate, leaving every membership in place', async () => {
+		patch.mockResolvedValueOnce({
+			data: { id: 'usr-1', status: 'DEACTIVATED', removedFrom: [], retainedIn: [] },
+		});
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		expect(within(dialog).queryByText('Will be removed from')).toBeNull();
+		expect(within(dialog).getByText('They stay a member of all 2 organizations.')).toBeTruthy();
+
+		await confirmInDialog();
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED', removeMemberships: false });
+		const done = await screen.findByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(done).getByText('Every membership was left in place.')).toBeTruthy();
+	});
+
+	it('shows what the server removed even when only deactivating was asked', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		const done = await screen.findByRole('dialog');
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('offers no status-only choice for an account that is already deactivated', async () => {
+		user.status = 'DEACTIVATED';
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+
+		expect(within(screen.getByRole('dialog')).queryByRole('radio')).toBeNull();
+		expect(within(screen.getByRole('dialog')).getByText('Will be removed from')).toBeTruthy();
+	});
+
 	it('closes the confirm dialog when the PATCH fails', async () => {
 		patch.mockRejectedValueOnce(new Error('no answer'));
 		await renderAt('/admin/users/usr-1');

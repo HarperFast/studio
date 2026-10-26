@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { organizationLabel } from '@/features/admin/users/components/OrganizationCard';
 import {
 	AdminUser,
@@ -32,10 +33,16 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 	const kept = user.organizations.filter((membership) => membership.lastAdmin);
 	const [typedEmail, setTypedEmail] = useState('');
 	const confirmed = normalizeEmail(typedEmail) === normalizeEmail(user.email);
+	// Deactivating an account again only exists to remove what it can still leave.
+	const offerStatusOnly = user.status !== 'DEACTIVATED';
+	const [mode, setMode] = useState<'leave' | 'statusOnly'>('leave');
 
 	const deactivate = () => {
 		if (!confirmed || mutation.isPending) { return; }
-		mutation.mutate(user.id, { onSuccess: setResult, onError: onClose });
+		mutation.mutate({ userId: user.id, removeMemberships: mode === 'leave' }, {
+			onSuccess: setResult,
+			onError: onClose,
+		});
 	};
 
 	return (
@@ -51,21 +58,57 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 				</DialogHeader>
 
 				{result
-					? (
-						<div className="grid gap-3 sm:grid-cols-2">
-							<MembershipList tone="leave" title="Removed from" memberships={result.removedFrom} />
-							<MembershipList tone="stay" title="Kept in, as the last admin" memberships={result.retainedIn} />
-						</div>
-					)
-					: (
-						<div className="space-y-3">
-							<div className="grid gap-3 sm:grid-cols-2">
-								<MembershipList tone="leave" title="Will be removed from" memberships={removed} />
-								<MembershipList tone="stay" title="Will stay in, as the last admin" memberships={kept} />
-							</div>
-							<p className="text-xs text-muted-foreground">
-								This preview can change before you confirm; the result lists what actually happened.
+					? mode === 'statusOnly' && !result.removedFrom?.length
+						? (
+							<p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+								Every membership was left in place.
 							</p>
+						)
+						: (
+							<div className="grid gap-3 sm:grid-cols-2">
+								<MembershipList tone="leave" title="Removed from" memberships={result.removedFrom} />
+								<MembershipList tone="stay" title="Kept in, as the last admin" memberships={result.retainedIn} />
+							</div>
+						)
+					: (
+						<div className="space-y-4">
+							{offerStatusOnly && (
+								<RadioGroup
+									value={mode}
+									onValueChange={(value) => setMode(value as typeof mode)}
+									aria-label="What to deactivate"
+								>
+									<Choice
+										value="leave"
+										label="Deactivate and leave organizations"
+										detail="Also removes them from every organization that keeps another admin who can sign in."
+									/>
+									<Choice
+										value="statusOnly"
+										label="Only deactivate"
+										detail="Sets the status and ends sessions; every membership stays."
+									/>
+								</RadioGroup>
+							)}
+							{mode === 'leave'
+								? (
+									<>
+										<div className="grid gap-3 sm:grid-cols-2">
+											<MembershipList tone="leave" title="Will be removed from" memberships={removed} />
+											<MembershipList tone="stay" title="Will stay in, as the last admin" memberships={kept} />
+										</div>
+										<p className="text-xs text-muted-foreground">
+											This preview can change before you confirm; the result lists what actually happened.
+										</p>
+									</>
+								)
+								: (
+									<p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+										{user.organizations.length === 1
+											? 'They stay a member of their 1 organization.'
+											: `They stay a member of all ${user.organizations.length} organizations.`}
+									</p>
+								)}
 							<div className="space-y-2 pt-1">
 								<Label htmlFor="deactivate-confirm-email" className="block font-normal">
 									Type <span className="font-mono font-medium">{user.email}</span> to confirm
@@ -128,6 +171,19 @@ function MembershipList({ tone, title, memberships }: {
 					</ul>
 				)
 				: <p className="mt-2 text-muted-foreground">No organization.</p>}
+		</div>
+	);
+}
+
+function Choice({ value, label, detail }: { value: string; label: string; detail: string }) {
+	const id = `deactivate-choice-${value}`;
+	return (
+		<div className="flex items-start gap-3">
+			<RadioGroupItem id={id} value={value} className="mt-1" />
+			<Label htmlFor={id} className="block font-normal leading-snug">
+				<span className="block font-medium">{label}</span>
+				<span className="block text-sm text-muted-foreground">{detail}</span>
+			</Label>
 		</div>
 	);
 }
