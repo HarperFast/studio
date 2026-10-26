@@ -38,7 +38,7 @@ describe('prefillFromGrant', () => {
 		expect(result?.otherPlanIds).toEqual([DEDICATED.id]);
 	});
 
-	it('resolves a dedicated plan against the dedicated region list', () => {
+	it('prefills a dedicated plan with its deployment and region id', () => {
 		expect(prefill(shape([DEDICATED.id, 'us-ded']))).toMatchObject({
 			deploymentDescription: 'Dedicated',
 			performanceDescription: 'High',
@@ -46,10 +46,9 @@ describe('prefillFromGrant', () => {
 		});
 	});
 
-	it('still names a region the plan cannot be placed in today, from the other list', () => {
-		// The colocated list is only the regions with a colocated host right now; a comp may name one
-		// without. The rows must show the grant's region (the picker reports it as unavailable)
-		// rather than keep the previous grant's rows.
+	it('keeps a region the plan cannot be placed in today', () => {
+		// A comp may name a region with no host today. The rows show it (the picker reports it as
+		// unavailable) rather than keep the previous grant's rows.
 		const result = prefillFromGrant({ shape: shape([LEVEL_1.id, 'us-ded']) }, PLANS);
 		expect(result?.regionPlans).toEqual([{ regionId: 'us-ded' }]);
 	});

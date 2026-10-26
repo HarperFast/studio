@@ -22,9 +22,10 @@ const orgRegion: OrganizationRegion = {
 
 const range = { min: 0, max: 1 };
 
-function Harness({ organizationRegions, canUseCustomRegions }: {
+function Harness({ organizationRegions, canUseCustomRegions, grantRegionIds }: {
 	organizationRegions: OrganizationRegion[];
 	canUseCustomRegions: boolean;
+	grantRegionIds?: string[];
 }) {
 	const form = useForm<UpsertClusterSchemaType>({
 		defaultValues: {
@@ -41,6 +42,7 @@ function Harness({ organizationRegions, canUseCustomRegions }: {
 			<ClusterRegions
 				form={form}
 				regionLocations={[]}
+				grantRegionIds={grantRegionIds}
 				regionLookup={buildRegionLookup([], organizationRegions, undefined)}
 				regionNameToLatencyToRegion={{}}
 				premiumOnlyRegions={{ regionNames: new Set(), regionIds: new Set() }}
@@ -75,5 +77,15 @@ describe('ClusterRegions with an empty catalog', () => {
 	it('says no regions are available when no custom region can stand in', () => {
 		renderRegions({ organizationRegions: [orgRegion], canUseCustomRegions: false });
 		expect(screen.getByText('No Regions Available')).toBeTruthy();
+	});
+
+	it("offers no custom region outside a voucher's regions", () => {
+		renderRegions({ organizationRegions: [orgRegion], canUseCustomRegions: true, grantRegionIds: ['us-1'] });
+		expect(screen.getByText('No Regions Available')).toBeTruthy();
+	});
+
+	it('offers a custom region the voucher lists', () => {
+		renderRegions({ organizationRegions: [orgRegion], canUseCustomRegions: true, grantRegionIds: ['oreg-1'] });
+		expect(screen.queryByText('No Regions Available')).toBeNull();
 	});
 });

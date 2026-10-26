@@ -49,7 +49,8 @@ type RegionFormInputsProps = {
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
-	organizationId: string;
+	/** A trial voucher's region allow-list. It bounds custom regions too, unlike the plan's catalog list. */
+	grantRegionIds?: string[] | null;
 	canUseCustomRegions: boolean;
 	lockedOrganizationRegionIds: string[];
 	/** Every row's region id, this row's included; a custom region already on another row cannot be picked twice. */
@@ -113,6 +114,7 @@ export function RegionFormInputs({
 	selectedPlan,
 	isEnterprise,
 	cloudProvider,
+	grantRegionIds,
 	canUseCustomRegions,
 	lockedOrganizationRegionIds,
 	selectedRegionIds,
@@ -238,8 +240,13 @@ export function RegionFormInputs({
 												const onAnotherRow = region.id !== entryRegionId && selectedRegionIds.includes(region.id);
 												// Listed rather than hidden, so a region placed on the other provider is explained, not lost.
 												const noDatacenters = region.instanceCount === 0;
+												const outsideVoucher = !!grantRegionIds && !grantRegionIds.includes(region.id);
 												return (
-													<SelectItem key={region.id} value={region.id} disabled={onAnotherRow || noDatacenters}>
+													<SelectItem
+														key={region.id}
+														value={region.id}
+														disabled={onAnotherRow || noDatacenters || outsideVoucher}
+													>
 														<span className="flex items-center gap-2">
 															{region.name}
 															<Badge variant="secondary">Custom</Badge>
@@ -247,6 +254,11 @@ export function RegionFormInputs({
 															{noDatacenters && (
 																<span className="text-xs text-muted-foreground">
 																	lists no {cloudProvider === 'linode' ? 'Linode' : 'GCP'} datacenters
+																</span>
+															)}
+															{outsideVoucher && (
+																<span className="text-xs text-muted-foreground">
+																	not covered by the selected voucher
 																</span>
 															)}
 															{onAnotherRow && (

@@ -23,6 +23,8 @@ interface ClusterRegionsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	/** Regions a row may pick; the rest are shown but cannot be chosen or added. */
 	allowedRegionIds?: string[];
+	/** A trial voucher's region allow-list. It bounds custom regions too, unlike the plan's catalog list. */
+	grantRegionIds?: string[] | null;
 	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	premiumOnlyRegions: PremiumOnlyRegions;
@@ -44,6 +46,7 @@ export function ClusterRegions({
 	form,
 	regionLocations,
 	allowedRegionIds,
+	grantRegionIds,
 	regionLookup,
 	regionNameToLatencyToRegion,
 	premiumOnlyRegions,
@@ -85,14 +88,23 @@ export function ClusterRegions({
 			for (const region of regionLookup.values()) {
 				if (
 					region.kind === 'organization' && region.active && region.instanceCount > 0
-					&& !selectedCohorts.has(region.id)
+					&& !selectedCohorts.has(region.id) && (!grantRegionIds || grantRegionIds.includes(region.id))
 				) {
 					return { regionId: region.id, quantity: 1 };
 				}
 			}
 		}
 		return null;
-	}, [allowedRegionIds, canUseCustomRegions, disabled, regionLocations, regionLookup, selectedRegionPlans, totalPrice]);
+	}, [
+		allowedRegionIds,
+		canUseCustomRegions,
+		disabled,
+		grantRegionIds,
+		regionLocations,
+		regionLookup,
+		selectedRegionPlans,
+		totalPrice,
+	]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {
@@ -112,6 +124,7 @@ export function ClusterRegions({
 		|| (canUseCustomRegions
 			&& [...regionLookup.values()].some(region =>
 				region.kind === 'organization' && region.active && region.instanceCount > 0
+				&& (!grantRegionIds || grantRegionIds.includes(region.id))
 			));
 	if (!regionLocations?.length && !offersCustomRegion) {
 		return (
@@ -151,7 +164,7 @@ export function ClusterRegions({
 					selectedPlan={selectedPlan}
 					isEnterprise={isEnterprise}
 					cloudProvider={cloudProvider}
-					organizationId={organizationId}
+					grantRegionIds={grantRegionIds}
 					canUseCustomRegions={canUseCustomRegions}
 					lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 					selectedRegionIds={selectedRegionPlans.map(entry => entry.regionId)}
