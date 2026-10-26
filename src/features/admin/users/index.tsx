@@ -1,48 +1,66 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { findUserIdByEmail, normalizeEmail, userDetailsQueryKey } from '@/features/admin/users/userAdminApi';
+import {
+	DuplicateAccountError,
+	findUserIdByEmail,
+	normalizeEmail,
+	userDetailsQueryKey,
+} from '@/features/admin/users/userAdminApi';
 import { detectEntityId } from '@/lib/string/entityId';
+import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Lookup = { state: 'idle' | 'searching' } | { state: 'notFound'; email: string } | {
 	state: 'failed';
 	message: string;
 };
 
-/** The search stays above whichever account is open, so the next lookup is one step away. */
 export function UsersAdminLayout() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [input, setInput] = useState('');
 	const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
+	// Bumped by each lookup and on unmount, so an email lookup that resolves after either is dropped.
+	const latestLookup = useRef(0);
+	useEffect(() => () => {
+		latestLookup.current++;
+	}, []);
 
-	const lookUp = async (event: FormEvent) => {
-		event.preventDefault();
-		const pasted = detectEntityId(input);
-		let userId = pasted?.kind === 'user' ? pasted.id : null;
-		if (!userId) {
-			const email = normalizeEmail(input);
-			setLookup({ state: 'searching' });
-			try {
-				userId = await findUserIdByEmail(email);
-			} catch (error) {
-				setLookup({ state: 'failed', message: (error as Error)?.message || 'Could not look up that address.' });
-				return;
-			}
-			if (!userId) {
-				setLookup({ state: 'notFound', email });
-				void navigate({ to: '/admin/users' });
-				return;
-			}
-		}
+	const open = (userId: string) => {
 		setLookup({ state: 'idle' });
 		// Looking up the account already open refreshes it rather than doing nothing.
 		void queryClient.invalidateQueries({ queryKey: userDetailsQueryKey(userId) });
-		// Only the id reaches the URL: addresses must stay out of the page URL that RUM and third-party pixels read.
 		void navigate({ to: '/admin/users/$userId', params: { userId } });
+	};
+
+	const lookUp = async (event: FormEvent) => {
+		event.preventDefault();
+		const thisLookup = ++latestLookup.current;
+		const pasted = detectEntityId(input);
+		if (pasted?.kind === 'user') {
+			open(pasted.id);
+			return;
+		}
+
+		setLookup({ state: 'searching' });
+		let result: string | Lookup;
+		try {
+			result = (await findUserIdByEmail(input)) ?? { state: 'notFound', email: normalizeEmail(input) };
+		} catch (error) {
+			if (!(error instanceof DuplicateAccountError)) { console.error(error); }
+			result = { state: 'failed', message: describeError(error).message };
+		}
+		if (thisLookup !== latestLookup.current) { return; }
+		if (typeof result === 'string') {
+			open(result);
+			return;
+		}
+		setLookup(result);
+		// Close the open account, so the message never sits above someone else's Deactivate button.
+		void navigate({ to: '/admin/users' });
 	};
 
 	return (

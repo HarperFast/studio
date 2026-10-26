@@ -64,6 +64,8 @@ function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: ()
 	const name = [user.firstname, user.lastname].filter(Boolean).join(' ');
 	const removable = user.organizations.filter((membership) => !membership.lastAdmin);
 	const deactivated = user.status === 'DEACTIVATED';
+	// Central manager answers a status change on a deleted account with 404.
+	const deleted = user.status === 'DELETED';
 	const clusterCount = user.organizations.reduce((total, membership) => total + membership.clusters.length, 0);
 
 	return (
@@ -75,7 +77,7 @@ function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: ()
 						<span className="block truncate text-sm text-muted-foreground">{user.email}</span>
 						<span className="block truncate font-mono text-xs text-muted-foreground">{user.id}</span>
 					</div>
-					<Badge variant={deactivated ? 'destructive' : 'outline'}>{user.status ?? 'unknown'}</Badge>
+					<Badge variant={deactivated || deleted ? 'destructive' : 'outline'}>{user.status ?? 'unknown'}</Badge>
 				</div>
 				<dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
 					<Fact label="Created" value={formatTime(user.createdAt)} />
@@ -93,7 +95,7 @@ function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: ()
 					? (
 						<ul className="mt-2 space-y-3">
 							{user.organizations.map((membership) => (
-								<MembershipCard key={membership.organizationId} membership={membership} />
+								<MembershipCard key={membership.organizationId} membership={membership} marked={!deleted} />
 							))}
 						</ul>
 					)
@@ -107,7 +109,9 @@ function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: ()
 					another admin who can sign in; where it is the last one, its membership stays so the organization is never
 					left without an admin.
 				</p>
-				{deactivated && !removable.length
+				{deleted
+					? <p className="text-sm text-muted-foreground">This account is deleted, so it cannot be deactivated.</p>
+					: deactivated && !removable.length
 					? <p className="text-sm text-muted-foreground">Deactivated, and in no organization it could leave.</p>
 					: (
 						<div className="flex items-center justify-end gap-3">
@@ -136,7 +140,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 const clusterStatusVariant = (status: string | null) =>
 	status === 'RUNNING' ? 'success' : status === 'FAILED' ? 'destructive' : 'outline';
 
-function MembershipCard({ membership }: { membership: MembershipDetails }) {
+function MembershipCard({ membership, marked }: { membership: MembershipDetails; marked: boolean }) {
 	const { organizationId } = membership;
 	return (
 		<li className="rounded-md border">
@@ -147,9 +151,9 @@ function MembershipCard({ membership }: { membership: MembershipDetails }) {
 					</Link>
 					<span className="block truncate text-xs text-muted-foreground">{membership.roleNames.join(', ')}</span>
 				</span>
-				{membership.lastAdmin
+				{marked && (membership.lastAdmin
 					? <Badge variant="warning">Kept: last admin</Badge>
-					: <Badge variant="outline">Removed on deactivation</Badge>}
+					: <Badge variant="outline">Removed on deactivation</Badge>)}
 			</div>
 			{membership.clusters.length
 				? (
@@ -231,7 +235,6 @@ function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: () => v
 								<Button
 									variant="destructive"
 									disabled={mutation.isPending}
-									// On failure the toast reports the outcome, and the refetch tries to show the account as it now is.
 									onClick={() => mutation.mutate(user.id, { onSuccess: setResult, onError: onClose })}
 								>
 									{mutation.isPending ? 'Deactivating…' : 'Deactivate'}

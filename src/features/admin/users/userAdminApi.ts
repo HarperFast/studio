@@ -9,7 +9,7 @@ export interface OrganizationMembership {
 	roleNames: string[];
 }
 
-export interface AdminCluster {
+interface AdminCluster {
 	id: string;
 	name: string;
 	status: string | null;
@@ -52,15 +52,19 @@ export const userDetailsQueryKey = (userId: string) => [...userAdminQueryKey, us
 /** Matches how central manager stores addresses, so the exact-match lookup finds mixed-case input. */
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-/**
- * The id of the one live account using `email`, or null when none does. Callers never send a blank address: the
- * endpoint would answer every user instead of a match.
- */
+/** An answer about the data, not a failure, so it is not reported. */
+export class DuplicateAccountError extends Error {}
+
+/** The id of the one live account using `email`, or null when none does. */
 export async function findUserIdByEmail(email: string): Promise<string | null> {
-	const { data } = await apiClient.get(`${BASE}?email=${encodeURIComponent(email)}` as '/Admin/User/');
-	const live = (data as unknown as Array<{ id: string; status?: string }>).filter((user) => user.status !== 'DELETED');
+	const address = normalizeEmail(email);
+	// A blank address would match every user rather than none.
+	if (!address) { throw new Error('Enter an address to look up.'); }
+	const { data } = await apiClient.get(`${BASE}?email=${encodeURIComponent(address)}` as '/Admin/User/');
+	if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of accounts.'); }
+	const live = (data as Array<{ id: string; status?: string }>).filter((user) => user.status !== 'DELETED');
 	// The address stays out of error text: errors reach the console, and from there RUM.
-	if (live.length > 1) { throw new Error('More than one live account uses this address.'); }
+	if (live.length > 1) { throw new DuplicateAccountError('More than one live account uses this address.'); }
 	return live[0]?.id ?? null;
 }
 
@@ -75,7 +79,10 @@ async function getUserDetails(userId: string): Promise<AdminUser | null> {
 	// A central manager without the details view answers the plain record; refuse it rather than offer a deactivation
 	// whose effect can't be shown.
 	const organizations = (data as Partial<AdminUser> | undefined)?.organizations;
-	if (!Array.isArray(organizations) || organizations.some((membership) => !Array.isArray(membership.clusters))) {
+	if (
+		!Array.isArray(organizations)
+		|| organizations.some((membership) => !Array.isArray(membership.clusters) || !Array.isArray(membership.roleNames))
+	) {
 		throw new Error('This central manager cannot show user details yet.');
 	}
 	return data as AdminUser;
@@ -105,6 +112,9 @@ export function useDeactivateUserMutation() {
 				retainedIn: Array.isArray(result?.retainedIn) ? result.retainedIn : null,
 			};
 		},
-		onSettled: () => queryClient.invalidateQueries({ queryKey: userAdminQueryKey }),
+		// Not returned: the dialog would wait on the refetch before showing what the write did.
+		onSettled: () => {
+			void queryClient.invalidateQueries({ queryKey: userAdminQueryKey });
+		},
 	});
 }

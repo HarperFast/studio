@@ -19,6 +19,7 @@ const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 
 import { UsersAdminLayout } from '@/features/admin/users/index';
+import { DuplicateAccountError, findUserIdByEmail } from '@/features/admin/users/userAdminApi';
 import { UserDetailsPage } from '@/features/admin/users/UserDetails';
 
 const USER = {
@@ -94,7 +95,10 @@ beforeEach(() => {
 		};
 	});
 });
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+});
 
 /** The admin users routes as the app nests them, without the admin shell's auth around them. */
 async function renderAt(path = '/admin/users') {
@@ -105,6 +109,7 @@ async function renderAt(path = '/admin/users') {
 			createRoute({ getParentRoute: () => usersRoute, path: '/' }),
 			createRoute({ getParentRoute: () => usersRoute, path: '$userId', component: UserDetailsPage }),
 		]),
+		createRoute({ getParentRoute: () => rootRoute, path: 'elsewhere', component: () => <p>Elsewhere</p> }),
 	]);
 	const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -196,14 +201,62 @@ describe('admin users', () => {
 		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
 	});
 
-	it('keeps the address out of the duplicate-account error and the URL', async () => {
+	it('closes the open account on a duplicate address, keeping the address out of the error and unreported', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const router = await renderAt('/admin/users/usr-1');
+		await screen.findByText('Pat Lee');
 		get.mockResolvedValueOnce({ data: [{ id: 'usr-1', status: 'ACTIVE' }, { id: 'usr-2', status: 'ACTIVE' }] });
-		const router = await renderAt();
 		await lookUp('pat@example.com');
 
 		const message = await screen.findByText(/More than one live account/);
 		expect(message.textContent).not.toContain('pat@example.com');
 		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.queryByText('Pat Lee')).toBeNull();
+		expect(consoleError).not.toHaveBeenCalledWith(expect.any(DuplicateAccountError));
+	});
+
+	it('reports a failed lookup, shows the reason central manager gave, and closes the open account', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const failure = new AxiosError('Request failed with status code 500', '500', undefined, undefined, {
+			status: 500,
+			data: { code: 'ServerError', title: 'Lookup unavailable' },
+		} as never);
+		const router = await renderAt('/admin/users/usr-1');
+		await screen.findByText('Pat Lee');
+		get.mockRejectedValueOnce(failure);
+		await lookUp('pat@example.com');
+
+		expect(await screen.findByText('Lookup unavailable')).toBeTruthy();
+		expect(consoleError).toHaveBeenCalledWith(failure);
+		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.queryByText('Pat Lee')).toBeNull();
+	});
+
+	it('drops an email lookup that answers after the page was left', async () => {
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		await act(async () => {
+			await router.navigate({ to: '/elsewhere' } as never);
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+
+		expect(router.state.location.href).toBe('/elsewhere');
+		expect(screen.getByText('Elsewhere')).toBeTruthy();
+	});
+
+	it('offers no deactivation, and no membership marking, for a deleted account', async () => {
+		user.status = 'DELETED';
+		await renderAt('/admin/users/usr-1');
+
+		expect(await screen.findByText('This account is deleted, so it cannot be deactivated.')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+		expect(screen.queryByText('Removed on deactivation')).toBeNull();
+		expect(screen.queryByText('Kept: last admin')).toBeNull();
 	});
 
 	it('looks the same address up again when asked, refreshing the open account', async () => {
@@ -332,5 +385,17 @@ describe('admin users', () => {
 		expect(await screen.findByText('Sam Ray')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(patch).not.toHaveBeenCalled();
+	});
+});
+
+describe('findUserIdByEmail', () => {
+	it('refuses a blank address without asking central manager', async () => {
+		await expect(findUserIdByEmail('   ')).rejects.toThrow('Enter an address');
+		expect(get).not.toHaveBeenCalled();
+	});
+
+	it('refuses an answer that is not a list', async () => {
+		get.mockResolvedValueOnce({ data: '' });
+		await expect(findUserIdByEmail('pat@example.com')).rejects.toThrow('did not answer with a list');
 	});
 });
