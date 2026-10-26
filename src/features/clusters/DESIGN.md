@@ -1,6 +1,6 @@
 # Cluster list
 
-`lib/clusterListModel.ts` derives lifecycle categories, counts and filters from the same organization snapshot; its tests pin missing-data and self-hosted semantics. A running lifecycle is not a monitoring-health assertion. Regions combine resolved plan labels with available non-retired instance labels, deduplicating matches, because organization responses need not expand instances; the list resolves opaque ids through the existing organization-scoped region catalog once, without polling. Missing labels remain unreported without discarding other reported instance regions. Running classification uses the same activeClusterStatuses rule as card navigation; UPDATED remains attention until RUNNING is reported. The model still derives instance count and version when instance data is supplied, but the card no longer renders them: the organization response does not currently expand instances, so those two cells only ever showed a dash, and the Regions cell (real plan labels) went with the row. The list adds no per-card detail polling. Existing `ClusterProgress` retains its lifecycle polling behavior.
+`lib/clusterListModel.ts` derives lifecycle categories, counts and filters from the same organization snapshot; its tests pin missing-data and self-hosted semantics. A running lifecycle is not a monitoring-health assertion. Regions combine resolved plan labels with available non-retired instance labels, deduplicating matches, because organization responses need not expand instances; the list resolves opaque ids through the organization-scoped region catalog and the organization's custom regions (`oreg-` ids), once each, without polling. Missing labels remain unreported without discarding other reported instance regions. Running classification uses the same activeClusterStatuses rule as card navigation; UPDATED remains attention until RUNNING is reported. The model still derives instance count and version when instance data is supplied, but the card no longer renders them: the organization response does not currently expand instances, so those two cells only ever showed a dash, and the Regions cell (real plan labels) went with the row. The list adds no per-card detail polling. Existing `ClusterProgress` retains its lifecycle polling behavior.
 
 A saved cluster draft makes the list redirect to the form, and that redirect replaces its history entry (#1326). The
 form clears the draft only once it mounts, so a pushed redirect left Back on the list, which pushed the form again for
@@ -31,16 +31,4 @@ saved form values can bring it back after a billing redirect. So `onClusterSaved
 `creating`, not on `sourceClusterId` alone. Without that gate, an update that failed straight away made an edit delete
 the cluster it was editing.
 
-A tier with `allowedRegionIds` takes one region, and the form corrects that region whenever it is the only one left,
-which includes the moment a second region is removed. A custom region is never corrected, since the allow-list describes
-the catalog. The correction keeps the chosen region, matching the catalog entry's name for the stored region id, and
-moves only its latency when the tier offers that region at all. It falls back to the default region only when the tier
-offers nothing there (#1275).
-
-Central manager refuses a cluster update that leaves every region the cluster runs in while adding another, so moving a
-cluster takes two saves. It matches a catalog region by name, whatever its latency tier, and a custom region by id
-(`regionCohortKey`). `lib/describeRegionSwap.ts` blocks that selection on an edit with the steps instead of letting the
-update fail (#1311). It mirrors only the case the server is certain to refuse, so it can never block an update the
-server would accept. The server also counts shrinking a kept region as leaving it (a smaller tier of a catalog region,
-or fewer units of a custom one); a selection that shrinks every current region while adding one is not mirrored and
-still gets the server's error.
+Region rows are keyed by region id, catalog or custom (`upsert/lib/regionLookup.ts`). A stored id the form cannot resolve is never dropped: saving without it would delete that region, so an edit refuses to open (`upsert/index.tsx`), and a draft keeps the row, blank or not, for validation to report (`upsert/lib/regionPlanDefaults.ts`). Only a deployment switch remaps a row, to the same family in the new catalog. Payment review submits outside the details form, so it re-runs validation first (`executeChangesToCluster`), and the submit lock is claimed before that await and released on every early return.
