@@ -166,6 +166,26 @@ describe('editWafRule', () => {
 		expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'alter_waf_rule' }));
 	});
 
+	it('reads an absent enabled or shadow flag as its default, as the engine does', async () => {
+		const loaded = starterRule({ enabled: undefined, shadow: undefined });
+		const { post, instanceClient } = client((body) =>
+			body.operation === 'list_waf_rules' ? [starterRule({ enabled: true, shadow: false })] : { message: 'ok' }
+		);
+		await editWafRule({ instanceClient, loaded, patch: { priority: 5 } });
+		expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'alter_waf_rule' }));
+	});
+
+	it('still refuses when a flag really changed', async () => {
+		const loaded = starterRule({ enabled: undefined });
+		const { post, instanceClient } = client((body) =>
+			body.operation === 'list_waf_rules' ? [starterRule({ enabled: false })] : { message: 'ok' }
+		);
+		await expect(editWafRule({ instanceClient, loaded, patch: { priority: 5 } })).rejects.toThrow(
+			/changed since this page loaded it/,
+		);
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
 	it('writes once the stored rule still matches what the page showed', async () => {
 		const { post, instanceClient } = client((body) =>
 			body.operation === 'list_waf_rules' ? [starterRule()] : { message: 'ok' }

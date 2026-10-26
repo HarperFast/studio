@@ -256,7 +256,7 @@ async function rereadUnchanged(instanceClient: InstanceClientConfig['instanceCli
 	if (!current) {
 		throw new WafOperationError(`WAF rule ${loaded.id} no longer exists.`);
 	}
-	if (stableJson(withoutNulls(current)) !== stableJson(withoutNulls(loaded))) {
+	if (stableJson(comparable(current)) !== stableJson(comparable(loaded))) {
 		throw new WafOperationError(`WAF rule ${loaded.id} changed since this page loaded it. Review it and try again.`);
 	}
 }
@@ -272,6 +272,11 @@ function withoutNulls(value: unknown): unknown {
 		);
 	}
 	return value;
+}
+
+/** The engine skips a rule only on `enabled === false` and watches only on `shadow === true`. */
+function comparable(rule: WafRule): unknown {
+	return withoutNulls({ ...rule, enabled: rule.enabled !== false, shadow: rule.shadow === true });
 }
 
 export async function editWafRule({ instanceClient, loaded, patch }: WafRuleWriteArgs & { patch: WafRulePatch }) {
