@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/features/admin/users/components/EmptyState';
 import {
 	DuplicateAccountError,
 	findUserIdByEmail,
@@ -11,6 +12,7 @@ import { detectEntityId } from '@/lib/string/entityId';
 import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
+import { Loader2Icon, SearchIcon, TriangleAlertIcon, UserSearchIcon, UserXIcon } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Lookup = { state: 'idle' | 'searching' } | { state: 'notFound'; email: string } | {
@@ -64,37 +66,69 @@ export function UsersAdminLayout() {
 	};
 
 	return (
-		<div className="max-w-4xl">
+		<div className="max-w-5xl">
 			<h1 className="text-2xl font-light">Users</h1>
 			<p className="mt-2 text-sm text-muted-foreground">
 				Look up an account to see its organizations and their clusters, and to deactivate it.
 			</p>
 
-			<form className="mt-6 flex items-end gap-3" onSubmit={lookUp}>
-				<div className="flex-1 space-y-2">
-					<Label htmlFor="admin-user-search">Email or user ID</Label>
-					<Input
-						id="admin-user-search"
-						autoComplete="off"
-						spellCheck={false}
-						placeholder="name@example.com or usr-…"
-						value={input}
-						onChange={(event) => setInput(event.target.value)}
-					/>
+			<form className="mt-6 rounded-xl border bg-card p-4 sm:p-5" onSubmit={lookUp}>
+				<Label htmlFor="admin-user-search">Email or user ID</Label>
+				<div className="mt-2 flex flex-col gap-3 sm:flex-row">
+					<div className="relative flex-1">
+						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							id="admin-user-search"
+							className="h-10 pl-9"
+							autoComplete="off"
+							spellCheck={false}
+							placeholder="name@example.com or usr-…"
+							value={input}
+							onChange={(event) => setInput(event.target.value)}
+						/>
+					</div>
+					<Button
+						type="submit"
+						variant="submit"
+						className="h-10 sm:w-32"
+						disabled={!input.trim() || lookup.state === 'searching'}
+					>
+						{lookup.state === 'searching' && <Loader2Icon className="animate-spin" />}
+						Look up
+					</Button>
 				</div>
-				<Button type="submit" variant="submit" disabled={!input.trim() || lookup.state === 'searching'}>
-					Look up
-				</Button>
+				{lookup.state === 'notFound'
+					? (
+						<p className="mt-3 flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+							<UserXIcon className="size-4 shrink-0 text-muted-foreground" />
+							No account uses {lookup.email}.
+						</p>
+					)
+					: lookup.state === 'failed'
+					? (
+						<p className="mt-3 flex items-center gap-2 rounded-lg bg-red-600/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+							<TriangleAlertIcon className="size-4 shrink-0" />
+							{lookup.message}
+						</p>
+					)
+					: (
+						<p className="mt-2 text-xs text-muted-foreground">
+							A user ID opens the account directly; an email address finds the one live account that uses it.
+						</p>
+					)}
 			</form>
 
-			{lookup.state === 'notFound' && (
-				<p className="mt-3 text-sm text-muted-foreground">No account uses {lookup.email}.</p>
-			)}
-			{lookup.state === 'failed' && <p className="mt-3 text-sm text-destructive">{lookup.message}</p>}
-
-			<div className="mt-6">
+			<div className="mt-8">
 				<Outlet />
 			</div>
 		</div>
+	);
+}
+
+export function UsersSearchPrompt() {
+	return (
+		<EmptyState icon={<UserSearchIcon />} title="Find an account">
+			You will see its organizations, the clusters in each, and which memberships a deactivation would remove.
+		</EmptyState>
 	);
 }

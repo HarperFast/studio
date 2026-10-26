@@ -154,17 +154,39 @@ describe('admin users', () => {
 	it('shows each organization with its roles, its deactivation marking and its live clusters', async () => {
 		await renderAt('/admin/users/usr-1');
 
-		expect(await screen.findByText('2 organizations · 2 clusters')).toBeTruthy();
+		const stat = (label: string) => screen.getByText(label, { selector: 'dt' }).parentElement!;
+		await screen.findByText('Pat Lee');
+		expect(within(stat('Organizations')).getByText('2')).toBeTruthy();
+		expect(within(stat('Organizations')).getByText('Admin of 2')).toBeTruthy();
+		expect(within(stat('Live clusters')).getByText('2')).toBeTruthy();
+		expect(within(stat('Live clusters')).getByText('1 running')).toBeTruthy();
+
 		const solo = screen.getByText('Solo Co').closest('li')!;
 		expect(within(solo).getByText('Kept: last admin')).toBeTruthy();
-		expect(within(solo).getByText('No clusters.')).toBeTruthy();
+		expect(within(solo).getByText('0 live clusters')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Solo Co' }).getAttribute('href')).toBe('/org-solo');
 
 		const shared = screen.getByText('Shared Co').closest('li')!;
 		expect(within(shared).getByText('Removed on deactivation')).toBeTruthy();
-		expect(within(shared).getByText('admin, developer')).toBeTruthy();
+		expect(within(shared).getByText('admin')).toBeTruthy();
+		expect(within(shared).getByText('developer')).toBeTruthy();
 		expect(within(shared).getByRole('link', { name: 'alpha' }).getAttribute('href')).toBe('/org-shared/clu-a');
-		expect(within(shared).getByText('FAILED')).toBeTruthy();
+		expect(within(shared).getByText('Failed')).toBeTruthy();
+	});
+
+	it("folds an organization's clusters away and back", async () => {
+		await renderAt('/admin/users/usr-1');
+		const toggle = await screen.findByRole('button', { name: 'Hide the clusters of Shared Co' });
+
+		await act(async () => {
+			fireEvent.click(toggle);
+		});
+		expect(screen.queryByRole('link', { name: 'alpha' })).toBeNull();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Show the clusters of Shared Co' }));
+		});
+		expect(screen.getByRole('link', { name: 'alpha' })).toBeTruthy();
 	});
 
 	it('opens a pasted user id without looking up an address', async () => {

@@ -58,6 +58,7 @@ const usersRoute = createRoute({
 const usersIndexRoute = createRoute({
 	getParentRoute: () => usersRoute,
 	path: '/',
+	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersSearchPrompt'),
 });
 
 // Keyed by id, never by email: page URLs reach RUM and third-party pixels.
