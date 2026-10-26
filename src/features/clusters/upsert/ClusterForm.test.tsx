@@ -19,8 +19,8 @@ vi.mock('sonner', () => ({
 	toast: { success: vi.fn(), error: vi.fn(), message: vi.fn(() => 'saving'), dismiss: vi.fn() },
 }));
 
-import { SchemaPlan } from '@/integrations/api/api.gen';
-import { Organization } from '@/integrations/api/api.patch';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
 import { ENTERPRISE } from '@/integrations/api/orgType';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
@@ -185,6 +185,125 @@ describe('ClusterForm — payment review', () => {
 		expect(put).not.toHaveBeenCalled();
 		expect(queryByText('Payment review')).toBeNull();
 		expect(await findByText('A cluster needs at least 2 instances in total.')).toBeTruthy();
+	});
+});
+
+describe('ClusterForm — region rows', () => {
+	const PAID = {
+		id: 'plan-paid',
+		deploymentDescription: 'Shared',
+		performanceDescription: 'Basic',
+		priceUsd: 85,
+		allowedRegionIds: ['us-1', 'eu-1'],
+	} as SchemaPlan;
+	const CATALOG = [
+		{ id: 'us-1', region: 'US', latencyDescription: 'narrow', instanceCount: 2 },
+		{ id: 'eu-1', region: 'EU', latencyDescription: 'narrow', instanceCount: 2 },
+	] as SchemaRegion[];
+	const CUSTOM = {
+		id: 'oreg-1',
+		organizationId: 'org-1',
+		name: 'EU edge',
+		placement: { gcp: ['europe-west1-b'] },
+		fallbackGroup: null,
+		active: true,
+	};
+	const TRIAL_US = {
+		id: 'cgr-trial',
+		organizationId: 'org-1',
+		source: 'trial',
+		status: 'ACTIVE',
+		isActive: true,
+		allowedRegionIds: ['us-1'],
+	} as unknown as ClusterGrant;
+
+	function renderRows(
+		regionPlans: { regionId: string; quantity?: number }[],
+		{ clusterId, grant, startOffOnBilling = false }: {
+			clusterId?: string;
+			grant?: ClusterGrant;
+			startOffOnBilling?: boolean;
+		} = {},
+	) {
+		const organization = {
+			id: 'org-1',
+			type: ENTERPRISE,
+			unboundGrants: grant ? [grant] : [],
+		} as unknown as Organization;
+		const queryClient = newQueryClient();
+		queryClient.setQueryData(['org-1'], organization);
+		return render(
+			<QueryClientProvider client={queryClient}>
+				<ClusterForm
+					alreadyUsingFree={false}
+					clusterId={clusterId}
+					defaultValues={{
+						clusterName: 'my-cluster',
+						abbreviatedName: '',
+						version: '5.0.2',
+						deploymentDescription: 'Shared',
+						performanceDescription: 'Basic',
+						regionPlans,
+						instances: [],
+						grantId: grant?.id,
+					}}
+					deploymentToPerformanceToPlan={{ Shared: { Basic: PAID } }}
+					harperVersions={undefined}
+					mode={undefined}
+					organization={organization}
+					organizationId="org-1"
+					organizationRegions={[CUSTOM]}
+					canUseCustomRegions={true}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={[]}
+					partialUpgrade={null}
+					planTypes={[PAID]}
+					regionLocationsColocated={CATALOG}
+					regionLocationsDedicated={[]}
+					setSavedClusterState={vi.fn()}
+					startOffOnBilling={startOffOnBilling}
+				/>
+			</QueryClientProvider>,
+		);
+	}
+
+	it("does not count a custom row against the plan's one catalog region", async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const { findByRole } = renderRows([{ regionId: 'oreg-1', quantity: 1 }, { regionId: 'us-1' }], {
+			clusterId: 'clu-1',
+			startOffOnBilling: true,
+		});
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		fireEvent.click(submit);
+
+		await waitFor(() => expect(put).toHaveBeenCalled());
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('still allows only one catalog region on that plan', async () => {
+		const { findByText } = renderRows([{ regionId: 'oreg-1', quantity: 1 }, { regionId: 'us-1' }, {
+			regionId: 'eu-1',
+		}], { clusterId: 'clu-1' });
+
+		expect(await findByText('You can only select one region with this performance tier!')).toBeTruthy();
+	});
+
+	it("refuses a custom region outside the voucher's regions", async () => {
+		const { findByText } = renderRows([{ regionId: 'oreg-1', quantity: 2 }], { grant: TRIAL_US });
+
+		expect(await findByText('This custom region is not covered by the selected voucher.')).toBeTruthy();
+	});
+
+	it('accepts a custom region the voucher lists', async () => {
+		const { findByText, queryByText } = renderRows([{ regionId: 'oreg-1', quantity: 1 }], {
+			grant: { ...TRIAL_US, allowedRegionIds: ['us-1', 'oreg-1'] } as ClusterGrant,
+		});
+
+		// The floor's message shows the rows were validated.
+		expect(await findByText('A cluster needs at least 2 instances in total.')).toBeTruthy();
+		expect(queryByText('This custom region is not covered by the selected voucher.')).toBeNull();
 	});
 });
 
