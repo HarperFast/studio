@@ -58,7 +58,7 @@ export function OrganizationRegionFormModal(
 	const queryClient = useQueryClient();
 
 	const { data: locations = [] } = useQuery({ ...getLocationsQueryOptions(), enabled: open });
-	// The organization's channel decides which provider list places instances; the other is inert.
+	// The other provider's list is stored but never places instances.
 	const { data: organization } = useQuery({ ...getOrganizationQueryOptions(organizationId), enabled: open });
 	const provider: 'linode' | 'gcp' = organization?.channel === 'Akamai' ? 'linode' : 'gcp';
 	const providerLabel = provider === 'linode' ? 'Linode' : 'GCP';
@@ -78,24 +78,27 @@ export function OrganizationRegionFormModal(
 	const linodeOptions = useMemo<MultiSelectOption[]>(
 		() =>
 			locations
-				.filter((l) => l.cloudProvider === 'linode')
-				.map((l) => ({ value: l.location, label: `${l.locationName} (${l.location})` })),
+				.filter((location) => location.cloudProvider === 'linode')
+				.map((location) => ({ value: location.location, label: `${location.locationName} (${location.location})` })),
 		[locations],
 	);
 	const gcpOptions = useMemo<MultiSelectOption[]>(
 		() =>
 			locations
-				.filter((l) => l.cloudProvider === 'gcp')
-				.map((l) => ({ value: l.location, label: `${l.locationName} (${l.location})` })),
+				.filter((location) => location.cloudProvider === 'gcp')
+				.map((location) => ({ value: location.location, label: `${location.locationName} (${location.location})` })),
 		[locations],
 	);
 	const fallbackOptions = useMemo<string[]>(() => {
 		const names = new Set<string>();
-		for (const l of locations) { for (const r of l.regions ?? []) { names.add(r); } }
+		for (const location of locations) { for (const region of location.regions ?? []) { names.add(region); } }
 		if (region?.fallbackGroup) { names.add(region.fallbackGroup); }
 		return [...names].sort();
 	}, [locations, region]);
-	const regionsByDatacenter = useMemo(() => new Map(locations.map((l) => [l.location, l.regions ?? []])), [locations]);
+	const regionsByDatacenter = useMemo(
+		() => new Map(locations.map((location) => [location.location, location.regions ?? []])),
+		[locations],
+	);
 
 	const form = useForm<OrganizationRegionFormValues>({
 		resolver: zodResolver(OrganizationRegionFormSchema),
@@ -123,8 +126,8 @@ export function OrganizationRegionFormModal(
 			return;
 		}
 		if (placementWritten && locations.length && values.fallbackGroup !== NO_FALLBACK) {
-			const outside = [...values.linodeDatacenters, ...values.gcpDatacenters].find((dc) =>
-				!regionsByDatacenter.get(dc)?.includes(values.fallbackGroup)
+			const outside = [...values.linodeDatacenters, ...values.gcpDatacenters].find((datacenter) =>
+				!regionsByDatacenter.get(datacenter)?.includes(values.fallbackGroup)
 			);
 			if (outside) {
 				form.setError('fallbackGroup', { message: `${outside} is not in region ${values.fallbackGroup}` });
