@@ -5,7 +5,11 @@ export function SubNavSimpleLayout({ children, className }: { children: ReactNod
 	return (
 		<>
 			<SubNavMenu />
-			<div className={`mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))] relative ${className ?? ''}`}>
+			<div
+				className={`mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))] relative ${
+					className ?? ''
+				}`}
+			>
 				{children}
 			</div>
 		</>

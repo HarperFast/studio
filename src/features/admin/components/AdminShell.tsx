@@ -61,7 +61,7 @@ export function AdminShell() {
 	if (current && !visible.includes(current)) { return <Navigate to={visible[0].to} replace />; }
 
 	return (
-		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 			<div className="md:grid gap-6 md:grid-cols-12">
 				<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
 					<SubNavRail items={visible} ariaLabel="Admin sections" />

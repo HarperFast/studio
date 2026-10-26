@@ -30,7 +30,7 @@ export function StripeWrapper({ children }: { children: ReactNode }) {
 	if (!import.meta.env.VITE_PUBLIC_STRIPE_KEY) {
 		console.error('No VITE_PUBLIC_STRIPE_KEY is configured for this environment.');
 		return (
-			<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32)-var(--notification-banner-height))]">
 				Setting up your billing is currently disabled. Please check back again later.
 			</div>
 		);

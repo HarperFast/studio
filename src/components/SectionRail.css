@@ -13,7 +13,7 @@
 	.section-rail {
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - 10rem - var(--notification-banner-height, 0px));
+		height: calc(100dvh - 10rem - var(--notification-banner-height));
 		min-height: 0;
 	}
 

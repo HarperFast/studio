@@ -147,7 +147,9 @@ export function ClusterInstanceSignIn() {
 			)}
 			<div
 				className={cx(
-					isLocalStudio ? 'min-h-screen' : 'mt-32 min-h-[calc(100vh-(--spacing(32)))]',
+					isLocalStudio
+						? 'min-h-screen'
+						: 'mt-32 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]',
 					'items-center justify-center flex',
 				)}
 			>

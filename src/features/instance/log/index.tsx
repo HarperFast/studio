@@ -269,7 +269,7 @@ export function Logs() {
 
 	return (
 		<div className="grid grid-cols-1 gap-3 pt-2 text-foreground md:grid-cols-12 md:gap-4">
-			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-0 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34)))] md:overflow-y-auto md:pb-4">
+			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-0 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34))-var(--notification-banner-height))] md:overflow-y-auto md:pb-4">
 				{/* Compact toolbar — mobile only */}
 				<div className="flex flex-wrap items-center gap-2 md:hidden">
 					<Button

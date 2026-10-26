@@ -124,7 +124,7 @@ export function APIDocs() {
 		// (`--spacing(32)` = the layout's `mt-32`) to the viewport bottom, so the explorer's sidebar
 		// and detail scroll internally and the sidebar reaches the bottom exactly. On smaller screens
 		// it's a normal block that the page scrolls.
-		<div className="flex flex-col px-4 pt-6 pb-12 md:px-8 lg:h-[calc(100vh-(--spacing(32)))] lg:pb-0">
+		<div className="flex flex-col px-4 pt-6 pb-12 md:px-8 lg:h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))] lg:pb-0">
 			{apiInaccessibleWarning && (
 				<ErrorComponent
 					title="CORS Disabled: HTTP API Not Accessible"
