@@ -78,8 +78,9 @@ export function ClusterRegions({
 				return region ? regionCohortKey(region) : null;
 			}),
 		);
-		const nextCatalogRegion = regionLocations?.find(r =>
-			!selectedCohorts.has(r.region) && (!allowedRegionIds?.length || allowedRegionIds.includes(r.id))
+		const nextCatalogRegion = regionLocations?.find(catalogRegion =>
+			!selectedCohorts.has(catalogRegion.region)
+			&& (!allowedRegionIds?.length || allowedRegionIds.includes(catalogRegion.id))
 		);
 		if (nextCatalogRegion) {
 			return { regionId: nextCatalogRegion.id };

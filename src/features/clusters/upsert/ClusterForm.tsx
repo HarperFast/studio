@@ -639,7 +639,7 @@ export function ClusterForm({
 		// A comp is claimed with its shape, not with what the pickers show: the server admits the claim
 		// only when the pairs match exactly, and the pickers can carry one plan where a shape may carry two.
 		const shape = !clusterId ? selectedGrant?.shape ?? [] : [];
-		if (!plan && !shape.length && (isSelfManaged || mode !== 'version')) {
+		if (!plan && !shape.length && mode !== 'version') {
 			submitInFlight.current = false;
 			toast.error('The selected performance tier is no longer available. Please choose another.');
 			setConfirmingPaymentDetails(false);
@@ -647,7 +647,7 @@ export function ClusterForm({
 		}
 		if (shape.length > 0) {
 			plans.push(...plansFromShape(shape, formData.instances, defaultOperationsApiPort));
-		} else if (isSelfManaged) {
+		} else if (isSelfManaged && mode !== 'version') {
 			for (const instance of formData.instances) {
 				plans.push({
 					autoRenew: true,
