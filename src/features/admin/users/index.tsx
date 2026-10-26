@@ -13,7 +13,7 @@ import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useNavigate, useRouter } from '@tanstack/react-router';
 import { Loader2Icon, SearchIcon, TriangleAlertIcon, UserSearchIcon, UserXIcon } from 'lucide-react';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Lookup = { state: 'idle' | 'searching' } | { state: 'notFound'; email: string } | {
 	state: 'failed';
@@ -26,8 +26,18 @@ export function UsersAdminLayout() {
 	const queryClient = useQueryClient();
 	const [input, setInput] = useState('');
 	const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
-	// Bumped by each lookup, so an email lookup that resolves after a newer one is dropped.
+	// Bumped by each lookup, each navigation (this page stays mounted while the next one loads) and unmount, so an
+	// email lookup acts only if nothing else happened while it was out.
 	const latestLookup = useRef(0);
+	useEffect(() => {
+		const unsubscribe = router.subscribe('onBeforeNavigate', () => {
+			latestLookup.current++;
+		});
+		return () => {
+			unsubscribe();
+			latestLookup.current++;
+		};
+	}, [router]);
 
 	const open = (userId: string) => {
 		setLookup({ state: 'idle' });
@@ -38,7 +48,6 @@ export function UsersAdminLayout() {
 	const lookUp = async (event: FormEvent) => {
 		event.preventDefault();
 		const thisLookup = ++latestLookup.current;
-		const startedAt = router.latestLocation.href;
 		const pasted = detectEntityId(input);
 		if (pasted?.kind === 'user') {
 			open(pasted.id);
@@ -53,8 +62,10 @@ export function UsersAdminLayout() {
 			if (!(error instanceof DuplicateAccountError)) { console.error(error); }
 			result = { state: 'failed', message: describeError(error).message };
 		}
-		// Also dropped once any navigation has started: this page stays mounted while the next one loads.
-		if (thisLookup !== latestLookup.current || router.latestLocation.href !== startedAt) { return; }
+		if (thisLookup !== latestLookup.current) {
+			setLookup({ state: 'idle' });
+			return;
+		}
 		if (typeof result === 'string') {
 			open(result);
 			return;
