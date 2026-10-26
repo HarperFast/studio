@@ -139,7 +139,7 @@ async function openSettings() {
 	await act(async () => {
 		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 	});
-	return within(screen.getByRole('menu')).getByRole('menuitem', { name: /Deactivate/ });
+	return within(screen.getByRole('menu')).getByRole('menuitem');
 }
 
 async function openDeactivate() {
@@ -373,12 +373,13 @@ describe('admin users', () => {
 		expect(within(item).getByText('Already deactivated, and in no organization it could leave')).toBeTruthy();
 	});
 
-	it('still offers deactivation to an already-deactivated account that has memberships to remove', async () => {
+	it('names removing an already-deactivated account from organizations as its own action', async () => {
 		user.status = 'DEACTIVATED';
 		await renderAt('/admin/users/usr-1');
 
 		const item = await openSettings();
 		expect(item.getAttribute('aria-disabled')).toBeNull();
+		expect(within(item).getByText('Remove from organizations…')).toBeTruthy();
 		expect(within(item).getByText(/Already deactivated; leaves/)).toBeTruthy();
 	});
 
@@ -460,13 +461,22 @@ describe('admin users', () => {
 		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
 	});
 
-	it('offers no status-only choice for an account that is already deactivated', async () => {
+	it('removes an already-deactivated account from organizations without offering to only deactivate', async () => {
 		user.status = 'DEACTIVATED';
 		await renderAt('/admin/users/usr-1');
 		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
 
-		expect(within(screen.getByRole('dialog')).queryByRole('radio')).toBeNull();
-		expect(within(screen.getByRole('dialog')).getByText('Will be removed from')).toBeTruthy();
+		expect(within(dialog).getByText('Remove pat@example.com from organizations?')).toBeTruthy();
+		expect(within(dialog).queryByRole('radio')).toBeNull();
+		expect(within(dialog).getByText('Will be removed from')).toBeTruthy();
+
+		await typeConfirmation();
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
+		expect(await screen.findByText('Memberships removed')).toBeTruthy();
 	});
 
 	it('closes the confirm dialog when the PATCH fails', async () => {

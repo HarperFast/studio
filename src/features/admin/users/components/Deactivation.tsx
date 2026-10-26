@@ -33,8 +33,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 	const kept = user.organizations.filter((membership) => membership.lastAdmin);
 	const [typedEmail, setTypedEmail] = useState('');
 	const confirmed = normalizeEmail(typedEmail) === normalizeEmail(user.email);
-	// Deactivating an account again only exists to remove what it can still leave.
-	const offerStatusOnly = user.status !== 'DEACTIVATED';
+	const cleanup = user.status === 'DEACTIVATED';
 	const [mode, setMode] = useState<'leave' | 'statusOnly'>('leave');
 
 	const deactivate = () => {
@@ -49,9 +48,17 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 		<Dialog open onOpenChange={(open) => !open && !mutation.isPending && onClose()}>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>{result ? 'User deactivated' : `Deactivate ${user.email}?`}</DialogTitle>
+					<DialogTitle>
+						{cleanup
+							? result ? 'Memberships removed' : `Remove ${user.email} from organizations?`
+							: result
+							? 'User deactivated'
+							: `Deactivate ${user.email}?`}
+					</DialogTitle>
 					<DialogDescription>
-						{result
+						{cleanup
+							? 'They are already deactivated and stay that way.'
+							: result
 							? 'Sessions ended and sign-in is blocked.'
 							: 'Their sessions end now and they can no longer sign in.'}
 					</DialogDescription>
@@ -72,7 +79,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 						)
 					: (
 						<div className="space-y-4">
-							{offerStatusOnly && (
+							{!cleanup && (
 								<RadioGroup
 									value={mode}
 									onValueChange={(value) => setMode(value as typeof mode)}
@@ -139,7 +146,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 									onClick={deactivate}
 								>
 									{mutation.isPending && <Loader2Icon className="animate-spin" />}
-									{mutation.isPending ? 'Deactivating…' : 'Deactivate'}
+									{mutation.isPending ? (cleanup ? 'Removing…' : 'Deactivating…') : cleanup ? 'Remove' : 'Deactivate'}
 								</Button>
 							</>
 						)}
