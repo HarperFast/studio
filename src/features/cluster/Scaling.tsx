@@ -9,7 +9,11 @@ import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAct
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { isConversionComplete, isConversionFailed } from '@/features/clusters/lib/grantExpiry';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
-import { buildRegionLookup, expectedInstanceCount } from '@/features/clusters/upsert/lib/regionLookup';
+import {
+	buildRegionLookup,
+	expectedInstanceCount,
+	isOrganizationRegionId,
+} from '@/features/clusters/upsert/lib/regionLookup';
 import { Organization } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useRouteContext, useSearch } from '@tanstack/react-router';
@@ -29,15 +33,18 @@ export function Scaling() {
 	);
 	const organizationId = cluster?.organizationId;
 	const { data: catalog } = useQuery({ ...getRegionLocationsOptions({ organizationId }), enabled: !!organizationId });
-	const { data: organizationRegions } = useQuery(getOrganizationRegionsQueryOptions(organizationId));
+	const hasCustomRegions = !!cluster?.plans?.some((plan) => isOrganizationRegionId(plan.regionId));
+	const { data: organizationRegions } = useQuery(
+		getOrganizationRegionsQueryOptions(hasCustomRegions ? organizationId : undefined),
+	);
 	const { organization } = useRouteContext({ strict: false }) as { organization?: Organization };
 	const expectedInstances = useMemo(() => {
-		if (!catalog || organizationRegions === undefined || !organization) {
+		if (!catalog || (hasCustomRegions && organizationRegions === undefined) || !organization) {
 			return undefined;
 		}
 		const provider = organization.channel === 'Akamai' ? 'linode' : undefined;
 		return expectedInstanceCount(cluster?.plans, buildRegionLookup(catalog, organizationRegions ?? [], provider));
-	}, [catalog, organizationRegions, organization, cluster?.plans]);
+	}, [catalog, hasCustomRegions, organizationRegions, organization, cluster?.plans]);
 	const status = cluster?.status;
 	// Not RUNNING alone: a trial->paid conversion reaches RUNNING before the server applies the plan,
 	// and a scale-up reaches it while new members are still cloning.
