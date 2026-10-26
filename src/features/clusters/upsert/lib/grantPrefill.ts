@@ -1,4 +1,4 @@
-import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { SchemaPlan } from '@/integrations/api/api.gen';
 import { ClusterGrant, GrantShapeEntry } from '@/integrations/api/api.patch';
 import { UpsertClusterSchemaType } from '../upsertClusterSchema';
 
@@ -15,35 +15,23 @@ export interface GrantPrefill {
  * the shape's first plan sets deployment and performance and its regions become the rows; any
  * other plan in the shape is reported rather than dropped. The request itself is built from the
  * shape verbatim (see plansFromShape), so the pickers are display and the lock is what matters.
+ * A row is the shape's region id as given, even one the plan cannot be placed in today: the picker
+ * reports a region it cannot offer rather than keep whatever the previous grant left in the rows.
  * Null for a grant without a shape (a trial, which scopes by allow-lists and needs no lock) or
  * one whose plan the catalogue does not know.
  */
 export function prefillFromGrant(
 	grant: Pick<ClusterGrant, 'shape'> | null | undefined,
 	planTypes: SchemaPlan[] | undefined,
-	regionsColocated: SchemaRegion[] | undefined,
-	regionsDedicated: SchemaRegion[] | undefined,
 ): GrantPrefill | null {
 	const shape = grant?.shape ?? [];
 	if (shape.length === 0) { return null; }
 	const plan = planTypes?.find((candidate) => candidate.id === shape[0].planId);
 	if (!plan?.deploymentDescription || !plan.performanceDescription) { return null; }
 	const otherPlanIds = [...new Set(shape.map((entry) => entry.planId).filter((id) => id !== plan.id))];
-	// The plan's own list first, then the other: each list is what that deployment can place in right
-	// now, and a comp may name a region the plan cannot be placed in today (nothing colocated there
-	// yet). The row still has to show what the grant says, and the region picker already reports a
-	// region it cannot offer, rather than keep whatever the previous grant left in the rows.
-	const own = plan.deploymentDescription === 'Dedicated' ? regionsDedicated : regionsColocated;
-	const other = plan.deploymentDescription === 'Dedicated' ? regionsColocated : regionsDedicated;
-	const regions = [...(own ?? []), ...(other ?? [])];
-	const regionPlans: GrantPrefill['regionPlans'] = [];
-	for (const entry of shape) {
-		if (entry.planId !== plan.id || entry.regionId == null) { continue; }
-		const region = regions.find((candidate) => candidate.id === entry.regionId);
-		if (region?.region && region.latencyDescription) {
-			regionPlans.push({ regionName: region.region, latencyDescription: region.latencyDescription });
-		}
-	}
+	const regionPlans: GrantPrefill['regionPlans'] = shape
+		.filter((entry) => entry.planId === plan.id && entry.regionId != null)
+		.map((entry) => ({ regionId: entry.regionId! }));
 	return {
 		deploymentDescription: plan.deploymentDescription,
 		performanceDescription: plan.performanceDescription,

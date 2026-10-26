@@ -1,5 +1,5 @@
 import { SchemaCloudInstanceTypes, SchemaRegion } from '@/integrations/api/api.gen';
-import { OrganizationRegion } from '@/integrations/api/api.patch';
+import { Cluster, OrganizationRegion } from '@/integrations/api/api.patch';
 
 const ORGANIZATION_REGION_ID_PREFIX = 'oreg-';
 
@@ -85,6 +85,22 @@ export function regionAtQuantity(region: ResolvedRegion, quantity: number | unde
 		instanceCount: region.instanceCount * units,
 		purchasedBlockMultiplier: region.blocksPerUnit * units,
 	};
+}
+
+/** `undefined` when any plan does not resolve: a self-hosted plan, or a region not loaded or retired. */
+export function expectedInstanceCount(plans: Cluster['plans'], lookup: RegionLookup): number | undefined {
+	if (!plans?.length) {
+		return undefined;
+	}
+	let total = 0;
+	for (const plan of plans) {
+		const region = plan.regionId ? lookup.get(plan.regionId) : undefined;
+		if (!region) {
+			return undefined;
+		}
+		total += region.instanceCount * (region.kind === 'organization' ? plan.quantity ?? 1 : 1);
+	}
+	return total;
 }
 
 export function describeShape(shape: readonly string[]): string {

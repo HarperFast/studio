@@ -13,8 +13,8 @@ import { allowedRegionIdsFor, shapeCoversRequest, trialScope } from '@/features/
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { useIsOrganizationAdmin } from '@/hooks/usePermissions';
-import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
-import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { ClusterGrant, ClusterUpsertRegionPlan, Organization, OrganizationRegion } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType, onContractedTerms } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -182,24 +182,22 @@ export function ClusterForm({
 				: dedicatedRegionLookup;
 			let totalInstances = 0;
 			let firstOrganizationRegionIndex = -1;
-			const selectedRegions: RegionCohort[] = [];
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
-				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
-				// A region that no longer resolves has to fail validation. The base schema only requires
-				// non-empty strings, so a cluster sitting in a region that has dropped out of the live
-				// list — deactivated, out of capacity, or org-scoped away — used to be caught by an
-				// effect blanking the value. A frozen region set must not be rewritten, so the objection
-				// belongs here instead: without it submit stays enabled and the click throws.
+				const region = regionLookup.get(regionPlan.regionId);
 				if (!region) {
-					ctx.addIssue({
-						code: 'custom',
-						path: [`regionPlans.${i}.regionName`],
-						message: 'This region is not currently available. Contact us to move this cluster.',
-					});
+					if (regionPlan.regionId) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: 'This region is not currently available. Contact us to move this cluster.',
+						});
+					}
+					continue;
 				}
-				if (!names.has(regionPlan.regionName)) {
-					names.add(regionPlan.regionName);
+				const cohort = regionCohortKey(region);
+				if (!names.has(cohort)) {
+					names.add(cohort);
 				} else {
 					ctx.addIssue({
 						code: 'custom',
@@ -263,20 +261,11 @@ export function ClusterForm({
 					message: `A cluster needs at least ${MIN_CLUSTER_INSTANCES} instances in total.`,
 				});
 			}
-			const regionSwap = describeRegionSwap({
-				currentRegions,
-				selectedRegions,
-				singleRegionTier: !selectedPlan?.priceUsd || !!selectedPlan.allowedRegionIds?.length,
-			});
-			if (regionSwap) {
-				ctx.addIssue({ code: 'custom', path: ['regionPlans.0.regionId'], message: regionSwap });
-			}
 		}
 	}, [
 		alreadyUsingFree,
 		canUseCustomRegions,
 		colocatedRegionLookup,
-		currentRegions,
 		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
 		mode,
@@ -378,8 +367,8 @@ export function ClusterForm({
 	const grantPrefill = useMemo(
 		() => (clusterId
 			? null
-			: prefillFromGrant(selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated)),
-		[clusterId, selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated],
+			: prefillFromGrant(selectedGrant, planTypes)),
+		[clusterId, selectedGrant, planTypes],
 	);
 	const lockedByGrant = grantPrefill != null;
 	// A trial voucher's allow-lists narrow the pickers: central-manager refuses a claim outside them.
@@ -405,7 +394,7 @@ export function ClusterForm({
 		if (!clusterId || currentGrant?.source !== 'comped' || !currentGrant.isActive) { return false; }
 		const regionIds = selectedDeployment === 'Self-Hosted'
 			? selectedInstances.map(() => null)
-			: selectedRegionPlans.map((rp) => regionNameToLatencyToRegion[rp.regionName]?.[rp.latencyDescription]?.id);
+			: selectedRegionPlans.map((rp) => regionLookup.get(rp.regionId)?.id);
 		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, regionIds);
 	}, [
 		clusterId,
@@ -447,7 +436,6 @@ export function ClusterForm({
 		selectedPlan,
 		selectedRegionPlans,
 		form,
-		regionNameToLatencyToRegion,
 		regionLocations,
 		regionSetFrozen,
 		lockedByGrant,
@@ -459,15 +447,45 @@ export function ClusterForm({
 		// can put a value back, and the schema requires one. The cluster is running in that region
 		// whether or not it currently accepts new placements.
 		if (regionSetFrozen || lockedByGrant) { return; }
-		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
-			for (let i = 0; i < selectedRegionPlans.length; i++) {
-				const regionPlan = selectedRegionPlans[i];
-				if (!regionNameToLatencyToRegion[regionPlan.regionName]) {
-					form.setValue(`regionPlans.${i}.regionName`, '');
-				}
-			}
+		if (isSelfManaged || !regionLookup.size || !selectedRegionPlans.length) {
+			return;
 		}
-	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans, regionSetFrozen, lockedByGrant]);
+		for (let i = 0; i < selectedRegionPlans.length; i++) {
+			const { regionId } = selectedRegionPlans[i];
+			// A custom region is deployment-agnostic; one the lookup lacks is pending a refetch (or gone),
+			// which validation reports without discarding the selection.
+			if (!regionId || regionLookup.has(regionId) || isOrganizationRegionId(regionId)) {
+				continue;
+			}
+			// Switching deployment swaps the catalog: carry the choice over by name and latency tier
+			// where the new catalog has a match, otherwise clear it.
+			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
+			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
+			const replacement = previous
+				&& (regionLocations?.find(r =>
+					r.region === previous.name && r.latencyDescription.split(' ')[0].toLowerCase() === previousTier
+				)
+					?? regionLocations?.find(r => r.region === previous.name));
+			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
+		}
+	}, [
+		colocatedRegionLookup,
+		dedicatedRegionLookup,
+		form,
+		lockedByGrant,
+		regionLocations,
+		regionLookup,
+		regionSetFrozen,
+		selectedDeployment,
+		selectedRegionPlans,
+	]);
+
+	useEffect(function revalidateCustomRegionsWhenLookupChanges() {
+		// A custom region defined inline only resolves once its refetch lands.
+		if (form.getValues('regionPlans').some(entry => isOrganizationRegionId(entry.regionId))) {
+			void form.trigger('regionPlans');
+		}
+	}, [form, regionLookup]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
@@ -561,6 +579,16 @@ export function ClusterForm({
 
 	const executeChangesToCluster = useCallback(async () => {
 		if (submitInFlight.current) { return; }
+		// Claimed before the validation below awaits, or a second click gets past the check meanwhile.
+		submitInFlight.current = true;
+		// Payment review submits without the details form, and a draft restored after a billing redirect
+		// can be stale: a region, a custom region's shape or the staff rules may have changed meanwhile.
+		if (!(await form.trigger())) {
+			submitInFlight.current = false;
+			toast.error('Some cluster details are no longer valid. Please review them.');
+			setConfirmingPaymentDetails(false);
+			return;
+		}
 		const formData = form.getValues();
 		const plans: ClusterUpsertRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
@@ -583,13 +611,10 @@ export function ClusterForm({
 			}
 		} else if (mode !== 'version') {
 			for (const regionPlan of formData.regionPlans) {
-				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
-				// Validation above refuses an unresolvable region, so reaching here means the two
-				// disagree. Throwing past the toast leaves a dead button; say so instead.
+				const region = regionLookup.get(regionPlan.regionId);
 				if (!region) {
-					toast.error('Region unavailable', {
-						description: `${regionPlan.regionName} is not currently available. Contact us to move this cluster.`,
-					});
+					submitInFlight.current = false;
+					toast.error('A selected region is no longer available. Please review your regions.');
 					return;
 				}
 				plans.push({
@@ -603,7 +628,6 @@ export function ClusterForm({
 		setSavedClusterState(null);
 		const toastId = onStartSaving({ creating: !clusterId, deploymentDescription: formData.deploymentDescription });
 		const clearToast = () => toast.dismiss(toastId);
-		submitInFlight.current = true;
 		const release = () => {
 			submitInFlight.current = false;
 		};
@@ -781,6 +805,10 @@ export function ClusterForm({
 									grantRegionIds={scope?.regionIds ?? null}
 									allowedRegionIds={allowedRegionIds}
 									coveredByGrant={coveredByComp}
+									organizationId={organizationId}
+									canUseCustomRegions={canUseCustomRegions}
+									canDefineCustomRegions={canDefineCustomRegions}
+									lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

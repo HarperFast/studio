@@ -24,6 +24,7 @@ import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { calculateUsageScale } from './lib/calculateUsageScale';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
+import { RegionLookup } from './lib/regionLookup';
 import { selectablePlansByTier } from './lib/selectablePlans';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -61,6 +62,10 @@ interface ClusterDetailsProps {
 	allowedRegionIds?: string[];
 	/** A live comp covers this edit as it stands, so no card is needed. */
 	coveredByGrant?: boolean;
+	organizationId: string;
+	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
+	lockedOrganizationRegionIds: string[];
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -94,6 +99,10 @@ export function ClusterDetails({
 	grantRegionIds,
 	allowedRegionIds,
 	coveredByGrant,
+	organizationId,
+	canUseCustomRegions,
+	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -361,6 +370,7 @@ export function ClusterDetails({
 										form={form}
 										regionLocations={regionLocations}
 										allowedRegionIds={allowedRegionIds}
+										regionLookup={regionLookup}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 										organizationId={organizationId}
 										canUseCustomRegions={canUseCustomRegions}
