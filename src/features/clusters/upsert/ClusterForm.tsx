@@ -178,6 +178,10 @@ export function ClusterForm({
 				: dedicatedRegionLookup;
 			let totalInstances = 0;
 			let firstOrganizationRegionIndex = -1;
+			let catalogRows = 0;
+			const voucherRegionIds = clusterId
+				? null
+				: trialScope(organization?.unboundGrants?.find((grant) => grant.id === data.grantId))?.regionIds ?? null;
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
 				const region = regionLookup.get(regionPlan.regionId);
@@ -212,6 +216,13 @@ export function ClusterForm({
 							message: "This custom region has no datacenters on the organization's cloud provider.",
 						});
 					}
+					if (voucherRegionIds && !voucherRegionIds.includes(region.id)) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: 'This custom region is not covered by the selected voucher.',
+						});
+					}
 					if (!canUseCustomRegions && !preexistingOrganizationRegionIds.has(region.id)) {
 						ctx.addIssue({
 							code: 'custom',
@@ -231,6 +242,7 @@ export function ClusterForm({
 					continue;
 				}
 				totalInstances += region.instanceCount;
+				catalogRows += 1;
 				if (selectedPlan?.allowedRegionIds?.length) {
 					if (!selectedPlan.allowedRegionIds.includes(region.id)) {
 						const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
@@ -241,7 +253,7 @@ export function ClusterForm({
 								? `This latency is not available with the selected performance tier!`
 								: `This region is not available with the selected performance tier!`,
 						});
-					} else if (i >= 1) {
+					} else if (catalogRows > 1) {
 						ctx.addIssue({
 							code: 'custom',
 							path: [`regionPlans.${i}.regionId`],
@@ -261,10 +273,12 @@ export function ClusterForm({
 	}, [
 		alreadyUsingFree,
 		canUseCustomRegions,
+		clusterId,
 		colocatedRegionLookup,
 		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
 		mode,
+		organization?.unboundGrants,
 		preexistingOrganizationRegionIds,
 	]);
 
@@ -451,8 +465,6 @@ export function ClusterForm({
 			if (!regionId || regionLookup.has(regionId) || isOrganizationRegionId(regionId)) {
 				continue;
 			}
-			// Switching deployment swaps the catalog: carry the choice over by name and latency tier
-			// where the new catalog has a match, otherwise clear it.
 			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
 			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
 			const replacement = previous

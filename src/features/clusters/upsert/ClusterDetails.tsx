@@ -370,6 +370,7 @@ export function ClusterDetails({
 										form={form}
 										regionLocations={regionLocations}
 										allowedRegionIds={allowedRegionIds}
+										grantRegionIds={grantRegionIds}
 										regionLookup={regionLookup}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 										organizationId={organizationId}

@@ -99,7 +99,7 @@ export function UpsertCluster() {
 	// catalog-only form on "Loading…"; an edit that needs one of the missing rows is refused below.
 	const organizationRegionsUnavailable = organizationRegionsFailed || organizationRegionsData === null;
 	const organizationRegions = organizationRegionsUnavailable ? organizationRegionsData ?? [] : organizationRegionsData;
-	// Central-manager lets staff with the matching cluster permission place custom regions.
+	// Mirrors central-manager's gate on placing custom regions.
 	const canUseCustomRegions = useStaffPermission(clusterId ? 'cluster:update' : 'cluster:create');
 	const canWriteRegions = useStaffPermission('region:write');
 	const canDefineCustomRegions = canUseCustomRegions && canWriteRegions && !organizationRegionsUnavailable;
