@@ -55,7 +55,6 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 /** An answer about the data, not a failure, so it is not reported. */
 export class DuplicateAccountError extends Error {}
 
-/** The id of the one live account using `email`, or null when none does. */
 export async function findUserIdByEmail(email: string): Promise<string | null> {
 	const address = normalizeEmail(email);
 	// A blank address would match every user rather than none.
@@ -63,7 +62,6 @@ export async function findUserIdByEmail(email: string): Promise<string | null> {
 	const { data } = await apiClient.get(`${BASE}?email=${encodeURIComponent(address)}` as '/Admin/User/');
 	if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of accounts.'); }
 	const live = (data as Array<{ id: string; status?: string }>).filter((user) => user.status !== 'DELETED');
-	// The address stays out of error text: errors reach the console, and from there RUM.
 	if (live.length > 1) { throw new DuplicateAccountError('More than one live account uses this address.'); }
 	return live[0]?.id ?? null;
 }
