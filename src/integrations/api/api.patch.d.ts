@@ -625,7 +625,7 @@ export interface ExpiryStageDue {
 
 export type ExpiryStage = 'AWAITING_PLAN' | 'WARNED' | 'FINAL_WARNING' | 'GRACE' | 'SHUTDOWN' | 'DELETED';
 
-export interface Cluster extends Omit<SchemaCluster, 'instances'> {
+export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
@@ -644,6 +644,7 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	 * success.
 	 */
 	conversionState?: 'APPLYING' | 'FAILED' | null;
+	plans?: RegionPlan[];
 }
 
 export interface ClusterSyncSummary {

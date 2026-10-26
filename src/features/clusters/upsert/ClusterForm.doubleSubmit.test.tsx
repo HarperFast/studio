@@ -59,7 +59,7 @@ const defaults = {
 	performanceDescription: HOBBYIST.performanceDescription!,
 	fqdn: '',
 	instances: [],
-	regionPlans: [{ regionName: 'US', latencyDescription: 'narrow' }],
+	regionPlans: [{ regionId: 'us-1' }],
 	grantId: COMPED.id,
 } as UpsertClusterSchemaType;
 
@@ -74,6 +74,10 @@ async function mountCreate() {
 				mode={undefined}
 				organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [COMPED] } as unknown as Organization}
 				organizationId="org-1"
+				organizationRegions={[]}
+				canUseCustomRegions={false}
+				canDefineCustomRegions={false}
+				lockedOrganizationRegionIds={[]}
 				partialUpgrade={null}
 				planTypes={[HOBBYIST]}
 				regionLocationsColocated={REGIONS}
