@@ -5,6 +5,7 @@
  * node through system-table replication, so any node lists the same set.
  */
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { stableJson } from '@/lib/stableJson';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { queryOptions, useMutation } from '@tanstack/react-query';
 
@@ -85,19 +86,6 @@ export function trustPolicyResaveRequest(policy: OidcTrustPolicy, enabled: boole
 		}
 	}
 	return { ...stored, operation: 'add_oidc_trust', enabled };
-}
-
-function stableJson(value: unknown): string {
-	if (Array.isArray(value)) {
-		return `[${value.map(stableJson).join(',')}]`;
-	}
-	if (value !== null && typeof value === 'object') {
-		const record = value as Record<string, unknown>;
-		return `{${
-			Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')
-		}}`;
-	}
-	return JSON.stringify(value) ?? 'null';
 }
 
 /**
