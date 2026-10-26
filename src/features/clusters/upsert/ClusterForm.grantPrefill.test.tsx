@@ -114,7 +114,6 @@ function selectFor(labelText: RegExp): HTMLElement {
 	return trigger as HTMLElement;
 }
 
-/** The region select of each row, by its trigger text. */
 function regionRows(): string[] {
 	return [...document.querySelectorAll('[data-slot="form-item"]')]
 		.filter((item) => (item.querySelector('[data-slot="form-label"]')?.textContent?.trim() ?? '').startsWith('Region'))

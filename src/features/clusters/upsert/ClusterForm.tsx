@@ -173,6 +173,13 @@ export function ClusterForm({
 			}
 			return;
 		}
+		if (!selectedPlan) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['performanceDescription'],
+				message: 'This performance tier is no longer available. Please choose another.',
+			});
+		}
 		if (isSelfManaged) {
 			for (let i = 0; i < data.instances.length; i++) {
 				const fqdn = calculateInstanceFQDN(data.instances[i]);
@@ -483,7 +490,7 @@ export function ClusterForm({
 	}, [
 		clusterId,
 		currentGrant,
-		regionNameToLatencyToRegion,
+		regionLookup,
 		selectedDeployment,
 		selectedInstances,
 		selectedPlan,
@@ -534,6 +541,7 @@ export function ClusterForm({
 		if (isSelfManaged || !regionLookup.size || !selectedRegionPlans.length) {
 			return;
 		}
+		let remapped = false;
 		for (let i = 0; i < selectedRegionPlans.length; i++) {
 			const { regionId } = selectedRegionPlans[i];
 			// A custom region is deployment-agnostic; one the lookup lacks is pending a refetch (or gone),
@@ -542,6 +550,11 @@ export function ClusterForm({
 				continue;
 			}
 			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
+			// Gone from both catalogs (a refetch dropped it), not a deployment switch: kept, so validation
+			// reports it rather than a restored draft losing the row.
+			if (!previous) {
+				continue;
+			}
 			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
 			const replacement = previous
 				&& (regionLocations?.find(r =>
@@ -549,6 +562,10 @@ export function ClusterForm({
 				)
 					?? regionLocations?.find(r => r.region === previous.name));
 			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
+			remapped = true;
+		}
+		if (remapped) {
+			void form.trigger('regionPlans');
 		}
 	}, [
 		colocatedRegionLookup,
@@ -673,7 +690,13 @@ export function ClusterForm({
 		}
 		const formData = form.getValues();
 		const plans: ClusterUpsertRegionPlan[] = [];
-		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
+		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription]?.[formData.performanceDescription];
+		if (!plan && mode !== 'version') {
+			submitInFlight.current = false;
+			toast.error('The selected performance tier is no longer available. Please choose another.');
+			setConfirmingPaymentDetails(false);
+			return;
+		}
 
 		const isSelfManaged = formData.deploymentDescription === 'Self-Hosted';
 		// A comp is claimed with its shape, not with what the pickers show: the server admits the claim

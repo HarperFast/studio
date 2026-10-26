@@ -9,6 +9,7 @@ let currentSearch: Record<string, unknown> = {};
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 	useSearch: () => currentSearch,
+	useRouteContext: () => ({ organization: { id: 'org-1' } }),
 	Link: ({ children, to }: { children?: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
@@ -34,9 +35,6 @@ vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', (
 		queryFn:
 			async () => [{ id: 'oreg-1', name: '2-tokyo', placement: { gcp: ['asia-northeast1-a', 'asia-northeast1-a'] } }],
 	}),
-}));
-vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
-	getOrganizationQueryOptions: () => ({ queryKey: ['organization'], queryFn: async () => ({ id: 'org-1' }) }),
 }));
 vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
 	ClusterCardAction: () => null,

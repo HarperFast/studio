@@ -55,7 +55,8 @@ export function toPatch(region: OrganizationRegion, values: OrganizationRegionFo
 	if (values.name !== stored.name) {
 		patch.name = values.name;
 	}
-	const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+	const sameList = (next: string[], current: string[]) =>
+		next.length === current.length && next.every((datacenter, index) => datacenter === current[index]);
 	if (
 		!sameList(values.linodeDatacenters, stored.linodeDatacenters)
 		|| !sameList(values.gcpDatacenters, stored.gcpDatacenters)
