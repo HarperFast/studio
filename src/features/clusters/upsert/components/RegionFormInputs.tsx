@@ -166,22 +166,28 @@ export function RegionFormInputs({
 		[allowedRegionIds, regionNameToLatencyToRegion, selectedRegionName],
 	);
 
-	useEffect(function autoPickLatencyDescription() {
-		// Frozen means frozen: rewriting the distribution here submits a region set the cluster does
-		// not have, which the server refuses.
-		if (disabled) { return; }
-		if (
-			selectedRegionName && availableLatencyDescriptions?.length
-			&& !availableLatencyDescriptions?.includes(selectedLatencyDescription)
-		) {
-			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
-			const newValue = availableLatencyDescriptions.find(description =>
-				!oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue
-			) || availableLatencyDescriptions[0];
-			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
-			void form.trigger();
+	const setEntry = useCallback((regionId: string, quantity: number | undefined) => {
+		form.setValue(`regionPlans.${index}.regionId`, regionId, { shouldDirty: true });
+		form.setValue(`regionPlans.${index}.quantity`, quantity, { shouldDirty: true });
+		void form.trigger();
+	}, [form, index]);
+
+	const onRegionValueChange = useCallback((value: string) => {
+		if (isOrganizationRegionId(value)) {
+			setEntry(value, entryQuantity ?? 1);
+			return;
 		}
-	}, [availableLatencyDescriptions, disabled, form, index, selectedLatencyDescription, selectedRegionName]);
+		const latencyOptions = Object.keys(regionNameToLatencyToRegion[value] || {}).sort(sortByNumberPrefix).reverse();
+		const latency = pickLatencyDescription(latencyOptions, selectedLatencyDescription);
+		setEntry((latency && regionNameToLatencyToRegion[value]?.[latency]?.id) || '', undefined);
+	}, [entryQuantity, regionNameToLatencyToRegion, selectedLatencyDescription, setEntry]);
+
+	const onLatencyValueChange = useCallback((value: string) => {
+		const region = regionNameToLatencyToRegion[selectedRegionName]?.[value];
+		if (region) {
+			setEntry(region.id, undefined);
+		}
+	}, [regionNameToLatencyToRegion, selectedRegionName, setEntry]);
 
 	const onRemoveClicked = useCallback(() => {
 		fieldArray?.remove(index);
@@ -206,12 +212,9 @@ export function RegionFormInputs({
 						</FormLabel>
 						<FormControl>
 							<Select
-								onValueChange={value => {
-									regionField.onChange(value);
-									form.trigger();
-								}}
-								{...regionField}
-								disabled={disabled}
+								value={organizationSelection?.id ?? selectedRegionName}
+								onValueChange={onRegionValueChange}
+								disabled={disabled || lockedToOrganizationRegion}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Region" />
@@ -292,7 +295,7 @@ export function RegionFormInputs({
 											onBlur={field.onBlur}
 											name={field.name}
 											inputRef={field.ref}
-											disabled={!canUseCustomRegions}
+											disabled={disabled || !canUseCustomRegions}
 										/>
 									</FormControl>
 									<p className="text-xs text-muted-foreground">
@@ -307,44 +310,38 @@ export function RegionFormInputs({
 				: (
 					<div className="min-w-0 basis-full sm:flex-1 space-y-2">
 						<FormLabel>Estimated {isDedicated ? 'P95' : 'P90'} Latency, Distribution</FormLabel>
-						<FormControl>
-							<Select
-								onValueChange={value => {
-									regionField.onChange(value);
-									form.trigger();
-								}}
-								{...regionField}
-								disabled={disabled || !availableLatencyDescriptions?.length}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder="Choose Latency Tier" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectGroup>
-										{availableLatencyDescriptions.map((latencyDescription) => (
-											<SelectItem
-												key={latencyDescription}
-												value={latencyDescription}
-												disabled={!isLatencyAllowedByPlan(latencyDescription)}
-											>
-												<span className="flex items-center gap-2">
-													{latencyDescription}
-													{(() => {
-														const id = regionNameToLatencyToRegion[selectedRegionName]?.[latencyDescription]?.id;
-														return id && premiumOnlyRegions.regionIds.has(id) && <Badge>Premium</Badge>;
-													})()}
-												</span>
-											</SelectItem>
-										))}
-									</SelectGroup>
-								</SelectContent>
-							</Select>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
+						<Select
+							value={selectedLatencyDescription}
+							onValueChange={onLatencyValueChange}
+							disabled={disabled || !availableLatencyDescriptions?.length}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Choose Latency Tier" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{availableLatencyDescriptions.map((latencyDescription) => (
+										<SelectItem
+											key={latencyDescription}
+											value={latencyDescription}
+											disabled={!isLatencyAllowedByPlan(latencyDescription)}
+										>
+											<span className="flex items-center gap-2">
+												{latencyDescription}
+												{(() => {
+													const id = regionNameToLatencyToRegion[selectedRegionName]?.[latencyDescription]?.id;
+													return id && premiumOnlyRegions.regionIds.has(id) && <Badge>Premium</Badge>;
+												})()}
+											</span>
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
 				)}
 
-			{!disabled && fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && (
+			{!disabled && fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && !lockedToOrganizationRegion && (
 				<div className="flex-none mt-6">
 					<Button
 						type="button"

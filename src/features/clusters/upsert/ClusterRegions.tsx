@@ -23,6 +23,7 @@ interface ClusterRegionsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	/** Regions a row may pick; the rest are shown but cannot be chosen or added. */
 	allowedRegionIds?: string[];
+	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	premiumOnlyRegions: PremiumOnlyRegions;
 	usageScale: UsageScale;
@@ -43,6 +44,7 @@ export function ClusterRegions({
 	form,
 	regionLocations,
 	allowedRegionIds,
+	regionLookup,
 	regionNameToLatencyToRegion,
 	premiumOnlyRegions,
 	usageScale,
@@ -62,18 +64,35 @@ export function ClusterRegions({
 		name: 'regionPlans',
 	});
 
-	const nextAvailableRegionToAdd = useMemo(() => {
-		const selectedRegionNames = selectedRegionPlans.map(region =>
-			regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region
-		);
+	const nextAvailableRegionToAdd = useMemo<RegionPlanEntry | null>(() => {
 		if (!totalPrice || disabled) {
 			// Free plans — and any plan whose region set is fixed — get a single region.
 			return null;
 		}
-		return regionLocations?.find(r =>
-			!selectedRegionNames.includes(r.region) && (!allowedRegionIds?.length || allowedRegionIds.includes(r.id))
+		const selectedCohorts = new Set(
+			selectedRegionPlans.map(entry => {
+				const region = regionLookup.get(entry.regionId);
+				return region ? regionCohortKey(region) : null;
+			}),
 		);
-	}, [allowedRegionIds, disabled, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans, totalPrice]);
+		const nextCatalogRegion = regionLocations?.find(r =>
+			!selectedCohorts.has(r.region) && (!allowedRegionIds?.length || allowedRegionIds.includes(r.id))
+		);
+		if (nextCatalogRegion) {
+			return { regionId: nextCatalogRegion.id };
+		}
+		if (canUseCustomRegions) {
+			for (const region of regionLookup.values()) {
+				if (
+					region.kind === 'organization' && region.active && region.instanceCount > 0
+					&& !selectedCohorts.has(region.id)
+				) {
+					return { regionId: region.id, quantity: 1 };
+				}
+			}
+		}
+		return null;
+	}, [allowedRegionIds, canUseCustomRegions, disabled, regionLocations, regionLookup, selectedRegionPlans, totalPrice]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {
@@ -146,16 +165,28 @@ export function ClusterRegions({
 				</p>
 			)}
 
-			{nextAvailableRegionToAdd && (
-				<div className="md:col-span-6 col-span-3">
-					<Button
-						type="button"
-						variant="positiveOutline"
-						onClick={onAddARegionClick}
-					>
-						<PlusIcon />
-						Add Additional Region Usage
-					</Button>
+			{(nextAvailableRegionToAdd || (canDefineCustomRegions && !disabled)) && (
+				<div className="md:col-span-6 col-span-3 flex flex-wrap gap-3">
+					{nextAvailableRegionToAdd && (
+						<Button
+							type="button"
+							variant="positiveOutline"
+							onClick={onAddARegionClick}
+						>
+							<PlusIcon />
+							Add Additional Region Usage
+						</Button>
+					)}
+					{canDefineCustomRegions && !disabled && (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setDefiningCustomRegion(true)}
+						>
+							<MapPinnedIcon />
+							Define custom region
+						</Button>
+					)}
 				</div>
 			)}
 			{canDefineCustomRegions && (

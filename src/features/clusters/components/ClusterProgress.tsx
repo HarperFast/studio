@@ -19,9 +19,11 @@ import { useEffect, useMemo, useState } from 'react';
  * 	2. Updating (Provisioning or Cloning)
  * 	3. Running (Running or Updated)
  */
-export function ClusterProgress({ cluster, forceProgressBarVisible }: {
+export function ClusterProgress({ cluster, forceProgressBarVisible, expectedInstances }: {
 	cluster: Pick<Cluster, 'status' | 'id'>;
 	forceProgressBarVisible?: boolean;
+	/** What the cluster's plans add up to; instances not created yet show as pending. */
+	expectedInstances?: number;
 }) {
 	const [showProgress, setShowProgress] = useState(forceProgressBarVisible || false);
 
@@ -76,6 +78,12 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			}
 			// We'll ignore terminated or non-updated instances from the totals.
 		}
+		// A scale-up builds dedicated hosts before it creates the instances that will run on them.
+		const notCreated = Math.max(0, (expectedInstances ?? 0) - (pending + updating + running + failed));
+		if (notCreated > 0) {
+			pending += notCreated;
+			pendingCounts.Preparing = notCreated;
+		}
 		const describe = (counts: Record<string, number>) =>
 			Object.keys(counts).sort().map((label) => `${counts[label]} ${capitalizeWords(label)}`);
 		const total = pending + updating + running + failed;
@@ -91,7 +99,7 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 				...describe(pendingCounts),
 			].join(' · '),
 		};
-	}, [clusterById]);
+	}, [clusterById, expectedInstances]);
 
 	if (!showProgress) {
 		return null;

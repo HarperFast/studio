@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildRegionLookup,
 	describeShape,
+	expectedInstanceCount,
 	isOrganizationRegionId,
 	organizationRegionShape,
 	regionAtQuantity,
@@ -101,5 +102,24 @@ describe('describeShape', () => {
 	it('counts repeated datacenters', () => {
 		expect(describeShape(['fr-par', 'fr-par', 'it-mil'])).toBe('fr-par ×2 · it-mil');
 		expect(describeShape([])).toBe('');
+	});
+});
+
+describe('expectedInstanceCount', () => {
+	const lookup = buildRegionLookup(catalog, [orgRegion], 'linode');
+
+	it('adds a catalog tier once and a custom region per unit', () => {
+		expect(
+			expectedInstanceCount(
+				[{ planId: 'p', regionId: 'us-2' }, { planId: 'p', regionId: 'oreg-1', quantity: 2 }],
+				lookup,
+			),
+		).toBe(4 + 3 * 2);
+	});
+
+	it('has no expectation when a plan does not resolve', () => {
+		expect(expectedInstanceCount([{ planId: 'p', regionId: 'gone' }], lookup)).toBeUndefined();
+		expect(expectedInstanceCount([], lookup)).toBeUndefined();
+		expect(expectedInstanceCount(undefined, lookup)).toBeUndefined();
 	});
 });

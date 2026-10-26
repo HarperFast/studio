@@ -5,6 +5,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { hobbyistPlanId, regionFrozenPlanIds } from '@/config/constants';
+import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
@@ -22,7 +23,8 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext, useSearch } from '@tanstack/react-router';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { draftClusterIdOf } from './draftClusterIdOf';
@@ -226,13 +228,10 @@ export function UpsertCluster() {
 			}
 		}
 
-		const currentPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0]?.planId);
-		const hobbyistPlan = planTypes?.find(planType => planType.id === hobbyistPlanId);
+		const { plan: loadedPlan, regionLookup } = lookupFor(clusterToLoad?.plans);
+		const hobbyistPlan = planTypes.find(planType => planType.id === hobbyistPlanId);
 		// Arriving from the upgrade CTA opens on Hobbyist; the picker still lets them choose otherwise.
-		const selectedPlan = (upgradingToHobbyist && hobbyistPlan) || currentPlan;
-
-		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
-		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
+		const selectedPlan = (upgradingToHobbyist && hobbyistPlan) || loadedPlan;
 		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
 			? regionLocationsColocated
 			: regionLocationsDedicated;
@@ -279,18 +278,22 @@ export function UpsertCluster() {
 				?? harperVersions.value?.find(v => v.name === 'stable')?.version;
 
 		return {
-			sourceClusterId: clusterToLoad?.id,
-			autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
-			clusterName: clusterToLoad?.name ?? '',
-			abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
-			version,
-			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
-			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
-			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
-			instances,
-			regionPlans,
-			// Soonest-ending first is the server's order, so the default is the one about to lapse.
-			grantId: clusterId ? undefined : organization?.unboundGrants?.[0]?.id,
+			values: {
+				sourceClusterId: clusterToLoad?.id,
+				autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
+				clusterName: clusterToLoad?.name ?? '',
+				abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
+				version,
+				deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
+				performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
+				fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
+				instances,
+				regionPlans,
+				// Soonest-ending first is the server's order, so the default is the one about to lapse.
+				grantId: clusterId ? undefined : organization?.unboundGrants?.[0]?.id,
+			},
+			unresolvedRegionIds,
+			draftDiscarded,
 		};
 	}, [
 		alreadyUsingFree,

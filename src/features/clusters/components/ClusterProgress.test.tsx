@@ -15,11 +15,15 @@ vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
 
 import { ClusterProgress } from './ClusterProgress';
 
-function mount() {
+function mount(expectedInstances?: number) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 	return render(
 		<QueryClientProvider client={client}>
-			<ClusterProgress cluster={{ id: 'clu-1', status: 'PROVISIONING' }} forceProgressBarVisible={true} />
+			<ClusterProgress
+				cluster={{ id: 'clu-1', status: 'PROVISIONING' }}
+				forceProgressBarVisible={true}
+				expectedInstances={expectedInstances}
+			/>
 		</QueryClientProvider>,
 	);
 }
@@ -74,5 +78,26 @@ describe('ClusterProgress', () => {
 		({ container } = mount());
 		await screen.findByText('1 Running · 1 Failed');
 		expect(widths(container)).toEqual(['50%', '50%', '0%', '0%']);
+	});
+
+	it('shows instances the plans add up to but central-manager has not created yet as pending', async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+		];
+		const { container } = mount(4);
+		expect(await screen.findByText('2 Running · 2 Preparing')).toBeTruthy();
+		expect((container.querySelector('.bg-green\\/80') as HTMLElement).style.width).toBe('50%');
+		expect((container.querySelector('.bg-gray-600') as HTMLElement).style.width).toBe('50%');
+	});
+
+	it('shows nothing extra while instances are being removed', async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-1', status: 'RUNNING' },
+		];
+		mount(2);
+		expect(await screen.findByText('3 Running')).toBeTruthy();
 	});
 });

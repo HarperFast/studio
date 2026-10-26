@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import {
 	useCreateOrganizationRegionMutation,
 	useUpdateOrganizationRegionMutation,
@@ -27,7 +28,6 @@ import {
 	organizationRegionsQueryKey,
 } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { DatacenterCountSummary } from '@/features/admin/regions/components/DatacenterCountSummary';
-import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrganizationRegion } from '@/integrations/api/api.patch';
