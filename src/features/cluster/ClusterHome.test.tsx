@@ -13,6 +13,7 @@ vi.mock('@tanstack/react-router', () => {
 		Navigate: ({ to }: { to: string }) => <div>redirected to {to}</div>,
 		useNavigate: () => vi.fn(),
 		useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
+		useRouteContext: () => ({}),
 		useRouter: () => router,
 	};
 });
