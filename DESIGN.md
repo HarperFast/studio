@@ -111,7 +111,9 @@ Central manager only ever sends the boolean, never the other organizations' ids;
 
 ## The notification banner floats over the page
 
-[`NotificationBanner`](src/components/NotificationBanner.tsx) is fixed to the viewport bottom, so it covers whatever is pinned there. While it shows, it sets `--notification-banner-height` on `<html>` to its measured height (it wraps and stacks), and clears it when the last notice is dismissed. A layout sized to the viewport bottom subtracts `var(--notification-banner-height, 0px)`, as [`SectionRail.css`](src/components/SectionRail.css) does. The full-height database, applications and logs panes don't yet, and are covered until the notice is dismissed.
+[`NotificationBanner`](src/components/NotificationBanner.tsx) is fixed to the viewport bottom, so it covers whatever is pinned there. While it shows, it sets `--notification-banner-height` on `<html>` to its measured height (it wraps and stacks), and removes it when the last notice is dismissed, falling back to the `0px` default in `src/index.css`.
+
+Anything sized or pinned to the viewport bottom subtracts that variable: every full-viewport height (the `.studio-shell` and sign-in shells, page `min-h`, the 404 page, the database, logs and API panes, the section rail), and every `bottom-0` that should stay visible (the applications panes, toasts, and the floating chat, whose bubble snaps within its container and is clamped back inside it when the banner shrinks it, without losing its stored position). The banner also renders a spacer of that height at the end of the page, so a long page can scroll clear of it. The spacer is why page `min-h` must subtract too: a layout exactly the viewport's height plus the spacer would make every page scroll by the banner's height. `NotificationBanner.layouts.test.ts` fails on a new full-viewport height that leaves it out.
 
 ## Repo conventions worth knowing
 

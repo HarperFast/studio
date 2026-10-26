@@ -45,7 +45,7 @@ export function LogsDataTable({
 		<Table
 			className="text-xs"
 			containerRef={containerRef}
-			containerClassName="rounded-md bg-card dark:bg-black-dark logsTable max-h-[calc(100vh-(--spacing(48)))] overflow-y-auto md:max-h-[calc(100vh-(--spacing(40)))]"
+			containerClassName="rounded-md bg-card dark:bg-black-dark logsTable max-h-[calc(100vh-(--spacing(48))-var(--notification-banner-height))] overflow-y-auto md:max-h-[calc(100vh-(--spacing(40))-var(--notification-banner-height))]"
 		>
 			<TableHeader>
 				{table.getHeaderGroups().map((headerGroup) => (

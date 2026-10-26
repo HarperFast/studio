@@ -10,7 +10,7 @@ export function NotFoundComponent() {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 	return (
-		<div className="flex items-center justify-center h-screen px-3">
+		<div className="flex items-center justify-center h-[calc(100vh-var(--notification-banner-height))] px-3">
 			<Card className="text-red p-5 border border-red rounded-md w-full max-w-md">
 				<CardHeader>
 					<CardTitle className="text-2xl">

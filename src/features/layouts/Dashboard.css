@@ -8,7 +8,7 @@
 	position: relative;
 	display: flow-root;
 	isolation: isolate;
-	min-height: 100svh;
+	min-height: calc(100svh - var(--notification-banner-height));
 	background: var(--shell-background);
 }
 

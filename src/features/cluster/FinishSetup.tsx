@@ -131,7 +131,7 @@ export function FinishSetup() {
 			>
 				<Breadcrumbs />
 			</nav>
-			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-(--spacing(32)))]">
+			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 				<div className="text-foreground w-xs">
 					<h1 className="text-2xl font-light">Create Admin User</h1>
 					<p className="text-muted-foreground">
