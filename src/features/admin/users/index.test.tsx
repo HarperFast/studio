@@ -66,9 +66,11 @@ beforeAll(() => {
 const notFound = () => new AxiosError('Not Found', '404', undefined, undefined, { status: 404 } as never);
 
 let user: typeof USER;
+let slowGate: Promise<void>;
 
 beforeEach(() => {
 	user = structuredClone(USER);
+	slowGate = Promise.resolve();
 	get.mockReset();
 	patch.mockReset();
 	get.mockImplementation(async (url: string) => {
@@ -111,6 +113,12 @@ async function renderAt(path = '/admin/users', seed?: (client: QueryClient) => v
 			createRoute({ getParentRoute: () => usersRoute, path: '$userId', component: UserDetailsPage }),
 		]),
 		createRoute({ getParentRoute: () => rootRoute, path: 'elsewhere', component: () => <p>Elsewhere</p> }),
+		createRoute({
+			getParentRoute: () => rootRoute,
+			path: 'slow',
+			beforeLoad: () => slowGate,
+			component: () => <p>Slow</p>,
+		}),
 	]);
 	const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -342,6 +350,30 @@ describe('admin users', () => {
 			answer({ data: { id: 'usr-1', status: 'DEACTIVATED', removedFrom: [], retainedIn: [] } });
 		});
 		expect(await within(dialog).findByText('Every membership was left in place.')).toBeTruthy();
+	});
+
+	it('drops an email lookup that answers while another page is still loading', async () => {
+		let release!: () => void;
+		slowGate = new Promise((resolve) => (release = resolve));
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		let arriving!: Promise<void>;
+		await act(async () => {
+			arriving = router.navigate({ to: '/slow' } as never);
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+		await act(async () => {
+			release();
+			await arriving;
+		});
+
+		expect(router.state.location.href).toBe('/slow');
+		expect(screen.getByText('Slow')).toBeTruthy();
 	});
 
 	it('offers no deactivation for a deleted account', async () => {
