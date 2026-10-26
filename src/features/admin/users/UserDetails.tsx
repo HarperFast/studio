@@ -44,27 +44,17 @@ function UserDetailsView({ userId }: { userId: string }) {
 }
 
 function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
-	const deleted = user.status === 'DELETED';
-	const removable = user.organizations.filter((membership) => !membership.lastAdmin).length;
-
 	return (
 		<div className="space-y-8">
 			<UserProfileCard user={user} />
 
 			<section>
-				<div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-					<h2 className="text-lg font-light">Organizations</h2>
-					{!deleted && user.organizations.length > 0 && (
-						<p className="text-xs text-muted-foreground">
-							{removable} removed on deactivation · {user.organizations.length - removable} kept as the last admin
-						</p>
-					)}
-				</div>
+				<h2 className="mb-3 text-lg font-light">Organizations</h2>
 				{user.organizations.length
 					? (
 						<ul className="space-y-3">
 							{user.organizations.map((membership) => (
-								<OrganizationCard key={membership.organizationId} membership={membership} marked={!deleted} />
+								<OrganizationCard key={membership.organizationId} membership={membership} />
 							))}
 						</ul>
 					)

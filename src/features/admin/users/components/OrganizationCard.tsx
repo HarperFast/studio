@@ -2,7 +2,7 @@ import { MembershipDetails } from '@/features/admin/users/userAdminApi';
 import { cn } from '@/lib/cn';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link } from '@tanstack/react-router';
-import { Building2Icon, ChevronRightIcon, LogOutIcon, ShieldCheckIcon } from 'lucide-react';
+import { Building2Icon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const STATUS_DOT: Record<string, string> = {
@@ -19,7 +19,7 @@ const statusLabel = (status: string | null) =>
 export const organizationLabel = (membership: { organizationName: string | null; organizationId: string }) =>
 	membership.organizationName || membership.organizationId;
 
-export function OrganizationCard({ membership, marked }: { membership: MembershipDetails; marked: boolean }) {
+export function OrganizationCard({ membership }: { membership: MembershipDetails }) {
 	const [open, setOpen] = useState(true);
 	const { organizationId, clusters } = membership;
 	const running = clusters.filter((cluster) => cluster.status === 'RUNNING').length;
@@ -27,7 +27,7 @@ export function OrganizationCard({ membership, marked }: { membership: Membershi
 
 	return (
 		<li className="overflow-hidden rounded-xl border bg-card">
-			<div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+			<div className="flex items-center gap-3 px-4 py-3">
 				{clusters.length
 					? (
 						<button
@@ -61,11 +61,6 @@ export function OrganizationCard({ membership, marked }: { membership: Membershi
 						<span className="hidden font-mono text-muted-foreground/70 sm:inline">{' · '}{organizationId}</span>
 					</p>
 				</div>
-				{marked && (
-					<div className="basis-full pl-[4.75rem] sm:basis-auto sm:pl-0">
-						<DeactivationFate lastAdmin={membership.lastAdmin} />
-					</div>
-				)}
 			</div>
 			{open && clusters.length > 0 && (
 				<ul className="divide-y border-t">
@@ -91,20 +86,4 @@ export function OrganizationCard({ membership, marked }: { membership: Membershi
 			)}
 		</li>
 	);
-}
-
-function DeactivationFate({ lastAdmin }: { lastAdmin: boolean }) {
-	return lastAdmin
-		? (
-			<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-yellow/15 px-2.5 py-1 text-xs text-amber-800 dark:text-yellow">
-				<ShieldCheckIcon className="size-3.5" />
-				Kept: last admin
-			</span>
-		)
-		: (
-			<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-				<LogOutIcon className="size-3.5" />
-				Removed on deactivation
-			</span>
-		);
 }

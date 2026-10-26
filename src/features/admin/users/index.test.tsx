@@ -152,7 +152,7 @@ describe('admin users', () => {
 		expect(get).toHaveBeenCalledWith('/Admin/User/usr-1?details=true');
 	});
 
-	it('shows each organization with its roles, its deactivation marking and its live clusters', async () => {
+	it('shows each organization with its roles and live clusters, leaving the deactivation split to the dialog', async () => {
 		await renderAt('/admin/users/usr-1');
 
 		const stat = (label: string) => screen.getByText(label, { selector: 'dt' }).parentElement!;
@@ -163,16 +163,15 @@ describe('admin users', () => {
 		expect(within(stat('Live clusters')).getByText('1 running')).toBeTruthy();
 
 		const solo = screen.getByText('Solo Co').closest('li')!;
-		expect(within(solo).getByText('Kept: last admin')).toBeTruthy();
 		expect(within(solo).getByText('0 live clusters')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Solo Co' }).getAttribute('href')).toBe('/org-solo');
 
 		const shared = screen.getByText('Shared Co').closest('li')!;
-		expect(within(shared).getByText('Removed on deactivation')).toBeTruthy();
 		expect(within(shared).getByText('admin')).toBeTruthy();
 		expect(within(shared).getByText('developer')).toBeTruthy();
 		expect(within(shared).getByRole('link', { name: 'alpha' }).getAttribute('href')).toBe('/org-shared/clu-a');
 		expect(within(shared).getByText('Failed')).toBeTruthy();
+		expect(screen.queryByText(/last admin|on deactivation/)).toBeNull();
 	});
 
 	it("folds an organization's clusters away and back", async () => {
@@ -285,14 +284,12 @@ describe('admin users', () => {
 		expect(screen.getByText('Elsewhere')).toBeTruthy();
 	});
 
-	it('offers no deactivation, and no membership marking, for a deleted account', async () => {
+	it('offers no deactivation for a deleted account', async () => {
 		user.status = 'DELETED';
 		await renderAt('/admin/users/usr-1');
 
 		expect(await screen.findByText('This account is deleted, so it cannot be deactivated.')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
-		expect(screen.queryByText('Removed on deactivation')).toBeNull();
-		expect(screen.queryByText('Kept: last admin')).toBeNull();
 	});
 
 	it('looks the same address up again when asked, refreshing the open account', async () => {

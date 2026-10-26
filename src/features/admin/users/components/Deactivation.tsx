@@ -18,11 +18,8 @@ import { cn } from '@/lib/cn';
 import { CircleSlashIcon, Loader2Icon, LogOutIcon, ShieldCheckIcon, UserXIcon } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
-const organizations = (count: number) => (count === 1 ? '1 organization' : `${count} organizations`);
-
 export function DeactivatePanel({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
 	const removable = user.organizations.filter((membership) => !membership.lastAdmin).length;
-	const kept = user.organizations.length - removable;
 	const deactivated = user.status === 'DEACTIVATED';
 	// Central manager answers a status change on a deleted account with 404.
 	const deleted = user.status === 'DELETED';
@@ -50,9 +47,8 @@ export function DeactivatePanel({ user, onDeactivate }: { user: AdminUser; onDea
 					<h2 className="font-medium">{deactivated ? 'Finish deactivating' : 'Deactivate account'}</h2>
 					<p className="mt-1 text-sm text-muted-foreground">
 						{deactivated
-							? 'Already deactivated: deactivating again removes the memberships marked for removal.'
-							: 'Ends every session and blocks sign-in.'} Leaves {organizations(removable)}
-						{kept > 0 && `, and stays in ${organizations(kept)} as the last admin who can sign in`}.
+							? 'Already deactivated: deactivating again removes it from the organizations it can still leave.'
+							: 'Ends every session and blocks sign-in.'} You'll see which organizations it leaves before you confirm.
 					</p>
 				</div>
 				<Button variant="destructive" className="shrink-0" onClick={onDeactivate}>Deactivate</Button>
