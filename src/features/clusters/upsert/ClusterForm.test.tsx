@@ -218,10 +218,11 @@ describe('ClusterForm — region rows', () => {
 
 	function renderRows(
 		regionPlans: { regionId: string; quantity?: number }[],
-		{ clusterId, grant, startOffOnBilling = false }: {
+		{ clusterId, grant, startOffOnBilling = false, performanceDescription = 'Basic' }: {
 			clusterId?: string;
 			grant?: ClusterGrant;
 			startOffOnBilling?: boolean;
+			performanceDescription?: string;
 		} = {},
 	) {
 		const organization = {
@@ -241,7 +242,7 @@ describe('ClusterForm — region rows', () => {
 						abbreviatedName: '',
 						version: '5.0.2',
 						deploymentDescription: 'Shared',
-						performanceDescription: 'Basic',
+						performanceDescription,
 						regionPlans,
 						instances: [],
 						grantId: grant?.id,
@@ -293,6 +294,30 @@ describe('ClusterForm — region rows', () => {
 		const { findByText } = renderRows([{ regionId: 'oreg-1', quantity: 2 }], { grant: TRIAL_US });
 
 		expect(await findByText('This custom region is not covered by the selected voucher.')).toBeTruthy();
+	});
+
+	it('keeps a region the catalog no longer lists, and reports it instead of blanking the row', async () => {
+		const { findByText } = renderRows([{ regionId: 'gone-1' }, { regionId: 'oreg-1', quantity: 1 }], {
+			clusterId: 'clu-1',
+		});
+
+		expect(await findByText('This region is not currently available. Contact us to move this cluster.')).toBeTruthy();
+	});
+
+	it('a withdrawn performance tier sends payment review back instead of throwing with the submit locked', async () => {
+		const { findByRole } = renderRows([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 1 }], {
+			clusterId: 'clu-1',
+			startOffOnBilling: true,
+			performanceDescription: 'Retired',
+		});
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		fireEvent.click(submit);
+		await waitFor(() =>
+			expect(toast.error).toHaveBeenCalledWith('Some cluster details are no longer valid. Please review them.')
+		);
+		expect(put).not.toHaveBeenCalled();
 	});
 
 	it('accepts a custom region the voucher lists', async () => {

@@ -114,8 +114,7 @@ export function ClusterRegions({
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
 	const [definingCustomRegion, setDefiningCustomRegion] = useState(false);
-	// Defining a region only adds it to the picker's Custom regions group: staff define as many as
-	// the organization needs, then choose which ones this cluster deploys.
+	// Defining never edits the rows: staff choose which custom regions this cluster deploys.
 	const onCustomRegionSaved = useCallback((region: OrganizationRegion) => {
 		toast.success(`${region.name} is ready to pick under Custom regions`);
 	}, []);

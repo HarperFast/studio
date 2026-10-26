@@ -48,7 +48,8 @@ export function migrateDraftRegionPlans(
 ): RegionPlanEntry[] | null {
 	const migrated: RegionPlanEntry[] = [];
 	for (const entry of entries ?? []) {
-		if (entry.regionId) {
+		// Blank rows included: dropping one could leave no rows, and the form then fills a default region.
+		if (entry.regionId !== undefined) {
 			migrated.push({ regionId: entry.regionId, ...(entry.quantity ? { quantity: entry.quantity } : {}) });
 			continue;
 		}

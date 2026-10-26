@@ -47,7 +47,7 @@ interface OrganizationRegionFormModalProps {
 	onOpenChange: (open: boolean) => void;
 	organizationId: string;
 	region?: OrganizationRegion | null;
-	/** Called with the created or updated row, after the caches are invalidated. */
+	/** Called with the created or updated row, after the caches are invalidated, in place of the success toast. */
 	onSaved?: (region: OrganizationRegion) => void;
 }
 
@@ -136,7 +136,9 @@ export function OrganizationRegionFormModal(
 		}
 
 		const onSuccess = (saved: OrganizationRegion) => {
-			toast.success(isEdit ? 'Custom region updated' : 'Custom region created');
+			if (!onSaved) {
+				toast.success(isEdit ? 'Custom region updated' : 'Custom region created');
+			}
 			void queryClient.invalidateQueries({ queryKey: organizationRegionsQueryKey(organizationId) });
 			if (region) {
 				void queryClient.invalidateQueries({ queryKey: organizationRegionQueryKey(region.id) });
