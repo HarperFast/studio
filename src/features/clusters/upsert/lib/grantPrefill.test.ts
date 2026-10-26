@@ -47,8 +47,8 @@ describe('prefillFromGrant', () => {
 	});
 
 	it('keeps a region the plan cannot be placed in today', () => {
-		// A comp may name a region with no host today. The rows show it (the picker reports it as
-		// unavailable) rather than keep the previous grant's rows.
+		// A comp may name a region with no host today. The rows carry its id, which validation reports as
+		// unavailable, rather than keep the previous grant's rows.
 		const result = prefillFromGrant({ shape: shape([LEVEL_1.id, 'us-ded']) }, PLANS);
 		expect(result?.regionPlans).toEqual([{ regionId: 'us-ded' }]);
 	});
