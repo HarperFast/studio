@@ -16,6 +16,7 @@ import { act, ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterDetails } from './ClusterDetails';
+import { buildRegionLookup } from './lib/regionLookup';
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 // The bare Voucher ID field is staff-gated; everything else from this module stays real. Read
@@ -87,7 +88,7 @@ function Harness(
 			performanceDescription: HOBBYIST.performanceDescription!,
 			fqdn: '',
 			instances: [],
-			regionPlans: [{ regionName: 'US', latencyDescription: 'narrow' }],
+			regionPlans: [{ regionId: 'us-1' }],
 			...defaults,
 		} as UpsertClusterSchemaType,
 	});
@@ -111,6 +112,11 @@ async function mountEditor(overrides: Partial<Parameters<typeof ClusterDetails>[
 						partialUpgrade={null}
 						regionLocations={REGIONS}
 						regionNameToLatencyToRegion={REGION_MAP}
+						regionLookup={buildRegionLookup(REGIONS, [], undefined)}
+						organizationId="org-1"
+						canUseCustomRegions={false}
+						canDefineCustomRegions={false}
+						lockedOrganizationRegionIds={[]}
 						selectedDeployment="Colocated"
 						selectedPerformance={HOBBYIST.performanceDescription!}
 						selectedPlan={HOBBYIST}
@@ -131,8 +137,11 @@ async function mountEditor(overrides: Partial<Parameters<typeof ClusterDetails>[
  * not a pointerDown).
  */
 function selectFor(labelText: string | RegExp): HTMLElement {
-	const label = screen.getAllByText(labelText).find((node) => node.closest('[data-slot="form-item"]'));
-	const item = label?.closest('[data-slot="form-item"]');
+	// The distribution select is labelled but not a form field of its own (the row stores a region id).
+	const label = screen.getAllByText(labelText).find((node) =>
+		node.closest('[data-slot="form-item"]') || node.matches('[data-slot="form-label"]')
+	);
+	const item = label?.closest('[data-slot="form-item"]') ?? label?.parentElement;
 	const trigger = item?.querySelector('[data-slot="select-trigger"]');
 	if (!trigger) { throw new Error(`no select found for label ${String(labelText)}`); }
 	return trigger as HTMLElement;

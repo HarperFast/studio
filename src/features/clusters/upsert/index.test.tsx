@@ -16,6 +16,7 @@ const route = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => route.params,
 	useRouteContext: () => route.context,
+	useSearch: () => ({}),
 }));
 vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => true }));
 vi.mock('@/hooks/usePermissions', () => ({
@@ -123,7 +124,6 @@ describe('UpsertCluster', () => {
 		localStorage.setItem(
 			LocalStorageKeys.SavedClusterState,
 			JSON.stringify({
-				clusterId: 'clu-1',
 				clusterName: 'ded',
 				skipToBilling: true,
 				regionPlans: [{ regionName: 'EU', latencyDescription: 'Lowest' }],

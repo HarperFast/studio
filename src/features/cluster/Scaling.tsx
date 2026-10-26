@@ -2,11 +2,15 @@ import { ContactUs } from '@/components/ContactUs';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
+import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { isConversionComplete, isConversionFailed } from '@/features/clusters/lib/grantExpiry';
+import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { buildRegionLookup, expectedInstanceCount } from '@/features/clusters/upsert/lib/regionLookup';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { CloudAlertIcon } from 'lucide-react';
@@ -23,6 +27,17 @@ export function Scaling() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
+	const organizationId = cluster?.organizationId;
+	const { data: catalog } = useQuery({ ...getRegionLocationsOptions({ organizationId }), enabled: !!organizationId });
+	const { data: organizationRegions } = useQuery(getOrganizationRegionsQueryOptions(organizationId));
+	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
+	const expectedInstances = useMemo(() => {
+		if (!catalog || organizationRegions === undefined || !organization) {
+			return undefined;
+		}
+		const provider = organization.channel === 'Akamai' ? 'linode' : undefined;
+		return expectedInstanceCount(cluster?.plans, buildRegionLookup(catalog, organizationRegions ?? [], provider));
+	}, [catalog, organizationRegions, organization, cluster?.plans]);
 	const status = cluster?.status;
 	// Not RUNNING alone: a trial->paid conversion reaches RUNNING before the server applies the plan,
 	// and a scale-up reaches it while new members are still cloning.
@@ -97,7 +112,7 @@ export function Scaling() {
 		<ClusterContentWithSubNavMenu className="flex justify-center">
 			<div className="center w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
-				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} expectedInstances={expectedInstances} />
 				<CloneProgressList instances={cluster.instances} />
 				<p>
 					{isImmediate
