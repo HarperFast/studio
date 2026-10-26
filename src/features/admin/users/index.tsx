@@ -33,7 +33,6 @@ export function UsersAdminLayout() {
 
 	const open = (userId: string) => {
 		setLookup({ state: 'idle' });
-		// Looking up the account already open refreshes it rather than doing nothing.
 		void queryClient.invalidateQueries({ queryKey: userDetailsQueryKey(userId) });
 		void navigate({ to: '/admin/users/$userId', params: { userId } });
 	};

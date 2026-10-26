@@ -45,9 +45,10 @@ export interface DeactivateUserResult {
 
 const BASE = '/Admin/User/';
 
-const userAdminQueryKey = ['fabric-admin', 'users'] as const;
+// Under its own segment: the API Tokens page caches staff-user summaries at ['fabric-admin', 'users', id].
+const userDetailsQueryPrefix = ['fabric-admin', 'users', 'details'] as const;
 
-export const userDetailsQueryKey = (userId: string) => [...userAdminQueryKey, userId] as const;
+export const userDetailsQueryKey = (userId: string) => [...userDetailsQueryPrefix, userId] as const;
 
 /** Matches how central manager stores addresses, so the exact-match lookup finds mixed-case input. */
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -112,7 +113,7 @@ export function useDeactivateUserMutation() {
 		},
 		// Not returned: the dialog would wait on the refetch before showing what the write did.
 		onSettled: () => {
-			void queryClient.invalidateQueries({ queryKey: userAdminQueryKey });
+			void queryClient.invalidateQueries({ queryKey: userDetailsQueryPrefix });
 		},
 	});
 }

@@ -18,6 +18,7 @@ const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 
+import { getStaffUserQueryOptions, StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
 import { UsersAdminLayout } from '@/features/admin/users/index';
 import { DuplicateAccountError, findUserIdByEmail } from '@/features/admin/users/userAdminApi';
 import { UserDetailsPage } from '@/features/admin/users/UserDetails';
@@ -100,8 +101,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-/** The admin users routes as the app nests them, without the admin shell's auth around them. */
-async function renderAt(path = '/admin/users') {
+async function renderAt(path = '/admin/users', seed?: (client: QueryClient) => void) {
 	const rootRoute = createRootRoute({ component: Outlet });
 	const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: 'admin/users', component: UsersAdminLayout });
 	const routeTree = rootRoute.addChildren([
@@ -113,6 +113,7 @@ async function renderAt(path = '/admin/users') {
 	]);
 	const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	seed?.(queryClient);
 	render(
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider router={router as never} />
@@ -187,6 +188,19 @@ describe('admin users', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Show the clusters of Shared Co' }));
 		});
 		expect(screen.getByRole('link', { name: 'alpha' })).toBeTruthy();
+	});
+
+	it('keeps its details apart from the staff-user names the API Tokens page caches', async () => {
+		await renderAt('/admin/users/usr-1', (client) => {
+			client.setQueryData(getStaffUserQueryOptions('usr-1').queryKey, {
+				id: 'usr-1',
+				email: 'pat@example.com',
+				firstname: 'Pat',
+				lastname: 'Lee',
+			} as StaffUserSummary);
+		});
+
+		expect(await screen.findByText('Solo Co')).toBeTruthy();
 	});
 
 	it('opens a pasted user id without looking up an address', async () => {

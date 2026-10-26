@@ -11,7 +11,6 @@ const STATUS_DOT: Record<string, string> = {
 	STOPPED: 'bg-muted-foreground/40',
 };
 
-/** Anything not settled (provisioning, updating, restarting…) pulses. */
 const statusDot = (status: string | null) => STATUS_DOT[status ?? ''] ?? 'animate-pulse bg-yellow';
 
 const statusLabel = (status: string | null) =>
@@ -63,7 +62,6 @@ export function OrganizationCard({ membership, marked }: { membership: Membershi
 					</p>
 				</div>
 				{marked && (
-					// Its own line on a phone, under the name, so the name keeps the width.
 					<div className="basis-full pl-[4.75rem] sm:basis-auto sm:pl-0">
 						<DeactivationFate lastAdmin={membership.lastAdmin} />
 					</div>
