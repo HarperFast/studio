@@ -123,6 +123,35 @@ because Harper's validator refuses the wrong mix outright: a stage with `restart
 install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
 nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.
 
+## Private database copies
+
+Harper 5.3 can run an application on its own copy of some databases (`branchedDatabases`: a list of names, or `true` for
+every database except `system`). Harper reads the setting only from the application's root-config entry, and the only
+operation that writes it there is a package deploy or stage, through
+[`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts). Four things follow:
+
+- **A redeploy resends it.** A package deploy replaces the entry whole, so leaving the setting out turns the copy off
+  and the application quietly goes back to the shared data. The redeploy form starts from the current setting, read
+  from the entry in `get_configuration` ([`useApplicationBranchedDatabases`](hooks/useBranchedDatabases.ts)), and
+  when the form doesn't offer the setting it resends the current one as it is. A super user's redeploy waits for a read
+  made since anything last changed the entry: Studio's own deploys, activations and drops invalidate the query, and so
+  does a failed read, and until a read succeeds after that, the last answer can be the very setting a redeploy would
+  undo. `get_configuration` is super-user only, so for anyone else the setting is unknown and
+  a redeploy leaves it out, as before.
+- **Offered from 5.3.2, to super users, on package deploys only.** 5.3.0 and 5.3.1 accept it on a package deploy and
+  ignore it at load (HarperFast/harper#3071), and an unreadable version offers nothing, for the same reason staging
+  isn't offered on one. An application created from a template, by the assistant, or with `harper deploy` has no
+  route on 5.3: `set_configuration` writes only `<app>_package` and `<app>_port` into an entry and refuses any other
+  key (harper `config/configUtils.ts`, `COMPONENT_PARAM_SUFFIXES`), and a payload deploy ignores the setting on 5.3.
+  Harper's unreleased 5.4 accepts it on a payload deploy (harper#3505), which is the likely route for those. Studio
+  still shows such an application's setting when its entry has one.
+- **A release carries its own.** Activating a staged or earlier release can't carry the setting (Harper refuses it),
+  and brings back the one that release was deployed with. Neither `list_deployments` nor `get_deployment` reports
+  it, so the activation dialog says so and shows the current one instead.
+- **Removing an application usually keeps the copy.** Studio drops without `restart`, and Harper deletes the copies
+  only after a restart, so the copy stays on disk and is picked up again by a later application of the same name.
+  Harper says so in the `drop_component` answer, which the delete toast shows.
+
 ## A live deploy is sent once
 
 A live (SSE) deploy that gets no event stream goes out again as the buffered POST only when its status proves Harper

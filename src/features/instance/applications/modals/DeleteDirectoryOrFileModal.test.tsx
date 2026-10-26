@@ -9,6 +9,7 @@
  */
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
+import type { DeleteSelectedItemsCallbacks } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
@@ -27,6 +28,14 @@ const rootEntries: DirectoryEntry[] = [
 
 let openedEntry: DirectoryEntry | FileEntry | undefined;
 let selectedItems: string[] = [];
+let currentBranches: { setting: string[] | true | undefined } = { setting: undefined };
+
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/features/instance/applications/hooks/useBranchedDatabases')>()),
+	useApplicationBranchedDatabases: (
+		project: string | undefined,
+	) => (project ? currentBranches : { setting: undefined }),
+}));
 
 vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ entityId: 'test-instance', entityType: 'instance' }),
@@ -54,11 +63,14 @@ vi.mock('@/react-query/queryClient', () => ({ errorHandler: vi.fn() }));
 
 const { toast, deleteSelectedItems } = vi.hoisted(() => ({
 	toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn(), loading: vi.fn(), dismiss: vi.fn() },
-	deleteSelectedItems: vi.fn(async () => ({ lastSplit: [] as string[] })),
+	deleteSelectedItems: vi.fn(async (_items: readonly string[], _callbacks: DeleteSelectedItemsCallbacks) => ({
+		lastSplit: [] as string[],
+	})),
 }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ deleteSelectedItems }));
 
+import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
 function renderWithQueryClient(ui: ReactElement) {
@@ -77,6 +89,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	currentBranches = { setting: undefined };
 });
 
 // Cancel, the destructive action, and Radix's own "X" close button all render; target the action
@@ -106,5 +119,59 @@ describe('DeleteDirectoryOrFileModal', () => {
 
 		await waitFor(() => expect(deleteSelectedItems).toHaveBeenCalled());
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	describe('an application on a private database copy', () => {
+		const KEPT = 'Successfully dropped: anvils. Any branched database storage this application owns was left in place; '
+			+ 'drop it again with restart: true to discard that data';
+
+		it('says the copy stays on disk before it is removed', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { setting: ['data'] };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.getByText(/runs on a private copy of data/)).toBeTruthy();
+		});
+
+		it("shows Harper's answer when it kept the copy, and forgets the dropped application's setting", async () => {
+			const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			vi.mocked(dropComponent).mockResolvedValue({ message: KEPT });
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', undefined);
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() =>
+				expect(toast.warning).toHaveBeenCalledWith(
+					'Delete completed, private database copy kept',
+					expect.objectContaining({ description: KEPT }),
+				)
+			);
+			expect(toast.success).not.toHaveBeenCalled();
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ['get_configuration', 'test-instance'] });
+			invalidate.mockRestore();
+		});
+
+		it("doesn't read a file's drop as the application's", async () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils/index.js'];
+			vi.mocked(dropComponent).mockResolvedValue({ message: KEPT });
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', 'index.js');
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() => expect(toast.success).toHaveBeenCalled());
+			expect(toast.warning).not.toHaveBeenCalled();
+		});
 	});
 });

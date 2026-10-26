@@ -11,6 +11,8 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DeployFailure } from '@/features/instance/applications/components/DeployProgress/DeployFailure';
+import { PrivateDatabaseCopyField } from '@/features/instance/applications/components/PrivateDatabaseCopy/PrivateDatabaseCopyField';
+import { useBranchedDatabasesAvailable } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useStagedDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback } from 'react';
@@ -37,6 +39,7 @@ export function ImportInstructions({
 }) {
 	const importSource = watch('contents.source');
 	const canStage = useStagedDeploymentsAvailable();
+	const canBranch = useBranchedDatabasesAvailable();
 	const setImportSource = useCallback((source: string) => {
 		setValue('contents.source', source as 'git' | 'npm' | 'tarball');
 	}, [setValue]);
@@ -178,6 +181,16 @@ export function ImportInstructions({
 									</FormDescription>
 								</div>
 							</FormItem>
+						)}
+					/>
+				)}
+
+				{canBranch && (
+					<FormField
+						control={control}
+						name="contents.privateCopy"
+						render={({ field }) => (
+							<PrivateDatabaseCopyField idPrefix="import" value={field.value} onChange={field.onChange} />
 						)}
 					/>
 				)}

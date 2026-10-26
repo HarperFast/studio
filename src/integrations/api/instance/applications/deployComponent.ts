@@ -3,6 +3,7 @@ import { EntityIds } from '@/features/auth/store/authStore';
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { SSEInconclusiveError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { useMutation } from '@tanstack/react-query';
+import { BranchedDatabases } from './branchedDatabases';
 import { DeployComponentResult, deployComponentStream, DeployStreamEvent } from './deployComponentStream';
 import { explainDeployFailure } from './explainDeployFailure';
 import { DeployRolloutError, followRestartJob } from './restartJob';
@@ -12,10 +13,13 @@ import { DeployRolloutError, followRestartJob } from './restartJob';
  * live, and takes no `restart` (Harper refuses one); `activate` makes a staged or kept release live by its id and
  * installs nothing. Both need Harper 5.3.0 on every node — an older node reads a stage as an ordinary deploy and
  * serves it — so a caller offers them only on a version it could read.
+ *
+ * A deploy or stage replaces the application's root-config entry whole, so leaving out `branchedDatabases` turns
+ * the application's private database copy off. An activation can't carry it; the release brings back its own.
  */
 export type DeployRequest =
-	| { kind: 'deploy'; project: string; package: string; installCommand?: string }
-	| { kind: 'stage'; project: string; package: string; installCommand?: string }
+	| { kind: 'deploy'; project: string; package: string; installCommand?: string; branchedDatabases?: BranchedDatabases }
+	| { kind: 'stage'; project: string; package: string; installCommand?: string; branchedDatabases?: BranchedDatabases }
 	| { kind: 'activate'; project: string; deploymentId: string };
 
 export function deployRequestBody(request: DeployRequest, replicated: boolean): Record<string, unknown> {
@@ -34,6 +38,7 @@ export function deployRequestBody(request: DeployRequest, replicated: boolean): 
 		project: request.project,
 		replicated,
 		install_command: request.installCommand || undefined,
+		branchedDatabases: request.branchedDatabases,
 		...(request.kind === 'stage' ? { activate: false } : { restart: 'rolling' }),
 	};
 }

@@ -14,6 +14,17 @@ const mocks = vi.hoisted(() => {
 		runHealthCheck: vi.fn(),
 		routeParams: { organizationId: 'org-1', instanceId: 'ins-1' },
 		navigate: vi.fn(),
+		// One object per test, so the setting keeps its identity across renders as the real hook's does.
+		branches: {
+			available: false,
+			current: {
+				setting: undefined as string[] | true | undefined,
+				known: false,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			},
+		},
 	};
 });
 
@@ -35,6 +46,11 @@ vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => 
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => mocks.sse.enabled,
 	useStagedDeploymentsAvailable: () => false,
+}));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	useBranchedDatabasesAvailable: () => mocks.branches.available,
+	useApplicationBranchedDatabases: () => mocks.branches.current,
+	invalidateApplicationConfiguration: vi.fn(),
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => mocks.runHealthCheck,
@@ -83,6 +99,19 @@ async function renderOpenModal() {
 	await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
 }
 
+async function renderOpenModalWithRerender() {
+	const queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
+	const ui = () => (
+		<QueryClientProvider client={queryClient}>
+			<RedeployApplicationModal />
+		</QueryClientProvider>
+	);
+	const rendered = render(ui());
+	unmount = rendered.unmount;
+	await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+	return { rerender: () => rendered.rerender(ui()) };
+}
+
 async function submit() {
 	await act(async () => {
 		fireEvent.click(screen.getByRole('button', { name: /Redeploy Application/ }));
@@ -100,6 +129,8 @@ beforeAll(() => {
 beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	mocks.sse.enabled = true;
+	mocks.branches.available = false;
+	mocks.branches.current = { setting: undefined, known: false, loading: false, failed: false, retry: vi.fn() };
 });
 
 afterEach(async () => {
@@ -326,6 +357,169 @@ describe('RedeployApplicationModal', () => {
 
 			expect(await screen.findByText('node-c did not restart')).toBeTruthy();
 			expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('private database copy', () => {
+		function sentBody() {
+			return vi.mocked(deployComponentStream).mock.calls[0]?.[0].body;
+		}
+
+		beforeEach(() => {
+			vi.mocked(deployComponentStream).mockResolvedValue({ message: 'Successfully deployed' });
+		});
+
+		it('resends the current setting when the form does not offer it, since a redeploy replaces the entry', async () => {
+			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			await renderOpenModal();
+
+			expect(screen.queryByText('Private database copy')).toBeNull();
+			await submit();
+
+			await waitFor(() => expect(sentBody()).toMatchObject({ branchedDatabases: ['data'] }));
+		});
+
+		it('starts the offered setting from the current one, so an unchanged redeploy keeps it', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			await renderOpenModal();
+
+			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
+			await submit();
+
+			await waitFor(() => expect(sentBody()).toMatchObject({ branchedDatabases: true }));
+		});
+
+		it('leaves the setting out when it is turned off, which puts the application back on the shared data', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			await renderOpenModal();
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('radio', { name: /Off/ }));
+			});
+			await submit();
+
+			await waitFor(() => expect(sentBody()).toBeDefined());
+			expect(sentBody()?.branchedDatabases).toBeUndefined();
+		});
+
+		it('refuses chosen databases with none picked, and sends the ones picked', async () => {
+			mocks.branches.available = true;
+			mocks.post.mockResolvedValue({ data: { data: {}, system: {} } });
+			await renderOpenModal();
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('radio', { name: /Chosen databases/ }));
+			});
+			const data = await screen.findByRole('checkbox', { name: 'data' });
+			expect(screen.queryByRole('checkbox', { name: 'system' })).toBeNull();
+			await submit();
+
+			expect(await screen.findByText('Choose at least one database.')).toBeTruthy();
+			expect(deployComponentStream).not.toHaveBeenCalled();
+
+			await act(async () => {
+				fireEvent.click(data);
+			});
+			await submit();
+
+			await waitFor(() => expect(sentBody()).toMatchObject({ branchedDatabases: ['data'] }));
+		});
+
+		it("refuses to redeploy while a super user's read of the setting has failed, even with the field hidden", async () => {
+			mocks.branches.current = { setting: undefined, known: false, loading: false, failed: true, retry: vi.fn() };
+			await renderOpenModal();
+
+			expect(screen.getByRole('alert').textContent).toContain('a redeploy without that would turn one off');
+			expect(screen.getByRole('button', { name: /Redeploy Application/ }).hasAttribute('disabled')).toBe(true);
+			fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+			expect(mocks.branches.current.retry).toHaveBeenCalledOnce();
+		});
+
+		it('keeps what was typed when the current setting arrives after the form opened', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			const { rerender } = await renderOpenModalWithRerender();
+			const install = screen.getByPlaceholderText(/Leave blank to install dependencies/);
+			await act(async () => {
+				fireEvent.change(install, { target: { value: 'npm ci' } });
+			});
+
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			await act(async () => rerender());
+
+			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
+			// The form state, not the input: an input whose value went undefined keeps showing what was typed.
+			await submit();
+			await waitFor(() => expect(sentBody()).toMatchObject({ install_command: 'npm ci', branchedDatabases: true }));
+		});
+
+		it('starts from a setting that arrived before the modal was first opened', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			const queryClient = new QueryClient();
+			const ui = () => (
+				<QueryClientProvider client={queryClient}>
+					<RedeployApplicationModal />
+				</QueryClientProvider>
+			);
+			const rendered = render(ui());
+			unmount = rendered.unmount;
+
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			rendered.rerender(ui());
+			await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+
+			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
+			await submit();
+			await waitFor(() => expect(sentBody()).toMatchObject({ branchedDatabases: true }));
+		});
+
+		it('keeps an option picked before the current setting arrived', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			const { rerender } = await renderOpenModalWithRerender();
+			await act(async () => {
+				fireEvent.click(screen.getByRole('radio', { name: /All databases/ }));
+			});
+
+			mocks.branches.current = { setting: undefined, known: true, loading: false, failed: false, retry: vi.fn() };
+			await act(async () => rerender());
+			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			await act(async () => rerender());
+
+			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
+		});
+
+		it("says the database list couldn't be read, even beside a database already chosen", async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.post.mockRejectedValue(new Error('network down'));
+			await renderOpenModal();
+
+			expect(await screen.findByText("Studio couldn't list the databases.")).toBeTruthy();
+			expect(screen.getByRole('checkbox', { name: 'data' })).toBeTruthy();
+		});
+
+		it('says so when there is nothing to choose besides system', async () => {
+			mocks.branches.available = true;
+			mocks.post.mockResolvedValue({ data: { system: {} } });
+			await renderOpenModal();
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('radio', { name: /Chosen databases/ }));
+			});
+
+			expect(await screen.findByText('There are no databases to copy besides system.')).toBeTruthy();
+		});
+
+		it('waits for the current setting before it can be sent', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			await renderOpenModal();
+
+			expect(screen.getByRole('button', { name: /Redeploy Application/ }).hasAttribute('disabled')).toBe(true);
 		});
 	});
 });

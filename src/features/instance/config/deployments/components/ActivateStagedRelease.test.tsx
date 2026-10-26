@@ -9,6 +9,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	canStage: true,
+	canBranch: false,
+	currentBranches: { setting: undefined as string[] | true | undefined, known: false },
 	mutateAsync: vi.fn(),
 	reportDeployOutcome: vi.fn(),
 	reportDeployFailure: vi.fn(),
@@ -21,6 +23,10 @@ vi.mock('@/config/useInstanceClient', () => ({
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useStagedDeploymentsAvailable: () => state.canStage,
 	useSupportsDeploymentSSE: () => false,
+}));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	useBranchedDatabasesAvailable: () => state.canBranch,
+	useApplicationBranchedDatabases: () => state.currentBranches,
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => vi.fn(),
@@ -67,6 +73,8 @@ function confirm() {
 afterEach(() => {
 	cleanup();
 	state.canStage = true;
+	state.canBranch = false;
+	state.currentBranches = { setting: undefined, known: false };
 	vi.clearAllMocks();
 });
 
@@ -167,5 +175,24 @@ describe('ActivateStagedRelease', () => {
 		state.canStage = false;
 		renderButton();
 		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
+	});
+
+	it('says the release brings back its own private database copy setting, and what runs now', () => {
+		state.mutateAsync.mockReturnValue(new Promise(() => {}));
+		state.canBranch = true;
+		state.currentBranches = { setting: ['data'], known: true };
+		renderButton();
+		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
+
+		expect(screen.getByText(/brings back the private database copy setting this release was deployed with/))
+			.toBeTruthy();
+		expect(screen.getByText(/web now runs on a private copy of data\./)).toBeTruthy();
+	});
+
+	it("says nothing of private copies where they aren't offered", () => {
+		renderButton();
+		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
+
+		expect(screen.queryByText(/private database copy/)).toBeNull();
 	});
 });

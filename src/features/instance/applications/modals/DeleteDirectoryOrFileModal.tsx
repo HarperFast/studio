@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { isProtectedPath } from '@/features/instance/applications/context/isProtectedComponentPackage';
+import {
+	invalidateApplicationConfiguration,
+	useApplicationBranchedDatabases,
+} from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
+import {
+	branchStorageMessage,
+	describeBranchedDatabases,
+} from '@/integrations/api/instance/applications/branchedDatabases';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
@@ -36,6 +44,8 @@ export function DeleteDirectoryOrFileModal() {
 		: isDirectorySelected
 		? 'Directory'
 		: 'File';
+	const wholeApplication = !multipleSelected && (isApplicationSelected || isPackageSelected);
+	const { setting: privateCopy } = useApplicationBranchedDatabases(wholeApplication ? openedEntry?.project : undefined);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
@@ -57,6 +67,7 @@ export function DeleteDirectoryOrFileModal() {
 		}
 
 		let canceled = false;
+		const branchNotes: string[] = [];
 		const id = 'deleting-files';
 		const total = pluralize(selectedItems.length, 'item', 'items');
 		const toastOKAction = {
@@ -69,6 +80,14 @@ export function DeleteDirectoryOrFileModal() {
 		const result = await deleteSelectedItems(selectedItems.map(String).reverse(), {
 			dropItem: async (project, file) => {
 				const dropped = await dropComponent({ file, project, ...instanceParams });
+				const branchNote = file ? undefined : branchStorageMessage(dropped);
+				if (branchNote) {
+					branchNotes.push(branchNote);
+				}
+				if (!file) {
+					// A later application of this name must not inherit the dropped one's setting from the cache.
+					void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
+				}
 				forgetDeletedPath(queryClient, instanceParams.entityId, file ? `${project}/${file}` : project);
 				return dropped;
 			},
@@ -87,12 +106,23 @@ export function DeleteDirectoryOrFileModal() {
 			isCanceled: () => canceled,
 		});
 
+		const description = branchNotes.join('\n');
 		if (result.error) {
 			// Replace the spinner so it can't hang, then surface the real error.
 			toast.dismiss(id);
 			errorHandler(result.error);
+			if (description) {
+				toast.warning('Private database copy kept', { description });
+			}
 		} else if (result.canceled) {
-			toast.warning(`${action} canceled!`, { id, description: '', action: toastOKAction });
+			toast.warning(`${action} canceled!`, { id, description, action: toastOKAction });
+		} else if (description) {
+			toast.warning(`${action} completed, private database copy kept`, {
+				id,
+				description,
+				action: toastOKAction,
+				duration: Infinity,
+			});
 		} else {
 			toast.success(`${action} completed!`, { id, description: '', action: toastOKAction });
 		}
@@ -137,6 +167,14 @@ export function DeleteDirectoryOrFileModal() {
 								{multipleSelected ? selectedItems.join('\n') : openedEntry?.path}
 							</DialogDescription>
 						)}
+					{privateCopy && (
+						<DialogDescription>
+							It runs on a private copy of{' '}
+							{describeBranchedDatabases(privateCopy)}. Harper keeps that copy on disk when it removes an application
+							without a restart, and an application deployed under this name later with a private copy picks it up
+							again.
+						</DialogDescription>
+					)}
 				</DialogHeader>
 
 				<div className="flex w-full gap-4">

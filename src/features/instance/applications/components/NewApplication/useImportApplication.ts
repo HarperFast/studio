@@ -1,4 +1,6 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { privateCopyToSetting } from '@/features/instance/applications/components/PrivateDatabaseCopy/privateCopyValue';
+import { useBranchedDatabasesAvailable } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -62,6 +64,7 @@ export function useImportApplication(
 	}, [instanceParams.entityId]);
 	const sseDeploy = useSupportsDeploymentSSE();
 	const canStage = useStagedDeploymentsAvailable();
+	const canBranch = useBranchedDatabasesAvailable();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
 	const { reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems } = useEditorView();
@@ -103,6 +106,7 @@ export function useImportApplication(
 					project,
 					package: contents.ref,
 					installCommand: contents.installCommand,
+					branchedDatabases: canBranch ? privateCopyToSetting(contents.privateCopy) : undefined,
 				},
 				useSSE: sseDeploy,
 				onEvent: (event) => {
@@ -188,6 +192,7 @@ export function useImportApplication(
 		mutateAsync,
 		sseDeploy,
 		canStage,
+		canBranch,
 		instanceParams,
 		runHealthCheck,
 		onImported,
