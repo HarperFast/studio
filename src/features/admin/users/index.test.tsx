@@ -10,7 +10,7 @@ import {
 	Outlet,
 	RouterProvider,
 } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -308,6 +308,40 @@ describe('admin users', () => {
 
 		expect(router.state.location.href).toBe('/elsewhere');
 		expect(screen.getByText('Elsewhere')).toBeTruthy();
+	});
+
+	it('does not claim memberships were kept when a status-only answer leaves out what it removed', async () => {
+		patch.mockResolvedValueOnce({ data: { id: 'usr-1', status: 'DEACTIVATED' } });
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		const done = await screen.findByRole('dialog');
+		expect(within(done).queryByText('Every membership was left in place.')).toBeNull();
+		expect(within(done).getAllByText('Not reported by the server.')).toHaveLength(2);
+	});
+
+	it('locks the choice while the request is out, and reports on the choice that was sent', async () => {
+		let answer!: (value: unknown) => void;
+		patch.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		await waitFor(() =>
+			expect(within(dialog).getByRole('radio', { name: /leave organizations/ })).toHaveProperty('disabled', true)
+		);
+		await act(async () => {
+			answer({ data: { id: 'usr-1', status: 'DEACTIVATED', removedFrom: [], retainedIn: [] } });
+		});
+		expect(await within(dialog).findByText('Every membership was left in place.')).toBeTruthy();
 	});
 
 	it('offers no deactivation for a deleted account', async () => {

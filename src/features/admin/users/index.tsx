@@ -60,7 +60,7 @@ export function UsersAdminLayout() {
 			return;
 		}
 		setLookup(result);
-		// Close the open account, so the message never sits above someone else's Deactivate button.
+		// Close the open account, so the message never sits above someone else's details.
 		void navigate({ to: '/admin/users' });
 	};
 

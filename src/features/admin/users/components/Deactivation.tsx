@@ -65,7 +65,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 				</DialogHeader>
 
 				{result
-					? mode === 'statusOnly' && !result.removedFrom?.length
+					? mutation.variables?.removeMemberships === false && result.removedFrom?.length === 0
 						? (
 							<p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
 								Every membership was left in place.
@@ -81,6 +81,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 						<div className="space-y-4">
 							{!cleanup && (
 								<RadioGroup
+									disabled={mutation.isPending}
 									value={mode}
 									onValueChange={(value) => setMode(value as typeof mode)}
 									aria-label="What to deactivate"
