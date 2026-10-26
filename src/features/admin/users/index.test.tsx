@@ -149,11 +149,22 @@ async function openDeactivate() {
 	});
 }
 
-async function confirmDeactivation() {
-	await openDeactivate();
+async function typeConfirmation(value = 'pat@example.com') {
+	await act(async () => {
+		fireEvent.change(screen.getByLabelText('Type pat@example.com to confirm'), { target: { value } });
+	});
+}
+
+async function confirmInDialog() {
+	await typeConfirmation();
 	await act(async () => {
 		fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
 	});
+}
+
+async function confirmDeactivation() {
+	await openDeactivate();
+	await confirmInDialog();
 }
 
 describe('admin users', () => {
@@ -344,9 +355,7 @@ describe('admin users', () => {
 		expect(within(within(confirm).getByText('Will stay in, as the last admin').parentElement!).getByText('Solo Co'))
 			.toBeTruthy();
 
-		await act(async () => {
-			fireEvent.click(within(confirm).getByRole('button', { name: 'Deactivate' }));
-		});
+		await confirmInDialog();
 
 		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
 		const done = await screen.findByRole('dialog');
@@ -377,9 +386,7 @@ describe('admin users', () => {
 		await renderAt('/admin/users/usr-1');
 		await openDeactivate();
 		get.mockRejectedValue(new Error('network down'));
-		await act(async () => {
-			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
-		});
+		await confirmInDialog();
 
 		expect(await screen.findByText(/Could not refresh this account/)).toBeTruthy();
 		const done = screen.getByRole('dialog');
@@ -391,13 +398,33 @@ describe('admin users', () => {
 		await renderAt('/admin/users/usr-1');
 		await openDeactivate();
 		get.mockRejectedValue(notFound());
-		await act(async () => {
-			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
-		});
+		await confirmInDialog();
 
 		expect(await screen.findByText('No account has the ID usr-1.')).toBeTruthy();
 		const done = screen.getByRole('dialog');
 		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('deactivates only once the address is typed, ignoring case and surrounding spaces', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const confirmButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' });
+
+		expect(confirmButton()).toHaveProperty('disabled', true);
+		await typeConfirmation('pat@example.co');
+		expect(confirmButton()).toHaveProperty('disabled', true);
+		await act(async () => {
+			fireEvent.keyDown(screen.getByLabelText('Type pat@example.com to confirm'), { key: 'Enter' });
+		});
+		expect(patch).not.toHaveBeenCalled();
+
+		await typeConfirmation('  Pat@Example.com ');
+		expect(confirmButton()).toHaveProperty('disabled', false);
+		await act(async () => {
+			fireEvent.keyDown(screen.getByLabelText('Type pat@example.com to confirm'), { key: 'Enter' });
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
+		expect(await screen.findByText('User deactivated')).toBeTruthy();
 	});
 
 	it('closes the confirm dialog when the PATCH fails', async () => {

@@ -116,7 +116,10 @@ test('deactivating confirms the split, then shows what the server did', async ({
 	await page.getByRole('menuitem', { name: /Deactivate/ }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByText('Will stay in, as the last admin')).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Deactivate' })).toBeDisabled();
 	await page.screenshot({ path: testInfo.outputPath('users-confirm.png'), animations: 'disabled' });
+	await dialog.getByLabel(`Type ${pat.email} to confirm`).fill(pat.email);
+	await expect(dialog.getByRole('button', { name: 'Deactivate' })).toBeEnabled();
 
 	await dialog.getByRole('button', { name: 'Deactivate' }).click();
 	await expect(dialog.getByText('User deactivated')).toBeVisible();

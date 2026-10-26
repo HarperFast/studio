@@ -7,10 +7,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { organizationLabel } from '@/features/admin/users/components/OrganizationCard';
 import {
 	AdminUser,
 	DeactivateUserResult,
+	normalizeEmail,
 	OrganizationMembership,
 	useDeactivateUserMutation,
 } from '@/features/admin/users/userAdminApi';
@@ -27,6 +30,13 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 	const [result, setResult] = useState<DeactivateUserResult | null>(null);
 	const removed = user.organizations.filter((membership) => !membership.lastAdmin);
 	const kept = user.organizations.filter((membership) => membership.lastAdmin);
+	const [typedEmail, setTypedEmail] = useState('');
+	const confirmed = normalizeEmail(typedEmail) === normalizeEmail(user.email);
+
+	const deactivate = () => {
+		if (!confirmed || mutation.isPending) { return; }
+		mutation.mutate(user.id, { onSuccess: setResult, onError: onClose });
+	};
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && !mutation.isPending && onClose()}>
@@ -56,6 +66,21 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 							<p className="text-xs text-muted-foreground">
 								This preview can change before you confirm; the result lists what actually happened.
 							</p>
+							<div className="space-y-2 pt-1">
+								<Label htmlFor="deactivate-confirm-email" className="block font-normal">
+									Type <span className="font-mono font-medium">{user.email}</span> to confirm
+								</Label>
+								<Input
+									id="deactivate-confirm-email"
+									autoFocus
+									autoComplete="off"
+									spellCheck={false}
+									value={typedEmail}
+									disabled={mutation.isPending}
+									onChange={(event) => setTypedEmail(event.target.value)}
+									onKeyDown={(event) => event.key === 'Enter' && deactivate()}
+								/>
+							</div>
 						</div>
 					)}
 
@@ -67,8 +92,8 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 								<Button variant="outline" disabled={mutation.isPending} onClick={onClose}>Cancel</Button>
 								<Button
 									variant="destructive"
-									disabled={mutation.isPending}
-									onClick={() => mutation.mutate(user.id, { onSuccess: setResult, onError: onClose })}
+									disabled={!confirmed || mutation.isPending}
+									onClick={deactivate}
 								>
 									{mutation.isPending && <Loader2Icon className="animate-spin" />}
 									{mutation.isPending ? 'Deactivating…' : 'Deactivate'}
