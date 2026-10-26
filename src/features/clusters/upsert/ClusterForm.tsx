@@ -456,6 +456,7 @@ export function ClusterForm({
 		lockedByGrant,
 	]);
 
+	const remapFromDeployment = useRef(selectedDeployment);
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
 		const isSelfManaged = selectedDeployment === 'Self-Hosted';
 		// Blanking a frozen region leaves the form unsatisfiable: the control is disabled, so nothing
@@ -463,6 +464,12 @@ export function ClusterForm({
 		// whether or not it currently accepts new placements.
 		if (regionSetFrozen || lockedByGrant) { return; }
 		if (isSelfManaged || !regionLookup.size || !selectedRegionPlans.length) {
+			return;
+		}
+		// Only a deployment switch remaps: a refetch that drops a tier must not swap it for a sibling.
+		const deploymentSwitched = remapFromDeployment.current !== selectedDeployment;
+		remapFromDeployment.current = selectedDeployment;
+		if (!deploymentSwitched) {
 			return;
 		}
 		let remapped = false;
@@ -474,17 +481,16 @@ export function ClusterForm({
 				continue;
 			}
 			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
-			// Gone from both catalogs (a refetch dropped it), not a deployment switch: kept, so validation
-			// reports it rather than a restored draft losing the row.
 			if (!previous) {
 				continue;
 			}
-			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
-			const replacement = previous
-				&& (regionLocations?.find(r =>
-					r.region === previous.name && r.latencyDescription.split(' ')[0].toLowerCase() === previousTier
-				)
-					?? regionLocations?.find(r => r.region === previous.name));
+			const previousTier = previous.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
+			const replacement = regionLocations?.find(region =>
+				region.region === previous.name && region.latencyDescription.split(' ')[0].toLowerCase() === previousTier
+			)
+				?? regionLocations?.find(region =>
+					region.region === previous.name
+				);
 			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
 			remapped = true;
 		}
@@ -606,7 +612,14 @@ export function ClusterForm({
 		submitInFlight.current = true;
 		// Payment review submits without the details form, and a draft restored after a billing redirect
 		// can be stale: a region, a custom region's shape or the staff rules may have changed meanwhile.
-		if (!(await form.trigger())) {
+		let valid: boolean;
+		try {
+			valid = await form.trigger();
+		} catch (error) {
+			submitInFlight.current = false;
+			throw error;
+		}
+		if (!valid) {
 			submitInFlight.current = false;
 			toast.error('Some cluster details are no longer valid. Please review them.');
 			setConfirmingPaymentDetails(false);
@@ -615,17 +628,17 @@ export function ClusterForm({
 		const formData = form.getValues();
 		const plans: ClusterUpsertRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription]?.[formData.performanceDescription];
-		if (!plan && mode !== 'version') {
-			submitInFlight.current = false;
-			toast.error('The selected performance tier is no longer available. Please choose another.');
-			setConfirmingPaymentDetails(false);
-			return;
-		}
 
 		const isSelfManaged = formData.deploymentDescription === 'Self-Hosted';
 		// A comp is claimed with its shape, not with what the pickers show: the server admits the claim
 		// only when the pairs match exactly, and the pickers can carry one plan where a shape may carry two.
 		const shape = !clusterId ? selectedGrant?.shape ?? [] : [];
+		if (!plan && !shape.length && (isSelfManaged || mode !== 'version')) {
+			submitInFlight.current = false;
+			toast.error('The selected performance tier is no longer available. Please choose another.');
+			setConfirmingPaymentDetails(false);
+			return;
+		}
 		if (shape.length > 0) {
 			plans.push(...plansFromShape(shape, formData.instances, defaultOperationsApiPort));
 		} else if (isSelfManaged) {

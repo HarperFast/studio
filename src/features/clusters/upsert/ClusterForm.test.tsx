@@ -218,11 +218,12 @@ describe('ClusterForm — region rows', () => {
 
 	function renderRows(
 		regionPlans: { regionId: string; quantity?: number }[],
-		{ clusterId, grant, startOffOnBilling = false, performanceDescription = 'Basic' }: {
+		{ clusterId, grant, startOffOnBilling = false, performanceDescription = 'Basic', dedicated = [] }: {
 			clusterId?: string;
 			grant?: ClusterGrant;
 			startOffOnBilling?: boolean;
 			performanceDescription?: string;
+			dedicated?: SchemaRegion[];
 		} = {},
 	) {
 		const organization = {
@@ -259,7 +260,7 @@ describe('ClusterForm — region rows', () => {
 					partialUpgrade={null}
 					planTypes={[PAID]}
 					regionLocationsColocated={CATALOG}
-					regionLocationsDedicated={[]}
+					regionLocationsDedicated={dedicated}
 					setSavedClusterState={vi.fn()}
 					startOffOnBilling={startOffOnBilling}
 				/>
@@ -299,6 +300,15 @@ describe('ClusterForm — region rows', () => {
 	it('keeps a region the catalog no longer lists, and reports it instead of blanking the row', async () => {
 		const { findByText } = renderRows([{ regionId: 'gone-1' }, { regionId: 'oreg-1', quantity: 1 }], {
 			clusterId: 'clu-1',
+		});
+
+		expect(await findByText('This region is not currently available. Contact us to move this cluster.')).toBeTruthy();
+	});
+
+	it('never swaps a row for a sibling tier when only the catalog changed, not the deployment', async () => {
+		const { findByText } = renderRows([{ regionId: 'us-ded' }, { regionId: 'oreg-1', quantity: 1 }], {
+			clusterId: 'clu-1',
+			dedicated: [{ id: 'us-ded', region: 'US', latencyDescription: 'narrow', instanceCount: 2 }] as SchemaRegion[],
 		});
 
 		expect(await findByText('This region is not currently available. Contact us to move this cluster.')).toBeTruthy();
