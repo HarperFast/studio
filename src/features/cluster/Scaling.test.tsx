@@ -29,11 +29,15 @@ vi.mock('@/features/clusters/queries/getRegionLocationsQuery', () => ({
 		queryFn: async () => [{ id: 'us-1', region: 'US', latencyDescription: 'Low', instanceCount: 2 }],
 	}),
 }));
+let organizationRegionsFail = false;
 vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', () => ({
-	getOrganizationRegionsQueryOptions: () => ({
-		queryKey: ['organizationRegions'],
-		queryFn:
-			async () => [{ id: 'oreg-1', name: '2-tokyo', placement: { gcp: ['asia-northeast1-a', 'asia-northeast1-a'] } }],
+	getOrganizationRegionsQueryOptions: (organizationId: string | undefined) => ({
+		queryKey: ['organizationRegions', organizationId],
+		queryFn: async () => {
+			if (organizationRegionsFail) { throw new Error('503'); }
+			return [{ id: 'oreg-1', name: '2-tokyo', placement: { gcp: ['asia-northeast1-a', 'asia-northeast1-a'] } }];
+		},
+		enabled: !!organizationId,
 	}),
 }));
 vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
@@ -87,6 +91,7 @@ beforeEach(() => {
 	conversionState = null;
 	clusterInstances = [];
 	clusterPlans = [];
+	organizationRegionsFail = false;
 });
 
 afterEach(() => {
@@ -217,6 +222,15 @@ describe('Scaling progress', () => {
 		mount();
 		await waitFor(() =>
 			expect(screen.getByRole('meter', { name: 'progress' }).getAttribute('data-expected')).toBe(String(2 * 3 + 2))
+		);
+	});
+
+	it('counts a catalog-only cluster without waiting on custom regions, even when that read fails', async () => {
+		clusterPlans = [{ planId: 'p', regionId: 'us-1' }];
+		organizationRegionsFail = true;
+		mount();
+		await waitFor(() =>
+			expect(screen.getByRole('meter', { name: 'progress' }).getAttribute('data-expected')).toBe('2')
 		);
 	});
 });
