@@ -4,20 +4,17 @@ import {
 	isOrganizationRegionId,
 	organizationRegionShape,
 } from '@/features/clusters/upsert/lib/regionLookup';
-import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { Cluster } from '@/integrations/api/api.patch';
+import { Cluster, Organization } from '@/integrations/api/api.patch';
 import { pluralize } from '@/lib/pluralize';
 import { useQuery } from '@tanstack/react-query';
+import { useRouteContext } from '@tanstack/react-router';
 
 // The instance count alone hides what a custom region deploys: how many units, of which datacenters.
 export function ClusterCustomRegions({ cluster }: { cluster: Cluster }) {
 	const customPlans = (cluster.plans ?? []).filter((plan) => isOrganizationRegionId(plan.regionId));
 	const organizationId = customPlans.length ? cluster.organizationId : undefined;
 	const { data: regions } = useQuery(getOrganizationRegionsQueryOptions(organizationId));
-	const { data: organization } = useQuery({
-		...getOrganizationQueryOptions(organizationId),
-		enabled: !!organizationId,
-	});
+	const { organization } = useRouteContext({ strict: false }) as { organization?: Organization };
 	if (!customPlans.length) {
 		return null;
 	}

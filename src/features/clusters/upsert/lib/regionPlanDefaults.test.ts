@@ -82,9 +82,10 @@ describe('migrateDraftRegionPlans', () => {
 		).toBeNull();
 	});
 
-	it('skips a blank row', () => {
+	it('keeps a blank row for validation to report, and skips an empty legacy entry', () => {
 		expect(migrateDraftRegionPlans([{ regionId: 'us-1' }, {}, { regionId: '' }], lookup)).toEqual([
 			{ regionId: 'us-1' },
+			{ regionId: '' },
 		]);
 	});
 

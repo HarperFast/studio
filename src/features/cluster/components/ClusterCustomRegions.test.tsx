@@ -11,10 +11,11 @@ const state = vi.hoisted(() => ({
 	organization: undefined as Partial<Organization> | undefined,
 }));
 vi.mock('@tanstack/react-query', () => ({
-	useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
-		return { data: queryKey[0] === 'organizationRegions' ? state.regions : state.organization };
-	},
+	useQuery: () => ({ data: state.regions }),
 	queryOptions: (options: unknown) => options,
+}));
+vi.mock('@tanstack/react-router', () => ({
+	useRouteContext: () => ({ organization: state.organization }),
 }));
 
 afterEach(() => {

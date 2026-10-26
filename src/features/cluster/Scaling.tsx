@@ -10,9 +10,9 @@ import { ClusterProgress } from '@/features/clusters/components/ClusterProgress'
 import { isConversionComplete, isConversionFailed } from '@/features/clusters/lib/grantExpiry';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { buildRegionLookup, expectedInstanceCount } from '@/features/clusters/upsert/lib/regionLookup';
-import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { Organization } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useRouteContext, useSearch } from '@tanstack/react-router';
 import { CloudAlertIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { allClusterInstancesSettled } from './allInstancesRunning';
@@ -30,7 +30,7 @@ export function Scaling() {
 	const organizationId = cluster?.organizationId;
 	const { data: catalog } = useQuery({ ...getRegionLocationsOptions({ organizationId }), enabled: !!organizationId });
 	const { data: organizationRegions } = useQuery(getOrganizationRegionsQueryOptions(organizationId));
-	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
+	const { organization } = useRouteContext({ strict: false }) as { organization?: Organization };
 	const expectedInstances = useMemo(() => {
 		if (!catalog || organizationRegions === undefined || !organization) {
 			return undefined;
