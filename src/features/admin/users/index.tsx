@@ -30,8 +30,9 @@ export function UsersAdminLayout() {
 	// email lookup acts only if nothing else happened while it was out.
 	const latestLookup = useRef(0);
 	useEffect(() => {
-		const unsubscribe = router.subscribe('onBeforeNavigate', () => {
-			latestLookup.current++;
+		// hrefChanged: router.invalidate() reloads in place on every auth change, and that is not a navigation.
+		const unsubscribe = router.subscribe('onBeforeNavigate', (event) => {
+			if (event.hrefChanged) { latestLookup.current++; }
 		});
 		return () => {
 			unsubscribe();

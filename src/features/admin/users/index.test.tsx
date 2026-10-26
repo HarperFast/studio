@@ -396,6 +396,23 @@ describe('admin users', () => {
 		expect(screen.getByRole('button', { name: 'Look up' })).toHaveProperty('disabled', false);
 	});
 
+	it('keeps an email lookup through a reload in place', async () => {
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		await act(async () => {
+			await router.invalidate();
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+
+		expect(await screen.findByText('Pat Lee')).toBeTruthy();
+		expect(router.state.location.href).toBe('/admin/users/usr-1');
+	});
+
 	it('offers no deactivation for a deleted account', async () => {
 		user.status = 'DELETED';
 		await renderAt('/admin/users/usr-1');
