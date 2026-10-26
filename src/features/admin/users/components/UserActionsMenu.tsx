@@ -17,8 +17,8 @@ export function UserActionsMenu({ user, onDeactivate }: { user: AdminUser; onDea
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" className="size-8" aria-label="Account settings">
-					<SettingsIcon />
+				<Button variant="ghost" size="icon" className="size-9" aria-label="Account settings">
+					<SettingsIcon className="size-5" />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-72">
