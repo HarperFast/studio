@@ -60,6 +60,7 @@ beforeAll(() => {
 	Element.prototype.setPointerCapture ??= () => undefined;
 	Element.prototype.releasePointerCapture ??= () => undefined;
 	Element.prototype.scrollIntoView ??= () => undefined;
+	window.PointerEvent ??= class extends MouseEvent {} as typeof PointerEvent;
 });
 
 const notFound = () => new AxiosError('Not Found', '404', undefined, undefined, { status: 404 } as never);
@@ -132,10 +133,24 @@ async function lookUp(value: string) {
 	});
 }
 
-async function confirmDeactivation() {
+// Radix opens its menu on pointerdown, not click.
+async function openSettings() {
+	const trigger = await screen.findByRole('button', { name: 'Account settings' });
 	await act(async () => {
-		fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
+		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 	});
+	return within(screen.getByRole('menu')).getByRole('menuitem', { name: /Deactivate/ });
+}
+
+async function openDeactivate() {
+	const item = await openSettings();
+	await act(async () => {
+		fireEvent.click(item);
+	});
+}
+
+async function confirmDeactivation() {
+	await openDeactivate();
 	await act(async () => {
 		fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
 	});
@@ -233,7 +248,7 @@ describe('admin users', () => {
 		await renderAt('/admin/users/usr-missing');
 
 		expect(await screen.findByText('No account has the ID usr-missing.')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
 	});
 
 	it('closes the open account on a duplicate address, keeping the address out of the error and unreported', async () => {
@@ -288,8 +303,9 @@ describe('admin users', () => {
 		user.status = 'DELETED';
 		await renderAt('/admin/users/usr-1');
 
-		expect(await screen.findByText('This account is deleted, so it cannot be deactivated.')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBe('true');
+		expect(within(item).getByText('Deleted accounts cannot be deactivated')).toBeTruthy();
 	});
 
 	it('looks the same address up again when asked, refreshing the open account', async () => {
@@ -314,14 +330,12 @@ describe('admin users', () => {
 		await renderAt('/admin/users/usr-1');
 
 		expect(await screen.findByText(/cannot show user details/)).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
 	});
 
 	it('confirms, deactivates, and shows what actually happened', async () => {
 		await renderAt('/admin/users/usr-1');
-		await act(async () => {
-			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
-		});
+		await openDeactivate();
 
 		const confirm = screen.getByRole('dialog');
 		expect(within(confirm).getByText('Deactivate pat@example.com?')).toBeTruthy();
@@ -344,22 +358,24 @@ describe('admin users', () => {
 		await act(async () => {
 			fireEvent.click(within(done).getByRole('button', { name: 'Done' }));
 		});
-		expect(await screen.findByText('Deactivated, and in no organization it could leave.')).toBeTruthy();
+		await screen.findByText('Deactivated');
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBe('true');
+		expect(within(item).getByText('Already deactivated, and in no organization it could leave')).toBeTruthy();
 	});
 
 	it('still offers deactivation to an already-deactivated account that has memberships to remove', async () => {
 		user.status = 'DEACTIVATED';
 		await renderAt('/admin/users/usr-1');
 
-		expect(await screen.findByText(/Already deactivated/)).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Deactivate' })).toBeTruthy();
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBeNull();
+		expect(within(item).getByText(/Already deactivated; leaves/)).toBeTruthy();
 	});
 
 	it('keeps the result open when the refetch after deactivating fails', async () => {
 		await renderAt('/admin/users/usr-1');
-		await act(async () => {
-			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
-		});
+		await openDeactivate();
 		get.mockRejectedValue(new Error('network down'));
 		await act(async () => {
 			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
@@ -373,9 +389,7 @@ describe('admin users', () => {
 
 	it('keeps the result open when the refetch finds no account any more', async () => {
 		await renderAt('/admin/users/usr-1');
-		await act(async () => {
-			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
-		});
+		await openDeactivate();
 		get.mockRejectedValue(notFound());
 		await act(async () => {
 			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
@@ -406,9 +420,7 @@ describe('admin users', () => {
 
 	it('drops an open confirmation when moving to another account', async () => {
 		const router = await renderAt('/admin/users/usr-1');
-		await act(async () => {
-			fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
-		});
+		await openDeactivate();
 		expect(screen.getByRole('dialog')).toBeTruthy();
 
 		await act(async () => {

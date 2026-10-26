@@ -1,5 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import { DeactivateDialog, DeactivatePanel } from '@/features/admin/users/components/Deactivation';
+import { DeactivateDialog } from '@/features/admin/users/components/Deactivation';
 import { EmptyState } from '@/features/admin/users/components/EmptyState';
 import { OrganizationCard } from '@/features/admin/users/components/OrganizationCard';
 import { UserProfileCard } from '@/features/admin/users/components/UserProfileCard';
@@ -46,7 +46,7 @@ function UserDetailsView({ userId }: { userId: string }) {
 function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
 	return (
 		<div className="space-y-8">
-			<UserProfileCard user={user} />
+			<UserProfileCard user={user} onDeactivate={onDeactivate} />
 
 			<section>
 				<h2 className="mb-3 text-lg font-light">Organizations</h2>
@@ -64,8 +64,6 @@ function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: ()
 						</EmptyState>
 					)}
 			</section>
-
-			<DeactivatePanel user={user} onDeactivate={onDeactivate} />
 		</div>
 	);
 }

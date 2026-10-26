@@ -110,10 +110,13 @@ test('deactivating confirms the split, then shows what the server did', async ({
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await page.goto(`/#/admin/users/${pat.id}`);
 
-	await page.getByRole('button', { name: 'Deactivate' }).click();
+	await page.getByRole('button', { name: 'Account settings' }).click();
+	await expect(page.getByRole('menuitem', { name: /Deactivate/ })).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath('users-menu.png'), animations: 'disabled' });
+	await page.getByRole('menuitem', { name: /Deactivate/ }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByText('Will stay in, as the last admin')).toBeVisible();
-	await page.screenshot({ path: testInfo.outputPath('users-confirm.png') });
+	await page.screenshot({ path: testInfo.outputPath('users-confirm.png'), animations: 'disabled' });
 
 	await dialog.getByRole('button', { name: 'Deactivate' }).click();
 	await expect(dialog.getByText('User deactivated')).toBeVisible();

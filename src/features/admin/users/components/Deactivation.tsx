@@ -15,47 +15,8 @@ import {
 	useDeactivateUserMutation,
 } from '@/features/admin/users/userAdminApi';
 import { cn } from '@/lib/cn';
-import { CircleSlashIcon, Loader2Icon, LogOutIcon, ShieldCheckIcon, UserXIcon } from 'lucide-react';
+import { Loader2Icon, LogOutIcon, ShieldCheckIcon } from 'lucide-react';
 import { ReactNode, useState } from 'react';
-
-export function DeactivatePanel({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
-	const removable = user.organizations.filter((membership) => !membership.lastAdmin).length;
-	const deactivated = user.status === 'DEACTIVATED';
-	// Central manager answers a status change on a deleted account with 404.
-	const deleted = user.status === 'DELETED';
-
-	if (deleted || (deactivated && !removable)) {
-		return (
-			<section className="flex items-center gap-3 rounded-xl border bg-muted/30 p-5 text-sm text-muted-foreground">
-				<CircleSlashIcon className="size-5 shrink-0" />
-				<p>
-					{deleted
-						? 'This account is deleted, so it cannot be deactivated.'
-						: 'Deactivated, and in no organization it could leave.'}
-				</p>
-			</section>
-		);
-	}
-
-	return (
-		<section className="rounded-xl border border-red-600/40 bg-red-600/5 p-5">
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-				<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-600/10 text-red-600 dark:text-red-400">
-					<UserXIcon className="size-5" />
-				</span>
-				<div className="min-w-0 flex-1">
-					<h2 className="font-medium">{deactivated ? 'Finish deactivating' : 'Deactivate account'}</h2>
-					<p className="mt-1 text-sm text-muted-foreground">
-						{deactivated
-							? 'Already deactivated: deactivating again removes it from the organizations it can still leave.'
-							: 'Ends every session and blocks sign-in.'} You'll see which organizations it leaves before you confirm.
-					</p>
-				</div>
-				<Button variant="destructive" className="shrink-0" onClick={onDeactivate}>Deactivate</Button>
-			</div>
-		</section>
-	);
-}
 
 /**
  * Mount only while open. It holds the account as it was when Deactivate was pressed, so the refetch that follows the

@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { initialsOf } from '@/features/admin/apiToken/components/StaffUserCell';
+import { UserActionsMenu } from '@/features/admin/users/components/UserActionsMenu';
 import { AdminUser } from '@/features/admin/users/userAdminApi';
 import { Timestamp } from '@/features/organization/serviceAccounts/components/Timestamp';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -17,7 +18,7 @@ const USER_STATUS: Record<string, StatusStyle> = {
 	PENDING: { label: 'Pending', variant: 'warning' },
 };
 
-export function UserProfileCard({ user }: { user: AdminUser }) {
+export function UserProfileCard({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
 	const name = [user.firstname, user.lastname].filter(Boolean).join(' ') || user.email;
 	const status = USER_STATUS[user.status ?? ''] ?? { label: user.status ?? 'Unknown', variant: 'secondary' };
 	const [copyEmail, copyId] = useCopyToClipboard(user.email, user.id);
@@ -27,7 +28,10 @@ export function UserProfileCard({ user }: { user: AdminUser }) {
 
 	return (
 		<section className="overflow-hidden rounded-xl border bg-card">
-			<div className="flex flex-col gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 sm:flex-row sm:items-center">
+			<div className="relative flex flex-col gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 pr-14 sm:flex-row sm:items-center">
+				<div className="absolute top-4 right-4">
+					<UserActionsMenu user={user} onDeactivate={onDeactivate} />
+				</div>
 				<span
 					aria-hidden
 					className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary dark:text-violet-200"
