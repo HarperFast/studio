@@ -27,5 +27,5 @@
 		"mailosaur": "^11.0.0",
 		"typescript": "~7.0.0"
 	},
-	"packageManager": "pnpm@12.12.1"
+	"packageManager": "pnpm@12.14.0"
 }
