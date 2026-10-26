@@ -11,10 +11,7 @@ export const specifiedAbbreviatedName = z
 		'Can only contain lowercase letters, numbers and dashes. Must not start or end with a dash.',
 	);
 
-/**
- * One region plan entry, keyed by the region id central-manager stores on the cluster: a catalog
- * tier or an organization's custom region (`oreg-…`). `quantity` only applies to the latter.
- */
+/** `quantity` applies only to an organization's custom region (`oreg-…`). */
 const RegionPlanEntrySchema = z.object({
 	regionId: z.string().nonempty('Please select a region.'),
 	quantity: z.number().int().min(1, 'At least 1.').max(MAX_REGION_PLAN_QUANTITY, `At most ${MAX_REGION_PLAN_QUANTITY}.`)
