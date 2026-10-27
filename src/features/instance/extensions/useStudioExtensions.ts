@@ -1,5 +1,4 @@
 import { isLocalStudio } from '@/config/constants';
-import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { AccessVerdict, checkExtensionAccess } from '@/features/instance/extensions/access';
@@ -85,11 +84,10 @@ export function useExtensionPermission(): LocalRolePermission | undefined {
 export function useExtensionDataSource(page: ResolvedExtensionPage): ExtensionDataSource {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const instanceClient = useInstanceClient();
-	const restUrl = useEntityRestURL();
 	const entityId = instanceId ?? clusterId ?? 'local';
 	return useMemo(
-		() => page.demo ? demoDataSource : createHarperDataSource(entityId, instanceClient, restUrl),
-		[page.demo, entityId, instanceClient, restUrl],
+		() => page.demo ? demoDataSource : createHarperDataSource(entityId, instanceClient),
+		[page.demo, entityId, instanceClient],
 	);
 }
 

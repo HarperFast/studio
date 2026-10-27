@@ -83,7 +83,7 @@ const prerender: StudioExtensionManifest = {
 		placement: 'config',
 		description: 'Serve crawlers fully rendered HTML, refreshed on a schedule.',
 		// Settings and cache purges are cluster-wide, so the component asks for super users only.
-		access: { role: 'super_user', endpoints: ['/Prerender/'] },
+		access: { role: 'super_user', operations: ['prerender_refresh', 'prerender_purge'] },
 		content: {
 			kind: 'sections',
 			sections: [
@@ -123,7 +123,7 @@ const prerender: StudioExtensionManifest = {
 						{
 							label: 'Re-render all pages',
 							icon: 'refresh-cw',
-							request: { rest: { method: 'POST', path: '/Prerender/refresh' } },
+							request: { operation: 'prerender_refresh' },
 							successMessage: 'Queued every page for rendering',
 						},
 						{
@@ -131,7 +131,7 @@ const prerender: StudioExtensionManifest = {
 							icon: 'trash-2',
 							variant: 'destructive',
 							confirm: 'Crawlers get un-rendered pages until each one is rendered again.',
-							request: { rest: { method: 'POST', path: '/Prerender/purge' } },
+							request: { operation: 'prerender_purge' },
 							successMessage: 'Purged the rendered pages',
 						},
 					],
@@ -160,12 +160,46 @@ const cacheInsights: StudioExtensionManifest = {
 		name: 'Cache Insights',
 		icon: 'chart-line',
 		placement: 'tab',
-		description: 'A page the component draws itself, framed and sandboxed by Studio.',
+		description: 'Hit rates by hour, and a flush through an operation the component registers.',
 		access: {
 			tables: [{ database: 'cache', table: 'Stat', actions: ['read'] }],
-			endpoints: ['/CacheFlush/'],
+			operations: ['cache_flush'],
 		},
-		content: { kind: 'frame', minHeight: 520, srcdoc: cacheInsightsSrcdoc() },
+		content: {
+			kind: 'sections',
+			sections: [
+				{
+					type: 'stats',
+					items: [
+						{ label: 'Hours tracked', icon: 'clock', value: { kind: 'count', database: 'cache', table: 'Stat' } },
+						{ label: 'Hit rate', icon: 'gauge', value: { kind: 'static', value: '91%' } },
+					],
+				},
+				{
+					type: 'actions',
+					title: 'Cache',
+					actions: [{
+						label: 'Flush the cache',
+						icon: 'eraser',
+						variant: 'destructive',
+						confirm: 'Every request misses until the cache warms up again.',
+						request: { operation: 'cache_flush' },
+						successMessage: 'Flushed the cache',
+					}],
+				},
+				{
+					type: 'table',
+					title: 'By hour',
+					database: 'cache',
+					table: 'Stat',
+					columns: [
+						{ attribute: 'hour', label: 'Hour', format: 'number' },
+						{ attribute: 'hits', label: 'Hits', format: 'number' },
+						{ attribute: 'misses', label: 'Misses', format: 'number' },
+					],
+				},
+			],
+		},
 	}],
 };
 
@@ -174,104 +208,5 @@ export const DEMO_EXTENSIONS: StudioExtensionManifest[] = [redirects, prerender,
 export const DEMO_COMPONENT_LABELS: Record<string, string> = {
 	'harper-redirects': 'Redirects (tab · Studio-drawn · readers see it, writers edit)',
 	'harper-prerender': 'Pre-rendering (Config · Studio-drawn · super users only)',
-	'cache-insights': 'Cache Insights (tab · component-drawn iframe · readers)',
+	'cache-insights': 'Cache Insights (tab · Studio-drawn · flush needs its operation)',
 };
-
-/**
- * The framed page, standing in for HTML the component would serve. It only knows what the
- * `studio:init` message tells it, and reaches data only through `studio:request`.
- */
-function cacheInsightsSrcdoc(): string {
-	return `<!doctype html>
-<html><head><meta charset="utf-8">
-<style>
-  :root { color-scheme: light dark; }
-  body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; background: var(--card); color: var(--foreground); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .tile { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
-  .tile b { display: block; font-size: 22px; }
-  .muted { color: var(--muted-foreground); font-size: 12px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
-  button { font: inherit; padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: transparent; color: var(--foreground); cursor: pointer; }
-  button.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
-  pre { background: var(--muted); padding: 8px; border-radius: var(--radius); white-space: pre-wrap; font-size: 12px; }
-  svg { width: 100%; height: 220px; }
-</style></head>
-<body>
-  <div class="grid">
-    <div class="tile"><span class="muted">Hit ratio (24h)</span><b id="ratio">…</b></div>
-    <div class="tile"><span class="muted">Hits</span><b id="hits">…</b></div>
-    <div class="tile"><span class="muted">Misses</span><b id="misses">…</b></div>
-    <div class="tile"><span class="muted">Your access</span><b id="who" style="font-size:16px">…</b></div>
-  </div>
-  <div class="tile">
-    <span class="muted">Hit ratio by hour</span>
-    <svg id="chart" viewBox="0 0 480 200" preserveAspectRatio="none"></svg>
-  </div>
-  <div class="row">
-    <button class="primary" id="flush">Flush stale entries</button>
-    <button id="undeclared">Try an undeclared request (drop_table)</button>
-    <span class="muted" id="status"></span>
-  </div>
-  <pre id="log" hidden></pre>
-<script>
-  let seq = 0;
-  const pending = new Map();
-  function request(req) {
-    const id = ++seq;
-    parent.postMessage({ type: 'studio:request', id, request: req }, '*');
-    return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
-  }
-  function toast(message, variant) { parent.postMessage({ type: 'studio:toast', message, variant }, '*'); }
-  function resize() { parent.postMessage({ type: 'studio:resize', height: document.documentElement.scrollHeight }, '*'); }
-
-  window.addEventListener('message', (event) => {
-    const msg = event.data || {};
-    if (msg.type === 'studio:init') {
-      for (const [name, value] of Object.entries(msg.theme.tokens)) document.documentElement.style.setProperty(name, value);
-      const stat = msg.access['cache.Stat'] || {};
-      document.getElementById('who').textContent = msg.user.superUser ? 'Super user' : Object.keys(stat).filter((k) => stat[k]).join(', ') || 'none';
-      load();
-    } else if (msg.type === 'studio:theme') {
-      for (const [name, value] of Object.entries(msg.tokens)) document.documentElement.style.setProperty(name, value);
-    } else if (msg.type === 'studio:response') {
-      const entry = pending.get(msg.id);
-      if (!entry) return;
-      pending.delete(msg.id);
-      msg.ok ? entry.resolve(msg.data) : entry.reject(new Error(msg.error));
-    }
-  });
-
-  async function load() {
-    const rows = await request({ operation: 'search_by_value', database: 'cache', table: 'Stat', search_attribute: 'hour', search_value: '*', get_attributes: ['*'] });
-    rows.sort((a, b) => a.hour - b.hour);
-    const hits = rows.reduce((n, r) => n + r.hits, 0), misses = rows.reduce((n, r) => n + r.misses, 0);
-    document.getElementById('hits').textContent = hits.toLocaleString();
-    document.getElementById('misses').textContent = misses.toLocaleString();
-    document.getElementById('ratio').textContent = (100 * hits / (hits + misses)).toFixed(1) + '%';
-    const w = 480 / rows.length;
-    document.getElementById('chart').innerHTML = rows.map((r, i) => {
-      const ratio = r.hits / (r.hits + r.misses), h = 180 * ratio;
-      return '<rect x="' + (i * w + 2) + '" y="' + (190 - h) + '" width="' + (w - 4) + '" height="' + h + '" rx="3" fill="var(--primary)" opacity="' + (0.45 + ratio / 2) + '"><title>' + r.hour + ':00 — ' + (100 * ratio).toFixed(1) + '%</title></rect>';
-    }).join('');
-    resize();
-  }
-
-  document.getElementById('flush').onclick = async () => {
-    try {
-      const result = await request({ rest: { method: 'POST', path: '/CacheFlush/' } });
-      toast('Flushed ' + result.flushed + ' stale entries', 'success');
-    } catch (error) { toast(error.message, 'error'); }
-  };
-  document.getElementById('undeclared').onclick = async () => {
-    const log = document.getElementById('log');
-    log.hidden = false;
-    try {
-      await request({ operation: 'drop_table', database: 'cache', table: 'Stat' });
-      log.textContent = 'Studio sent it (it should not have).';
-    } catch (error) { log.textContent = 'Studio refused: ' + error.message; }
-    resize();
-  };
-</script>
-</body></html>`;
-}

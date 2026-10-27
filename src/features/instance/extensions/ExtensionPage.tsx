@@ -1,6 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { useEntityRestURL } from '@/config/useEntityRestURL';
-import { FrameContent } from '@/features/instance/extensions/content/FrameContent';
 import { SectionsContent } from '@/features/instance/extensions/content/SectionsContent';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import type { ResolvedExtensionPage } from '@/features/instance/extensions/manifest';
@@ -46,7 +44,6 @@ export function ExtensionPage({ placement }: { placement: ResolvedExtensionPage[
 function AllowedExtensionPage({ page }: { page: PlacedExtensionPage }) {
 	const dataSource = useExtensionDataSource(page);
 	const permission = useExtensionPermission();
-	const restUrl = useEntityRestURL();
 
 	return (
 		<>
@@ -58,26 +55,12 @@ function AllowedExtensionPage({ page }: { page: PlacedExtensionPage }) {
 				</div>
 				<Badge variant="outline" title="The component that added this page">{page.component}</Badge>
 			</header>
-			{page.content.kind === 'sections'
-				? (
-					<SectionsContent
-						sections={page.content.sections}
-						dataSource={dataSource}
-						permission={permission}
-						access={page.access}
-					/>
-				)
-				: (
-					<FrameContent
-						// A new role or page starts the frame over, so it is never told a role it no longer has.
-						key={`${page.key}:${JSON.stringify(permission)}`}
-						page={page}
-						content={page.content}
-						dataSource={dataSource}
-						permission={permission}
-						restUrl={restUrl}
-					/>
-				)}
+			<SectionsContent
+				sections={page.content.sections}
+				dataSource={dataSource}
+				permission={permission}
+				access={page.access}
+			/>
 		</>
 	);
 }

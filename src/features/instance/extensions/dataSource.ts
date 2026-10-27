@@ -1,5 +1,4 @@
-import { type ExtensionRequest, isRestRequest } from '@/features/instance/extensions/manifest';
-import { isSameOriginPath } from '@/features/instance/extensions/parseStudioConfiguration';
+import type { ExtensionRequest } from '@/features/instance/extensions/manifest';
 import type { AxiosInstance } from 'axios';
 
 export type ExtensionRecord = Record<string, unknown>;
@@ -18,12 +17,8 @@ export interface ExtensionDataSource {
 	send(request: ExtensionRequest): Promise<unknown>;
 }
 
-/** The cluster itself: operations through the instance client, REST through the application URL. */
-export function createHarperDataSource(
-	entityId: string,
-	instanceClient: AxiosInstance,
-	restUrl: string | null,
-): ExtensionDataSource {
+/** The cluster itself, through the instance client's operations API. */
+export function createHarperDataSource(entityId: string, instanceClient: AxiosInstance): ExtensionDataSource {
 	const operation = async (body: Record<string, unknown>) => (await instanceClient.post('/', body)).data;
 	return {
 		id: entityId,
@@ -44,36 +39,6 @@ export function createHarperDataSource(
 		remove: async (database, table, id) => {
 			await operation({ operation: 'delete', database, table, ids: [id] });
 		},
-		send: async (request) => {
-			if (isRestRequest(request)) {
-				// Through the instance client, so it carries the same credential as every operation (a direct
-				// connection's Bearer, or Basic) and passes the same restart gate. An absolute URL overrides
-				// the client's operations baseURL, which is why the origin is checked first.
-				const { data } = await instanceClient.request({
-					url: resolveClusterUrl(request.rest.path, restUrl).toString(),
-					method: request.rest.method,
-					data: request.rest.body,
-				});
-				return data;
-			}
-			return operation(request);
-		},
+		send: operation,
 	};
-}
-
-/**
- * A page's REST path, resolved against the cluster's application URL, refused unless it stays on that
- * origin. The manifest parser already rejects paths that could leave it; this is the check at the point
- * of sending, where a credential would otherwise go along.
- */
-export function resolveClusterUrl(path: string, restUrl: string | null): URL {
-	if (!restUrl) {
-		throw new Error('This cluster has no application URL to send the request to.');
-	}
-	const base = new URL(restUrl);
-	const url = new URL(path, base);
-	if (!isSameOriginPath(path) || url.origin !== base.origin) {
-		throw new Error(`${path} is not on this cluster's application URL.`);
-	}
-	return url;
 }

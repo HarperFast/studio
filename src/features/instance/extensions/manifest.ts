@@ -60,12 +60,6 @@ export interface ExtensionAccess {
 	 * `operations` allowlist names them, so a non-super role qualifies only through its allowlist.
 	 */
 	operations?: string[];
-	/**
-	 * REST paths on the cluster's application port the page may call (prefix match), e.g.
-	 * `/Prerender/`. The component's resource authorizes them; listing them here only scopes what a
-	 * framed page may ask Studio to send.
-	 */
-	endpoints?: string[];
 }
 
 export interface ExtensionTableGrant {
@@ -75,25 +69,14 @@ export interface ExtensionTableGrant {
 }
 
 /**
- * How the page's body is drawn. `sections` is rendered by Studio from a description, so it looks and
- * behaves like the rest of Studio and runs no component code. `frame` is the escape hatch: a page the
- * component serves itself, sandboxed in an iframe and talking to the cluster only through Studio.
+ * How the page's body is drawn: always by Studio, from a description, so it looks and behaves like the
+ * rest of Studio and runs no component code.
  */
-export type ExtensionContent = SectionsContent | FrameContent;
+export type ExtensionContent = SectionsContent;
 
 export interface SectionsContent {
 	kind: 'sections';
 	sections: ExtensionSection[];
-}
-
-export interface FrameContent {
-	kind: 'frame';
-	/** A path the component serves on the cluster's application port, e.g. `/cache-insights/`. */
-	path?: string;
-	/** PROTOTYPE: inline HTML standing in for `path`, so the demo runs without a deployed component. */
-	srcdoc?: string;
-	/** Initial height in px until the page reports its own with `studio:resize`. */
-	minHeight?: number;
 }
 
 export type ExtensionSection =
@@ -164,21 +147,13 @@ export interface ExtensionAction {
 	successMessage?: string;
 }
 
-/** A request a page makes: an operations-API call, or a call to one of the component's REST endpoints. */
-export type ExtensionRequest = OperationRequest | RestRequest;
-
-export interface OperationRequest {
+/**
+ * A request a page makes, always to the operations API. A component that needs more than table reads and
+ * writes registers its own operation (`server.registerOperation`) and declares it in `access.operations`.
+ */
+export interface ExtensionRequest {
 	operation: string;
-	rest?: never;
 	[key: string]: unknown;
-}
-
-export interface RestRequest {
-	rest: { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; path: string; body?: unknown };
-}
-
-export function isRestRequest(request: ExtensionRequest): request is RestRequest {
-	return typeof request.rest === 'object' && request.rest !== null;
 }
 
 export interface ExtensionColumn {

@@ -14,9 +14,9 @@ with their components, the focus with the cluster's config.
   (`<component>.<id>`) is `visible`, `tucked` (into the nav's More menu) or `hidden`.
 - `pages` from the `studio.pages` of each component's own `config.yaml` (shape: `manifest.ts`).
 
-`parseStudioConfiguration` trusts none of it: a malformed page, section or field is dropped, frame and
-REST paths must stay on the cluster's origin, and `srcdoc` is never taken from a cluster. A 4xx (an older
-Harper, or an allowlisted role without the operation) means plain Studio, not an error.
+`parseStudioConfiguration` trusts none of it: a malformed page, section, field or request is dropped,
+and so is any page whose content is not Studio-drawn sections. A 4xx (an older Harper, or an allowlisted
+role without the operation) means plain Studio, not an error.
 
 Hiding is focus, not security: a hidden tab still opens from a link, and the server's permissions are
 unchanged.
@@ -25,12 +25,18 @@ unchanged.
 
 - **Placement**: `tab` (after the built-in tabs, before Config) or `config` (the Config menu, sorted with
   the built-in entries). A lesser role with a Config entry gets Config with just those entries.
-- **Access**: `role`, `tables`, `operations`, `endpoints`, checked like the built-in pages check. Inside a
-  page, write controls follow the viewer's own table grants.
-- **Body**: `sections` drawn by Studio (text, stats, CRUD table, settings form, actions), or `frame`, a
-  page the component serves, sandboxed without `allow-same-origin` and reaching the cluster only through
-  Studio's postMessage bridge. Frames and action buttons alike can send only what the page declared
-  (`checkPageRequest`). No component code ever runs in Studio's own origin.
+- **Access**: `role`, `tables`, `operations`, checked like the built-in pages check. Inside a page, write
+  controls follow the viewer's own table grants.
+- **Body**: always `sections` drawn by Studio (text, stats, CRUD table, settings form, actions), so every
+  page looks like Studio and gains whatever Studio's own components gain. No component code runs in
+  Studio, and a component that wants its own UI serves it on the application port instead.
+- **Requests**: every one goes to the operations API, the same channel and credential as the rest of
+  Studio, so isolating the operations port from the application port loses nothing. A component that
+  needs more than table reads and writes registers an operation (`server.registerOperation`; declaring
+  `requiresSuperUser` makes it grantable in a role's operations allowlist) and lists it in
+  `access.operations`. An action button sends only what its page declared (`checkPageRequest`); the table
+  operations it accepts are an explicit list, and `sql` is never one, since its statement names its own
+  tables.
 
 ## Presets (cluster creation)
 
@@ -51,12 +57,9 @@ browser can offer "Finish setting up" until the cluster's own config shows the l
    as plain Studio.
 2. **The preset packages are placeholders** (`@harperfast/redirects`, `@harperfast/prerender`), which
    is why `VITE_CLUSTER_PRESETS` is off by default.
-3. **REST requests and frames reach the application port.** Everything else (the config read, table
-   CRUD, declared operations) uses the operations API, as the rest of Studio does. A page's `rest`
-   requests carry the operations credential to the application URL, and a frame loads from it, so a
-   cluster whose operations API is network-isolated loses them. Components can register their own
-   operations (`server.registerOperation`, grantable to a role's operations allowlist), which would keep
-   every page on the operations API.
+3. **The page schema lives only in `manifest.ts`.** Harper checks a page's id, name and placement and passes
+   `access` and `content` through; a versioned schema owned by Harper would let components validate
+   against it.
 4. **No Studio UI changes a cluster's preset after creation**, though central-manager allows it.
 
 `prototype/` is dev-server only (never a production build or a test run): demo components on an

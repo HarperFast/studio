@@ -1,5 +1,4 @@
 import { checkExtensionAccess, checkPageRequest } from '@/features/instance/extensions/access';
-import { resolveClusterUrl } from '@/features/instance/extensions/dataSource';
 import type { ExtensionAccess } from '@/features/instance/extensions/manifest';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
@@ -48,7 +47,7 @@ describe('checkExtensionAccess', () => {
 describe('checkPageRequest', () => {
 	const access: ExtensionAccess = {
 		tables: [{ database: 'redirects', table: 'Rule', actions: ['read', 'insert'] }],
-		endpoints: ['/Redirect/'],
+		operations: ['redirect_import'],
 	};
 
 	it('refuses an undeclared operation even for a super user', () => {
@@ -70,17 +69,15 @@ describe('checkPageRequest', () => {
 		});
 	});
 
-	it('scopes REST calls to the declared endpoints', () => {
-		expect(checkPageRequest(reader, access, { rest: { method: 'GET', path: '/Redirect/123' } }).allowed).toBe(true);
-		expect(checkPageRequest(reader, access, { rest: { method: 'GET', path: '/Other/' } }).allowed).toBe(false);
+	it('allows a declared operation only to a role that may run it', () => {
+		const run = { operation: 'redirect_import' };
+		expect(checkPageRequest(superUser, access, run).allowed).toBe(true);
+		expect(checkPageRequest(writer, access, run)).toEqual({
+			allowed: false,
+			reason: 'your role cannot run redirect_import',
+		});
+		expect(checkPageRequest({ ...writer, operations: ['redirect_import'] }, access, run).allowed).toBe(true);
 	});
-
-	it.each(['/Redirect/../Other/', '/Redirect/%2e%2e/Other/', '/Redirect/.%2E/Other/', '//evil.example/Redirect/'])(
-		'refuses %j, which leaves the declared endpoint once resolved',
-		(path) => {
-			expect(checkPageRequest(superUser, access, { rest: { method: 'DELETE', path } }).allowed).toBe(false);
-		},
-	);
 
 	it('refuses sql on a declared table, since its statement can reach any table', () => {
 		const sql = { operation: 'sql', database: 'redirects', table: 'Rule', sql: 'DELETE FROM data.User' };
@@ -98,20 +95,5 @@ describe('checkPageRequest', () => {
 			allowed: false,
 			reason: 'search_by_value names two different databases',
 		});
-	});
-});
-
-describe('resolveClusterUrl', () => {
-	it('resolves a path on the application URL', () => {
-		expect(resolveClusterUrl('/Redirect/1', 'https://cluster.example.com').toString())
-			.toBe('https://cluster.example.com/Redirect/1');
-	});
-
-	it.each(['//evil.example/x', 'https://evil.example/x', '/\t/evil.example/x'])('refuses %j', (path) => {
-		expect(() => resolveClusterUrl(path, 'https://cluster.example.com')).toThrow(/not on this cluster/);
-	});
-
-	it('refuses when the cluster has no application URL', () => {
-		expect(() => resolveClusterUrl('/x', null)).toThrow(/no application URL/);
 	});
 });

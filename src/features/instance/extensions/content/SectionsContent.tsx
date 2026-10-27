@@ -366,7 +366,6 @@ function ActionButton({ action, dataSource, permission, access }: SectionProps &
 	const [confirming, setConfirming] = useState(false);
 	const run = useMutation({
 		mutationFn: () => {
-			// The manifest is the component's, so its buttons get no more reach than a framed page would.
 			const verdict = checkPageRequest(permission, access, action.request);
 			if (!verdict.allowed) {
 				throw new Error(verdict.reason);

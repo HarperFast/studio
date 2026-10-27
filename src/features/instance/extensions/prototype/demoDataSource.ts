@@ -1,5 +1,4 @@
 import type { ExtensionDataSource, ExtensionRecord } from '@/features/instance/extensions/dataSource';
-import { isRestRequest } from '@/features/instance/extensions/manifest';
 
 /**
  * PROTOTYPE ONLY: an in-memory cluster for the demo components, so every scenario can be clicked
@@ -84,22 +83,19 @@ export const demoDataSource: ExtensionDataSource = {
 	},
 	async send(request) {
 		await latency();
-		if (isRestRequest(request)) {
-			switch (request.rest.path) {
-				case '/Prerender/refresh':
-					for (const record of rows('prerender', 'Page')) {
-						Object.assign(record, { status: 'rendering' });
-					}
-					return { queued: rows('prerender', 'Page').length };
-				case '/Prerender/purge':
-					for (const record of rows('prerender', 'Page')) {
-						Object.assign(record, { status: 'purged', sizeKb: 0 });
-					}
-					return { purged: rows('prerender', 'Page').length };
-				case '/CacheFlush/':
-					return { flushed: 1_284 };
-			}
-			throw new Error(`${request.rest.method} ${request.rest.path} returned 404`);
+		switch (request.operation) {
+			case 'prerender_refresh':
+				for (const record of rows('prerender', 'Page')) {
+					Object.assign(record, { status: 'rendering' });
+				}
+				return { queued: rows('prerender', 'Page').length };
+			case 'prerender_purge':
+				for (const record of rows('prerender', 'Page')) {
+					Object.assign(record, { status: 'purged', sizeKb: 0 });
+				}
+				return { purged: rows('prerender', 'Page').length };
+			case 'cache_flush':
+				return { flushed: 1_284 };
 		}
 		if (request.operation === 'search_by_value' && typeof request.database === 'string') {
 			return rows(request.database, String(request.table)).map((record) => ({ ...record }));

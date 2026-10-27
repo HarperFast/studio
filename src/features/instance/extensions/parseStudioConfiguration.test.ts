@@ -1,4 +1,4 @@
-import { isSameOriginPath, parseStudioConfiguration } from '@/features/instance/extensions/parseStudioConfiguration';
+import { parseStudioConfiguration } from '@/features/instance/extensions/parseStudioConfiguration';
 import { describe, expect, it } from 'vitest';
 
 const page = (overrides: Record<string, unknown> = {}) => ({
@@ -46,63 +46,39 @@ describe('parseStudioConfiguration', () => {
 		expect(landing).toBe('harper-redirects.redirects');
 	});
 
-	it('never takes srcdoc from a cluster, and drops a frame that would leave its origin', () => {
+	it('drops a page that asks to draw itself, since Studio draws every page', () => {
 		const { pages } = parseStudioConfiguration({
 			pages: [
+				page({ id: 'framed', content: { kind: 'frame', path: '/cache-insights/' } }),
 				page({ id: 'inline', content: { kind: 'frame', srcdoc: '<script>alert(1)</script>' } }),
-				page({ id: 'away', content: { kind: 'frame', path: '//evil.example/page' } }),
-				page({ id: 'home', content: { kind: 'frame', path: '/cache-insights/', srcdoc: '<p>ignored</p>' } }),
+				page({ id: 'drawn' }),
 			],
 		});
-		expect(pages.map((candidate) => candidate.key)).toEqual(['harper-redirects.home']);
-		expect(pages[0].content).toEqual({ kind: 'frame', path: '/cache-insights/', minHeight: undefined });
+		expect(pages.map((candidate) => candidate.key)).toEqual(['harper-redirects.drawn']);
 	});
 
-	it('drops endpoints and action requests that could leave the cluster', () => {
+	it('keeps only action requests that are operations', () => {
 		const { pages } = parseStudioConfiguration({
 			pages: [page({
-				access: { endpoints: ['/Prerender/', 'https://evil.example/', '//evil.example/'] },
 				content: {
 					kind: 'sections',
 					sections: [{
 						type: 'actions',
 						actions: [
-							{ label: 'Good', request: { rest: { method: 'POST', path: '/Prerender/refresh' } } },
-							{ label: 'Away', request: { rest: { method: 'POST', path: 'https://evil.example/' } } },
-							{ label: 'Verb', request: { rest: { method: 'TRACE', path: '/Prerender/' } } },
+							{ label: 'Operation', request: { operation: 'prerender_refresh' } },
+							{ label: 'REST', request: { rest: { method: 'POST', path: '/Prerender/refresh' } } },
+							{ label: 'Unnamed', request: { operation: 42 } },
 						],
 					}],
 				},
 			})],
 		});
-		expect(pages[0].access?.endpoints).toEqual(['/Prerender/']);
-		const section = pages[0].content.kind === 'sections' ? pages[0].content.sections[0] : undefined;
-		expect(section?.type === 'actions' && section.actions.map((action) => action.label)).toEqual(['Good']);
+		const [section] = pages[0].content.sections;
+		expect(section.type === 'actions' && section.actions.map((action) => action.label)).toEqual(['Operation']);
 	});
 
 	it('answers an unusable response with an empty configuration', () => {
 		expect(parseStudioConfiguration('nope')).toEqual({ navigation: {}, pages: [] });
 		expect(parseStudioConfiguration({ pages: 'nope' })).toEqual({ navigation: {}, landing: undefined, pages: [] });
 	});
-});
-
-describe('isSameOriginPath', () => {
-	it.each(['/Prerender/', '/a/b?c=d'])('accepts %s', (path) => {
-		expect(isSameOriginPath(path)).toBe(true);
-	});
-
-	// `/\t/host` is the case worth keeping: the URL parser strips the tab, leaving `//host`.
-	it.each([
-		'//evil.example',
-		'/\\evil.example',
-		'/\t/evil.example',
-		'/\n/evil.example',
-		'https://evil.example',
-		'relative',
-	])(
-		'refuses %j',
-		(path) => {
-			expect(isSameOriginPath(path)).toBe(false);
-		},
-	);
 });

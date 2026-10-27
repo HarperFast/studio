@@ -1,7 +1,5 @@
 import type { ExtensionAccess, ExtensionRequest, ExtensionTableGrant } from '@/features/instance/extensions/manifest';
-import { isRestRequest } from '@/features/instance/extensions/manifest';
-import { isSameOriginPath } from '@/features/instance/extensions/parseStudioConfiguration';
-import { checkAnyOperationAllowed, TABLE_ACTION_OPERATIONS } from '@/hooks/checkOperationPermission';
+import { checkAnyOperationAllowed } from '@/hooks/checkOperationPermission';
 import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import type { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
 import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
@@ -74,16 +72,19 @@ export function getTableCapabilities(
 	};
 }
 
-// `sql` is left out: its statement names its own tables, so the request's `database` and `table` say
-// nothing about what it reads or writes. A page that needs it declares it as an operation.
-const DML_OPERATION_ACTION = new Map<string, LocalRolePermissionAction>(
-	Object.entries(TABLE_ACTION_OPERATIONS).flatMap(([action, operations]) =>
-		operations.filter((operation) => operation !== 'sql').map((operation) =>
-			[operation, action as LocalRolePermissionAction] as const
-		)
-	),
-);
-DML_OPERATION_ACTION.set('upsert', 'update');
+// Only operations whose `database` and `table` fields are everything they touch. `sql` is not one: its
+// statement names its own tables, so a page that needs it declares it as an operation.
+const DML_OPERATION_ACTION = new Map<string, LocalRolePermissionAction>([
+	['search', 'read'],
+	['search_by_conditions', 'read'],
+	['search_by_hash', 'read'],
+	['search_by_id', 'read'],
+	['search_by_value', 'read'],
+	['insert', 'insert'],
+	['update', 'update'],
+	['upsert', 'update'],
+	['delete', 'delete'],
+]);
 
 /** The database a table request targets, or undefined when its `database` and `schema` disagree. */
 function requestDatabase(request: Record<string, unknown>): string | undefined {
@@ -91,32 +92,16 @@ function requestDatabase(request: Record<string, unknown>): string | undefined {
 	return typeof database === 'string' && schema === database ? database : undefined;
 }
 
-/** A path as `new URL` will send it, with `.` and `..` segments (including `%2e` forms) resolved. */
-function resolvedPathname(path: string): string {
-	return new URL(path, 'https://cluster.invalid').pathname;
-}
-
 /**
- * Whether a page may have Studio send this request: a framed page's ask, or an action button. It can
- * reach only what its page declared (the tables and actions in `access.tables`, the listed operations,
- * the listed endpoints) and only what the viewer's role allows, so a compromised or careless page cannot
- * use Studio as a confused deputy for the rest of the cluster.
+ * Whether Studio may send an action button's request. It can reach only what its page declared (the
+ * tables and actions in `access.tables`, the listed operations) and only what the viewer's role allows,
+ * so a careless manifest cannot use Studio as a confused deputy for the rest of the cluster.
  */
 export function checkPageRequest(
 	permission: LocalRolePermission | undefined,
 	access: ExtensionAccess | undefined,
 	request: ExtensionRequest,
 ): { allowed: true } | { allowed: false; reason: string } {
-	if (isRestRequest(request)) {
-		const path = request.rest.path;
-		const pathname = isSameOriginPath(path) ? resolvedPathname(path) : undefined;
-		const declared = pathname !== undefined
-			&& (access?.endpoints ?? []).some((prefix) => pathname.startsWith(resolvedPathname(prefix)));
-		return declared
-			? { allowed: true }
-			: { allowed: false, reason: `${request.rest.method} ${path} is not one of this page's declared endpoints` };
-	}
-
 	const { operation } = request;
 	const action = DML_OPERATION_ACTION.get(operation);
 	if (action) {

@@ -42,7 +42,6 @@ const PAGE_ID = /^[a-z0-9-]{1,64}$/;
 const TABLE_ACTIONS = new Set<string>(['read', 'insert', 'update', 'delete']);
 const FIELD_INPUTS = new Set<string>(['text', 'url', 'number', 'textarea', 'select', 'switch']);
 const COLUMN_FORMATS = new Set<string>(['text', 'code', 'badge', 'boolean', 'number', 'datetime']);
-const REST_METHODS = new Set<string>(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Reads the operation's response without trusting it. Harper passes a page's `content` and `access`
@@ -121,7 +120,6 @@ function parseAccess(raw: unknown): ExtensionAccess | undefined {
 		role: raw.role === 'super_user' || raw.role === 'structure_user' ? raw.role : undefined,
 		tables,
 		operations: stringArray(raw.operations),
-		endpoints: stringArray(raw.endpoints)?.filter(isSameOriginPath),
 	};
 }
 
@@ -142,15 +140,6 @@ function parseContent(raw: unknown): ExtensionContent | undefined {
 	if (raw.kind === 'sections' && Array.isArray(raw.sections)) {
 		const sections = raw.sections.map(parseSection).filter((section) => section !== undefined);
 		return sections.length ? { kind: 'sections', sections } : undefined;
-	}
-	// A cluster's page is always served by the cluster. `srcdoc` is the prototype's stand-in and is never
-	// taken from a cluster, which would let a config value inject a document of its choosing.
-	if (raw.kind === 'frame' && typeof raw.path === 'string' && isSameOriginPath(raw.path)) {
-		return {
-			kind: 'frame',
-			path: raw.path,
-			minHeight: typeof raw.minHeight === 'number' ? Math.min(Math.max(raw.minHeight, 120), 4000) : undefined,
-		};
 	}
 	return undefined;
 }
@@ -295,31 +284,8 @@ function parseAction(raw: unknown): ExtensionAction | undefined {
 	};
 }
 
-export function parseRequest(raw: unknown): ExtensionRequest | undefined {
-	if (!isRecord(raw)) {
-		return undefined;
-	}
-	if (isRecord(raw.rest)) {
-		const { method, path, body } = raw.rest;
-		return typeof method === 'string' && REST_METHODS.has(method) && typeof path === 'string'
-				&& isSameOriginPath(path)
-			? { rest: { method: method as 'GET', path, body } }
-			: undefined;
-	}
-	return typeof raw.operation === 'string' && raw.rest === undefined
-		? { ...raw, operation: raw.operation } as ExtensionRequest
-		: undefined;
-}
-
-/**
- * A path on the cluster's own application origin: rooted, and not protocol-relative (`//host`) or
- * backslashed (`/\host`, which browsers read as `//host`), either of which would leave the cluster. No
- * whitespace or control characters either: the URL parser strips tabs and newlines, so `/\t/host`
- * becomes `//host` after this check. The data source re-checks the resolved origin before sending.
- */
-export function isSameOriginPath(path: string): boolean {
-	// oxlint-disable-next-line no-control-regex -- matching control characters is the point
-	return path.startsWith('/') && !path.startsWith('//') && !/[\\\s\u0000-\u001f\u007f]/.test(path);
+function parseRequest(raw: unknown): ExtensionRequest | undefined {
+	return isRecord(raw) && typeof raw.operation === 'string' ? { ...raw, operation: raw.operation } : undefined;
 }
 
 function text(value: unknown, max: number): string | undefined {
