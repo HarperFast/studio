@@ -28,13 +28,13 @@ const rootEntries: DirectoryEntry[] = [
 
 let openedEntry: DirectoryEntry | FileEntry | undefined;
 let selectedItems: string[] = [];
-let currentBranches: { setting: string[] | true | undefined } = { setting: undefined };
+let currentBranches: { setting: string[] | true | undefined; known: boolean } = { setting: undefined, known: false };
 
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/instance/applications/hooks/useBranchedDatabases')>()),
 	useApplicationBranchedDatabases: (
 		project: string | undefined,
-	) => (project ? currentBranches : { setting: undefined }),
+	) => (project ? currentBranches : { setting: undefined, known: false }),
 }));
 
 vi.mock('@/config/useInstanceClient', () => ({
@@ -89,7 +89,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
-	currentBranches = { setting: undefined };
+	currentBranches = { setting: undefined, known: false };
 });
 
 // Cancel, the destructive action, and Radix's own "X" close button all render; target the action
@@ -128,10 +128,28 @@ describe('DeleteDirectoryOrFileModal', () => {
 		it('says the copy stays on disk before it is removed', () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils'];
-			currentBranches = { setting: ['data'] };
+			currentBranches = { setting: ['data'], known: true };
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 			expect(screen.getByText(/runs on a private copy of data/)).toBeTruthy();
+		});
+
+		it('says nothing about the copy when deleting a file inside the application', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils/index.js'];
+			currentBranches = { setting: ['data'], known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.queryByText(/runs on a private copy/)).toBeNull();
+		});
+
+		it('says nothing about the copy until the setting is current', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { setting: ['data'], known: false };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.queryByText(/runs on a private copy/)).toBeNull();
 		});
 
 		it("shows Harper's answer when it kept the copy, and forgets the dropped application's setting", async () => {

@@ -72,6 +72,12 @@ export function RedeployApplicationModal() {
 	const currentPrivateCopy = useMemo(() => privateCopyFromSetting(currentBranches.setting), [
 		currentBranches.setting,
 	]);
+	// Another tab, the CLI or a colleague may have changed the setting since this tab last read it.
+	useEffect(() => {
+		if (isModalOpen) {
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
+		}
+	}, [isModalOpen, queryClient, instanceParams.entityId]);
 
 	const { mutateAsync: reDeployApplication, isPending } = useDeployComponentMutation();
 	const [isStreaming, setIsStreaming] = useState(false);

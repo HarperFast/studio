@@ -7,8 +7,8 @@ import { DatabaseIcon } from 'lucide-react';
 
 export function PrivateCopyIndicator({ project }: { project: string }) {
 	const { entityType } = useInstanceClientIdParams();
-	const { setting } = useApplicationBranchedDatabases(project);
-	if (!setting) {
+	const { setting, known } = useApplicationBranchedDatabases(project);
+	if (!setting || !known) {
 		return null;
 	}
 	const databases = describeBranchedDatabases(setting);

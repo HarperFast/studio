@@ -11,11 +11,12 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DeployFailure } from '@/features/instance/applications/components/DeployProgress/DeployFailure';
+import { PRIVATE_COPY_OFF } from '@/features/instance/applications/components/PrivateDatabaseCopy/privateCopyValue';
 import { PrivateDatabaseCopyField } from '@/features/instance/applications/components/PrivateDatabaseCopy/PrivateDatabaseCopyField';
 import { useBranchedDatabasesAvailable } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useStagedDeploymentsAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ImportAuthorization } from './ImportAuthorization';
@@ -40,6 +41,13 @@ export function ImportInstructions({
 	const importSource = watch('contents.source');
 	const canStage = useStagedDeploymentsAvailable();
 	const canBranch = useBranchedDatabasesAvailable();
+	// The form outlives the field when it moves to an entity that doesn't offer it, and a choice left behind would
+	// still be validated, with no message shown.
+	useEffect(() => {
+		if (!canBranch) {
+			setValue('contents.privateCopy', PRIVATE_COPY_OFF, { shouldValidate: true });
+		}
+	}, [canBranch, setValue]);
 	const setImportSource = useCallback((source: string) => {
 		setValue('contents.source', source as 'git' | 'npm' | 'tarball');
 	}, [setValue]);

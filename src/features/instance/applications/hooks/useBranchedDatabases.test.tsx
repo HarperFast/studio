@@ -62,6 +62,17 @@ describe('useApplicationBranchedDatabases', () => {
 		expect(result.current.setting).toEqual(['data']);
 	});
 
+	it('counts a read still in flight as loading, since it may be about to change the answer', async () => {
+		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
+		const { result } = renderCurrent();
+		await waitFor(() => expect(result.current.known).toBe(true));
+
+		mocks.post.mockReturnValueOnce(new Promise(() => {}));
+		await act(async () => result.current.retry());
+
+		await waitFor(() => expect(result.current).toMatchObject({ known: true, loading: true, failed: false }));
+	});
+
 	it('reports a refetch that fails after a write, rather than serving the answer from before it', async () => {
 		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
 		const { result, queryClient } = renderCurrent();

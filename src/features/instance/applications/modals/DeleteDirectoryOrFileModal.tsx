@@ -44,8 +44,12 @@ export function DeleteDirectoryOrFileModal() {
 		: isDirectorySelected
 		? 'Directory'
 		: 'File';
-	const wholeApplication = !multipleSelected && (isApplicationSelected || isPackageSelected);
-	const { setting: privateCopy } = useApplicationBranchedDatabases(wholeApplication ? openedEntry?.project : undefined);
+	// From what will be dropped, not the opened entry: a file inside an application can be selected while it is open.
+	const droppedApplication = selectedItems.length === 1 && !String(selectedItems[0]).includes('/')
+		? String(selectedItems[0])
+		: undefined;
+	const { setting, known } = useApplicationBranchedDatabases(droppedApplication);
+	const privateCopy = known ? setting : undefined;
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);

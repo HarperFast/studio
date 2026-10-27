@@ -133,11 +133,13 @@ operation that writes it there is a package deploy or stage, through
 - **A redeploy resends it.** A package deploy replaces the entry whole, so leaving the setting out turns the copy off
   and the application quietly goes back to the shared data. The redeploy form starts from the current setting, read
   from the entry in `get_configuration` ([`useApplicationBranchedDatabases`](hooks/useBranchedDatabases.ts)), and
-  when the form doesn't offer the setting it resends the current one as it is. A super user's redeploy waits for a read
-  made since anything last changed the entry: Studio's own deploys, activations and drops invalidate the query, and so
-  does a failed read, and until a read succeeds after that, the last answer can be the very setting a redeploy would
-  undo. `get_configuration` is super-user only, so for anyone else the setting is unknown and
-  a redeploy leaves it out, as before.
+  when the form doesn't offer the setting it resends the current one as it is. A super user's redeploy waits for a
+  current read, since the last answer can be the very setting a redeploy would undo. Opening the dialog re-reads it,
+  because another tab, the CLI or a colleague may have changed it; Studio's own deploys, activations and drops
+  invalidate the query, and so does a failed read; and a read still in flight may be about to change the answer. The
+  toolbar label and the delete warning show the setting only while it is current, so neither claims a copy that was
+  just turned off. `get_configuration` is super-user only, so for anyone else the setting is unknown and a redeploy
+  leaves it out, as before (#2019).
 - **Offered from 5.3.2, to super users, on package deploys only.** 5.3.0 and 5.3.1 accept it on a package deploy and
   ignore it at load (HarperFast/harper#3071), and an unreadable version offers nothing, for the same reason staging
   isn't offered on one. An application created from a template, by the assistant, or with `harper deploy` has no

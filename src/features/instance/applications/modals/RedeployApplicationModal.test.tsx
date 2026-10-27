@@ -62,6 +62,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponentStream', async 
 }));
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 
+import { invalidateApplicationConfiguration } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import {
 	DeployComponentResult,
 	deployComponentStream,
@@ -577,6 +578,18 @@ describe('RedeployApplicationModal', () => {
 			} finally {
 				mocks.editorView.openedEntry = opened;
 			}
+		});
+
+		it('re-reads the setting each time it opens, since something outside this tab may have changed it', async () => {
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			await renderOpenModal();
+			expect(invalidateApplicationConfiguration).toHaveBeenCalledOnce();
+
+			await act(async () => setWatchedValue('ShowRedeployApplicationModal', false));
+			await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+
+			expect(invalidateApplicationConfiguration).toHaveBeenCalledTimes(2);
+			expect(invalidateApplicationConfiguration).toHaveBeenLastCalledWith(expect.any(QueryClient), 'ins-1');
 		});
 
 		it('says the list is still loading, even beside a database already chosen', async () => {

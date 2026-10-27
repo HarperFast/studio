@@ -23,8 +23,9 @@ export function useBranchedDatabasesAvailable(): boolean {
 interface ApplicationBranchedDatabases {
 	/** The last answer read, which may predate a write of Studio's own. */
 	setting: BranchedDatabases | undefined;
-	/** `setting` is current: read since anything last changed the entry. Never true for a non super user. */
+	/** `setting` is current: read since Studio last changed the entry. Never true for a non super user. */
 	known: boolean;
+	/** A read is outstanding, so `setting` may be about to change, even when `known`. */
 	loading: boolean;
 	failed: boolean;
 	retry: () => void;
@@ -49,7 +50,7 @@ export function useApplicationBranchedDatabases(project: string | undefined): Ap
 	return {
 		setting: enabled ? data : undefined,
 		known,
-		loading: enabled && !known && !failed,
+		loading: enabled && !failed && (!known || fetchStatus !== 'idle'),
 		failed,
 		retry: () => void refetch(),
 	};
