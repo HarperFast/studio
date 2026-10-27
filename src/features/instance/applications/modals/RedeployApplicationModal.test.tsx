@@ -502,6 +502,16 @@ describe('RedeployApplicationModal', () => {
 			expect(screen.getByRole('checkbox', { name: 'data' })).toBeTruthy();
 		});
 
+		it('says the list is still loading, even beside a database already chosen', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.post.mockReturnValue(new Promise(() => {}));
+			await renderOpenModal();
+
+			expect(await screen.findByText('Loading databases…')).toBeTruthy();
+			expect(screen.getByRole('checkbox', { name: 'data' })).toBeTruthy();
+		});
+
 		it('says so when there is nothing to choose besides system', async () => {
 			mocks.branches.available = true;
 			mocks.post.mockResolvedValue({ data: { system: {} } });

@@ -80,10 +80,9 @@ export function PrivateDatabaseCopyField({
 				<fieldset className="grid gap-2 pl-1">
 					<legend className="sr-only">Databases to copy</legend>
 					{isError && <p className="text-sm text-warning">Studio couldn&apos;t list the databases.</p>}
-					{!isError && databases.length === 0 && (
-						<p className="text-sm text-muted-foreground">
-							{isPending ? 'Loading databases…' : 'There are no databases to copy besides system.'}
-						</p>
+					{isPending && <p className="text-sm text-muted-foreground">Loading databases…</p>}
+					{!isPending && !isError && databases.length === 0 && (
+						<p className="text-sm text-muted-foreground">There are no databases to copy besides system.</p>
 					)}
 					{databases.map(name => (
 						<div key={name} className="flex items-center gap-2">
