@@ -16,7 +16,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { SchemaHdbInstance } from '@/integrations/api/api.gen';
+import { Instance } from '@/integrations/api/api.patch';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { getInstanceHealthQueryOptions } from '@/integrations/api/instance/status/getInstanceHealth';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -36,7 +36,7 @@ export function ClusterInstanceSignIn() {
 		getClusterInfoQueryOptions(clusterId, true),
 	);
 
-	const instance: SchemaHdbInstance | undefined = useMemo(
+	const instance: Instance | undefined = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId) || undefined,
 		[cluster, instanceId],
 	);
@@ -85,9 +85,10 @@ export function ClusterInstanceSignIn() {
 		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
 		[operationsUrl],
 	);
+	const hasNoAddress = !!cluster && (!instanceId || !!instance) && !operationsUrl;
 	const { data: healthy } = useQuery({
 		...getInstanceHealthQueryOptions(instanceParams),
-		enabled: !isTerminated,
+		enabled: !isTerminated && !hasNoAddress,
 	});
 
 	const methods = useForm({
@@ -113,7 +114,7 @@ export function ClusterInstanceSignIn() {
 		);
 	}
 
-	if (!instanceId && cluster && !cluster?.fqdn) {
+	if (cluster && hasNoAddress) {
 		return (
 			<Navigate
 				to={buildAbsoluteLinkToPage({ organizationId: cluster.organizationId, clusterId: cluster.id }, 'instances')}

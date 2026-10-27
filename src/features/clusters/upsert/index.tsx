@@ -182,7 +182,7 @@ export function UpsertCluster() {
 				for (const instance of clusterInstances) {
 					isSelfManaged = true;
 					instances.push({
-						fqdn: instance.instanceFqdn,
+						fqdn: instance.instanceFqdn ?? '',
 						port: instance.operationsApiPort,
 						secure: instance.operationsApiSecure ? 'true' : 'false',
 					});

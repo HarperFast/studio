@@ -284,7 +284,8 @@ export function useRollingConfigUpdate(
 						?? `Failed to fully update cluster.\n`
 							+ ([
 								allInstances.length === 0 && 'No instances were found within the cluster to restart.',
-								targets.length === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
+								targets.length === 0
+								&& `No instances were in a "RUNNING" state with an address, of ${allTheInstances}.`,
 								allInstances.length !== instancesRestarted
 								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 							].filter(excludeFalsy).shift() || ''))
