@@ -119,7 +119,7 @@ function cellAriaLabel(
 	col: string,
 	cell: HeatmapCell | undefined,
 	confidence: Confidence,
-	unit: string,
+	axis: AxisSpec | undefined,
 	suppressBelow: number,
 	approx: boolean,
 	measureLabel: string,
@@ -132,12 +132,12 @@ function cellAriaLabel(
 	if (confidence === 'suppress') {
 		return `${prefix}insufficient samples (n<${suppressBelow}), value hidden`;
 	}
-	const value = cell?.value ?? 0;
-	const count = cell?.count ?? 0;
+	const value = formatValue(cell?.value ?? 0, axis?.formatter, axis?.unit);
+	const count = formatValue(cell?.count ?? 0, 'count');
 	if (confidence === 'grey') {
-		return `${prefix}${value} ${unit} ${measureLabel} (approx, low-confidence: ${count} samples below threshold)`;
+		return `${prefix}${value} ${measureLabel} (approx, low-confidence: ${count} samples below threshold)`;
 	}
-	return `${prefix}${value} ${unit} ${measureLabel}${approxTag}, ${count} samples`;
+	return `${prefix}${value} ${measureLabel}${approxTag}, ${count} samples`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,13 +157,12 @@ interface LegendProps {
 
 function HeatmapColorLegend({ stops, vmin, vmax, width, axis, approx, measureLabel }: LegendProps) {
 	const gradientId = useId();
-	const unit = axis?.unit ?? '';
-	const fmt = (v: number) => formatValue(v, axis?.formatter);
+	const fmt = (v: number) => formatValue(v, axis?.formatter, axis?.unit);
 	const median = (vmin + vmax) / 2;
 	const stripWidth = Math.max(200, Math.min(width, 480));
 	const stripHeight = 12;
 	const labelPrefix = approx ? `${measureLabel} (count-weighted-mean, approx)` : measureLabel;
-	const label = `${labelPrefix}: ${fmt(vmin)}–${fmt(vmax)} ${unit}. Higher value = worse latency.`;
+	const label = `${labelPrefix}: ${fmt(vmin)}–${fmt(vmax)}. Higher value = worse latency.`;
 	return (
 		<svg
 			role="img"
@@ -303,7 +302,6 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 	const suppressBelow = data.confidence?.suppressBelow ?? 0;
 	const stops = theme === 'dark' ? DARK_STOPS : LIGHT_STOPS;
 	const approx = data.approx === true;
-	const unit = data.axis?.unit ?? '';
 	// What the cells measure. Falls back to the historical copy; renderers
 	// can override via HeatmapData.measureLabel (e.g. when a quantile
 	// selector swaps p95 for p50/p99).
@@ -608,7 +606,16 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 									const confidence = classifyCell(cell, greyBelow, suppressBelow);
 									const cx = ROW_LABEL_WIDTH + ci * (cellSize + CELL_GAP);
 									const cy = y;
-									const aria = cellAriaLabel(row, col, cell, confidence, unit, suppressBelow, approx, measureLabel);
+									const aria = cellAriaLabel(
+										row,
+										col,
+										cell,
+										confidence,
+										data.axis,
+										suppressBelow,
+										approx,
+										measureLabel,
+									);
 
 									const isActive = activeRow === ri && activeCol === ci;
 

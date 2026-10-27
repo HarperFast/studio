@@ -15,7 +15,7 @@ const data: HeatmapData = {
 		{ row: 'src-2', col: 'dest-b', value: 55, count: 20 }, // suppress (count < 40)
 		{ row: 'src-2', col: 'dest-c', value: 70, count: 250 },
 	],
-	axis: { unit: 'ms', formatter: 'ms' },
+	axis: { unit: '', formatter: 'ms' },
 	confidence: { greyBelow: 40, suppressBelow: 100 },
 	rowAxisLabel: 'Source',
 	colAxisLabel: 'Destination',
@@ -42,6 +42,34 @@ describe('HeatmapMatrix primitive', () => {
 		const label = okCell.getAttribute('aria-label') ?? '';
 		expect(label).toMatch(/p95/i);
 		expect(label).toMatch(/\(approx\)/i);
+	});
+
+	it('formats cell and legend values through the axis formatter, not as raw floats', () => {
+		const epochLag = Date.UTC(2026, 9, 27);
+		render(
+			<HeatmapMatrix
+				data={{
+					...data,
+					cells: data.cells.map((c) => (c.row === 'src-1' && c.col === 'dest-a' ? { ...c, value: epochLag } : c)),
+				}}
+			/>,
+		);
+		const cell = screen.getAllByRole('gridcell')
+			.find((c) => /src-1.*dest-a/.test(c.getAttribute('aria-label') ?? ''))!;
+		const label = cell.getAttribute('aria-label') ?? '';
+		expect(label).toContain('57 yr p95 latency');
+		expect(label).toContain('500 samples');
+		expect(label).not.toContain(String(epochLag));
+		const legend = screen.getByRole('img', { name: /p95 latency/ });
+		expect(legend.getAttribute('aria-label')).toContain('45 ms–57 yr');
+	});
+
+	it('shows the axis unit suffix on the visible legend ticks, as the aria label reads it', () => {
+		render(<HeatmapMatrix data={{ ...data, axis: { unit: '/s', formatter: 'count-si' } }} />);
+		const legend = screen.getByRole('img', { name: /p95 latency/ });
+		const ticks = [...legend.querySelectorAll('text')].map((t) => t.textContent);
+		expect(ticks).toContain('30/s');
+		expect(ticks).toContain('70/s');
 	});
 
 	it('absent cells announce "no data"', () => {
