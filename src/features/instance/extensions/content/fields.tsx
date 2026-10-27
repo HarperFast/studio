@@ -106,7 +106,12 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 					onChange={(event) =>
 						onChange(
 							field.attribute,
-							field.input === 'number' && event.target.value !== '' ? Number(event.target.value) : event.target.value,
+							field.input !== 'number'
+								? event.target.value
+								: event.target.value === ''
+								// null, not undefined: a dropped key would leave the stored value in place.
+								? null
+								: Number(event.target.value),
 						)}
 				/>
 			);
@@ -120,7 +125,8 @@ function stringValue(value: unknown): string {
 /** The first required field left empty, for the inline error. */
 export function findMissingField(fields: ExtensionField[], values: ExtensionRecord): ExtensionField | undefined {
 	return fields.find((field) =>
-		field.required && (values[field.attribute] === undefined || values[field.attribute] === '')
+		field.required && (values[field.attribute] === undefined || values[field.attribute] === null
+			|| values[field.attribute] === '')
 	);
 }
 

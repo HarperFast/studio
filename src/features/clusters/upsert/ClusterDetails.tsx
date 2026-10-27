@@ -202,7 +202,7 @@ export function ClusterDetails({
 						<Card className="min-w-0 gap-0 overflow-hidden py-0">
 							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
 								<h2 className="flex items-center gap-2 text-base font-semibold">
-									<Sparkles className="size-4 text-primary" aria-hidden="true" />What is this cluster for?
+									<Sparkles className="size-4 text-primary" />What is this cluster for?
 								</h2>
 								<CardDescription>
 									Pick a job and Studio sets the cluster up for it once you have signed in.

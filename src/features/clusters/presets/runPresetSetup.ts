@@ -38,9 +38,10 @@ interface RunArgs extends InstanceClientIdConfig, InstanceTypeConfig {
  *
  * Every step needs super_user, which the cluster's first admin is.
  */
-export async function runPresetSetup({ preset, onStep, ...args }: RunArgs): Promise<void> {
+export async function runPresetSetup({ preset, onStep, signal, ...args }: RunArgs): Promise<void> {
 	const installed = await installedProjects(args);
 	for (const component of preset.components) {
+		signal?.throwIfAborted();
 		const id = `deploy:${component.project}`;
 		if (installed.has(component.project)) {
 			onStep(id, 'done', 'Already installed');
@@ -63,6 +64,7 @@ export async function runPresetSetup({ preset, onStep, ...args }: RunArgs): Prom
 		}
 	}
 
+	signal?.throwIfAborted();
 	onStep('configure', 'running');
 	try {
 		// Flattened keys, not a nested `studio` object: harper refuses the nested form, which would overwrite

@@ -97,6 +97,28 @@ describe('runPresetSetup', () => {
 		expect(setConfiguration).not.toHaveBeenCalled();
 	});
 
+	it('stops before the next step once aborted, so leaving /setup sends nothing more', async () => {
+		const controller = new AbortController();
+		deployAndFollowComponent.mockImplementationOnce(async () => {
+			controller.abort();
+			return { message: 'ok' };
+		});
+		const log: string[] = [];
+		const run = runPresetSetup({
+			instanceClient,
+			entityId: 'clu-1',
+			entityType: 'cluster',
+			preset,
+			signal: controller.signal,
+			onStep: (id, state) => log.push(`${id}:${state}`),
+		});
+
+		await expect(run).rejects.toThrow();
+		expect(deployAndFollowComponent).toHaveBeenCalledTimes(1);
+		expect(setConfiguration).not.toHaveBeenCalled();
+		expect(log).toEqual(['deploy:harper-redirects:running', 'deploy:harper-redirects:done']);
+	});
+
 	it('treats a rollout Studio could not follow as a failure', async () => {
 		deployAndFollowComponent.mockResolvedValueOnce({ message: 'ok', rollout: { state: 'unfollowable' } });
 		await expect(run().promise).rejects.toThrow(/could not confirm/);

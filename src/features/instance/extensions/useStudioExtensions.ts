@@ -22,7 +22,7 @@ import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import { getStudioConfigurationQueryOptions } from '@/integrations/api/instance/studio/getStudioConfiguration';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 export interface PlacedExtensionPage extends ResolvedExtensionPage {
 	verdict: AccessVerdict;
@@ -100,10 +100,14 @@ export function useExtensionPageName(key: unknown): string | undefined {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const entityId = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	const queryClient = useQueryClient();
-	const cached = useSyncExternalStore(
-		(onChange) => queryClient.getQueryCache().subscribe(onChange),
+	const subscribe = useCallback((onChange: () => void) => queryClient.getQueryCache().subscribe(onChange), [
+		queryClient,
+	]);
+	const getSnapshot = useCallback(
 		() => queryClient.getQueryData<StudioConfiguration>([entityId, 'get_studio_configuration']),
+		[queryClient, entityId],
 	);
+	const cached = useSyncExternalStore(subscribe, getSnapshot);
 	const prototype = usePrototypeState();
 	return useMemo(() => {
 		if (typeof key !== 'string') {

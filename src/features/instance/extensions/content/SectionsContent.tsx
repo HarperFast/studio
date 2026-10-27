@@ -133,7 +133,16 @@ function TableView({ section, dataSource, permission }: SectionProps & { section
 	const itemName = section.itemName ?? 'record';
 
 	const { data, isFetching, refetch } = useTableRows(dataSource, section.database, section.table, primaryKey);
+	// Kept after close so the dialog keeps its content while it animates out; `opened` gives each opening
+	// fresh form state, even for the same record.
 	const [editing, setEditing] = useState<ExtensionRecord | 'new' | null>(null);
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [opened, setOpened] = useState(0);
+	const openEditor = (record: ExtensionRecord | 'new') => {
+		setEditing(record);
+		setOpened((count) => count + 1);
+		setDialogOpen(true);
+	};
 
 	const columns = useMemo<ColumnDef<ExtensionRecord>[]>(() =>
 		section.columns.map((column) => ({
@@ -158,14 +167,14 @@ function TableView({ section, dataSource, permission }: SectionProps & { section
 				isFetching={isFetching}
 				filter={{ label: `Search ${section.title?.toLowerCase() ?? 'records'}` }}
 				paginated
-				onRowClick={canEdit || canDelete ? (row) => setEditing(row.original) : undefined}
+				onRowClick={canEdit || canDelete ? (row) => openEditor(row.original) : undefined}
 			>
 				<Button variant="defaultOutline" onClick={() => refetch()} disabled={isFetching}>
 					<RefreshCwIcon />
 					<span className="hidden lg:inline-block">Refresh</span>
 				</Button>
 				{canAdd && (
-					<Button variant="positiveOutline" onClick={() => setEditing('new')}>
+					<Button variant="positiveOutline" onClick={() => openEditor('new')}>
 						<PlusIcon />
 						<span className="capitalize">Add {itemName}</span>
 					</Button>
@@ -173,21 +182,23 @@ function TableView({ section, dataSource, permission }: SectionProps & { section
 			</SimpleBrowseDataTable>
 			{editing && section.fields && (
 				<RecordDialog
-					key={editing === 'new' ? 'new' : String(editing[primaryKey])}
+					key={opened}
+					open={dialogOpen}
 					section={section}
 					fields={section.fields}
 					record={editing === 'new' ? undefined : editing}
 					dataSource={dataSource}
 					canSave={editing === 'new' ? canAdd : canEdit}
 					canDelete={editing !== 'new' && canDelete}
-					onClose={() => setEditing(null)}
+					onClose={() => setDialogOpen(false)}
 				/>
 			)}
 		</section>
 	);
 }
 
-function RecordDialog({ section, fields, record, dataSource, canSave, canDelete, onClose }: {
+function RecordDialog({ open, section, fields, record, dataSource, canSave, canDelete, onClose }: {
+	open: boolean;
 	section: TableSection;
 	fields: ExtensionField[];
 	record: ExtensionRecord | undefined;
@@ -234,7 +245,7 @@ function RecordDialog({ section, fields, record, dataSource, canSave, canDelete,
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
+		<Dialog open={open} onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="sm:max-w-[560px]" aria-describedby={undefined}>
 				<form onSubmit={onSubmit} className="grid gap-4">
 					<DialogTitle className="capitalize">{record ? `Edit ${itemName}` : `Add ${itemName}`}</DialogTitle>

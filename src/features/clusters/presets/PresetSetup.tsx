@@ -33,12 +33,30 @@ export function PresetSetup() {
 	const [running, setRunning] = useState(false);
 	const [failed, setFailed] = useState(false);
 	const started = useRef(false);
+	const mounted = useRef(false);
+	const controller = useRef<AbortController>(undefined);
 	const start = buildAbsoluteLinkToPage(params, 'start');
+
+	// Leaving the page stops the setup before its next step. The abort waits a microtask because
+	// StrictMode unmounts and remounts in the same commit, which must not stop the run it started.
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+			queueMicrotask(() => {
+				if (!mounted.current) {
+					controller.current?.abort();
+				}
+			});
+		};
+	}, []);
 
 	const run = useCallback(async () => {
 		if (!preset || !params.clusterId) {
 			return;
 		}
+		controller.current = new AbortController();
+		const { signal } = controller.current;
 		setRunning(true);
 		setFailed(false);
 		setSteps(presetSetupSteps(preset));
@@ -47,6 +65,7 @@ export function PresetSetup() {
 				...instanceParams,
 				preset,
 				useSSE,
+				signal,
 				onStep: (id, state, detail) =>
 					setSteps((current) => current.map((step) => step.id === id ? { ...step, state, detail } : step)),
 			});
@@ -56,9 +75,13 @@ export function PresetSetup() {
 				queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'get_studio_configuration'] }),
 				queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'get_components'] }),
 			]);
-			await navigate({ to: start, replace: true });
+			if (mounted.current) {
+				await navigate({ to: start, replace: true });
+			}
 		} catch {
-			setFailed(true);
+			if (!signal.aborted) {
+				setFailed(true);
+			}
 		} finally {
 			setRunning(false);
 		}

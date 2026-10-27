@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 /**
  * Which new clusters still owe their preset's setup, remembered in this browser from "Create cluster"
@@ -54,14 +54,16 @@ export function getPendingPresetSetup(clusterId: string | undefined): string | u
 	return clusterId ? read()[clusterId]?.preset : undefined;
 }
 
+function subscribe(listener: () => void) {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+}
+
 export function usePendingPresetSetup(clusterId: string | undefined): string | undefined {
-	return useSyncExternalStore(
-		(listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
-		},
-		() => getPendingPresetSetup(clusterId),
-	);
+	const getSnapshot = useCallback(() => getPendingPresetSetup(clusterId), [clusterId]);
+	return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 /** Tests only. */

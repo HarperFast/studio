@@ -79,11 +79,14 @@ describe('checkPageRequest', () => {
 		expect(checkPageRequest({ ...writer, operations: ['redirect_import'] }, access, run).allowed).toBe(true);
 	});
 
-	it('refuses sql on a declared table, since its statement can reach any table', () => {
-		const sql = { operation: 'sql', database: 'redirects', table: 'Rule', sql: 'DELETE FROM data.User' };
-		expect(checkPageRequest(superUser, access, sql)).toEqual({
+	it.each([
+		{ operation: 'sql', sql: 'DELETE FROM data.User' },
+		{ operation: 'search', select: ['*'], tables: [{ database: 'data', table: 'User' }] },
+	])('refuses $operation on a declared table, since its statement can reach any table', (statement) => {
+		const request = { ...statement, database: 'redirects', table: 'Rule' };
+		expect(checkPageRequest(superUser, access, request)).toEqual({
 			allowed: false,
-			reason: 'the sql operation is not declared by this page',
+			reason: `the ${statement.operation} operation is not declared by this page`,
 		});
 	});
 

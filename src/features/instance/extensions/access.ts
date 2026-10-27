@@ -72,10 +72,9 @@ export function getTableCapabilities(
 	};
 }
 
-// Only operations whose `database` and `table` fields are everything they touch. `sql` is not one: its
-// statement names its own tables, so a page that needs it declares it as an operation.
+// Only operations whose `database` and `table` fields are everything they touch. `sql` and `search` are
+// not: each carries a statement that names its own tables, so a page that needs one declares it.
 const DML_OPERATION_ACTION = new Map<string, LocalRolePermissionAction>([
-	['search', 'read'],
 	['search_by_conditions', 'read'],
 	['search_by_hash', 'read'],
 	['search_by_id', 'read'],
