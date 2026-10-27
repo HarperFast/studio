@@ -14,7 +14,7 @@ export interface ClusterRestartTargets {
 	allInstances: Instance[];
 	/**
 	 * A client for each RUNNING instance with an address, in the order a rolling restart visits them.
-	 * One without an address gets none: its client would fall back to the page's own origin.
+	 * One without an address is skipped: Studio treats it as not reachable yet.
 	 */
 	targets: ClusterRestartTarget[];
 }

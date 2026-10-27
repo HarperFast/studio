@@ -54,8 +54,8 @@ export function ClusterInstanceSignIn() {
 		const url = instance ? getOperationsUrlForInstance(instance) : getOperationsUrlForCluster(cluster);
 		// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
 		// so the sign-in / health requests go directly to the instance rather than through the proxy.
-		// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll). An
-		// entity with no address redirects away below and sends nothing, so its flag is left alone.
+		// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll). Without
+		// a URL there is no direct request to make, so the flag is left alone.
 		if (url) {
 			authStore.flagForFabricConnect(entity.id, false);
 		}
