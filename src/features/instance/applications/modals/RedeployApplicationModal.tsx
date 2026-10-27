@@ -92,15 +92,24 @@ export function RedeployApplicationModal() {
 		},
 	});
 
-	const { control, getValues, handleSubmit, reset, setValue, watch } = methods;
+	const { control, handleSubmit, reset, setValue, watch } = methods;
 	const stageOnlyChecked = canStage && watch('stageOnly');
 
 	// Set once the person picks a private copy option, so a setting read later doesn't replace their choice.
 	const privateCopyChosen = useRef(false);
-	useEffect(() => {
+	// Read through a ref because a deploy closes the modal from a callback made before it, and the deploy's own refetch
+	// can change both while it waits on the health check.
+	const startingValues = useRef({ applicationUrl: packageUrl, privateCopy: currentPrivateCopy });
+	const resetForm = useCallback(() => {
 		privateCopyChosen.current = false;
-		reset({ ...getValues(), applicationUrl: packageUrl, installCommand: '', stageOnly: false });
-	}, [reset, getValues, packageUrl]);
+		reset({ ...startingValues.current, installCommand: '', stageOnly: false });
+	}, [reset]);
+	useEffect(() => {
+		startingValues.current = { applicationUrl: packageUrl, privateCopy: currentPrivateCopy };
+	}, [packageUrl, currentPrivateCopy]);
+	useEffect(() => {
+		resetForm();
+	}, [resetForm, packageUrl]);
 	// Only this field, so a setting that arrives after the form opened leaves the rest of what was typed alone. Not
 	// `resetField`, which skips a field that hasn't mounted, and this one only mounts once the modal opens.
 	useEffect(() => {
@@ -109,23 +118,15 @@ export function RedeployApplicationModal() {
 		}
 	}, [setValue, currentPrivateCopy]);
 
-	// Read through a ref because a deploy closes the modal from a callback made before it, and the deploy's own refetch
-	// can change both while it waits on the health check.
-	const closedValues = useRef({ applicationUrl: packageUrl, privateCopy: currentPrivateCopy });
-	useEffect(() => {
-		closedValues.current = { applicationUrl: packageUrl, privateCopy: currentPrivateCopy };
-	}, [packageUrl, currentPrivateCopy]);
-
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowRedeployApplicationModal', false);
 		attemptToRestoreFocus(trigger);
-		privateCopyChosen.current = false;
-		reset({ ...closedValues.current, installCommand: '', stageOnly: false });
+		resetForm();
 		setIsStreaming(false);
 		deployOnScreen.current = undefined;
 		setIsStaging(false);
 		stream.reset();
-	}, [reset, trigger, stream]);
+	}, [resetForm, trigger, stream]);
 
 	const invalidateComponents = useCallback(() => {
 		void queryClient.invalidateQueries({

@@ -560,6 +560,25 @@ describe('RedeployApplicationModal', () => {
 			expect(vi.mocked(deployComponentStream).mock.calls[1]?.[0].body.branchedDatabases).toBeUndefined();
 		});
 
+		it('drops an unsent pick when the package changes under the open form, and shows the current setting', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			const opened = mocks.editorView.openedEntry;
+			try {
+				const { rerender } = await renderOpenModalWithRerender();
+				await act(async () => {
+					fireEvent.click(screen.getByRole('radio', { name: /Off/ }));
+				});
+
+				mocks.editorView.openedEntry = { ...opened, package: 'npm:my-app@2' };
+				await act(async () => rerender());
+
+				expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
+			} finally {
+				mocks.editorView.openedEntry = opened;
+			}
+		});
+
 		it('says the list is still loading, even beside a database already chosen', async () => {
 			mocks.branches.available = true;
 			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
