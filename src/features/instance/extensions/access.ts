@@ -1,5 +1,6 @@
 import type { ExtensionAccess, ExtensionRequest, ExtensionTableGrant } from '@/features/instance/extensions/manifest';
 import { isRestRequest } from '@/features/instance/extensions/manifest';
+import { isSameOriginPath } from '@/features/instance/extensions/parseStudioConfiguration';
 import { checkAnyOperationAllowed, TABLE_ACTION_OPERATIONS } from '@/hooks/checkOperationPermission';
 import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import type { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
@@ -73,12 +74,27 @@ export function getTableCapabilities(
 	};
 }
 
+// `sql` is left out: its statement names its own tables, so the request's `database` and `table` say
+// nothing about what it reads or writes. A page that needs it declares it as an operation.
 const DML_OPERATION_ACTION = new Map<string, LocalRolePermissionAction>(
 	Object.entries(TABLE_ACTION_OPERATIONS).flatMap(([action, operations]) =>
-		operations.map((operation) => [operation, action as LocalRolePermissionAction] as const)
+		operations.filter((operation) => operation !== 'sql').map((operation) =>
+			[operation, action as LocalRolePermissionAction] as const
+		)
 	),
 );
 DML_OPERATION_ACTION.set('upsert', 'update');
+
+/** The database a table request targets, or undefined when its `database` and `schema` disagree. */
+function requestDatabase(request: Record<string, unknown>): string | undefined {
+	const { database = request.schema ?? 'data', schema = database } = request;
+	return typeof database === 'string' && schema === database ? database : undefined;
+}
+
+/** A path as `new URL` will send it, with `.` and `..` segments (including `%2e` forms) resolved. */
+function resolvedPathname(path: string): string {
+	return new URL(path, 'https://cluster.invalid').pathname;
+}
 
 /**
  * Whether a page may have Studio send this request: a framed page's ask, or an action button. It can
@@ -93,7 +109,9 @@ export function checkPageRequest(
 ): { allowed: true } | { allowed: false; reason: string } {
 	if (isRestRequest(request)) {
 		const path = request.rest.path;
-		const declared = (access?.endpoints ?? []).some((prefix) => path.startsWith(prefix));
+		const pathname = isSameOriginPath(path) ? resolvedPathname(path) : undefined;
+		const declared = pathname !== undefined
+			&& (access?.endpoints ?? []).some((prefix) => pathname.startsWith(resolvedPathname(prefix)));
 		return declared
 			? { allowed: true }
 			: { allowed: false, reason: `${request.rest.method} ${path} is not one of this page's declared endpoints` };
@@ -102,7 +120,10 @@ export function checkPageRequest(
 	const { operation } = request;
 	const action = DML_OPERATION_ACTION.get(operation);
 	if (action) {
-		const database = typeof request.database === 'string' ? request.database : 'data';
+		const database = requestDatabase(request);
+		if (database === undefined) {
+			return { allowed: false, reason: `${operation} names two different databases` };
+		}
 		const table = typeof request.table === 'string' ? request.table : '';
 		const declared = (access?.tables ?? []).some((grant: ExtensionTableGrant) =>
 			grant.database === database && grant.table === table && grant.actions.includes(action)

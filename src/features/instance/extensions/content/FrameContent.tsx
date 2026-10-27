@@ -5,6 +5,7 @@ import type {
 	FrameContent as FrameContentManifest,
 	ResolvedExtensionPage,
 } from '@/features/instance/extensions/manifest';
+import { parseRequest } from '@/features/instance/extensions/parseStudioConfiguration';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import { useEffect, useRef, useState } from 'react';
@@ -86,13 +87,18 @@ export function FrameContent({ page, content, dataSource, permission, restUrl }:
 				}
 				case 'studio:request': {
 					const { page, dataSource, permission } = latest.current;
-					const verdict = checkPageRequest(permission, page.access, message.request);
+					const request = parseRequest(message.request);
+					if (!request) {
+						post({ type: 'studio:response', id: message.id, ok: false, error: 'not an operation or a REST call' });
+						return;
+					}
+					const verdict = checkPageRequest(permission, page.access, request);
 					if (!verdict.allowed) {
 						post({ type: 'studio:response', id: message.id, ok: false, error: verdict.reason });
 						return;
 					}
 					try {
-						const data = await dataSource.send(message.request);
+						const data = await dataSource.send(request);
 						post({ type: 'studio:response', id: message.id, ok: true, data });
 					} catch (error) {
 						post({ type: 'studio:response', id: message.id, ok: false, error: (error as Error).message });

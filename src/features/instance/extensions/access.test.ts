@@ -74,6 +74,31 @@ describe('checkPageRequest', () => {
 		expect(checkPageRequest(reader, access, { rest: { method: 'GET', path: '/Redirect/123' } }).allowed).toBe(true);
 		expect(checkPageRequest(reader, access, { rest: { method: 'GET', path: '/Other/' } }).allowed).toBe(false);
 	});
+
+	it.each(['/Redirect/../Other/', '/Redirect/%2e%2e/Other/', '/Redirect/.%2E/Other/', '//evil.example/Redirect/'])(
+		'refuses %j, which leaves the declared endpoint once resolved',
+		(path) => {
+			expect(checkPageRequest(superUser, access, { rest: { method: 'DELETE', path } }).allowed).toBe(false);
+		},
+	);
+
+	it('refuses sql on a declared table, since its statement can reach any table', () => {
+		const sql = { operation: 'sql', database: 'redirects', table: 'Rule', sql: 'DELETE FROM data.User' };
+		expect(checkPageRequest(superUser, access, sql)).toEqual({
+			allowed: false,
+			reason: 'the sql operation is not declared by this page',
+		});
+	});
+
+	it('reads a table request through the schema alias, and refuses one naming two databases', () => {
+		const viaSchema = { operation: 'search_by_value', schema: 'other', table: 'Rule' };
+		expect(checkPageRequest(superUser, access, viaSchema).allowed).toBe(false);
+		expect(checkPageRequest(writer, access, { ...viaSchema, schema: 'redirects' }).allowed).toBe(true);
+		expect(checkPageRequest(superUser, access, { ...viaSchema, database: 'redirects' })).toEqual({
+			allowed: false,
+			reason: 'search_by_value names two different databases',
+		});
+	});
 });
 
 describe('resolveClusterUrl', () => {

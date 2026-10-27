@@ -34,7 +34,9 @@ unchanged.
 
 ## Presets (cluster creation)
 
-`src/features/clusters/presets`: the create form offers a job (`CLUSTER_PRESETS`). Once the new
+`src/features/clusters/presets`: the create form offers a job (`CLUSTER_PRESETS`), only in a build
+with `VITE_CLUSTER_PRESETS=true`; without it `findClusterPreset` finds none, so nothing offers, badges
+or resumes a preset. Once the new
 cluster's admin signs in, FinishSetup sends them to `/setup`, which deploys the preset's components,
 writes its `studio_navigation` and `studio_landing` with `set_configuration` (replicated; flattened
 because harper refuses a nested `studio` object, which would clobber an app deployed under that name;
@@ -47,7 +49,8 @@ browser can offer "Finish setting up" until the cluster's own config shows the l
 1. **Both server sides are draft PRs.** Until central-manager#1047 is deployed, the job lives only in the
    creating browser's localStorage (`pendingPresetSetup.ts`); until harper#3656 ships, every cluster reads
    as plain Studio.
-2. **The preset packages are placeholders** (`@harperfast/redirects`, `@harperfast/prerender`).
+2. **The preset packages are placeholders** (`@harperfast/redirects`, `@harperfast/prerender`), which
+   is why `VITE_CLUSTER_PRESETS` is off by default.
 3. **REST requests and frames reach the application port.** Everything else (the config read, table
    CRUD, declared operations) uses the operations API, as the rest of Studio does. A page's `rest`
    requests carry the operations credential to the application URL, and a frame loads from it, so a

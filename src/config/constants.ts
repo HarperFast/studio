@@ -1,5 +1,7 @@
 export const forceBasicAuth = import.meta.env.VITE_FORCE_BASIC_AUTH === 'true';
 export const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO === 'true';
+/** Cluster presets stay off until their component packages and server support ship. */
+export const clusterPresetsEnabled = import.meta.env.VITE_CLUSTER_PRESETS === 'true';
 
 /** Hand-mirrors `DEPLOY_MODES` in `vite.config.ts`; `deployModes.test.ts` pins this to the env files. */
 export const deployModes: ReadonlySet<string> = new Set(['dev', 'stage', 'prod']);

@@ -1,3 +1,4 @@
+import { clusterPresetsEnabled } from '@/config/constants';
 import type { TabVisibility } from '@/features/instance/extensions/parseStudioConfiguration';
 import type { IconName } from 'lucide-react/dynamic';
 
@@ -48,5 +49,5 @@ export const CLUSTER_PRESETS: readonly ClusterPreset[] = [
 ];
 
 export function findClusterPreset(id: string | undefined): ClusterPreset | undefined {
-	return CLUSTER_PRESETS.find((preset) => preset.id === id);
+	return clusterPresetsEnabled ? CLUSTER_PRESETS.find((preset) => preset.id === id) : undefined;
 }

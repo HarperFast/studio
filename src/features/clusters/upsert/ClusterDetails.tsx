@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { DialogFooter } from '@/components/ui/dialog';
+import { clusterPresetsEnabled } from '@/config/constants';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
@@ -197,7 +198,7 @@ export function ClusterDetails({
 		<>
 			<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
 				<div className="min-w-0 space-y-6">
-					{!clusterId && !isSelfManaged && (
+					{clusterPresetsEnabled && !clusterId && !isSelfManaged && (
 						<Card className="min-w-0 gap-0 overflow-hidden py-0">
 							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
 								<h2 className="flex items-center gap-2 text-base font-semibold">
