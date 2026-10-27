@@ -1,3 +1,4 @@
+import { invalidateApplicationConfiguration } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { queryClient } from '@/react-query/queryClient';
@@ -14,7 +15,12 @@ export async function execute(
 		const parts = path.split('/');
 		const project = parts.shift()!;
 		const file = parts.join('/');
-		const data = await dropComponent({ ...instanceClientParams, file, project });
+		const data = await dropComponent({ ...instanceClientParams, file, project }).finally(() => {
+			// After it settles, either way: a drop whose answer was lost may still have removed the application.
+			if (!file) {
+				void invalidateApplicationConfiguration(queryClient, instanceClientParams.entityId);
+			}
+		});
 		forgetDeletedPath(queryClient, instanceClientParams.entityId, path.replace(/\/+$/, ''));
 		return {
 			success: true,

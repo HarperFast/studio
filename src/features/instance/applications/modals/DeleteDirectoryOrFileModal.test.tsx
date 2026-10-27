@@ -176,6 +176,25 @@ describe('DeleteDirectoryOrFileModal', () => {
 			invalidate.mockRestore();
 		});
 
+		it("forgets the application's setting even when Harper's answer to the drop was lost", async () => {
+			const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			vi.mocked(dropComponent).mockRejectedValue(new Error('timeout of 60000ms exceeded'));
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', undefined).catch(() => undefined);
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() =>
+				expect(invalidate).toHaveBeenCalledWith({ queryKey: ['get_configuration', 'test-instance'] })
+			);
+			invalidate.mockRestore();
+		});
+
 		it("doesn't read a file's drop as the application's", async () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils/index.js'];

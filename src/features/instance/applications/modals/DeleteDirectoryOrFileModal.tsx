@@ -83,14 +83,16 @@ export function DeleteDirectoryOrFileModal() {
 		// still queued for deletion. Copy first — `selectedItems` is shared state.
 		const result = await deleteSelectedItems(selectedItems.map(String).reverse(), {
 			dropItem: async (project, file) => {
-				const dropped = await dropComponent({ file, project, ...instanceParams });
+				const dropped = await dropComponent({ file, project, ...instanceParams }).finally(() => {
+					// A later application of this name must not inherit the dropped one's setting from the cache, and a drop
+					// whose answer was lost may still have removed it.
+					if (!file) {
+						void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
+					}
+				});
 				const branchNote = file ? undefined : branchStorageMessage(dropped);
 				if (branchNote) {
 					branchNotes.push(branchNote);
-				}
-				if (!file) {
-					// A later application of this name must not inherit the dropped one's setting from the cache.
-					void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 				}
 				forgetDeletedPath(queryClient, instanceParams.entityId, file ? `${project}/${file}` : project);
 				return dropped;
