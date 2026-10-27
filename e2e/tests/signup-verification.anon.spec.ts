@@ -1,12 +1,22 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { deleteSessionAccount, signupApiBase } from './accountCleanup';
-import { deleteMailTo, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
+import {
+	deleteMailTo,
+	mailConfigured,
+	newTestEmailAddress,
+	waitForSetPasswordEmail,
+	waitForVerificationEmail,
+} from './mail';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
  * verification email via Mailosaur → follow its link → confirm the account is
  * verified by signing in without being bounced back to /#/verifying.
+ *
+ * A central-manager that replaces the sign-up password when verifying keeps the user on the page and
+ * emails a set-password link instead. The spec follows whichever answer the target gives: sign in
+ * with the sign-up password, or set a new one from that email first and sign in with it.
  *
  * Runs in the `anon` project (starts logged-out; it creates and then logs into a
  * brand-new account within the test). Skips cleanly until Mailosaur is configured.
@@ -29,18 +39,19 @@ test.describe('signup → email verification → login', () => {
 	// The outer timeout exists to catch a hang that no INNER timeout covers, so it must exceed the
 	// sum of those inner budgets — otherwise a slow-but-progressing run trips it and reports a
 	// failure while nothing actually timed out. The arithmetic, worst case:
-	//   5 navigations / waitForURL @30s ......... 150s   (goto x2, waitForURL x3)
-	//   mail poll (mail.ts timeoutMs) ............ 90s
+	//   6 navigations / waitForURL @30s ......... 180s   (goto x3, waitForURL x3)
+	//   2 mail polls (mail.ts timeoutMs @90s) ... 180s   (verification, set-password)
 	//   waitForResponse on signup (default) ...... 30s
-	//   9 form actions @15s (actionTimeout) ..... 135s
-	//   2 expects @10s ........................... 20s
+	//   13 form actions @15s (actionTimeout) .... 195s
+	//   verified-or-sign-in expect @30s .......... 30s
+	//   3 expects @10s ........................... 30s
 	//   2 cleanup API requests @30s .............. 60s
 	//                                            ------
-	//                                             485s
-	// 600s keeps the invariant true with headroom. (Earlier values of 120s and 210s did not: both
-	// were below the sum, so a slow delivery read as a failure.) If you change any inner wait —
+	//                                             705s
+	// The set-password steps run only against a central-manager that sends that email, but the bound
+	// has to hold for them. 840s keeps the invariant true with headroom. If you change any inner wait —
 	// especially mail.ts's timeoutMs — re-do this sum.
-	test.setTimeout(600_000);
+	test.setTimeout(840_000);
 	// Retries multiply that budget AND sign up another real account each time. Halve the project's
 	// CI value, and preserve the local default of zero: `test.describe.configure` overrides the
 	// project setting in EVERY environment, so a bare `retries: 1` would give local runs a retry
@@ -106,15 +117,33 @@ test.describe('signup → email verification → login', () => {
 
 			// 3. Fetch the verification email and follow its link.
 			const { link } = await waitForVerificationEmail(email, { receivedAfter });
+			const verifiedAfter = new Date(Date.now() - 15_000);
 			await page.goto(link);
 
-			// 4. Verifying the token lands the user back on sign-in.
+			// 4. Verifying the token lands the user back on sign-in, or stays to say the sign-up password
+			//    was replaced. Then the password to sign in with is the one set from the email that
+			//    verification sent.
+			const signInButton = page.getByRole('button', { name: 'Sign In' });
+			const verifiedHeading = page.getByRole('heading', { name: 'Email verified' });
+			await expect(signInButton.or(verifiedHeading)).toBeVisible({ timeout: 30_000 });
+			let signInPassword = password;
+			if (await verifiedHeading.isVisible()) {
+				// Any other verified state, such as the set-password email failing to send, fails here.
+				await expect(page.getByText('Check your inbox to set your password.'), 'set-password email sent')
+					.toBeVisible();
+				const { link: setPasswordLink } = await waitForSetPasswordEmail(email, { receivedAfter: verifiedAfter });
+				signInPassword = randomPassword();
+				await page.goto(setPasswordLink);
+				await page.getByLabel('New Password', { exact: true }).fill(signInPassword);
+				await page.getByLabel('Confirm Password', { exact: true }).fill(signInPassword);
+				await page.getByRole('button', { name: 'Submit New Password' }).click();
+			}
 			await page.waitForURL(/#\/sign-in/, { timeout: 30_000 });
 
 			// 5. The real proof: logging in now succeeds instead of bouncing to
 			//    /#/verifying (which is what an unverified account would do).
 			await page.getByLabel('Email').fill(email);
-			await page.getByLabel('Password', { exact: true }).fill(password);
+			await page.getByLabel('Password', { exact: true }).fill(signInPassword);
 			await page.getByRole('button', { name: 'Sign In' }).click();
 
 			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
