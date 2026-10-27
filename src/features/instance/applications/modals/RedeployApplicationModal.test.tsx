@@ -360,6 +360,35 @@ describe('RedeployApplicationModal', () => {
 		});
 	});
 
+	it('reopens on the package a live redeploy just installed', async () => {
+		vi.mocked(deployComponentStream).mockResolvedValue({ message: 'Successfully deployed' });
+		let healthy!: () => void;
+		mocks.runHealthCheck.mockReturnValue(
+			new Promise((resolve) => {
+				healthy = () => resolve({ level: 'healthy' });
+			}),
+		);
+		const opened = mocks.editorView.openedEntry;
+		try {
+			const { rerender } = await renderOpenModalWithRerender();
+			await act(async () => {
+				fireEvent.change(screen.getByLabelText('Package Reference'), { target: { value: 'npm:my-app@2' } });
+			});
+			await submit();
+			await waitFor(() => expect(mocks.runHealthCheck).toHaveBeenCalled());
+
+			mocks.editorView.openedEntry = { ...opened, package: 'npm:my-app@2' };
+			await act(async () => rerender());
+			await act(async () => healthy());
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+			await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+			expect((screen.getByLabelText('Package Reference') as HTMLInputElement).value).toBe('npm:my-app@2');
+		} finally {
+			mocks.editorView.openedEntry = opened;
+		}
+	});
+
 	describe('private database copy', () => {
 		function sentBody() {
 			return vi.mocked(deployComponentStream).mock.calls[0]?.[0].body;
@@ -500,6 +529,35 @@ describe('RedeployApplicationModal', () => {
 
 			expect(await screen.findByText("Studio couldn't list the databases.")).toBeTruthy();
 			expect(screen.getByRole('checkbox', { name: 'data' })).toBeTruthy();
+		});
+
+		it('reopens on the setting a live redeploy just made, not the one from before it', async () => {
+			mocks.branches.available = true;
+			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			let healthy!: () => void;
+			mocks.runHealthCheck.mockReturnValue(
+				new Promise((resolve) => {
+					healthy = () => resolve({ level: 'healthy' });
+				}),
+			);
+			const { rerender } = await renderOpenModalWithRerender();
+			await act(async () => {
+				fireEvent.click(screen.getByRole('radio', { name: /Off/ }));
+			});
+			await submit();
+			await waitFor(() => expect(mocks.runHealthCheck).toHaveBeenCalled());
+
+			// The redeploy's own refetch lands while the health check is still running.
+			mocks.branches.current = { setting: undefined, known: true, loading: false, failed: false, retry: vi.fn() };
+			await act(async () => rerender());
+			await act(async () => healthy());
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+			await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
+			expect(screen.getByRole('radio', { name: /Off/ }).getAttribute('aria-checked')).toBe('true');
+			await submit();
+			await waitFor(() => expect(deployComponentStream).toHaveBeenCalledTimes(2));
+			expect(vi.mocked(deployComponentStream).mock.calls[1]?.[0].body.branchedDatabases).toBeUndefined();
 		});
 
 		it('says the list is still loading, even beside a database already chosen', async () => {

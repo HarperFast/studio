@@ -43,8 +43,7 @@ export function useApplicationBranchedDatabases(project: string | undefined): Ap
 		enabled,
 		select: configuration => (project ? readBranchedDatabases(configuration, project) : undefined),
 	});
-	// Studio's deploys, activations and drops invalidate the query, and so does a failed read. Until a read succeeds
-	// after that, the last answer can be the very setting a redeploy would undo.
+	// A failed read marks the query invalidated too, so only a successful read clears it.
 	const known = enabled && isSuccess && !queryClient.getQueryState(options.queryKey)?.isInvalidated;
 	const failed = enabled && !known && isError && fetchStatus === 'idle';
 	return {

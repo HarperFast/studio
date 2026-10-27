@@ -109,16 +109,23 @@ export function RedeployApplicationModal() {
 		}
 	}, [setValue, currentPrivateCopy]);
 
+	// Read through a ref because a deploy closes the modal from a callback made before it, and the deploy's own refetch
+	// can change both while it waits on the health check.
+	const closedValues = useRef({ applicationUrl: packageUrl, privateCopy: currentPrivateCopy });
+	useEffect(() => {
+		closedValues.current = { applicationUrl: packageUrl, privateCopy: currentPrivateCopy };
+	}, [packageUrl, currentPrivateCopy]);
+
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowRedeployApplicationModal', false);
 		attemptToRestoreFocus(trigger);
 		privateCopyChosen.current = false;
-		reset({ applicationUrl: packageUrl, installCommand: '', stageOnly: false, privateCopy: currentPrivateCopy });
+		reset({ ...closedValues.current, installCommand: '', stageOnly: false });
 		setIsStreaming(false);
 		deployOnScreen.current = undefined;
 		setIsStaging(false);
 		stream.reset();
-	}, [reset, packageUrl, currentPrivateCopy, trigger, stream]);
+	}, [reset, trigger, stream]);
 
 	const invalidateComponents = useCallback(() => {
 		void queryClient.invalidateQueries({
