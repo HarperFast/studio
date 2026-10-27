@@ -47,19 +47,19 @@ export function ClusterInstanceSignIn() {
 	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';
 
 	const operationsUrl = useMemo(() => {
-		if (cluster) {
-			// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
-			// so the sign-in / health requests go directly to the instance rather than through the proxy.
-			// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll).
-			if (instance) {
-				authStore.flagForFabricConnect(instance.id, false);
-				return getOperationsUrlForInstance(instance);
-			} else {
-				authStore.flagForFabricConnect(cluster.id, false);
-				return getOperationsUrlForCluster(cluster);
-			}
+		if (!cluster) {
+			return null;
 		}
-		return null;
+		const entity = instance ?? cluster;
+		const url = instance ? getOperationsUrlForInstance(instance) : getOperationsUrlForCluster(cluster);
+		// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
+		// so the sign-in / health requests go directly to the instance rather than through the proxy.
+		// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll). An
+		// entity with no address redirects away below and sends nothing, so its flag is left alone.
+		if (url) {
+			authStore.flagForFabricConnect(entity.id, false);
+		}
+		return url;
 	}, [cluster, instance]);
 
 	// Drop any existing connected user ONCE on entering the sign-in form (keyed on the stable entity id,

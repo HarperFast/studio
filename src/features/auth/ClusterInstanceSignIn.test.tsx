@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { authStore } from '@/features/auth/store/authStore';
 import type { Cluster } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -39,6 +40,7 @@ import { ClusterInstanceSignIn } from './ClusterInstanceSignIn';
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	vi.restoreAllMocks();
 	routeParams = { clusterId: 'clu-1' };
 });
 
@@ -86,7 +88,9 @@ describe(ClusterInstanceSignIn, () => {
 
 	it('sends an instance without an address to the cluster instances page', async () => {
 		routeParams = { clusterId: 'clu-1', instanceId: 'ins-1' };
+		const flagSpy = vi.spyOn(authStore, 'flagForFabricConnect');
 		await renderSignIn(clusterWith({ instances: [{ id: 'ins-1', status: 'RUNNING' }] as Cluster['instances'] }));
+		expect(flagSpy).not.toHaveBeenCalled();
 		expect(screen.getByText('redirected to /org-1/clu-1/instances')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Sign In' })).toBeNull();
 		expect(instanceClient.get).not.toHaveBeenCalled();
@@ -94,6 +98,7 @@ describe(ClusterInstanceSignIn, () => {
 
 	it('still offers the sign-in form for an instance with an address', async () => {
 		routeParams = { clusterId: 'clu-1', instanceId: 'ins-1' };
+		const flagSpy = vi.spyOn(authStore, 'flagForFabricConnect');
 		instanceClient.get.mockResolvedValue({ data: {} });
 		await renderSignIn(
 			clusterWith({
@@ -102,6 +107,7 @@ describe(ClusterInstanceSignIn, () => {
 		);
 		expect(screen.getByRole('button', { name: 'Sign In' })).toBeTruthy();
 		expect(screen.queryByText(/redirected to/)).toBeNull();
+		expect(flagSpy).toHaveBeenCalledWith('ins-1', false);
 	});
 
 	it('takes precedence over the setup redirect a terminated cluster can still carry', async () => {
