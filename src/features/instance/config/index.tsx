@@ -1,14 +1,17 @@
 import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
+import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
+import { Link, Navigate, Outlet, useLoaderData, useLocation, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	GlobeIcon,
@@ -21,6 +24,13 @@ import {
 	UsersIcon,
 } from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
+
+interface ConfigMenuEntry {
+	name: string;
+	/** Relative to the entity, e.g. `config/roles`. */
+	page: string;
+	icon: ReactNode;
+}
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
 const inactiveProps = { className: 'text-foreground hover:bg-accent dark:text-white dark:hover:bg-gray-700' };
@@ -43,120 +53,68 @@ export function ConfigIndex() {
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
+	const { pathname } = useLocation();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, false),
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
 
-	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
-	const children = canManage && (
+	// Overview lives at the top (rendered by the nav bars below). Everything else — the built-in entries and
+	// any a cluster's components add — is sorted by name, so a component's entry lands where a reader
+	// expects it rather than at the end.
+	const extensionEntries = useVisibleExtensionPages('config');
+	const entries: ConfigMenuEntry[] = [
+		...(canManage
+			? [
+				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
+				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
+				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
+				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
+				// Secrets (the replicated hdb_secret store): any instance or cluster on a supported version — key
+				// custody may be file-based (self-hosted) or injected (Fabric). Manage-gated like every built-in
+				// entry; the secret operations are additionally super_user-only server-side, so a deep-link by a
+				// lesser role lists nothing.
+				secretsSupported && { name: 'Secrets', page: 'config/secrets', icon: <LockIcon /> },
+				certsAvailable && { name: 'SSH Keys', page: 'config/ssh-keys', icon: <KeyIcon /> },
+				trustPoliciesSupported && { name: 'Trust Policies', page: 'config/trust-policies', icon: <BadgeCheckIcon /> },
+				{ name: 'Users', page: 'config/users', icon: <UsersIcon /> },
+			].filter(excludeFalsy)
+			: []),
+		...extensionEntries.map((extension) => ({
+			name: extension.name,
+			page: `config/ext/${extension.key}`,
+			icon: <ExtensionIcon name={extension.icon} />,
+		})),
+	].sort((a, b) => a.name.localeCompare(b.name));
+
+	const children = entries.length > 0 && (
 		<>
-			{certsAvailable && (
-				<li>
+			{entries.map((entry) => (
+				<li key={entry.page}>
 					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/certificates')}
+						to={buildAbsoluteLinkToPage(params, entry.page)}
 						className={sharedClasses}
 						inactiveProps={inactiveProps}
 						activeProps={activeProps}
 					>
-						<ShieldCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Certificates</span>
+						<span className="hidden md:inline-flex">{entry.icon}</span> <span className="ms-3">{entry.name}</span>
 					</Link>
 				</li>
-			)}
-			{deploymentsAvailable && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/deployments')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<RocketIcon className="hidden md:inline-block" /> <span className="ms-3">Deployments</span>
-					</Link>
-				</li>
-			)}
-			{!isLocalStudio && !isSelfManaged && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/domains')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<GlobeIcon className="hidden md:inline-block" /> <span className="ms-3">Domains</span>
-					</Link>
-				</li>
-			)}
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'config/roles')}
-					className={sharedClasses}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
-				</Link>
-			</li>
-			{
-				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
-			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated
-			    like every entry here (it lives under the `canManage` block above); the secret operations
-			    are additionally super_user-only server-side, so a deep-link by a lesser role lists nothing. */
-			}
-			{secretsSupported && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/secrets')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<LockIcon className="hidden md:inline-block" /> <span className="ms-3">Secrets</span>
-					</Link>
-				</li>
-			)}
-			{certsAvailable && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<KeyIcon className="hidden md:inline-block" /> <span className="ms-3">SSH Keys</span>
-					</Link>
-				</li>
-			)}
-			{trustPoliciesSupported && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/trust-policies')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<BadgeCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Trust Policies</span>
-					</Link>
-				</li>
-			)}
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'config/users')}
-					className={sharedClasses}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<UsersIcon className="hidden md:inline-block" /> <span className="ms-3">Users</span>
-				</Link>
-			</li>
+			))}
 		</>
 	);
+
+	// A lesser role reaches Config only for a component's entry, and the Overview is a super-user page, so
+	// the index opens their first entry instead.
+	if (!canManage && entries.length > 0 && pathname === buildAbsoluteLinkToPage(params, 'config')) {
+		return <Navigate to={buildAbsoluteLinkToPage(params, entries[0].page)} replace />;
+	}
 
 	return (
 		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36))-var(--notification-banner-height))]">
 			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
-				<DesktopConfigNavBar params={params}>{children}</DesktopConfigNavBar>
-				<MobileConfigNavBar params={params}>{children}</MobileConfigNavBar>
+				<DesktopConfigNavBar params={params} showOverview={canManage}>{children}</DesktopConfigNavBar>
+				<MobileConfigNavBar params={params} showOverview={canManage}>{children}</MobileConfigNavBar>
 			</section>
 			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 md:pt-4">
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
@@ -167,46 +125,18 @@ export function ConfigIndex() {
 	);
 }
 
-function DesktopConfigNavBar({ params, children }: {
+function DesktopConfigNavBar({ params, children, showOverview }: {
 	params: {
 		clusterId?: string;
 		instanceId?: string;
 		organizationId?: string;
 	};
 	children: ReactNode;
+	showOverview: boolean;
 }) {
 	return (
 		<div className="hidden md:block pl-4 pt-4">
-			<Link
-				to={buildAbsoluteLinkToPage(params, 'config')}
-				className={sharedClasses}
-				activeOptions={{ exact: true }}
-				inactiveProps={inactiveProps}
-				activeProps={activeProps}
-			>
-				<PieChartIcon className="hidden md:inline-block" /> <span className="ms-3">Overview</span>
-			</Link>
-
-			{children && (
-				<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
-					{children}
-				</ul>
-			)}
-		</div>
-	);
-}
-
-function MobileConfigNavBar({ params, children }: {
-	params: {
-		clusterId?: string;
-		instanceId?: string;
-		organizationId?: string;
-	};
-	children: ReactNode;
-}) {
-	return (
-		<ul className="flex space-x-2 md:hidden py-2 px-4">
-			<li>
+			{showOverview && (
 				<Link
 					to={buildAbsoluteLinkToPage(params, 'config')}
 					className={sharedClasses}
@@ -216,7 +146,41 @@ function MobileConfigNavBar({ params, children }: {
 				>
 					<PieChartIcon className="hidden md:inline-block" /> <span className="ms-3">Overview</span>
 				</Link>
-			</li>
+			)}
+
+			{children && (
+				<ul className={showOverview ? 'border-t border-gray-700 pt-4 mt-4 space-y-2' : 'space-y-2'}>
+					{children}
+				</ul>
+			)}
+		</div>
+	);
+}
+
+function MobileConfigNavBar({ params, children, showOverview }: {
+	params: {
+		clusterId?: string;
+		instanceId?: string;
+		organizationId?: string;
+	};
+	children: ReactNode;
+	showOverview: boolean;
+}) {
+	return (
+		<ul className="flex space-x-2 md:hidden py-2 px-4">
+			{showOverview && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config')}
+						className={sharedClasses}
+						activeOptions={{ exact: true }}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<PieChartIcon className="hidden md:inline-block" /> <span className="ms-3">Overview</span>
+					</Link>
+				</li>
+			)}
 			{children}
 		</ul>
 	);

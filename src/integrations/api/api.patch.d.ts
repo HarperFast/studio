@@ -353,6 +353,9 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
+	// The job the cluster was created for (a Studio `CLUSTER_PRESETS` id); absent or null for a blank cluster.
+	// Being added to central-manager; not yet in the generated OpenAPI schema.
+	preset?: string | null;
 }
 
 export interface ClusterSyncSummary {
@@ -364,6 +367,7 @@ export interface ClusterSyncSummary {
 export interface ClusterUpsert extends SchemaClusterUpsert {
 	skipGtmWait?: boolean;
 	version?: string;
+	preset?: string;
 }
 
 export interface InstanceDatabaseMap {

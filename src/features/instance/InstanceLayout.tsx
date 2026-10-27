@@ -12,6 +12,10 @@ const FloatingChat = lazy(() =>
 	import('./applications/components/Chat/FloatingChat').then((m) => ({ default: m.FloatingChat }))
 );
 
+const PrototypePanel = lazy(() =>
+	import('./extensions/prototype/PrototypePanel').then((m) => ({ default: m.PrototypePanel }))
+);
+
 export function InstanceLayout() {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	return (
@@ -31,6 +35,12 @@ export function InstanceLayout() {
 			{!isLocalStudio && (
 				<Suspense fallback={null}>
 					<FloatingChat />
+				</Suspense>
+			)}
+			{/* PROTOTYPE: the component-pages scenario switcher, dev builds only. */}
+			{import.meta.env.DEV && (
+				<Suspense fallback={null}>
+					<PrototypePanel />
 				</Suspense>
 			)}
 		</>

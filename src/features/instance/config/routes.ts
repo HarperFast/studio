@@ -9,6 +9,7 @@ import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
+import { extensionConfigPageComponent } from '@/features/instance/extensions/routes';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
 import { createRoute } from '@tanstack/react-router';
@@ -123,8 +124,17 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigCertificatesIndex,
 	});
 
+	const instanceConfigExtensionRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ext/$extensionKey',
+		head: () => ({ meta: [{ title: 'Config — Harper Fabric' }] }),
+		component: extensionConfigPageComponent,
+	});
+
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
+
+		instanceConfigExtensionRoute,
 
 		instanceConfigRolesRoute,
 		instanceConfigRoleRoute,

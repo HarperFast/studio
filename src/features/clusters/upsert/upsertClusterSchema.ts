@@ -51,6 +51,8 @@ export const UpsertClusterSchema = z.object({
 	skipToBilling: z.boolean().optional(),
 	skipGtmWait: z.boolean().optional(),
 	sourceClusterId: z.string().optional(),
+	/** A `CLUSTER_PRESETS` id; Studio installs it once the new cluster's admin signs in. */
+	preset: z.string().optional(),
 });
 
 export type UpsertClusterSchemaType = z.infer<typeof UpsertClusterSchema>;
