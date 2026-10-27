@@ -221,7 +221,6 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 		onSuccess: async () => {
 			await invalidate();
 			toast.success(record ? `Saved the ${itemName}` : `Added the ${itemName}`);
-			onClose();
 		},
 		onError: (failure) => setError(failure.message),
 	});
@@ -230,7 +229,6 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 		onSuccess: async () => {
 			await invalidate();
 			toast.success(`Deleted the ${itemName}`);
-			onClose();
 		},
 	});
 
@@ -241,7 +239,9 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 			setError(`${missing.label} is required.`);
 			return;
 		}
-		save.mutate();
+		// Closing from `mutate`, not the mutation: React Query skips these callbacks once this dialog has
+		// unmounted, so a save left running after Cancel can't close the next record's dialog.
+		save.mutate(undefined, { onSuccess: onClose });
 	};
 
 	return (
@@ -280,7 +280,7 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 				nameOfThingBeingDeleted={String(record?.[section.columns[0]?.attribute ?? primaryKey] ?? '')}
 				isModalOpen={confirmingDelete}
 				setIsModalOpen={setConfirmingDelete}
-				deletionConfirmed={() => remove.mutate()}
+				deletionConfirmed={() => remove.mutate(undefined, { onSuccess: onClose })}
 				deletionPending={remove.isPending}
 			/>
 		</Dialog>
