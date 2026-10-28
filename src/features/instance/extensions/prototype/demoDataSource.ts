@@ -57,24 +57,38 @@ export const demoDataSource: ExtensionDataSource = {
 	id: 'prototype-demo',
 	async list(database, table) {
 		await latency();
-		return rows(database, table).map((record) => ({ ...record }));
+		return { records: rows(database, table).map((record) => ({ ...record })), truncated: false };
+	},
+	async count(database, table, where) {
+		await latency();
+		const conditions = Object.entries(where ?? {});
+		const count =
+			rows(database, table).filter((record) =>
+				conditions.every(([attribute, expected]) => record[attribute] === expected)
+			).length;
+		return { count, bound: 'exact' };
 	},
 	async get(database, table, primaryKey, id) {
 		await latency();
 		const record = rows(database, table).find((candidate) => candidate[primaryKey] === id);
 		return record && { ...record };
 	},
-	async upsert(database, table, record) {
+	async insert(database, table, record) {
 		await latency();
 		const list = rows(database, table);
 		const id = record.id ?? crypto.randomUUID();
-		const index = list.findIndex((candidate) => candidate.id === id);
-		const next = { hits: database === 'redirects' ? 0 : undefined, ...list[index], ...record, id };
-		if (index === -1) {
-			list.push(next);
-		} else {
-			list[index] = next;
+		if (list.some((candidate) => candidate.id === id)) {
+			throw new Error(`A record with id ${String(id)} already exists`);
 		}
+		list.push({ hits: database === 'redirects' ? 0 : undefined, ...record, id });
+	},
+	async update(database, table, record) {
+		await latency();
+		const existing = rows(database, table).find((candidate) => candidate.id === record.id);
+		if (!existing) {
+			throw new Error(`No record with id ${String(record.id)}`);
+		}
+		Object.assign(existing, record);
 	},
 	async remove(database, table, id) {
 		await latency();

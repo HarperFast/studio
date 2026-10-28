@@ -32,6 +32,8 @@ export interface StudioConfiguration {
 	/** The tab or page key Studio opens the cluster on. */
 	landing?: string;
 	pages: ResolvedExtensionPage[];
+	/** The cluster can't answer (an older Harper, or a role without the operation), so nothing it set is known. */
+	unavailable?: true;
 }
 
 export const EMPTY_STUDIO_CONFIGURATION: StudioConfiguration = Object.freeze({ navigation: {}, pages: [] });

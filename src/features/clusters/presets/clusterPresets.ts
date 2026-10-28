@@ -1,5 +1,6 @@
 import { clusterPresetsEnabled } from '@/config/constants';
 import type { TabVisibility } from '@/features/instance/extensions/parseStudioConfiguration';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import type { IconName } from 'lucide-react/dynamic';
 
 /**
@@ -47,6 +48,13 @@ export const CLUSTER_PRESETS: readonly ClusterPreset[] = [
 		},
 	},
 ];
+
+/** The first Harper that answers `get_studio_configuration` (HarperFast/harper#3656), without which setup can never be confirmed. */
+export const PRESET_MIN_HARPER_VERSION = '5.4.0';
+
+export function harperSupportsPresets(version: string | undefined): boolean {
+	return !!version && wasAReleasedBeforeB(PRESET_MIN_HARPER_VERSION, version);
+}
 
 export function findClusterPreset(id: string | undefined): ClusterPreset | undefined {
 	return clusterPresetsEnabled ? CLUSTER_PRESETS.find((preset) => preset.id === id) : undefined;

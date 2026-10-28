@@ -35,8 +35,15 @@ unchanged.
   needs more than table reads and writes registers an operation (`server.registerOperation`; declaring
   `requiresSuperUser` makes it grantable in a role's operations allowlist) and lists it in
   `access.operations`. An action button sends only what its page declared (`checkPageRequest`); the table
-  operations it accepts are an explicit list, and `sql` is never one, since its statement names its own
-  tables.
+  operations it accepts are an explicit list, and neither `sql` nor `search` is on it, since each carries
+  a statement that names its own tables.
+- **Reads are bounded**: a table section loads at most `EXTENSION_ROW_LIMIT` rows and says so when there
+  are more; its search and paging cover only those. A count is `describe_table`'s (Harper's estimate on a
+  large table), or, with `where`, a `search_by_conditions` reading primary keys up to the same limit, so
+  its attributes should be indexed. Nothing downloads a whole table to count it.
+- **Writes say what they mean**: Add inserts, so a taken key fails rather than overwriting that row, and
+  Edit updates only the form's fields and the key, so attributes the form doesn't show (a server-kept hit
+  count) are never written back stale. Each needs only the grant its button was offered on.
 
 ## Presets (cluster creation)
 
@@ -49,6 +56,15 @@ because harper refuses a nested `studio` object, which would clobber an app depl
 no restart), and lands on `/start` — the configured landing page, or the first tab the viewer's nav
 shows. Central-manager records the job as `Cluster.preset` (HarperFast/central-manager#1047), so any
 browser can offer "Finish setting up" until the cluster's own config shows the landing page was written.
+A cluster that can't answer `get_studio_configuration` (`unavailable`) is never owed a setup, and the
+create form offers presets only from Harper 5.4 (`PRESET_MIN_HARPER_VERSION`).
+
+Setup never sends a deploy twice by itself (applications/DESIGN.md, "A live deploy is sent once").
+`presetDeployMarks` remembers, per cluster, an install whose outcome was unknown (`unconfirmed`: wait for
+it to appear, or the user's "Install again") and one whose rollout failed or couldn't be followed
+(`partial`: Retry deploys it again although the receiving node lists it). A failed `get_components`
+read stops setup rather than deploying blind, a run waits for any earlier one on the same cluster, and a
+node that refuses the settings fails that step.
 
 ## Open
 

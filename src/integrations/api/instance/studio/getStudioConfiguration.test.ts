@@ -30,14 +30,15 @@ describe('getStudioConfiguration', () => {
 	});
 
 	// An older Harper (unknown operation) and an allowlisted role without it both mean "plain Studio".
-	it.each([400, 403, 404])('treats %i as no configuration', async (status) => {
+	it.each([400, 403, 404])('treats %i as no configuration the cluster can give', async (status) => {
 		await expect(getStudioConfiguration(params(clientFailingWith(status)))).resolves.toEqual({
 			navigation: {},
 			pages: [],
+			unavailable: true,
 		});
 	});
 
-	it.each([401, 500])('still fails on %i', async (status) => {
+	it.each([401, 408, 429, 500])('still fails on %i', async (status) => {
 		await expect(getStudioConfiguration(params(clientFailingWith(status)))).rejects.toBeInstanceOf(AxiosError);
 	});
 });

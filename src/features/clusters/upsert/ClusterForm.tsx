@@ -7,6 +7,7 @@ import { defaultOperationsApiPort } from '@/config/constants';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
+import { harperSupportsPresets } from '@/features/clusters/presets/clusterPresets';
 import { rememberPendingPresetSetup } from '@/features/clusters/presets/pendingPresetSetup';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
@@ -537,6 +538,7 @@ export function ClusterForm({
 				},
 			);
 		} else {
+			const presetToRecord = !isSelfManaged && harperSupportsPresets(formData.version) ? formData.preset : undefined;
 			submitNewClusterData({
 				abbreviatedName: isSelfManaged
 					? undefined
@@ -549,12 +551,12 @@ export function ClusterForm({
 				regionPlans: plans,
 				// Recorded so the cluster keeps its job wherever it is opened (a central-manager that predates the
 				// field drops it, which is why the browser remembers it too).
-				preset: !isSelfManaged ? formData.preset : undefined,
+				preset: presetToRecord,
 			}, {
 				onSuccess: (data) => {
 					// Remembered before the cluster exists to sign in to; FinishSetup picks it up once its admin does.
-					if (formData.preset && !isSelfManaged) {
-						rememberPendingPresetSetup(data.id, formData.preset);
+					if (presetToRecord) {
+						rememberPendingPresetSetup(data.id, presetToRecord);
 					}
 					return onClusterSavedCallback({
 						clusterId: data.id,

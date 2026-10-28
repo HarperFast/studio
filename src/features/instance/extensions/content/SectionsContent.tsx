@@ -16,7 +16,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { checkPageRequest, getTableCapabilities } from '@/features/instance/extensions/access';
 import { defaultValues, ExtensionFields, findMissingField } from '@/features/instance/extensions/content/fields';
-import type { ExtensionDataSource, ExtensionRecord } from '@/features/instance/extensions/dataSource';
+import {
+	EXTENSION_ROW_LIMIT,
+	type ExtensionCount,
+	type ExtensionDataSource,
+	type ExtensionRecord,
+} from '@/features/instance/extensions/dataSource';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import type {
 	ActionsSection,
@@ -77,15 +82,30 @@ function SectionView({ section, ...props }: SectionProps & { section: ExtensionS
 	}
 }
 
+/** Everything read from one table, so a write refreshes its rows, its counts and its records together. */
 function tableQueryKey(dataSource: ExtensionDataSource, database: string, table: string) {
 	return [dataSource.id, 'extension-table', database, table] as const;
 }
 
-function useTableRows(dataSource: ExtensionDataSource, database: string, table: string, primaryKey = 'id') {
+function useTableRows(dataSource: ExtensionDataSource, database: string, table: string, primaryKey: string) {
 	return useQuery({
-		queryKey: tableQueryKey(dataSource, database, table),
+		queryKey: [...tableQueryKey(dataSource, database, table), 'rows', primaryKey],
 		queryFn: () => dataSource.list(database, table, primaryKey),
 	});
+}
+
+/** Only the form's fields and the primary key, so an edit never writes back attributes it didn't show. */
+function pickFields(fields: ExtensionField[], primaryKey: string, values: ExtensionRecord): ExtensionRecord {
+	return Object.fromEntries(
+		[primaryKey, ...fields.map((field) => field.attribute)].filter((attribute) => attribute in values).map((
+			attribute,
+		) => [attribute, values[attribute]]),
+	);
+}
+
+function formatCount({ count, bound }: ExtensionCount): string {
+	const text = count.toLocaleString();
+	return bound === 'at-least' ? `${text}+` : bound === 'estimate' ? `~${text}` : text;
 }
 
 function StatsView({ section, dataSource }: SectionProps & { section: StatsSection }) {
@@ -114,12 +134,14 @@ function CountValue({ value, dataSource }: {
 	value: Extract<StatsSection['items'][number]['value'], { kind: 'count' }>;
 	dataSource: ExtensionDataSource;
 }) {
-	const { data } = useTableRows(dataSource, value.database, value.table);
+	const { data, isError } = useQuery({
+		queryKey: [...tableQueryKey(dataSource, value.database, value.table), 'count', value.where ?? null],
+		queryFn: () => dataSource.count(value.database, value.table, value.where),
+	});
 	if (!data) {
-		return <span className="text-muted-foreground">…</span>;
+		return <span className="text-muted-foreground">{isError ? '—' : '…'}</span>;
 	}
-	const where = Object.entries(value.where ?? {});
-	return data.filter((record) => where.every(([key, expected]) => record[key] === expected)).length.toLocaleString();
+	return formatCount(data);
 }
 
 function TableView({ section, dataSource, permission }: SectionProps & { section: TableSection }) {
@@ -160,10 +182,15 @@ function TableView({ section, dataSource, permission }: SectionProps & { section
 						<EyeIcon className="size-3" /> Read-only for your role
 					</Badge>
 				)}
+				{data?.truncated && (
+					<Badge variant="outline" title="Search and paging cover only the rows loaded">
+						First {EXTENSION_ROW_LIMIT.toLocaleString()} rows
+					</Badge>
+				)}
 			</SectionHeading>
 			<SimpleBrowseDataTable
 				columns={columns}
-				data={data ?? []}
+				data={data?.records ?? []}
 				isFetching={isFetching}
 				filter={{ label: `Search ${section.title?.toLowerCase() ?? 'records'}` }}
 				paginated
@@ -217,7 +244,19 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 		queryClient.invalidateQueries({ queryKey: tableQueryKey(dataSource, section.database, section.table) });
 
 	const save = useMutation({
-		mutationFn: () => dataSource.upsert(section.database, section.table, values),
+		// Add inserts, so a taken key fails instead of overwriting that row; Edit updates only the form's
+		// fields. Each then needs just the permission its button was offered on.
+		mutationFn: () =>
+			record
+				? dataSource.update(
+					section.database,
+					section.table,
+					pickFields(fields, primaryKey, {
+						...values,
+						[primaryKey]: record[primaryKey],
+					}),
+				)
+				: dataSource.insert(section.database, section.table, values),
 		onSuccess: async () => {
 			await invalidate();
 			toast.success(record ? `Saved the ${itemName}` : `Added the ${itemName}`);
@@ -290,28 +329,37 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 function FormView({ section, dataSource, permission }: SectionProps & { section: FormSection }) {
 	const queryClient = useQueryClient();
 	const primaryKey = section.primaryKey ?? 'id';
-	const queryKey = [dataSource.id, 'extension-record', section.database, section.table, section.recordId];
+	const tableKey = tableQueryKey(dataSource, section.database, section.table);
 	const { data, isLoading } = useQuery({
-		queryKey,
-		queryFn: async () =>
-			(await dataSource.get(section.database, section.table, primaryKey, section.recordId)) ?? {
-				[primaryKey]: section.recordId,
-			},
+		queryKey: [...tableKey, 'record', section.recordId],
+		queryFn: async () => {
+			const stored = await dataSource.get(section.database, section.table, primaryKey, section.recordId);
+			return stored
+				? { record: stored, stored: true }
+				: { record: { ...defaultValues(section.fields), [primaryKey]: section.recordId }, stored: false };
+		},
 	});
-	const canSave = getTableCapabilities(permission, section.database, section.table).update;
+	const capabilities = getTableCapabilities(permission, section.database, section.table);
+	const canSave = data?.stored === false ? capabilities.insert : capabilities.update;
 	const [values, setValues] = useState<ExtensionRecord>({});
 	const [error, setError] = useState<string>();
 	useEffect(() => {
 		if (data) {
-			setValues(data);
+			setValues(data.record);
 		}
 	}, [data]);
-	const dirty = data !== undefined && section.fields.some((field) => values[field.attribute] !== data[field.attribute]);
+	const dirty = data !== undefined
+		&& (!data.stored || section.fields.some((field) => values[field.attribute] !== data.record[field.attribute]));
 
 	const save = useMutation({
-		mutationFn: () => dataSource.upsert(section.database, section.table, values),
+		mutationFn: () => {
+			const record = pickFields(section.fields, primaryKey, { ...values, [primaryKey]: section.recordId });
+			return data?.stored
+				? dataSource.update(section.database, section.table, record)
+				: dataSource.insert(section.database, section.table, record);
+		},
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey });
+			await queryClient.invalidateQueries({ queryKey: tableKey });
 			toast.success(`Saved ${section.title?.toLowerCase() ?? 'settings'}`);
 		},
 		onError: (failure) => setError(failure.message),
@@ -350,7 +398,7 @@ function FormView({ section, dataSource, permission }: SectionProps & { section:
 					{canSave && (
 						<div className="flex gap-2">
 							<Button type="submit" variant="submit" disabled={!dirty || save.isPending}>Save</Button>
-							<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && setValues(data)}>
+							<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && setValues(data.record)}>
 								Discard
 							</Button>
 						</div>

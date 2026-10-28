@@ -52,5 +52,8 @@ export function owedPreset({ remembered, recorded, configuration }: {
 	if (remembered) {
 		return remembered;
 	}
-	return recorded && configuration && !isPresetApplied(recorded, configuration) ? recorded : undefined;
+	// A cluster that can't report its configuration can't confirm a setup either, so it never reads as owed.
+	return recorded && configuration && !configuration.unavailable && !isPresetApplied(recorded, configuration)
+		? recorded
+		: undefined;
 }

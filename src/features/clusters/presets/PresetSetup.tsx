@@ -2,7 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { forgetPendingPresetSetup } from '@/features/clusters/presets/pendingPresetSetup';
-import { presetSetupSteps, runPresetSetup, SetupStep } from '@/features/clusters/presets/runPresetSetup';
+import { clearDeployMark } from '@/features/clusters/presets/presetDeployMarks';
+import {
+	PresetInstallUnconfirmedError,
+	presetSetupSteps,
+	runPresetSetup,
+	SetupStep,
+} from '@/features/clusters/presets/runPresetSetup';
 import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
@@ -32,6 +38,8 @@ export function PresetSetup() {
 	const [steps, setSteps] = useState<SetupStep[]>(() => preset ? presetSetupSteps(preset) : []);
 	const [running, setRunning] = useState(false);
 	const [failed, setFailed] = useState(false);
+	// The project whose install may have started; only an explicit "Install again" sends it once more.
+	const [unconfirmed, setUnconfirmed] = useState<string>();
 	const started = useRef(false);
 	const mounted = useRef(false);
 	const controller = useRef<AbortController>(undefined);
@@ -59,6 +67,7 @@ export function PresetSetup() {
 		const { signal } = controller.current;
 		setRunning(true);
 		setFailed(false);
+		setUnconfirmed(undefined);
 		setSteps(presetSetupSteps(preset));
 		try {
 			await runPresetSetup({
@@ -78,9 +87,10 @@ export function PresetSetup() {
 			if (mounted.current) {
 				await navigate({ to: start, replace: true });
 			}
-		} catch {
+		} catch (error) {
 			if (!signal.aborted) {
 				setFailed(true);
+				setUnconfirmed(error instanceof PresetInstallUnconfirmedError ? error.project : undefined);
 			}
 		} finally {
 			setRunning(false);
@@ -142,6 +152,17 @@ export function PresetSetup() {
 						<Button variant="ghost" disabled={running} onClick={() => void navigate({ to: start })}>
 							{failed ? 'Skip for now' : 'Skip'}
 						</Button>
+						{failed && unconfirmed && (
+							<Button
+								variant="defaultOutline"
+								onClick={() => {
+									clearDeployMark(instanceParams.entityId, unconfirmed);
+									void run();
+								}}
+							>
+								Install again
+							</Button>
+						)}
 						{failed && <Button variant="submit" onClick={() => void run()}>Retry</Button>}
 					</div>
 				</CardContent>

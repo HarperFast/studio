@@ -28,6 +28,11 @@ describe('owedPreset', () => {
 		expect(owedPreset({ remembered: undefined, recorded: redirects, configuration: undefined })).toBeUndefined();
 	});
 
+	it('owes nothing on a cluster that cannot report its configuration, such as Harper before 5.4', () => {
+		const unavailable = { ...blank, unavailable: true as const };
+		expect(owedPreset({ remembered: undefined, recorded: redirects, configuration: unavailable })).toBeUndefined();
+	});
+
 	it('owes nothing for a blank cluster', () => {
 		expect(owedPreset({ remembered: undefined, recorded: undefined, configuration: blank })).toBeUndefined();
 	});

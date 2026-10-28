@@ -16,14 +16,17 @@ import { isAxiosError } from 'axios';
  * 400, and a role whose `operations` allowlist omits it gets 403. Either way Studio is just Studio, and
  * neither belongs in Error Tracking, so neither reaches the global error handler.
  */
+// Others, such as a 408 or 429, are passing: caching them as "no configuration" would un-focus the cluster.
+const UNANSWERABLE_STATUSES = new Set([400, 403, 404]);
+
 export async function getStudioConfiguration({ instanceClient }: InstanceClientIdConfig): Promise<StudioConfiguration> {
 	try {
 		const { data } = await instanceClient.post('/', { operation: 'get_studio_configuration' });
 		return parseStudioConfiguration(data);
 	} catch (error) {
 		const status = isAxiosError(error) ? error.response?.status : undefined;
-		if (status !== undefined && status >= 400 && status < 500 && status !== 401) {
-			return EMPTY_STUDIO_CONFIGURATION;
+		if (status !== undefined && UNANSWERABLE_STATUSES.has(status)) {
+			return { ...EMPTY_STUDIO_CONFIGURATION, unavailable: true };
 		}
 		throw error;
 	}
