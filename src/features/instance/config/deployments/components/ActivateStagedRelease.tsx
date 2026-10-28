@@ -14,6 +14,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import {
+	invalidateApplicationConfiguration,
 	useApplicationBranchedDatabases,
 	useBranchedDatabasesAvailable,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
@@ -97,9 +98,11 @@ export function ActivateStagedRelease({
 			stream.markSettled(result?.rollout?.state === 'unfollowable' ? 'inconclusive' : 'success', undefined, {
 				result,
 			});
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
 		} catch (error) {
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			if (error instanceof SSEInconclusiveError) {
 				stream.markSettled('inconclusive');
@@ -190,17 +193,15 @@ export function ActivateStagedRelease({
 									</>
 								)}
 						</AlertDialogDescription>
-						{canBranch && (
-							<AlertDialogDescription>
-								It also brings back the private database copy setting this release was deployed with, which Studio
-								can&apos;t read. {currentBranches.known
-									&& `${project} now runs on ${
-										currentBranches.setting
-											? `a private copy of ${describeBranchedDatabases(currentBranches.setting)}`
-											: 'the shared databases'
-									}.`}
-							</AlertDialogDescription>
-						)}
+						<AlertDialogDescription>
+							It also brings back the private database copy setting this release was deployed with, which Studio
+							can&apos;t read. {currentBranches.known
+								&& `${project} now runs on ${
+									currentBranches.setting
+										? `a private copy of ${describeBranchedDatabases(currentBranches.setting)}`
+										: 'the shared databases'
+								}.`}
+						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>

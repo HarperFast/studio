@@ -135,11 +135,12 @@ operation that writes it there is a package deploy or stage, through
   from the entry in `get_configuration` ([`useApplicationBranchedDatabases`](hooks/useBranchedDatabases.ts)), and
   when the form doesn't offer the setting it resends the current one as it is. A super user's redeploy waits for a
   current read, since the last answer can be the very setting a redeploy would undo. Opening the dialog re-reads it,
-  because another tab, the CLI or a colleague may have changed it; Studio's own deploys, activations and drops
-  invalidate the query, and so does a failed read; and a read still in flight may be about to change the answer. The
-  toolbar label and the delete warning show the setting only while it is current, so neither claims a copy that was
-  just turned off. `get_configuration` is super-user only, so for anyone else the setting is unknown and a redeploy
-  leaves it out, as before (#2019).
+  because another tab, the CLI or a colleague may have changed it; Studio's own imports, deploys, activations and
+  drops invalidate the query once they settle, answered or not, cancelling any read already in flight, since one sent
+  before the write would otherwise count as current; a failed read invalidates it too; and a read still in flight may
+  be about to change the answer. The toolbar label and the delete warning show the setting only while it is current,
+  so neither claims a copy that was just turned off. `get_configuration` is super-user only, so for anyone else the
+  setting is unknown and a redeploy leaves it out, as before (#2019).
 - **Offered from 5.3.2, to super users, on package deploys only.** 5.3.0 and 5.3.1 accept it on a package deploy and
   ignore it at load (HarperFast/harper#3071), and an unreadable version offers nothing, for the same reason staging
   isn't offered on one. An application created from a template, by the assistant, or with `harper deploy` has no
@@ -149,7 +150,8 @@ operation that writes it there is a package deploy or stage, through
   still shows such an application's setting when its entry has one.
 - **A release carries its own.** Activating a staged or earlier release can't carry the setting (Harper refuses it),
   and brings back the one that release was deployed with. Neither `list_deployments` nor `get_deployment` reports
-  it, so the activation dialog says so and shows the current one instead.
+  it, so the activation dialog says so to everyone it offers activation to, and shows the current one where it can
+  read it: to a super user on 5.3.2 or later.
 - **Removing an application usually keeps the copy.** Studio drops without `restart`, and Harper deletes the copies
   only after a restart, so the copy stays on disk and is picked up again by a later application of the same name.
   Harper says so in the `drop_component` answer, which the delete toast shows.

@@ -73,6 +73,27 @@ describe('useApplicationBranchedDatabases', () => {
 		await waitFor(() => expect(result.current).toMatchObject({ known: true, loading: true, failed: false }));
 	});
 
+	it("drops a first read sent before a write, so its answer can't count as current", async () => {
+		let answerBeforeWrite!: (value: unknown) => void;
+		mocks.post.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answerBeforeWrite = resolve;
+			}),
+		);
+		mocks.post.mockResolvedValueOnce({ data: { web: { package: 'npm:web' } } });
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
+
+		await act(async () => {
+			void invalidateApplicationConfiguration(queryClient, 'ins-1');
+		});
+		await act(async () => answerBeforeWrite({ data: CONFIGURATION }));
+
+		await waitFor(() => expect(result.current.known).toBe(true));
+		expect(result.current.setting).toBeUndefined();
+		expect(mocks.post).toHaveBeenCalledTimes(2);
+	});
+
 	it('reports a refetch that fails after a write, rather than serving the answer from before it', async () => {
 		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
 		const { result, queryClient } = renderCurrent();

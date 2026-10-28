@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
 		runHealthCheck: vi.fn(),
 		canStage: { enabled: false },
 		canBranch: { enabled: false },
+		invalidateConfiguration: vi.fn(),
 		recordAction: vi.fn((deploymentId: string | undefined) =>
 			deploymentId ? { label: 'View record', onClick: () => undefined } : undefined
 		),
@@ -44,6 +45,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useBranchedDatabasesAvailable: () => mocks.canBranch.enabled,
+	invalidateApplicationConfiguration: mocks.invalidateConfiguration,
 }));
 vi.mock('@/features/instance/applications/hooks/useDeploymentRecordAction', () => ({
 	useDeploymentRecordAction: () => mocks.recordAction,
@@ -373,6 +375,13 @@ describe('useImportApplication', () => {
 
 		it("sends nothing when it isn't offered, whatever the form holds", async () => {
 			expect((await importWith(privateCopy)).branchedDatabases).toBeUndefined();
+		});
+
+		it('re-reads the setting once the import lands', async () => {
+			mocks.canBranch.enabled = true;
+			await importWith(privateCopy);
+
+			await waitFor(() => expect(mocks.invalidateConfiguration).toHaveBeenCalledWith(expect.any(QueryClient), 'ins-1'));
 		});
 	});
 });

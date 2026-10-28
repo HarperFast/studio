@@ -136,6 +136,8 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useApplicationBranchedDatabases: () => ({ setting: undefined }),
+	useApplicationsBranchedDatabases: () => ({ settings: [], known: false }),
+	invalidateApplicationConfiguration: vi.fn(),
 }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'vs' }));
 vi.mock('@/features/instance/applications/hooks/useApplicationTypeIntelligence', () => ({

@@ -28,13 +28,17 @@ const rootEntries: DirectoryEntry[] = [
 
 let openedEntry: DirectoryEntry | FileEntry | undefined;
 let selectedItems: string[] = [];
-let currentBranches: { setting: string[] | true | undefined; known: boolean } = { setting: undefined, known: false };
+let currentBranches: { settings: Record<string, string[] | true>; known: boolean } = { settings: {}, known: false };
 
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/instance/applications/hooks/useBranchedDatabases')>()),
-	useApplicationBranchedDatabases: (
-		project: string | undefined,
-	) => (project ? currentBranches : { setting: undefined, known: false }),
+	useApplicationsBranchedDatabases: (projects: readonly string[]) => ({
+		settings: projects.flatMap((project) => {
+			const setting = currentBranches.settings[project];
+			return setting ? [{ project, setting }] : [];
+		}),
+		known: currentBranches.known,
+	}),
 }));
 
 vi.mock('@/config/useInstanceClient', () => ({
@@ -89,7 +93,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
-	currentBranches = { setting: undefined, known: false };
+	currentBranches = { settings: {}, known: false };
 });
 
 // Cancel, the destructive action, and Radix's own "X" close button all render; target the action
@@ -128,16 +132,29 @@ describe('DeleteDirectoryOrFileModal', () => {
 		it('says the copy stays on disk before it is removed', () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils'];
-			currentBranches = { setting: ['data'], known: true };
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 			expect(screen.getByText(/runs on a private copy of data/)).toBeTruthy();
 		});
 
+		it('names the copy of every application in the selection', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils', 'forge', 'anvils/index.js'];
+			currentBranches = { settings: { anvils: ['data'], forge: true }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(
+				screen.getByText(
+					/anvils runs on a private copy of data\. forge runs on a private copy of all databases except system\./,
+				),
+			).toBeTruthy();
+		});
+
 		it('says nothing about the copy when deleting a file inside the application', () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils/index.js'];
-			currentBranches = { setting: ['data'], known: true };
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 			expect(screen.queryByText(/runs on a private copy/)).toBeNull();
@@ -146,7 +163,7 @@ describe('DeleteDirectoryOrFileModal', () => {
 		it('says nothing about the copy until the setting is current', () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils'];
-			currentBranches = { setting: ['data'], known: false };
+			currentBranches = { settings: { anvils: ['data'] }, known: false };
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 			expect(screen.queryByText(/runs on a private copy/)).toBeNull();

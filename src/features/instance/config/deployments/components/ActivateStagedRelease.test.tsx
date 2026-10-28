@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
 	reportDeployOutcome: vi.fn(),
 	reportDeployFailure: vi.fn(),
 	warning: vi.fn(),
+	invalidateConfiguration: vi.fn(),
 	useDeployComponentMutation: vi.fn(),
 }));
 vi.mock('@/config/useInstanceClient', () => ({
@@ -27,6 +28,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useBranchedDatabasesAvailable: () => state.canBranch,
 	useApplicationBranchedDatabases: () => state.currentBranches,
+	invalidateApplicationConfiguration: state.invalidateConfiguration,
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => vi.fn(),
@@ -189,10 +191,25 @@ describe('ActivateStagedRelease', () => {
 		expect(screen.getByText(/web now runs on a private copy of data\./)).toBeTruthy();
 	});
 
-	it("says nothing of private copies where they aren't offered", () => {
+	it("tells someone who can't configure private copies that the release brings back its own setting", () => {
 		renderButton();
 		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
 
-		expect(screen.queryByText(/private database copy/)).toBeNull();
+		expect(screen.getByText(/brings back the private database copy setting this release was deployed with/))
+			.toBeTruthy();
+		expect(screen.queryByText(/now runs on/)).toBeNull();
+	});
+
+	it.each([
+		['activated', () => state.mutateAsync.mockResolvedValue({ message: 'ok' })],
+		['failed, since it may still have gone through', () => state.mutateAsync.mockRejectedValue(new Error('timeout'))],
+	])('re-reads the setting once the release is %s', async (_, settle) => {
+		settle();
+		const queryClient = new QueryClient();
+		renderButton(queryClient);
+
+		confirm();
+
+		await vi.waitFor(() => expect(state.invalidateConfiguration).toHaveBeenCalledWith(queryClient, 'clu-a'));
 	});
 });

@@ -5,7 +5,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { isProtectedPath } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import {
 	invalidateApplicationConfiguration,
-	useApplicationBranchedDatabases,
+	useApplicationsBranchedDatabases,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
@@ -21,7 +21,7 @@ import { pluralize } from '@/lib/pluralize';
 import { errorHandler } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash } from 'lucide-react';
-import { MouseEvent, useCallback } from 'react';
+import { MouseEvent, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 
 export function DeleteDirectoryOrFileModal() {
@@ -45,11 +45,11 @@ export function DeleteDirectoryOrFileModal() {
 		? 'Directory'
 		: 'File';
 	// From what will be dropped, not the opened entry: a file inside an application can be selected while it is open.
-	const droppedApplication = selectedItems.length === 1 && !String(selectedItems[0]).includes('/')
-		? String(selectedItems[0])
-		: undefined;
-	const { setting, known } = useApplicationBranchedDatabases(droppedApplication);
-	const privateCopy = known ? setting : undefined;
+	const droppedApplications = useMemo(() => selectedItems.map(String).filter(item => !item.includes('/')), [
+		selectedItems,
+	]);
+	const { settings, known } = useApplicationsBranchedDatabases(droppedApplications);
+	const privateCopies = known ? settings : [];
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
@@ -173,12 +173,15 @@ export function DeleteDirectoryOrFileModal() {
 								{multipleSelected ? selectedItems.join('\n') : openedEntry?.path}
 							</DialogDescription>
 						)}
-					{privateCopy && (
+					{privateCopies.length > 0 && (
 						<DialogDescription>
-							It runs on a private copy of{' '}
-							{describeBranchedDatabases(privateCopy)}. Harper keeps that copy on disk when it removes an application
-							without a restart, and an application deployed under this name later with a private copy picks it up
-							again.
+							{privateCopies
+								.map(({ project, setting }) =>
+									`${project} runs on a private copy of ${describeBranchedDatabases(setting)}.`
+								)
+								.join(' ')} Harper keeps {privateCopies.length > 1 ? 'those copies' : 'that copy'}{' '}
+							on disk when it removes an application without a restart, and an application deployed under the same name
+							later with a private copy picks it up again.
 						</DialogDescription>
 					)}
 				</DialogHeader>
