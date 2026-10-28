@@ -26,8 +26,8 @@ export function UsersAdminLayout() {
 	const queryClient = useQueryClient();
 	const [input, setInput] = useState('');
 	const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
-	// Bumped by each lookup, each navigation (this page stays mounted while the next one loads) and unmount, so an
-	// email lookup acts only if nothing else happened while it was out.
+	// Bumped by each lookup, each URL change (this page stays mounted while the next one loads) and unmount; an email
+	// lookup whose answer arrives after any of those is dropped.
 	const latestLookup = useRef(0);
 	useEffect(() => {
 		// hrefChanged: router.invalidate() reloads in place on every auth change, and that is not a navigation.
