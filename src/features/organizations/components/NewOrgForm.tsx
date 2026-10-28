@@ -110,7 +110,7 @@ export function NewOrgForm() {
 											{...field}
 										/>
 										<FormDescription>
-											Use a name your team will recognize. Letters A–Z, numbers, spaces, and ' - . , & ( ).
+											Use a name your team will recognize. Letters A–Z, numbers, spaces, and ' ’ - . , & ( ).
 										</FormDescription>
 										<FormMessage />
 									</FormItem>

@@ -10,7 +10,7 @@ export const specifiedOrganizationName = z
 	})
 	.regex(organizationNameRegex, {
 		error:
-			"Please only use letters A–Z, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.",
+			"Please only use letters A–Z, digits, spaces and ' ’ - . , & ( ) in the name. Must start with a letter or digit.",
 	});
 
 export const specifiedSubdomain = z

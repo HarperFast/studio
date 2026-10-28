@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultOrganizationName, FALLBACK_ORGANIZATION_NAME, NewOrganizationSchema } from './newOrganizationSchema';
 
 const NAME_CHARACTERS_ERROR =
-	"Please only use letters A–Z, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.";
+	"Please only use letters A–Z, digits, spaces and ' ’ - . , & ( ) in the name. Must start with a letter or digit.";
 
 const validBase = {
 	name: 'My Organization',
