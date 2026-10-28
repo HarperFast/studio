@@ -130,8 +130,12 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 			onStep(id, 'failed', messageOf(error));
 			throw error;
 		}
-		// An unconfirmed rollout is not a success (see deployAndFollowComponent): some node may lack it.
-		if (result.rollout?.state === 'unfollowable') {
+		// An unconfirmed rollout is not a success (see deployAndFollowComponent): some node may lack it. A
+		// complete one can still carry a peer the job could not reach.
+		if (
+			result.rollout?.state === 'unfollowable'
+			|| result.rollout?.nodes.some((node) => node.outcome === 'unconfirmed')
+		) {
 			markDeploy(args.entityId, project, 'partial');
 			const error = new Error('Installed, but Studio could not confirm every node picked it up.');
 			onStep(id, 'failed', error.message);

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { forgetPendingPresetSetup } from '@/features/clusters/presets/pendingPresetSetup';
-import { clearDeployMark } from '@/features/clusters/presets/presetDeployMarks';
+import { markDeploy } from '@/features/clusters/presets/presetDeployMarks';
 import {
 	PresetInstallUnconfirmedError,
 	presetSetupSteps,
@@ -156,7 +156,8 @@ export function PresetSetup() {
 							<Button
 								variant="defaultOutline"
 								onClick={() => {
-									clearDeployMark(instanceParams.entityId, unconfirmed);
+									// Partial, not cleared: if it has appeared meanwhile it is still deployed once more.
+									markDeploy(instanceParams.entityId, unconfirmed, 'partial');
 									void run();
 								}}
 							>

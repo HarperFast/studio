@@ -184,6 +184,15 @@ describe('runPresetSetup when an outcome is uncertain', () => {
 		expect(getDeployMarks('clu-1')).toEqual({});
 	});
 
+	it('treats a rollout that finished with a peer it could not reach as partial', async () => {
+		deployAndFollowComponent.mockResolvedValueOnce({
+			message: 'ok',
+			rollout: { jobId: 'j1', state: 'complete', nodes: [{ node: 'node-2', outcome: 'unconfirmed' }] },
+		});
+		await expect(run().promise).rejects.toThrow(/could not confirm every node/);
+		expect(getDeployMarks('clu-1')).toEqual({ 'harper-redirects': 'partial' });
+	});
+
 	it('sends nothing when it cannot read what the cluster already has', async () => {
 		getComponents.mockRejectedValueOnce(new Error('503'));
 		await expect(run().promise).rejects.toThrow('503');

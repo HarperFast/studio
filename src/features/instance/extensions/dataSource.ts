@@ -99,7 +99,10 @@ export function createHarperDataSource(entityId: string, instanceClient: AxiosIn
 			}
 		},
 		remove: async (database, table, id) => {
-			await operation({ operation: 'delete', database, table, ids: [id] });
+			const result = await operation({ operation: 'delete', database, table, ids: [id] });
+			if (result?.skipped_hashes?.length) {
+				throw new Error('Harper skipped it: nothing is stored under that key any more.');
+			}
 		},
 		send: operation,
 	};

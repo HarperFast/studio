@@ -7,61 +7,72 @@
  *   stream, an unanswered write, a closed tab). It is never sent again while the component is missing
  *   (applications/DESIGN.md, "A live deploy is sent once"): setup waits for it to appear, or for the
  *   user to install it again.
- * - `partial`: the receiving node has it, but not every node is known to (a failed or unfollowable
- *   rollout, or an unconfirmed install that has since appeared), so Retry deploys it again.
+ * - `partial`: the receiving node has it, but not every node is known to (a failed, unfollowable or
+ *   unconfirmed rollout, or an unconfirmed install that has since appeared), so Retry deploys it again.
+ *
+ * One storage key per cluster: setup holds a lock per cluster, so two clusters set up at once must not
+ * share a record either side could overwrite.
  */
 export type DeployMark = 'unconfirmed' | 'partial';
 
-const STORAGE_KEY = 'Studio:PresetSetupDeploys';
+type Marks = Record<string, DeployMark>;
 
-type Marks = Record<string, Record<string, DeployMark>>;
+const storageKey = (entityId: string) => `Studio:PresetSetupDeploys:${entityId}`;
 
 // Only for a browser whose storage refuses: the marks then hold for this tab alone.
-let fallback: Marks = {};
+const fallback = new Map<string, Marks>();
 
-function read(): Marks {
+export function getDeployMarks(entityId: string): Marks {
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		const stored = localStorage.getItem(storageKey(entityId));
 		if (stored === null) {
-			return fallback;
+			return fallback.get(entityId) ?? {};
 		}
 		const parsed = JSON.parse(stored);
 		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
 	} catch {
-		return fallback;
+		return fallback.get(entityId) ?? {};
 	}
 }
 
-function write(next: Marks) {
-	fallback = next;
+function write(entityId: string, marks: Marks) {
+	const empty = Object.keys(marks).length === 0;
+	if (empty) {
+		fallback.delete(entityId);
+	} else {
+		fallback.set(entityId, marks);
+	}
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+		if (empty) {
+			localStorage.removeItem(storageKey(entityId));
+		} else {
+			localStorage.setItem(storageKey(entityId), JSON.stringify(marks));
+		}
 	} catch {
 		// Private mode: `fallback` keeps it for this tab.
 	}
 }
 
-export function getDeployMarks(entityId: string): Record<string, DeployMark> {
-	return read()[entityId] ?? {};
-}
-
 export function markDeploy(entityId: string, project: string, mark: DeployMark) {
-	const marks = read();
-	write({ ...marks, [entityId]: { ...marks[entityId], [project]: mark } });
+	write(entityId, { ...getDeployMarks(entityId), [project]: mark });
 }
 
 export function clearDeployMark(entityId: string, project: string) {
-	const marks = read();
-	const { [project]: _cleared, ...rest } = marks[entityId] ?? {};
-	const { [entityId]: _entity, ...others } = marks;
-	write(Object.keys(rest).length ? { ...others, [entityId]: rest } : others);
+	const { [project]: _cleared, ...rest } = getDeployMarks(entityId);
+	write(entityId, rest);
 }
 
 /** Tests only. */
 export function resetDeployMarksForTests() {
-	fallback = {};
+	for (const entityId of fallback.keys()) {
+		write(entityId, {});
+	}
 	try {
-		localStorage.removeItem(STORAGE_KEY);
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith('Studio:PresetSetupDeploys:')) {
+				localStorage.removeItem(key);
+			}
+		}
 	} catch {
 		// No storage in this environment.
 	}

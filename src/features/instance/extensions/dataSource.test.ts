@@ -43,6 +43,7 @@ describe('createHarperDataSource', () => {
 		const { dataSource } = harper(() => ({ inserted_hashes: [], skipped_hashes: ['/a'] }));
 		await expect(dataSource.insert('redirects', 'Rule', { id: '/a' })).rejects.toThrow(/already exists/);
 		await expect(dataSource.update('redirects', 'Rule', { id: '/a' })).rejects.toThrow(/nothing is stored/);
+		await expect(dataSource.remove('redirects', 'Rule', '/a')).rejects.toThrow(/nothing is stored/);
 	});
 
 	it('inserts and updates with the operations their buttons were offered on', async () => {
