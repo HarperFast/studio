@@ -60,11 +60,14 @@ A cluster that can't answer `get_studio_configuration` (`unavailable`) is never 
 create form offers presets only from Harper 5.4 (`PRESET_MIN_HARPER_VERSION`).
 
 Setup never sends a deploy twice by itself (applications/DESIGN.md, "A live deploy is sent once").
-`presetDeployMarks` remembers, per cluster, an install whose outcome was unknown (`unconfirmed`: wait for
-it to appear, or the user's "Install again") and one whose rollout failed or couldn't be followed
-(`partial`: Retry deploys it again although the receiving node lists it). A failed `get_components`
-read stops setup rather than deploying blind, a run waits for any earlier one on the same cluster, and a
-node that refuses the settings fails that step.
+`presetDeployMarks`, in this browser's storage, marks each deploy `unconfirmed` before sending it and
+clears it once Harper answers. A component still missing under that mark is waited for, or installed
+again only on the user's "Install again". `partial` (a failed or unfollowable rollout, or an unconfirmed
+install that has since appeared) is deployed again on Retry, since the node Studio reached listing it
+says nothing of the rest. A Web Lock per cluster keeps runs in different tabs from overlapping, a failed
+`get_components` read stops setup rather than deploying blind, and a node that refuses the settings
+fails that step. Another browser sees neither the lock nor the marks, which is the cost of setting a
+cluster up from the browser rather than from central-manager.
 
 ## Open
 

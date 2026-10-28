@@ -137,7 +137,7 @@ describe('runPresetSetup', () => {
 });
 
 describe('runPresetSetup when an outcome is uncertain', () => {
-	it('never resends an install that may have started, and waits for it to appear', async () => {
+	it('never resends a missing install that may have started, and deploys it once more when it appears', async () => {
 		deployAndFollowComponent.mockRejectedValueOnce(new SSEInconclusiveError('stream ended'));
 		await expect(run().promise).rejects.toThrow('stream ended');
 		expect(getDeployMarks('clu-1')).toEqual({ 'harper-redirects': 'unconfirmed' });
@@ -147,11 +147,14 @@ describe('runPresetSetup when an outcome is uncertain', () => {
 		expect(retry.log).toEqual(['deploy:harper-redirects:failed']);
 		expect(deployAndFollowComponent).toHaveBeenCalledTimes(1);
 
+		// Listed on the node Studio reached says nothing of the others, so it goes out once more.
 		getComponents.mockResolvedValue(listed('harper-redirects'));
-		const appeared = run();
-		await appeared.promise;
-		expect(appeared.log[0]).toBe('deploy:harper-redirects:done');
-		expect(deployAndFollowComponent).toHaveBeenCalledTimes(2);
+		await run().promise;
+		expect(deployAndFollowComponent.mock.calls.map(([args]) => args.request.project)).toEqual([
+			'harper-redirects',
+			'harper-redirects',
+			'harper-analytics',
+		]);
 		expect(getDeployMarks('clu-1')).toEqual({});
 	});
 
@@ -167,6 +170,18 @@ describe('runPresetSetup when an outcome is uncertain', () => {
 			'harper-redirects',
 			'harper-analytics',
 		]);
+	});
+
+	it('marks a deploy before sending it, so another tab sees it in flight, and clears it on a definite answer', async () => {
+		let reject: (error: Error) => void = () => undefined;
+		deployAndFollowComponent.mockReturnValueOnce(new Promise((_, fail) => (reject = fail)));
+		const { promise } = run();
+		await vi.waitFor(() => expect(deployAndFollowComponent).toHaveBeenCalledTimes(1));
+		expect(getDeployMarks('clu-1')).toEqual({ 'harper-redirects': 'unconfirmed' });
+
+		reject(new Error('404 Not Found'));
+		await expect(promise).rejects.toThrow('404');
+		expect(getDeployMarks('clu-1')).toEqual({});
 	});
 
 	it('sends nothing when it cannot read what the cluster already has', async () => {

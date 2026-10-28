@@ -85,11 +85,18 @@ export function createHarperDataSource(entityId: string, instanceClient: AxiosIn
 		},
 		get: async (database, table, _primaryKey, id) =>
 			(await operation({ operation: 'search_by_id', database, table, ids: [id], get_attributes: ['*'] }))[0],
+		// Harper answers a write it skipped with a 200 that names the record in `skipped_hashes`.
 		insert: async (database, table, record) => {
-			await operation({ operation: 'insert', database, table, records: [record] });
+			const result = await operation({ operation: 'insert', database, table, records: [record] });
+			if (result?.skipped_hashes?.length) {
+				throw new Error('Harper skipped it: a record with that key already exists.');
+			}
 		},
 		update: async (database, table, record) => {
-			await operation({ operation: 'update', database, table, records: [record] });
+			const result = await operation({ operation: 'update', database, table, records: [record] });
+			if (result?.skipped_hashes?.length) {
+				throw new Error('Harper skipped it: nothing is stored under that key any more.');
+			}
 		},
 		remove: async (database, table, id) => {
 			await operation({ operation: 'delete', database, table, ids: [id] });

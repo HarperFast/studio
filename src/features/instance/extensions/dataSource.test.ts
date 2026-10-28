@@ -39,6 +39,12 @@ describe('createHarperDataSource', () => {
 		});
 	});
 
+	it('fails a write Harper skipped, which it answers with a 200', async () => {
+		const { dataSource } = harper(() => ({ inserted_hashes: [], skipped_hashes: ['/a'] }));
+		await expect(dataSource.insert('redirects', 'Rule', { id: '/a' })).rejects.toThrow(/already exists/);
+		await expect(dataSource.update('redirects', 'Rule', { id: '/a' })).rejects.toThrow(/nothing is stored/);
+	});
+
 	it('inserts and updates with the operations their buttons were offered on', async () => {
 		const { post, dataSource } = harper(() => ({}));
 		await dataSource.insert('redirects', 'Rule', { source: '/a' });

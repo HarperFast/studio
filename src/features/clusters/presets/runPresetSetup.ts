@@ -42,7 +42,7 @@ export class PresetInstallUnconfirmedError extends Error {
 
 	constructor(project: string) {
 		super(
-			'Studio sent this install but could not confirm it started. Check the Applications tab; if it is not there, install it again.',
+			'An install of this component was sent and never confirmed. If setup is running in another tab, let it finish; otherwise check the Applications tab and install it again if it is not there.',
 		);
 		this.name = 'PresetInstallUnconfirmedError';
 		this.project = project;
@@ -54,13 +54,19 @@ const inFlight = new Map<string, Promise<void>>();
 /**
  * Sets a new cluster up for its preset, as the signed-in admin: deploys each component, then writes the
  * preset's Studio settings. "Retry" runs it again from the top: a component already on the cluster is
- * left as it is unless its rollout failed, one whose install may have started is waited for rather than
- * sent again (`presetDeployMarks`), and the settings write is idempotent. A run for the same cluster
- * waits for any earlier one, so a remount never sends a second deploy beside one still in flight.
+ * left as it is unless a mark says not every node may have it, one whose install may have started is
+ * waited for rather than sent again (`presetDeployMarks`), and the settings write is idempotent.
+ *
+ * Runs for one cluster never overlap in this browser: a Web Lock holds them across tabs, so a second tab
+ * or a remount waits for the deploy in flight instead of sending another. Another browser has neither
+ * the lock nor the marks; that limit comes with setting the cluster up from the browser at all.
  *
  * Every step needs super_user, which the cluster's first admin is.
  */
 export function runPresetSetup(args: RunArgs): Promise<void> {
+	if (typeof navigator !== 'undefined' && navigator.locks) {
+		return navigator.locks.request(`Studio:PresetSetup:${args.entityId}`, () => runOnce(args));
+	}
 	const previous = inFlight.get(args.entityId);
 	const run = (async () => {
 		await previous?.catch(() => undefined);
@@ -94,40 +100,45 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 		signal?.throwIfAborted();
 		const { project } = component;
 		const id = `deploy:${project}`;
-		if (marks[project] === 'unconfirmed') {
-			if (!installed.has(project)) {
-				const error = new PresetInstallUnconfirmedError(project);
-				onStep(id, 'failed', error.message);
-				throw error;
-			}
-			clearDeployMark(args.entityId, project);
+		if (marks[project] === 'unconfirmed' && !installed.has(project)) {
+			const error = new PresetInstallUnconfirmedError(project);
+			onStep(id, 'failed', error.message);
+			throw error;
 		}
-		if (installed.has(project) && marks[project] !== 'partial') {
+		// Appearing proves the node Studio reached took it, not the rest, so a marked one is deployed again.
+		if (installed.has(project) && !marks[project]) {
 			onStep(id, 'done', 'Already installed');
 			continue;
 		}
 		onStep(id, 'running');
+		// Written before sending, so a tab closed mid-deploy, or another tab, never sends it again blind.
+		markDeploy(args.entityId, project, 'unconfirmed');
+		let result: Awaited<ReturnType<typeof deployAndFollowComponent>>;
 		try {
-			const result = await deployAndFollowComponent({
+			// No `signal`: leaving the page lets the deploy in flight finish and record its outcome.
+			result = await deployAndFollowComponent({
 				...args,
 				request: { kind: 'deploy', project, package: component.package },
 			});
-			// An unconfirmed rollout is not a success (see deployAndFollowComponent): some node may lack it.
-			if (result.rollout?.state === 'unfollowable') {
-				markDeploy(args.entityId, project, 'partial');
-				throw new Error('Installed, but Studio could not confirm every node picked it up.');
-			}
-			clearDeployMark(args.entityId, project);
-			onStep(id, 'done');
 		} catch (error) {
-			if (error instanceof SSEInconclusiveError || isUnansweredWrite(error)) {
-				markDeploy(args.entityId, project, 'unconfirmed');
-			} else if (error instanceof DeployRolloutError) {
+			if (error instanceof DeployRolloutError) {
 				markDeploy(args.entityId, project, 'partial');
+			} else if (!(error instanceof SSEInconclusiveError || isUnansweredWrite(error))) {
+				// Harper answered, so the deploy never started and sending it again is safe.
+				clearDeployMark(args.entityId, project);
 			}
 			onStep(id, 'failed', messageOf(error));
 			throw error;
 		}
+		// An unconfirmed rollout is not a success (see deployAndFollowComponent): some node may lack it.
+		if (result.rollout?.state === 'unfollowable') {
+			markDeploy(args.entityId, project, 'partial');
+			const error = new Error('Installed, but Studio could not confirm every node picked it up.');
+			onStep(id, 'failed', error.message);
+			throw error;
+		}
+		clearDeployMark(args.entityId, project);
+		onStep(id, 'done');
 	}
 
 	signal?.throwIfAborted();
