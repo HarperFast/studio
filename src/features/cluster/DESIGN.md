@@ -68,6 +68,46 @@ The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING`
 non-admin on a new cluster lands on that message instead of a dead card
 ([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
 
+## Nothing connects to a cluster before its setup, and setup keeps no earlier connection
+
+Fabric Connect is whoever Harper resolves the central-manager proxy's request to, its first super user: the proxy
+forwards no credential, and Harper answers a credential-less request on its operations socket as that user. Until Finish
+Setup runs, that is the provisioning `HDB_ADMIN`, which setup then drops. A token minted for it still verifies after
+that, but resolves to a user with no role, so every operation through it answers 403 "not authorized due to role
+restrictions". Studio recovers a token only on a 401, so the pages stay denied until a reload mints again.
+
+So the in-cluster pages' guard, `checkClusterInstanceAuthenticationBeforeLoad`, sends a cluster whose `resetPassword` is
+still set to its overview, which routes on to Starting-up or Finish-setup, before it restores or mints any connection.
+The setup flow ([`useInstanceResetPasswordMutation`](../../integrations/api/instance/auth/useInstanceResetPasswordMutation.ts))
+also forgets the cluster's and its instances' connections (`clusterSignInIds`) first and runs on a fresh direct
+client. Otherwise every step would run as the Bearer's account, whatever credentials it presented, because Harper reads
+the `Authorization` header before the session cookie. If its own login still falls back to Fabric Connect, it connects
+again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
+not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
+
+## An interrupted setup finishes from the admin it already created
+
+Central manager's `ResetPasswordUpdater` takes no body and only clears `resetPassword`
+([`Cluster.js#L465-L469`](https://github.com/HarperFast/central-manager/blob/63bba08b/src/resources/cluster/Cluster.js#L465-L469)).
+So an attempt that got past `drop_user` (or `alter_user`) but not that PATCH leaves the cluster pending setup, with the
+admin already created and the temporary password refused. A retry tells that state apart only by Harper's own refusal:
+the `login` request itself answering 401. A network error or a 5xx stays an ordinary failure.
+
+From there the form's credentials are tried first, and if they sign in as a super user of that name, only the PATCH is
+re-sent. Otherwise setup falls back to Fabric Connect, which is safe only once nothing but that admin is left to resolve
+to: setup refuses if the connection names `HDB_ADMIN`, a user who is not a super user, or an admin other than the
+form's. It then sets the typed password with `alter_user`, re-sends the PATCH, and signs in directly with the new
+password, keeping the Fabric Connect connection only if that sign-in fails. Any attempt that fails, recovery or not, signs the
+cluster out again, since setup is still pending; its logout is best effort, so the failure the user sees is the
+step's own.
+
+An attempt that stopped after `add_user` but before `drop_user` looks different: the temporary password still signs
+in, and `add_user` answers "User … already exists". Setup then adopts that user, but only if `list_users` reports it as
+a super user. It sets the typed password on it with `alter_user` as `HDB_ADMIN`, which still can, and the usual sign-in
+as the new admin then proves the password. It does not sign in first to see whether the old password matches: where
+the sign-in falls back to Fabric Connect, that still resolves to `HDB_ADMIN` and could not confirm the admin. Then it
+drops `HDB_ADMIN` and sends the PATCH as usual. It never alters or drops any other user.
+
 ## A terminated cluster keeps only its overview and usage
 
 Central manager keeps a terminated cluster's record, so Studio can still open it. `isDeletedCluster`

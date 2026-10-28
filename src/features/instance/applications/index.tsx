@@ -35,7 +35,7 @@ export function ApplicationsEditor() {
 				id="file-explorer-sidebar"
 				ref={sidebarRef}
 				className={cx(
-					'pt-[calc(--spacing(32))] w-[var(--app-sidebar-width)] fixed top-0 left-0 bottom-0 z-30',
+					'pt-[calc(--spacing(32))] w-[var(--app-sidebar-width)] fixed top-0 left-0 bottom-(--notification-banner-height) z-30',
 					'bg-violet-50 border-r border-violet-200 shadow shadow-black/10',
 					'dark:bg-grey-700 dark:border-grey-600 dark:shadow-black',
 					'transition-transform -translate-x-full',
@@ -59,7 +59,7 @@ export function ApplicationsEditor() {
 				className={cx(
 					'applications-content',
 					'overflow-y-auto overflow-x-hidden',
-					'fixed top-32 right-0 bottom-0 left-0',
+					'fixed top-32 right-0 bottom-(--notification-banner-height) left-0',
 					!isResizing && 'transition-[left]',
 					'md:left-[var(--app-sidebar-width)]',
 					toggled && 'sm:left-[var(--app-sidebar-width)]',

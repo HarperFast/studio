@@ -8,6 +8,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
 		<Sonner
 			// theme={theme as ToasterProps['theme']}
 			className="toaster group"
+			// Sonner's own 24px/16px gaps, kept clear of the system notification banner.
+			offset={{ bottom: 'calc(24px + var(--notification-banner-height))' }}
+			mobileOffset={{ bottom: 'calc(16px + var(--notification-banner-height))' }}
 			toastOptions={{
 				classNames: {
 					toast:

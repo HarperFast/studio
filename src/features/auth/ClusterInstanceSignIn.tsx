@@ -19,6 +19,7 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { getInstanceHealthQueryOptions } from '@/integrations/api/instance/status/getInstanceHealth';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -113,7 +114,12 @@ export function ClusterInstanceSignIn() {
 	}
 
 	if (!instanceId && cluster && !cluster?.fqdn) {
-		return <Navigate to="../instances" replace={true} />;
+		return (
+			<Navigate
+				to={buildAbsoluteLinkToPage({ organizationId: cluster.organizationId, clusterId: cluster.id }, 'instances')}
+				replace={true}
+			/>
+		);
 	}
 
 	// Setup is only ready once the cluster is active AND every instance is running — on an initial
@@ -141,7 +147,9 @@ export function ClusterInstanceSignIn() {
 			)}
 			<div
 				className={cx(
-					isLocalStudio ? 'min-h-screen' : 'mt-32 min-h-[calc(100vh-(--spacing(32)))]',
+					isLocalStudio
+						? 'min-h-screen'
+						: 'mt-32 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]',
 					'items-center justify-center flex',
 				)}
 			>

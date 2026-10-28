@@ -698,6 +698,77 @@ const acquiredPaths = new Set<string>();
  */
 const extraLibBudget = new ExtraLibBudget();
 
+/** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
+export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
+const CDN_REQUEST_TIMEOUT_MS = 30_000;
+
+function budgetSpentResponse(): Response {
+	return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
+}
+
+export function createBudgetedFetcher(
+	budget: ExtraLibBudget,
+	fetchImpl: typeof fetch,
+	timeoutMs = CDN_REQUEST_TIMEOUT_MS,
+): typeof fetch {
+	let inFlight = 0;
+	let reportedFailure = false;
+	const waiting: Array<() => void> = [];
+	const acquireSlot = async (): Promise<void> => {
+		if (inFlight < MAX_CDN_REQUESTS_IN_FLIGHT) {
+			inFlight++;
+			return;
+		}
+		// The releasing request hands its slot straight over, so `inFlight` is unchanged.
+		await new Promise<void>((resolve) => waiting.push(resolve));
+	};
+	const releaseSlot = (): void => {
+		const next = waiting.shift();
+		if (next) {
+			next();
+		} else {
+			inFlight--;
+		}
+	};
+	return async (input: RequestInfo | URL, init?: RequestInit) => {
+		if (budget.isSpent) {
+			return budgetSpentResponse();
+		}
+		await acquireSlot();
+		try {
+			if (budget.isSpent) {
+				return budgetSpentResponse();
+			}
+			const timeout = AbortSignal.timeout(timeoutMs);
+			const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+			const response = await fetchImpl(input, { ...init, signal });
+			if (!response.ok || budget.isSpent) {
+				await response.body?.cancel();
+				return response.ok ? budgetSpentResponse() : new Response(null, { status: response.status });
+			}
+			// `fetch` resolves on headers, so the slot has to cover the body too.
+			const body = await response.arrayBuffer();
+			if (budget.isSpent) {
+				return budgetSpentResponse();
+			}
+			return new Response(body, {
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+			});
+		} catch (error) {
+			if (!reportedFailure) {
+				reportedFailure = true;
+				console.warn('[harper] type acquisition: a CDN request failed; affected packages stay unresolved', error);
+			}
+			// A rejected fetch would reject ata's whole pass; this loses only the one file.
+			return new Response(null, { status: 504, statusText: 'Type acquisition request failed' });
+		} finally {
+			releaseSlot();
+		}
+	};
+}
+
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
 		runnerPromise = import('@typescript/ata').then(({ setupTypeAcquisition }) => {
@@ -705,6 +776,7 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 			return setupTypeAcquisition({
 				projectName: 'Harper Application',
 				typescript: createImportScannerShim() as unknown as typeof import('typescript'),
+				fetcher: createBudgetedFetcher(extraLibBudget, (input, init) => fetch(input, init)),
 				delegate: {
 					receivedFile(code: string, path: string) {
 						if (acquiredPaths.has(path)) {

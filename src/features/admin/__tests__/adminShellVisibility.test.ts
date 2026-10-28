@@ -10,9 +10,17 @@ const user = (fabricRole: User['fabricRole'], staffPermissions?: string[]) =>
 const labels = (u: User | null) => visibleAdminItems(u).map((item) => item.label);
 
 describe('admin section visibility', () => {
-	it('shows every page to a holder of all four page permissions', () => {
-		const admin = user('fabric_admin', ['systemStatus:write', 'region:read', 'config:write', 'apiToken:create']);
-		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Configuration', 'API Token']);
+	it('shows every page to a holder of every page permission', () => {
+		const admin = user('fabric_admin', [
+			'systemStatus:write',
+			'region:read',
+			'host:read',
+			'cluster:read',
+			'config:write',
+			'apiToken:create',
+			'apiToken:self',
+		]);
+		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Configuration', 'API Tokens']);
 	});
 
 	it('shows only the pages a narrower role holds', () => {
@@ -22,6 +30,21 @@ describe('admin section visibility', () => {
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
 		expect(labels(user('fabric_readonly', ['region:read', 'config:read']))).toEqual(['Regions']);
+		expect(labels(user('fabric_readonly', ['region:read', 'host:read']))).toEqual(['Regions', 'Hosts']);
+	});
+
+	it('shows the API Tokens page to staff who can only manage their own tokens', () => {
+		expect(labels(user('fabric_readonly', ['region:read', 'apiToken:self']))).toEqual(['Regions', 'API Tokens']);
+	});
+
+	it('hides the API Tokens page from an admin whose API sends only apiToken:create', () => {
+		expect(labels(user('fabric_admin', ['apiToken:create']))).toEqual([]);
+	});
+
+	// Reading the policy is cluster:read, which every staff role holds; changing it is gated inside the page.
+	it('shows Monitoring to every role that can read clusters', () => {
+		expect(labels(user('fabric_readonly', ['cluster:read', 'region:read']))).toEqual(['Regions', 'Monitoring']);
+		expect(labels(user('fabric_staff', ['cluster:read', 'monitoringPolicy:write']))).toEqual(['Monitoring']);
 	});
 
 	it('hides the section entirely from customers', () => {
@@ -29,16 +52,20 @@ describe('admin section visibility', () => {
 		expect(canSeeAdminSection(null)).toBe(false);
 	});
 
-	// super_user may password-login; without a Google SSO session the token mint
-	// 403s, so the API Token page stays hidden even though it holds the permission.
-	it('never shows the API Token page to super_user', () => {
-		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
-		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
+	it('never shows the API Tokens page to super_user', () => {
+		const withField = user('super_user', [
+			'systemStatus:write',
+			'region:read',
+			'host:read',
+			'apiToken:create',
+			'apiToken:self',
+		]);
+		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Configuration']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Configuration']);
 	});
 
-	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Configuration', 'API Token']);
+	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Configuration']);
 	});
 });

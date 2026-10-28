@@ -55,7 +55,7 @@ export function Databases() {
 					ref={sidebarRef}
 					// overflow-y-clip (not overflow-hidden) so the tree is still clipped vertically while the
 					// resize handle's line can extend horizontally over the divider.
-					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 md:border-r-2 border-border flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
+					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 md:border-r-2 border-border flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))] md:max-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))] overflow-y-clip"
 				>
 					<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 					{
@@ -92,7 +92,7 @@ export function Databases() {
 				<section // Bounded to the viewport (like the sidebar beside it) so the table pane scrolls inside
 				 // itself rather than growing the page: a wide table then scrolls horizontally in its own
 				// container instead of widening the whole window.
-				className="text-foreground w-full md:flex-1 md:min-w-0 flex flex-col min-h-0 h-[calc(100vh-(--spacing(32)))]">
+				className="text-foreground w-full md:flex-1 md:min-w-0 flex flex-col min-h-0 h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 					{params.databaseName && params.tableName
 						? (
 							<DatabaseTableView

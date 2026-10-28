@@ -1,10 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { ExtraLibBudget, MAX_EXTRA_LIB_CHARS_TOTAL, MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `typeAcquisition` re-exports monaco's language-service registrations at module
-// scope, which need a DOM. The scanner under test touches none of it.
-vi.mock('@/lib/monaco/languageServices', () => ({ json: {}, typescript: {} }));
+// scope, which need a DOM. Only `addExtraLib` is reached, by acquired declarations.
+vi.mock('@/lib/monaco/languageServices', () => ({
+	json: {},
+	typescript: {
+		typescriptDefaults: { addExtraLib: vi.fn() },
+		javascriptDefaults: { addExtraLib: vi.fn() },
+	},
+}));
 
-const { findAcquirableSpecifiers } = await import('./typeAcquisition');
+const { findAcquirableSpecifiers, createBudgetedFetcher, MAX_CDN_REQUESTS_IN_FLIGHT } = await import(
+	'./typeAcquisition'
+);
 
 describe('findAcquirableSpecifiers', () => {
 	describe('real imports it must keep finding', () => {
@@ -406,4 +415,185 @@ describe('findAcquirableSpecifiers', () => {
 			expect(findAcquirableSpecifiers(`import { a } from 'react'\n`.repeat(8_000))).toHaveLength(8_000);
 		}, 30_000);
 	});
+});
+
+describe('createBudgetedFetcher', () => {
+	function deferredFetch() {
+		const pending: Array<() => void> = [];
+		const fetchImpl = vi.fn(() => new Promise<Response>((resolve) => pending.push(() => resolve(new Response('ok')))));
+		return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: fetchImpl, pending };
+	}
+
+	it('never has more than its limit of requests on the network at once', async () => {
+		const { fetchImpl, calls, pending } = deferredFetch();
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), fetchImpl);
+		const responses = Array.from({ length: 30 }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await Promise.resolve();
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+
+		pending.shift()?.();
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1));
+
+		while (pending.length) {
+			pending.shift()?.();
+			await new Promise((resolve) => setTimeout(resolve));
+		}
+		await Promise.all(responses);
+		expect(calls).toHaveBeenCalledTimes(30);
+	});
+
+	it('answers queued requests, and ones whose headers land after the spend, without a body', async () => {
+		const { fetchImpl, calls, pending } = deferredFetch();
+		const budget = new ExtraLibBudget();
+		const fetcher = createBudgetedFetcher(budget, fetchImpl);
+		const responses = Array.from({ length: 30 }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT));
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		pending.splice(0).forEach((resolve) => resolve());
+
+		const statuses = (await Promise.all(responses)).map((response) => response.status);
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+		expect(statuses.every((status) => status === 503)).toBe(true);
+		await expect(fetcher('https://cdn.test/late')).resolves.toHaveProperty('ok', false);
+		expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT);
+	});
+
+	it('answers a request made after the budget is spent without waiting for a slot', async () => {
+		const { fetchImpl, calls } = deferredFetch();
+		const budget = new ExtraLibBudget();
+		const fetcher = createBudgetedFetcher(budget, fetchImpl);
+		Array.from({ length: MAX_CDN_REQUESTS_IN_FLIGHT }, (_, index) => fetcher(`https://cdn.test/${index}`));
+		await vi.waitFor(() => expect(calls).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT));
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		await expect(fetcher('https://cdn.test/late')).resolves.toHaveProperty('status', 503);
+	});
+
+	it('frees the slot of a request that never answers', async () => {
+		const stalled = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+			new Promise<Response>((_resolve, reject) =>
+				init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+			)
+		);
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), stalled as unknown as typeof fetch, 20);
+		const responses = await Promise.all(
+			Array.from({ length: MAX_CDN_REQUESTS_IN_FLIGHT + 1 }, (_, index) => fetcher(`https://cdn.test/${index}`)),
+		);
+		expect(responses.every((response) => !response.ok)).toBe(true);
+		expect(stalled).toHaveBeenCalledTimes(MAX_CDN_REQUESTS_IN_FLIGHT + 1);
+	});
+
+	it('still honours an abort from the caller', async () => {
+		const stalled = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+			new Promise<Response>((_resolve, reject) =>
+				init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+			)
+		);
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), stalled as unknown as typeof fetch);
+		const caller = new AbortController();
+		const response = fetcher('https://cdn.test/cancelled', { signal: caller.signal });
+		await vi.waitFor(() => expect(stalled).toHaveBeenCalled());
+		caller.abort();
+		await expect(response).resolves.toHaveProperty('ok', false);
+	});
+
+	it('drops a body that finishes arriving after the budget is spent', async () => {
+		const budget = new ExtraLibBudget();
+		let deliver: (() => void) | undefined;
+		const fetchImpl = () =>
+			Promise.resolve(
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							deliver = () => {
+								controller.enqueue(new TextEncoder().encode('export {};'));
+								controller.close();
+							};
+						},
+					}),
+				),
+			);
+		const response = createBudgetedFetcher(budget, fetchImpl)('https://cdn.test/slow');
+		await vi.waitFor(() => expect(deliver).toBeDefined());
+		while (!budget.isSpent) {
+			budget.admit(MAX_WORKER_MODEL_CHARS);
+		}
+		deliver?.();
+		await expect(response).resolves.toHaveProperty('status', 503);
+	});
+
+	it('turns a failed request into a non-OK response, and warns once', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), () => Promise.reject(new TypeError('Failed to fetch')));
+		await expect(fetcher('https://cdn.test/offline')).resolves.toHaveProperty('ok', false);
+		await expect(fetcher('https://cdn.test/offline-again')).resolves.toHaveProperty('ok', false);
+		expect(warn).toHaveBeenCalledTimes(1);
+		warn.mockRestore();
+	});
+});
+
+describe('acquireApplicationTypes', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.resetModules();
+	});
+
+	it('stops requesting declarations from the CDN once the budget is spent', async () => {
+		const fileCount = 200;
+		const declaration = `export declare const x: ${'0'.repeat(MAX_WORKER_MODEL_CHARS - 64)};\n`;
+		const filesToSpendBudget = Math.ceil(MAX_EXTRA_LIB_CHARS_TOTAL / declaration.length);
+		let inFlight = 0;
+		let peakInFlight = 0;
+		const declarationRequests: string[] = [];
+		// Like real `fetch`: headers resolve at once, and the request stays on the network
+		// until its body has arrived.
+		const streamed = (body: string) => {
+			let arrival: ReturnType<typeof setTimeout>;
+			return new Response(
+				new ReadableStream({
+					start(controller) {
+						arrival = setTimeout(() => {
+							controller.enqueue(new TextEncoder().encode(body));
+							controller.close();
+							inFlight--;
+						}, 2);
+					},
+					cancel() {
+						clearTimeout(arrival);
+						inFlight--;
+					},
+				}),
+			);
+		};
+		vi.stubGlobal('fetch', async (input: string) => {
+			inFlight++;
+			peakInFlight = Math.max(peakInFlight, inFlight);
+			if (input.endsWith('.d.ts')) {
+				declarationRequests.push(input);
+				return streamed(declaration);
+			}
+			await new Promise((resolve) => setTimeout(resolve));
+			inFlight--;
+			if (input.endsWith('/resolve/npm/huge-types@latest')) {
+				return Response.json({ version: '1.0.0' });
+			}
+			if (input.endsWith('/npm/huge-types@1.0.0/flat')) {
+				return Response.json({ files: Array.from({ length: fileCount }, (_, index) => ({ name: `/d${index}.d.ts` })) });
+			}
+			if (input.endsWith('/package.json')) {
+				return new Response('{}');
+			}
+			return new Response(null, { status: 404 });
+		});
+
+		const { acquireApplicationTypes, isTypeAcquisitionBudgetSpent } = await import('./typeAcquisition');
+		await acquireApplicationTypes([`import { x } from 'huge-types';`]);
+
+		expect(isTypeAcquisitionBudgetSpent()).toBe(true);
+		expect(peakInFlight).toBeLessThanOrEqual(MAX_CDN_REQUESTS_IN_FLIGHT);
+		expect(declarationRequests.length).toBeLessThanOrEqual(filesToSpendBudget + MAX_CDN_REQUESTS_IN_FLIGHT);
+	}, 30_000);
 });

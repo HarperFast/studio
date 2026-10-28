@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { authStore } from '@/features/auth/store/authStore';
+import type { Cluster } from '@/integrations/api/api.patch';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let permissions = { update: false } as { update: boolean };
@@ -76,6 +77,36 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 
 		await expect(
 			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: overallAuthReady }, params: PARAMS }),
+		).resolves.toBeUndefined();
+		expect(establishSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		['a first visit', false],
+		['a reload of a flagged connection', true],
+	])('sends a cluster still pending setup to its overview without connecting, on %s', async (_, flagged) => {
+		permissions = { update: true };
+		(authStore.checkForFabricConnect as ReturnType<typeof vi.fn>).mockReturnValue(flagged);
+		const cluster = { id: CLUSTER_ID, organizationId: 'org-1', resetPassword: true } as Cluster;
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: overallAuthReady, cluster },
+				params: { ...PARAMS, instanceId: flagged ? 'ins-1' : undefined },
+			}),
+		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}` } });
+		expect(establishSpy).not.toHaveBeenCalled();
+	});
+
+	it('connects once setup has finished', async () => {
+		permissions = { update: true };
+		const cluster = { id: CLUSTER_ID, organizationId: 'org-1', resetPassword: false } as Cluster;
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: overallAuthReady, cluster },
+				params: PARAMS,
+			}),
 		).resolves.toBeUndefined();
 		expect(establishSpy).toHaveBeenCalledTimes(1);
 	});

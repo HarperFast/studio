@@ -153,7 +153,7 @@ export function ConfigIndex() {
 	);
 
 	return (
-		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36)))]">
+		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36))-var(--notification-banner-height))]">
 			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
 				<DesktopConfigNavBar params={params}>{children}</DesktopConfigNavBar>
 				<MobileConfigNavBar params={params}>{children}</MobileConfigNavBar>

@@ -26,6 +26,8 @@ describe('admin section routes', () => {
 	it.each([
 		['/admin/notifications', '/notifications'],
 		['/admin/regions', '/regions'],
+		['/admin/hosts', '/hosts'],
+		['/admin/monitoring', '/monitoring'],
 		['/admin/configuration', '/configuration'],
 		['/admin/api-token', '/api-token'],
 	])('%s resolves to its own route', (path, expectedId) => {

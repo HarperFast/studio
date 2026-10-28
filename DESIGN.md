@@ -8,11 +8,11 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope, and when the cluster form may terminate a cluster.
 
-- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, where the cluster card's sync chip gets its data, how custom-domain cert intent, certificate progress and the Bind selection work, why a domain change is built from a fresh read, which pages a terminated cluster still opens, and when its sign-ins are forgotten.
+- [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, where the cluster card's sync chip gets its data, how custom-domain cert intent, certificate progress and the Bind selection work, why a domain change is built from a fresh read, why nothing connects to a cluster before its setup, how an interrupted setup finishes, which pages a terminated cluster still opens, and when its sign-ins are forgotten.
 
 - [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, why a table without a primary key can't be listed, why a filtered list pages without a count, why Export CSV writes the file in the browser instead of asking Harper for `text/csv`, where columns for undeclared properties come from, why a filter no index can answer asks first, and why an import job Studio stopped following reads as outcome unknown.
 
-- [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — what happens to a path's unsaved edits, loaded contents and Monaco model when its file is deleted, replaced or moved; how an editor save settles after the page is gone, one file at a time; when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again.
+- [`src/features/instance/applications/DESIGN.md`](src/features/instance/applications/DESIGN.md) — what happens to a path's unsaved edits, loaded contents and Monaco model when its file is deleted, replaced or moved; how an editor save settles after the page is gone, one file at a time; when a rolling deploy is done: following its restart job, and why a job Studio can't follow is never a success; and when a live deploy may be sent again; why type acquisition stops requesting declarations once its budget is spent.
 - [`src/features/instance/config/roles/DESIGN.md`](src/features/instance/config/roles/DESIGN.md) — why the role editor's JSON text is the only source of truth, what forces the JSON view, and what Save changes on purpose.
 - [`src/router/DESIGN.md`](src/router/DESIGN.md) — why a failed route load is reported and shown only by its route, and why a preload still toasts.
 
@@ -38,6 +38,15 @@ The `/apis` route is a **custom, in-house API explorer** ([`src/features/instanc
 - **Only Harper's own reads skip the confirmation.** [`isBuiltInRead`](src/features/instance/operations/operationKinds.ts) is the restart gate's naming rule ([`isReadOperation`](src/integrations/api/isReadOperation.ts)) _and_ membership in the role editor's catalog of Harper's operations, because a component can register a mutating `get_…`. Everything else — unknown names, every `sql` — confirms, showing the exact body. It guards against a mistyped paste; Harper's `verifyPerms` is what authorizes each operation.
 - **Operations Studio has to know about are not sent blind.** A `restart` is tracked with `markRestarting` exactly like the Restart button's (released at once on a 4xx; a 5xx can be a gateway losing the answer to a restart that ran), so the page's reads are held (an instance) or their connectivity errors muted (a cluster, which restarts one member) until `waitUntilAnsweringAfterRestart` sees the target again. `logout` is refused: it would end the session the rest of Studio is still using. Any other operation with such a side effect needs the same treatment rather than a raw send.
 - **Nothing leaves the page.** Failures render inline and never pass through `console.error` or the global React Query handlers (RUM reports the former, and bodies carry passwords and secrets). The editor buffer is not persisted, and the console remounts per entity so a confirmation written for one instance can never be sent to another. After a possible write, entity queries are marked stale with `refetchType: 'none'`, never refetched into whatever the operation just did. The download is abandoned once progress passes 5 MB (XHR reports progress about every 50 ms, so this bounds, not caps, what arrives), and display truncates like the API explorer.
+
+## Admin API tokens (the Admin "API Tokens" page)
+
+[`src/features/admin/apiToken/`](src/features/admin/apiToken/) mints, lists and revokes staff API tokens against central manager's `Admin/ApiToken` (HarperFast/central-manager#973).
+
+- **The secret leaves the shared caches as soon as the form has it.** The query cache only ever holds `GET /Admin/ApiToken/` rows, which carry no secret. The mint's result does pass through the MutationCache, which is readable through `queryClient.getMutationCache()` and the devtools, so the form copies it into page state and `reset()`s in the same success callback, and the mutation runs with `gcTime: 0` so the discarded result is collected once its observer unmounts (`useGenerateApiToken.test.ts`). Sign-out clears the MutationCache as well (`clearAuthStateLocally`).
+- **The role caps are a mirror, not the rule.** [`staffTokenRoles.ts`](src/features/admin/apiToken/staffTokenRoles.ts) repeats central manager's `STAFF_API_TOKEN_LIFETIMES` so the form can bound the lifetime field and pick a default; the server refuses anything longer. Change both together (`staffTokenRoles.test.ts` pins the numbers).
+- **The role picker cannot see the owner's role.** Nothing central manager exposes says which staff role another account holds (a `fabricRole` on `Admin/User` is a central manager follow-up), so the form offers every staff role and leaves "no wider than the owner's" to the server's 403. That refusal names the owner's role, so `roleRefusalMessage` puts it under the role field; the mint mutation opts out of the global toast and the form toasts every other failure itself.
+- **Visibility is a permission, not a role name.** The rail shows the page to `apiToken:self` (every staff role holds it, so an owner who cannot mint still sees and revokes their own tokens); the mint form is gated on `apiToken:create`. The role-name fallback for an API without `staffPermissions` never reaches the page, since such a central manager predates the token API it drives. `super_user` stays carved out: it may password-login, and a token is a staff credential it cannot mint.
 
 ## Cloud authentication presentation
 
@@ -100,14 +109,24 @@ Offering a lower pinned version changes what a mixed-version cluster means. Befo
 
 Central manager only ever sends the boolean, never the other organizations' ids; a missing flag reads as global, so an older central manager leaves the picker exactly as it was.
 
+## The notification banner floats over the page
+
+[`NotificationBanner`](src/components/NotificationBanner.tsx) is fixed to the viewport bottom, so it covers whatever is pinned there. While it shows, it sets `--notification-banner-height` on `<html>` to its measured height (it wraps and stacks), and removes it when the last notice is dismissed, falling back to the `0px` default in `src/index.css`.
+
+Anything sized or pinned to the viewport bottom subtracts that variable: every full-viewport height (the `.studio-shell` and sign-in shells, page `min-h`, the 404 page, the database, logs and API panes, the section rail), and every `bottom-0` that should stay visible (the applications panes, toasts, and the floating chat, whose bubble snaps within its container and is clamped back inside it when the banner shrinks it, without losing its stored position). The banner also renders a spacer of that height at the end of the page, so a long page can scroll clear of it. The spacer is why page `min-h` must subtract too: a layout exactly the viewport's height plus the spacer would make every page scroll by the banner's height. `NotificationBanner.layouts.test.ts` fails on a new full-viewport height that leaves it out.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.
 - **Styling stack**: Tailwind 4 + Radix UI + design tokens in `src/index.css`. `cn()` from `src/lib/cn` is the canonical class-merge helper.
 - **Routing**: TanStack Router, file-based, lazy-loaded. Build a link to another org/cluster/instance
-  with `buildAbsoluteLinkToPage`. A relative `../…` is only safe from a component that unmounts with
-  its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
-  navigation re-resolves its href one level too deep (HarperFast/studio#1710, #1711).
+  with `buildAbsoluteLinkToPage`, and give a `<Link>` or `<Navigate>` an absolute target too. A
+  relative `../…` resolves against the location current when it renders, and a route's own page stays
+  mounted while a navigation away from it loads. A row re-resolved its href too deep
+  (HarperFast/studio#1710, #1711); Finish Setup's `<Navigate to="../sign-in">` rendered after its own
+  `navigate('../')` had moved the location and sent the user to `/<org>/sign-in`, which reads
+  `sign-in` as a cluster id. A page that changes the state its redirect guard reads must also hold
+  that guard until its own navigation finishes (`FinishSetup`'s `isPending`/`isSuccess`).
   `EntityMenuItem.to` accepts only the helper's `AbsolutePath`, so a relative menu target fails `tsc`.
 - **Remembered instance/cluster sign-ins are checked on demand**: the sign-in markers span every organization ever
   visited, so the root auth subscription checks only the app sign-in; an entity is checked by
