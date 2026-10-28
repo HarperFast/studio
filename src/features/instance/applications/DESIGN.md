@@ -127,8 +127,10 @@ nothing and is reported without a health check. Rollback to a kept release (#123
 
 Harper 5.3 can run an application on its own copy of some databases (`branchedDatabases`: a list of names, or `true` for
 every database except `system`). Harper reads the setting only from the application's root-config entry, and the only
-operation that writes it there is a package deploy or stage, through
-[`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts). Four things follow:
+operation that writes it there is a package deploy, through
+[`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts). A stage sends it too, but
+Harper keeps it with the staged release and writes it to the entry only when that release is activated, so a stage
+leaves the cached setting current. Four things follow:
 
 - **A redeploy resends it.** A package deploy replaces the entry whole, so leaving the setting out turns the copy off
   and the application quietly goes back to the shared data. The redeploy form starts from the current setting, read

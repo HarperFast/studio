@@ -29,7 +29,7 @@ interface ConfigurationRead {
 	retry: () => void;
 }
 
-export interface ApplicationPrivateCopy {
+interface ApplicationPrivateCopy {
 	project: string;
 	setting: BranchedDatabases;
 }
