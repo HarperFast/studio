@@ -1,5 +1,9 @@
+import { organizationNameRegex } from '@/lib/string/regex/organizationNameRegex';
 import { describe, expect, it } from 'vitest';
-import { NewOrganizationSchema } from './newOrganizationSchema';
+import { defaultOrganizationName, FALLBACK_ORGANIZATION_NAME, NewOrganizationSchema } from './newOrganizationSchema';
+
+const NAME_CHARACTERS_ERROR =
+	"Please only use letters, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.";
 
 const validBase = {
 	name: 'My Organization',
@@ -29,6 +33,68 @@ describe('NewOrganizationSchema', () => {
 		it('allows empty names (we provide a default value, in that case)', () => {
 			const result = NewOrganizationSchema.safeParse({ ...validBase, name: '' });
 			expect(result.success).toBe(true);
+		});
+
+		it('allows English letters, digits, spaces and name punctuation', () => {
+			for (const name of ["Ben & Jerry's", 'Acme, Inc. (EU)', 'Devin’s Org', '3M', 'a'.repeat(255)]) {
+				expect(NewOrganizationSchema.safeParse({ ...validBase, name }).success, name).toBe(true);
+			}
+		});
+
+		it('invalidates other characters, and a name not starting with a letter or digit', () => {
+			const invalidNames = [
+				'@mallory@evil.com',
+				'<b>Acme</b>',
+				'{{value}}',
+				'=1+1',
+				'-Acme',
+				' Acme',
+				'José',
+				'株式会社',
+			];
+			for (const name of invalidNames) {
+				const result = NewOrganizationSchema.safeParse({ ...validBase, name });
+				expect(result.success, name).toBe(false);
+				if (!result.success) {
+					expect(result.error.issues[0].message).toBe(NAME_CHARACTERS_ERROR);
+				}
+			}
+		});
+
+		it('invalidates a missing or non-string name', () => {
+			for (const name of [undefined, null, 123]) {
+				expect(NewOrganizationSchema.safeParse({ ...validBase, name }).success).toBe(false);
+			}
+		});
+	});
+
+	describe('defaultOrganizationName', () => {
+		it("is the user's name with accents removed", () => {
+			expect(defaultOrganizationName('Ada', 'Lovelace')).toBe('Ada Lovelace Org');
+			expect(defaultOrganizationName('José', 'García')).toBe('Jose Garcia Org');
+			expect(defaultOrganizationName('Zoë', 'Müller-Lüdenscheidt')).toBe('Zoe Muller-Ludenscheidt Org');
+			expect(defaultOrganizationName('Seán', "O'Brien")).toBe("Sean O'Brien Org");
+		});
+
+		it("falls back when the user's name has letters with no unaccented form, or a leading symbol", () => {
+			const users = [
+				['Łukasz', 'Nowak'],
+				['Øystein', 'Berg'],
+				['Ada', 'Weiß'],
+				['Æsa', 'Ng'],
+				["'Nell", 'Kim'],
+			];
+			for (const [firstname, lastname] of users) {
+				const name = defaultOrganizationName(firstname, lastname);
+				expect(name, `${firstname} ${lastname}`).toBe(FALLBACK_ORGANIZATION_NAME);
+			}
+		});
+
+		it('always produces a name the schema accepts', () => {
+			expect(organizationNameRegex.test(FALLBACK_ORGANIZATION_NAME)).toBe(true);
+			const longest = defaultOrganizationName('a'.repeat(40), 'b'.repeat(80));
+			expect(NewOrganizationSchema.safeParse({ ...validBase, name: longest }).success).toBe(true);
+			expect(defaultOrganizationName('a'.repeat(200), 'b'.repeat(200))).toBe(FALLBACK_ORGANIZATION_NAME);
 		});
 	});
 

@@ -11,7 +11,12 @@ import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
-import { NewOrganizationSchema, specifiedSubdomain } from '@/features/organizations/mutations/newOrganizationSchema';
+import {
+	defaultOrganizationName,
+	NewOrganizationSchema,
+	specifiedOrganizationName,
+	specifiedSubdomain,
+} from '@/features/organizations/mutations/newOrganizationSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -40,7 +45,7 @@ export function NewOrgForm() {
 		setFocus('name');
 	}, [setFocus]);
 
-	const defaultName = `${user?.firstname} ${user?.lastname} Org`;
+	const defaultName = defaultOrganizationName(user?.firstname, user?.lastname);
 	const name = watch('name') || defaultName;
 	const subdomain = watch('subdomain');
 	const calculatedNames = useMemo(() => {
@@ -99,12 +104,14 @@ export function NewOrgForm() {
 										<LengthLimitedInput
 											type="text"
 											className="bg-background/60"
-											maxLength={NewOrganizationSchema.shape.name.maxLength!}
+											maxLength={specifiedOrganizationName.maxLength!}
 											autoCapitalize="words"
 											placeholder={defaultName}
 											{...field}
 										/>
-										<FormDescription>Use a name your team will recognize.</FormDescription>
+										<FormDescription>
+											Use a name your team will recognize. Letters, numbers, spaces, and ' - . , & ( ).
+										</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
