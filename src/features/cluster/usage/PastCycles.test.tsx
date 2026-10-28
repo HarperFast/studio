@@ -9,6 +9,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseHistory = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/api/cluster/getClusterUsageHistory', () => ({ useClusterUsageHistory: mockUseHistory }));
+// The chart draws nothing under jsdom; a bar per cycle stands in for it (CycleCostChart.test.tsx covers the chart).
+vi.mock('@/features/cluster/usage/CycleCostChart', async (importOriginal) => ({
+	...await importOriginal<typeof import('@/features/cluster/usage/CycleCostChart')>(),
+	CycleCostChart: ({ cycles, onSelect }: { cycles: PastCycle[]; onSelect: (endsAt: string) => void }) => (
+		<div data-testid="cost-chart">
+			{cycles.map((c, index) => (
+				<button
+					key={c.endsAt}
+					type="button"
+					onClick={() => onSelect(c.endsAt)}
+				>
+					{`bar ${index}`}
+				</button>
+			))}
+		</div>
+	),
+}));
 
 afterEach(() => {
 	cleanup();
@@ -186,6 +203,47 @@ describe('PastCycles', () => {
 		render(<PastCycles clusterId="clu-1" />);
 		fireEvent.click(card(/Aug 12, 2026/));
 		expect(screen.getByText(/ran out —/)).toBeTruthy();
+	});
+
+	it('charts the charges once there are two cycles to compare', () => {
+		const JUN = cycle({ startsAt: '2026-06-12T12:00:00.000Z', endsAt: '2026-07-12T12:00:00.000Z' });
+		history([cycle(), JUN]);
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByTestId('cost-chart')).toBeTruthy();
+
+		cleanup();
+		history([cycle()]);
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.queryByTestId('cost-chart')).toBeNull();
+
+		cleanup();
+		const free = [region({ planUsd: 0, cycleUsd: 0 })];
+		history([cycle({}, free), { ...JUN, ...cycle({ endsAt: JUN.endsAt }, free) }]);
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.queryByTestId('cost-chart')).toBeNull();
+	});
+
+	it('opens the cycle picked on the chart, and still closes from its own header', () => {
+		history([
+			cycle(),
+			cycle({ startsAt: '2026-06-12T12:00:00.000Z', endsAt: '2026-07-12T12:00:00.000Z' }),
+		]);
+		render(<PastCycles clusterId="clu-1" />);
+		const august = card(/Jul 12\s*–\s*Aug 12, 2026/);
+		const july = card(/Jun 12\s*–\s*Jul 12, 2026/);
+		expect(july.getAttribute('aria-expanded')).toBe('false');
+
+		fireEvent.click(screen.getByRole('button', { name: 'bar 1' }));
+		expect(july.getAttribute('aria-expanded')).toBe('true');
+		expect(august.getAttribute('aria-expanded')).toBe('false');
+
+		fireEvent.click(screen.getByRole('button', { name: 'bar 1' }));
+		expect(july.getAttribute('aria-expanded')).toBe('true');
+
+		fireEvent.click(july);
+		expect(july.getAttribute('aria-expanded')).toBe('false');
+		fireEvent.click(august);
+		expect(august.getAttribute('aria-expanded')).toBe('true');
 	});
 
 	it('says so when no cycle has ended, and when history could not load', () => {
