@@ -57,6 +57,7 @@ function renderVersionForm() {
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId="clu-1"
+				currentRegions={[]}
 				defaultValues={{
 					clusterName: 'my-cluster',
 					abbreviatedName: '',
@@ -71,6 +72,10 @@ function renderVersionForm() {
 				mode="version"
 				organization={{ id: 'org-1' } as Organization}
 				organizationId="org-1"
+				organizationRegions={[]}
+				canUseCustomRegions={false}
+				canDefineCustomRegions={false}
+				lockedOrganizationRegionIds={[]}
 				partialUpgrade={{ latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false }}
 				planTypes={[plan]}
 				regionLocationsColocated={[]}
@@ -122,6 +127,65 @@ describe('ClusterForm — a refused edit', () => {
 
 		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
 		expect(queryByText(refusal)).toBeNull();
+	});
+});
+
+describe('ClusterForm — payment review', () => {
+	it('sends a draft that is no longer valid back to the details instead of submitting it', async () => {
+		const queryClient = newQueryClient();
+		queryClient.setQueryData(['org-1'], { id: 'org-1', type: ENTERPRISE } as Organization);
+		const { findByRole, findByText, queryByText } = render(
+			<QueryClientProvider client={queryClient}>
+				<ClusterForm
+					alreadyUsingFree={false}
+					clusterId="clu-1"
+					currentRegions={[{ key: 'oreg-1', name: 'EU edge' }]}
+					defaultValues={{
+						clusterName: 'my-cluster',
+						abbreviatedName: '',
+						version: '5.0.2',
+						deploymentDescription: 'Shared',
+						performanceDescription: 'Basic',
+						// The region shrank to one datacenter while the user was on the payment page.
+						regionPlans: [{ regionId: 'oreg-1', quantity: 1 }],
+						instances: [],
+					}}
+					deploymentToPerformanceToPlan={{ Shared: { Basic: plan } }}
+					harperVersions={undefined}
+					mode={undefined}
+					organization={{ id: 'org-1', type: ENTERPRISE } as Organization}
+					organizationId="org-1"
+					organizationRegions={[{
+						id: 'oreg-1',
+						organizationId: 'org-1',
+						name: 'EU edge',
+						placement: { gcp: ['europe-west1-b'] },
+						fallbackGroup: null,
+						active: true,
+					}]}
+					canUseCustomRegions={true}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={['oreg-1']}
+					partialUpgrade={null}
+					planTypes={[plan]}
+					regionLocationsColocated={[]}
+					regionLocationsDedicated={[]}
+					setSavedClusterState={vi.fn()}
+					startOffOnBilling={true}
+				/>
+			</QueryClientProvider>,
+		);
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		fireEvent.click(submit);
+
+		await waitFor(() =>
+			expect(toast.error).toHaveBeenCalledWith('Some cluster details are no longer valid. Please review them.')
+		);
+		expect(put).not.toHaveBeenCalled();
+		expect(queryByText('Payment review')).toBeNull();
+		expect(await findByText('A cluster needs at least 2 instances in total.')).toBeTruthy();
 	});
 });
 

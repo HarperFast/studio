@@ -10,11 +10,14 @@ const state = vi.hoisted(() => ({
 	create: false,
 	saved: null as unknown,
 	regions: [] as { id: string; region: string }[],
+	organizationRegions: [] as { id: string; name: string }[],
 }));
 vi.mock(
 	'@tanstack/react-query',
 	() => ({
-		useQuery: () => ({ data: state.regions }),
+		useQuery: ({ queryKey }: { queryKey?: unknown[] }) => ({
+			data: queryKey?.[0] === 'organizationRegions' ? state.organizationRegions : state.regions,
+		}),
 		useSuspenseQuery: () => ({ data: { clusters: state.clusters } }),
 		queryOptions: (value: unknown) => value,
 	}),
@@ -22,7 +25,7 @@ vi.mock(
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-a' }),
 	Link: ({ children, to, ...props }: { children: ReactNode; to: string }) => <a href={to} {...props}>{children}</a>,
-	Navigate: ({ to }: { to: string }) => <p>Navigate {to}</p>,
+	Navigate: ({ to, replace }: { to: string; replace?: boolean }) => <p>{replace ? 'Replace' : 'Push'} {to}</p>,
 }));
 vi.mock('@/components/SubNavMenu', () => ({ SubNavMenu: () => null }));
 vi.mock(
@@ -43,6 +46,7 @@ afterEach(() => {
 	state.create = false;
 	state.saved = null;
 	state.regions = [];
+	state.organizationRegions = [];
 });
 const cluster = (id: string, status: string, region: string): Cluster => ({
 	id,
@@ -80,10 +84,15 @@ describe('ClustersList', () => {
 	});
 
 	it('resolves id-only plans from the shared catalog and preserves sorting when clearing filters', () => {
-		state.clusters = [{ ...cluster('Production', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'reg-east' }] }];
+		state.clusters = [
+			{ ...cluster('Production', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'reg-east' }] },
+			{ ...cluster('Edge', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'oreg-1', quantity: 2 }] },
+		];
 		state.regions = [{ id: 'reg-east', region: 'US East' }];
+		state.organizationRegions = [{ id: 'oreg-1', name: 'EU edge' }];
 		render(<ClustersList />);
 		expect(screen.getByRole('option', { name: 'US East' })).toBeTruthy();
+		expect(screen.getByRole('option', { name: 'EU edge' })).toBeTruthy();
 		fireEvent.change(screen.getByLabelText('Sort clusters'), { target: { value: 'name' } });
 		fireEvent.change(screen.getByLabelText('Search clusters'), { target: { value: 'East' } });
 		expect(screen.getByRole('article').textContent).toBe('Production');
@@ -109,10 +118,25 @@ describe('ClustersList', () => {
 		expect(screen.getByRole('link', { name: 'New Cluster' }).getAttribute('href')).toBe('/org-a/new-cluster');
 	});
 
-	it('preserves a saved cluster creation redirect', () => {
+	it('redirects a saved cluster draft in place, so Back skips the page that redirected (#1326)', () => {
 		state.clusters = [cluster('Production', 'RUNNING', 'US East')];
 		state.saved = { name: 'Draft' };
 		render(<ClustersList />);
-		expect(screen.getByText('Navigate /org-a/new-cluster')).toBeTruthy();
+		expect(screen.getByText('Replace /org-a/new-cluster')).toBeTruthy();
+	});
+
+	it('sends a draft saved while editing back to the edit form of that cluster (#1852)', () => {
+		state.clusters = [cluster('Production', 'RUNNING', 'US East'), cluster('Staging', 'RUNNING', 'US West')];
+		state.saved = { clusterId: 'Staging', clusterName: 'Staging', skipToBilling: true };
+		render(<ClustersList />);
+		expect(screen.getByText('Replace /org-a/Staging/edit')).toBeTruthy();
+	});
+
+	it('stays on the list for an edit draft of a cluster this organization does not have', () => {
+		state.clusters = [cluster('Production', 'RUNNING', 'US East')];
+		state.saved = { clusterId: 'clu-elsewhere', clusterName: 'Elsewhere', skipToBilling: true };
+		render(<ClustersList />);
+		expect(screen.queryByText(/^(Replace|Push) /)).toBeNull();
+		expect(screen.getByRole('article').textContent).toBe('Production');
 	});
 });

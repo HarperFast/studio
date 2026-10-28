@@ -5,10 +5,12 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/integrations/api/api.gen';
@@ -19,16 +21,21 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
+import { draftClusterIdOf } from './draftClusterIdOf';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
 import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
+import { regionCohortsOfPlans } from './lib/describeRegionSwap';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
-import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
+import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
+import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
+import { RegionPlanEntry, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 // Editing an existing cluster gets the cluster sub-nav rail (so Scaling/Version editing keep it);
 // creating a new cluster has no cluster context yet, so it uses the plain breadcrumb layout.
@@ -58,12 +65,21 @@ export function UpsertCluster() {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<
+	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
 			clusterId?: string;
 		} & (UpsertClusterSchemaType | Cluster))
 	>(LocalStorageKeys.SavedClusterState, null);
+	// A draft belongs to the form it was saved from: only that form reads it, and only that form may
+	// clear it. The clear checks the draft stored at that moment, because the billing step saves one
+	// and clears it again across an await, from a render that never saw it.
+	const savedClusterState = draftClusterIdOf(storedClusterState) === clusterId ? storedClusterState : null;
+	const setSavedClusterState = useCallback(
+		(value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) =>
+			setStoredClusterState((stored) => value === null && draftClusterIdOf(stored) !== clusterId ? stored : value),
+		[clusterId, setStoredClusterState],
+	);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
@@ -71,6 +87,22 @@ export function UpsertCluster() {
 		organizationId,
 	}));
 	const { data: regionLocationsDedicated } = useQuery(getRegionLocationsOptions({ organizationId }));
+	const { data: organizationRegionsData, isError: organizationRegionsFailed } = useQuery(
+		getOrganizationRegionsQueryOptions(organizationId),
+	);
+	// A failed fetch, or a central-manager without custom regions (null), must not strand a
+	// catalog-only form on "Loading…"; an edit that needs one of the missing rows is refused below.
+	const organizationRegionsUnavailable = organizationRegionsFailed || organizationRegionsData === null;
+	const organizationRegions = organizationRegionsUnavailable ? organizationRegionsData ?? [] : organizationRegionsData;
+	// Central-manager lets staff with the matching cluster permission place custom regions.
+	const canUseCustomRegions = useStaffPermission(clusterId ? 'cluster:update' : 'cluster:create');
+	const canWriteRegions = useStaffPermission('region:write');
+	const canDefineCustomRegions = canUseCustomRegions && canWriteRegions && !organizationRegionsUnavailable;
+	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
+	const lockedOrganizationRegionIds = useMemo(
+		() => (cluster?.plans ?? []).map(plan => plan.regionId).filter((id): id is string => isOrganizationRegionId(id)),
+		[cluster],
+	);
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
@@ -118,62 +150,95 @@ export function UpsertCluster() {
 		return false;
 	}, [cluster?.id, organization?.clusters, planTypes]);
 
+	const currentRegions = useMemo(
+		() =>
+			clusterId
+				? regionCohortsOfPlans(
+					cluster?.plans ?? [],
+					buildRegionLookup(
+						[...(regionLocationsColocated ?? []), ...(regionLocationsDedicated ?? [])],
+						organizationRegions,
+						cloudProvider,
+					),
+				)
+				: [],
+		[cloudProvider, cluster, clusterId, organizationRegions, regionLocationsColocated, regionLocationsDedicated],
+	);
+
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
 		() =>
 			groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'),
 		[planTypes],
 	);
 
-	const defaultValues = useMemo<null | UpsertClusterSchemaType>(() => {
+	const defaultsResult = useMemo<
+		null | { values: UpsertClusterSchemaType; unresolvedRegionIds: string[]; draftDiscarded: boolean }
+	>(() => {
 		if (
-			!planTypes || !harperVersions || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)
+			!planTypes || !harperVersions || !regionLocationsColocated || !regionLocationsDedicated || !organizationRegions
+			|| (clusterId && !cluster)
 		) {
 			return null;
 		}
 
-		let clusterToLoad = cluster;
+		const lookupFor = (plans: Cluster['plans'] | undefined) => {
+			const plan = planTypes.find(planType => planType.id === plans?.[0]?.planId);
+			const catalog = plan?.deploymentDescription !== 'Dedicated' ? regionLocationsColocated : regionLocationsDedicated;
+			return { plan, regionLookup: buildRegionLookup(catalog, organizationRegions, cloudProvider) };
+		};
 
+		let clusterToLoad = cluster;
+		let draftDiscarded = false;
 		if (savedClusterState) {
 			if (isUpsertClusterSchema(savedClusterState)) {
-				return {
-					...savedClusterState,
-					clusterName: savedClusterState.clusterName || '',
-					abbreviatedName: savedClusterState.abbreviatedName || '',
-					version: savedClusterState.version,
-					deploymentDescription: savedClusterState.deploymentDescription || '',
-					performanceDescription: savedClusterState.performanceDescription || '',
-					fqdn: savedClusterState.fqdn || '',
-					regionPlans: savedClusterState.regionPlans || [],
-					instances: savedClusterState.instances || [],
-				};
+				const draftLookup = buildRegionLookup(
+					savedClusterState.deploymentDescription !== 'Dedicated' ? regionLocationsColocated : regionLocationsDedicated,
+					organizationRegions,
+					cloudProvider,
+				);
+				const draftRegionPlans = migrateDraftRegionPlans(savedClusterState.regionPlans, draftLookup);
+				if (draftRegionPlans) {
+					return {
+						values: {
+							...savedClusterState,
+							clusterName: savedClusterState.clusterName || '',
+							abbreviatedName: savedClusterState.abbreviatedName || '',
+							version: savedClusterState.version,
+							deploymentDescription: savedClusterState.deploymentDescription || '',
+							performanceDescription: savedClusterState.performanceDescription || '',
+							fqdn: savedClusterState.fqdn || '',
+							regionPlans: draftRegionPlans,
+							instances: savedClusterState.instances || [],
+						},
+						// The draft may have lost a region the live cluster still deploys; the refusal below
+						// keys on the server's plans, not the draft.
+						unresolvedRegionIds: buildRegionPlanDefaults(cluster?.plans, lookupFor(cluster?.plans).regionLookup)
+							.unresolvedRegionIds,
+						draftDiscarded,
+					};
+				}
+				draftDiscarded = true;
 			} else {
 				clusterToLoad = savedClusterState;
 			}
 		}
 
-		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
-
-		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
-		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
+		const { plan: selectedPlan, regionLookup } = lookupFor(clusterToLoad?.plans);
 		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
 			? regionLocationsColocated
 			: regionLocationsDedicated;
+
+		const regionPlans: RegionPlanEntry[] = [];
+		let unresolvedRegionIds: string[] = [];
+		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations, alreadyUsingFree);
 
 		let isSelfManaged = false;
 		if (clusterToLoad) {
 			if (clusterToLoad.plans) {
-				for (const plan of clusterToLoad.plans) {
-					if (plan.regionId) {
-						const selectedRegion = regionLocations.find(regionLocation => regionLocation.id === plan.regionId);
-						if (selectedRegion) {
-							regionPlans.push({
-								regionName: selectedRegion.region,
-								latencyDescription: selectedRegion.latencyDescription,
-							});
-						}
-					}
-				}
+				const resolved = buildRegionPlanDefaults(clusterToLoad.plans, regionLookup);
+				regionPlans.push(...resolved.regionPlans);
+				unresolvedRegionIds = resolved.unresolvedRegionIds;
 			}
 			if (!regionPlans.length && clusterToLoad.instances) {
 				const clusterInstances = clusterToLoad.instances
@@ -191,8 +256,9 @@ export function UpsertCluster() {
 		} else if (defaults) {
 			regionPlans.push(...defaults.regionPlans);
 		}
-		if (!isSelfManaged && !regionPlans.length) {
-			regionPlans.push({ regionName: '', latencyDescription: '' });
+		// A version edit never submits regions, so it must not carry a placeholder the schema rejects.
+		if (!isSelfManaged && !regionPlans.length && mode !== 'version') {
+			regionPlans.push({ regionId: '' });
 		}
 
 		// On an ambiguous partial upgrade the version picker pre-selects nothing: either choice then
@@ -204,22 +270,28 @@ export function UpsertCluster() {
 				?? harperVersions.value?.find(v => v.name === 'stable')?.version;
 
 		return {
-			sourceClusterId: clusterToLoad?.id,
-			autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
-			clusterName: clusterToLoad?.name ?? '',
-			abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
-			version,
-			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
-			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
-			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
-			instances,
-			regionPlans,
+			values: {
+				sourceClusterId: clusterToLoad?.id,
+				autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
+				clusterName: clusterToLoad?.name ?? '',
+				abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
+				version,
+				deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
+				performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
+				fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
+				instances,
+				regionPlans,
+			},
+			unresolvedRegionIds,
+			draftDiscarded,
 		};
 	}, [
 		alreadyUsingFree,
+		cloudProvider,
 		cluster,
 		clusterId,
 		mode,
+		organizationRegions,
 		partialUpgrade,
 		planTypes,
 		harperVersions,
@@ -227,13 +299,49 @@ export function UpsertCluster() {
 		regionLocationsDedicated,
 		savedClusterState,
 	]);
+	const defaultValues = defaultsResult?.values ?? null;
+	const draftDiscarded = defaultsResult?.draftDiscarded ?? false;
+	useEffect(() => {
+		if (draftDiscarded) {
+			toast.warning('Your saved cluster changes could not be restored. Please make them again.');
+		}
+	}, [draftDiscarded]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated
-		|| !regionLocationsDedicated;
+		|| !regionLocationsDedicated || !organizationRegions;
 	if (isLoading) {
 		return (
 			<UpsertClusterLayout isEdit={!!clusterId}>
 				<Loading centered={true} text="Loading..." />
+			</UpsertClusterLayout>
+		);
+	}
+
+	// Editing with a region the form cannot resolve would save without it, which central-manager
+	// treats as removing that region — so the form refuses to open instead. A create (retrying a failed
+	// cluster) removes nothing and a version-only edit sends no region plans, so both open without it.
+	if (clusterId && mode !== 'version' && defaultsResult?.unresolvedRegionIds.length) {
+		return (
+			<UpsertClusterLayout isEdit={!!clusterId}>
+				<ErrorComponent
+					title={organizationRegionsFailed ? 'Custom Regions Unavailable' : 'Region Unavailable'}
+					error={{
+						message: organizationRegionsFailed
+							? (
+								<>
+									This organization's custom regions could not be loaded, so this cluster cannot be edited right now.
+									Please try again, or <ContactUs />.
+								</>
+							)
+							: (
+								<>
+									This cluster deploys a region that is no longer available ({defaultsResult.unresolvedRegionIds.join(
+										', ',
+									)}), so it cannot be edited here. Please <ContactUs />.
+								</>
+							),
+					}}
+				/>
 			</UpsertClusterLayout>
 		);
 	}
@@ -277,18 +385,24 @@ export function UpsertCluster() {
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
+				currentRegions={currentRegions}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
 				harperVersions={harperVersions}
 				mode={mode}
 				organization={organization}
 				organizationId={organizationId}
+				organizationRegions={organizationRegions}
+				canUseCustomRegions={canUseCustomRegions}
+				canDefineCustomRegions={canDefineCustomRegions}
+				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
-				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
+				startOffOnBilling={!draftDiscarded && isUpsertClusterSchema(savedClusterState)
+					&& savedClusterState.skipToBilling === true}
 			/>
 		</UpsertClusterLayout>
 	);

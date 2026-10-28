@@ -5,12 +5,14 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
+	BrickWallFireIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -40,6 +42,7 @@ export function ConfigIndex() {
 	// plain '5.2.0' gate would exclude every prerelease (SemVer ranks prereleases below the release).
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 	const trustPoliciesSupported = supportsTrustPolicies(version);
+	const wafSupported = supportsWaf(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -84,6 +87,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<GlobeIcon className="hidden md:inline-block" /> <span className="ms-3">Domains</span>
+					</Link>
+				</li>
+			)}
+			{wafSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/firewall')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<BrickWallFireIcon className="hidden md:inline-block" /> <span className="ms-3">Firewall</span>
 					</Link>
 				</li>
 			)}

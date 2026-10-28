@@ -68,6 +68,17 @@ describe('deployRequestBody', () => {
 		expect(body).not.toHaveProperty('restart');
 	});
 
+	it('carries a private database copy on a deploy and a stage, and leaves it out when there is none', () => {
+		const branchedDatabases = ['data'];
+		expect(deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web', branchedDatabases }, false))
+			.toMatchObject({ branchedDatabases: ['data'], restart: 'rolling' });
+		expect(deployRequestBody({ kind: 'stage', project: 'web', package: 'npm:web', branchedDatabases: true }, false))
+			.toMatchObject({ branchedDatabases: true, activate: false });
+		// A package deploy replaces the entry whole, so an absent key is what turns the copy off.
+		expect(JSON.parse(JSON.stringify(deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web' }, false))))
+			.not.toHaveProperty('branchedDatabases');
+	});
+
 	it('activates by id alone, with a rolling restart and nothing to install', () => {
 		const body = deployRequestBody({ kind: 'activate', project: 'web', deploymentId: 'a3f8c2d1' }, false);
 		expect(body).toEqual({

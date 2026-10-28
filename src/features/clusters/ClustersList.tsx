@@ -2,6 +2,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { isLocalStudio } from '@/config/constants';
+import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import {
 	buildClusterList,
@@ -13,6 +14,7 @@ import {
 } from '@/features/clusters/lib/clusterListModel';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { UpsertCluster } from '@/features/clusters/upsert';
+import { draftClusterIdOf } from '@/features/clusters/upsert/draftClusterIdOf';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -46,7 +48,19 @@ export function ClustersList() {
 		enabled: !isLocalStudio,
 		staleTime: 60_000,
 	});
-	const regionNames = useMemo(() => new Map(regionCatalog?.map(region => [region.id, region.region])), [regionCatalog]);
+	const { data: organizationRegions } = useQuery({
+		...getOrganizationRegionsQueryOptions(organizationId),
+		enabled: !isLocalStudio,
+		staleTime: 60_000,
+	});
+	const regionNames = useMemo(
+		() =>
+			new Map([
+				...(regionCatalog?.map(region => [region.id, region.region] as const) ?? []),
+				...(organizationRegions?.map(region => [region.id, region.name] as const) ?? []),
+			]),
+		[organizationRegions, regionCatalog],
+	);
 	const model = useMemo(
 		() => buildClusterList(orgInfo?.clusters ?? [], regionNames, orgInfo?.clusterSyncSummaries),
 		[orgInfo?.clusters, regionNames, orgInfo?.clusterSyncSummaries],
@@ -58,7 +72,14 @@ export function ClustersList() {
 		return <UpsertCluster />;
 	}
 	if (savedClusterState) {
-		return <Navigate to={`/${organizationId}/new-cluster`} />;
+		const draftClusterId = draftClusterIdOf(savedClusterState);
+		if (!draftClusterId) {
+			return <Navigate to={`/${organizationId}/new-cluster`} replace={true} />;
+		}
+		// An edit draft for a cluster this organization doesn't list is left saved for the organization it came from.
+		if (orgInfo?.clusters?.some(({ id }) => id === draftClusterId)) {
+			return <Navigate to={`/${organizationId}/${draftClusterId}/edit`} replace={true} />;
+		}
 	}
 
 	return (

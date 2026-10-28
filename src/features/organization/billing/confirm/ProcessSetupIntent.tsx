@@ -1,4 +1,5 @@
 import { Loading } from '@/components/Loading';
+import { draftClusterIdOf } from '@/features/clusters/upsert/draftClusterIdOf';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useProcessStripePaymentMethod } from '@/integrations/stripe/useProcessStripePaymentMethod';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
@@ -16,23 +17,20 @@ export function ProcessSetupIntent() {
 	const { setup_intent_client_secret: clientSecretAfterHash }: {
 		setup_intent_client_secret?: string;
 	} = useSearch({ strict: false });
-	const [savedClusterState] = useLocalStorage<
-		{
-			clusterId?: string;
-		} & unknown | null
-	>(LocalStorageKeys.SavedClusterState, null);
+	const [savedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 	const clientSecret = clientSecretBeforeHash || clientSecretAfterHash;
 
 	const stripe = useStripe();
 	const processStripePaymentMethod = useProcessStripePaymentMethod(organizationId);
 	const navigateBack = useCallback(() => {
+		const draftClusterId = draftClusterIdOf(savedClusterState);
 		const to = savedClusterState
-			? savedClusterState.clusterId
-				? `../../${savedClusterState.clusterId}/edit`
+			? draftClusterId
+				? `../../${draftClusterId}/edit`
 				: '../../new-cluster'
 			: '../';
 		window.history.replaceState(null, '', currentUrlIncludingHash());
-		void navigate({ search: undefined, to });
+		void navigate({ search: undefined, to, replace: true });
 	}, [navigate, savedClusterState]);
 
 	useEffect(() => {

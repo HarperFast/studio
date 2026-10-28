@@ -5,6 +5,7 @@ import { activeClusterStatuses, deletedClusterStatuses, isDeletedCluster } from 
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
+import { ClusterCustomRegions } from '@/features/cluster/components/ClusterCustomRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
@@ -186,6 +187,7 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
+					<ClusterCustomRegions cluster={cluster} />
 				</div>
 				<ClusterStateMenu cluster={cluster} />
 			</div>

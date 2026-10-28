@@ -12,6 +12,18 @@ import { Switch } from '@/components/ui/switch';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
+import {
+	privateCopyError,
+	privateCopyFromSetting,
+	privateCopyToSetting,
+	PrivateCopyValue,
+} from '@/features/instance/applications/components/PrivateDatabaseCopy/privateCopyValue';
+import { PrivateDatabaseCopyField } from '@/features/instance/applications/components/PrivateDatabaseCopy/PrivateDatabaseCopyField';
+import {
+	invalidateApplicationConfiguration,
+	useApplicationBranchedDatabases,
+	useBranchedDatabasesAvailable,
+} from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -19,6 +31,7 @@ import {
 	useStagedDeploymentsAvailable,
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { BranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { DeployComponentResult } from '@/integrations/api/instance/applications/deployComponentStream';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
@@ -30,7 +43,7 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCwIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
@@ -54,6 +67,17 @@ export function RedeployApplicationModal() {
 
 	const { openedEntry } = useEditorView();
 	const packageUrl = openedEntry?.package;
+	const canBranch = useBranchedDatabasesAvailable();
+	const currentBranches = useApplicationBranchedDatabases(openedEntry?.project);
+	const currentPrivateCopy = useMemo(() => privateCopyFromSetting(currentBranches.setting), [
+		currentBranches.setting,
+	]);
+	// Another tab, the CLI or a colleague may have changed the setting since this tab last read it.
+	useEffect(() => {
+		if (isModalOpen) {
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
+		}
+	}, [isModalOpen, queryClient, instanceParams.entityId]);
 
 	const { mutateAsync: reDeployApplication, isPending } = useDeployComponentMutation();
 	const [isStreaming, setIsStreaming] = useState(false);
@@ -70,35 +94,61 @@ export function RedeployApplicationModal() {
 			applicationUrl: packageUrl,
 			installCommand: '',
 			stageOnly: false,
+			privateCopy: currentPrivateCopy,
 		},
 	});
 
-	const { control, handleSubmit, reset, watch } = methods;
+	const { control, handleSubmit, reset, setValue, watch } = methods;
 	const stageOnlyChecked = canStage && watch('stageOnly');
 
+	// Set once the person picks a private copy option, so a setting read later doesn't replace their choice.
+	const privateCopyChosen = useRef(false);
+	// Read through a ref because a deploy closes the modal from a callback made before it, and the deploy's own refetch
+	// can change both while it waits on the health check.
+	const startingValues = useRef({ applicationUrl: packageUrl, privateCopy: currentPrivateCopy });
+	const resetForm = useCallback(() => {
+		privateCopyChosen.current = false;
+		reset({ ...startingValues.current, installCommand: '', stageOnly: false });
+	}, [reset]);
 	useEffect(() => {
-		reset({ applicationUrl: packageUrl, stageOnly: false });
-	}, [reset, packageUrl]);
+		startingValues.current = { applicationUrl: packageUrl, privateCopy: currentPrivateCopy };
+	}, [packageUrl, currentPrivateCopy]);
+	useEffect(() => {
+		resetForm();
+	}, [resetForm, packageUrl]);
+	// Only this field, so a setting that arrives after the form opened leaves the rest of what was typed alone. Not
+	// `resetField`, which skips a field that hasn't mounted, and this one only mounts once the modal opens.
+	useEffect(() => {
+		if (!privateCopyChosen.current) {
+			setValue('privateCopy', currentPrivateCopy);
+		}
+	}, [setValue, currentPrivateCopy]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowRedeployApplicationModal', false);
 		attemptToRestoreFocus(trigger);
-		reset({ applicationUrl: packageUrl, stageOnly: false });
+		resetForm();
 		setIsStreaming(false);
 		deployOnScreen.current = undefined;
 		setIsStaging(false);
 		stream.reset();
-	}, [reset, packageUrl, trigger, stream]);
+	}, [resetForm, trigger, stream]);
 
 	const invalidateComponents = useCallback(() => {
 		void queryClient.invalidateQueries({
 			queryKey: [instanceParams.entityId, 'get_components'],
 			refetchType: 'active',
 		});
+		void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 	}, [queryClient, instanceParams.entityId]);
 
 	const redeployWithProgress = useCallback(
-		async (applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
+		async (
+			applicationUrl: string,
+			installCommand: string | undefined,
+			stage: boolean,
+			branchedDatabases: BranchedDatabases | undefined,
+		) => {
 			if (!openedEntry) {
 				return;
 			}
@@ -114,7 +164,13 @@ export function RedeployApplicationModal() {
 			let result: DeployComponentResult;
 			try {
 				result = await reDeployApplication({
-					request: { kind: stage ? 'stage' : 'deploy', project, package: applicationUrl, installCommand },
+					request: {
+						kind: stage ? 'stage' : 'deploy',
+						project,
+						package: applicationUrl,
+						installCommand,
+						branchedDatabases,
+					},
 					useSSE: true,
 					onEvent: stream.onEvent,
 					...instanceParams,
@@ -192,7 +248,12 @@ export function RedeployApplicationModal() {
 	);
 
 	const redeployBuffered = useCallback(
-		async (applicationUrl: string, installCommand: string | undefined, stage: boolean) => {
+		async (
+			applicationUrl: string,
+			installCommand: string | undefined,
+			stage: boolean,
+			branchedDatabases: BranchedDatabases | undefined,
+		) => {
 			if (!openedEntry) {
 				return;
 			}
@@ -202,7 +263,13 @@ export function RedeployApplicationModal() {
 			let result: DeployComponentResult;
 			try {
 				result = await reDeployApplication({
-					request: { kind: stage ? 'stage' : 'deploy', project, package: applicationUrl, installCommand },
+					request: {
+						kind: stage ? 'stage' : 'deploy',
+						project,
+						package: applicationUrl,
+						installCommand,
+						branchedDatabases,
+					},
 					...instanceParams,
 				});
 			} catch (error) {
@@ -237,19 +304,21 @@ export function RedeployApplicationModal() {
 		[reDeployApplication, openedEntry, instanceParams, invalidateComponents, closeModal, recordAction],
 	);
 
-	const submitForm = ({ applicationUrl, installCommand, stageOnly }: {
+	const submitForm = ({ applicationUrl, installCommand, stageOnly, privateCopy }: {
 		applicationUrl: string | undefined;
 		installCommand: string | undefined;
 		stageOnly?: boolean;
+		privateCopy: PrivateCopyValue;
 	}) => {
 		if (!applicationUrl) {
 			return;
 		}
 		const stage = canStage && !!stageOnly;
+		const branchedDatabases = canBranch ? privateCopyToSetting(privateCopy) : currentBranches.setting;
 		if (sseDeploy) {
-			void redeployWithProgress(applicationUrl, installCommand, stage);
+			void redeployWithProgress(applicationUrl, installCommand, stage, branchedDatabases);
 		} else {
-			void redeployBuffered(applicationUrl, installCommand, stage);
+			void redeployBuffered(applicationUrl, installCommand, stage, branchedDatabases);
 		}
 	};
 
@@ -345,11 +414,37 @@ export function RedeployApplicationModal() {
 											)}
 										/>
 									)}
+									{canBranch && (
+										<FormField
+											control={control}
+											name="privateCopy"
+											rules={{ validate: value => privateCopyError(value) ?? true }}
+											render={({ field }) => (
+												<PrivateDatabaseCopyField
+													idPrefix="redeploy"
+													value={field.value}
+													onChange={value => {
+														privateCopyChosen.current = true;
+														field.onChange(value);
+													}}
+												/>
+											)}
+										/>
+									)}
+									{currentBranches.failed && (
+										<p role="alert" className="text-sm text-warning">
+											Studio couldn&apos;t read whether this application runs on a private database copy, and a redeploy
+											without that would turn one off.{' '}
+											<Button type="button" variant="link" className="h-auto p-0" onClick={currentBranches.retry}>
+												Try again
+											</Button>
+										</p>
+									)}
 									<Button
 										variant="positiveOutline"
 										type="submit"
 										className="w-full"
-										disabled={isPending}
+										disabled={isPending || currentBranches.loading || currentBranches.failed}
 									>
 										<RefreshCwIcon /> {stageOnlyChecked ? 'Stage Application' : 'Redeploy Application'}
 									</Button>
