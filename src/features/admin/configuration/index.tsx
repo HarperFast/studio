@@ -1,6 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,8 +88,10 @@ function EditConfigurationDialog(
 	return (
 		<Dialog open={entry !== null} onOpenChange={(open) => (open ? onOpenChange(true) : close())}>
 			<DialogContent className="max-w-2xl">
-				<DialogTitle className="font-mono">{entry?.name}</DialogTitle>
-				<DialogDescription>{entry?.description || 'No description.'}</DialogDescription>
+				<DialogHeader>
+					<DialogTitle className="font-mono">{entry?.name}</DialogTitle>
+					<DialogDescription>{entry?.description || 'No description.'}</DialogDescription>
+				</DialogHeader>
 				<Textarea
 					value={text}
 					onChange={(e) => setText(e.target.value)}
