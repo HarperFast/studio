@@ -7,6 +7,17 @@ form clears the draft only once it mounts, so a pushed redirect left Back on the
 as long as the form was still loading. Billing's Stripe return page replaces itself on the way back to the form for the
 same reason: it strips the setup-intent secret from its own URL first, so going back to it would show a spinner forever.
 
+Which form a draft belongs to is read the same way in all three places, by `upsert/draftClusterIdOf.ts` (#1852). A
+draft saved during an edit carries `clusterId`, and nothing else does: a new-cluster draft, a failed cluster being tried
+again (a whole `Cluster`, keyed `id`) and a `createCluster` link all leave it unset. The list and the billing return page
+send an edit draft to that cluster's edit form, and the form applies a draft only when its `clusterId` matches the
+route's, so an edit draft never fills a create form. The list redirects an edit draft only for a cluster the
+organization lists; any other edit draft is left saved for the organization it came from. The form clears the draft
+once it mounts and again when it saves, and `UpsertCluster` lets those clears through only for a draft of this form, so
+visiting another form, including the create form an empty organization's list shows, never discards one. That check
+reads the stored draft at the moment of the clear rather than a render's copy: the billing step saves a draft and clears
+it again across an `await`, from a render that never saw it.
+
 SystemStatus notices have no cluster association and remain in the cloud-wide notification banner/center. Per-cluster monitoring incidents and scheduled maintenance need a scoped backend contract before the list can attribute them. The UI preserves ClusterCard's permission checks and lifecycle actions.
 
 # Cluster configuration
