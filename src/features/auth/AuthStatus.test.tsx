@@ -3,20 +3,30 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { PropsWithChildren } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const state = vi.hoisted(() => ({ pending: false, mutate: vi.fn(), navigate: vi.fn() }));
+const state = vi.hoisted(() => ({
+	status: 'idle',
+	token: undefined as string | undefined,
+	mutate: vi.fn(),
+	navigate: vi.fn(),
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useRouter: () => ({ invalidate: vi.fn() }),
-	useSearch: () => ({}),
+	useSearch: () => ({ token: state.token }),
 	useNavigate: () => state.navigate,
 	Link: ({ children, to }: PropsWithChildren<{ to?: string }>) => <a href={to || '#'}>{children}</a>,
 }));
 vi.mock('./hooks/useVerifyEmail', () => ({
-	useVerifyEmailMutation: () => ({ mutate: state.mutate, isPending: state.pending }),
+	useVerifyEmailMutation: () => ({ mutate: state.mutate, status: state.status }),
+	isVerifyEmailUnconfirmed: () => false,
 }));
 vi.mock('./hooks/useResendEmailVerification', () => ({
 	useResendEmailVerification: () => ({ mutate: state.mutate, isPending: false }),
 }));
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }));
+// Partial: the verify page's inline alert reaches `queryClient.ts`, which builds a real QueryClient on import.
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+	...await importOriginal<typeof import('@tanstack/react-query')>(),
+	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
 vi.mock('./queries/getCurrentUser', () => ({
 	currentUserQueryKey: ['currentUser'],
 	getCurrentUser: () => new Promise(() => {}),
@@ -28,7 +38,8 @@ import { VerifyEmail } from './VerifyEmail';
 import { Verifying } from './Verifying';
 
 afterEach(() => {
-	state.pending = false;
+	state.status = 'idle';
+	state.token = undefined;
 	vi.clearAllMocks();
 });
 
@@ -49,7 +60,8 @@ describe('verification screens', () => {
 	});
 
 	it('announces verification in progress instead of exposing the resend form', () => {
-		state.pending = true;
+		state.status = 'pending';
+		state.token = 'verify-token';
 		render(<VerifyEmail />);
 		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
 		expect(screen.queryByLabelText('Email')).toBeNull();
