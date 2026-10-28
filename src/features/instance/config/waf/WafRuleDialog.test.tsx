@@ -165,7 +165,6 @@ describe('WafRuleDialog', () => {
 		expect(edit.mutate).toHaveBeenCalledTimes(1);
 		const { loaded, patch } = edit.mutate.mock.calls[0][0];
 		expect(loaded).toBe(JA4_RULE);
-		// Only the changed field: alter_waf_rule keeps the JA4 match, the challenge action and the rest.
 		expect(patch).toEqual({ priority: 6 });
 	});
 

@@ -41,10 +41,9 @@ import {
 	WafRule,
 	wafRuleDeferrals,
 } from '@/integrations/api/instance/waf/waf';
-import { stableJson } from '@/lib/stableJson';
 import { useQuery } from '@tanstack/react-query';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const DOCS_URL = 'https://docs.harperdb.io/reference/v5/web-application-firewall/overview';
@@ -71,7 +70,13 @@ function WafPage() {
 
 	const { mutate: toggleRule, isPending: isTogglePending } = useToggleWafRule();
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
-	const [dialogTarget, setDialogTarget] = useState<WafRuleDialogTarget>();
+	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
+	// Every open, close and reload starts a new session, and so does leaving the page: the form remounts
+	// on each, and a reload that comes back after any of them is dropped.
+	const dialogSessions = useRef(0);
+	useEffect(() => () => {
+		dialogSessions.current += 1;
+	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
 	// Held through the refetch too, so a second click never acts on the row the write just replaced.
 	const busy = isTogglePending || isDropPending || isFetching;
@@ -119,20 +124,23 @@ function WafPage() {
 		});
 	};
 
+	const showDialog = (target?: WafRuleDialogTarget) => {
+		dialogSessions.current += 1;
+		setDialog(target && { target, session: dialogSessions.current });
+	};
+
 	const reloadDialogRule = async (id: string) => {
+		const session = dialogSessions.current;
 		const result = await refetch();
 		// A failed refetch keeps the stale list, which would reopen the same rule; the query toasts the failure.
-		if (result.isError) {
+		if (dialogSessions.current !== session || result.isError) {
 			return;
 		}
 		const rule = result.data?.available ? result.data.rules.find((candidate) => candidate.id === id) : undefined;
 		if (!rule) {
 			toast.info(`Firewall rule '${id}' no longer exists`);
 		}
-		// Only the edit that asked: the reader may have closed it, or opened another, while this loaded.
-		setDialogTarget((open) =>
-			open?.kind === 'edit' && open.rule.id === id ? (rule ? { kind: 'edit', rule } : undefined) : open
-		);
+		showDialog(rule && { kind: 'edit', rule });
 	};
 
 	const onDropConfirmed = () => {
@@ -175,7 +183,7 @@ function WafPage() {
 					<Button
 						variant="submit"
 						disabled={rules === undefined}
-						onClick={() => setDialogTarget({ kind: 'add', existingIds: new Set(rules?.map((rule) => rule.id)) })}
+						onClick={() => showDialog({ kind: 'add', existingIds: new Set(rules?.map((rule) => rule.id)) })}
 					>
 						<PlusIcon /> Add Rule
 					</Button>
@@ -207,7 +215,7 @@ function WafPage() {
 										)}
 									onSetEnabled={(enabled) =>
 										onAlter(rule, { enabled }, `${enabled ? 'Enabled' : 'Disabled'} '${rule.id}'`)}
-									onEdit={() => setDialogTarget({ kind: 'edit', rule })}
+									onEdit={() => showDialog({ kind: 'edit', rule })}
 									onDelete={() => setDropTarget(rule)}
 								/>
 							))}
@@ -215,17 +223,18 @@ function WafPage() {
 					)}
 			</section>
 
-			{dialogTarget && (
+			{dialog && (
 				<WafRuleDialog
-					// Content, not id: a reload must remount the form.
-					key={dialogTarget.kind === 'edit' ? `edit:${stableJson(dialogTarget.rule)}` : 'add'}
-					target={dialogTarget}
-					onClose={() => setDialogTarget(undefined)}
+					key={dialog.session}
+					target={dialog.target}
+					onClose={() => showDialog()}
 					onFailed={() => void refetch()}
 					onReload={(id) => void reloadDialogRule(id)}
 					onSaved={(id) => {
-						toast.success(dialogTarget.kind === 'edit' ? `Saved firewall rule '${id}'` : `Added firewall rule '${id}'`);
-						setDialogTarget(undefined);
+						toast.success(
+							dialog.target.kind === 'edit' ? `Saved firewall rule '${id}'` : `Added firewall rule '${id}'`,
+						);
+						showDialog();
 						void refetch();
 					}}
 				/>

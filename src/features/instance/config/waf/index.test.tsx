@@ -4,6 +4,7 @@
 import { ConfigWafIndex } from '@/features/instance/config/waf';
 import { type WafRule, WafRuleChangedError, type WafRuleList } from '@/integrations/api/instance/waf/waf';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { state, toggleRule, dropRule, setMode, refetch, queryOptionsSeen } = vi.hoisted(() => ({
@@ -165,10 +166,8 @@ describe('ConfigWafIndex', () => {
 		render(<ConfigWafIndex />);
 		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Start blocking' }));
 		await waitFor(() => expect(refetch).toHaveBeenCalled());
-		// `loaded` makes the write re-read the rule first, so a widened match is never enforced unseen.
 		expect(toggleRule).toHaveBeenCalledWith(
 			{ instanceClient: {}, entityId: 'clu-1', loaded: starterRule(), patch: { shadow: false } },
-			// Per-call callbacks, so React Query drops them if the page unmounts on a switch of cluster.
 			expect.objectContaining({ onSuccess: expect.any(Function), onSettled: expect.any(Function) }),
 		);
 	});
@@ -234,6 +233,39 @@ describe('ConfigWafIndex', () => {
 			finish({ data: { available: true, rules: [starterRule({ description: 'Changed elsewhere' })] } });
 		});
 		expect(screen.getByRole('heading', { name: 'Add firewall rule' })).toBeTruthy();
+	});
+
+	it('starts the form over on a reload even when the rule came back unchanged', async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x changed since this page loaded it. Review it and try again.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+		fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'My draft' } });
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		});
+		await waitFor(() =>
+			expect((screen.getByLabelText('Description') as HTMLInputElement).value).toBe(
+				'Observe HTTP TRACE and TRACK requests',
+			)
+		);
+	});
+
+	it('says nothing about a reload that comes back after the editor closed', async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x no longer exists.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+		let finish: (value: { data: WafRuleList | undefined }) => void = () => undefined;
+		refetch.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+		fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		await act(async () => {
+			finish({ data: { available: true, rules: [] } });
+		});
+		expect(toast.info).not.toHaveBeenCalled();
 	});
 
 	it('closes the editor when the rule it was reloading is gone', async () => {

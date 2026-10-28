@@ -175,15 +175,15 @@ const DEFERRED_ACTIONS: ReadonlySet<string> = new Set(['challenge', 'serve', 'dr
 
 const KNOWN_ACTIONS: ReadonlySet<string> = new Set(['block', 'log', 'score', ...DEFERRED_ACTIONS]);
 
+export function isKnownWafAction(action: unknown): action is WafAction {
+	return typeof action === 'string' && KNOWN_ACTIONS.has(action);
+}
+
 /**
  * Why the engine skips this rule entirely: harper-pro `deferralReasons`, plus the phase and action
  * checks its validator runs ahead of it. Harper answers "Added WAF rule" for a deferred feature
  * (harper-pro#828), and only malformed or legacy data lacks a known action, so these must be said out loud.
  */
-export function isKnownWafAction(action: unknown): action is WafAction {
-	return typeof action === 'string' && KNOWN_ACTIONS.has(action);
-}
-
 export function wafRuleDeferrals(rule: WafRule): string[] {
 	const reasons: string[] = [];
 	if (!isKnownWafAction(rule.action)) {

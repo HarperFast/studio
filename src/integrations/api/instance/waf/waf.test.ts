@@ -221,7 +221,6 @@ describe('editWafRule', () => {
 		);
 		const refusal = editWafRule({ instanceClient, loaded: starterRule(), patch: { priority: 5 } });
 		await expect(refusal).rejects.toThrow(/changed since this page loaded it/);
-		// Its own class, so the dialog can offer a reload, under the name Datadog withholds.
 		await expect(refusal).rejects.toBeInstanceOf(WafRuleChangedError);
 		await expect(refusal).rejects.toMatchObject({ name: 'WafOperationError' });
 		expect(post.mock.calls.map(([, body]) => body.operation)).toEqual(['list_waf_rules']);
