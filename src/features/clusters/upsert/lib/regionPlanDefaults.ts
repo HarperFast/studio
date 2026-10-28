@@ -1,0 +1,69 @@
+import { RegionPlan } from '@/integrations/api/api.patch';
+import { RegionPlanEntry } from '../upsertClusterSchema';
+import { isOrganizationRegionId, RegionLookup } from './regionLookup';
+
+/**
+ * An existing cluster's plans as form entries. Every stored id must resolve: silently dropping one
+ * would make the next save delete that region, so an unresolved id is reported for the caller to
+ * block on rather than skipped.
+ */
+export function buildRegionPlanDefaults(
+	plans: readonly RegionPlan[] | undefined,
+	lookup: RegionLookup,
+): { regionPlans: RegionPlanEntry[]; unresolvedRegionIds: string[] } {
+	const regionPlans: RegionPlanEntry[] = [];
+	const unresolvedRegionIds: string[] = [];
+	for (const plan of plans ?? []) {
+		if (!plan.regionId) {
+			continue;
+		}
+		if (!lookup.has(plan.regionId)) {
+			unresolvedRegionIds.push(plan.regionId);
+			continue;
+		}
+		regionPlans.push(
+			isOrganizationRegionId(plan.regionId)
+				? { regionId: plan.regionId, quantity: plan.quantity ?? 1 }
+				: { regionId: plan.regionId },
+		);
+	}
+	return { regionPlans, unresolvedRegionIds };
+}
+
+interface LegacyDraftEntry {
+	regionName?: string;
+	latencyDescription?: string;
+}
+
+/**
+ * A saved draft may predate id-keyed entries: its name + latency pairs resolve through the catalog
+ * where they still match a row. An id-keyed entry is kept as-is even when the lookup lacks it, so
+ * validation reports it on the row instead of the draft silently losing a selection. `null` when a
+ * legacy pair matches no row: saved without it, an edit would remove that region, so the caller
+ * discards the draft rather than open it short.
+ */
+export function migrateDraftRegionPlans(
+	entries: readonly (Partial<RegionPlanEntry> & LegacyDraftEntry)[] | undefined,
+	lookup: RegionLookup,
+): RegionPlanEntry[] | null {
+	const migrated: RegionPlanEntry[] = [];
+	for (const entry of entries ?? []) {
+		// Blank rows included: dropping one could leave no rows, and the form then fills a default region.
+		if (entry.regionId !== undefined) {
+			migrated.push({ regionId: entry.regionId, ...(entry.quantity ? { quantity: entry.quantity } : {}) });
+			continue;
+		}
+		if (!entry.regionName) {
+			continue;
+		}
+		const match = [...lookup.values()].find(region =>
+			region.kind === 'catalog' && region.name === entry.regionName
+			&& region.latencyDescription === entry.latencyDescription
+		);
+		if (!match) {
+			return null;
+		}
+		migrated.push({ regionId: match.id });
+	}
+	return migrated;
+}

@@ -70,7 +70,7 @@ const defaults: UpsertClusterSchemaType = {
 	performanceDescription: TRIAL.performanceDescription!,
 	fqdn: '',
 	instances: [],
-	regionPlans: [{ regionName: 'South America', latencyDescription: 'narrow' }],
+	regionPlans: [{ regionId: 'south-america-1' }],
 	grantId: COMPED.id,
 } as UpsertClusterSchemaType;
 
@@ -89,6 +89,10 @@ async function mountCreate(grants: ClusterGrant[] = [COMPED, COMPED_SA], grantId
 					unboundGrants: grants,
 				} as unknown as Organization}
 				organizationId="org-1"
+				organizationRegions={[]}
+				canUseCustomRegions={false}
+				canDefineCustomRegions={false}
+				lockedOrganizationRegionIds={[]}
 				partialUpgrade={null}
 				planTypes={PLANS}
 				regionLocationsColocated={REGIONS}
@@ -108,6 +112,17 @@ function selectFor(labelText: RegExp): HTMLElement {
 	const trigger = label?.closest('[data-slot="form-item"]')?.querySelector('[data-slot="select-trigger"]');
 	if (!trigger) { throw new Error(`no select found for label ${String(labelText)}`); }
 	return trigger as HTMLElement;
+}
+
+function regionRows(): string[] {
+	return [...document.querySelectorAll('[data-slot="form-item"]')]
+		.filter((item) => (item.querySelector('[data-slot="form-label"]')?.textContent?.trim() ?? '').startsWith('Region'))
+		.map((item) => item.querySelector('[data-slot="select-trigger"]')?.textContent?.trim() ?? '');
+}
+
+function latencyTrigger(): HTMLElement {
+	const label = screen.getAllByText(/Latency, Distribution/)[0];
+	return label.parentElement!.querySelector('[data-slot="select-trigger"]') as HTMLElement;
 }
 
 /** What the form would submit: Radix mirrors the value into a hidden native select. */
@@ -154,6 +169,10 @@ describe('ClusterForm — two vouchers on the same plan, different regions (the 
 					mode={undefined}
 					organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [SA, US] } as unknown as Organization}
 					organizationId="org-1"
+					organizationRegions={[]}
+					canUseCustomRegions={false}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={[]}
 					partialUpgrade={null}
 					planTypes={PLANS}
 					regionLocationsColocated={REGIONS}
@@ -194,8 +213,8 @@ describe('ClusterForm — from a two-region dedicated voucher to a one-region ho
 						deploymentDescription: 'Dedicated',
 						performanceDescription: DEDICATED_HIGH.performanceDescription!,
 						regionPlans: [
-							{ regionName: 'Europe', latencyDescription: 'narrow' },
-							{ regionName: 'Canada', latencyDescription: 'narrow' },
+							{ regionId: 'europe-d' },
+							{ regionId: 'canada-d' },
 						],
 						grantId: TWO.id,
 					}}
@@ -207,6 +226,10 @@ describe('ClusterForm — from a two-region dedicated voucher to a one-region ho
 					mode={undefined}
 					organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [TWO, ONE] } as unknown as Organization}
 					organizationId="org-1"
+					organizationRegions={[]}
+					canUseCustomRegions={false}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={[]}
 					partialUpgrade={null}
 					planTypes={[...PLANS, DEDICATED_HIGH]}
 					regionLocationsColocated={REGIONS}
@@ -219,16 +242,13 @@ describe('ClusterForm — from a two-region dedicated voucher to a one-region ho
 		await act(() => null);
 		await act(() => null);
 		expect(nativeValue('deploymentDescription')).toBe('Dedicated');
-		expect(document.querySelectorAll('select[name^="regionPlans."][name$=".regionName"]').length).toBe(2);
+		expect(regionRows()).toHaveLength(2);
 
 		await pick('Available grants', /cgr-one/);
 		expect(nativeValue('deploymentDescription')).toBe('Colocated');
 		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
-		const rows = [...document.querySelectorAll('select[name^="regionPlans."][name$=".regionName"]')].map(
-			(el) => (el as HTMLSelectElement).value,
-		);
-		expect(rows).toEqual(['US']);
-		expect(nativeValue('regionPlans.0.latencyDescription')).toBe('narrow');
+		expect(regionRows()).toEqual(['US']);
+		expect(latencyTrigger().textContent).toContain('narrow');
 	});
 });
 
@@ -261,6 +281,10 @@ describe('ClusterForm — the price summary when editing a cluster on a grant', 
 					mode={undefined}
 					organization={{ id: 'org-1', type: 'SELF_SERVICE' } as unknown as Organization}
 					organizationId="org-1"
+					organizationRegions={[]}
+					canUseCustomRegions={false}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={[]}
 					partialUpgrade={null}
 					planTypes={PLANS}
 					regionLocationsColocated={REGIONS}
@@ -364,6 +388,10 @@ describe('ClusterForm — editing a comped cluster', () => {
 					mode={undefined}
 					organization={{ id: 'org-1', type: 'SELF_SERVICE' } as unknown as Organization}
 					organizationId="org-1"
+					organizationRegions={[]}
+					canUseCustomRegions={false}
+					canDefineCustomRegions={false}
+					lockedOrganizationRegionIds={[]}
 					partialUpgrade={null}
 					planTypes={PLANS}
 					regionLocationsColocated={REGIONS}

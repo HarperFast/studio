@@ -24,6 +24,7 @@ import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { calculateUsageScale } from './lib/calculateUsageScale';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
+import { RegionLookup } from './lib/regionLookup';
 import { selectablePlansByTier } from './lib/selectablePlans';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -40,6 +41,7 @@ interface ClusterDetailsProps {
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
 	regionLocations: SchemaRegion[] | undefined;
+	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	regionSetFrozen?: boolean;
 	currentPlanId?: string;
@@ -60,6 +62,10 @@ interface ClusterDetailsProps {
 	allowedRegionIds?: string[];
 	/** A live comp covers this edit as it stands, so no card is needed. */
 	coveredByGrant?: boolean;
+	organizationId: string;
+	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
+	lockedOrganizationRegionIds: string[];
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -80,6 +86,7 @@ export function ClusterDetails({
 	mode,
 	partialUpgrade,
 	regionLocations,
+	regionLookup,
 	regionNameToLatencyToRegion,
 	regionSetFrozen,
 	currentPlanId,
@@ -92,6 +99,10 @@ export function ClusterDetails({
 	grantRegionIds,
 	allowedRegionIds,
 	coveredByGrant,
+	organizationId,
+	canUseCustomRegions,
+	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -359,7 +370,13 @@ export function ClusterDetails({
 										form={form}
 										regionLocations={regionLocations}
 										allowedRegionIds={allowedRegionIds}
+										grantRegionIds={grantRegionIds}
+										regionLookup={regionLookup}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+										organizationId={organizationId}
+										canUseCustomRegions={canUseCustomRegions}
+										canDefineCustomRegions={canDefineCustomRegions}
+										lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
 										selectedPlan={selectedPlan}

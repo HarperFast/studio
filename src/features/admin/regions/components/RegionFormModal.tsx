@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
+import { DatacenterCountSummary } from '@/features/admin/regions/components/DatacenterCountSummary';
 import { useCreateRegionMutation } from '@/features/admin/regions/mutations/useCreateRegion';
 import { useUpdateRegionMutation } from '@/features/admin/regions/mutations/useUpdateRegion';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
@@ -274,6 +275,7 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 												allowRepeats
 											/>
 										</FormControl>
+										<DatacenterCountSummary datacenters={field.value} ariaLabel="Linode instances per location" />
 										<FormMessage />
 									</FormItem>
 								)}
@@ -295,6 +297,7 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 												allowRepeats
 											/>
 										</FormControl>
+										<DatacenterCountSummary datacenters={field.value} ariaLabel="GCP instances per location" />
 										<FormMessage />
 									</FormItem>
 								)}

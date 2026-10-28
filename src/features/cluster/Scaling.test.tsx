@@ -9,6 +9,7 @@ let currentSearch: Record<string, unknown> = {};
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 	useSearch: () => currentSearch,
+	useRouteContext: () => ({ organization: { id: 'org-1' } }),
 	Link: ({ children, to }: { children?: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
@@ -18,7 +19,26 @@ vi.mock('@/features/cluster/components/ClusterContentWithSubNavMenu', () => ({
 	ClusterContentWithSubNavMenu: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/features/clusters/components/ClusterProgress', () => ({
-	ClusterProgress: () => null,
+	ClusterProgress: ({ expectedInstances }: { expectedInstances?: number }) => (
+		<meter aria-label="progress" data-expected={String(expectedInstances)} />
+	),
+}));
+vi.mock('@/features/clusters/queries/getRegionLocationsQuery', () => ({
+	getRegionLocationsOptions: () => ({
+		queryKey: ['regions'],
+		queryFn: async () => [{ id: 'us-1', region: 'US', latencyDescription: 'Low', instanceCount: 2 }],
+	}),
+}));
+let organizationRegionsFail = false;
+vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', () => ({
+	getOrganizationRegionsQueryOptions: (organizationId: string | undefined) => ({
+		queryKey: ['organizationRegions', organizationId],
+		queryFn: async () => {
+			if (organizationRegionsFail) { throw new Error('503'); }
+			return [{ id: 'oreg-1', name: '2-tokyo', placement: { gcp: ['asia-northeast1-a', 'asia-northeast1-a'] } }];
+		},
+		enabled: !!organizationId,
+	}),
 }));
 vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
 	ClusterCardAction: () => null,
@@ -33,6 +53,7 @@ let clusterStatus = 'UPDATING';
 let clusterGrant: { expiryPolicy: string | null; isActive?: boolean } | null = null;
 let conversionState: 'APPLYING' | 'FAILED' | null = null;
 let clusterInstances: Record<string, unknown>[] = [];
+let clusterPlans: Record<string, unknown>[] = [];
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
 		queryKey: [clusterId, clusterStatus, clusterGrant?.expiryPolicy, conversionState],
@@ -42,6 +63,7 @@ vi.mock('./queries/getClusterInfoQuery', () => ({
 			status: clusterStatus,
 			grant: clusterGrant,
 			conversionState,
+			plans: clusterPlans,
 			instances: clusterInstances,
 		}),
 		retry: false,
@@ -68,6 +90,8 @@ beforeEach(() => {
 	clusterGrant = null;
 	conversionState = null;
 	clusterInstances = [];
+	clusterPlans = [];
+	organizationRegionsFail = false;
 });
 
 afterEach(() => {
@@ -189,5 +213,24 @@ describe('Scaling after a failed update', () => {
 		expect(screen.getByRole('link', { name: 'View Instances' }).getAttribute('href')).toBe('/org-1/clu-1/instances');
 		expect(screen.queryByRole('link', { name: /Edit/ })).toBeNull();
 		expect(screen.getByText(/can't take another update/)).toBeTruthy();
+	});
+});
+
+describe('Scaling progress', () => {
+	it("tells the progress bar how many instances the cluster's plans add up to", async () => {
+		clusterPlans = [{ planId: 'p', regionId: 'oreg-1', quantity: 3 }, { planId: 'p', regionId: 'us-1' }];
+		mount();
+		await waitFor(() =>
+			expect(screen.getByRole('meter', { name: 'progress' }).getAttribute('data-expected')).toBe(String(2 * 3 + 2))
+		);
+	});
+
+	it('counts a catalog-only cluster without waiting on custom regions, even when that read fails', async () => {
+		clusterPlans = [{ planId: 'p', regionId: 'us-1' }];
+		organizationRegionsFail = true;
+		mount();
+		await waitFor(() =>
+			expect(screen.getByRole('meter', { name: 'progress' }).getAttribute('data-expected')).toBe('2')
+		);
 	});
 });
