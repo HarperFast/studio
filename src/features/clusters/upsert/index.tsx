@@ -21,15 +21,17 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
+import { draftClusterIdOf } from './draftClusterIdOf';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
 import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
+import { regionCohortsOfPlans } from './lib/describeRegionSwap';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
 import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
@@ -63,12 +65,21 @@ export function UpsertCluster() {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<
+	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
 			clusterId?: string;
 		} & (UpsertClusterSchemaType | Cluster))
 	>(LocalStorageKeys.SavedClusterState, null);
+	// A draft belongs to the form it was saved from: only that form reads it, and only that form may
+	// clear it. The clear checks the draft stored at that moment, because the billing step saves one
+	// and clears it again across an await, from a render that never saw it.
+	const savedClusterState = draftClusterIdOf(storedClusterState) === clusterId ? storedClusterState : null;
+	const setSavedClusterState = useCallback(
+		(value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) =>
+			setStoredClusterState((stored) => value === null && draftClusterIdOf(stored) !== clusterId ? stored : value),
+		[clusterId, setStoredClusterState],
+	);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
@@ -138,6 +149,21 @@ export function UpsertCluster() {
 		}
 		return false;
 	}, [cluster?.id, organization?.clusters, planTypes]);
+
+	const currentRegions = useMemo(
+		() =>
+			clusterId
+				? regionCohortsOfPlans(
+					cluster?.plans ?? [],
+					buildRegionLookup(
+						[...(regionLocationsColocated ?? []), ...(regionLocationsDedicated ?? [])],
+						organizationRegions,
+						cloudProvider,
+					),
+				)
+				: [],
+		[cloudProvider, cluster, clusterId, organizationRegions, regionLocationsColocated, regionLocationsDedicated],
+	);
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
 		() =>
@@ -359,6 +385,7 @@ export function UpsertCluster() {
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
+				currentRegions={currentRegions}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
 				harperVersions={harperVersions}

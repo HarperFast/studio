@@ -7,6 +7,7 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -14,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, Outlet, useLoaderData, useLocation, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
+	BrickWallFireIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -50,6 +52,7 @@ export function ConfigIndex() {
 	// plain '5.2.0' gate would exclude every prerelease (SemVer ranks prereleases below the release).
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 	const trustPoliciesSupported = supportsTrustPolicies(version);
+	const wafSupported = supportsWaf(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -69,6 +72,7 @@ export function ConfigIndex() {
 				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
 				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
 				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
+				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
 				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
 				// Secrets (the replicated hdb_secret store): any instance or cluster on a supported version — key
 				// custody may be file-based (self-hosted) or injected (Fabric). Manage-gated like every built-in

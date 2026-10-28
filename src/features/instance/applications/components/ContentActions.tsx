@@ -56,6 +56,7 @@ import {
 	GO_MENU_SECTIONS,
 } from './editorMenuCommands';
 import { useEditorShortcutLabels } from './editorShortcutLabels';
+import { PrivateCopyIndicator } from './PrivateDatabaseCopy/PrivateCopyIndicator';
 
 import './ContentActions.css';
 
@@ -224,6 +225,8 @@ export function ContentActions({
 							</TooltipContent>
 						</Tooltip>
 					)}
+
+					{openedEntry.project && <PrivateCopyIndicator project={openedEntry.project} />}
 
 					{showFileMenu && (
 						<DropdownMenu

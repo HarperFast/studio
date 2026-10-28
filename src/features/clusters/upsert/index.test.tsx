@@ -108,6 +108,7 @@ describe('UpsertCluster', () => {
 		localStorage.setItem(
 			LocalStorageKeys.SavedClusterState,
 			JSON.stringify({
+				clusterId: 'clu-1',
 				clusterName: 'ded',
 				skipToBilling: true,
 				regionPlans: [{ regionName: 'EU', latencyDescription: 'Lowest' }],

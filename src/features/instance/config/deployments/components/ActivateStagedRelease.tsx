@@ -13,6 +13,11 @@ import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
+import {
+	invalidateApplicationConfiguration,
+	useApplicationBranchedDatabases,
+	useBranchedDatabasesAvailable,
+} from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import {
@@ -20,6 +25,7 @@ import {
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { reportDeployFailure, reportDeployOutcome } from '@/features/instance/applications/modals/reportDeployHealth';
+import { describeBranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
@@ -63,6 +69,8 @@ export function ActivateStagedRelease({
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
 	const { project, deployment_id: deploymentId } = deployment;
+	const canBranch = useBranchedDatabasesAvailable();
+	const currentBranches = useApplicationBranchedDatabases(canBranch ? project : undefined);
 	// Keyed so a detail closed and reopened mid-rollout still knows this release is being activated.
 	const mutationKey = useMemo(() => activationMutationKey(instanceParams.entityId, deploymentId), [
 		instanceParams.entityId,
@@ -90,9 +98,11 @@ export function ActivateStagedRelease({
 			stream.markSettled(result?.rollout?.state === 'unfollowable' ? 'inconclusive' : 'success', undefined, {
 				result,
 			});
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			await reportDeployOutcome(project, result, runHealthCheck, { action: recordAction(result?.deployment_id) });
 		} catch (error) {
+			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 			void invalidateEntityQueries(queryClient, instanceParams.entityId);
 			if (error instanceof SSEInconclusiveError) {
 				stream.markSettled('inconclusive');
@@ -182,6 +192,15 @@ export function ActivateStagedRelease({
 											&& ' A node already running it restarts without changing anything.'}
 									</>
 								)}
+						</AlertDialogDescription>
+						<AlertDialogDescription>
+							It also brings back the private database copy setting this release was deployed with, which Studio
+							can&apos;t read. {currentBranches.known
+								&& `${project} now runs on ${
+									currentBranches.setting
+										? `a private copy of ${describeBranchedDatabases(currentBranches.setting)}`
+										: 'the shared databases'
+								}.`}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

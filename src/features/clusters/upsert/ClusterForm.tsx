@@ -34,6 +34,7 @@ import { z } from 'zod';
 import { ClusterBilling } from './ClusterBilling';
 import { ClusterDetails } from './ClusterDetails';
 import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
+import { describeRegionSwap, RegionCohort } from './lib/describeRegionSwap';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
 import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
 import { buildRegionLookup, isOrganizationRegionId, MIN_CLUSTER_INSTANCES, regionCohortKey } from './lib/regionLookup';
@@ -43,6 +44,8 @@ import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType 
 interface ClusterFormProps {
 	alreadyUsingFree: boolean;
 	clusterId?: string;
+	/** The regions the cluster being edited runs in now, as central manager matches them; empty when creating. */
+	currentRegions: readonly RegionCohort[];
 	defaultValues: UpsertClusterSchemaType;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
 	harperVersions: HarperVersionsResponse | undefined;
@@ -66,6 +69,7 @@ interface ClusterFormProps {
 export function ClusterForm({
 	alreadyUsingFree,
 	clusterId,
+	currentRegions,
 	defaultValues,
 	deploymentToPerformanceToPlan,
 	harperVersions,
@@ -159,6 +163,7 @@ export function ClusterForm({
 				: dedicatedRegionLookup;
 			let totalInstances = 0;
 			let firstOrganizationRegionIndex = -1;
+			const selectedRegions: RegionCohort[] = [];
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
 				const region = regionLookup.get(regionPlan.regionId);
@@ -173,6 +178,7 @@ export function ClusterForm({
 					continue;
 				}
 				const cohort = regionCohortKey(region);
+				selectedRegions.push({ key: cohort, name: region.name });
 				if (!names.has(cohort)) {
 					names.add(cohort);
 				} else {
@@ -238,11 +244,20 @@ export function ClusterForm({
 					message: `A cluster needs at least ${MIN_CLUSTER_INSTANCES} instances in total.`,
 				});
 			}
+			const regionSwap = describeRegionSwap({
+				currentRegions,
+				selectedRegions,
+				singleRegionTier: !selectedPlan?.priceUsd || !!selectedPlan.allowedRegionIds?.length,
+			});
+			if (regionSwap) {
+				ctx.addIssue({ code: 'custom', path: ['regionPlans.0.regionId'], message: regionSwap });
+			}
 		}
 	}, [
 		alreadyUsingFree,
 		canUseCustomRegions,
 		colocatedRegionLookup,
+		currentRegions,
 		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
 		mode,
@@ -339,7 +354,9 @@ export function ClusterForm({
 			const firstRegionId = selectedRegionPlans[0].regionId;
 			if (!isOrganizationRegionId(firstRegionId) && !allowedRegionIds.includes(firstRegionId)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
-				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
+				const chosenRegionName = regionLookup.get(firstRegionId)?.name;
+				const regionToSelect = possibleRegions?.find(r => r.region === chosenRegionName)
+					|| possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionId', regionToSelect.id);
 					void form.trigger();

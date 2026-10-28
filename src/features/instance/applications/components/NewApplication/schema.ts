@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRIVATE_COPY_OFF, privateCopyError } from '../PrivateDatabaseCopy/privateCopyValue';
 import { templates } from './templates';
 
 export const TemplateSchema = z.object({
@@ -21,6 +22,15 @@ export const ImportSchema = z.object({
 	// — it is not sent to deploy_component (the backend resolves the key from the URL host alias).
 	sshKeyName: z.string(),
 	stageOnly: z.boolean(),
+	privateCopy: z.object({
+		mode: z.enum(['off', 'all', 'chosen']),
+		databases: z.array(z.string()),
+	}).superRefine((value, ctx) => {
+		const message = privateCopyError(value);
+		if (message) {
+			ctx.addIssue({ code: 'custom', message });
+		}
+	}),
 });
 
 export const defaultImportOptions: z.infer<typeof ImportSchema> = {
@@ -31,6 +41,7 @@ export const defaultImportOptions: z.infer<typeof ImportSchema> = {
 	installCommand: '',
 	sshKeyName: '',
 	stageOnly: false,
+	privateCopy: PRIVATE_COPY_OFF,
 };
 
 export const CLISchema = z.object({
