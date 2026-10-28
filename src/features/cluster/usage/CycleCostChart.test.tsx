@@ -20,10 +20,23 @@ vi.mock('recharts', async (importOriginal) => {
 	};
 });
 
-const { CycleCostChart, CycleCostTooltip, describeCostChart, showsCostChart } = await import(
+const { costAxis, CycleCostChart, CycleCostTooltip, describeCostChart, showsCostChart } = await import(
 	'@/features/cluster/usage/CycleCostChart'
 );
-const { Bar } = await import('recharts');
+const { Bar, YAxis } = await import('recharts');
+
+type BarElement = ReactElement<{
+	dataKey: string;
+	shape: (props: unknown) => ReactElement<{ fillOpacity: number; radius: unknown }>;
+	onClick: (bar: unknown) => void;
+}>;
+const childrenOfType = <T,>(type: unknown) =>
+	Children.toArray(barChartCalls.at(-1)!.children).filter(
+		(child): child is ReactElement<T> => isValidElement(child) && child.type === type,
+	);
+const barsDrawn = () => childrenOfType<BarElement['props']>(Bar) as BarElement[];
+const drawn = (bar: BarElement, row: PastCycle) =>
+	bar.props.shape({ payload: row, x: 0, y: 0, width: 10, height: 10 }).props;
 
 afterEach(() => {
 	cleanup();
@@ -59,6 +72,15 @@ describe('showsCostChart', () => {
 	});
 });
 
+describe('costAxis', () => {
+	it('runs the axis 15% past the tallest bar, with gridlines on round amounts below it', () => {
+		expect(costAxis(585)).toEqual({ top: 672.75, ticks: [0, 150, 300, 450, 600] });
+		expect(costAxis(85).ticks).toEqual([0, 25, 50, 75]);
+		expect(costAxis(85).top).toBeCloseTo(97.75);
+		expect(costAxis(0)).toEqual({ top: 1, ticks: [0] });
+	});
+});
+
 describe('describeCostChart', () => {
 	it('summarises the range of charges and how many cycles went over', () => {
 		expect(describeCostChart([SEP, AUG, JUL])).toBe(
@@ -73,31 +95,36 @@ describe('CycleCostChart', () => {
 		render(<CycleCostChart cycles={[SEP, AUG, JUL]} onSelect={vi.fn()} />);
 		expect(barChartCalls.at(-1)?.data.map((row) => row.endsAt)).toEqual([JUL.endsAt, AUG.endsAt, SEP.endsAt]);
 		expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/^Charges for the 3 billing cycles shown/);
+		expect(childrenOfType<{ domain: unknown; ticks: unknown }>(YAxis)[0].props).toMatchObject(
+			{ domain: [0, 672.75], ticks: [0, 150, 300, 450, 600] },
+		);
 	});
 
-	it('names the cycle under a selected bar, and nothing for a click between bars', () => {
+	it("selects the clicked bar's own cycle, not whatever the tooltip last hovered", () => {
 		const onSelect = vi.fn();
 		render(<CycleCostChart cycles={[AUG, JUL]} onSelect={onSelect} />);
-		const { onClick } = barChartCalls.at(-1)!;
-		onClick({ activeLabel: AUG.endsAt });
-		onClick({ activeLabel: undefined });
-		onClick(null);
-		expect(onSelect).toHaveBeenCalledTimes(1);
-		expect(onSelect).toHaveBeenCalledWith(AUG.endsAt);
+		expect(barChartCalls.at(-1)!.onClick).toBeUndefined();
+		const [plan, overage] = barsDrawn();
+		plan.props.onClick({ payload: JUL });
+		overage.props.onClick({ payload: AUG });
+		plan.props.onClick({});
+		expect(onSelect.mock.calls).toEqual([[JUL.endsAt], [AUG.endsAt]]);
+	});
+
+	it('rounds only the top of each stack', () => {
+		render(<CycleCostChart cycles={[AUG, JUL]} onSelect={vi.fn()} />);
+		const [plan, overage] = barsDrawn();
+		expect(drawn(plan, JUL).radius).toEqual([3, 3, 0, 0]);
+		expect(drawn(plan, AUG).radius).toBe(0);
+		expect(drawn(overage, AUG).radius).toEqual([3, 3, 0, 0]);
 	});
 
 	it('fades an estimated cycle and says what faded means', () => {
 		render(<CycleCostChart cycles={[SEP, AUG]} onSelect={vi.fn()} />);
-		const bars = Children.toArray(barChartCalls.at(-1)!.children).filter(
-			(child): child is ReactElement<{ dataKey: string; shape: (props: unknown) => ReactElement }> =>
-				isValidElement(child) && child.type === Bar,
-		);
+		const bars = barsDrawn();
 		expect(bars.map((bar) => bar.props.dataKey)).toEqual(['planUsd', 'overageUsd']);
-		const opacity = (row: PastCycle) =>
-			(bars[0].props.shape({ payload: row, x: 0, y: 0, width: 10, height: 10 }).props as { fillOpacity: number })
-				.fillOpacity;
-		expect(opacity(SEP)).toBeLessThan(1);
-		expect(opacity(AUG)).toBe(1);
+		expect(drawn(bars[0], SEP).fillOpacity).toBeLessThan(1);
+		expect(drawn(bars[0], AUG).fillOpacity).toBe(1);
 		expect(screen.getByText('Faded bars are estimates.')).toBeTruthy();
 
 		cleanup();

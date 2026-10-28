@@ -311,17 +311,17 @@ describe('UsagePage', () => {
 	it('lists past cycles below the current one, even with no region running now, but not for a self-hosted cluster', () => {
 		mockUseClusterUsage.mockReturnValue({ data: usage(), isLoading: false });
 		render(<UsagePage />);
-		expect(screen.getByRole('region', { name: 'Past cycles' })).toBeTruthy();
+		expect(screen.getByRole('region', { name: 'Billing history' })).toBeTruthy();
 		cleanup();
 
 		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [] }), isLoading: false });
 		render(<UsagePage />);
-		expect(screen.getByRole('region', { name: 'Past cycles' })).toBeTruthy();
+		expect(screen.getByRole('region', { name: 'Billing history' })).toBeTruthy();
 		cleanup();
 
 		mockUseClusterUsage.mockReturnValue({ data: usage({ selfManaged: true, regions: [] }), isLoading: false });
 		render(<UsagePage />);
-		expect(screen.queryByRole('region', { name: 'Past cycles' })).toBeNull();
+		expect(screen.queryByRole('region', { name: 'Billing history' })).toBeNull();
 		expect(mockUseHistory).toHaveBeenCalledTimes(2);
 	});
 
