@@ -11,6 +11,7 @@ import {
 	supportsWaf,
 	WafOperationError,
 	WafRule,
+	WafRuleChangedError,
 	wafRuleDeferrals,
 } from './waf';
 
@@ -109,6 +110,13 @@ describe('wafRuleDeferrals', () => {
 		expect(wafRuleDeferrals(starterRule())).toEqual([]);
 	});
 
+	it('treats a missing or unknown action, which only malformed data carries, as a rule Harper skips', () => {
+		expect(wafRuleDeferrals(starterRule({ action: undefined }))).toEqual(['It has no action, so Harper skips it.']);
+		expect(wafRuleDeferrals(starterRule({ action: 'allow' as WafRule['action'] }))).toEqual([
+			'Its action "allow" is not one Harper knows, so Harper skips it.',
+		]);
+	});
+
 	it('names each stored feature the engine skips the whole rule for (harper-pro#828)', () => {
 		expect(
 			wafRuleDeferrals(starterRule({
@@ -202,9 +210,11 @@ describe('editWafRule', () => {
 		const { post, instanceClient } = client((body) =>
 			body.operation === 'list_waf_rules' ? [starterRule({ shadow: false })] : { message: 'ok' }
 		);
-		await expect(editWafRule({ instanceClient, loaded: starterRule(), patch: { priority: 5 } })).rejects.toThrow(
-			/changed since this page loaded it/,
-		);
+		const refusal = editWafRule({ instanceClient, loaded: starterRule(), patch: { priority: 5 } });
+		await expect(refusal).rejects.toThrow(/changed since this page loaded it/);
+		// Its own class, so the dialog can offer a reload, under the name Datadog withholds.
+		await expect(refusal).rejects.toBeInstanceOf(WafRuleChangedError);
+		await expect(refusal).rejects.toMatchObject({ name: 'WafOperationError' });
 		expect(post.mock.calls.map(([, body]) => body.operation)).toEqual(['list_waf_rules']);
 	});
 });

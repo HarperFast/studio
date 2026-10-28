@@ -103,6 +103,9 @@ export class WafOperationError extends Error {
 	}
 }
 
+/** The rule changed or vanished since the page loaded it. Keeps its parent's name, so Datadog still withholds it. */
+export class WafRuleChangedError extends WafOperationError {}
+
 /**
  * Harper's message from the response body, which quotes rule ids and patterns, rather than the Axios
  * noise. A failure without one (the network, a bug) stays as thrown, and so does a write that got no
@@ -170,13 +173,22 @@ export function isFabricStarterRule(rule: WafRule): boolean {
 
 const DEFERRED_ACTIONS: ReadonlySet<string> = new Set(['challenge', 'serve', 'drop']);
 
+const KNOWN_ACTIONS: ReadonlySet<string> = new Set(['block', 'log', 'score', ...DEFERRED_ACTIONS]);
+
 /**
- * Why the engine skips this rule entirely, although Harper accepted it: harper-pro `deferralReasons`,
- * plus the phase check that runs ahead of it. Any one reason removes the whole rule, and Harper still
- * answers "Added WAF rule" for it (harper-pro#828), so these must be said out loud.
+ * Why the engine skips this rule entirely: harper-pro `deferralReasons`, plus the phase and action
+ * checks its validator runs ahead of it. Harper answers "Added WAF rule" for a deferred feature
+ * (harper-pro#828), and only malformed or legacy data lacks a known action, so these must be said out loud.
  */
 export function wafRuleDeferrals(rule: WafRule): string[] {
 	const reasons: string[] = [];
+	if (rule.action === undefined || !KNOWN_ACTIONS.has(rule.action)) {
+		reasons.push(
+			rule.action === undefined
+				? 'It has no action, so Harper skips it.'
+				: `Its action "${String(rule.action)}" is not one Harper knows, so Harper skips it.`,
+		);
+	}
 	if (rule.phase !== undefined && rule.phase !== 'request') {
 		reasons.push('Request-body rules are not evaluated yet.');
 	}
@@ -254,10 +266,10 @@ interface WafRuleWriteArgs extends InstanceClientConfig {
 async function rereadUnchanged(instanceClient: InstanceClientConfig['instanceClient'], loaded: WafRule) {
 	const current = (await listWafRules({ instanceClient })).find((rule) => rule.id === loaded.id);
 	if (!current) {
-		throw new WafOperationError(`WAF rule ${loaded.id} no longer exists.`);
+		throw new WafRuleChangedError(`WAF rule ${loaded.id} no longer exists.`);
 	}
 	if (stableJson(comparable(current)) !== stableJson(comparable(loaded))) {
-		throw new WafOperationError(`WAF rule ${loaded.id} changed since this page loaded it. Review it and try again.`);
+		throw new WafRuleChangedError(`WAF rule ${loaded.id} changed since this page loaded it. Review it and try again.`);
 	}
 }
 

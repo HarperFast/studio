@@ -21,8 +21,8 @@ export interface WafRuleFormValues {
 	description: string;
 	enabled: boolean;
 	priority: string;
-	/** An enforced action, or the deferred one an existing rule already stores. */
-	action: WafAction;
+	/** An enforced action, the deferred one an existing rule stores, or empty for a stored rule that has none. */
+	action: WafAction | '';
 	blockStatus: string;
 	score: string;
 	shadow: boolean;
@@ -99,7 +99,7 @@ export function wafRuleFormValues(rule: WafRule): WafRuleFormValues {
 		description: typeof rule.description === 'string' ? rule.description : '',
 		enabled: rule.enabled !== false,
 		priority: numberText(rule.priority),
-		action: rule.action ?? 'block',
+		action: rule.action ?? '',
 		blockStatus: numberText(rule.blockStatus),
 		score: numberText(rule.score),
 		shadow: rule.shadow === true,
@@ -191,6 +191,10 @@ export function buildWafRule(
 		errors.priority = 'Priority must be a number.';
 	}
 
+	if (values.action === '') {
+		errors.action = 'Choose what the rule does when a request matches.';
+	}
+
 	const blockStatus = values.action === 'block' ? parseNumber(values.blockStatus) : null;
 	if (blockStatus !== null && !(Number.isInteger(blockStatus) && blockStatus >= 400 && blockStatus <= 599)) {
 		errors.blockStatus = 'Use a 4xx or 5xx status, such as 403.';
@@ -252,7 +256,7 @@ export function buildWafRule(
 		}
 		: null;
 
-	if (Object.keys(errors).length) {
+	if (Object.keys(errors).length || values.action === '') {
 		return { ok: false, errors };
 	}
 	return {

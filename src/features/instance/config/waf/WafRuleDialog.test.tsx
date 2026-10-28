@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { WafRuleDialog } from '@/features/instance/config/waf/WafRuleDialog';
-import { WafOperationError, type WafRule } from '@/integrations/api/instance/waf/waf';
+import { WafOperationError, type WafRule, WafRuleChangedError } from '@/integrations/api/instance/waf/waf';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -64,6 +64,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		type('ID', 'block-admin');
@@ -96,6 +97,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		type('ID', 'block-admin');
@@ -113,6 +115,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		type('ID', 'debug-header');
@@ -135,6 +138,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		expect(screen.getByText(/Invalid WAF rule: match\.path\.regex: invalid or unsupported regex/)).toBeTruthy();
@@ -147,6 +151,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		expect(screen.getByText(/Harper stores this rule but skips it: The challenge action is not enforced yet\./))
@@ -173,10 +178,77 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={onFailed}
+				onReload={vi.fn()}
+			/>,
+		);
+		type('Priority', '7');
+		await submit(/Save Rule/);
+		expect(onFailed).toHaveBeenCalledTimes(1);
+	});
+
+	it('offers to load the current rule after a stale-rule refusal, since retrying the same copy cannot work', () => {
+		const onReload = vi.fn();
+		edit.error = new WafRuleChangedError(
+			'WAF rule ja4-bots changed since this page loaded it. Review it and try again.',
+		);
+		render(
+			<WafRuleDialog
+				target={{ kind: 'edit', rule: JA4_RULE }}
+				onClose={vi.fn()}
+				onSaved={vi.fn()}
+				onFailed={vi.fn()}
+				onReload={onReload}
+			/>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		expect(onReload).toHaveBeenCalledWith('ja4-bots');
+	});
+
+	it('offers no reload for any other failure', () => {
+		edit.error = new WafOperationError('Invalid WAF rule: match must specify at least one condition');
+		render(
+			<WafRuleDialog
+				target={{ kind: 'edit', rule: JA4_RULE }}
+				onClose={vi.fn()}
+				onSaved={vi.fn()}
+				onFailed={vi.fn()}
+				onReload={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByRole('button', { name: 'Load the current rule' })).toBeNull();
+	});
+
+	it('closes without writing when nothing changed', async () => {
+		const onClose = vi.fn();
+		render(
+			<WafRuleDialog
+				target={{ kind: 'edit', rule: JA4_RULE }}
+				onClose={onClose}
+				onSaved={vi.fn()}
+				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		await submit(/Save Rule/);
-		expect(onFailed).toHaveBeenCalledTimes(1);
+		expect(edit.mutate).not.toHaveBeenCalled();
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows no action for a stored rule that has none, and asks for one before saving', async () => {
+		const { action: _, ...noAction } = JA4_RULE;
+		render(
+			<WafRuleDialog
+				target={{ kind: 'edit', rule: noAction }}
+				onClose={vi.fn()}
+				onSaved={vi.fn()}
+				onFailed={vi.fn()}
+				onReload={vi.fn()}
+			/>,
+		);
+		expect((screen.getByLabelText('When a request matches') as HTMLSelectElement).value).toBe('');
+		await submit(/Save Rule/);
+		expect(screen.getByText('Choose what the rule does when a request matches.')).toBeTruthy();
+		expect(edit.mutate).not.toHaveBeenCalled();
 	});
 
 	it('offers watch-only only for actions that can enforce', () => {
@@ -186,6 +258,7 @@ describe('WafRuleDialog', () => {
 				onClose={vi.fn()}
 				onSaved={vi.fn()}
 				onFailed={vi.fn()}
+				onReload={vi.fn()}
 			/>,
 		);
 		expect(screen.getByLabelText('Watch only')).toBeTruthy();

@@ -32,12 +32,14 @@ import {
 	WAF_STRING_OPS,
 	WafAction,
 	WafRule,
+	WafRuleChangedError,
 	wafRuleDeferrals,
 	WafStringOp,
 } from '@/integrations/api/instance/waf/waf';
 import { describeError } from '@/react-query/queryClient';
 import { PlusIcon, Save, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { ReactNode, useState } from 'react';
+import { toast } from 'sonner';
 
 const SELECT_CLASS = 'h-9 rounded-md border border-input bg-card px-3 text-sm';
 
@@ -55,12 +57,14 @@ export type WafRuleDialogTarget =
  * Adds or edits one rule. Mount it only while open, keyed per target, so a reopened dialog starts from
  * the rule rather than from an abandoned draft.
  */
-export function WafRuleDialog({ target, onClose, onSaved, onFailed }: {
+export function WafRuleDialog({ target, onClose, onSaved, onFailed, onReload }: {
 	target: WafRuleDialogTarget;
 	onClose: () => void;
 	onSaved: (id: string) => void;
 	/** The usual failure is that the rule changed or appeared meanwhile, so the list behind is stale. */
 	onFailed: () => void;
+	/** Reopens the edit on the rule as it is stored now: a refused stale edit can't succeed by retrying. */
+	onReload: (id: string) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const loaded = target.kind === 'edit' ? target.rule : undefined;
@@ -89,7 +93,13 @@ export function WafRuleDialog({ target, onClose, onSaved, onFailed }: {
 			return;
 		}
 		if (loaded) {
-			edit.mutate({ ...instanceParams, loaded, patch: wafRulePatch(loaded, built.fields) }, {
+			const patch = wafRulePatch(loaded, built.fields);
+			if (!Object.keys(patch).length) {
+				toast.info('No changes to save');
+				onClose();
+				return;
+			}
+			edit.mutate({ ...instanceParams, loaded, patch }, {
 				onSuccess: () => onSaved(loaded.id),
 				onError: onFailed,
 			});
@@ -99,8 +109,11 @@ export function WafRuleDialog({ target, onClose, onSaved, onFailed }: {
 		}
 	};
 
-	// A deferred action the rule already stores stays selectable, so saving other changes keeps it.
-	const actionChoices = ACTION_CHOICES.some((choice) => choice.value === values.action)
+	// A deferred action the rule already stores stays selectable, so saving other changes keeps it. A
+	// stored rule with no action shows none, rather than an action it doesn't have.
+	const actionChoices: Array<{ value: WafAction | ''; label: string }> = values.action === ''
+		? [{ value: '', label: 'Choose an action' }, ...ACTION_CHOICES]
+		: ACTION_CHOICES.some((choice) => choice.value === values.action)
 		? ACTION_CHOICES
 		: [...ACTION_CHOICES, { value: values.action, label: `${values.action} (not enforced)` }];
 	const watchable = values.action === 'block' || values.action === 'score';
@@ -252,7 +265,7 @@ export function WafRuleDialog({ target, onClose, onSaved, onFailed }: {
 					</Section>
 
 					<Section title="Action">
-						<Field id="waf-rule-action" label="When a request matches">
+						<Field id="waf-rule-action" label="When a request matches" error={errors.action}>
 							<select
 								id="waf-rule-action"
 								className={SELECT_CLASS}
@@ -343,7 +356,20 @@ export function WafRuleDialog({ target, onClose, onSaved, onFailed }: {
 					{mutation.error != null && (
 						<Alert variant="destructive">
 							<TriangleAlertIcon />
-							<AlertDescription>{describeError(mutation.error).message}</AlertDescription>
+							<AlertDescription>
+								{describeError(mutation.error).message}
+								{loaded && mutation.error instanceof WafRuleChangedError && (
+									<Button
+										type="button"
+										size="sm"
+										variant="defaultOutline"
+										className="mt-2 w-fit"
+										onClick={() => onReload(loaded.id)}
+									>
+										Load the current rule
+									</Button>
+								)}
+							</AlertDescription>
 						</Alert>
 					)}
 

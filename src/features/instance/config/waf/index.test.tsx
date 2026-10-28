@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { ConfigWafIndex } from '@/features/instance/config/waf';
-import type { WafRule, WafRuleList } from '@/integrations/api/instance/waf/waf';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { type WafRule, WafRuleChangedError, type WafRuleList } from '@/integrations/api/instance/waf/waf';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { state, toggleRule, dropRule, setMode, refetch, queryOptionsSeen } = vi.hoisted(() => ({
@@ -12,6 +12,7 @@ const { state, toggleRule, dropRule, setMode, refetch, queryOptionsSeen } = vi.h
 		signedIn: true,
 		version: '5.3.4' as string | undefined,
 		list: undefined as WafRuleList | undefined,
+		editError: null as Error | null,
 		configuration: { waf: {} } as unknown,
 		entityId: 'clu-1',
 	},
@@ -21,7 +22,7 @@ const { state, toggleRule, dropRule, setMode, refetch, queryOptionsSeen } = vi.h
 	}),
 	dropRule: vi.fn(),
 	setMode: vi.fn(),
-	refetch: vi.fn(async () => undefined),
+	refetch: vi.fn(async () => ({ data: state.list })),
 	queryOptionsSeen: [] as Array<{ queryKey: readonly unknown[]; enabled?: boolean }>,
 }));
 
@@ -49,9 +50,9 @@ vi.mock('@/integrations/api/instance/waf/waf', async (importOriginal) => ({
 	useDropWafRule: () => ({ mutate: dropRule, isPending: false }),
 	useSetWafMode: () => ({ mutate: setMode, isPending: false }),
 	useAddWafRule: () => ({ mutate: vi.fn(), isPending: false, error: null }),
-	useEditWafRule: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+	useEditWafRule: () => ({ mutate: vi.fn(), isPending: false, error: state.editError }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), loading: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), loading: vi.fn(), info: vi.fn() } }));
 
 beforeAll(() => {
 	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
@@ -99,6 +100,7 @@ beforeEach(() => {
 	state.list = { available: true, rules: [] };
 	state.configuration = { waf: {} };
 	state.entityId = 'clu-1';
+	state.editError = null;
 });
 
 afterEach(() => {
@@ -177,6 +179,43 @@ describe('ConfigWafIndex', () => {
 		const rule = card('fabric-baseline-v1-trace-track-methods');
 		expect(rule.getByText('Blocking')).toBeTruthy();
 		expect(rule.getByRole('button', { name: 'Watch only' })).toBeTruthy();
+	});
+
+	it('treats a rule with no action as one Harper skips, not as a log rule', () => {
+		state.list = { available: true, rules: [starterRule({ id: 'no-action', action: undefined, provenance: null })] };
+		render(<ConfigWafIndex />);
+		const rule = card('no-action');
+		expect(rule.getByText('Not enforced')).toBeTruthy();
+		expect(rule.getByText(/It has no action, so Harper skips it\./)).toBeTruthy();
+		expect(rule.queryByText('Logs only')).toBeNull();
+	});
+
+	it('reloads a rule that changed meanwhile into the open editor', async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x changed since this page loaded it. Review it and try again.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+		const description = () => (screen.getByLabelText('Description') as HTMLInputElement).value;
+		expect(description()).toBe('Observe HTTP TRACE and TRACK requests');
+
+		state.list = { available: true, rules: [starterRule({ description: 'Changed elsewhere' })] };
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		});
+		await waitFor(() => expect(description()).toBe('Changed elsewhere'));
+	});
+
+	it('closes the editor when the rule it was reloading is gone', async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x no longer exists.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+
+		state.list = { available: true, rules: [] };
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
 	it('says a rule Harper skips is not enforced, and offers no watch-only switch for it', () => {

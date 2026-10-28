@@ -41,6 +41,7 @@ import {
 	WafRule,
 	wafRuleDeferrals,
 } from '@/integrations/api/instance/waf/waf';
+import { stableJson } from '@/lib/stableJson';
 import { useQuery } from '@tanstack/react-query';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { ReactNode, useMemo, useState } from 'react';
@@ -118,6 +119,15 @@ function WafPage() {
 			onSuccess: () => toast.success(success),
 			onSettled: () => void refetch(),
 		});
+	};
+
+	const reloadDialogRule = async (id: string) => {
+		const { data: current } = await refetch();
+		const rule = current?.available ? current.rules.find((candidate) => candidate.id === id) : undefined;
+		if (!rule) {
+			toast.info(`Firewall rule '${id}' no longer exists`);
+		}
+		setDialogTarget(rule ? { kind: 'edit', rule } : undefined);
 	};
 
 	const onDropConfirmed = () => {
@@ -202,10 +212,12 @@ function WafPage() {
 
 			{dialogTarget && (
 				<WafRuleDialog
-					key={dialogTarget.kind === 'edit' ? `edit:${dialogTarget.rule.id}` : 'add'}
+					// Keyed by the rule's content, so reloading a changed rule starts the form over from it.
+					key={dialogTarget.kind === 'edit' ? `edit:${stableJson(dialogTarget.rule)}` : 'add'}
 					target={dialogTarget}
 					onClose={() => setDialogTarget(undefined)}
 					onFailed={() => void refetch()}
+					onReload={(id) => void reloadDialogRule(id)}
 					onSaved={(id) => {
 						toast.success(dialogTarget.kind === 'edit' ? `Saved firewall rule '${id}'` : `Added firewall rule '${id}'`);
 						setDialogTarget(undefined);
