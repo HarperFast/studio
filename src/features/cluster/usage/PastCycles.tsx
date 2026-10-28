@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import { PastRegionCost } from '@/features/cluster/components/CycleCost';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import { CollapsibleCard, HeaderText } from '@/features/cluster/usage/CollapsibleCard';
+import { CycleCostChart, showsCostChart } from '@/features/cluster/usage/CycleCostChart';
+import { cycleRange } from '@/features/cluster/usage/cycleRange';
 import { formatCycleDate } from '@/integrations/api/cluster/getClusterUsage';
 import {
 	type PastCycle,
@@ -10,11 +12,28 @@ import {
 } from '@/integrations/api/cluster/getClusterUsageHistory';
 import { toUSD } from '@/lib/toUSD';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+
+const cycleElementId = (endsAt: string) => `past-cycle-${endsAt}`;
 
 export function PastCycles({ clusterId }: { clusterId: string }) {
 	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } =
 		useClusterUsageHistory(clusterId);
 	const cycles = data?.pages.flatMap((page) => page.cycles) ?? [];
+	const [openCycles, setOpenCycles] = useState<ReadonlySet<string>>(() => new Set());
+	const setCycleOpen = (endsAt: string, open: boolean) =>
+		setOpenCycles((current) => {
+			const next = new Set(current);
+			if (open) { next.add(endsAt); }
+			else { next.delete(endsAt); }
+			return next;
+		});
+	const selectCycle = (endsAt: string) => {
+		setCycleOpen(endsAt, true);
+		requestAnimationFrame(() =>
+			document.getElementById(cycleElementId(endsAt))?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+		);
+	};
 
 	return (
 		<section aria-label="Past cycles" className="mt-10">
@@ -32,7 +51,15 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 						{cycles.length === 0 && !hasNextPage && (
 							<p className="text-sm text-muted-foreground">No billing cycle has ended yet.</p>
 						)}
-						{cycles.map((cycle) => <PastCycleCard key={cycle.endsAt} cycle={cycle} />)}
+						{showsCostChart(cycles) && <CycleCostChart cycles={cycles} onSelect={selectCycle} />}
+						{cycles.map((cycle) => (
+							<PastCycleCard
+								key={cycle.endsAt}
+								cycle={cycle}
+								open={openCycles.has(cycle.endsAt)}
+								onOpenChange={(open) => setCycleOpen(cycle.endsAt, open)}
+							/>
+						))}
 						{hasNextPage && (
 							<Button
 								type="button"
@@ -53,14 +80,21 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 	);
 }
 
-function PastCycleCard({ cycle }: { cycle: PastCycle }) {
+function PastCycleCard(
+	{ cycle, open, onOpenChange }: { cycle: PastCycle; open: boolean; onOpenChange: (open: boolean) => void },
+) {
 	const meta = [
 		cycle.cycleUsd > 0 ? `${cycle.estimated ? '≈ ' : ''}${toUSD(cycle.cycleUsd)} in charges` : null,
 		cycle.overageUsd > 0 ? `${toUSD(cycle.overageUsd)} of it overage` : null,
 		cycle.regions.map((region) => region.region ?? 'Region').join(', '),
 	].filter(Boolean).join(' · ');
 	return (
-		<CollapsibleCard defaultOpen={false} header={<HeaderText title={cycleRange(cycle)} meta={meta} />}>
+		<CollapsibleCard
+			id={cycleElementId(cycle.endsAt)}
+			open={open}
+			onOpenChange={onOpenChange}
+			header={<HeaderText title={cycleRange(cycle)} meta={meta} />}
+		>
 			<div className="space-y-6">
 				{cycle.regions.map((region) => <PastRegion key={region.region ?? region.regionIds.join()} region={region} />)}
 			</div>
@@ -90,14 +124,4 @@ function PastRegion({ region }: { region: PastCycleRegion }) {
 			<PastRegionCost region={region} />
 		</div>
 	);
-}
-
-const CYCLE_DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-
-function cycleRange({ startsAt, endsAt }: PastCycle): string {
-	const end = new Date(endsAt);
-	if (Number.isNaN(end.getTime())) { return 'Billing cycle'; }
-	const start = startsAt ? new Date(startsAt) : null;
-	if (!start || Number.isNaN(start.getTime()) || start >= end) { return `Ended ${CYCLE_DATE.format(end)}`; }
-	return CYCLE_DATE.formatRange(start, end);
 }

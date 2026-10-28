@@ -2,19 +2,28 @@ import { ChevronRight } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
 export function CollapsibleCard(
-	{ header, aside, defaultOpen = true, children }: {
+	{ id, header, aside, defaultOpen = true, open: controlledOpen, onOpenChange, children }: {
+		id?: string;
 		header: ReactNode;
 		aside?: ReactNode;
 		defaultOpen?: boolean;
+		/** Pass with `onOpenChange` to have the parent own the open state. */
+		open?: boolean;
+		onOpenChange?: (open: boolean) => void;
 		children: ReactNode;
 	},
 ) {
-	const [open, setOpen] = useState(defaultOpen);
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+	const open = controlledOpen ?? uncontrolledOpen;
+	const toggle = () => {
+		if (controlledOpen === undefined) { setUncontrolledOpen(!open); }
+		onOpenChange?.(!open);
+	};
 	return (
-		<section className="overflow-hidden rounded-xl border border-border">
+		<section id={id} className="scroll-mt-4 overflow-hidden rounded-xl border border-border">
 			<button
 				type="button"
-				onClick={() => setOpen((o) => !o)}
+				onClick={toggle}
 				aria-expanded={open}
 				className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
 			>
