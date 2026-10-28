@@ -3,7 +3,11 @@
  */
 import { PastCycles } from '@/features/cluster/usage/PastCycles';
 import type { UsageValue } from '@/integrations/api/cluster/getClusterUsage';
-import type { PastCycle, PastCycleRegion } from '@/integrations/api/cluster/getClusterUsageHistory';
+import type {
+	ClusterUsageHistory,
+	PastCycle,
+	PastCycleRegion,
+} from '@/integrations/api/cluster/getClusterUsageHistory';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,9 +82,11 @@ const cycle = (over: Partial<PastCycle> = {}, regions = [region()]): PastCycle =
 	...over,
 });
 
-function history(cycles: PastCycle[], over: Record<string, unknown> = {}) {
+function history(cycles: PastCycle[], over: Record<string, unknown> = {}, page: Partial<ClusterUsageHistory> = {}) {
 	mockUseHistory.mockReturnValue({
-		data: { pages: [{ clusterId: 'clu-1', selfManaged: false, cycles, nextBefore: null, unplacedBlockCount: 0 }] },
+		data: {
+			pages: [{ clusterId: 'clu-1', selfManaged: false, cycles, nextBefore: null, unplacedBlockCount: 0, ...page }],
+		},
 		isLoading: false,
 		hasNextPage: false,
 		isFetchingNextPage: false,
@@ -246,6 +252,32 @@ describe('PastCycles', () => {
 		expect(august.getAttribute('aria-expanded')).toBe('true');
 	});
 
+	it('heads the section Billing history, with what it shows', () => {
+		history([cycle()]);
+		render(<PastCycles clusterId="clu-1" />);
+		const section = screen.getByRole('region', { name: 'Billing history' });
+		expect(within(section).getByRole('heading', { name: 'Billing history' })).toBeTruthy();
+		expect(within(section).getByText('Plan charges and overages by cycle')).toBeTruthy();
+	});
+
+	it('says when some usage could not be matched to a cycle, instead of reading as complete or empty', () => {
+		const NOTE = /Some earlier usage couldn’t be matched to a billing cycle/;
+		history([cycle()], {}, { unplacedBlockCount: 2 });
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByText(NOTE)).toBeTruthy();
+
+		cleanup();
+		history([], {}, { unplacedBlockCount: 3 });
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.getByText(NOTE)).toBeTruthy();
+		expect(screen.queryByText('No billing cycle has ended yet.')).toBeNull();
+
+		cleanup();
+		history([cycle()]);
+		render(<PastCycles clusterId="clu-1" />);
+		expect(screen.queryByText(NOTE)).toBeNull();
+	});
+
 	it('says so when no cycle has ended, and when history could not load', () => {
 		history([]);
 		render(<PastCycles clusterId="clu-1" />);
@@ -254,6 +286,6 @@ describe('PastCycles', () => {
 		cleanup();
 		mockUseHistory.mockReturnValue({ data: undefined, isLoading: false, hasNextPage: false });
 		render(<PastCycles clusterId="clu-1" />);
-		expect(screen.getByText(/Couldn’t load past cycles/)).toBeTruthy();
+		expect(screen.getByText(/Couldn’t load billing history/)).toBeTruthy();
 	});
 });

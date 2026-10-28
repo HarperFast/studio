@@ -20,6 +20,7 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } =
 		useClusterUsageHistory(clusterId);
 	const cycles = data?.pages.flatMap((page) => page.cycles) ?? [];
+	const unplacedBlockCount = data?.pages[0]?.unplacedBlockCount ?? 0;
 	const [openCycles, setOpenCycles] = useState<ReadonlySet<string>>(() => new Set());
 	const setCycleOpen = (endsAt: string, open: boolean) =>
 		setOpenCycles((current) => {
@@ -36,8 +37,9 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 	};
 
 	return (
-		<section aria-label="Past cycles" className="mt-10">
-			<h2 className="text-lg font-light text-foreground">Past cycles</h2>
+		<section aria-label="Billing history" className="mt-10">
+			<h2 className="text-lg font-light text-foreground">Billing history</h2>
+			<p className="mt-0.5 text-sm text-muted-foreground">Plan charges and overages by cycle</p>
 			{isLoading
 				? (
 					<div className="flex justify-center py-8 text-muted-foreground">
@@ -45,10 +47,10 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 					</div>
 				)
 				: !data
-				? <p className="mt-2 text-sm text-destructive">Couldn&rsquo;t load past cycles — refresh to try again.</p>
+				? <p className="mt-2 text-sm text-destructive">Couldn&rsquo;t load billing history — refresh to try again.</p>
 				: (
 					<div className="mt-3 space-y-3">
-						{cycles.length === 0 && !hasNextPage && (
+						{cycles.length === 0 && !hasNextPage && unplacedBlockCount === 0 && (
 							<p className="text-sm text-muted-foreground">No billing cycle has ended yet.</p>
 						)}
 						{showsCostChart(cycles) && <CycleCostChart cycles={cycles} onSelect={selectCycle} />}
@@ -73,6 +75,11 @@ export function PastCycles({ clusterId }: { clusterId: string }) {
 						)}
 						{isFetchNextPageError && !isFetchingNextPage && (
 							<p className="text-sm text-destructive">Couldn&rsquo;t load older cycles — try again.</p>
+						)}
+						{unplacedBlockCount > 0 && (
+							<p className="text-sm text-muted-foreground">
+								Some earlier usage couldn&rsquo;t be matched to a billing cycle, so it isn&rsquo;t shown here.
+							</p>
 						)}
 					</div>
 				)}
