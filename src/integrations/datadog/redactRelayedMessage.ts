@@ -21,14 +21,16 @@
  *
  * The same relay covers `ImportJobError` for a failed load job, whose text quotes the rejected rows;
  * `DeployRolloutError` for a rolling deploy's failed restart job, whose text quotes each node's error;
- * and `SecretsOperationError` for a failed secrets operation, whose text quotes the secret's and
- * component's names (harper `components/secretOperations.ts`).
+ * `SecretsOperationError` for a failed secrets operation, whose text quotes the secret's and
+ * component's names (harper `components/secretOperations.ts`); and `WafOperationError` for a failed
+ * firewall operation, whose text quotes the rule's id and its patterns (harper-pro `waf/rules.ts`).
  */
 const RELAYED_ERROR_TYPES = new Set([
 	'SSEOperationError',
 	'ImportJobError',
 	'DeployRolloutError',
 	'SecretsOperationError',
+	'WafOperationError',
 ]);
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';

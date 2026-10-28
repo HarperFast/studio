@@ -9,6 +9,7 @@ import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
+import { ConfigWafIndex } from '@/features/instance/config/waf';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
 import { createRoute } from '@tanstack/react-router';
@@ -60,6 +61,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: 'domains',
 		head: () => ({ meta: [{ title: 'Instance Domains — Harper Fabric' }] }),
 		component: ConfigDomainsIndex,
+	});
+
+	const instanceConfigWafRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'firewall',
+		head: () => ({ meta: [{ title: 'Firewall — Harper Fabric' }] }),
+		component: ConfigWafIndex,
 	});
 
 	const instanceConfigSSHKeysRoute = createRoute({
@@ -133,6 +141,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		instanceConfigUserRoute,
 
 		instanceConfigDomainsRoute,
+
+		instanceConfigWafRoute,
 
 		instanceConfigDeploymentsRoute,
 		instanceConfigDeploymentRoute,
