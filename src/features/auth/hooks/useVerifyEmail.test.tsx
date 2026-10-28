@@ -203,7 +203,7 @@ describe('useVerifyEmailMutation', () => {
 	it.each([
 		['an invalid or expired token', 401, { title: 'Invalid or expired verify token' }],
 		['an account that cannot be verified', 403, { title: 'Account cannot be verified' }],
-	])('does not retry %s, and toasts it as before', async (_case, status, data) => {
+	])('does not retry %s, and toasts and reports it once, as before', async (_case, status, data) => {
 		const rejection = axiosError(status, data);
 		put.mockRejectedValue(rejection);
 
@@ -213,5 +213,8 @@ describe('useVerifyEmailMutation', () => {
 		expect(put).toHaveBeenCalledTimes(1);
 		await expect(settled).resolves.toBe(rejection);
 		expect(toast.error).toHaveBeenCalledTimes(1);
+		expect(toast.error).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ description: data.title }));
+		expect(consoleError).toHaveBeenCalledTimes(1);
+		expect(consoleError).toHaveBeenCalledWith(rejection);
 	});
 });

@@ -60,7 +60,7 @@ function useVerifyEmailMutation() {
 		...toastsAuthFailures,
 		retry: (failureCount, error) => failureCount < UNAVAILABLE_RETRIES && isVerifyEmailUnavailable(error),
 		retryDelay: (failureCount) => Math.min(UNAVAILABLE_RETRY_BASE_MS * 2 ** failureCount, UNAVAILABLE_RETRY_MAX_MS),
-		// The page explains these itself; the toast would tell the person to check whether it took effect.
+		// The page explains these itself and offers Try again, so a toast would say it twice.
 		onError: (error) => {
 			if (isVerifyEmailUnconfirmed(error)) {
 				reportAuthFailure(error);

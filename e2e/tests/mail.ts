@@ -71,7 +71,7 @@ export async function waitForVerificationEmail(
 	return { subject: message.subject ?? '', link };
 }
 
-// central-manager's `sendVerificationSetPasswordEmail`.
+// The set-password email central-manager sends after a verify that replaced the sign-up password.
 const SET_PASSWORD_SUBJECT = 'Set your Fabric password';
 
 /**
