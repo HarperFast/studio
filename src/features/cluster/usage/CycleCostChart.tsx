@@ -43,7 +43,7 @@ export function describeCostChart(cycles: PastCycle[]): string {
 
 // Faded, not hidden: an estimate is still the best figure there is for that cycle.
 const costShape = (props: BarShapeProps) => (
-	<Rectangle {...props} fillOpacity={(props.payload as PastCycle | undefined)?.estimated ? 0.4 : 1} />
+	<Rectangle {...props} fillOpacity={(props.payload as PastCycle | undefined)?.estimated ? 0.5 : 1} />
 );
 
 export function CycleCostTooltip(
@@ -88,6 +88,7 @@ export function CycleCostChart(
 					<ResponsiveContainer width="100%" height="100%">
 						<BarChart
 							data={rows}
+							maxBarSize={32}
 							style={{ cursor: 'pointer' }}
 							onClick={(state) => {
 								if (typeof state?.activeLabel === 'string') { onSelect(state.activeLabel); }
@@ -111,7 +112,7 @@ export function CycleCostChart(
 								name="Plan"
 								stackId="cost"
 								fill="currentColor"
-								className="text-primary dark:text-violet-400"
+								className="text-primary/45 dark:text-violet-400/45"
 								shape={costShape}
 								isAnimationActive={false}
 							/>
@@ -130,7 +131,7 @@ export function CycleCostChart(
 			</div>
 			<figcaption className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
 				<span className="inline-flex items-center gap-1.5">
-					<span aria-hidden="true" className="size-2.5 rounded-sm bg-primary dark:bg-violet-400" />
+					<span aria-hidden="true" className="size-2.5 rounded-sm bg-primary/45 dark:bg-violet-400/45" />
 					Plan
 				</span>
 				<span className="inline-flex items-center gap-1.5">
