@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren, ReactNode, StrictMode } from 'react';
@@ -25,6 +25,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), dismiss: v
 // The app's own routing, so a failure that also reached the global toast would show up here.
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
+import { OFFLINE_MESSAGE } from './failFastOffline';
 import { VerifyEmail } from './VerifyEmail';
 
 const UNCONFIRMED = /couldn't confirm your email was verified\. Your link still works/;
@@ -46,6 +47,14 @@ function unansweredError(code: string): AxiosError {
 	return { isAxiosError: true, code, message: 'Network Error', config: verifyRequest } as AxiosError;
 }
 
+// `failFastOffline` reads a request to a loopback host as reachable offline, and jsdom's page is on localhost.
+const offlineRejection = {
+	isAxiosError: true,
+	code: AxiosError.ERR_NETWORK,
+	message: 'Network Error',
+	config: { ...verifyRequest, baseURL: 'https://central-manager.example.com/' },
+} as AxiosError;
+
 function answer(outcome?: string) {
 	return { data: { userId: 'u1', email: 'ada@example.com', ...(outcome === undefined ? {} : { outcome }) } };
 }
@@ -60,7 +69,7 @@ function page(): ReactNode {
 	);
 }
 
-function verifiedSignInLinks() {
+function signInLinks() {
 	return {
 		signIn: screen.getByRole('link', { name: 'Back to sign in' }).getAttribute('href'),
 		forgotPassword: screen.getByRole('link', { name: 'Forgot password?' }).getAttribute('href'),
@@ -118,7 +127,7 @@ describe('VerifyEmail with a token', () => {
 		expect(status).toMatch(/If we emailed you a link to set your password, use it before signing in\./);
 		expect(status).toMatch(/use Forgot Password/);
 		expect(status).not.toMatch(/successfully|password (?:was|has been) (?:set|saved)/i);
-		expect(verifiedSignInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
 	});
@@ -131,7 +140,7 @@ describe('VerifyEmail with a token', () => {
 		expect(screen.getByText(/the password you chose when signing up has been replaced/)).toBeTruthy();
 		expect(screen.getByText('ada@example.com').tagName).toBe('STRONG');
 		expect(screen.getByText('Check your inbox to set your password.')).toBeTruthy();
-		expect(verifiedSignInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
 	});
@@ -143,7 +152,7 @@ describe('VerifyEmail with a token', () => {
 		expect(await screen.findByText('Set a new password to sign in.')).toBeTruthy();
 		expect(screen.getByText(/couldn't send you a\s+link to set a new one\. Use Forgot Password to get one\./))
 			.toBeTruthy();
-		expect(verifiedSignInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
 	});
@@ -156,7 +165,7 @@ describe('VerifyEmail with a token', () => {
 		expect(screen.getByText("If your password doesn't work when you sign in, use Forgot Password to set a new one."))
 			.toBeTruthy();
 		expect(screen.queryByText(/has been replaced/)).toBeNull();
-		expect(verifiedSignInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
@@ -323,10 +332,51 @@ describe('VerifyEmail with a token', () => {
 
 			expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
 			expect(screen.getByRole('alert').textContent).toMatch(UNCONFIRMED);
+			expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
 			expect(put).toHaveBeenCalledTimes(1);
 			expect(toast.error).not.toHaveBeenCalled();
 		},
 	);
+
+	describe('sent while offline', () => {
+		beforeEach(() => {
+			vi.spyOn(console, 'debug').mockImplementation(() => {});
+			onlineManager.setOnline(false);
+		});
+
+		afterEach(() => {
+			onlineManager.setOnline(true);
+		});
+
+		it('says so and keeps the link, then resubmits the same token on Try again once back online', async () => {
+			put.mockRejectedValueOnce(offlineRejection).mockResolvedValueOnce(answer('reset_email_sent'));
+			render(page());
+
+			expect((await screen.findByRole('alert')).textContent).toBe(OFFLINE_MESSAGE);
+			expect(screen.queryByRole('button', { name: 'Send Verification Email' })).toBeNull();
+			expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+			expect(toast.error).not.toHaveBeenCalled();
+			// Being offline is not a Studio failure: `console.error` would file it in RUM.
+			expect(console.error).not.toHaveBeenCalled();
+
+			onlineManager.setOnline(true);
+			fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+			expect(await screen.findByText('Check your inbox to set your password.')).toBeTruthy();
+			expect(put).toHaveBeenCalledTimes(2);
+			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token' });
+		});
+
+		it('says it is offline again for a retry that is still offline', async () => {
+			put.mockRejectedValue(offlineRejection);
+			render(page());
+			fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+			await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+			expect((await screen.findByRole('alert')).textContent).toBe(OFFLINE_MESSAGE);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+	});
 
 	it('ignores a late success for a token the route has since dropped', async () => {
 		let resolve!: (value: unknown) => void;

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
@@ -15,6 +15,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 // The app's own routing, so a failure that also reached the global toast would show up here.
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
+import { OfflineSubmitError } from '../failFastOffline';
 import { isVerifyEmailUnavailable, isVerifyEmailUnconfirmed, useVerifyEmailMutation } from './useVerifyEmail';
 
 // The shape axios rejects with: `isUnansweredWrite` needs the request's `config`.
@@ -65,6 +66,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	onlineManager.setOnline(true);
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.clearAllMocks();
@@ -93,6 +95,10 @@ describe('isVerifyEmailUnconfirmed', () => {
 
 	it.each([AxiosError.ERR_NETWORK, AxiosError.ECONNABORTED, AxiosError.ETIMEDOUT])('matches %s', (code) => {
 		expect(isVerifyEmailUnconfirmed(unansweredError(code))).toBe(true);
+	});
+
+	it('matches a verify sent while offline', () => {
+		expect(isVerifyEmailUnconfirmed(new OfflineSubmitError(unansweredError(AxiosError.ERR_NETWORK)))).toBe(true);
 	});
 
 	it.each([400, 401, 403, 500])('does not match a %i, which is a verdict', (status) => {
@@ -172,6 +178,26 @@ describe('useVerifyEmailMutation', () => {
 		await expect(settled).resolves.toBe(rejection);
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(consoleError).toHaveBeenCalledWith(rejection);
+	});
+
+	it('does not retry a verify sent while offline, and leaves it to the page with nothing for RUM', async () => {
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		// A loopback host stays reachable offline, and jsdom's page is on localhost.
+		const networkError = {
+			...unansweredError(AxiosError.ERR_NETWORK),
+			config: { ...verifyRequest, baseURL: 'https://central-manager.example.com/' },
+		} as AxiosError;
+		put.mockRejectedValue(networkError);
+		onlineManager.setOnline(false);
+
+		const settled = startVerification();
+		await advance(60_000);
+
+		expect(put).toHaveBeenCalledTimes(1);
+		await expect(settled).resolves.toBeInstanceOf(OfflineSubmitError);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
+		expect(consoleDebug).toHaveBeenCalledWith('Auth request failed offline', expect.any(OfflineSubmitError));
 	});
 
 	it.each([

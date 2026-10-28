@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { AuthHeading } from './components/AuthHeading';
 import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
+import { OFFLINE_MESSAGE, OfflineSubmitError } from './failFastOffline';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 import { isVerifyEmailUnconfirmed, useVerifyEmailMutation } from './hooks/useVerifyEmail';
 
@@ -152,26 +153,33 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 	}
 }
 
-function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined }) {
+function SignInLinks() {
 	return (
-		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
-			<VerifiedCopy {...props} />
-			<div className="auth-links">
-				<Link className="text-sm" to="/sign-in">Back to sign in</Link>
-				<Link className="text-sm" to="/forgot-password">Forgot password?</Link>
-			</div>
+		<div className="auth-links">
+			<Link className="text-sm" to="/sign-in">Back to sign in</Link>
+			<Link className="text-sm" to="/forgot-password">Forgot password?</Link>
 		</div>
 	);
 }
 
-function VerificationUnconfirmed({ onRetry }: { onRetry: () => void }) {
+function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined }) {
+	return (
+		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
+			<VerifiedCopy {...props} />
+			<SignInLinks />
+		</div>
+	);
+}
+
+function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRetry: () => void }) {
 	return (
 		<div className="auth-form flex flex-col gap-4">
 			<AuthHeading icon={MailWarning} title="Verify Email" />
-			<SubmitErrorMessage message={VERIFICATION_UNCONFIRMED_MESSAGE} />
+			<SubmitErrorMessage message={offline ? OFFLINE_MESSAGE : VERIFICATION_UNCONFIRMED_MESSAGE} />
 			<Button type="button" variant="submit" className="sign-in-submit" onClick={onRetry}>
 				Try again
 			</Button>
+			<SignInLinks />
 		</div>
 	);
 }
@@ -228,7 +236,12 @@ export function VerifyEmail() {
 			return <VerifiedOutcome outcome={data?.outcome} email={data?.email} />;
 		}
 		if (isVerifyEmailUnconfirmed(error)) {
-			return <VerificationUnconfirmed onRetry={() => submitEmailToken(token)} />;
+			return (
+				<VerificationUnconfirmed
+					offline={error instanceof OfflineSubmitError}
+					onRetry={() => submitEmailToken(token)}
+				/>
+			);
 		}
 	}
 

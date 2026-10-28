@@ -2,7 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { useMutation } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { failFastOffline, reportAuthFailure, toastsAuthFailures } from '../failFastOffline';
+import { failFastOffline, OfflineSubmitError, reportAuthFailure, toastsAuthFailures } from '../failFastOffline';
 
 type VerifyEmailToken = {
 	token: string;
@@ -46,12 +46,12 @@ function isVerifyEmailUnavailable(error: unknown): boolean {
 }
 
 /**
- * A verify whose outcome is unknown: that 503, a gateway's 502 or 504, or no answer at all. Repeating it
- * is safe, since one that landed answers `already_verified`, so the page offers Try again with the same
- * link instead of the new-link form.
+ * A verify that didn't confirm the email: one sent while offline, or one whose outcome is unknown (that
+ * 503, a gateway's 502 or 504, or no answer at all). Repeating it is safe, since one that landed answers
+ * `already_verified`, so the page offers Try again with the same link instead of the new-link form.
  */
 function isVerifyEmailUnconfirmed(error: unknown): boolean {
-	return isUnansweredWrite(error);
+	return error instanceof OfflineSubmitError || isUnansweredWrite(error);
 }
 
 function useVerifyEmailMutation() {
