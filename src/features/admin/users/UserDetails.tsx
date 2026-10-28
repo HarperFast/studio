@@ -2,6 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DeactivateDialog } from '@/features/admin/users/components/Deactivation';
 import { EmptyState } from '@/features/admin/users/components/EmptyState';
 import { OrganizationCard } from '@/features/admin/users/components/OrganizationCard';
+import { ReactivateDialog } from '@/features/admin/users/components/Reactivation';
 import { UserProfileCard } from '@/features/admin/users/components/UserProfileCard';
 import { AdminUser, userDetailsQueryOptions } from '@/features/admin/users/userAdminApi';
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ export function UserDetailsPage() {
 function UserDetailsView({ userId }: { userId: string }) {
 	const { data: user, isPending, isError, error } = useQuery(userDetailsQueryOptions(userId));
 	const [deactivating, setDeactivating] = useState<AdminUser | null>(null);
+	const [reactivating, setReactivating] = useState<AdminUser | null>(null);
 
 	return (
 		<>
@@ -27,7 +29,11 @@ function UserDetailsView({ userId }: { userId: string }) {
 				? (
 					<>
 						{isError && <Callout>Could not refresh this account; showing the last one loaded.</Callout>}
-						<UserDetails user={user} onDeactivate={() => setDeactivating(user)} />
+						<UserDetails
+							user={user}
+							onDeactivate={() => setDeactivating(user)}
+							onReactivate={() => setReactivating(user)}
+						/>
 					</>
 				)
 				: isError
@@ -39,14 +45,19 @@ function UserDetailsView({ userId }: { userId: string }) {
 				)}
 
 			{deactivating && <DeactivateDialog user={deactivating} onClose={() => setDeactivating(null)} />}
+			{reactivating && <ReactivateDialog user={reactivating} onClose={() => setReactivating(null)} />}
 		</>
 	);
 }
 
-function UserDetails({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
+function UserDetails({ user, onDeactivate, onReactivate }: {
+	user: AdminUser;
+	onDeactivate: () => void;
+	onReactivate: () => void;
+}) {
 	return (
 		<div className="space-y-8">
-			<UserProfileCard user={user} onDeactivate={onDeactivate} />
+			<UserProfileCard user={user} onDeactivate={onDeactivate} onReactivate={onReactivate} />
 
 			<section>
 				<h2 className="mb-3 text-lg font-light">Organizations</h2>

@@ -83,7 +83,11 @@ beforeEach(() => {
 		if (url.endsWith('?details=true')) { throw notFound(); }
 		throw new Error(`unexpected GET ${url}`);
 	});
-	patch.mockImplementation(async () => {
+	patch.mockImplementation(async (_url: string, body: { status: string }) => {
+		if (body.status === 'ACTIVE') {
+			user = { ...user, status: 'ACTIVE' };
+			return { data: '' };
+		}
 		user = { ...user, status: 'DEACTIVATED', organizations: [user.organizations[0]] };
 		return {
 			data: {
@@ -147,7 +151,7 @@ async function openSettings() {
 	await act(async () => {
 		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 	});
-	return within(screen.getByRole('menu')).getByRole('menuitem');
+	return within(screen.getByRole('menu')).getByRole('menuitem', { name: /Deactivate…|Remove from organizations…/ });
 }
 
 async function openDeactivate() {
@@ -411,6 +415,36 @@ describe('admin users', () => {
 
 		expect(await screen.findByText('Pat Lee')).toBeTruthy();
 		expect(router.state.location.href).toBe('/admin/users/usr-1');
+	});
+
+	it('reactivates a deactivated account, leaving its memberships as they are', async () => {
+		user.status = 'DEACTIVATED';
+		await renderAt('/admin/users/usr-1');
+		const trigger = await screen.findByRole('button', { name: 'Account settings' });
+		await act(async () => {
+			fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+		});
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Reactivate…/ }));
+		});
+
+		const dialog = screen.getByRole('dialog');
+		expect(within(dialog).getByText('Reactivate pat@example.com?')).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Reactivate' }));
+		});
+
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'ACTIVE' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(await screen.findByText('Active')).toBeTruthy();
+		expect(screen.getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('offers reactivation only to a deactivated account', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openSettings();
+
+		expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: /Reactivate/ })).toBeNull();
 	});
 
 	it('offers no deactivation for a deleted account', async () => {

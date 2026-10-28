@@ -118,3 +118,15 @@ export function useDeactivateUserMutation() {
 		},
 	});
 }
+
+export function useReactivateUserMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (userId: string) => {
+			await apiClient.patch(`${BASE}${encodeURIComponent(userId)}` as '/Admin/User/{id}', { status: 'ACTIVE' });
+		},
+		onSettled: () => {
+			void queryClient.invalidateQueries({ queryKey: userDetailsQueryPrefix });
+		},
+	});
+}

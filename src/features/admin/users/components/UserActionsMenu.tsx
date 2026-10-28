@@ -1,7 +1,13 @@
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdownMenu';
 import { AdminUser } from '@/features/admin/users/userAdminApi';
-import { SettingsIcon, UserXIcon } from 'lucide-react';
+import { SettingsIcon, UserCheckIcon, UserXIcon } from 'lucide-react';
 
 // A deactivated account may have kept its memberships on purpose, so removing them is named as its own action
 // rather than offered as deactivating again.
@@ -26,7 +32,11 @@ function deactivation(user: AdminUser): { label: string; available: boolean; det
 		};
 }
 
-export function UserActionsMenu({ user, onDeactivate }: { user: AdminUser; onDeactivate: () => void }) {
+export function UserActionsMenu({ user, onDeactivate, onReactivate }: {
+	user: AdminUser;
+	onDeactivate: () => void;
+	onReactivate: () => void;
+}) {
 	const { label, available, detail } = deactivation(user);
 	return (
 		<DropdownMenu>
@@ -36,14 +46,29 @@ export function UserActionsMenu({ user, onDeactivate }: { user: AdminUser; onDea
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-72">
+				{user.status === 'DEACTIVATED' && (
+					<>
+						<DropdownMenuItem onSelect={onReactivate} className="items-start">
+							<UserCheckIcon className="mt-0.5" />
+							<ItemText label="Reactivate…" detail="Sets the status back to active" />
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+					</>
+				)}
 				<DropdownMenuItem variant="destructive" disabled={!available} onSelect={onDeactivate} className="items-start">
 					<UserXIcon className="mt-0.5" />
-					<span className="flex flex-col gap-0.5">
-						<span>{label}</span>
-						<span className="text-xs text-muted-foreground">{detail}</span>
-					</span>
+					<ItemText label={label} detail={detail} />
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+function ItemText({ label, detail }: { label: string; detail: string }) {
+	return (
+		<span className="flex flex-col gap-0.5">
+			<span>{label}</span>
+			<span className="text-xs text-muted-foreground">{detail}</span>
+		</span>
 	);
 }

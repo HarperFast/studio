@@ -130,3 +130,31 @@ test('deactivating confirms the split, then shows what the server did', async ({
 	expect(patched).toEqual({ status: 'DEACTIVATED' });
 	await page.screenshot({ path: testInfo.outputPath('users-result.png') });
 });
+
+test('reactivating sets a deactivated account back to active', async ({ page }, testInfo) => {
+	await mockCentralManager(page);
+	let current = { ...pat, status: 'DEACTIVATED' };
+	await page.route(`**/Admin/User/${pat.id}?details=true`, (route) => route.fulfill({ json: current }));
+	let patched: unknown;
+	await page.route(`**/Admin/User/${pat.id}`, async (route) => {
+		if (route.request().method() !== 'PATCH') { return route.fallback(); }
+		patched = route.request().postDataJSON();
+		current = { ...current, status: 'ACTIVE' };
+		await route.fulfill({ status: 204, body: '' });
+	});
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await page.goto(`/#/admin/users/${pat.id}`);
+
+	await page.getByRole('button', { name: 'Account settings' }).click();
+	await expect(page.getByRole('menuitem', { name: /Reactivate…/ })).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath('users-menu-deactivated.png'), animations: 'disabled' });
+	await page.getByRole('menuitem', { name: /Reactivate…/ }).click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog.getByText(`Reactivate ${pat.email}?`)).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath('users-reactivate.png'), animations: 'disabled' });
+
+	await dialog.getByRole('button', { name: 'Reactivate' }).click();
+	await expect(dialog).toBeHidden();
+	expect(patched).toEqual({ status: 'ACTIVE' });
+	await expect(page.getByText('Active', { exact: true })).toBeVisible();
+});
