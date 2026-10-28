@@ -78,6 +78,7 @@ describe('NewOrganizationSchema', () => {
 
 		it('leaves out an empty name part, and falls back when there is no name', () => {
 			expect(defaultOrganizationName('Cher', '')).toBe('Cher Org');
+			expect(defaultOrganizationName(' José ', 'García')).toBe('Jose Garcia Org');
 			expect(defaultOrganizationName('', '')).toBe(FALLBACK_ORGANIZATION_NAME);
 			expect(defaultOrganizationName(undefined, undefined)).toBe(FALLBACK_ORGANIZATION_NAME);
 		});

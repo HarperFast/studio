@@ -35,7 +35,7 @@ export const NewOrganizationSchema = z.object({
 
 // Organization names are English-only, so accents are dropped (José → Jose).
 export function defaultOrganizationName(firstname: string | undefined, lastname: string | undefined): string {
-	const fullName = [firstname, lastname].filter(Boolean).join(' ');
+	const fullName = [firstname?.trim(), lastname?.trim()].filter(Boolean).join(' ');
 	const name = `${fullName} Org`.normalize('NFD').replace(/\p{M}/gu, '');
 	return fullName && specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
 }
