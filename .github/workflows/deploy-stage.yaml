@@ -6,13 +6,6 @@ on:
         description: 'Restart the component after deploying'
         type: boolean
         default: false
-      harper_version:
-        description: 'Harper major version running on the target CM'
-        type: choice
-        default: v5
-        options:
-          - v4
-          - v5
   push:
     branches:
       - stage
@@ -22,9 +15,9 @@ concurrency:
   # `false` protects the run in flight only — GitHub keeps a single pending slot per group, so a
   # third run displaces a queued second one. Harmless between two pushes (the survivor's ref
   # already contains the skipped commits) but *not* when the displaced run is a manual one: a
-  # major switch only happens via dispatch, and the replacement push deploys `restart: false`, so
-  # the new range lands on disk unused and breaks at the next worker respawn instead. Re-run the
-  # dispatch if a queued manual deploy shows as cancelled.
+  # restart only happens via dispatch, and the replacement push deploys `restart: false`, so a
+  # template dependency change lands on disk unused and loads at the next worker respawn instead.
+  # Re-run the dispatch if a queued manual deploy shows as cancelled.
   group: stage-deploy
   cancel-in-progress: false
 
@@ -59,8 +52,6 @@ jobs:
           sourcemap-url-prefix: https://stage.studio.harperfabric.com/assets
           release: ${{ github.event_name == 'push' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # This literal, not the dispatch input, is what the CM runs — .github/deploying.md.
-          harper-version: ${{ inputs.harper_version || 'v5' }}
           restart: ${{ inputs.restart || false }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME }}
