@@ -21,6 +21,7 @@ import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { calculateUsageScale } from './lib/calculateUsageScale';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
+import { RegionLookup } from './lib/regionLookup';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
@@ -36,7 +37,12 @@ interface ClusterDetailsProps {
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
 	regionLocations: SchemaRegion[] | undefined;
+	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	organizationId: string;
+	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
+	lockedOrganizationRegionIds: string[];
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -57,7 +63,12 @@ export function ClusterDetails({
 	mode,
 	partialUpgrade,
 	regionLocations,
+	regionLookup,
 	regionNameToLatencyToRegion,
+	organizationId,
+	canUseCustomRegions,
+	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -262,7 +273,12 @@ export function ClusterDetails({
 									<ClusterRegions
 										form={form}
 										regionLocations={regionLocations}
+										regionLookup={regionLookup}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+										organizationId={organizationId}
+										canUseCustomRegions={canUseCustomRegions}
+										canDefineCustomRegions={canDefineCustomRegions}
+										lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
 										selectedPlan={selectedPlan}
