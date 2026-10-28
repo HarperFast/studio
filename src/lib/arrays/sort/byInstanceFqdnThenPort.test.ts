@@ -1,8 +1,8 @@
-import { SchemaHdbInstance } from '@/integrations/api/api.gen';
+import type { Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import { byInstanceFqdnThenPort } from './byInstanceFqdnThenPort';
 
-type Item = Pick<SchemaHdbInstance, 'instanceFqdn' | 'operationsApiPort'>;
+type Item = Pick<Instance, 'instanceFqdn' | 'operationsApiPort'>;
 
 describe('byInstanceFqdnThenPort', () => {
 	it('sorts by instanceFqdn ascending when FQDNs differ', () => {
@@ -39,5 +39,17 @@ describe('byInstanceFqdnThenPort', () => {
 
 		expect(byInstanceFqdnThenPort(a, b)).toBe(0);
 		expect(byInstanceFqdnThenPort(b, a)).toBe(0);
+	});
+
+	it('sorts an instance without an FQDN after those with one, from either side', () => {
+		const items: Item[] = [
+			{ instanceFqdn: undefined, operationsApiPort: 9925 },
+			{ instanceFqdn: 'b.example.com', operationsApiPort: 9925 },
+			{ instanceFqdn: '', operationsApiPort: 9924 },
+			{ instanceFqdn: 'a.example.com', operationsApiPort: 9925 },
+		];
+
+		expect([...items].sort(byInstanceFqdnThenPort)).toEqual([items[3], items[1], items[2], items[0]]);
+		expect([...items].reverse().sort(byInstanceFqdnThenPort)).toEqual([items[3], items[1], items[2], items[0]]);
 	});
 });

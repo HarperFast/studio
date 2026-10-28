@@ -41,4 +41,12 @@ describe('getOperationsUrlForInstance', () => {
 			operationsApiSecure: true,
 		})).toBe('https://localhost:1/');
 	});
+
+	it.each([undefined, '', '   ', 'https://'])('has no URL for an instance whose FQDN is %j', (instanceFqdn) => {
+		expect(getOperationsUrlForInstance({
+			instanceFqdn,
+			operationsApiPort: 9925,
+			operationsApiSecure: true,
+		})).toBeNull();
+	});
 });

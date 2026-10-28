@@ -386,7 +386,10 @@ export interface LocalLegacyRoleAttributePermissionTable {
 
 export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
 
-export interface Instance extends SchemaHdbInstance {
+export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn'> {
+	cluster: Cluster;
+	// The generated schema marks this required, but central manager can list an instance without one.
+	instanceFqdn?: string;
 	status?: BadgeStatus;
 	// Returned by the CM but not yet in the generated OpenAPI schema. True when the instance was
 	// (re)started in safe mode — Harper core is up but user apps/components are not loaded.

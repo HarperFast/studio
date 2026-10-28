@@ -44,7 +44,7 @@ export function InstanceStatusCell(
 
 	const notProxied = isOperationsProxyRefused(instance.status);
 	const statusSupported = supportsGetStatus(instance.version);
-	const statusPollEnabled = ready && onScreen && canManage && !notProxied && statusSupported;
+	const statusPollEnabled = ready && onScreen && canManage && !!operationsUrl && !notProxied && statusSupported;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
@@ -57,10 +57,10 @@ export function InstanceStatusCell(
 		return null;
 	}
 
-	// Availability and rotation are N/A while central manager refuses the instance's operations, or on
-	// a Harper too old to have them. Show a muted dot rather than a stale green "Available" (cached
-	// from before) or an endless spinner.
-	if (notProxied || !statusSupported) {
+	// Availability and rotation are N/A while central manager refuses the instance's operations, before
+	// the instance has an address, or on a Harper too old to have them. Show a muted dot rather than a
+	// stale green "Available" (cached from before) or an endless spinner.
+	if (!operationsUrl || notProxied || !statusSupported) {
 		let label = 'Status unavailable';
 		if (notProxied && isStoppedOrTransitioning(instance.status)) {
 			label = 'Not running';

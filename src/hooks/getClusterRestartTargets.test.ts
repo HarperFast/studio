@@ -45,6 +45,18 @@ describe('getClusterRestartTargets', () => {
 		});
 	});
 
+	it('builds no client for a RUNNING instance without an address, but still counts it', async () => {
+		const addressless = { ...instance('ins-b'), instanceFqdn: undefined };
+		const instances = [instance('ins-a'), addressless];
+		vi.mocked(getClusterInfo).mockResolvedValue({ id: 'clu-1', instances } as Cluster);
+
+		const { allInstances, targets } = await getClusterRestartTargets('clu-1');
+
+		expect(allInstances).toBe(instances);
+		expect(targets.map(({ instance }) => instance.id)).toEqual(['ins-a']);
+		expect(getInstanceClient).toHaveBeenCalledTimes(1);
+	});
+
 	it("forwards the cluster's Fabric Connect mode to every client", async () => {
 		fabricConnect.current = true;
 		vi.mocked(getClusterInfo).mockResolvedValue({ id: 'clu-1', instances: [instance('ins-a')] } as Cluster);

@@ -52,10 +52,14 @@ export function Instances() {
 					size: 90,
 					header: 'URL',
 					cell: (cell) => {
+						const fqdn = cell.row.original.instanceFqdn;
+						if (!fqdn) {
+							return <span className="text-muted-foreground text-sm">—</span>;
+						}
 						return calculateInstanceFQDN({
 							secure: cell.row.original.operationsApiSecure ? 'true' : 'false',
 							port: cell.row.original.operationsApiPort,
-							fqdn: cell.row.original.instanceFqdn,
+							fqdn,
 						});
 					},
 				},

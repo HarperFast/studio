@@ -1,16 +1,21 @@
-import { SchemaHdbInstance } from '@/integrations/api/api.gen';
+import { Instance } from '@/integrations/api/api.patch';
 import { ipAddressToNumber } from '@/lib/numbers/ipAddressToNumber';
 import { isIpAddress } from '@/lib/string/isIpAddress';
 
 export function byInstanceFqdnThenPort(
-	a: Pick<SchemaHdbInstance, 'instanceFqdn' | 'operationsApiPort'>,
-	b: Pick<SchemaHdbInstance, 'instanceFqdn' | 'operationsApiPort'>,
+	a: Pick<Instance, 'instanceFqdn' | 'operationsApiPort'>,
+	b: Pick<Instance, 'instanceFqdn' | 'operationsApiPort'>,
 ) {
-	if (a.instanceFqdn === b.instanceFqdn) {
+	const aFqdn = a.instanceFqdn || '';
+	const bFqdn = b.instanceFqdn || '';
+	if (aFqdn === bFqdn) {
 		return a.operationsApiPort - b.operationsApiPort;
 	}
-	if (isIpAddress(a.instanceFqdn) && isIpAddress(b.instanceFqdn)) {
-		return ipAddressToNumber(a.instanceFqdn) - ipAddressToNumber(b.instanceFqdn);
+	if (!aFqdn || !bFqdn) {
+		return aFqdn ? -1 : 1;
 	}
-	return a.instanceFqdn > b.instanceFqdn ? 1 : -1;
+	if (isIpAddress(aFqdn) && isIpAddress(bFqdn)) {
+		return ipAddressToNumber(aFqdn) - ipAddressToNumber(bFqdn);
+	}
+	return aFqdn > bFqdn ? 1 : -1;
 }
