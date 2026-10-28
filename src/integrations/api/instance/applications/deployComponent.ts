@@ -14,8 +14,9 @@ import { DeployRolloutError, followRestartJob } from './restartJob';
  * installs nothing. Both need Harper 5.3.0 on every node — an older node reads a stage as an ordinary deploy and
  * serves it — so a caller offers them only on a version it could read.
  *
- * A deploy or stage replaces the application's root-config entry whole, so leaving out `branchedDatabases` turns
- * the application's private database copy off. An activation can't carry it; the release brings back its own.
+ * A deploy replaces the application's root-config entry whole, so leaving out `branchedDatabases` turns the
+ * application's private database copy off. A stage records the entry with the release, and activating that release
+ * writes it; an activation can't carry the setting itself.
  */
 export type DeployRequest =
 	| { kind: 'deploy'; project: string; package: string; installCommand?: string; branchedDatabases?: BranchedDatabases }
