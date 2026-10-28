@@ -1,4 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { privateCopyToSetting } from '@/features/instance/applications/components/PrivateDatabaseCopy/privateCopyValue';
+import {
+	invalidateApplicationConfiguration,
+	useBranchedDatabasesAvailable,
+} from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -62,11 +67,13 @@ export function useImportApplication(
 	}, [instanceParams.entityId]);
 	const sseDeploy = useSupportsDeploymentSSE();
 	const canStage = useStagedDeploymentsAvailable();
+	const canBranch = useBranchedDatabasesAvailable();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
 	const { reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems } = useEditorView();
 
 	const onImported = useCallback((project: string, entityId: EntityId) => {
+		void invalidateApplicationConfiguration(queryClient, entityId);
 		void invalidateEntityQueries(queryClient, entityId);
 		void reloadRootEntries();
 		// Someone who left the form mid-import is looking at something else; leave their selection be.
@@ -103,6 +110,7 @@ export function useImportApplication(
 					project,
 					package: contents.ref,
 					installCommand: contents.installCommand,
+					branchedDatabases: canBranch ? privateCopyToSetting(contents.privateCopy) : undefined,
 				},
 				useSSE: sseDeploy,
 				onEvent: (event) => {
@@ -157,6 +165,7 @@ export function useImportApplication(
 			const title = deployFailureTitle(error, project, stage ? 'stage' : 'import');
 			if (isUnansweredWrite(error)) {
 				// It may have imported, so what the message says to check must be current.
+				void invalidateApplicationConfiguration(queryClient, entityId);
 				void invalidateEntityQueries(queryClient, entityId);
 				void reloadRootEntries();
 			}
@@ -188,6 +197,7 @@ export function useImportApplication(
 		mutateAsync,
 		sseDeploy,
 		canStage,
+		canBranch,
 		instanceParams,
 		runHealthCheck,
 		onImported,
