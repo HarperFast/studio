@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultOrganizationName, FALLBACK_ORGANIZATION_NAME, NewOrganizationSchema } from './newOrganizationSchema';
 
 const NAME_CHARACTERS_ERROR =
-	"Please only use letters, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.";
+	"Please only use letters A–Z, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.";
 
 const validBase = {
 	name: 'My Organization',
@@ -74,6 +74,12 @@ describe('NewOrganizationSchema', () => {
 			expect(defaultOrganizationName('José', 'García')).toBe('Jose Garcia Org');
 			expect(defaultOrganizationName('Zoë', 'Müller-Lüdenscheidt')).toBe('Zoe Muller-Ludenscheidt Org');
 			expect(defaultOrganizationName('Seán', "O'Brien")).toBe("Sean O'Brien Org");
+		});
+
+		it('leaves out an empty name part, and falls back when there is no name', () => {
+			expect(defaultOrganizationName('Cher', '')).toBe('Cher Org');
+			expect(defaultOrganizationName('', '')).toBe(FALLBACK_ORGANIZATION_NAME);
+			expect(defaultOrganizationName(undefined, undefined)).toBe(FALLBACK_ORGANIZATION_NAME);
 		});
 
 		it("falls back when the user's name has letters with no unaccented form, or a leading symbol", () => {

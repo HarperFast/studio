@@ -67,7 +67,7 @@ describe('NewOrgForm', () => {
 		renderForm();
 		fireEvent.change(screen.getByLabelText('Name'), { target: { value: '@mallory@evil.com' } });
 		submit();
-		expect(await screen.findByText(/Please only use letters, digits, spaces/)).toBeTruthy();
+		expect(await screen.findByText(/Please only use letters A–Z, digits, spaces/)).toBeTruthy();
 		expect(mutate).not.toHaveBeenCalled();
 	});
 

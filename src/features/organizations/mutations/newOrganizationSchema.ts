@@ -9,7 +9,8 @@ export const specifiedOrganizationName = z
 		error: 'Name cannot be longer than 255 characters.',
 	})
 	.regex(organizationNameRegex, {
-		error: "Please only use letters, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.",
+		error:
+			"Please only use letters A–Z, digits, spaces and ' - . , & ( ) in the name. Must start with a letter or digit.",
 	});
 
 export const specifiedSubdomain = z
@@ -32,8 +33,9 @@ export const NewOrganizationSchema = z.object({
 	]).optional(),
 });
 
-/** The blank-name default; organization names are English-only, so accents are dropped (José → Jose). */
+// Organization names are English-only, so accents are dropped (José → Jose).
 export function defaultOrganizationName(firstname: string | undefined, lastname: string | undefined): string {
-	const name = `${firstname} ${lastname} Org`.normalize('NFD').replace(/\p{M}/gu, '');
-	return specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
+	const fullName = [firstname, lastname].filter(Boolean).join(' ');
+	const name = `${fullName} Org`.normalize('NFD').replace(/\p{M}/gu, '');
+	return fullName && specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
 }
