@@ -15,6 +15,13 @@ function asList(value: unknown): string[] {
 	return Array.isArray(value) ? value.map(String) : [];
 }
 
+/** Only malformed data holds a non-object entry; it is left out rather than crashing the whole page. */
+function conditions(list: unknown): WafNamedValueMatch[] {
+	return Array.isArray(list)
+		? list.filter((entry): entry is WafNamedValueMatch => !!entry && typeof entry === 'object')
+		: [];
+}
+
 function namedValue(kind: string, entry: WafNamedValueMatch): string {
 	const op = STRING_OP_LABELS[entry.op] ?? entry.op;
 	return entry.op === 'exists' ? `${kind} ${entry.name} ${op}` : `${kind} ${entry.name} ${op} ${entry.value ?? ''}`;
@@ -44,10 +51,10 @@ export function describeWafMatch(rule: WafRule): string[] {
 	if (match.path?.regex != null) {
 		lines.push(`Path matches ${match.path.regex}`);
 	}
-	for (const header of Array.isArray(match.headers) ? match.headers : []) {
+	for (const header of conditions(match.headers)) {
 		lines.push(namedValue('Header', header));
 	}
-	for (const parameter of Array.isArray(match.query) ? match.query : []) {
+	for (const parameter of conditions(match.query)) {
 		lines.push(namedValue('Query', parameter));
 	}
 	if (match.ja4 != null || match.ja4h != null) {
@@ -63,6 +70,9 @@ export function describeWafMatch(rule: WafRule): string[] {
 }
 
 export function describeWafAction(rule: WafRule): string {
+	if (typeof rule.action !== 'string') {
+		return 'None';
+	}
 	switch (rule.action) {
 		case 'block':
 			return `Block with ${rule.blockStatus ?? 403}`;
@@ -70,8 +80,6 @@ export function describeWafAction(rule: WafRule): string {
 			return 'Log only';
 		case 'score':
 			return `Add ${rule.score ?? '?'} to the request’s score`;
-		case undefined:
-			return 'None';
 		default:
 			return `${rule.action.charAt(0).toUpperCase()}${rule.action.slice(1)}`;
 	}

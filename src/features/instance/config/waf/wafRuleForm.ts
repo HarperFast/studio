@@ -1,3 +1,4 @@
+import { isKnownWafAction } from '@/integrations/api/instance/waf/waf';
 import type {
 	WafAction,
 	WafNamedValueMatch,
@@ -81,12 +82,17 @@ function numberText(value: unknown): string {
 	return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
 }
 
-function rowsOf(list: WafNamedValueMatch[] | undefined): NamedValueRow[] {
+function isCondition(entry: unknown): entry is WafNamedValueMatch {
+	return !!entry && typeof entry === 'object';
+}
+
+function rowsOf(list: unknown): NamedValueRow[] {
+	// A malformed entry loads as an empty row, which saving then refuses rather than quietly dropping.
 	return Array.isArray(list)
 		? list.map((entry, origin) => ({
-			name: entry.name ?? '',
-			op: entry.op ?? 'equals',
-			value: entry.value ?? '',
+			name: isCondition(entry) && typeof entry.name === 'string' ? entry.name : '',
+			op: isCondition(entry) && entry.op ? entry.op : 'equals',
+			value: isCondition(entry) && typeof entry.value === 'string' ? entry.value : '',
 			origin,
 		}))
 		: [];
@@ -99,7 +105,7 @@ export function wafRuleFormValues(rule: WafRule): WafRuleFormValues {
 		description: typeof rule.description === 'string' ? rule.description : '',
 		enabled: rule.enabled !== false,
 		priority: numberText(rule.priority),
-		action: rule.action ?? '',
+		action: isKnownWafAction(rule.action) ? rule.action : '',
 		blockStatus: numberText(rule.blockStatus),
 		score: numberText(rule.score),
 		shadow: rule.shadow === true,
@@ -143,7 +149,8 @@ function namedValueMatches(
 	for (const row of rows) {
 		// Each row knows the stored condition it came from, so removing or editing another row can't
 		// disturb it, and a typed row is never mistaken for a stored one.
-		const source = row.origin === undefined ? undefined : storedEntries[row.origin];
+		const stored = row.origin === undefined ? undefined : storedEntries[row.origin];
+		const source = isCondition(stored) ? stored : undefined;
 		const loaded = source ? rowsOf([source])[0] : undefined;
 		if (source && loaded?.name === row.name && loaded.op === row.op && loaded.value === row.value) {
 			list.push(source);
@@ -178,6 +185,15 @@ export function buildWafRule(
 	values: WafRuleFormValues,
 	loaded?: WafRule,
 ): { ok: true; fields: WafRuleFields } | { ok: false; errors: WafRuleFormErrors } {
+	const { fields, errors } = readWafRule(values, loaded);
+	return Object.keys(errors).length ? { ok: false, errors } : { ok: true, fields };
+}
+
+/** The fields the form describes and what is wrong with them, both always: a diff needs the first even when the second isn't empty. */
+function readWafRule(
+	values: WafRuleFormValues,
+	loaded?: WafRule,
+): { fields: WafRuleFields; errors: WafRuleFormErrors } {
 	const errors: WafRuleFormErrors = {};
 	const shown = loaded ? wafRuleFormValues(loaded) : undefined;
 	const listOf = <T>(field: 'ip' | 'methods' | 'regions' | 'tags' | 'nodes', stored: T, separator: RegExp) =>
@@ -206,7 +222,7 @@ export function buildWafRule(
 	}
 
 	const match: WafRuleMatch = {};
-	for (const [key, value] of Object.entries(loaded?.match ?? {})) {
+	for (const [key, value] of Object.entries(isCondition(loaded?.match) ? loaded.match : {})) {
 		if (!FORM_MATCH_KEYS.has(key)) {
 			(match as Record<string, unknown>)[key] = value;
 		}
@@ -256,16 +272,13 @@ export function buildWafRule(
 		}
 		: null;
 
-	if (Object.keys(errors).length || values.action === '') {
-		return { ok: false, errors };
-	}
 	return {
-		ok: true,
+		errors,
 		fields: {
 			description: values.description.trim() ? values.description : null,
 			enabled: values.enabled,
 			priority,
-			action: values.action,
+			action: values.action || undefined,
 			blockStatus,
 			score,
 			// A log rule never enforces, so a stored flag would only resurface if it became a block rule. A
@@ -279,16 +292,14 @@ export function buildWafRule(
 
 /**
  * The edit to send: only the fields that differ from saving `loaded` untouched, so a field nobody changed
- * is never rewritten, not even into an equivalent shape (an absent `blockStatus` as `null`).
+ * is never rewritten, not even into an equivalent shape (an absent `blockStatus` as `null`). The untouched
+ * reading is used even when it wouldn't validate, which a stored rule with no action never does.
  */
 export function wafRulePatch(loaded: WafRule, fields: WafRuleFields): WafRulePatch {
-	const untouched = buildWafRule(wafRuleFormValues(loaded), loaded);
-	if (!untouched.ok) {
-		return fields;
-	}
+	const untouched = readWafRule(wafRuleFormValues(loaded), loaded).fields;
 	const patch: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(fields)) {
-		if (stableJson(value) !== stableJson(untouched.fields[key as keyof WafRuleFields])) {
+		if (stableJson(value) !== stableJson(untouched[key as keyof WafRuleFields])) {
 			patch[key] = value;
 		}
 	}

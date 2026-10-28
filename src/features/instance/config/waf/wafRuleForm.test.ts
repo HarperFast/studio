@@ -213,7 +213,30 @@ describe('buildWafRule', () => {
 	});
 });
 
+describe('malformed stored rules', () => {
+	it('opens an unknown action as no action, like a missing one', () => {
+		expect(wafRuleFormValues({ ...SCANNER_RULE, action: 'allow' as WafRule['action'] }).action).toBe('');
+		expect(wafRuleFormValues({ ...SCANNER_RULE, action: 'challenge' }).action).toBe('challenge');
+	});
+
+	it('loads a non-object condition as an empty row, which saving refuses instead of dropping', () => {
+		const rule: WafRule = {
+			...SCANNER_RULE,
+			match: { headers: [null, { name: 'x-debug', op: 'exists' }] } as unknown as WafRule['match'],
+		};
+		const values = wafRuleFormValues(rule);
+		expect(values.headers.map((row) => row.name)).toEqual(['', 'x-debug']);
+		expect(errorsOf(buildWafRule(values, rule))).toEqual({ headers: 'Every header condition needs a name.' });
+	});
+});
+
 describe('wafRulePatch', () => {
+	it('diffs a rule with no action against its untouched reading, so choosing one sends only that', () => {
+		const rule: WafRule = { ...SCANNER_RULE, action: undefined, blockStatus: undefined, priority: undefined };
+		const fields = fieldsOf(buildWafRule({ ...wafRuleFormValues(rule), action: 'block' }, rule));
+		expect(wafRulePatch(rule, fields)).toEqual({ action: 'block' });
+	});
+
 	it('sends nothing for a rule saved untouched', () => {
 		const fields = fieldsOf(buildWafRule(wafRuleFormValues(SCANNER_RULE), SCANNER_RULE));
 		expect(wafRulePatch(SCANNER_RULE, fields)).toEqual({});

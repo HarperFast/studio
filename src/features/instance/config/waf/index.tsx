@@ -111,9 +111,7 @@ function WafPage() {
 		);
 	}
 
-	// Per-call callbacks, which React Query drops if the page unmounts first: after a switch to another
-	// cluster, this one's write must not toast or refetch there. Refetched on failure too, since the
-	// usual failure is that the rule changed or vanished, and the error toast asks for a review.
+	// Per-call callbacks, dropped if the page unmounts, so a write never reports on the next cluster.
 	const onAlter = (rule: WafRule, patch: { shadow?: boolean; enabled?: boolean }, success: string) => {
 		toggleRule({ ...instanceParams, loaded: rule, patch }, {
 			onSuccess: () => toast.success(success),
@@ -122,12 +120,19 @@ function WafPage() {
 	};
 
 	const reloadDialogRule = async (id: string) => {
-		const { data: current } = await refetch();
-		const rule = current?.available ? current.rules.find((candidate) => candidate.id === id) : undefined;
+		const result = await refetch();
+		// A failed refetch keeps the stale list, which would reopen the same rule; the query toasts the failure.
+		if (result.isError) {
+			return;
+		}
+		const rule = result.data?.available ? result.data.rules.find((candidate) => candidate.id === id) : undefined;
 		if (!rule) {
 			toast.info(`Firewall rule '${id}' no longer exists`);
 		}
-		setDialogTarget(rule ? { kind: 'edit', rule } : undefined);
+		// Only the edit that asked: the reader may have closed it, or opened another, while this loaded.
+		setDialogTarget((open) =>
+			open?.kind === 'edit' && open.rule.id === id ? (rule ? { kind: 'edit', rule } : undefined) : open
+		);
 	};
 
 	const onDropConfirmed = () => {
@@ -212,7 +217,7 @@ function WafPage() {
 
 			{dialogTarget && (
 				<WafRuleDialog
-					// Keyed by the rule's content, so reloading a changed rule starts the form over from it.
+					// Content, not id: a reload must remount the form.
 					key={dialogTarget.kind === 'edit' ? `edit:${stableJson(dialogTarget.rule)}` : 'add'}
 					target={dialogTarget}
 					onClose={() => setDialogTarget(undefined)}

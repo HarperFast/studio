@@ -41,8 +41,14 @@ first re-reads it and refuses if it changed since the page loaded it. A toggle s
 enforcing a rule whose match another administrator widened meanwhile is the case to stop. A refused
 edit offers to load the current rule, because retrying the same copy can never succeed, and the
 dialog is keyed by the rule's content so the reload starts the form over. Comparison fills in the
-engine's readings first (`enabled !== false`, `shadow === true`, `null` as absent), so only a real
-change refuses. An edit that changes nothing writes nothing. Rule ids are normalized to `String(id)`,
-which is how Harper keys them, so a numeric id from another client is listed and editable rather
-than hidden. A stored rule with no known action, which only malformed or legacy data carries, is
-flagged as skipped and opens with no action chosen rather than as Block.
+engine's readings first (`enabled !== false`, `shadow === true`, priority 0, block status 403,
+`null` as absent), so only a real change refuses. An edit that changes nothing writes nothing. Rule
+ids are normalized to `String(id)`, which is how Harper keys them, so a numeric id from another
+client is listed and editable rather than hidden.
+
+Only malformed or legacy data reaches the rest, and each has one explicit treatment. A rule with no
+known action is flagged as skipped and opens with no action chosen, rather than as a log rule on
+the card and Block in the editor. A non-object condition loads as an empty row that saving refuses,
+and the card leaves it out instead of crashing the page. The patch diffs against the rule's
+untouched reading even when that reading wouldn't validate, so choosing an action for such a rule
+sends only the action.

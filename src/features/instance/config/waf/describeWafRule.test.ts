@@ -29,6 +29,17 @@ describe('describeWafMatch', () => {
 	});
 });
 
+describe('malformed rows', () => {
+	it('describes a null action and null conditions instead of throwing', () => {
+		const broken = rule({
+			action: null as unknown as WafRule['action'],
+			match: { headers: [null], query: [7] } as unknown as WafRule['match'],
+		});
+		expect(describeWafAction(broken)).toBe('None');
+		expect(describeWafMatch(broken)).toEqual([]);
+	});
+});
+
 describe('describeWafAction', () => {
 	it('names the status a block answers with, defaulting to 403', () => {
 		expect(describeWafAction(rule({}))).toBe('Block with 403');

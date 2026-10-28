@@ -174,6 +174,15 @@ describe('editWafRule', () => {
 		expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'alter_waf_rule' }));
 	});
 
+	it('reads an absent priority or block status as its default, as the engine does', async () => {
+		const loaded = starterRule({ priority: undefined, blockStatus: undefined });
+		const { post, instanceClient } = client((body) =>
+			body.operation === 'list_waf_rules' ? [starterRule({ priority: 0, blockStatus: 403 })] : { message: 'ok' }
+		);
+		await editWafRule({ instanceClient, loaded, patch: { description: 'x' } });
+		expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'alter_waf_rule' }));
+	});
+
 	it('reads an absent enabled or shadow flag as its default, as the engine does', async () => {
 		const loaded = starterRule({ enabled: undefined, shadow: undefined });
 		const { post, instanceClient } = client((body) =>

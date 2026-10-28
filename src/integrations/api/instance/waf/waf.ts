@@ -180,11 +180,15 @@ const KNOWN_ACTIONS: ReadonlySet<string> = new Set(['block', 'log', 'score', ...
  * checks its validator runs ahead of it. Harper answers "Added WAF rule" for a deferred feature
  * (harper-pro#828), and only malformed or legacy data lacks a known action, so these must be said out loud.
  */
+export function isKnownWafAction(action: unknown): action is WafAction {
+	return typeof action === 'string' && KNOWN_ACTIONS.has(action);
+}
+
 export function wafRuleDeferrals(rule: WafRule): string[] {
 	const reasons: string[] = [];
-	if (rule.action === undefined || !KNOWN_ACTIONS.has(rule.action)) {
+	if (!isKnownWafAction(rule.action)) {
 		reasons.push(
-			rule.action === undefined
+			rule.action == null
 				? 'It has no action, so Harper skips it.'
 				: `Its action "${String(rule.action)}" is not one Harper knows, so Harper skips it.`,
 		);
@@ -286,9 +290,15 @@ function withoutNulls(value: unknown): unknown {
 	return value;
 }
 
-/** The engine skips a rule only on `enabled === false` and watches only on `shadow === true`. */
+/** The rule as the engine reads it (harper-pro `waf/matcher.ts`), so only a change it would act on refuses. */
 function comparable(rule: WafRule): unknown {
-	return withoutNulls({ ...rule, enabled: rule.enabled !== false, shadow: rule.shadow === true });
+	return withoutNulls({
+		...rule,
+		enabled: rule.enabled !== false,
+		shadow: rule.shadow === true,
+		priority: rule.priority ?? 0,
+		blockStatus: rule.blockStatus ?? 403,
+	});
 }
 
 export async function editWafRule({ instanceClient, loaded, patch }: WafRuleWriteArgs & { patch: WafRulePatch }) {

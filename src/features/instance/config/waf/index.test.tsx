@@ -22,7 +22,7 @@ const { state, toggleRule, dropRule, setMode, refetch, queryOptionsSeen } = vi.h
 	}),
 	dropRule: vi.fn(),
 	setMode: vi.fn(),
-	refetch: vi.fn(async () => ({ data: state.list })),
+	refetch: vi.fn(async (): Promise<{ data: WafRuleList | undefined; isError?: boolean }> => ({ data: state.list })),
 	queryOptionsSeen: [] as Array<{ queryKey: readonly unknown[]; enabled?: boolean }>,
 }));
 
@@ -203,6 +203,37 @@ describe('ConfigWafIndex', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
 		});
 		await waitFor(() => expect(description()).toBe('Changed elsewhere'));
+	});
+
+	it('leaves the editor as it is when the reload itself fails', async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x changed since this page loaded it. Review it and try again.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+		refetch.mockResolvedValueOnce({ data: { available: true, rules: [] }, isError: true });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		});
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Load the current rule' })).toBeTruthy();
+	});
+
+	it("doesn't reopen an edit the reader closed while the reload was loading", async () => {
+		state.list = { available: true, rules: [starterRule()] };
+		state.editError = new WafRuleChangedError('WAF rule x changed since this page loaded it. Review it and try again.');
+		render(<ConfigWafIndex />);
+		fireEvent.click(card('fabric-baseline-v1-trace-track-methods').getByRole('button', { name: 'Edit' }));
+		let finish: (value: { data: WafRuleList | undefined }) => void = () => undefined;
+		refetch.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+		fireEvent.click(screen.getByRole('button', { name: 'Load the current rule' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		fireEvent.click(screen.getByRole('button', { name: /Add Rule/ }));
+		expect(screen.getByRole('heading', { name: 'Add firewall rule' })).toBeTruthy();
+
+		await act(async () => {
+			finish({ data: { available: true, rules: [starterRule({ description: 'Changed elsewhere' })] } });
+		});
+		expect(screen.getByRole('heading', { name: 'Add firewall rule' })).toBeTruthy();
 	});
 
 	it('closes the editor when the rule it was reloading is gone', async () => {
