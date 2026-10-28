@@ -2,35 +2,35 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 /**
  * Which new clusters still owe their preset's setup, remembered in this browser from "Create cluster"
- * until the setup finishes.
+ * until the setup finishes. Read fresh from storage each time, so every tab agrees and none writes back
+ * a stale copy.
  *
- * Interim: central-manager has no field for a cluster's preset yet, so another browser, or this one
- * after its storage is cleared, can't tell the cluster was built for a job. Once the Cluster record
- * carries it, that becomes the source and this only bridges the moment between create and the first
- * fetch.
+ * Bridges the moment between create and the first fetch that returns `Cluster.preset`, and covers a
+ * central-manager that doesn't store it yet (HarperFast/central-manager#1047).
  */
 const STORAGE_KEY = 'Studio:PendingPresetSetups';
 
 type PendingSetups = Record<string, { preset: string; since: number }>;
 
 const listeners = new Set<() => void>();
-let cache: PendingSetups | undefined;
+// Only for a browser whose storage refuses: the record then holds for this tab alone.
+let fallback: PendingSetups = {};
 
 function read(): PendingSetups {
-	if (cache) {
-		return cache;
-	}
 	try {
-		const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-		cache = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored === null) {
+			return fallback;
+		}
+		const parsed = JSON.parse(stored);
+		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
 	} catch {
-		cache = {};
+		return fallback;
 	}
-	return cache!;
 }
 
 function write(next: PendingSetups) {
-	cache = next;
+	fallback = next;
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 	} catch {
@@ -56,8 +56,15 @@ export function getPendingPresetSetup(clusterId: string | undefined): string | u
 
 function subscribe(listener: () => void) {
 	listeners.add(listener);
+	const onStorage = (event: StorageEvent) => {
+		if (event.key === STORAGE_KEY || event.key === null) {
+			listener();
+		}
+	};
+	window.addEventListener('storage', onStorage);
 	return () => {
 		listeners.delete(listener);
+		window.removeEventListener('storage', onStorage);
 	};
 }
 
@@ -68,5 +75,5 @@ export function usePendingPresetSetup(clusterId: string | undefined): string | u
 
 /** Tests only. */
 export function resetPendingPresetSetupsForTests() {
-	cache = undefined;
+	fallback = {};
 }

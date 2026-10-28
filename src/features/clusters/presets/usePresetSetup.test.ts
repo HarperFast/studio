@@ -53,6 +53,15 @@ describe('pendingPresetSetup', () => {
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
 	});
 
+	it('sees what another tab wrote, so none offers or restores a finished setup', () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		localStorage.setItem('Studio:PendingPresetSetups', JSON.stringify({ 'clu-2': { preset: 'redirects', since: 1 } }));
+		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
+
+		rememberPendingPresetSetup('clu-3', 'redirects');
+		expect(getPendingPresetSetup('clu-2')).toBe('redirects');
+	});
+
 	it('survives corrupt storage', () => {
 		localStorage.setItem('Studio:PendingPresetSetups', '[not json');
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
