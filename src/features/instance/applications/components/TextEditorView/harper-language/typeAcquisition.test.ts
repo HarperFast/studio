@@ -606,7 +606,8 @@ describe('acquireApplicationTypes', () => {
 		const fileCount = MAX_EXTRA_LIB_FILES_TOTAL * 3;
 		const declarationRequests: string[] = [];
 		vi.stubGlobal('fetch', async (input: string) => {
-			await new Promise((resolve) => setTimeout(resolve));
+			// 250 waves of 8 at 5 ms outlast several 250 ms flush intervals.
+			await new Promise((resolve) => setTimeout(resolve, input.endsWith('.d.ts') ? 5 : 0));
 			if (input.endsWith('.d.ts')) {
 				declarationRequests.push(input);
 				return new Response('export declare const icon: unknown;\n');

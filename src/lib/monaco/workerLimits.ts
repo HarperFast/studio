@@ -37,7 +37,6 @@ export const MAX_WORKER_MODEL_CHARS = 512 * 1024;
 export const MAX_EXTRA_LIB_CHARS_TOTAL = 8 * 1024 * 1024;
 
 /**
- * File-count budget for acquired `@types` declarations, across the whole session.
  * The worker's clone cost scales with the file count, which the char budget can't
  * see; see "Type acquisition stops at its budget" in the applications DESIGN.md.
  */
