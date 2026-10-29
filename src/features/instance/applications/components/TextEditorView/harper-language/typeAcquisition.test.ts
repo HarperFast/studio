@@ -1,4 +1,9 @@
-import { ExtraLibBudget, MAX_EXTRA_LIB_CHARS_TOTAL, MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import {
+	ExtraLibBudget,
+	MAX_EXTRA_LIB_CHARS_TOTAL,
+	MAX_EXTRA_LIB_FILES_TOTAL,
+	MAX_WORKER_MODEL_CHARS,
+} from '@/lib/monaco/workerLimits';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `typeAcquisition` re-exports monaco's language-service registrations at module
@@ -595,5 +600,48 @@ describe('acquireApplicationTypes', () => {
 		expect(isTypeAcquisitionBudgetSpent()).toBe(true);
 		expect(peakInFlight).toBeLessThanOrEqual(MAX_CDN_REQUESTS_IN_FLIGHT);
 		expect(declarationRequests.length).toBeLessThanOrEqual(filesToSpendBudget + MAX_CDN_REQUESTS_IN_FLIGHT);
+	}, 30_000);
+
+	it('stops at the file budget, adding files in batches, for a package of thousands of tiny declarations', async () => {
+		const fileCount = MAX_EXTRA_LIB_FILES_TOTAL * 3;
+		const declarationRequests: string[] = [];
+		vi.stubGlobal('fetch', async (input: string) => {
+			await new Promise((resolve) => setTimeout(resolve));
+			if (input.endsWith('.d.ts')) {
+				declarationRequests.push(input);
+				return new Response('export declare const icon: unknown;\n');
+			}
+			if (input.endsWith('/resolve/npm/icon-types@latest')) {
+				return Response.json({ version: '1.0.0' });
+			}
+			if (input.endsWith('/npm/icon-types@1.0.0/flat')) {
+				return Response.json({ files: Array.from({ length: fileCount }, (_, index) => ({ name: `/i${index}.d.ts` })) });
+			}
+			if (input.endsWith('/package.json')) {
+				return new Response('{}');
+			}
+			return new Response(null, { status: 404 });
+		});
+		const { typescript } = await import('@/lib/monaco/languageServices');
+		const addExtraLib = vi.mocked(typescript.typescriptDefaults.addExtraLib);
+		addExtraLib.mockClear();
+		let batches = 0;
+		let batchOpen = false;
+		addExtraLib.mockImplementation(() => {
+			if (!batchOpen) {
+				batchOpen = true;
+				batches++;
+				queueMicrotask(() => (batchOpen = false));
+			}
+			return { dispose() {} };
+		});
+
+		const { acquireApplicationTypes, isTypeAcquisitionBudgetSpent } = await import('./typeAcquisition');
+		await acquireApplicationTypes([`import { icon } from 'icon-types';`]);
+
+		expect(isTypeAcquisitionBudgetSpent()).toBe(true);
+		expect(addExtraLib).toHaveBeenCalledTimes(MAX_EXTRA_LIB_FILES_TOTAL);
+		expect(batches).toBeLessThan(MAX_EXTRA_LIB_FILES_TOTAL / 20);
+		expect(declarationRequests.length).toBeLessThanOrEqual(MAX_EXTRA_LIB_FILES_TOTAL + 1 + MAX_CDN_REQUESTS_IN_FLIGHT);
 	}, 30_000);
 });
