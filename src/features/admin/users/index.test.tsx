@@ -490,6 +490,14 @@ describe('admin users', () => {
 		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
 	});
 
+	it('refuses details with an empty membership the same way, not with a raw error', async () => {
+		get.mockResolvedValue({ data: { ...user, organizations: [null, user.organizations[1]] } });
+		await renderAt('/admin/users/usr-1');
+
+		expect(await screen.findByText(/cannot show user details/)).toBeTruthy();
+		expect(screen.queryByText(/Cannot read properties/)).toBeNull();
+	});
+
 	it('confirms, deactivates, and shows what actually happened', async () => {
 		await renderAt('/admin/users/usr-1');
 		await openDeactivate();

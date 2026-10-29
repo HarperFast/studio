@@ -81,9 +81,9 @@ async function getUserDetails(userId: string): Promise<AdminUser | null> {
 	if (
 		!Array.isArray(organizations)
 		|| organizations.some((membership) =>
-			!Array.isArray(membership.clusters)
-			|| !Array.isArray(membership.roleNames)
-			|| typeof membership.lastAdmin !== 'boolean'
+			!Array.isArray(membership?.clusters)
+			|| !Array.isArray(membership?.roleNames)
+			|| typeof membership?.lastAdmin !== 'boolean'
 		)
 	) {
 		throw new Error('This central manager cannot show user details yet.');
