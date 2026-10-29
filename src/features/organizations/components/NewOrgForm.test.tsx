@@ -79,8 +79,16 @@ describe('NewOrgForm', () => {
 		expect(submittedPayload()).toEqual({ name: 'Jose Garcia Org', subdomain: 'jose-garcia-org' });
 	});
 
-	it("submits the fallback name when the user's name has letters with no unaccented form", async () => {
+	it("submits the fallback name, but a subdomain from the user's name, when the name has letters with no unaccented form", async () => {
 		auth.user = { firstname: 'Łukasz', lastname: 'Nowak' };
+		renderForm();
+		submit();
+		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+		expect(submittedPayload()).toEqual({ name: 'My Organization', subdomain: 'ukasz-nowak-org' });
+	});
+
+	it('submits the fallback name and subdomain when the user has no name', async () => {
+		auth.user = { firstname: '', lastname: '' };
 		renderForm();
 		submit();
 		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));

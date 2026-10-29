@@ -13,6 +13,7 @@ import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
 import {
 	defaultOrganizationName,
+	defaultSubdomainSource,
 	NewOrganizationSchema,
 	specifiedOrganizationName,
 	specifiedSubdomain,
@@ -46,18 +47,18 @@ export function NewOrgForm() {
 	}, [setFocus]);
 
 	const defaultName = defaultOrganizationName(user?.firstname, user?.lastname);
-	const name = watch('name') || defaultName;
+	const subdomainSource = watch('name') || defaultSubdomainSource(user?.firstname, user?.lastname);
 	const subdomain = watch('subdomain');
 	const calculatedNames = useMemo(() => {
 		const suggestedSubdomain = collapseKebabsToMaxLength(
-			toKebabCase(name),
+			toKebabCase(subdomainSource),
 			specifiedSubdomain.maxLength!,
 		);
 		return {
 			suggestedSubdomain,
 			fullHostName: `future-cluster-names.${subdomain || suggestedSubdomain}.harperfabric.com`,
 		};
-	}, [name, subdomain]);
+	}, [subdomainSource, subdomain]);
 
 	const { mutate: submitNewOrganizationData, isPending } = useCreateNewOrganizationMutation();
 	const queryClient = useQueryClient();

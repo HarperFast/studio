@@ -1,6 +1,11 @@
 import { organizationNameRegex } from '@/lib/string/regex/organizationNameRegex';
 import { describe, expect, it } from 'vitest';
-import { defaultOrganizationName, FALLBACK_ORGANIZATION_NAME, NewOrganizationSchema } from './newOrganizationSchema';
+import {
+	defaultOrganizationName,
+	defaultSubdomainSource,
+	FALLBACK_ORGANIZATION_NAME,
+	NewOrganizationSchema,
+} from './newOrganizationSchema';
 
 const NAME_CHARACTERS_ERROR =
 	"Please only use letters A–Z, digits, spaces and ' ’ - . , & ( ) in the name. Must start with a letter or digit.";
@@ -102,6 +107,19 @@ describe('NewOrganizationSchema', () => {
 			const longest = defaultOrganizationName('a'.repeat(40), 'b'.repeat(80));
 			expect(NewOrganizationSchema.safeParse({ ...validBase, name: longest }).success).toBe(true);
 			expect(defaultOrganizationName('a'.repeat(200), 'b'.repeat(200))).toBe(FALLBACK_ORGANIZATION_NAME);
+		});
+	});
+
+	describe('defaultSubdomainSource', () => {
+		it("is the user's unaccented name even when the display name falls back", () => {
+			expect(defaultSubdomainSource('José', 'García')).toBe('Jose Garcia Org');
+			expect(defaultSubdomainSource('Łukasz', 'Nowak')).toBe('Łukasz Nowak Org');
+			expect(defaultSubdomainSource(' Ada ', '')).toBe('Ada Org');
+		});
+
+		it('falls back when there is no name', () => {
+			expect(defaultSubdomainSource('', ' ')).toBe(FALLBACK_ORGANIZATION_NAME);
+			expect(defaultSubdomainSource(undefined, undefined)).toBe(FALLBACK_ORGANIZATION_NAME);
 		});
 	});
 
