@@ -692,11 +692,31 @@ function createImportScannerShim(): unknown {
 let runnerPromise: Promise<(source: string) => Promise<void>> | undefined;
 const acquiredPaths = new Set<string>();
 /**
- * Bounds the chars handed to the worker as extra libs. Session-lifetime and
+ * Bounds the chars and files handed to the worker as extra libs. Session-lifetime and
  * never reclaimed — the backstop against unbounded cross-project accumulation
  * that would otherwise OOM the language worker (HarperFast/studio#1499).
  */
 const extraLibBudget = new ExtraLibBudget();
+
+/**
+ * Each `addExtraLib` that lands in its own task makes Monaco re-clone the whole
+ * extra-lib set to the worker, and ata delivers files one fetch at a time; adding
+ * them in batches clones the set once per batch instead of once per file.
+ */
+const EXTRA_LIB_FLUSH_MS = 250;
+let pendingExtraLibs: Array<{ code: string; uri: string }> = [];
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+function flushExtraLibs(): void {
+	clearTimeout(flushTimer);
+	flushTimer = undefined;
+	const { typescriptDefaults, javascriptDefaults } = typescript;
+	for (const { code, uri } of pendingExtraLibs) {
+		typescriptDefaults.addExtraLib(code, uri);
+		javascriptDefaults.addExtraLib(code, uri);
+	}
+	pendingExtraLibs = [];
+}
 
 /** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
 export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
@@ -772,7 +792,6 @@ export function createBudgetedFetcher(
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
 		runnerPromise = import('@typescript/ata').then(({ setupTypeAcquisition }) => {
-			const { typescriptDefaults, javascriptDefaults } = typescript;
 			return setupTypeAcquisition({
 				projectName: 'Harper Application',
 				typescript: createImportScannerShim() as unknown as typeof import('typescript'),
@@ -804,9 +823,8 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 							}
 							return;
 						}
-						const uri = `file://${path}`;
-						typescriptDefaults.addExtraLib(code, uri);
-						javascriptDefaults.addExtraLib(code, uri);
+						pendingExtraLibs.push({ code, uri: `file://${path}` });
+						flushTimer ??= setTimeout(flushExtraLibs, EXTRA_LIB_FLUSH_MS);
 					},
 				},
 			});
@@ -848,4 +866,5 @@ export async function acquireApplicationTypes(sources: string[]): Promise<void> 
 	} catch (error) {
 		console.warn('[harper] type acquisition unavailable', error);
 	}
+	flushExtraLibs();
 }

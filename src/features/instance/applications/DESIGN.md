@@ -194,3 +194,10 @@ A slot covers the response body, not just its headers: `fetch` resolves on heade
 once ata has read the body, so releasing earlier lets a slow link download far past it. The slots live for the whole
 tab, so each request also times out, and a failed one becomes a non-OK response that loses only that file instead of
 rejecting ata's whole pass. A replacement for ata's fetch path has to keep all of these.
+
+The budget counts files as well as characters, because the worker's cost is per file. Monaco re-clones the whole
+extra-lib set to the worker on every change event, so each file that lands on its own costs a clone of everything
+before it. `@mui/icons-material` is ~10,000 one-line declarations, ~2 MB in all: well inside the character budget,
+yet one session logged ~14,000 "DataCloneError: … out of memory" errors importing it. `MAX_EXTRA_LIB_FILES_TOTAL`
+seals the budget like the character cap does, and accepted files are handed to Monaco in batches
+(`EXTRA_LIB_FLUSH_MS`), so a burst of arrivals costs one clone per batch, not one per file.
