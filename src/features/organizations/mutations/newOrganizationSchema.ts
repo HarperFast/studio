@@ -1,4 +1,17 @@
+import { organizationNameRegex } from '@/lib/string/regex/organizationNameRegex';
 import { z } from 'zod';
+
+export const FALLBACK_ORGANIZATION_NAME = 'My Organization';
+
+export const specifiedOrganizationName = z
+	.string()
+	.max(255, {
+		error: 'Name cannot be longer than 255 characters.',
+	})
+	.regex(organizationNameRegex, {
+		error:
+			"Please only use letters A–Z, digits, spaces and ' ’ - . , & ( ) in the name. Must start with a letter or digit.",
+	});
 
 export const specifiedSubdomain = z
 	.string()
@@ -9,14 +22,32 @@ export const specifiedSubdomain = z
 	});
 
 export const NewOrganizationSchema = z.object({
-	name: z
-		.string()
-		.max(255, {
-			error: 'Name cannot be longer than 255 characters.',
-		}),
+	name: z.union([
+		z.literal(''),
+		specifiedOrganizationName,
+	]),
 	subdomain: z.union([
 		z.literal(''),
 		z.undefined(),
 		specifiedSubdomain,
 	]).optional(),
 });
+
+// Organization names are English-only, so accents are dropped (José → Jose).
+function unaccentedUserName(firstname: string | undefined, lastname: string | undefined): string {
+	const fullName = [firstname?.trim(), lastname?.trim()].filter(Boolean).join(' ');
+	return fullName.normalize('NFD').replace(/\p{M}/gu, '');
+}
+
+export function defaultOrganizationName(firstname: string | undefined, lastname: string | undefined): string {
+	const fullName = unaccentedUserName(firstname, lastname);
+	const name = `${fullName} Org`;
+	return fullName && specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
+}
+
+// Built from the user's own name even when the display name falls back, so users whose names only partly
+// transliterate (Łukasz) don't all suggest `my-organization` and collide (409).
+export function defaultSubdomainSource(firstname: string | undefined, lastname: string | undefined): string {
+	const fullName = unaccentedUserName(firstname, lastname);
+	return /[a-z0-9]/i.test(fullName) ? `${fullName} Org` : FALLBACK_ORGANIZATION_NAME;
+}
