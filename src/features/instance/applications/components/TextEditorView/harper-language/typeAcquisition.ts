@@ -698,11 +698,7 @@ const acquiredPaths = new Set<string>();
  */
 const extraLibBudget = new ExtraLibBudget();
 
-/**
- * Each `addExtraLib` that lands in its own task makes Monaco re-clone the whole
- * extra-lib set to the worker, and ata delivers files one fetch at a time; adding
- * them in batches clones the set once per batch instead of once per file.
- */
+/** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
 const EXTRA_LIB_FLUSH_MS = 250;
 let pendingExtraLibs: Array<{ code: string; uri: string }> = [];
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -710,12 +706,13 @@ let flushTimer: ReturnType<typeof setTimeout> | undefined;
 function flushExtraLibs(): void {
 	clearTimeout(flushTimer);
 	flushTimer = undefined;
+	const batch = pendingExtraLibs;
+	pendingExtraLibs = [];
 	const { typescriptDefaults, javascriptDefaults } = typescript;
-	for (const { code, uri } of pendingExtraLibs) {
+	for (const { code, uri } of batch) {
 		typescriptDefaults.addExtraLib(code, uri);
 		javascriptDefaults.addExtraLib(code, uri);
 	}
-	pendingExtraLibs = [];
 }
 
 /** See "Type acquisition stops at its budget" in the applications DESIGN.md. */
