@@ -4,14 +4,12 @@
  * handler, against a real `web/` build. Nothing in CI evaluates `.github/`, so this is the only
  * check that a deployed Studio still serves what it should.
  *
- * Both deployed pairings should pass — studio-deploy's `FASTIFY_STATIC_V5` override is what
- * selects between them — so run it twice, from `.github/deploy-template`:
+ * Run it from `.github/deploy-template`, with fastify pinned to the major Harper 5.x embeds and
+ * `@fastify/static` from the template's own package.json:
  *
- *   npm i --no-save fastify@4 @fastify/static@7 && node verify-static.mjs   # Harper v4
- *   npm i --no-save fastify@5 @fastify/static@8 && node verify-static.mjs   # Harper v5
+ *   npm i --no-save fastify@5 && node verify-static.mjs
  *
- * A bare `npm i fastify @fastify/static` pairs the package.json's v7 pin with fastify 5 and fails
- * the plugin's own version check. Pass a build directory as argv[1] to test one other than `web/`.
+ * Pass a build directory as argv[1] to test one other than `web/`.
  */
 import { existsSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -35,7 +33,7 @@ try {
 	({ default: staticRoutes } = await import('./fastify/static.js'));
 } catch (error) {
 	console.error(`cannot load fastify from ${import.meta.dirname}: ${error.message}`);
-	console.error('run `npm i --no-save fastify @fastify/static` in this directory first');
+	console.error('run `npm i --no-save fastify@5` in this directory first');
 	process.exit(2);
 }
 
@@ -51,7 +49,7 @@ try {
 } catch (error) {
 	console.error(`could not start the template: ${error.message}`);
 	if (String(error.code) === 'FST_ERR_PLUGIN_VERSION_MISMATCH') {
-		console.error('install a matching pairing: fastify@4 with @fastify/static@7, or fastify@5 with @fastify/static@8');
+		console.error('@fastify/static rejected this fastify — install fastify@5, the major Harper 5.x embeds');
 	}
 	process.exit(2);
 }
