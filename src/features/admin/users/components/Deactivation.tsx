@@ -50,7 +50,7 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 				<DialogHeader>
 					<DialogTitle>
 						{cleanup
-							? result ? 'Memberships removed' : `Remove ${user.email} from organizations?`
+							? result ? cleanupTitle(result) : `Remove ${user.email} from organizations?`
 							: result
 							? 'User deactivated'
 							: `Deactivate ${user.email}?`}
@@ -155,6 +155,12 @@ export function DeactivateDialog({ user, onClose }: { user: AdminUser; onClose: 
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+// From what the server did, not what the preview offered: a concurrent change can leave nothing to remove.
+function cleanupTitle({ removedFrom }: DeactivateUserResult) {
+	if (removedFrom === null) { return 'Removal finished'; }
+	return removedFrom.length ? 'Memberships removed' : 'No memberships removed';
 }
 
 const TONES: Record<'leave' | 'stay', { icon: ReactNode; box: string }> = {

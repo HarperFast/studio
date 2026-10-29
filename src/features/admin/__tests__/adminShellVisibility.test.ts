@@ -68,7 +68,15 @@ describe('admin section visibility', () => {
 	});
 
 	it('shows Users only to holders of user:status, not to every role that can read users', () => {
-		expect(labels(user('fabric_admin', ['user:read', 'user:status']))).toEqual(['Users']);
-		expect(labels(user('fabric_readonly', ['user:read']))).toEqual([]);
+		expect(labels(user('fabric_admin', ['user:read', 'user:status', 'cluster:read']))).toEqual([
+			'Monitoring',
+			'Users',
+		]);
+		expect(labels(user('fabric_readonly', ['user:read', 'cluster:read']))).toEqual(['Monitoring']);
+	});
+
+	it('hides Users from a holder of user:status who cannot also read the users and clusters it shows', () => {
+		expect(labels(user('fabric_admin', ['user:status', 'cluster:read']))).toEqual(['Monitoring']);
+		expect(labels(user('fabric_admin', ['user:status', 'user:read']))).toEqual([]);
 	});
 });

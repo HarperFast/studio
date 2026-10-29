@@ -481,6 +481,15 @@ describe('admin users', () => {
 		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
 	});
 
+	it('refuses details that do not say where the account is the last admin', async () => {
+		const { lastAdmin: _omitted, ...unmarked } = user.organizations[0];
+		get.mockResolvedValue({ data: { ...user, organizations: [unmarked, user.organizations[1]] } });
+		await renderAt('/admin/users/usr-1');
+
+		expect(await screen.findByText(/cannot show user details/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
+	});
+
 	it('confirms, deactivates, and shows what actually happened', async () => {
 		await renderAt('/admin/users/usr-1');
 		await openDeactivate();
@@ -614,6 +623,24 @@ describe('admin users', () => {
 		});
 		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
 		expect(await screen.findByText('Memberships removed')).toBeTruthy();
+	});
+
+	it.each([
+		['removed nothing', { removedFrom: [], retainedIn: [] }, 'No memberships removed'],
+		['did not report what it removed', {}, 'Removal finished'],
+	])('titles a removal by what the server did when it %s', async (_case, outcome, title) => {
+		user.status = 'DEACTIVATED';
+		patch.mockResolvedValueOnce({ data: { id: 'usr-1', status: 'DEACTIVATED', ...outcome } });
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await typeConfirmation();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+		});
+
+		const done = await screen.findByRole('dialog');
+		expect(await within(done).findByText(title)).toBeTruthy();
+		expect(within(done).queryByText('Memberships removed')).toBeNull();
 	});
 
 	it('closes the confirm dialog when the PATCH fails', async () => {
