@@ -68,7 +68,7 @@ describe('ExtraLibBudget (HarperFast/studio#1499)', () => {
 		expect(budget.isSpent).toBe(true);
 	});
 
-	it('seals on the file count even when every file is tiny (RUM 2026-10-28)', () => {
+	it('seals on the file count even when every file is tiny', () => {
 		const budget = new ExtraLibBudget();
 		for (let file = 0; file < MAX_EXTRA_LIB_FILES_TOTAL; file++) {
 			expect(budget.admit(100).admitted).toBe(true);

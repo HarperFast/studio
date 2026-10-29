@@ -38,13 +38,8 @@ export const MAX_EXTRA_LIB_CHARS_TOTAL = 8 * 1024 * 1024;
 
 /**
  * File-count budget for acquired `@types` declarations, across the whole session.
- *
- * The char budget can't see a package made of thousands of tiny files: every
- * `addExtraLib` re-clones the *whole* extra-lib set to the worker, so the clone
- * volume grows with the square of the file count. `@mui/icons-material`
- * (~10,000 one-line `.d.ts` files, ~2 MB in all) passed the char budget and still
- * crashed the worker with "DataCloneError: Data cannot be cloned, out of memory."
- * thousands of times in one session.
+ * The worker's clone cost scales with the file count, which the char budget can't
+ * see; see "Type acquisition stops at its budget" in the applications DESIGN.md.
  */
 export const MAX_EXTRA_LIB_FILES_TOTAL = 2_000;
 

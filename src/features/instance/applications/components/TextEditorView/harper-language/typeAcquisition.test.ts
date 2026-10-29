@@ -641,6 +641,7 @@ describe('acquireApplicationTypes', () => {
 
 		expect(isTypeAcquisitionBudgetSpent()).toBe(true);
 		expect(addExtraLib).toHaveBeenCalledTimes(MAX_EXTRA_LIB_FILES_TOTAL);
+		expect(batches).toBeGreaterThan(1);
 		expect(batches).toBeLessThan(MAX_EXTRA_LIB_FILES_TOTAL / 20);
 		expect(declarationRequests.length).toBeLessThanOrEqual(MAX_EXTRA_LIB_FILES_TOTAL + 1 + MAX_CDN_REQUESTS_IN_FLIGHT);
 	}, 30_000);
