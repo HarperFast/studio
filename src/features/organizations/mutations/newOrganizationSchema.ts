@@ -34,18 +34,20 @@ export const NewOrganizationSchema = z.object({
 });
 
 // Organization names are English-only, so accents are dropped (José → Jose).
-function unaccentedUserOrganizationName(firstname: string | undefined, lastname: string | undefined): string {
+function unaccentedUserName(firstname: string | undefined, lastname: string | undefined): string {
 	const fullName = [firstname?.trim(), lastname?.trim()].filter(Boolean).join(' ');
-	return fullName && `${fullName} Org`.normalize('NFD').replace(/\p{M}/gu, '');
+	return fullName.normalize('NFD').replace(/\p{M}/gu, '');
 }
 
 export function defaultOrganizationName(firstname: string | undefined, lastname: string | undefined): string {
-	const name = unaccentedUserOrganizationName(firstname, lastname);
-	return name && specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
+	const fullName = unaccentedUserName(firstname, lastname);
+	const name = `${fullName} Org`;
+	return fullName && specifiedOrganizationName.safeParse(name).success ? name : FALLBACK_ORGANIZATION_NAME;
 }
 
-// Built from the user's own name even when the display name falls back, so fallback users don't all
-// suggest the same subdomain and collide (409).
+// Built from the user's own name even when the display name falls back, so users whose names only partly
+// transliterate (Łukasz) don't all suggest `my-organization` and collide (409).
 export function defaultSubdomainSource(firstname: string | undefined, lastname: string | undefined): string {
-	return unaccentedUserOrganizationName(firstname, lastname) || FALLBACK_ORGANIZATION_NAME;
+	const fullName = unaccentedUserName(firstname, lastname);
+	return /[a-z0-9]/i.test(fullName) ? `${fullName} Org` : FALLBACK_ORGANIZATION_NAME;
 }

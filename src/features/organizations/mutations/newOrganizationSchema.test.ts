@@ -117,8 +117,10 @@ describe('NewOrganizationSchema', () => {
 			expect(defaultSubdomainSource(' Ada ', '')).toBe('Ada Org');
 		});
 
-		it('falls back when there is no name', () => {
+		it('falls back when there is no name, or no letter A–Z or digit in it', () => {
 			expect(defaultSubdomainSource('', ' ')).toBe(FALLBACK_ORGANIZATION_NAME);
+			expect(defaultSubdomainSource('太郎', '')).toBe(FALLBACK_ORGANIZATION_NAME);
+			expect(defaultSubdomainSource('Иван', 'Петров')).toBe(FALLBACK_ORGANIZATION_NAME);
 			expect(defaultSubdomainSource(undefined, undefined)).toBe(FALLBACK_ORGANIZATION_NAME);
 		});
 	});
