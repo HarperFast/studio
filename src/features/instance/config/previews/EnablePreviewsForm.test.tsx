@@ -130,6 +130,21 @@ describe('EnablePreviewsForm', () => {
 		expect(enableRequest()).toMatchObject({ repository: 'Acme/Private', repository_id: '123456' });
 	});
 
+	it('is not held back by an error left on the id field once a found repository hides it', async () => {
+		stubBothRepositories();
+		renderForm();
+		type(repositoryField(), 'acme/private');
+		type(await screen.findByLabelText('Repository id and name'), 'not a line');
+		submit();
+		expect(await screen.findByText(/Paste the line the command prints/)).toBeTruthy();
+		type(repositoryField(), 'HarperFast/studio');
+		await screen.findByText('HarperFast/studio, id 219919692.');
+		expect(screen.queryByLabelText('Repository id and name')).toBeNull();
+		submit();
+		await waitFor(() => expect(post).toHaveBeenCalled());
+		expect(enableRequest()).toMatchObject({ repository: 'HarperFast/studio', repository_id: '219919692' });
+	});
+
 	it('refuses a pasted line for another repository', async () => {
 		stubGitHub(404, { message: 'Not Found' });
 		renderForm();
