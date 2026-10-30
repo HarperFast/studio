@@ -125,7 +125,13 @@ const TREE = {
 	],
 } as unknown as APIDirectoryEntry;
 
-function renderPanel({ policy, tree = TREE }: { policy: PreviewPolicy; tree?: APIDirectoryEntry }) {
+function renderPanel(
+	{ policy, tree = TREE, treeFailed = false }: {
+		policy: PreviewPolicy;
+		tree?: APIDirectoryEntry;
+		treeFailed?: boolean;
+	},
+) {
 	cluster.operations.get_preview_policy = () => policy;
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
@@ -134,7 +140,7 @@ function renderPanel({ policy, tree = TREE }: { policy: PreviewPolicy; tree?: AP
 	lastQueryClient = queryClient;
 	render(
 		<QueryClientProvider client={queryClient}>
-			<ApplicationPreviews app="shop" tree={tree} />
+			<ApplicationPreviews app="shop" tree={tree} treeFailed={treeFailed} />
 		</QueryClientProvider>,
 	);
 }
@@ -201,6 +207,12 @@ describe('ApplicationPreviews', () => {
 			expect(status.getByText('Enabled')).toBeTruthy();
 			expect((await previewSwitch()).getAttribute('aria-checked')).toBe('true');
 			expect(screen.queryByRole('form', { name: 'Enable previews' })).toBeNull();
+		});
+
+		it('reads no secrets for an application with no previews', async () => {
+			renderPanel({ policy: NEVER_ENABLED });
+			await previewSwitch();
+			expect(cluster.calls.map((call) => call.operation)).not.toContain('list_secrets');
 		});
 
 		it('still lists a preview that outlived its policy, so it can be deleted', async () => {
@@ -288,6 +300,15 @@ describe('ApplicationPreviews', () => {
 			expect(live.getByRole('link', { name: 'https://feature.app.cluster.example.com/' })).toBeTruthy();
 			expect(live.getByText('feature')).toBeTruthy();
 			expect(live.queryByRole('button', { name: 'Delete other-pr-9' })).toBeNull();
+		});
+
+		it('does not call the list empty when it could not be read', async () => {
+			for (const policy of [ENABLED, NEVER_ENABLED]) {
+				renderPanel({ policy, tree: null as never, treeFailed: true });
+				expect(await screen.findByText('The live previews could not be loaded.')).toBeTruthy();
+				expect(screen.queryByText(/None yet/)).toBeNull();
+				cleanup();
+			}
 		});
 
 		it('builds no GitHub link from a repository that is not one', async () => {
@@ -614,6 +635,22 @@ describe('ApplicationPreviews', () => {
 			await sealToken();
 			await waitFor(() => expect(toast.error).toHaveBeenCalled());
 			await waitFor(() => expect(variables()).not.toContain('github_pat_plaintext'));
+		});
+
+		it('follows the write even when the read after it fails', async () => {
+			cluster.operations.set_secret = () => ({ name: secret.name, kid: 'print', created: true });
+			cluster.operations.grant_secret = () => {
+				cluster.operations.list_secrets = () => {
+					throw httpError(503, 'node is restarting');
+				};
+				return { name: secret.name, grants: secret.grants, changed: true };
+			};
+			renderPanel({ policy: ENABLED });
+			await sealToken();
+			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
+			expect(await section.findByText('Sealed')).toBeTruthy();
+			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
+			expect(workflow.getByText(/pull_request_target:/).textContent).toContain('credential=true');
 		});
 
 		it('keeps the token in the field when sealing fails, to try again', async () => {

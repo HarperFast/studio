@@ -112,7 +112,12 @@ function PreviewRow({ live, disabled, onDelete }: { live: LivePreview; disabled:
 }
 
 export function LivePreviews(
-	{ app, tree, previewsOn }: { app: string; tree: APIDirectoryEntry | undefined; previewsOn: boolean },
+	{ app, tree, treeFailed, previewsOn }: {
+		app: string;
+		tree: APIDirectoryEntry | undefined;
+		treeFailed: boolean;
+		previewsOn: boolean;
+	},
 ) {
 	const { instanceClient, entityId } = useInstanceClientIdParams();
 	// Also from one instance's page: a preview is on every node of the cluster, and a local drop would leave it on the rest.
@@ -143,7 +148,7 @@ export function LivePreviews(
 		}
 	};
 
-	if (previews.length === 0 && !previewsOn && !outcome) {
+	if (previews.length === 0 && !previewsOn && !outcome && !treeFailed) {
 		return null;
 	}
 
@@ -151,7 +156,9 @@ export function LivePreviews(
 		<section className="flex flex-col gap-2 rounded-md border p-4" aria-label="Live previews">
 			<h3 className="text-sm font-semibold">Live previews</h3>
 			{outcome && <DropResult outcome={outcome} onDismiss={() => setOutcome(undefined)} />}
-			{previews.length === 0
+			{treeFailed && !tree
+				? <p className="text-sm text-muted-foreground">The live previews could not be loaded.</p>
+				: previews.length === 0
 				? previewsOn && (
 					<p className="text-sm text-muted-foreground">None yet. The next pull request appears here once it deploys.</p>
 				)

@@ -30,14 +30,17 @@ const DISABLE_UNANSWERED_MESSAGE =
 	"Harper didn't answer, so it may still be working. The status below shows how far it "
 	+ 'has got, and running disable again resumes it.';
 
-export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirectoryEntry | undefined }) {
+export function ApplicationPreviews(
+	{ app, tree, treeFailed }: { app: string; tree: APIDirectoryEntry | undefined; treeFailed: boolean },
+) {
 	const instanceParams = useInstanceClientIdParams();
 	const { entityId, instanceClient } = instanceParams;
 	const queryClient = useQueryClient();
 	const policyQuery = previewPolicyQueryOptions({ ...instanceParams, app });
 	const { data: policy, isError, refetch } = useQuery(policyQuery);
 	const { mutateAsync: disablePreviews, isPending: isDisabling } = useDisablePreviews();
-	const credential = usePreviewCredentialState(app);
+	// Only once previews exist: a failed read on an application that has none would toast about nothing.
+	const credential = usePreviewCredentialState(app, !!policy && previewSetupState(policy) !== 'off');
 	const [showEnableForm, setShowEnableForm] = useState(false);
 	const [confirmingDisable, setConfirmingDisable] = useState(false);
 	const [disableOutcome, setDisableOutcome] = useState<DisableOutcome>();
@@ -149,7 +152,7 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 				</>
 			)}
 
-			<LivePreviews app={app} tree={tree} previewsOn={state === 'on'} />
+			<LivePreviews app={app} tree={tree} treeFailed={treeFailed} previewsOn={state === 'on'} />
 
 			<DisablePreviewsDialog
 				app={app}

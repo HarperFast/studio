@@ -31,7 +31,7 @@ export function ConfigPreviewsIndex() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsPreviews(registrationInfo.version);
-	const { data: tree, isFetching, isPending, refetch } = useQuery(
+	const { data: tree, isError: treeFailed, isFetching, isPending, refetch } = useQuery(
 		getComponentsQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
 	);
 
@@ -100,7 +100,7 @@ export function ConfigPreviewsIndex() {
 				? <Loading text="Loading..." />
 				: isPreview
 				? <PageNotice>{project} is itself a preview, so it has no previews of its own.</PageNotice>
-				: <ApplicationPreviews key={project} app={project} tree={tree} />}
+				: <ApplicationPreviews key={project} app={project} tree={tree} treeFailed={treeFailed} />}
 		</div>
 	);
 }

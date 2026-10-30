@@ -6,12 +6,14 @@ import { useSecretsKeySource } from '@/features/instance/secrets/useSecretsKeySo
 import { previewComponentPattern, previewCredentialSecretName } from '@/integrations/api/instance/previews/previews';
 import {
 	listSecretsQueryOptions,
+	ListSecretsResponse,
+	SecretMetadata,
 	secretsPublicKeyQueryOptions,
 	useGrantSecret,
 	useSetSecret,
 } from '@/integrations/api/instance/secrets/secrets';
 import { gitHubRepositoryQueryOptions } from '@/integrations/github/lookUpGitHubRepository';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -20,9 +22,9 @@ const NEW_TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 /** `ungranted`: stored, as when the grant failed after the seal, so `harper preview deploy` can't use it yet. */
 export type PreviewCredentialState = 'none' | 'ungranted' | 'sealed';
 
-export function usePreviewCredentialState(app: string): PreviewCredentialState {
+export function usePreviewCredentialState(app: string, enabled: boolean): PreviewCredentialState {
 	const instanceParams = useInstanceClientIdParams();
-	const { data } = useQuery(listSecretsQueryOptions(instanceParams));
+	const { data } = useQuery({ ...listSecretsQueryOptions(instanceParams), enabled });
 	const name = previewCredentialSecretName(app);
 	const secret = data?.secrets.find((candidate) => candidate.name === name);
 	if (!secret) {
@@ -48,7 +50,8 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		enabled: known && needsToken,
 	});
 	const { refetch } = useQuery(listSecretsQueryOptions(instanceParams));
-	const credential = usePreviewCredentialState(app);
+	const credential = usePreviewCredentialState(app, true);
+	const queryClient = useQueryClient();
 	const { mutateAsync: setSecret, reset: resetSetSecret, isPending: isSetting } = useSetSecret();
 	const { mutateAsync: grantSecret, isPending: isGranting } = useGrantSecret();
 	const [token, setToken] = useState('');
@@ -63,7 +66,19 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		try {
 			await setSecret({ ...keySource, name, value: token.trim(), processEnv: false });
 			resetSetSecret();
-			await grantSecret({ ...instanceParams, name, component: previewComponentPattern(app) });
+			const { grants } = await grantSecret({ ...instanceParams, name, component: previewComponentPattern(app) });
+			// So the badge and the workflow follow the write even if the read below fails.
+			queryClient.setQueryData<ListSecretsResponse>(
+				listSecretsQueryOptions(instanceParams).queryKey,
+				(current) =>
+					current && {
+						...current,
+						secrets: [
+							...current.secrets.filter((secret) => secret.name !== name),
+							{ ...current.secrets.find((secret) => secret.name === name), name, grants } as SecretMetadata,
+						],
+					},
+			);
 			setToken('');
 			toast.success('Sealed the GitHub token on the cluster.');
 		} catch {
