@@ -761,10 +761,12 @@ export function ClusterForm({
 			submitInFlight.current = false;
 		};
 		if (clusterId) {
+			// Immediate restart is a version-upgrade choice; the scaling editor does not offer it.
+			const skipGtmWait = mode === 'version' ? formData.skipGtmWait : undefined;
 			submitEditClusterData(
 				mode === 'version'
-					? { id: clusterId, version: formData.version, skipGtmWait: formData.skipGtmWait }
-					: { id: clusterId, regionPlans: plans, skipGtmWait: formData.skipGtmWait },
+					? { id: clusterId, version: formData.version, skipGtmWait }
+					: { id: clusterId, regionPlans: plans },
 				{
 					onSuccess: (data) =>
 						onClusterSavedCallback({
@@ -773,7 +775,7 @@ export function ClusterForm({
 							isSelfManaged,
 							creating: false,
 							toastId,
-							skipGtmWait: formData.skipGtmWait,
+							skipGtmWait,
 						}),
 					onError: clearToast,
 					onSettled: release,
@@ -817,6 +819,7 @@ export function ClusterForm({
 		selectedGrant,
 		deploymentToPerformanceToPlan,
 		form,
+		mode,
 		onClusterSavedCallback,
 		onStartSaving,
 		organizationId,
