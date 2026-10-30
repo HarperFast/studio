@@ -68,8 +68,8 @@ describe('LineChart primitive', () => {
 			<LineChart
 				data={dual}
 				yAxis={{
-					left: { unit: '%', formatter: 'percent' },
-					right: { unit: 'ms', formatter: 'ms' },
+					left: { unit: '', formatter: 'percent' },
+					right: { unit: '', formatter: 'ms' },
 				}}
 			/>,
 		);

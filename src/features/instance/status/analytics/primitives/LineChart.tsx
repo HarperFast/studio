@@ -17,6 +17,7 @@ import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics';
 import { ChartTooltip, type ChartTooltipEntry, useTooltipGate } from './ChartTooltip';
+import { lineChartDurationAxes } from './durationAxisTicks';
 
 interface Props {
 	data: SeriesData;
@@ -88,6 +89,10 @@ export function LineChart(
 		[data.series],
 	);
 
+	// Hover re-renders this chart (useTooltipGate); memoized so those don't
+	// rescan every point.
+	const [leftDuration, rightDuration] = useMemo(() => lineChartDurationAxes(yAxis, data), [data, yAxis]);
+
 	if (data.series.length === 0) {
 		return (
 			<div role="status" aria-live="polite" className="text-(--color-text-secondary) text-sm p-4">
@@ -135,12 +140,18 @@ export function LineChart(
 						/>
 						<YAxis
 							yAxisId="left"
-							tickFormatter={(v) => formatValue(v, leftAxis?.formatter, leftAxis?.unit)}
+							tickFormatter={(v) =>
+								leftDuration
+									? `${leftDuration.format(v)}${leftAxis?.unit ?? ''}`
+									: formatValue(v, leftAxis?.formatter, leftAxis?.unit)}
 							scale={leftAxis?.scale ?? 'linear'}
-							domain={leftAxis?.domain as [number | string, number | string] | undefined}
+							domain={leftDuration
+								? [0, leftDuration.ticks[leftDuration.ticks.length - 1]]
+								: leftAxis?.domain as [number | string, number | string] | undefined}
+							ticks={leftDuration?.ticks}
 							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
-							// Wider than Recharts' ~60px default so e.g. '2400.0 ms'
+							// Wider than Recharts' ~60px default so e.g. '2.5 min'
 							// or '1.5 GB' doesn't wrap onto two lines per tick.
 							width={70}
 						/>
@@ -149,9 +160,15 @@ export function LineChart(
 								<YAxis
 									yAxisId="right"
 									orientation="right"
-									tickFormatter={(v) => formatValue(v, rightAxis.formatter, rightAxis.unit)}
+									tickFormatter={(v) =>
+										rightDuration
+											? `${rightDuration.format(v)}${rightAxis.unit}`
+											: formatValue(v, rightAxis.formatter, rightAxis.unit)}
 									scale={rightAxis.scale ?? 'linear'}
-									domain={rightAxis.domain as [number | string, number | string] | undefined}
+									domain={rightDuration
+										? [0, rightDuration.ticks[rightDuration.ticks.length - 1]]
+										: rightAxis.domain as [number | string, number | string] | undefined}
+									ticks={rightDuration?.ticks}
 									stroke={chartColors.axisColor}
 									tick={{ fontSize: 11 }}
 									width={70}

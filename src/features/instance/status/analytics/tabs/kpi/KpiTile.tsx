@@ -45,11 +45,12 @@ export function KpiTile({ def }: { def: KpiTileDef }) {
 function DeltaRow({ delta, windowMs }: { delta: KpiDelta | null; windowMs: number }) {
 	if (!delta) { return <div className="h-4" aria-hidden="true" />; }
 	const windowLabel = formatWindowLabel(windowMs);
-	// Unsign a pct that ROUNDS to zero — "+0.0%" reads as a real move.
-	const rounded = delta.pct.toFixed(1);
-	const pctText = rounded === '0.0' || rounded === '-0.0'
+	// A flat delta reads unsigned — "+0.0%" reads as a real move.
+	const magnitude = Math.abs(delta.pct);
+	const digits = Number(magnitude.toFixed(1)) >= 1000 ? formatValue(magnitude, 'count') : magnitude.toFixed(1);
+	const pctText = delta.direction === 'flat'
 		? '0.0%'
-		: `${delta.pct >= 0 ? '+' : ''}${rounded}%`;
+		: `${delta.pct >= 0 ? '+' : '-'}${digits}%`;
 	const color = delta.direction === 'up'
 		? 'text-destructive'
 		: delta.direction === 'down'

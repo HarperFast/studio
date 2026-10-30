@@ -51,7 +51,7 @@ describe('ChartTooltip (shared cartesian chart tooltip)', () => {
 			/>,
 		);
 		expect(screen.getByText(/50\.0%/)).toBeTruthy();
-		expect(screen.getByText(/12\.0 ms/)).toBeTruthy();
+		expect(screen.getByText(/12 ms/)).toBeTruthy();
 	});
 
 	it('renders — for a missing (null) value instead of a fake 0', () => {
@@ -142,7 +142,7 @@ describe('ChartTooltip (shared cartesian chart tooltip)', () => {
 				showTotal
 			/>,
 		);
-		// Total = 80235; rendered raw, not "80k".
-		expect(screen.getByText(/80235\s*msg\/s/)).toBeTruthy();
+		// Total = 80235; rendered exact (digits grouped), not "80k".
+		expect(screen.getByText(/80,235\s*msg\/s/)).toBeTruthy();
 	});
 });
