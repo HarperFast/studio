@@ -702,6 +702,34 @@ const extraLibBudget = new ExtraLibBudget();
 export const MAX_CDN_REQUESTS_IN_FLIGHT = 8;
 const CDN_REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * ata downloads every declaration file in a package's tree, whatever the code
+ * imports. A package past this many (`@mui/icons-material` has ~21,500) is
+ * skipped whole rather than spending the session's file budget on it (#2043).
+ */
+export const MAX_DECLARATION_FILES_PER_PACKAGE = 2_500;
+const PACKAGE_FILE_LISTING = /^https:\/\/data\.jsdelivr\.com\/v1\/package\/npm\/.+\/flat$/;
+// ata's own `isDtsFile` test.
+const DECLARATION_FILE = /\.d\.([^.]+\.)?[cm]?ts$/i;
+
+function requestUrl(input: RequestInfo | URL): string {
+	if (typeof input === 'string') {
+		return input;
+	}
+	return input instanceof URL ? input.href : input.url;
+}
+
+function countDeclarationFiles(listing: ArrayBuffer): number {
+	try {
+		const { files } = JSON.parse(new TextDecoder().decode(listing)) as { files?: Array<{ name?: unknown }> };
+		return Array.isArray(files)
+			? files.filter((file) => typeof file?.name === 'string' && DECLARATION_FILE.test(file.name)).length
+			: 0;
+	} catch {
+		return 0;
+	}
+}
+
 function budgetSpentResponse(): Response {
 	return new Response(null, { status: 503, statusText: 'Type acquisition budget spent' });
 }
@@ -750,6 +778,11 @@ export function createBudgetedFetcher(
 			const body = await response.arrayBuffer();
 			if (budget.isSpent) {
 				return budgetSpentResponse();
+			}
+			const url = requestUrl(input);
+			if (PACKAGE_FILE_LISTING.test(url) && countDeclarationFiles(body) > MAX_DECLARATION_FILES_PER_PACKAGE) {
+				console.warn(`[harper] type acquisition: skipped ${url}, which has too many declaration files to load`);
+				return new Response(null, { status: 413, statusText: 'Too many declaration files' });
 			}
 			return new Response(body, {
 				status: response.status,

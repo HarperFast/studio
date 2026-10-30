@@ -194,3 +194,10 @@ A slot covers the response body, not just its headers: `fetch` resolves on heade
 once ata has read the body, so releasing earlier lets a slow link download far past it. The slots live for the whole
 tab, so each request also times out, and a failed one becomes a non-OK response that loses only that file instead of
 rejecting ata's whole pass. A replacement for ata's fetch path has to keep all of these.
+
+The budget counts files as well as characters (`MAX_EXTRA_LIB_FILES_TOTAL`), because Monaco re-posts the whole
+extra-lib map to the worker after each `addExtraLib`: the clone cost grows with the file count squared, and ~21,500
+small `@mui/icons-material` declarations OOM'd the worker at a quarter of the char cap (#2043). The fetcher also refuses
+the jsDelivr file listing of any package with more than `MAX_DECLARATION_FILES_PER_PACKAGE` declaration files. ata
+then drops that package before downloading any of it (and never tries `@types` for it), so one oversized package
+neither floods the network nor spends the session budget the others need.

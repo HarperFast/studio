@@ -11,9 +11,12 @@ vi.mock('@/lib/monaco/languageServices', () => ({
 	},
 }));
 
-const { findAcquirableSpecifiers, createBudgetedFetcher, MAX_CDN_REQUESTS_IN_FLIGHT } = await import(
-	'./typeAcquisition'
-);
+const {
+	findAcquirableSpecifiers,
+	createBudgetedFetcher,
+	MAX_CDN_REQUESTS_IN_FLIGHT,
+	MAX_DECLARATION_FILES_PER_PACKAGE,
+} = await import('./typeAcquisition');
 
 describe('findAcquirableSpecifiers', () => {
 	describe('real imports it must keep finding', () => {
@@ -525,6 +528,32 @@ describe('createBudgetedFetcher', () => {
 		await expect(response).resolves.toHaveProperty('status', 503);
 	});
 
+	it('refuses the file listing of a package with too many declaration files (#2043)', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const listing = (count: number) =>
+			Response.json({
+				files: [
+					{ name: '/package.json' },
+					...Array.from({ length: count }, (_, index) => ({ name: `/Icon${index}.d.ts` })),
+				],
+			});
+		const huge = `https://data.jsdelivr.com/v1/package/npm/@mui/icons-material@9.5.0/flat`;
+		const fetcher = createBudgetedFetcher(
+			new ExtraLibBudget(),
+			(input) =>
+				Promise.resolve(
+					listing(input === huge ? MAX_DECLARATION_FILES_PER_PACKAGE + 1 : MAX_DECLARATION_FILES_PER_PACKAGE),
+				),
+		);
+
+		await expect(fetcher(huge)).resolves.toHaveProperty('status', 413);
+		expect(warn).toHaveBeenCalledTimes(1);
+		const atLimit = await fetcher('https://data.jsdelivr.com/v1/package/npm/@mui/material@9.5.0/flat');
+		expect(atLimit.ok).toBe(true);
+		expect((await atLimit.json()).files).toHaveLength(MAX_DECLARATION_FILES_PER_PACKAGE + 1);
+		warn.mockRestore();
+	});
+
 	it('turns a failed request into a non-OK response, and warns once', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const fetcher = createBudgetedFetcher(new ExtraLibBudget(), () => Promise.reject(new TypeError('Failed to fetch')));
@@ -596,4 +625,42 @@ describe('acquireApplicationTypes', () => {
 		expect(peakInFlight).toBeLessThanOrEqual(MAX_CDN_REQUESTS_IN_FLIGHT);
 		expect(declarationRequests.length).toBeLessThanOrEqual(filesToSpendBudget + MAX_CDN_REQUESTS_IN_FLIGHT);
 	}, 30_000);
+
+	it('skips a package with too many declaration files and still acquires the others (#2043)', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const declarationRequests: string[] = [];
+		const listing = (count: number) =>
+			Response.json({ files: Array.from({ length: count }, (_, index) => ({ name: `/d${index}.d.ts` })) });
+		vi.stubGlobal('fetch', async (input: string) => {
+			if (input.endsWith('.d.ts')) {
+				declarationRequests.push(input);
+				return new Response('export declare const x: number;\n');
+			}
+			if (input.includes('/resolve/npm/')) {
+				return Response.json({ version: '1.0.0' });
+			}
+			if (input.endsWith('/npm/icon-pack@1.0.0/flat')) {
+				return listing(MAX_DECLARATION_FILES_PER_PACKAGE + 1);
+			}
+			if (input.endsWith('/npm/small-types@1.0.0/flat')) {
+				return listing(3);
+			}
+			if (input.endsWith('/package.json')) {
+				return new Response('{}');
+			}
+			return new Response(null, { status: 404 });
+		});
+
+		const { typescript } = await import('@/lib/monaco/languageServices');
+		const addExtraLib = vi.mocked(typescript.typescriptDefaults.addExtraLib);
+		addExtraLib.mockClear();
+		const { acquireApplicationTypes, isTypeAcquisitionBudgetSpent } = await import('./typeAcquisition');
+		await acquireApplicationTypes([`import { Home } from 'icon-pack';\nimport { x } from 'small-types';`]);
+
+		expect(declarationRequests.filter((url) => url.includes('icon-pack'))).toEqual([]);
+		expect(declarationRequests.filter((url) => url.includes('small-types'))).toHaveLength(3);
+		expect(addExtraLib.mock.calls.map(([, uri]) => uri)).toContain('file:///node_modules/small-types/d0.d.ts');
+		expect(isTypeAcquisitionBudgetSpent()).toBe(false);
+		warn.mockRestore();
+	});
 });

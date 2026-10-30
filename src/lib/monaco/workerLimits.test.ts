@@ -1,4 +1,9 @@
-import { ExtraLibBudget, MAX_EXTRA_LIB_CHARS_TOTAL, MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import {
+	ExtraLibBudget,
+	MAX_EXTRA_LIB_CHARS_TOTAL,
+	MAX_EXTRA_LIB_FILES_TOTAL,
+	MAX_WORKER_MODEL_CHARS,
+} from '@/lib/monaco/workerLimits';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -60,6 +65,16 @@ describe('ExtraLibBudget (HarperFast/studio#1499)', () => {
 		budget.admit(1); // overflows and seals (justExhausted: true)
 		// A tiny file is now turned away and the exhaustion transition is not re-reported.
 		expect(budget.admit(1)).toEqual({ admitted: false, justExhausted: false, oversize: false });
+		expect(budget.isSpent).toBe(true);
+	});
+
+	it('seals on the file count even while the char total is far below its cap (#2043)', () => {
+		const budget = new ExtraLibBudget();
+		for (let file = 0; file < MAX_EXTRA_LIB_FILES_TOTAL; file++) {
+			expect(budget.admit(100).admitted).toBe(true);
+		}
+		expect(budget.isSpent).toBe(false);
+		expect(budget.admit(100)).toEqual({ admitted: false, justExhausted: true, oversize: false });
 		expect(budget.isSpent).toBe(true);
 	});
 });
