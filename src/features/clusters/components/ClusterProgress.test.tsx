@@ -91,13 +91,69 @@ describe('ClusterProgress', () => {
 		expect((container.querySelector('.bg-gray-600') as HTMLElement).style.width).toBe('50%');
 	});
 
-	it('shows nothing extra while instances are being removed', async () => {
+	it('shows members past what the plans add up to as removing, so the bar fills toward the target', async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-4', planId: 'plan-1', status: 'TERMINATED' },
+		];
+		const { container } = mount(2);
+		expect(await screen.findByText('2 Running · 1 Removing')).toBeTruthy();
+		expect((container.querySelector('.bg-green\\/80') as HTMLElement).style.width).toMatch(/^66\.66/);
+		expect((container.querySelector('.bg-yellow\\/80') as HTMLElement).style.width).toMatch(/^33\.33/);
+	});
+
+	it('is all running once the scale-down reaches its target', async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-1', status: 'TERMINATED' },
+		];
+		mount(2);
+		expect(await screen.findByText('2 Running')).toBeTruthy();
+	});
+
+	it("leaves a removed region's members draining, without also counting the staying ones as removing", async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-gone', status: 'RUNNING' },
+			{ id: 'ins-4', planId: 'plan-gone', status: 'RUNNING' },
+		];
+		mount(2);
+		expect(await screen.findByText('2 Running · 2 Draining Traffic')).toBeTruthy();
+	});
+
+	it('takes no healthy member for removing because a leaving one has failed', async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-1', status: 'FAILED' },
+		];
+		mount(2);
+		expect(await screen.findByText('2 Running · 1 Failed')).toBeTruthy();
+	});
+
+	it("takes no healthy member for removing because a removed region's member is mid-update", async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-3', planId: 'plan-gone', status: 'DRAINING' },
+			{ id: 'ins-4', planId: 'plan-gone', status: 'RUNNING' },
+		];
+		mount(2);
+		await screen.findByText(/^2 Running · /);
+		expect(screen.queryByText(/Removing/)).toBeNull();
+	});
+
+	it('counts nothing as removing where no target is given', async () => {
 		clusterInstances = [
 			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
 			{ id: 'ins-2', planId: 'plan-1', status: 'RUNNING' },
 			{ id: 'ins-3', planId: 'plan-1', status: 'RUNNING' },
 		];
-		mount(2);
+		mount();
 		expect(await screen.findByText('3 Running')).toBeTruthy();
 	});
 });
