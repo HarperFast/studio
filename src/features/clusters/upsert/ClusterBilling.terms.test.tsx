@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { ClusterBilling } from '@/features/clusters/upsert/ClusterBilling';
+import { SchemaPlan } from '@/integrations/api/api.gen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +24,7 @@ vi.mock('@/components/ContactUs', () => ({ ContactUs: () => <span>Contact us</sp
 
 afterEach(cleanup);
 
-function renderStep(clusterId?: string) {
+function renderStep(clusterId?: string, props: Partial<Parameters<typeof ClusterBilling>[0]> = {}) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={client}>
@@ -34,6 +35,7 @@ function renderStep(clusterId?: string) {
 				onSaveStateForBillingRedirect={() => {}}
 				organizationId="org-1"
 				selectedPlan={undefined}
+				{...props}
 			/>
 		</QueryClientProvider>,
 	);
@@ -55,5 +57,23 @@ describe('ClusterBilling in an unrestricted organization', () => {
 		await screen.findByRole('button', { name: /Edit Cluster/ });
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(screen.queryByText(/billed at your contracted rate/)).toBeNull();
+	});
+});
+
+describe('ClusterBilling while the submit is in flight', () => {
+	const dedicated = { deploymentType: 'dedicated' } as SchemaPlan;
+	const submitButton = () => screen.getByRole('button', { name: /Create New Cluster/ });
+
+	it('spins the submit button and says the dedicated hosts are being set up', async () => {
+		renderStep(undefined, { isPending: true, selectedPlan: dedicated });
+		expect(await screen.findByText(/Setting up dedicated hosts/)).toBeTruthy();
+		expect(submitButton().querySelector('.animate-spin')).toBeTruthy();
+	});
+
+	it('spins without the hosts note for any other plan', async () => {
+		renderStep(undefined, { isPending: true, selectedPlan: { deploymentType: 'colocated' } as SchemaPlan });
+		await screen.findByRole('button', { name: /Create New Cluster/ });
+		expect(submitButton().querySelector('.animate-spin')).toBeTruthy();
+		expect(screen.queryByText(/Setting up dedicated hosts/)).toBeNull();
 	});
 });
