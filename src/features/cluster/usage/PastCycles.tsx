@@ -103,7 +103,7 @@ function PastCycleCard(
 			header={<HeaderText title={cycleRange(cycle)} meta={meta} />}
 		>
 			<div className="space-y-6">
-				{cycle.regions.map((region) => <PastRegion key={region.region ?? region.regionIds.join()} region={region} />)}
+				{cycle.regions.map((region) => <PastRegion key={region.regionIds.join() || region.region} region={region} />)}
 			</div>
 		</CollapsibleCard>
 	);
