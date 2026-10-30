@@ -24,11 +24,14 @@ const newClusterRoute = createRoute({
 	component: UpsertCluster,
 });
 
+// /edit and /edit/$mode render UpsertCluster in the same outlet, so unkeyed React keeps one editor
+// across both pages: switching tabs carried the Version page's mode into a scaling submit.
 const editClusterRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/edit',
 	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
 	beforeLoad: redirectAwayFromDeletedCluster,
+	remountDeps: ({ params }) => params,
 	component: UpsertCluster,
 });
 
@@ -37,6 +40,7 @@ const editClusterVersionRoute = createRoute({
 	path: '/edit/$mode',
 	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
 	beforeLoad: redirectAwayFromDeletedCluster,
+	remountDeps: ({ params }) => params,
 	component: UpsertCluster,
 });
 

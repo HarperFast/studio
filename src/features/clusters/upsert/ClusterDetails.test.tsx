@@ -483,3 +483,15 @@ describe('ClusterDetails — while a submit is in flight', () => {
 		expect(screen.queryByText(/Setting up dedicated hosts/)).toBeNull();
 	});
 });
+
+describe('ClusterDetails — immediate restart', () => {
+	it('is not offered while scaling', async () => {
+		await mountEditor({ clusterId: 'clu-test' });
+		expect(screen.queryByText(/Immediate upgrade and restart/)).toBeNull();
+	});
+
+	it('is offered on the version page', async () => {
+		await mountEditor({ clusterId: 'clu-test', mode: 'version' });
+		expect(screen.getByText(/Immediate upgrade and restart/)).toBeTruthy();
+	});
+});
