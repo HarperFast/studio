@@ -179,6 +179,30 @@ describe('ApplicationPreviews', () => {
 			expect(screen.getByText('Previews are the same site as production')).toBeTruthy();
 		});
 
+		it('stays on after enabling, even when the read that follows fails', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () =>
+					new Response(JSON.stringify({ id: 123, full_name: 'acme/shop', private: false }), { status: 200 })
+				),
+			);
+			cluster.operations.enable_previews = () => {
+				cluster.operations.get_preview_policy = () => {
+					throw httpError(503, 'node is restarting');
+				};
+				return { ...ENABLED, message: 'Enabled previews of shop', created: [] };
+			};
+			renderPanel({ policy: NEVER_ENABLED });
+			fireEvent.click(await previewSwitch());
+			fireEvent.change(screen.getByLabelText('GitHub repository'), { target: { value: 'acme/shop' } });
+			await screen.findByText('acme/shop, id 123.');
+			fireEvent.click(screen.getByRole('button', { name: 'Enable previews' }));
+			const status = within(await screen.findByRole('region', { name: 'Preview status' }));
+			expect(status.getByText('Enabled')).toBeTruthy();
+			expect((await previewSwitch()).getAttribute('aria-checked')).toBe('true');
+			expect(screen.queryByRole('form', { name: 'Enable previews' })).toBeNull();
+		});
+
 		it('still lists a preview that outlived its policy, so it can be deleted', async () => {
 			renderPanel({ policy: NEVER_ENABLED });
 			await previewSwitch();
@@ -279,6 +303,19 @@ describe('ApplicationPreviews', () => {
 	});
 
 	describe('a setup with problems', () => {
+		it('claims no data mode or limit for a role that has no grant', async () => {
+			renderPanel({
+				policy: {
+					...REVOKED,
+					grant: null,
+					problems: ['role "shop-ci-preview" is not a preview role for shop-pr-* alone'],
+				},
+			});
+			const status = within(await screen.findByRole('region', { name: 'Preview status' }));
+			expect(status.queryByText('Shared')).toBeNull();
+			expect(status.queryByText("The cluster's default")).toBeNull();
+		});
+
 		it('shows each problem and offers the disable that resumes', async () => {
 			renderPanel({ policy: REVOKED });
 			const status = within(await screen.findByRole('region', { name: 'Preview status' }));
@@ -380,7 +417,13 @@ describe('ApplicationPreviews', () => {
 					app: 'shop',
 					dropped: [
 						{ node: 'node-1', project: 'shop-pr-3', deploymentId: 'd1', componentRemoved: true },
-						{ node: 'node-2', project: 'shop-pr-3', deploymentId: 'd1', componentRemoved: false },
+						{
+							node: 'node-2',
+							project: 'shop-pr-3',
+							deploymentId: 'd1',
+							componentRemoved: false,
+							message: 'Kept the branched database storage',
+						},
 					],
 					removed: ['user shop-ci-preview', 'role shop-ci-preview'],
 					inProgress: ['shop-pr-4'],
@@ -391,7 +434,7 @@ describe('ApplicationPreviews', () => {
 			await confirmDisable();
 			expect(await screen.findByText('Disabled previews of shop')).toBeTruthy();
 			expect(screen.getByText('shop-pr-3 on node-1: dropped')).toBeTruthy();
-			expect(screen.getByText('shop-pr-3 on node-2: did not hold it')).toBeTruthy();
+			expect(screen.getByText('shop-pr-3 on node-2: did not hold it. Kept the branched database storage')).toBeTruthy();
 			expect(screen.getByText('Removed user shop-ci-preview, role shop-ci-preview.')).toBeTruthy();
 			expect(screen.getByText(/Still deploying when previews were revoked: shop-pr-4/)).toBeTruthy();
 			await waitFor(async () => expect((await previewSwitch()).getAttribute('aria-checked')).toBe('false'));
@@ -564,7 +607,28 @@ describe('ApplicationPreviews', () => {
 			});
 			renderPanel({ policy: ENABLED });
 			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
-			expect(section.getByText('Not set')).toBeTruthy();
+			expect(section.getByText('Not granted')).toBeTruthy();
+			expect(section.getByText(/no preview can use it yet/)).toBeTruthy();
+			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
+			expect(workflow.getByText(/pull_request_target:/).textContent).not.toContain('credential=true');
+		});
+
+		it('still mentions a stored token after disabling, granted or not', async () => {
+			cluster.operations.list_secrets = () => ({
+				secrets: [{ ...secret, grants: [] }],
+				custody_fingerprint: 'print',
+			});
+			cluster.operations.disable_previews = () => ({
+				message: 'Disabled previews of shop',
+				app: 'shop',
+				dropped: [],
+				removed: [],
+			});
+			renderPanel({ policy: ENABLED });
+			await screen.findByText('Not granted');
+			fireEvent.click(await previewSwitch());
+			fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Disable previews' }));
+			expect(await screen.findByText(/stays in Secrets/)).toBeTruthy();
 		});
 	});
 });

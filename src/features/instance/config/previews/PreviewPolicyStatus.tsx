@@ -50,9 +50,13 @@ export function PreviewPolicyStatus({
 				</Field>
 				<Field label="Branch">{policy.branch ?? '—'}</Field>
 				<Field label="Data">
-					{constraints?.branchedDatabases === 'required' ? 'Branched: each preview gets its own copy' : 'Shared'}
+					{!constraints
+						? '—'
+						: constraints.branchedDatabases === 'required'
+						? 'Branched: each preview gets its own copy'
+						: 'Shared'}
 				</Field>
-				<Field label="Most previews">{constraints?.maxPreviews ?? "The cluster's default"}</Field>
+				<Field label="Most previews">{constraints ? constraints.maxPreviews ?? "The cluster's default" : '—'}</Field>
 				<Field label="Longest life">
 					{constraints?.maxTtlDays === undefined ? '—' : `${constraints.maxTtlDays} days`}
 				</Field>

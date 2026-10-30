@@ -17,13 +17,18 @@ import { toast } from 'sonner';
 
 const NEW_TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 
-/** Whether `harper preview deploy credential=true` would find a token for this application's previews. */
-export function usePreviewCredentialSealed(app: string): boolean {
+/** `ungranted`: stored, as when the grant failed after the seal, so `harper preview deploy` can't use it yet. */
+export type PreviewCredentialState = 'none' | 'ungranted' | 'sealed';
+
+export function usePreviewCredentialState(app: string): PreviewCredentialState {
 	const instanceParams = useInstanceClientIdParams();
 	const { data } = useQuery(listSecretsQueryOptions(instanceParams));
 	const name = previewCredentialSecretName(app);
 	const secret = data?.secrets.find((candidate) => candidate.name === name);
-	return !!secret?.grants.includes(previewComponentPattern(app));
+	if (!secret) {
+		return 'none';
+	}
+	return secret.grants.includes(previewComponentPattern(app)) ? 'sealed' : 'ungranted';
 }
 
 /**
@@ -43,7 +48,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		enabled: known && needsToken,
 	});
 	const { refetch } = useQuery(listSecretsQueryOptions(instanceParams));
-	const sealed = usePreviewCredentialSealed(app);
+	const credential = usePreviewCredentialState(app);
 	const { mutateAsync: setSecret, reset: resetSetSecret, isPending: isSetting } = useSetSecret();
 	const { mutateAsync: grantSecret, isPending: isGranting } = useGrantSecret();
 	const [token, setToken] = useState('');
@@ -72,13 +77,16 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		<section className="flex flex-col gap-2 rounded-md border p-4 text-sm" aria-label="GitHub token">
 			<div className="flex flex-wrap items-center gap-2">
 				<h3 className="font-semibold">GitHub token</h3>
-				{sealed ? <Badge variant="success">Sealed</Badge> : <Badge variant="warning">Not set</Badge>}
+				{credential === 'sealed'
+					? <Badge variant="success">Sealed</Badge>
+					: <Badge variant="warning">{credential === 'ungranted' ? 'Not granted' : 'Not set'}</Badge>}
 			</div>
 			<p className="text-muted-foreground">
 				{repository}{' '}
 				isn't public, or GitHub couldn't say. A private repository needs a token the cluster can fetch each pull request
 				with. It is encrypted in this browser and can't be read back.
 			</p>
+			{credential === 'ungranted' && <p>A token is stored, but no preview can use it yet. Seal it again to finish.</p>}
 			{clusterInfoUnavailable
 				? (
 					<p className="text-muted-foreground">
@@ -96,7 +104,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				: (
 					<form className="flex flex-col gap-2" onSubmit={(event) => void onSubmit(event)}>
 						<label className="flex max-w-md flex-col gap-1">
-							{sealed ? 'Replace the token' : 'Fine-grained token'}
+							{credential === 'none' ? 'Fine-grained token' : 'Replace the token'}
 							<Input
 								type="password"
 								// Not a sign-in: a saved password filled in here would be sealed as the token.

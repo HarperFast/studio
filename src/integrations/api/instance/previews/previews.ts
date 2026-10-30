@@ -24,8 +24,8 @@ export function supportsPreviews(version: string | undefined): boolean {
 
 /** Harper walks each node's preview releases and drops them one by one, up to 5 minutes for a peer. */
 const DISABLE_PREVIEWS_TIMEOUT_MS = 10 * 60_000;
-/** Harper's own limit for dropping a release on a peer. */
-const DROP_PREVIEW_TIMEOUT_MS = 5 * 60_000;
+/** Past Harper's 5 minutes for a peer, so a hung peer comes back as that peer's result rather than as no answer. */
+const DROP_PREVIEW_TIMEOUT_MS = 6 * 60_000;
 
 export function previewComponentPattern(app: string): string {
 	return `${app}-pr-*`;

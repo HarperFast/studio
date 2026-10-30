@@ -73,7 +73,7 @@ export function ConfigPreviewsIndex() {
 					<h2 className="text-lg font-semibold">Previews</h2>
 					<p className="text-sm text-muted-foreground">
 						Each open pull request of an application runs at its own URL on this cluster, deployed by GitHub Actions
-						with no stored secret, and is removed when the pull request closes.
+						with no secret stored in GitHub, and is removed when the pull request closes.
 					</p>
 				</div>
 				<Button variant="defaultOutline" onClick={onRefreshClick} disabled={isFetching}>

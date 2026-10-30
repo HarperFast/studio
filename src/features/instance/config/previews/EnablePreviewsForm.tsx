@@ -14,7 +14,11 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore, EntityIds } from '@/features/auth/store/authStore';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { EnablePreviewsRequest, useEnablePreviews } from '@/integrations/api/instance/previews/previews';
+import {
+	EnablePreviewsRequest,
+	EnablePreviewsResponse,
+	useEnablePreviews,
+} from '@/integrations/api/instance/previews/previews';
 import { GitHubRepositoryLookup, useGitHubRepositoryLookup } from '@/integrations/github/lookUpGitHubRepository';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { describeError } from '@/react-query/queryClient';
@@ -110,7 +114,9 @@ function RepositoryLookupMessage(
 	);
 }
 
-export function EnablePreviewsForm({ app, onEnabled }: { app: string; onEnabled: () => Promise<unknown> }) {
+export function EnablePreviewsForm(
+	{ app, onEnabled }: { app: string; onEnabled: (enabled: EnablePreviewsResponse) => void },
+) {
 	const instanceParams = useInstanceClientIdParams();
 	const { instanceClient, entityId } = instanceParams;
 	const audience = useAudience(entityId);
@@ -176,7 +182,7 @@ export function EnablePreviewsForm({ app, onEnabled }: { app: string; onEnabled:
 			return;
 		}
 		try {
-			const { message } = await enablePreviews({
+			const enabled = await enablePreviews({
 				instanceClient,
 				request: buildEnablePreviewsRequest(values, {
 					app,
@@ -186,8 +192,8 @@ export function EnablePreviewsForm({ app, onEnabled }: { app: string; onEnabled:
 					needsHostSuffix,
 				}),
 			});
-			toast.success(message);
-			await onEnabled();
+			toast.success(enabled.message);
+			onEnabled(enabled);
 		} catch (error) {
 			setFailure(describeError(error).message);
 		}

@@ -19,7 +19,7 @@ import { DisablePreviewsDialog, DisablePreviewsResult } from './DisablePreviews'
 import { EnablePreviewsForm } from './EnablePreviewsForm';
 import { LivePreviews } from './LivePreviews';
 import { PageNotice } from './PageNotice';
-import { PreviewCredential, usePreviewCredentialSealed } from './PreviewCredential';
+import { PreviewCredential, usePreviewCredentialState } from './PreviewCredential';
 import { PreviewPolicyStatus } from './PreviewPolicyStatus';
 import { PreviewWarnings } from './PreviewWarnings';
 import { PreviewWorkflowInstructions } from './PreviewWorkflowInstructions';
@@ -34,9 +34,10 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 	const instanceParams = useInstanceClientIdParams();
 	const { entityId, instanceClient } = instanceParams;
 	const queryClient = useQueryClient();
-	const { data: policy, isError, refetch } = useQuery(previewPolicyQueryOptions({ ...instanceParams, app }));
+	const policyQuery = previewPolicyQueryOptions({ ...instanceParams, app });
+	const { data: policy, isError, refetch } = useQuery(policyQuery);
 	const { mutateAsync: disablePreviews, isPending: isDisabling } = useDisablePreviews();
-	const credentialSealed = usePreviewCredentialSealed(app);
+	const credential = usePreviewCredentialState(app);
 	const [showEnableForm, setShowEnableForm] = useState(false);
 	const [confirmingDisable, setConfirmingDisable] = useState(false);
 	const [disableOutcome, setDisableOutcome] = useState<DisableOutcome>();
@@ -85,7 +86,7 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 			</label>
 
 			{disableOutcome && 'response' in disableOutcome && (
-				<DisablePreviewsResult response={disableOutcome.response} credentialSealed={credentialSealed} />
+				<DisablePreviewsResult response={disableOutcome.response} credentialStored={credential !== 'none'} />
 			)}
 			{disableOutcome && 'failure' in disableOutcome && (
 				<Alert variant="destructive">
@@ -111,9 +112,10 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 					<PreviewWarnings />
 					<EnablePreviewsForm
 						app={app}
-						onEnabled={async () => {
+						onEnabled={(enabled) => {
+							// Enable answers with the policy, so a read failing right after a write that landed can't undo the page.
+							queryClient.setQueryData(policyQuery.queryKey, enabled);
 							setDisableOutcome(undefined);
-							await refetch();
 							setShowEnableForm(false);
 						}}
 					/>
@@ -134,7 +136,7 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 				<>
 					<PreviewWarnings shared={policy.grant?.constraints?.branchedDatabases !== 'required'} />
 					{policy.repository && <PreviewCredential app={app} repository={policy.repository} />}
-					<PreviewWorkflowInstructions policy={policy} credentialSealed={credentialSealed} />
+					<PreviewWorkflowInstructions policy={policy} credentialSealed={credential === 'sealed'} />
 				</>
 			)}
 

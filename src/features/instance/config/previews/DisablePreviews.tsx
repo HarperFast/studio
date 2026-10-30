@@ -8,6 +8,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { branchStorageMessage } from '@/integrations/api/instance/applications/branchedDatabases';
 import { DisablePreviewsResponse, DroppedPreview } from '@/integrations/api/instance/previews/previews';
 import { ArrowLeft } from 'lucide-react';
 
@@ -45,11 +46,12 @@ export function DisablePreviewsDialog({
 
 function describeDrop(drop: DroppedPreview): string {
 	const outcome = drop.error ? `failed: ${drop.error}` : drop.componentRemoved ? 'dropped' : 'did not hold it';
-	return `${drop.project} on ${drop.node}: ${outcome}`;
+	const storage = branchStorageMessage(drop);
+	return `${drop.project} on ${drop.node}: ${outcome}${storage ? `. ${storage}` : ''}`;
 }
 
 export function DisablePreviewsResult(
-	{ response, credentialSealed }: { response: DisablePreviewsResponse; credentialSealed: boolean },
+	{ response, credentialStored }: { response: DisablePreviewsResponse; credentialStored: boolean },
 ) {
 	const { message, dropped, removed, inProgress = [] } = response;
 	return (
@@ -65,7 +67,7 @@ export function DisablePreviewsResult(
 							{inProgress.join(', ')}. If one goes live, it is dropped when it expires, or you can delete it here.
 						</li>
 					)}
-					{credentialSealed && <li>The sealed GitHub token stays in Secrets until you delete it there.</li>}
+					{credentialStored && <li>The sealed GitHub token stays in Secrets until you delete it there.</li>}
 				</ul>
 			</AlertDescription>
 		</Alert>
