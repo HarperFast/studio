@@ -12,6 +12,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 
 const LOOKUP_DEBOUNCE_MS = 400;
 const FOUND_STALE_MS = 5 * 60_000;
+const MISS_STALE_MS = 60_000;
 
 /** GitHub's own names, which an id lookup must not widen: a segment is never `.` or `..`, or a path. */
 const REPOSITORY_SEGMENT = /^(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
@@ -84,8 +85,10 @@ export function gitHubRepositoryQueryOptions(fullName: string | undefined) {
 		queryFn: () => lookUpGitHubRepository(fullName as string),
 		enabled: !!fullName,
 		retry: false,
-		// Anything else may change on the next try: the repository is created, or the rate limit resets.
-		staleTime: (query) => query.state.data?.status === 'found' ? FOUND_STALE_MS : 0,
+		staleTime: (query) => query.state.data?.status === 'found' ? FOUND_STALE_MS : MISS_STALE_MS,
+		// The quota is shared by everything at this address, so returning to the tab must not spend it.
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
 	});
 }
 

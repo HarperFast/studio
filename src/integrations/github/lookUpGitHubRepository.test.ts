@@ -1,8 +1,12 @@
+import { focusManager, onlineManager, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { lookUpGitHubRepository, parseGitHubRepository } from './lookUpGitHubRepository';
+import { gitHubRepositoryQueryOptions, lookUpGitHubRepository, parseGitHubRepository } from './lookUpGitHubRepository';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
+	focusManager.setFocused(undefined);
+	onlineManager.setOnline(true);
 });
 
 describe('parseGitHubRepository', () => {
@@ -87,5 +91,59 @@ describe('lookUpGitHubRepository', () => {
 			}),
 		);
 		await expect(lookUpGitHubRepository('acme/shop')).resolves.toEqual({ status: 'unavailable' });
+	});
+});
+
+describe('gitHubRepositoryQueryOptions', () => {
+	const lookedUp = async (status: number) => {
+		const fetchMock = vi.fn(async () => new Response('{}', { status }));
+		vi.stubGlobal('fetch', fetchMock);
+		const client = new QueryClient();
+		// Only a mounted client hears the focus and online managers.
+		client.mount();
+		const observe = () => {
+			const observer = new QueryObserver(client, gitHubRepositoryQueryOptions('acme/shop'));
+			return { observer, unsubscribe: observer.subscribe(() => undefined) };
+		};
+		const { observer, unsubscribe } = observe();
+		await vi.waitFor(() => expect(observer.getCurrentResult().data).toBeDefined());
+		return {
+			fetchMock,
+			observe,
+			finish: () => {
+				unsubscribe();
+				client.unmount();
+			},
+		};
+	};
+	const settle = () => new Promise((resolve) => setTimeout(resolve));
+
+	it.each([404, 403])('spends no lookup on returning to the tab after a %i, however stale', async (status) => {
+		const { fetchMock, finish } = await lookedUp(status);
+		const later = Date.now() + 60 * 60_000;
+		vi.spyOn(Date, 'now').mockReturnValue(later);
+		focusManager.setFocused(false);
+		focusManager.setFocused(true);
+		await settle();
+		onlineManager.setOnline(false);
+		onlineManager.setOnline(true);
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		finish();
+	});
+
+	it('asks again about a name GitHub did not find only once a minute has passed', async () => {
+		const { fetchMock, observe, finish } = await lookedUp(404);
+		const second = observe();
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		second.unsubscribe();
+
+		const later = Date.now() + 61_000;
+		vi.spyOn(Date, 'now').mockReturnValue(later);
+		const third = observe();
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		third.unsubscribe();
+		finish();
 	});
 });
