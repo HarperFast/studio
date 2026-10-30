@@ -124,8 +124,10 @@ export function ApplicationPreviews(
 					<PreviewWarnings />
 					<EnablePreviewsForm
 						app={app}
-						onEnabled={(enabled) => {
-							// Enable answers with the policy, so a read failing right after a write that landed can't undo the page.
+						onEnabled={async (enabled) => {
+							// Enable answers with the policy, so neither a read already on its way nor one failing just after can
+							// undo the page.
+							await queryClient.cancelQueries({ queryKey: policyQuery.queryKey });
 							queryClient.setQueryData(policyQuery.queryKey, enabled);
 							setDisableOutcome(undefined);
 							setShowEnableForm(false);

@@ -209,6 +209,34 @@ describe('ApplicationPreviews', () => {
 			expect(screen.queryByRole('form', { name: 'Enable previews' })).toBeNull();
 		});
 
+		it('is not undone by a read that was already on its way when enable answered', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () =>
+					new Response(JSON.stringify({ id: 123, full_name: 'acme/shop', private: false }), { status: 200 })
+				),
+			);
+			let landStaleRead = () => undefined as void;
+			const staleRead = new Promise<void>((resolve) => {
+				landStaleRead = resolve;
+			});
+			cluster.operations.enable_previews = () => {
+				cluster.operations.get_preview_policy = () => staleRead.then(() => NEVER_ENABLED);
+				void lastQueryClient.refetchQueries({ queryKey: ['clu-1', 'get_preview_policy'] });
+				return { ...ENABLED, message: 'Enabled previews of shop', created: [] };
+			};
+			renderPanel({ policy: NEVER_ENABLED });
+			fireEvent.click(await previewSwitch());
+			fireEvent.change(screen.getByLabelText('GitHub repository'), { target: { value: 'acme/shop' } });
+			await screen.findByText('acme/shop, id 123.');
+			fireEvent.click(screen.getByRole('button', { name: 'Enable previews' }));
+			await screen.findByRole('region', { name: 'Preview status' });
+			landStaleRead();
+			await new Promise((resolve) => setTimeout(resolve));
+			expect((await previewSwitch()).getAttribute('aria-checked')).toBe('true');
+			expect(screen.getByRole('region', { name: 'Preview status' })).toBeTruthy();
+		});
+
 		it('reads no secrets for an application with no previews', async () => {
 			renderPanel({ policy: NEVER_ENABLED });
 			await previewSwitch();

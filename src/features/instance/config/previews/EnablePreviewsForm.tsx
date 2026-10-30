@@ -120,7 +120,7 @@ function RepositoryLookupMessage(
 }
 
 export function EnablePreviewsForm(
-	{ app, onEnabled }: { app: string; onEnabled: (enabled: EnablePreviewsResponse) => void },
+	{ app, onEnabled }: { app: string; onEnabled: (enabled: EnablePreviewsResponse) => Promise<void> },
 ) {
 	const instanceParams = useInstanceClientIdParams();
 	const { instanceClient, entityId } = instanceParams;
@@ -193,7 +193,7 @@ export function EnablePreviewsForm(
 				}),
 			});
 			toast.success(enabled.message);
-			onEnabled(enabled);
+			await onEnabled(enabled);
 		} catch (error) {
 			setFailure(describeError(error).message);
 		}

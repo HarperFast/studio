@@ -37,7 +37,7 @@ function stubGitHub(status: number, body: unknown = {}) {
 
 const FOUND = { id: 219919692, full_name: 'HarperFast/studio', private: false, default_branch: 'stage' };
 
-const onEnabled = vi.fn();
+const onEnabled = vi.fn(async () => undefined);
 
 function renderForm() {
 	const queryClient = new QueryClient({
