@@ -51,8 +51,9 @@ afterEach(cleanup);
 
 function renderForm(
 	defaultValues: Partial<UpsertClusterSchemaType>,
-	{ clusterId, currentRegions = [], organizationRegions = [], canUseCustomRegions = false }: {
+	{ clusterId, currentPlanId, currentRegions = [], organizationRegions = [], canUseCustomRegions = false }: {
 		clusterId?: string;
+		currentPlanId?: string;
 		currentRegions?: RegionCohort[];
 		organizationRegions?: OrganizationRegion[];
 		canUseCustomRegions?: boolean;
@@ -64,6 +65,7 @@ function renderForm(
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId={clusterId}
+				currentPlanId={currentPlanId}
 				currentRegions={currentRegions}
 				defaultValues={{
 					clusterName: 'Preview',
@@ -96,13 +98,20 @@ function renderForm(
 	);
 }
 
+// A select shows its value with any badge beside it (Premium); compare the value alone.
+function shownText(element: Element | undefined) {
+	const copy = element?.cloneNode(true) as Element | undefined;
+	copy?.querySelectorAll('[data-slot="badge"]').forEach((badge) => badge.remove());
+	return copy?.textContent;
+}
+
 // The form stores a region id, so read each row as it is shown.
 function selectedRegionPlans() {
 	const comboboxes = screen.getAllByRole('combobox');
 	return screen.getAllByText(/^Region( \d+)?$/, { selector: 'label' }).map(label => {
 		const region = label.closest('[data-slot="form-item"]')!.querySelector('[role="combobox"]')!;
 		const latency = comboboxes[comboboxes.indexOf(region as HTMLElement) + 1];
-		return `${region.textContent} / ${latency?.textContent}`;
+		return `${shownText(region)} / ${shownText(latency)}`;
 	});
 }
 
@@ -188,7 +197,7 @@ describe('ClusterForm regions', () => {
 });
 
 async function pickOption(currentText: string, option: string) {
-	const trigger = screen.getAllByRole('combobox').find(combobox => combobox.textContent === currentText);
+	const trigger = screen.getAllByRole('combobox').find(combobox => shownText(combobox) === currentText);
 	if (!trigger) {
 		throw new Error(`No select is showing ${currentText}`);
 	}
@@ -235,7 +244,8 @@ describe('ClusterForm editing regions', () => {
 	});
 
 	it('says a single-region tier cannot move in place', async () => {
-		renderForm({ ...runningInUs, performanceDescription: 'Free tier' }, editing);
+		// An existing cluster is offered the free tier only while it is on it.
+		renderForm({ ...runningInUs, performanceDescription: 'Free tier' }, { ...editing, currentPlanId: 'free' });
 
 		await pickOption('US', 'Europe');
 

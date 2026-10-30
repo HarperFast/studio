@@ -30,6 +30,8 @@ describe('admin section routes', () => {
 		['/admin/grants', '/grants'],
 		['/admin/promo-codes', '/promo-codes'],
 		['/admin/billing', '/billing'],
+		['/admin/hosts', '/hosts'],
+		['/admin/monitoring', '/monitoring'],
 		['/admin/api-token', '/api-token'],
 		['/admin/workflows', '/workflows'],
 		['/admin/workflows/wf-1', '/workflows/$workflowId'],
