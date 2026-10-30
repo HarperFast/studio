@@ -231,7 +231,10 @@ export function ClusterDetails({
 	const footer = (
 		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6 sm:items-center">
 			<SubmitErrorMessage message={submitError} />
-			<SubmitPendingNote isPending={isPending} dedicated={selectedPlan?.deploymentType === 'dedicated'} />
+			<SubmitPendingNote
+				isPending={isPending}
+				dedicated={mode !== 'version' && selectedPlan?.deploymentType === 'dedicated'}
+			/>
 			<Button
 				className="w-full sm:w-auto"
 				type="submit"
