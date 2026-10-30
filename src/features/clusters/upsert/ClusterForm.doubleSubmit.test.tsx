@@ -67,6 +67,7 @@ async function mountCreate() {
 	render(
 		<TestProvider>
 			<ClusterForm
+				currentRegions={[]}
 				alreadyUsingFree={false}
 				defaultValues={defaults}
 				deploymentToPerformanceToPlan={{ Colocated: { [HOBBYIST.performanceDescription!]: HOBBYIST } }}

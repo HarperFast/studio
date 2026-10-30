@@ -9,6 +9,8 @@ import {
 	KeyRoundIcon,
 	LayersIcon,
 	ReceiptTextIcon,
+	ServerIcon,
+	SirenIcon,
 	TicketIcon,
 } from 'lucide-react';
 
@@ -32,8 +34,10 @@ const items: Array<
 	{ to: '/admin/promo-codes', label: 'Promo Codes', icon: TicketIcon, permission: 'grant:read' },
 	// Reads the fleet through the org collection, so org:read is the gate that actually matters.
 	{ to: '/admin/billing', label: 'Billing', icon: CreditCardIcon, permission: 'org:read' },
-	// Minting a token requires the Google SSO session only staff sign-ins have;
-	// super_user may password-login, so the mint would 403 for it.
+	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
+	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
+	// super_user cannot mint a staff credential.
 	{
 		to: '/admin/api-token',
 		label: 'API Tokens',

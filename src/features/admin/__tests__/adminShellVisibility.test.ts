@@ -50,13 +50,17 @@ describe('admin section visibility', () => {
 		expect(canSeeAdminSection(null)).toBe(false);
 	});
 
-	// super_user may password-login; without a Google SSO session the token mint
-	// 403s, so the API Token page stays hidden even though it holds the permission.
-	it('never shows the API Token page to super_user', () => {
-		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
-		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
-		// Legacy API without staffPermissions: the fallback grants everything, so Grants shows too —
-		// but the SSO carve-out still hides API Token.
+	it('never shows the API Tokens page to super_user', () => {
+		const withField = user('super_user', [
+			'systemStatus:write',
+			'region:read',
+			'host:read',
+			'apiToken:create',
+			'apiToken:self',
+		]);
+		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
+		// Legacy API without staffPermissions: the fallback grants everything, so the pricing pages show too —
+		// but the SSO carve-out still hides API Tokens.
 		expect(labels(user('super_user'))).toEqual([
 			'Notifications',
 			'Regions',
@@ -64,10 +68,12 @@ describe('admin section visibility', () => {
 			'Grants',
 			'Promo Codes',
 			'Billing',
+			'Hosts',
+			'Monitoring',
 		]);
 	});
 
-	it('keeps the whole section for a legacy-API fabric_admin', () => {
+	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
 		expect(labels(user('fabric_admin'))).toEqual([
 			'Notifications',
 			'Regions',
@@ -75,7 +81,8 @@ describe('admin section visibility', () => {
 			'Grants',
 			'Promo Codes',
 			'Billing',
-			'API Token',
+			'Hosts',
+			'Monitoring',
 		]);
 	});
 });
