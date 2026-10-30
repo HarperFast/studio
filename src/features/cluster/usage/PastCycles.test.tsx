@@ -170,6 +170,17 @@ describe('PastCycles', () => {
 		expect(screen.getByText('Standard → Pro plan')).toBeTruthy();
 	});
 
+	it('keeps two regions apart when their free-text names match', () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		history([cycle({}, [region(), region({ regionIds: ['oreg-a'], planNames: ['Pro'] })])]);
+		render(<PastCycles clusterId="clu-1" />);
+		fireEvent.click(card(/Aug 12, 2026/));
+		const logged = consoleError.mock.calls.flat().join(' ');
+		consoleError.mockRestore();
+		expect(screen.getAllByRole('heading', { level: 3, name: /^US/ })).toHaveLength(2);
+		expect(logged).not.toMatch(/same key/);
+	});
+
 	it('pages back with Show older cycles, and offers it only while there are more', () => {
 		const fetchNextPage = vi.fn();
 		history([cycle()], { hasNextPage: true, fetchNextPage });
