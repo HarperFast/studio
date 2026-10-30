@@ -16,6 +16,10 @@ describe('detectEntityId', () => {
 		expect(detectEntityId('ins-abc123')).toEqual({ kind: 'instance', id: 'ins-abc123' });
 	});
 
+	it('detects user ids', () => {
+		expect(detectEntityId('usr-0f8gtsvjqed6xwy9')).toEqual({ kind: 'user', id: 'usr-0f8gtsvjqed6xwy9' });
+	});
+
 	it('trims surrounding whitespace before matching', () => {
 		expect(detectEntityId('  org-1  ')).toEqual({ kind: 'organization', id: 'org-1' });
 	});

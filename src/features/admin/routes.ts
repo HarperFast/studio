@@ -48,6 +48,27 @@ const monitoringRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/monitoring/index'), 'MonitoringPolicyAdminIndex'),
 });
 
+const usersRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'users',
+	head: () => ({ meta: [{ title: 'Users — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersAdminLayout'),
+});
+
+const usersIndexRoute = createRoute({
+	getParentRoute: () => usersRoute,
+	path: '/',
+	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersSearchPrompt'),
+});
+
+// Keyed by id, never by email: page URLs reach RUM and third-party pixels.
+const userDetailsRoute = createRoute({
+	getParentRoute: () => usersRoute,
+	path: '$userId',
+	head: () => ({ meta: [{ title: 'User — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/users/UserDetails'), 'UserDetailsPage'),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
@@ -62,5 +83,6 @@ export const adminRoutes = [
 	regionsRoute,
 	hostsRoute,
 	monitoringRoute,
+	usersRoute.addChildren([usersIndexRoute, userDetailsRoute]),
 	apiTokenRoute,
 ];

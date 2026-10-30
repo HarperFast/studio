@@ -2,24 +2,37 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, UsersIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
  * endpoints slot in as new items) plus the active page. Each item names the
- * staff permission its page needs, plus any account carve-out; the rail shows
+ * staff permissions its page needs, plus any account carve-out; the rail shows
  * only the pages the account holds, and holding any of them grants entry. The
  * dashboard route guard already handles the unauthenticated redirect.
  */
 // Order matters: /admin redirects to the first item's route (see adminIndexRoute);
 // anyone not permitted there is bounced to their first visible page below.
 const items: Array<
-	SubNavItem & { permission: StaffPermission; ssoAccountOnly?: boolean; needsPermissionsField?: boolean }
+	SubNavItem & {
+		permission: StaffPermission;
+		alsoNeeds?: StaffPermission[];
+		ssoAccountOnly?: boolean;
+		needsPermissionsField?: boolean;
+	}
 > = [
 	{ to: '/admin/notifications', label: 'Notifications', icon: BellIcon, permission: 'systemStatus:write' },
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon, permission: 'region:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// Gated on deactivation's permission, which keeps the page fabric_admin-only; the details lookup needs both reads.
+	{
+		to: '/admin/users',
+		label: 'Users',
+		icon: UsersIcon,
+		permission: 'user:status',
+		alsoNeeds: ['user:read', 'cluster:read'],
+	},
 	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
 	// super_user cannot mint a staff credential.
 	{
@@ -37,6 +50,7 @@ export function visibleAdminItems(user: User | LocalUser | null) {
 	const hasPermissionsField = user !== null && 'staffPermissions' in user && user.staffPermissions !== undefined;
 	return items.filter((item) =>
 		hasStaffPermission(user, item.permission)
+		&& (item.alsoNeeds ?? []).every((permission) => hasStaffPermission(user, permission))
 		&& !(item.ssoAccountOnly && isSuperUser)
 		&& !(item.needsPermissionsField && !hasPermissionsField)
 	);

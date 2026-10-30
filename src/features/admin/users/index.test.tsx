@@ -1,0 +1,689 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRoute,
+	createRouter,
+	Outlet,
+	RouterProvider,
+} from '@tanstack/react-router';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { AxiosError } from 'axios';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
+
+vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
+
+import { getStaffUserQueryOptions, StaffUserSummary } from '@/features/admin/apiToken/queries/staffUsers';
+import { UsersAdminLayout } from '@/features/admin/users/index';
+import { DuplicateAccountError, findUserIdByEmail } from '@/features/admin/users/userAdminApi';
+import { UserDetailsPage } from '@/features/admin/users/UserDetails';
+
+const USER = {
+	id: 'usr-1',
+	email: 'pat@example.com',
+	firstname: 'Pat',
+	lastname: 'Lee',
+	status: 'ACTIVE',
+	isVerified: true,
+	organizations: [
+		{ organizationId: 'org-solo', organizationName: 'Solo Co', roleNames: ['admin'], lastAdmin: true, clusters: [] },
+		{
+			organizationId: 'org-shared',
+			organizationName: 'Shared Co',
+			roleNames: ['admin', 'developer'],
+			lastAdmin: false,
+			clusters: [
+				{ id: 'clu-a', name: 'alpha', status: 'RUNNING' },
+				{ id: 'clu-b', name: 'beta', status: 'FAILED' },
+			],
+		},
+	],
+};
+
+const OTHER = {
+	id: 'usr-2',
+	email: 'sam@example.com',
+	firstname: 'Sam',
+	lastname: 'Ray',
+	status: 'ACTIVE',
+	organizations: [],
+};
+
+beforeAll(() => {
+	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+	window.PointerEvent ??= class extends MouseEvent {} as typeof PointerEvent;
+});
+
+const notFound = () => new AxiosError('Not Found', '404', undefined, undefined, { status: 404 } as never);
+
+let user: typeof USER;
+let slowGate: Promise<void>;
+
+beforeEach(() => {
+	user = structuredClone(USER);
+	slowGate = Promise.resolve();
+	get.mockReset();
+	patch.mockReset();
+	get.mockImplementation(async (url: string) => {
+		if (url === '/Admin/User/?email=pat%40example.com') {
+			return { data: [{ id: 'usr-old', status: 'DELETED' }, { id: 'usr-1', status: user.status }] };
+		}
+		if (url.startsWith('/Admin/User/?email=')) { return { data: [] }; }
+		if (url === '/Admin/User/usr-1?details=true') { return { data: user }; }
+		if (url === '/Admin/User/usr-2?details=true') { return { data: OTHER }; }
+		if (url.endsWith('?details=true')) { throw notFound(); }
+		throw new Error(`unexpected GET ${url}`);
+	});
+	patch.mockImplementation(async (_url: string, body: { status: string }) => {
+		if (body.status === 'ACTIVE') {
+			user = { ...user, status: 'ACTIVE' };
+			return { data: '' };
+		}
+		user = { ...user, status: 'DEACTIVATED', organizations: [user.organizations[0]] };
+		return {
+			data: {
+				id: 'usr-1',
+				status: 'DEACTIVATED',
+				removedFrom: [{
+					organizationId: 'org-shared',
+					organizationName: 'Shared Co',
+					roleNames: ['admin', 'developer'],
+				}],
+				retainedIn: [{ organizationId: 'org-solo', organizationName: 'Solo Co', roleNames: ['admin'] }],
+			},
+		};
+	});
+});
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+});
+
+async function renderAt(path = '/admin/users', seed?: (client: QueryClient) => void) {
+	const rootRoute = createRootRoute({ component: Outlet });
+	const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: 'admin/users', component: UsersAdminLayout });
+	const routeTree = rootRoute.addChildren([
+		usersRoute.addChildren([
+			createRoute({ getParentRoute: () => usersRoute, path: '/' }),
+			createRoute({ getParentRoute: () => usersRoute, path: '$userId', component: UserDetailsPage }),
+		]),
+		createRoute({ getParentRoute: () => rootRoute, path: 'elsewhere', component: () => <p>Elsewhere</p> }),
+		createRoute({
+			getParentRoute: () => rootRoute,
+			path: 'slow',
+			beforeLoad: () => slowGate,
+			component: () => <p>Slow</p>,
+		}),
+	]);
+	const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	seed?.(queryClient);
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router as never} />
+		</QueryClientProvider>,
+	);
+	await screen.findByLabelText('Email or user ID');
+	return router;
+}
+
+async function lookUp(value: string) {
+	await act(async () => {
+		fireEvent.change(screen.getByLabelText('Email or user ID'), { target: { value } });
+	});
+	await act(async () => {
+		fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
+	});
+}
+
+// Radix opens its menu on pointerdown, not click.
+async function openSettings() {
+	const trigger = await screen.findByRole('button', { name: 'Account settings' });
+	await act(async () => {
+		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+	});
+	return within(screen.getByRole('menu')).getByRole('menuitem', { name: /Deactivate…|Remove from organizations…/ });
+}
+
+async function openDeactivate() {
+	const item = await openSettings();
+	await act(async () => {
+		fireEvent.click(item);
+	});
+}
+
+async function typeConfirmation(value = 'pat@example.com') {
+	await act(async () => {
+		fireEvent.change(screen.getByLabelText('Type pat@example.com to confirm'), { target: { value } });
+	});
+}
+
+async function confirmInDialog() {
+	await typeConfirmation();
+	await act(async () => {
+		fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
+	});
+}
+
+async function confirmDeactivation() {
+	await openDeactivate();
+	await confirmInDialog();
+}
+
+describe('admin users', () => {
+	it('looks up the live account by normalized address and opens it by id, keeping the address out of the URL', async () => {
+		const router = await renderAt();
+		await lookUp('  Pat@Example.com ');
+
+		expect(await screen.findByText('Pat Lee')).toBeTruthy();
+		expect(router.state.location.href).toBe('/admin/users/usr-1');
+		expect(get).toHaveBeenCalledWith('/Admin/User/?email=pat%40example.com');
+		expect(get).toHaveBeenCalledWith('/Admin/User/usr-1?details=true');
+	});
+
+	it('shows each organization with its roles and live clusters, leaving the deactivation split to the dialog', async () => {
+		await renderAt('/admin/users/usr-1');
+
+		const stat = (label: string) => screen.getByText(label, { selector: 'dt' }).parentElement!;
+		await screen.findByText('Pat Lee');
+		expect(within(stat('Organizations')).getByText('2')).toBeTruthy();
+		expect(within(stat('Organizations')).getByText('Admin of 2')).toBeTruthy();
+		expect(within(stat('Live clusters')).getByText('2')).toBeTruthy();
+		expect(within(stat('Live clusters')).getByText('1 running')).toBeTruthy();
+
+		const solo = screen.getByText('Solo Co').closest('li')!;
+		expect(within(solo).getByText('0 live clusters')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Solo Co' }).getAttribute('href')).toBe('/org-solo');
+
+		const shared = screen.getByText('Shared Co').closest('li')!;
+		expect(within(shared).getByText('admin')).toBeTruthy();
+		expect(within(shared).getByText('developer')).toBeTruthy();
+		expect(within(shared).getByRole('link', { name: 'alpha' }).getAttribute('href')).toBe('/org-shared/clu-a');
+		expect(within(shared).getByText('Failed')).toBeTruthy();
+		expect(screen.queryByText(/last admin|on deactivation/)).toBeNull();
+	});
+
+	it("folds an organization's clusters away and back", async () => {
+		await renderAt('/admin/users/usr-1');
+		const toggle = await screen.findByRole('button', { name: 'Hide the clusters of Shared Co' });
+
+		await act(async () => {
+			fireEvent.click(toggle);
+		});
+		expect(screen.queryByRole('link', { name: 'alpha' })).toBeNull();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Show the clusters of Shared Co' }));
+		});
+		expect(screen.getByRole('link', { name: 'alpha' })).toBeTruthy();
+	});
+
+	it('keeps its details apart from the staff-user names the API Tokens page caches', async () => {
+		await renderAt('/admin/users/usr-1', (client) => {
+			client.setQueryData(getStaffUserQueryOptions('usr-1').queryKey, {
+				id: 'usr-1',
+				email: 'pat@example.com',
+				firstname: 'Pat',
+				lastname: 'Lee',
+			} as StaffUserSummary);
+		});
+
+		expect(await screen.findByText('Solo Co')).toBeTruthy();
+	});
+
+	it('opens a pasted user id without looking up an address', async () => {
+		const router = await renderAt();
+		await lookUp(' usr-2 ');
+
+		expect(await screen.findByText('Sam Ray')).toBeTruthy();
+		expect(router.state.location.href).toBe('/admin/users/usr-2');
+		expect(get.mock.calls.some(([url]) => url.includes('?email='))).toBe(false);
+	});
+
+	it('encodes the address it looks up', async () => {
+		await renderAt();
+		await lookUp('pat+ops@example.com');
+
+		expect(await screen.findByText('No account uses pat+ops@example.com.')).toBeTruthy();
+		expect(get).toHaveBeenCalledWith('/Admin/User/?email=pat%2Bops%40example.com');
+	});
+
+	it('leaves the open account when no account uses the address', async () => {
+		const router = await renderAt('/admin/users/usr-1');
+		await screen.findByText('Pat Lee');
+		await lookUp('nobody@example.com');
+
+		expect(await screen.findByText('No account uses nobody@example.com.')).toBeTruthy();
+		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.queryByText('Pat Lee')).toBeNull();
+	});
+
+	it('says so when no account has the ID', async () => {
+		await renderAt('/admin/users/usr-missing');
+
+		expect(await screen.findByText('No account has the ID usr-missing.')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
+	});
+
+	it('closes the open account on a duplicate address, keeping the address out of the error and unreported', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const router = await renderAt('/admin/users/usr-1');
+		await screen.findByText('Pat Lee');
+		get.mockResolvedValueOnce({ data: [{ id: 'usr-1', status: 'ACTIVE' }, { id: 'usr-2', status: 'ACTIVE' }] });
+		await lookUp('pat@example.com');
+
+		const message = await screen.findByText(/More than one live account/);
+		expect(message.textContent).not.toContain('pat@example.com');
+		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.queryByText('Pat Lee')).toBeNull();
+		expect(consoleError).not.toHaveBeenCalledWith(expect.any(DuplicateAccountError));
+	});
+
+	it('reports a failed lookup, shows the reason central manager gave, and closes the open account', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const failure = new AxiosError('Request failed with status code 500', '500', undefined, undefined, {
+			status: 500,
+			data: { code: 'ServerError', title: 'Lookup unavailable' },
+		} as never);
+		const router = await renderAt('/admin/users/usr-1');
+		await screen.findByText('Pat Lee');
+		get.mockRejectedValueOnce(failure);
+		await lookUp('pat@example.com');
+
+		expect(await screen.findByText('Lookup unavailable')).toBeTruthy();
+		expect(consoleError).toHaveBeenCalledWith(failure);
+		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.queryByText('Pat Lee')).toBeNull();
+	});
+
+	it('drops an email lookup that answers after the page was left', async () => {
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		await act(async () => {
+			await router.navigate({ to: '/elsewhere' } as never);
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+
+		expect(router.state.location.href).toBe('/elsewhere');
+		expect(screen.getByText('Elsewhere')).toBeTruthy();
+	});
+
+	it('does not claim memberships were kept when a status-only answer leaves out what it removed', async () => {
+		patch.mockResolvedValueOnce({ data: { id: 'usr-1', status: 'DEACTIVATED' } });
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		const done = await screen.findByRole('dialog');
+		expect(within(done).queryByText('Every membership was left in place.')).toBeNull();
+		expect(within(done).getAllByText('Not reported by the server.')).toHaveLength(2);
+	});
+
+	it('locks the choice while the request is out, and reports on the choice that was sent', async () => {
+		let answer!: (value: unknown) => void;
+		patch.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		await waitFor(() =>
+			expect(within(dialog).getByRole('radio', { name: /leave organizations/ })).toHaveProperty('disabled', true)
+		);
+		await act(async () => {
+			answer({ data: { id: 'usr-1', status: 'DEACTIVATED', removedFrom: [], retainedIn: [] } });
+		});
+		expect(await within(dialog).findByText('Every membership was left in place.')).toBeTruthy();
+	});
+
+	it('drops an email lookup that answers while another page is still loading', async () => {
+		let release!: () => void;
+		slowGate = new Promise((resolve) => (release = resolve));
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		let arriving!: Promise<void>;
+		await act(async () => {
+			arriving = router.navigate({ to: '/slow' } as never);
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+		await act(async () => {
+			release();
+			await arriving;
+		});
+
+		expect(router.state.location.href).toBe('/slow');
+		expect(screen.getByText('Slow')).toBeTruthy();
+	});
+
+	it('drops an email lookup across a round trip away and back, and frees the form', async () => {
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		await act(async () => {
+			await router.navigate({ to: '/admin/users/$userId', params: { userId: 'usr-2' } } as never);
+		});
+		await act(async () => {
+			await router.navigate({ to: '/admin/users' } as never);
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+
+		expect(router.state.location.href).toBe('/admin/users');
+		expect(screen.getByRole('button', { name: 'Look up' })).toHaveProperty('disabled', false);
+	});
+
+	it('keeps an email lookup through a reload in place', async () => {
+		let answer!: (value: unknown) => void;
+		const router = await renderAt();
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		await lookUp('pat@example.com');
+
+		await act(async () => {
+			await router.invalidate();
+		});
+		await act(async () => {
+			answer({ data: [{ id: 'usr-1', status: 'ACTIVE' }] });
+		});
+
+		expect(await screen.findByText('Pat Lee')).toBeTruthy();
+		expect(router.state.location.href).toBe('/admin/users/usr-1');
+	});
+
+	it('reactivates a deactivated account, leaving its memberships as they are', async () => {
+		user.status = 'DEACTIVATED';
+		await renderAt('/admin/users/usr-1');
+		const trigger = await screen.findByRole('button', { name: 'Account settings' });
+		await act(async () => {
+			fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+		});
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Reactivate…/ }));
+		});
+
+		const dialog = screen.getByRole('dialog');
+		expect(within(dialog).getByText('Reactivate pat@example.com?')).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Reactivate' }));
+		});
+
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'ACTIVE' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(await screen.findByText('Active')).toBeTruthy();
+		expect(screen.getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('offers reactivation only to a deactivated account', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openSettings();
+
+		expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: /Reactivate/ })).toBeNull();
+	});
+
+	it('offers no deactivation for a deleted account', async () => {
+		user.status = 'DELETED';
+		await renderAt('/admin/users/usr-1');
+
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBe('true');
+		expect(within(item).getByText('Deleted accounts cannot be deactivated')).toBeTruthy();
+	});
+
+	it('looks the same address up again when asked, refreshing the open account', async () => {
+		const answer = get.getMockImplementation()!;
+		get.mockRejectedValueOnce(new Error('timeout'));
+		await renderAt();
+		await lookUp('pat@example.com');
+		expect(await screen.findByText('timeout')).toBeTruthy();
+
+		get.mockImplementation(answer);
+		await lookUp('pat@example.com');
+		expect(await screen.findByText('Pat Lee')).toBeTruthy();
+
+		user = { ...user, firstname: 'Patricia' };
+		await lookUp('pat@example.com');
+		expect(await screen.findByText('Patricia Lee')).toBeTruthy();
+	});
+
+	it('refuses a central manager that answers without the details view', async () => {
+		const { organizations: _omitted, ...plainRecord } = user;
+		get.mockResolvedValue({ data: plainRecord });
+		await renderAt('/admin/users/usr-1');
+
+		expect(await screen.findByText(/cannot show user details/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
+	});
+
+	it('refuses details that do not say where the account is the last admin', async () => {
+		const { lastAdmin: _omitted, ...unmarked } = user.organizations[0];
+		get.mockResolvedValue({ data: { ...user, organizations: [unmarked, user.organizations[1]] } });
+		await renderAt('/admin/users/usr-1');
+
+		expect(await screen.findByText(/cannot show user details/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Account settings' })).toBeNull();
+	});
+
+	it('confirms, deactivates, and shows what actually happened', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+
+		const confirm = screen.getByRole('dialog');
+		expect(within(confirm).getByText('Deactivate pat@example.com?')).toBeTruthy();
+		expect(within(within(confirm).getByText('Will be removed from').parentElement!).getByText('Shared Co'))
+			.toBeTruthy();
+		expect(within(within(confirm).getByText('Will stay in, as the last admin').parentElement!).getByText('Solo Co'))
+			.toBeTruthy();
+
+		await confirmInDialog();
+
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
+		const done = await screen.findByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+		expect(within(within(done).getByText('Kept in, as the last admin').parentElement!).getByText('Solo Co'))
+			.toBeTruthy();
+
+		await act(async () => {
+			fireEvent.click(within(done).getByRole('button', { name: 'Done' }));
+		});
+		await screen.findByText('Deactivated');
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBe('true');
+		expect(within(item).getByText('Already deactivated, and in no organization it could leave')).toBeTruthy();
+	});
+
+	it('names removing an already-deactivated account from organizations as its own action', async () => {
+		user.status = 'DEACTIVATED';
+		await renderAt('/admin/users/usr-1');
+
+		const item = await openSettings();
+		expect(item.getAttribute('aria-disabled')).toBeNull();
+		expect(within(item).getByText('Remove from organizations…')).toBeTruthy();
+		expect(within(item).getByText(/Already deactivated; leaves/)).toBeTruthy();
+	});
+
+	it('keeps the result open when the refetch after deactivating fails', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		get.mockRejectedValue(new Error('network down'));
+		await confirmInDialog();
+
+		expect(await screen.findByText(/Could not refresh this account/)).toBeTruthy();
+		const done = screen.getByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('keeps the result open when the refetch finds no account any more', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		get.mockRejectedValue(notFound());
+		await confirmInDialog();
+
+		expect(await screen.findByText('No account has the ID usr-1.')).toBeTruthy();
+		const done = screen.getByRole('dialog');
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('deactivates only once the address is typed, ignoring case and surrounding spaces', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const confirmButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' });
+
+		expect(confirmButton()).toHaveProperty('disabled', true);
+		await typeConfirmation('pat@example.co');
+		expect(confirmButton()).toHaveProperty('disabled', true);
+		await act(async () => {
+			fireEvent.keyDown(screen.getByLabelText('Type pat@example.com to confirm'), { key: 'Enter' });
+		});
+		expect(patch).not.toHaveBeenCalled();
+
+		await typeConfirmation('  Pat@Example.com ');
+		expect(confirmButton()).toHaveProperty('disabled', false);
+		await act(async () => {
+			fireEvent.keyDown(screen.getByLabelText('Type pat@example.com to confirm'), { key: 'Enter' });
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
+		expect(await screen.findByText('User deactivated')).toBeTruthy();
+	});
+
+	it('can only deactivate, leaving every membership in place', async () => {
+		patch.mockResolvedValueOnce({
+			data: { id: 'usr-1', status: 'DEACTIVATED', removedFrom: [], retainedIn: [] },
+		});
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		expect(within(dialog).queryByText('Will be removed from')).toBeNull();
+		expect(within(dialog).getByText('They stay a member of all 2 organizations.')).toBeTruthy();
+
+		await confirmInDialog();
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED', removeMemberships: false });
+		const done = await screen.findByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(done).getByText('Every membership was left in place.')).toBeTruthy();
+	});
+
+	it('shows what the server removed even when only deactivating was asked', async () => {
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Only deactivate/ }));
+		});
+		await confirmInDialog();
+
+		const done = await screen.findByRole('dialog');
+		expect(within(within(done).getByText('Removed from').parentElement!).getByText('Shared Co')).toBeTruthy();
+	});
+
+	it('removes an already-deactivated account from organizations without offering to only deactivate', async () => {
+		user.status = 'DEACTIVATED';
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		const dialog = screen.getByRole('dialog');
+
+		expect(within(dialog).getByText('Remove pat@example.com from organizations?')).toBeTruthy();
+		expect(within(dialog).queryByRole('radio')).toBeNull();
+		expect(within(dialog).getByText('Will be removed from')).toBeTruthy();
+
+		await typeConfirmation();
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/User/usr-1', { status: 'DEACTIVATED' });
+		expect(await screen.findByText('Memberships removed')).toBeTruthy();
+	});
+
+	it.each([
+		['removed nothing', { removedFrom: [], retainedIn: [] }, 'No memberships removed'],
+		['did not report what it removed', {}, 'Removal finished'],
+	])('titles a removal by what the server did when it %s', async (_case, outcome, title) => {
+		user.status = 'DEACTIVATED';
+		patch.mockResolvedValueOnce({ data: { id: 'usr-1', status: 'DEACTIVATED', ...outcome } });
+		await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		await typeConfirmation();
+		await act(async () => {
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+		});
+
+		const done = await screen.findByRole('dialog');
+		expect(await within(done).findByText(title)).toBeTruthy();
+		expect(within(done).queryByText('Memberships removed')).toBeNull();
+	});
+
+	it('closes the confirm dialog when the PATCH fails', async () => {
+		patch.mockRejectedValueOnce(new Error('no answer'));
+		await renderAt('/admin/users/usr-1');
+		await confirmDeactivation();
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('says so when a successful PATCH does not report the organizations', async () => {
+		patch.mockResolvedValueOnce({ data: '' });
+		await renderAt('/admin/users/usr-1');
+		await confirmDeactivation();
+
+		const done = await screen.findByRole('dialog');
+		expect(within(done).getByText('User deactivated')).toBeTruthy();
+		expect(within(done).getAllByText('Not reported by the server.')).toHaveLength(2);
+	});
+
+	it('drops an open confirmation when moving to another account', async () => {
+		const router = await renderAt('/admin/users/usr-1');
+		await openDeactivate();
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		await act(async () => {
+			await router.navigate({ to: '/admin/users/$userId', params: { userId: 'usr-2' } } as never);
+		});
+
+		expect(await screen.findByText('Sam Ray')).toBeTruthy();
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(patch).not.toHaveBeenCalled();
+	});
+});
+
+describe('findUserIdByEmail', () => {
+	it('refuses a blank address without asking central manager', async () => {
+		await expect(findUserIdByEmail('   ')).rejects.toThrow('Enter an address');
+		expect(get).not.toHaveBeenCalled();
+	});
+
+	it('refuses an answer that is not a list', async () => {
+		get.mockResolvedValueOnce({ data: '' });
+		await expect(findUserIdByEmail('pat@example.com')).rejects.toThrow('did not answer with a list');
+	});
+});
