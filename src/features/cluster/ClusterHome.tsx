@@ -12,6 +12,7 @@ import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard
 import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
+import { useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -98,6 +99,8 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
 
 	const base = `/${cluster.organizationId}/${cluster.id}`;
+	// A cluster created for a job whose setup hasn't run yet: entering it finishes that first.
+	const pendingPreset = useOwedPresetSetup(cluster, !!user);
 
 	const onFabricConnect = useCallback(async () => {
 		setIsConnecting(true);
@@ -206,16 +209,20 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 						</div>
 
 						<Link
-							to={`${base}/apps`}
+							to={pendingPreset ? `${base}/setup` : `${base}/start`}
 							className="group flex items-center gap-4 rounded-2xl border-2 border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary hover:bg-primary/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:hover:border-violet-400 dark:hover:bg-violet-400/10"
 						>
 							<div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 dark:bg-violet-400/15 dark:text-violet-300">
 								<Rocket className="size-6" />
 							</div>
 							<div className="flex-1 min-w-0">
-								<div className="text-lg font-medium text-foreground">Enter cluster</div>
+								<div className="text-lg font-medium text-foreground">
+									{pendingPreset ? `Finish setting up ${pendingPreset.name}` : 'Enter cluster'}
+								</div>
 								<div className="text-sm text-muted-foreground">
-									Open the studio — apps, databases, APIs, logs, and config.
+									{pendingPreset
+										? 'Install its components and open the cluster focused on that job.'
+										: 'Open the studio — apps, databases, APIs, logs, and config.'}
 								</div>
 							</div>
 							<ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
@@ -357,7 +364,7 @@ function SelfHostedClusterHome({ cluster }: { cluster: Cluster }) {
 						</div>
 
 						<Link
-							to={`${base}/instance/${firstInstance.id}/`}
+							to={`${base}/instance/${firstInstance.id}/start`}
 							className="group flex items-center gap-4 rounded-2xl border-2 border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary hover:bg-primary/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:hover:border-violet-400 dark:hover:bg-violet-400/10"
 						>
 							<div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 dark:bg-violet-400/15 dark:text-violet-300">

@@ -10,32 +10,14 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
-import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
-import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
+import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLoaderData, useParams } from '@tanstack/react-router';
-import {
-	DatabaseIcon,
-	GaugeIcon,
-	Menu,
-	NotepadTextIcon,
-	PackageIcon,
-	ServerIcon,
-	SettingsIcon,
-	SquareTerminalIcon,
-} from 'lucide-react';
-import { ReactNode, useMemo } from 'react';
-
-interface Link {
-	to: string;
-	name: string;
-	shortName?: string;
-	icon: ReactNode;
-}
+import { Link, useLoaderData, useLocation } from '@tanstack/react-router';
+import { EllipsisIcon, Menu } from 'lucide-react';
 
 const activeLinkProps = {
 	className: 'text-primary font-semibold bg-primary/10 rounded-md dark:text-white dark:bg-white/10',
@@ -43,69 +25,29 @@ const activeLinkProps = {
 
 export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
-	const params = useParams({ strict: false });
-
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const statusAvailable = supportsGetStatus(version) && canManage;
-	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
 
 	const instanceParams = useInstanceClientIdParams();
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const restartRequired = statusData?.restartRequired ?? false;
+	const { links, tucked } = useInstanceNavLinks();
 
-	const links = useMemo(() =>
-		[
-			canManage && {
-				// In cluster context the bare index is the cluster home, so Applications lives at /apps.
-				// Instance and local modes keep Applications at their index.
-				to: params.clusterId && !params.instanceId
-					? buildAbsoluteLinkToPage(params, 'apps')
-					: buildAbsoluteLinkToPage(params),
-				activeOptions: { exact: true },
-				name: 'Applications',
-				shortName: 'Apps',
-				icon: <PackageIcon className="inline-block" />,
-			},
-			{
-				to: buildAbsoluteLinkToPage(params, 'databases'),
-				icon: <DatabaseIcon className="inline-block" />,
-				name: 'Databases',
-			},
-			canManage && apisAvailable && {
-				to: buildAbsoluteLinkToPage(params, 'apis'),
-				name: 'APIs',
-				icon: <ServerIcon className="inline-block" />,
-			},
-			canManage && {
-				to: buildAbsoluteLinkToPage(params, 'operations'),
-				name: 'Operations',
-				icon: <SquareTerminalIcon className="inline-block" />,
-			},
-			canManage && statusAvailable && {
-				to: buildAbsoluteLinkToPage(params, 'status'),
-				icon: <GaugeIcon className="inline-block" />,
-				name: 'Status',
-			},
-			canManage && {
-				to: buildAbsoluteLinkToPage(params, 'logs'),
-				icon: <NotepadTextIcon className="inline-block" />,
-				name: 'Logs',
-			},
-			canManage && {
-				to: buildAbsoluteLinkToPage(params, 'config'),
-				icon: <SettingsIcon className="inline-block" />,
-				name: 'Config',
-			},
-		].filter(excludeFalsy) satisfies Link[], [canManage, params, apisAvailable, statusAvailable]);
 	return (
 		<>
-			<DesktopInstanceNavBar links={links} restartRequired={restartRequired} />
-			<MobileInstanceNavBar links={links} restartRequired={restartRequired} />
+			<DesktopInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} />
+			<MobileInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} />
 		</>
 	);
 }
 
-function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
+interface NavBarProps {
+	links: InstanceNavLink[];
+	tucked: InstanceNavLink[];
+	restartRequired: boolean;
+}
+
+function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
 		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
@@ -113,10 +55,10 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 		<div className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between h-full text-sm text-foreground">
 			<Breadcrumbs restartRequired={restartRequired} />
 			<div className="flex space-x-2">
-				{links.map(({ shortName, ...link }) => {
+				{links.map(({ key, shortName, ...link }) => {
 					const linkElement = (
 						<Link
-							key={link.to}
+							key={key}
 							// The label is display:none below xl, so give the link a stable accessible name
 							// (the tooltip only wires aria-describedby, a description, not a name).
 							aria-label={link.name}
@@ -138,18 +80,64 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 					}
 
 					return (
-						<Tooltip key={link.to}>
+						<Tooltip key={key}>
 							<TooltipTrigger asChild>{linkElement}</TooltipTrigger>
 							<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
 						</Tooltip>
 					);
 				})}
+				{tucked.length > 0 && <MoreMenu tucked={tucked} />}
 			</div>
 		</div>
 	);
 }
 
-function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
+/** The tabs a cluster tucked away: one click further, still there. */
+function MoreMenu({ tucked }: { tucked: InstanceNavLink[] }) {
+	const { pathname } = useLocation();
+	// The trigger carries the active style when the open page is one of these, so the nav still says where you are.
+	const active = tucked.some((link) =>
+		link.activeOptions?.exact ? pathname === link.to : isAtOrUnder(pathname, link.to)
+	);
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label="More"
+					className={cn(
+						'p-2 text-center text-muted-foreground hover:text-foreground',
+						active && activeLinkProps.className,
+					)}
+				>
+					<EllipsisIcon className="inline-block" />
+					<span className="hidden xl:inline-block ml-1">More</span>
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				{tucked.map((link) => (
+					<DropdownMenuItem key={link.key} asChild>
+						<Link
+							to={link.to}
+							activeOptions={link.activeOptions}
+							activeProps={activeLinkProps}
+							className="flex items-center gap-2"
+						>
+							{link.icon}
+							{link.name}
+						</Link>
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function isAtOrUnder(pathname: string, to: string): boolean {
+	return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function MobileInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
 	return (
 		<>
 			{/* Mirror of DesktopInstanceNavBar: hover devices drop the hamburger at md, touch-only keeps it until xl. */}
@@ -165,17 +153,33 @@ function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; resta
 						<DropdownMenuLabel>Instance Menu</DropdownMenuLabel>
 						<DropdownMenuSeparator />
 
-						{links.map(link => (
-							<DropdownMenuItem key={link.to} asChild>
-								<Link to={link.to} activeProps={activeLinkProps} className="flex items-center gap-2">
-									{link.icon}
-									{link.name}
-								</Link>
-							</DropdownMenuItem>
-						))}
+						{links.map(link => <MobileLink key={link.key} link={link} />)}
+						{tucked.length > 0 && (
+							<>
+								<DropdownMenuSeparator />
+								<DropdownMenuLabel className="text-xs text-muted-foreground">More</DropdownMenuLabel>
+								{tucked.map(link => <MobileLink key={link.key} link={link} />)}
+							</>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
 		</>
+	);
+}
+
+function MobileLink({ link }: { link: InstanceNavLink }) {
+	return (
+		<DropdownMenuItem asChild>
+			<Link
+				to={link.to}
+				activeOptions={link.activeOptions}
+				activeProps={activeLinkProps}
+				className="flex items-center gap-2"
+			>
+				{link.icon}
+				{link.name}
+			</Link>
+		</DropdownMenuItem>
 	);
 }

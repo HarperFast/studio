@@ -15,6 +15,7 @@ interface ImportMetaEnv {
 	readonly VITE_CENTRAL_MANAGER_API_URL: string;
 	readonly VITE_RECAPTCHA_SITE_KEY: string;
 	readonly VITE_DISABLE_DEVTOOLS: string;
+	readonly VITE_CLUSTER_PRESETS: string | undefined;
 	// more env variables...
 }
 
