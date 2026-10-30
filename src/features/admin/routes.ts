@@ -62,6 +62,20 @@ const promoCodesRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/promoCodes/index'), 'PromoCodesAdminIndex'),
 });
 
+const hostsRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'hosts',
+	head: () => ({ meta: [{ title: 'Hosts — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/hosts/index'), 'HostsIndex'),
+});
+
+const monitoringRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'monitoring',
+	head: () => ({ meta: [{ title: 'Monitoring — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/monitoring/index'), 'MonitoringPolicyAdminIndex'),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
@@ -78,5 +92,7 @@ export const adminRoutes = [
 	grantsRoute,
 	promoCodesRoute,
 	billingRoute,
+	hostsRoute,
+	monitoringRoute,
 	apiTokenRoute,
 ];

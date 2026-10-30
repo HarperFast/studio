@@ -52,7 +52,7 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	].filter(Boolean) as SubNavItem[];
 
 	return (
-		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 			<ClusterExpiryBanner cluster={cluster} canUpdate={!!update} onPlanPage={onPlanPage} />
 			<div className="md:grid gap-6 md:grid-cols-12">
 				<aside className="section-rail-aside md:col-span-3 lg:col-span-2 mb-4 md:mb-0">

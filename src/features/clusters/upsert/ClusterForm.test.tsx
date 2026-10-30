@@ -139,6 +139,7 @@ describe('ClusterForm — payment review', () => {
 				<ClusterForm
 					alreadyUsingFree={false}
 					clusterId="clu-1"
+					currentRegions={[{ key: 'oreg-1', name: 'EU edge' }]}
 					defaultValues={{
 						clusterName: 'my-cluster',
 						abbreviatedName: '',
@@ -239,6 +240,7 @@ describe('ClusterForm — region rows', () => {
 				<ClusterForm
 					alreadyUsingFree={false}
 					clusterId={clusterId}
+					currentRegions={[]}
 					defaultValues={{
 						clusterName: 'my-cluster',
 						abbreviatedName: '',

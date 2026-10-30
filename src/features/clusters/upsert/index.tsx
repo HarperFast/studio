@@ -23,7 +23,7 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext, useSearch } from '@tanstack/react-router';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
@@ -75,7 +75,7 @@ export function UpsertCluster() {
 	// plan change and a region change cannot go in one request. Keyed on what the cluster runs NOW,
 	// not on what is being selected — the freeze lifts as soon as the paid plan lands.
 	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId));
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<
+	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
 			clusterId?: string;

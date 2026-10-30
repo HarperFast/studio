@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 	saved: null as unknown,
 }));
 vi.mock('@tanstack/react-router', () => ({
+	useSearch: () => ({}),
 	useParams: () => state.params,
 	useRouteContext: () => ({ organization: { id: 'org-a', clusters: [] }, cluster: state.cluster }),
 }));
