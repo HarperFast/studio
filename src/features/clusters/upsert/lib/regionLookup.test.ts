@@ -7,6 +7,7 @@ import {
 	expectedInstanceCount,
 	isOrganizationRegionId,
 	organizationRegionShape,
+	planBlocks,
 	regionAtQuantity,
 	regionCohortKey,
 } from './regionLookup';
@@ -51,7 +52,6 @@ describe('buildRegionLookup', () => {
 			name: 'EU edge',
 			shape: ['fr-par', 'fr-par', 'it-mil'],
 			instanceCount: 3,
-			blocksPerUnit: 2,
 		});
 	});
 
@@ -80,13 +80,13 @@ describe('regionCohortKey', () => {
 describe('regionAtQuantity', () => {
 	const lookup = buildRegionLookup(catalog, [orgRegion], 'linode');
 
-	it('scales instances and blocks by the quantity', () => {
+	it('scales instances by the quantity, and blocks once for the whole plan', () => {
 		expect(regionAtQuantity(lookup.get('oreg-1')!, 3)).toMatchObject({
 			id: 'oreg-1',
 			region: 'EU edge',
 			latencyDescription: 'fr-par ×2 · it-mil',
 			instanceCount: 9,
-			purchasedBlockMultiplier: 6,
+			purchasedBlockMultiplier: 5,
 		});
 	});
 
@@ -121,5 +121,16 @@ describe('expectedInstanceCount', () => {
 		expect(expectedInstanceCount([{ planId: 'p', regionId: 'gone' }], lookup)).toBeUndefined();
 		expect(expectedInstanceCount([], lookup)).toBeUndefined();
 		expect(expectedInstanceCount(undefined, lookup)).toBeUndefined();
+	});
+});
+
+describe('planBlocks', () => {
+	it("buys a block per instance pair across a custom region's plan, as central-manager mints", () => {
+		const single = buildRegionLookup([], [{ ...orgRegion, placement: { linode: ['us-ord'] } }], 'linode');
+		expect(planBlocks(single.get('oreg-1')!, 2)).toBe(1);
+		expect(planBlocks(single.get('oreg-1')!, 3)).toBe(2);
+		const lookup = buildRegionLookup(catalog, [orgRegion], 'linode');
+		expect(planBlocks(lookup.get('oreg-1')!, 3)).toBe(5);
+		expect(planBlocks(lookup.get('us-2')!, undefined)).toBe(2);
 	});
 });
