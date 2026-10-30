@@ -128,6 +128,21 @@ describe('UsagePage', () => {
 		expect(screen.getByText('fabric-block-level-2')).toBeTruthy();
 	});
 
+	// An org region's name is free text, so two regions can share one; their ids tell them apart.
+	it('renders two regions that share a name as two rows', () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [region(), region({ regionIds: ['oreg-a'] })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		const logged = consoleError.mock.calls.flat().join(' ');
+		consoleError.mockRestore();
+		expect(screen.getByText('us-1')).toBeTruthy();
+		expect(screen.getByText('oreg-a')).toBeTruthy();
+		expect(logged).not.toMatch(/same key/);
+	});
+
 	it('collapses and re-expands a region when its header is clicked', () => {
 		mockUseClusterUsage.mockReturnValue({ data: usage(), isLoading: false });
 		render(<UsagePage />);

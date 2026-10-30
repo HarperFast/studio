@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { getClusterInvoicesQueryOptions } from '@/features/admin/billing/queries/getClusterInvoices';
 import { FleetUsageCluster } from '@/features/admin/billing/queries/getFleetUsage';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
+import { isOrganizationRegionId } from '@/features/clusters/upsert/lib/regionLookup';
 import { ClusterUsageRegion } from '@/integrations/api/cluster/getClusterUsage';
 import { useQuery } from '@tanstack/react-query';
 
@@ -83,7 +84,7 @@ export function ClusterBillingDetail({ usage, organizationId }: { usage: FleetUs
 	return (
 		<div className="flex max-w-4xl flex-col gap-5 py-3 pr-4 pl-6">
 			{usage.regions.map((region) => (
-				<div key={region.region ?? region.regionIds.join()}>
+				<div key={region.regionIds.find(isOrganizationRegionId) ?? region.region ?? region.regionIds.join()}>
 					<div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
 						<span className="text-sm font-medium">{region.region ?? region.regionIds.join(', ')}</span>
 						<Badge variant={STATUS_VARIANT[region.status]} className="text-[10px]">{region.status}</Badge>
