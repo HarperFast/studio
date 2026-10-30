@@ -4,6 +4,7 @@ import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/component
 import { CollapsibleCard, HeaderText } from '@/features/cluster/usage/CollapsibleCard';
 import { CycleCostChart, showsCostChart } from '@/features/cluster/usage/CycleCostChart';
 import { cycleRange } from '@/features/cluster/usage/cycleRange';
+import { isOrganizationRegionId } from '@/features/clusters/upsert/lib/regionLookup';
 import { formatCycleDate } from '@/integrations/api/cluster/getClusterUsage';
 import {
 	type PastCycle,
@@ -103,7 +104,12 @@ function PastCycleCard(
 			header={<HeaderText title={cycleRange(cycle)} meta={meta} />}
 		>
 			<div className="space-y-6">
-				{cycle.regions.map((region) => <PastRegion key={region.regionIds.join() || region.region} region={region} />)}
+				{cycle.regions.map((region) => (
+					<PastRegion
+						key={region.regionIds.find(isOrganizationRegionId) ?? region.region ?? region.regionIds.join()}
+						region={region}
+					/>
+				))}
 			</div>
 		</CollapsibleCard>
 	);

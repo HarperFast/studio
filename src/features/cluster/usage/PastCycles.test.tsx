@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseHistory = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/api/cluster/getClusterUsageHistory', () => ({ useClusterUsageHistory: mockUseHistory }));
-// The chart draws nothing under jsdom; a bar per cycle stands in for it (CycleCostChart.test.tsx covers the chart).
+// The chart draws nothing under jsdom; a bar per cycle stands in for it.
 vi.mock('@/features/cluster/usage/CycleCostChart', async (importOriginal) => ({
 	...await importOriginal<typeof import('@/features/cluster/usage/CycleCostChart')>(),
 	CycleCostChart: ({ cycles, onSelect }: { cycles: PastCycle[]; onSelect: (endsAt: string) => void }) => (
