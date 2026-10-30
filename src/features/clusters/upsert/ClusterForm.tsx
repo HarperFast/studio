@@ -38,7 +38,13 @@ import { ClusterDetails } from './ClusterDetails';
 import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
 import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
-import { buildRegionLookup, isOrganizationRegionId, MIN_CLUSTER_INSTANCES, regionCohortKey } from './lib/regionLookup';
+import {
+	buildRegionLookup,
+	isOrganizationRegionId,
+	MIN_CLUSTER_INSTANCES,
+	planBlocks,
+	regionCohortKey,
+} from './lib/regionLookup';
 import { PriceDisplay } from './PriceDisplay';
 import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -525,9 +531,8 @@ export function ClusterForm({
 			if (!region) {
 				return total;
 			}
-			// Central-manager mints a block per instance pair (rounded up) × quantity for a custom region.
 			return total + (region.kind === 'organization'
-				? selectedPlan.priceUsd * region.blocksPerUnit * (entry.quantity ?? 1)
+				? selectedPlan.priceUsd * planBlocks(region, entry.quantity)
 				: selectedPlan.priceUsd * region.instanceCount / 2);
 		}, 0);
 

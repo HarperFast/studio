@@ -15,19 +15,18 @@ export const MIN_CLUSTER_INSTANCES = 2;
 
 /**
  * One shape for a catalog tier and an organization's custom region, keyed by the id central-manager
- * stores on the plan. `instanceCount` and `blocksPerUnit` are per quantity unit; a catalog tier is
- * always one unit.
+ * stores on the plan. `instanceCount` is per quantity unit; a catalog tier is always one unit, and
+ * `planBlocks` gives what a plan of either kind buys.
  */
 export type ResolvedRegion =
 	& {
 		id: string;
 		name: string;
 		instanceCount: number;
-		blocksPerUnit: number;
 		active: boolean;
 	}
 	& (
-		| { kind: 'catalog'; latencyDescription: string; source: SchemaRegion }
+		| { kind: 'catalog'; latencyDescription: string; blocksPerUnit: number; source: SchemaRegion }
 		| { kind: 'organization'; shape: string[]; fallbackGroup: string | null; source: OrganizationRegion }
 	);
 
@@ -67,8 +66,6 @@ export function buildRegionLookup(
 			shape,
 			fallbackGroup: region.fallbackGroup ?? null,
 			instanceCount: shape.length,
-			// Central-manager's rule for both tables: a purchased block per instance pair, rounded up.
-			blocksPerUnit: Math.ceil(shape.length / 2),
 			active: region.active !== false,
 			source: region,
 		});
@@ -83,7 +80,7 @@ export function regionAtQuantity(region: ResolvedRegion, quantity: number | unde
 		region: region.name,
 		latencyDescription: region.kind === 'catalog' ? region.latencyDescription : describeShape(region.shape),
 		instanceCount: region.instanceCount * units,
-		purchasedBlockMultiplier: region.blocksPerUnit * units,
+		purchasedBlockMultiplier: planBlocks(region, quantity),
 	};
 }
 
@@ -117,4 +114,13 @@ export function describeShape(shape: readonly string[]): string {
  */
 export function regionCohortKey(region: ResolvedRegion): string {
 	return region.kind === 'organization' ? region.id : region.name;
+}
+
+/**
+ * Central-manager's rule (`blocksForQuantity`): a catalog tier's multiplier, or for a custom region a
+ * block per instance pair across the whole plan, rounded once — a one-datacenter shape at quantity 2 is
+ * one block, not two.
+ */
+export function planBlocks(region: ResolvedRegion, quantity: number | undefined): number {
+	return region.kind === 'organization' ? Math.ceil(region.instanceCount * (quantity ?? 1) / 2) : region.blocksPerUnit;
 }
