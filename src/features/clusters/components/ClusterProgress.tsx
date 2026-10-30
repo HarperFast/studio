@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 /**
  * Displays a triple segment progress bar to the user which will let them watch their instance(s) progress through:
  * 	1. Pending (Clone Pending or Clone Ready)
- * 	2. Updating (Provisioning or Cloning)
+ * 	2. Updating (Provisioning, Cloning, Draining Traffic, or Removing on a scale-down)
  * 	3. Running (Running or Updated)
  */
 export function ClusterProgress({ cluster, forceProgressBarVisible, expectedInstances }: {
@@ -83,6 +83,21 @@ export function ClusterProgress({ cluster, forceProgressBarVisible, expectedInst
 		if (notCreated > 0) {
 			pending += notCreated;
 			pendingCounts.Preparing = notCreated;
+		}
+		// A scale-down's leaving members stay RUNNING until each is terminated, one at a time. Running here
+		// already excludes a removed region's members, so what exceeds the plans' count is on its way out.
+		const removing = expectedInstances == null ? 0 : Math.max(0, running - expectedInstances);
+		if (removing > 0) {
+			running -= removing;
+			updating += removing;
+			updatingCounts.Removing = removing;
+			let left = removing;
+			for (const label of Object.keys(runningCounts).sort()) {
+				const taken = Math.min(left, runningCounts[label]);
+				runningCounts[label] -= taken;
+				if (runningCounts[label] === 0) { delete runningCounts[label]; }
+				left -= taken;
+			}
 		}
 		const describe = (counts: Record<string, number>) =>
 			Object.keys(counts).sort().map((label) => `${counts[label]} ${capitalizeWords(label)}`);
