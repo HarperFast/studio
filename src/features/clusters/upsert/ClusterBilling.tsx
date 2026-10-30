@@ -1,6 +1,7 @@
 import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
+import { SubmitPendingNote } from '@/features/clusters/upsert/components/SubmitPendingNote';
 import { renewalTerms } from '@/features/clusters/upsert/lib/renewalTerms';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -9,7 +10,7 @@ import { onContractedTerms } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { isPositive } from '@/lib/types/isPositive';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
+import { ArrowLeftIcon, ArrowRightIcon, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface ClusterBillingProps {
@@ -50,6 +51,11 @@ export function ClusterBilling({
 					<SubmitErrorMessage message={submitError} />
 				</div>
 			)}
+			<SubmitPendingNote
+				className="mt-3 max-w-xl"
+				isPending={isPending}
+				dedicated={selectedPlan?.deploymentType === 'dedicated'}
+			/>
 			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end mt-3 max-w-xl">
 				<Button
 					type="button"
@@ -65,7 +71,8 @@ export function ClusterBilling({
 					variant="submit"
 					onClick={onSubmit}
 				>
-					{clusterId ? 'Edit Cluster' : 'Create New Cluster'} <ArrowRightIcon />
+					{clusterId ? 'Edit Cluster' : 'Create New Cluster'}{' '}
+					{isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowRightIcon />}
 				</Button>
 			</div>
 		</>

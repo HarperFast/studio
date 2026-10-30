@@ -4,6 +4,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { hobbyistPlanId } from '@/config/constants';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
+import { SubmitPendingNote } from '@/features/clusters/upsert/components/SubmitPendingNote';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
 import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
@@ -16,7 +17,7 @@ import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ClusterGrant } from '@/integrations/api/api.patch';
-import { ArrowRight, Layers3, Server } from 'lucide-react';
+import { ArrowRight, Layers3, Loader2, Server } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
@@ -230,6 +231,7 @@ export function ClusterDetails({
 	const footer = (
 		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6 sm:items-center">
 			<SubmitErrorMessage message={submitError} />
+			<SubmitPendingNote isPending={isPending} dedicated={selectedPlan?.deploymentType === 'dedicated'} />
 			<Button
 				className="w-full sm:w-auto"
 				type="submit"
@@ -244,7 +246,7 @@ export function ClusterDetails({
 					: clusterId
 					? 'Edit Cluster'
 					: 'Create New Cluster'}
-				<ArrowRight />
+				{isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowRight />}
 			</Button>
 		</DialogFooter>
 	);
