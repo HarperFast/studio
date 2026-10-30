@@ -2,6 +2,7 @@ import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/Clus
 import { ClusterCycleCost, cycleCostSummary, RegionCycleCost } from '@/features/cluster/components/CycleCost';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import { useClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
+import { isOrganizationRegionId } from '@/features/clusters/upsert/lib/regionLookup';
 import {
 	ClusterUsageRegion,
 	UsageRateLimit,
@@ -63,7 +64,7 @@ export function UsagePage() {
 						{data.regions.map((region) => (
 							<RegionSection
 								trial={trial}
-								key={region.region ?? region.regionIds.join()}
+								key={region.regionIds.find(isOrganizationRegionId) ?? region.region ?? region.regionIds.join()}
 								region={region}
 								showPlanInfo={shared == null}
 							/>

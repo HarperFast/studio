@@ -46,7 +46,7 @@ function region(overrides: Partial<ClusterUsageRegion>): ClusterUsageRegion {
 	};
 }
 
-async function mount(r: ClusterUsageRegion) {
+async function mount(...regions: ClusterUsageRegion[]) {
 	const usage = {
 		clusterId: 'clu-a',
 		organizationId: 'org-1',
@@ -56,7 +56,7 @@ async function mount(r: ClusterUsageRegion) {
 		renewsAt: null,
 		totals: null,
 		mostConstrained: null,
-		regions: [r],
+		regions,
 	} as FleetUsageCluster;
 	const result = render(
 		<TestProvider>
@@ -97,5 +97,17 @@ describe('ClusterBillingDetail invoice state', () => {
 		expect(screen.queryByText(/billed offline/)).toBeNull();
 		expect(screen.queryByText(/awaiting invoice/)).toBeNull();
 		expect(screen.getByText('in_1')).toBeTruthy();
+	});
+});
+
+describe('ClusterBillingDetail regions', () => {
+	// An org region's name is free text, so two regions can share one; their ids tell them apart.
+	it('renders two regions that share a name as two rows', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await mount(region({ region: 'US', regionIds: ['us-1'] }), region({ region: 'US', regionIds: ['oreg-a'] }));
+		const logged = consoleError.mock.calls.flat().join(' ');
+		consoleError.mockRestore();
+		expect(screen.getAllByText('US')).toHaveLength(2);
+		expect(logged).not.toMatch(/same key/);
 	});
 });
