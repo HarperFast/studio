@@ -1,6 +1,10 @@
 import { Button } from '@/components/ui/button';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { PreviewPolicy } from '@/integrations/api/instance/previews/previews';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
+import { useQuery } from '@tanstack/react-query';
 import { CopyIcon } from 'lucide-react';
 import { defaultPreviewDomain } from './previewAudience';
 import {
@@ -11,12 +15,17 @@ import {
 	previewWorkflowText,
 } from './starterPreviewWorkflow';
 
-/** The rest of the setup, in the repository. Built from what the cluster holds, so it reads the same on every visit. */
+const GITHUB_RULE_URL =
+	'https://github.blog/changelog/2026-09-17-workflow-execution-protections-in-github-actions-generally-available/';
+
+/** Built from what the cluster holds rather than the form, so it reads the same on every visit. */
 export function PreviewWorkflowInstructions(
 	{ policy, credentialSealed }: { policy: PreviewPolicy; credentialSealed: boolean },
 ) {
 	const copy = useCopyTextToClipboard();
-	const { app, branch, audience, repository } = policy;
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(useInstanceClientIdParams()));
+	const { app, branch, audience } = policy;
+	const repository = policy.repository && parseGitHubRepository(policy.repository);
 	if (!branch || !audience) {
 		return null;
 	}
@@ -26,6 +35,7 @@ export function PreviewWorkflowInstructions(
 		app,
 		branch,
 		environment: policy.environment,
+		cleanupEnvironment: policy.cleanupEnvironment,
 		domain: domain === defaultPreviewDomain(audience) ? undefined : domain,
 		credential: credentialSealed,
 		shared: constraints?.branchedDatabases !== 'required',
@@ -33,6 +43,7 @@ export function PreviewWorkflowInstructions(
 	const workflowPath = policy.workflow ?? PREVIEW_WORKFLOW_PATH;
 	const environment = policy.environment ?? PREVIEW_ENVIRONMENT;
 	const cleanupEnvironment = policy.cleanupEnvironment ?? PREVIEW_CLEANUP_ENVIRONMENT;
+	const version = registrationInfo?.version;
 
 	return (
 		<section className="flex flex-col gap-3 rounded-md border p-4 text-sm" aria-label="What to commit">
@@ -105,9 +116,17 @@ export function PreviewWorkflowInstructions(
 					without them, so closing a pull request never waits for an approval.
 				</li>
 			</ol>
+			{version?.includes('-') && (
+				<p>
+					This cluster runs {version}, a prerelease, and <code className="font-mono">harper@^5.4</code>{' '}
+					matches only a release. Until 5.4.0 is published, change both install lines to{' '}
+					<code className="font-mono">harper@{version}</code>.
+				</p>
+			)}
 			<p className="text-muted-foreground">
-				From 2026-11-02, GitHub's default execution protection blocks pull_request_target for affected public
-				repositories, so the repository's Actions policy has to allow it for this workflow.
+				On a public repository, GitHub's default rule blocks pull_request_target from 2026-12-02, so its Actions policy
+				has to allow this workflow.{' '}
+				<a className="underline" href={GITHUB_RULE_URL} target="_blank" rel="noreferrer">GitHub's announcement</a>
 			</p>
 		</section>
 	);

@@ -34,7 +34,7 @@ export function usePreviewCredentialSealed(app: string): boolean {
  */
 export function PreviewCredential({ app, repository }: { app: string; repository: string }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { keySource, known } = useSecretsKeySource(instanceParams);
+	const { keySource, known, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
 	const { data: lookup } = useQuery(gitHubRepositoryQueryOptions(repository));
 	// Only when a token is wanted: a cluster with no secrets key fails this read, and a public repository never needs it.
 	const needsToken = !!lookup && !(lookup.status === 'found' && !lookup.repository.private);
@@ -44,7 +44,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 	});
 	const { refetch } = useQuery(listSecretsQueryOptions(instanceParams));
 	const sealed = usePreviewCredentialSealed(app);
-	const { mutateAsync: setSecret, isPending: isSetting } = useSetSecret();
+	const { mutateAsync: setSecret, reset: resetSetSecret, isPending: isSetting } = useSetSecret();
 	const { mutateAsync: grantSecret, isPending: isGranting } = useGrantSecret();
 	const [token, setToken] = useState('');
 
@@ -63,6 +63,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		} catch {
 			// The mutation cache has toasted it, and the token stays in the field to try again.
 		} finally {
+			resetSetSecret();
 			await refetch();
 		}
 	};
@@ -78,7 +79,14 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				isn't public, or GitHub couldn't say. A private repository needs a token the cluster can fetch each pull request
 				with. It is encrypted in this browser and can't be read back.
 			</p>
-			{noSecretsKey
+			{clusterInfoUnavailable
+				? (
+					<p className="text-muted-foreground">
+						This cluster's info couldn't be loaded, so Studio doesn't know which key to encrypt the token with. Reload
+						to try again.
+					</p>
+				)
+				: noSecretsKey
 				? (
 					<p className="text-muted-foreground">
 						This cluster has no secrets key, so it can't hold a token. Private repositories can't be previewed until it

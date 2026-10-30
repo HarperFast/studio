@@ -136,13 +136,22 @@ export function EnablePreviewsForm({ app, onEnabled }: { app: string; onEnabled:
 	const found = lookup?.status === 'found' ? lookup.repository : undefined;
 	const needsId = !!lookup && !found;
 
-	// The default branch is what the workflow runs from, so a looked-up one replaces `main` unless someone typed theirs.
+	// The default branch is what the workflow runs from, so each answer replaces the branch unless someone typed theirs.
 	const foundBranch = found?.defaultBranch;
 	useEffect(() => {
-		if (foundBranch && !form.getFieldState('branch').isDirty) {
-			form.setValue('branch', foundBranch);
+		if (lookup && !form.getFieldState('branch').isDirty) {
+			form.setValue('branch', foundBranch ?? DEFAULT_BRANCH);
 		}
-	}, [foundBranch, form]);
+	}, [lookup, foundBranch, form]);
+
+	// The field is gone once the repository is found, and a bad value left in it would still fail validation, unseen.
+	const foundId = found?.id;
+	useEffect(() => {
+		if (foundId) {
+			form.setValue('repositoryId', '');
+			form.clearErrors('repositoryId');
+		}
+	}, [foundId, form]);
 
 	const onSubmit = async (values: EnablePreviewsValues) => {
 		setFailure(undefined);
@@ -229,7 +238,8 @@ export function EnablePreviewsForm({ app, onEnabled }: { app: string; onEnabled:
 									<Input inputMode="numeric" autoComplete="off" {...field} />
 								</FormControl>
 								<FormDescription>
-									<code className="font-mono">gh api repos/{fullName} --jq .id</code> prints it.
+									<code className="font-mono">gh api repos/{fullName} --jq '.id, .full_name'</code>{' '}
+									prints it, and GitHub's exact spelling of the name, which the repository above has to match.
 								</FormDescription>
 								<FormMessage />
 							</FormItem>

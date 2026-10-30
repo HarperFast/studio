@@ -15,7 +15,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 	);
 }
 
-/** What `get_preview_policy` reports, and each of its `problems`. */
 export function PreviewPolicyStatus({
 	policy,
 	state,

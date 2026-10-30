@@ -116,7 +116,7 @@ describe('EnablePreviewsForm', () => {
 		type(repositoryField(), 'acme/private');
 		const idField = await screen.findByLabelText('Repository id');
 		expect(screen.getByText(/enter its id below/)).toBeTruthy();
-		expect(screen.getByText('gh api repos/acme/private --jq .id')).toBeTruthy();
+		expect(screen.getByText("gh api repos/acme/private --jq '.id, .full_name'")).toBeTruthy();
 		submit();
 		expect(await screen.findByText('Enter the numeric id.')).toBeTruthy();
 		expect(post).not.toHaveBeenCalled();
@@ -125,6 +125,38 @@ describe('EnablePreviewsForm', () => {
 		submit();
 		await waitFor(() => expect(post).toHaveBeenCalled());
 		expect(enableRequest()).toMatchObject({ repository: 'acme/private', repository_id: '123456' });
+	});
+
+	const stubBothRepositories = () =>
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string) =>
+				url.endsWith('/acme/private')
+					? new Response('{}', { status: 404 })
+					: new Response(JSON.stringify(FOUND), { status: 200 })
+			),
+		);
+
+	it('drops an id left behind by a repository that turned out not to need one', async () => {
+		stubBothRepositories();
+		renderForm();
+		type(repositoryField(), 'acme/private');
+		type(await screen.findByLabelText('Repository id'), 'not-a-number');
+		type(repositoryField(), 'HarperFast/studio');
+		await screen.findByText('HarperFast/studio, id 219919692.');
+		submit();
+		await waitFor(() => expect(post).toHaveBeenCalled());
+		expect(enableRequest()).toMatchObject({ repository_id: '219919692' });
+	});
+
+	it('goes back to main when the next repository has no default branch to offer', async () => {
+		stubBothRepositories();
+		renderForm();
+		type(repositoryField(), 'HarperFast/studio');
+		await waitFor(() => expect((screen.getByLabelText('Branch') as HTMLInputElement).value).toBe('stage'));
+		type(repositoryField(), 'acme/private');
+		await screen.findByLabelText('Repository id');
+		await waitFor(() => expect((screen.getByLabelText('Branch') as HTMLInputElement).value).toBe('main'));
 	});
 
 	it("does not call the name wrong when GitHub's rate limit answered", async () => {

@@ -1,5 +1,4 @@
 export interface PreviewsSearch {
-	/** The application the page shows. */
 	project?: string;
 }
 

@@ -59,4 +59,10 @@ compared byte for byte, so `harperfast/studio` would never match `HarperFast/stu
 
 Harper has no operation that returns `starterPreviewWorkflow`, so `starterPreviewWorkflow.ts` copies it, and is the only
 file to change when `HarperFast/deploy-action` (harper#3055) ships. It installs `harper@^5.4`, which matches no
-prerelease, so a run can't install the CLI until 5.4.0 is published.
+prerelease, so a run can't install the CLI until 5.4.0 is published. The panel says so on a prerelease cluster, and which
+version to pin instead, rather than generating text that differs from what the CLI writes.
+
+## A drop replicates from any page of a cluster
+
+A preview is on every node, so a drop from one instance's page has to reach the rest. It replicates whenever the route
+has a cluster, not only when the entity is one. Local Studio has no cluster, and `replicated: true` fails there.

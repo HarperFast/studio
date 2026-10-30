@@ -114,10 +114,10 @@ describe('the operations', () => {
 		expect(post).toHaveBeenCalledWith('/', { operation: 'disable_previews', app: 'shop' }, { timeout: 600_000 });
 	});
 
-	it("replicates a drop only on a cluster, and keeps each peer's result", async () => {
+	it("sends a drop as told, and keeps each peer's result", async () => {
 		const { post, client } = instanceClient();
-		await dropPreview({ instanceClient: client, entityType: 'cluster', project: 'shop-pr-3' });
-		await dropPreview({ instanceClient: client, entityType: 'instance', project: 'shop-pr-3' });
+		await dropPreview({ instanceClient: client, project: 'shop-pr-3', replicated: true });
+		await dropPreview({ instanceClient: client, project: 'shop-pr-3', replicated: false });
 		expect(post).toHaveBeenNthCalledWith(
 			1,
 			'/',

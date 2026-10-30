@@ -9,7 +9,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationPreviews } from './ApplicationPreviews';
 
-const { cluster, toast } = vi.hoisted(() => ({
+const { cluster, keySource, route, toast } = vi.hoisted(() => ({
+	keySource: { known: true, clusterInfoUnavailable: false },
+	route: { clusterId: 'clu-1' as string | undefined },
 	cluster: {
 		operations: {} as Record<string, (body: Record<string, unknown>) => unknown>,
 		calls: [] as Array<Record<string, unknown>>,
@@ -31,12 +33,15 @@ vi.mock('@/config/useInstanceClient', () => {
 	const params = { instanceClient, entityId: 'clu-1', entityType: 'cluster' };
 	return { useInstanceClientIdParams: () => params };
 });
-vi.mock('@tanstack/react-router', () => ({ useParams: () => ({}) }));
+vi.mock('@tanstack/react-router', () => ({ useParams: () => route }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
+	getClusterInfoQueryOptions: () => ({ queryKey: ['cluster'], enabled: false }),
+}));
 vi.mock('@/features/auth/store/authStore', () => ({
 	authStore: { getOperationsUrl: () => 'https://cluster.example.com:9925/' },
 }));
 vi.mock('@/features/instance/secrets/useSecretsKeySource', () => ({
-	useSecretsKeySource: (keySource: unknown) => ({ keySource, known: true, clusterInfoUnavailable: false }),
+	useSecretsKeySource: (params: unknown) => ({ keySource: params, ...keySource }),
 }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/crypto/envSecret', () => ({ encryptEnvelope: async () => 'enc:v1:sealed' }));
@@ -126,6 +131,7 @@ function renderPanel({ policy, tree = TREE }: { policy: PreviewPolicy; tree?: AP
 		defaultOptions: { queries: { retry: false } },
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
+	lastQueryClient = queryClient;
 	render(
 		<QueryClientProvider client={queryClient}>
 			<ApplicationPreviews app="shop" tree={tree} />
@@ -133,11 +139,15 @@ function renderPanel({ policy, tree = TREE }: { policy: PreviewPolicy; tree?: AP
 	);
 }
 
+let lastQueryClient: QueryClient;
 const previewSwitch = () => screen.findByRole('switch', { name: 'Previews of shop' });
 
 beforeEach(() => {
 	cluster.calls.length = 0;
+	route.clusterId = 'clu-1';
+	Object.assign(keySource, { known: true, clusterInfoUnavailable: false });
 	cluster.operations = {
+		registration_info: () => ({ version: '5.4.0' }),
 		list_secrets: () => ({ secrets: [], custody_fingerprint: null }),
 		get_secrets_public_key: () => ({ public_key: 'key', fingerprint: 'print' }),
 	};
@@ -221,6 +231,27 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText(/pull_request_target:/).textContent).toContain('domain=apps.acme.dev');
 		});
 
+		it('asks for the cleanup environment the policy pins, not the default', async () => {
+			renderPanel({ policy: { ...ENABLED, cleanupEnvironment: 'teardown' } });
+			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect(section.getByText(/pull_request_target:/).textContent).toContain('environment: teardown');
+			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('environment: preview-cleanup');
+		});
+
+		it('says the install line can not match on a prerelease, and which version will', async () => {
+			cluster.operations.registration_info = () => ({ version: '5.4.0-alpha.2' });
+			renderPanel({ policy: ENABLED });
+			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect(await section.findByText('harper@5.4.0-alpha.2')).toBeTruthy();
+		});
+
+		it('says nothing about the install line on a release', async () => {
+			renderPanel({ policy: ENABLED });
+			await screen.findByRole('region', { name: 'What to commit' });
+			await waitFor(() => expect(cluster.calls.map((call) => call.operation)).toContain('registration_info'));
+			expect(screen.queryByText(/a prerelease/)).toBeNull();
+		});
+
 		it("lists this application's previews, not another's", async () => {
 			renderPanel({ policy: ENABLED });
 			const live = within(await screen.findByRole('region', { name: 'Live previews' }));
@@ -276,6 +307,16 @@ describe('ApplicationPreviews', () => {
 			expect(await live.findByText('Dropped shop-pr-3')).toBeTruthy();
 			expect(live.getByText('node-2: Successfully dropped: shop-pr-3')).toBeTruthy();
 			expect(cluster.calls).toContainEqual({ operation: 'drop_component', project: 'shop-pr-3', replicated: true });
+			expect(toast.success).toHaveBeenCalledWith('Dropped shop-pr-3');
+		});
+
+		it('does not replicate in Local Studio, which has no peers', async () => {
+			cluster.operations.drop_component = () => ({ message: 'Successfully dropped: shop-pr-3' });
+			route.clusterId = undefined;
+			renderPanel({ policy: ENABLED });
+			await deleteIt();
+			await screen.findByText('Dropped shop-pr-3');
+			expect(cluster.calls).toContainEqual({ operation: 'drop_component', project: 'shop-pr-3', replicated: false });
 		});
 
 		it('says so when a peer still holds it, and names why', async () => {
@@ -287,6 +328,17 @@ describe('ApplicationPreviews', () => {
 			await deleteIt();
 			expect(await screen.findByText('shop-pr-3 was not fully dropped')).toBeTruthy();
 			expect(screen.getByText('node-2: failed: timed out')).toBeTruthy();
+			expect(toast.success).not.toHaveBeenCalled();
+		});
+
+		it('does not call an unanswered drop a failure, since it may have landed', async () => {
+			cluster.operations.drop_component = () => {
+				throw Object.assign(new Error('timeout'), { isAxiosError: true, code: 'ECONNABORTED', config: {} });
+			};
+			renderPanel({ policy: ENABLED });
+			await deleteIt();
+			expect(await screen.findByText('Outcome unknown')).toBeTruthy();
+			expect(screen.queryByText('shop-pr-3 was not fully dropped')).toBeNull();
 		});
 
 		it('shows a refused drop as Harper worded it, in place of a toast', async () => {
@@ -377,6 +429,26 @@ describe('ApplicationPreviews', () => {
 			renderPanel({ policy: ENABLED });
 			await confirmDisable();
 			expect(await screen.findByRole('button', { name: 'Run disable again' })).toBeTruthy();
+			expect(screen.getByText('Outcome unknown')).toBeTruthy();
+			expect(screen.getByText(/running disable again resumes it/)).toBeTruthy();
+			expect(screen.queryByText(/did not finish disabling/)).toBeNull();
+		});
+
+		it('keeps the rerun on screen when the refetch after a failed disable fails too', async () => {
+			cluster.operations.disable_previews = () => {
+				cluster.operations.get_preview_policy = () => {
+					throw httpError(500, 'node is restarting');
+				};
+				throw httpError(500, 'Previews of shop are revoked but not removed.');
+			};
+			renderPanel({ policy: ENABLED });
+			await confirmDisable();
+			expect(await screen.findByRole('button', { name: 'Run disable again' })).toBeTruthy();
+			await waitFor(() =>
+				expect(cluster.calls.filter((call) => call.operation === 'get_preview_policy').length).toBeGreaterThan(1)
+			);
+			expect(screen.getByRole('button', { name: 'Run disable again' })).toBeTruthy();
+			expect(screen.queryByText(/could not be loaded/)).toBeNull();
 		});
 	});
 
@@ -448,6 +520,25 @@ describe('ApplicationPreviews', () => {
 			expect(JSON.stringify(cluster.calls)).not.toContain('github_pat_plaintext');
 		});
 
+		it('leaves no plaintext in the mutation cache once it is sealed, or once sealing failed', async () => {
+			cluster.operations.set_secret = () => ({ name: secret.name, kid: 'print', created: true });
+			cluster.operations.grant_secret = () => ({ name: secret.name, grants: secret.grants, changed: true });
+			renderPanel({ policy: ENABLED });
+			await sealToken();
+			await waitFor(() => expect(cluster.calls.map((call) => call.operation)).toContain('grant_secret'));
+			const variables = () => JSON.stringify(lastQueryClient.getMutationCache().getAll().map((m) => m.state.variables));
+			await waitFor(() => expect(variables()).not.toContain('github_pat_plaintext'));
+
+			cleanup();
+			cluster.operations.set_secret = () => {
+				throw httpError(400, 'The envelope is malformed');
+			};
+			renderPanel({ policy: ENABLED });
+			await sealToken();
+			await waitFor(() => expect(toast.error).toHaveBeenCalled());
+			await waitFor(() => expect(variables()).not.toContain('github_pat_plaintext'));
+		});
+
 		it('keeps the token in the field when sealing fails, to try again', async () => {
 			cluster.operations.set_secret = () => {
 				throw httpError(400, 'The envelope is malformed');
@@ -457,6 +548,13 @@ describe('ApplicationPreviews', () => {
 			await waitFor(() => expect(toast.error).toHaveBeenCalled());
 			expect(field.value).toBe(' github_pat_plaintext ');
 			expect(cluster.calls.map((call) => call.operation)).not.toContain('grant_secret');
+		});
+
+		it("says so when it can't tell which key to seal with", async () => {
+			Object.assign(keySource, { known: false, clusterInfoUnavailable: true });
+			renderPanel({ policy: ENABLED });
+			expect(await screen.findByText(/info couldn't be loaded/)).toBeTruthy();
+			expect(screen.queryByLabelText('Fine-grained token')).toBeNull();
 		});
 
 		it('does not take a secret granted to something else for it', async () => {

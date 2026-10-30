@@ -24,9 +24,14 @@ describe('previewWorkflowText', () => {
 		const text = previewWorkflowText({ app: 'shop', branch: 'main' });
 		expect(text).toContain('    environment: preview\n');
 		expect(text).toContain('    environment: preview-cleanup\n');
-		expect(previewWorkflowText({ app: 'shop', branch: 'main', environment: 'review' })).toContain(
-			'    environment: review\n',
-		);
+		const custom = previewWorkflowText({
+			app: 'shop',
+			branch: 'main',
+			environment: 'review',
+			cleanupEnvironment: 'teardown',
+		});
+		expect(custom).toContain('    environment: review\n');
+		expect(custom).toContain('    environment: teardown\n');
 	});
 
 	it('quotes the branch, and names the application in every preview command', () => {

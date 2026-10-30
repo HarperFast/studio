@@ -3,7 +3,7 @@
  * user. `enable_previews`, `disable_previews` and `get_preview_policy` enforce super_user in their handlers. The names
  * and claims are Harper's (`utility/previewIdentity.ts`), and what enable writes is in its `security/DESIGN.md`.
  */
-import { InstanceClientConfig, InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { APIDirectoryEntry, PreviewMetadata } from '@/integrations/api/instance/applications/getComponents';
 import { OidcTrustPolicy } from '@/integrations/api/instance/oidcTrust/oidcTrust';
@@ -27,7 +27,6 @@ const DISABLE_PREVIEWS_TIMEOUT_MS = 10 * 60_000;
 /** Harper's own limit for dropping a release on a peer. */
 const DROP_PREVIEW_TIMEOUT_MS = 5 * 60_000;
 
-/** The grant's component pattern, which also names every preview of the application. */
 export function previewComponentPattern(app: string): string {
 	return `${app}-pr-*`;
 }
@@ -178,11 +177,11 @@ export function useDisablePreviews() {
 }
 
 export async function dropPreview(
-	{ instanceClient, entityType, project }: InstanceClientConfig & InstanceTypeConfig & { project: string },
+	{ instanceClient, project, replicated }: InstanceClientConfig & { project: string; replicated: boolean },
 ) {
 	const { data } = await instanceClient.post<ReplicatedResponse>(
 		'/',
-		{ operation: 'drop_component', project, replicated: entityType === 'cluster' },
+		{ operation: 'drop_component', project, replicated },
 		{ timeout: DROP_PREVIEW_TIMEOUT_MS, keepReplicationFailures: true },
 	);
 	return data;
@@ -198,7 +197,6 @@ export interface LivePreview {
 	preview: PreviewMetadata;
 }
 
-/** The components of the tree that are previews of `app`, most recent PR first. */
 export function livePreviewsOf(tree: APIDirectoryEntry | undefined, app: string): LivePreview[] {
 	const previews = (tree?.entries ?? []).flatMap((entry) => {
 		const { name, host, preview } = entry as APIDirectoryEntry;
@@ -207,13 +205,11 @@ export function livePreviewsOf(tree: APIDirectoryEntry | undefined, app: string)
 	return previews.sort((a, b) => b.preview.pr - a.preview.pr);
 }
 
-/** The applications a preview can be set up for: every component that is not itself a preview. */
 export function previewableApplications(tree: APIDirectoryEntry | undefined): string[] {
 	const names = (tree?.entries ?? []).flatMap((entry) => isDirectory(entry) && !entry.preview ? [entry.name] : []);
 	return names.sort((a, b) => a.localeCompare(b));
 }
 
-/** When a preview expires in epoch milliseconds, or undefined when it says so unreadably, or not at all. */
 export function previewExpiresAtMs(preview: PreviewMetadata): number | undefined {
 	const { expiresAt } = preview;
 	const ms = typeof expiresAt === 'number' ? expiresAt : typeof expiresAt === 'string' ? Date.parse(expiresAt) : NaN;

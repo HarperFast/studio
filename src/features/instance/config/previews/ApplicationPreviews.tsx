@@ -10,7 +10,8 @@ import {
 	previewSetupState,
 	useDisablePreviews,
 } from '@/integrations/api/instance/previews/previews';
-import { describeError } from '@/react-query/queryClient';
+import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
+import { describeError, shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -23,7 +24,11 @@ import { PreviewPolicyStatus } from './PreviewPolicyStatus';
 import { PreviewWarnings } from './PreviewWarnings';
 import { PreviewWorkflowInstructions } from './PreviewWorkflowInstructions';
 
-type DisableOutcome = { response: DisablePreviewsResponse } | { failure: string };
+type DisableOutcome = { response: DisablePreviewsResponse } | { failure: string; unanswered: boolean };
+
+const DISABLE_UNANSWERED_MESSAGE =
+	"Harper didn't answer, so it may still be working. The status below shows how far it "
+	+ 'has got, and running disable again resumes it.';
 
 export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirectoryEntry | undefined }) {
 	const instanceParams = useInstanceClientIdParams();
@@ -36,11 +41,11 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 	const [confirmingDisable, setConfirmingDisable] = useState(false);
 	const [disableOutcome, setDisableOutcome] = useState<DisableOutcome>();
 
-	if (isError) {
-		return <PageNotice>The preview policy of {app} could not be loaded.</PageNotice>;
-	}
+	// Only before the first answer: a refetch that fails later must not take the page, and its rerun, away.
 	if (!policy) {
-		return <Loading text="Loading..." />;
+		return isError
+			? <PageNotice>The preview policy of {app} could not be loaded.</PageNotice>
+			: <Loading text="Loading..." />;
 	}
 
 	const state = previewSetupState(policy);
@@ -53,7 +58,11 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 			setDisableOutcome({ response });
 			toast.success(response.message);
 		} catch (error) {
-			setDisableOutcome({ failure: describeError(error).message });
+			const unanswered = !shouldToastOwnFailure(error);
+			setDisableOutcome({
+				failure: unanswered ? DISABLE_UNANSWERED_MESSAGE : describeError(error).message,
+				unanswered,
+			});
 		} finally {
 			// Refetched on failure too: a partial disable has revoked the identity, and that is what the page has to show.
 			await Promise.all([
@@ -80,7 +89,9 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 			)}
 			{disableOutcome && 'failure' in disableOutcome && (
 				<Alert variant="destructive">
-					<AlertTitle>Previews of {app} did not finish disabling</AlertTitle>
+					<AlertTitle>
+						{disableOutcome.unanswered ? OUTCOME_UNKNOWN_TITLE : `Previews of ${app} did not finish disabling`}
+					</AlertTitle>
 					<AlertDescription className="whitespace-pre-wrap">{disableOutcome.failure}</AlertDescription>
 					<div className="col-start-2 mt-2">
 						<Button
@@ -101,9 +112,9 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 					<EnablePreviewsForm
 						app={app}
 						onEnabled={async () => {
-							setShowEnableForm(false);
 							setDisableOutcome(undefined);
 							await refetch();
+							setShowEnableForm(false);
 						}}
 					/>
 				</>

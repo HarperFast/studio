@@ -10,25 +10,37 @@ import {
 	previewExpiresAtMs,
 	useDropPreview,
 } from '@/integrations/api/instance/previews/previews';
-import { isReplicatedResponseFailure, ReplicatedResponse } from '@/integrations/api/replication';
+import { isReplicatedResponseFailure, ReplicatedResponse, replicationFailed } from '@/integrations/api/replication';
+import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
-import { describeError } from '@/react-query/queryClient';
+import { describeError, shouldToastOwnFailure } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import { TrashIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 const COMMIT_LENGTH = 12;
 
-type DropOutcome = { project: string; response: ReplicatedResponse } | { project: string; failure: string };
+type DropOutcome =
+	| { project: string; response: ReplicatedResponse }
+	| { project: string; failure: string; unanswered: boolean };
 
-/** The called node's answer, then each peer's. A failed peer still holds the preview. */
+function dropResultTitle(outcome: DropOutcome): string {
+	if ('failure' in outcome && outcome.unanswered) {
+		return OUTCOME_UNKNOWN_TITLE;
+	}
+	return 'failure' in outcome || replicationFailed(outcome.response)
+		? `${outcome.project} was not fully dropped`
+		: `Dropped ${outcome.project}`;
+}
+
 function DropResult({ outcome, onDismiss }: { outcome: DropOutcome; onDismiss: () => void }) {
 	const peers = 'response' in outcome ? outcome.response.replicated ?? [] : [];
 	const failed = 'failure' in outcome || peers.some(isReplicatedResponseFailure);
 	return (
 		<Alert variant={failed ? 'destructive' : 'default'}>
-			<AlertTitle>{failed ? `${outcome.project} was not fully dropped` : `Dropped ${outcome.project}`}</AlertTitle>
+			<AlertTitle>{dropResultTitle(outcome)}</AlertTitle>
 			<AlertDescription>
 				{'failure' in outcome
 					? <p className="whitespace-pre-wrap">{outcome.failure}</p>
@@ -102,7 +114,9 @@ function PreviewRow({ live, disabled, onDelete }: { live: LivePreview; disabled:
 export function LivePreviews(
 	{ app, tree, previewsOn }: { app: string; tree: APIDirectoryEntry | undefined; previewsOn: boolean },
 ) {
-	const { instanceClient, entityType, entityId } = useInstanceClientIdParams();
+	const { instanceClient, entityId } = useInstanceClientIdParams();
+	// Also from one instance's page: a preview is on every node of the cluster, and a local drop would leave it on the rest.
+	const { clusterId }: { clusterId?: string } = useParams({ strict: false });
 	const queryClient = useQueryClient();
 	const { mutateAsync: dropPreview, isPending } = useDropPreview();
 	const [target, setTarget] = useState<string>();
@@ -116,11 +130,13 @@ export function LivePreviews(
 		}
 		setOutcome(undefined);
 		try {
-			const response = await dropPreview({ instanceClient, entityType, project });
+			const response = await dropPreview({ instanceClient, project, replicated: !!clusterId });
 			setOutcome({ project, response });
-			toast.success(`Dropped ${project}`);
+			if (!replicationFailed(response)) {
+				toast.success(`Dropped ${project}`);
+			}
 		} catch (error) {
-			setOutcome({ project, failure: describeError(error).message });
+			setOutcome({ project, failure: describeError(error).message, unanswered: !shouldToastOwnFailure(error) });
 		} finally {
 			setTarget(undefined);
 			await queryClient.invalidateQueries({ queryKey: [entityId, 'get_components'] });

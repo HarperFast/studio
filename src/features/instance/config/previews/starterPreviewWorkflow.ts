@@ -3,7 +3,7 @@
  * `HarperFast/deploy-action` (harper#3055) ships: swap the body of `previewWorkflowText` for that form.
  *
  * Until then this is `starterPreviewWorkflow` from harper's `bin/previewSetup.ts`, line for line apart from the header
- * comment. Harper has no operation that returns it, so a change there has to be copied here;
+ * comment and the cleanup environment, which Harper's takes from a constant and this reads from the policy. Harper has no operation that returns it, so a change there has to be copied here;
  * `starterPreviewWorkflow.test.ts` pins the text that matters.
  */
 
@@ -16,6 +16,7 @@ export interface PreviewWorkflowOptions {
 	app: string;
 	branch: string;
 	environment?: string;
+	cleanupEnvironment?: string;
 	/** Passed to `harper preview deploy` only when it is not the target's default. */
 	domain?: string;
 	credential?: boolean;
@@ -31,6 +32,7 @@ export function previewWorkflowText({
 	app,
 	branch,
 	environment = PREVIEW_ENVIRONMENT,
+	cleanupEnvironment = PREVIEW_CLEANUP_ENVIRONMENT,
 	domain,
 	credential,
 	shared,
@@ -92,7 +94,7 @@ export function previewWorkflowText({
 		'  cleanup:',
 		`    if: github.event.action == 'closed' && ${sameRepository}`,
 		'    runs-on: ubuntu-latest',
-		`    environment: ${PREVIEW_CLEANUP_ENVIRONMENT}`,
+		`    environment: ${cleanupEnvironment}`,
 		'    permissions:',
 		'      id-token: write',
 		'      pull-requests: read',

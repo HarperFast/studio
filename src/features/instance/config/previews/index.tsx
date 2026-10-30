@@ -4,8 +4,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
-import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
-import { previewableApplications, supportsPreviews } from '@/integrations/api/instance/previews/previews';
+import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
+import {
+	previewableApplications,
+	PREVIEWS_MIN_VERSION,
+	supportsPreviews,
+} from '@/integrations/api/instance/previews/previews';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -15,7 +19,6 @@ import { ApplicationPreviews } from './ApplicationPreviews';
 import { PageNotice } from './PageNotice';
 import { PreviewsSearch } from './previewsSearch';
 
-/** PR previews of one application: turn them on, see what's running, and remove them. */
 export function ConfigPreviewsIndex() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -28,7 +31,7 @@ export function ConfigPreviewsIndex() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsPreviews(registrationInfo.version);
-	const { data: tree, isFetching, refetch } = useQuery(
+	const { data: tree, isFetching, isPending, refetch } = useQuery(
 		getComponentsQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
 	);
 
@@ -54,14 +57,14 @@ export function ConfigPreviewsIndex() {
 	if (!supported) {
 		return (
 			<PageNotice>
-				PR previews need Harper 5.4 or later. This instance runs {registrationInfo?.version}.
+				PR previews need Harper {PREVIEWS_MIN_VERSION} or later. This instance runs {registrationInfo?.version}.
 			</PageNotice>
 		);
 	}
 
 	const applications = previewableApplications(tree);
 	const selectable = project && !applications.includes(project) ? [project, ...applications] : applications;
-	const previewOf = tree?.entries.find((entry) => entry.name === project && 'preview' in entry);
+	const isPreview = tree?.entries.some((entry) => entry.name === project && (entry as APIDirectoryEntry).preview);
 
 	return (
 		<div className="flex flex-col gap-4 px-4 md:px-0">
@@ -93,7 +96,9 @@ export function ConfigPreviewsIndex() {
 
 			{!project
 				? <PageNotice>Choose an application to see its previews.</PageNotice>
-				: previewOf
+				: isPending
+				? <Loading text="Loading..." />
+				: isPreview
 				? <PageNotice>{project} is itself a preview, so it has no previews of its own.</PageNotice>
 				: <ApplicationPreviews key={project} app={project} tree={tree} />}
 		</div>

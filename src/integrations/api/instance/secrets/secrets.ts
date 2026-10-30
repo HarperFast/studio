@@ -198,6 +198,8 @@ export function useSetSecret() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (args: SetSecretArgs) => encryptAndSetSecret(queryClient, args, false),
+		// `variables` holds the plaintext. `reset()` only detaches it: this is what takes it out of the mutation cache.
+		gcTime: 0,
 	});
 }
 

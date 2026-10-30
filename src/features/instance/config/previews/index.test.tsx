@@ -12,7 +12,8 @@ const { state, queriesSeen } = vi.hoisted(() => ({
 		version: '5.4.0' as string | undefined,
 		versionError: false,
 		project: undefined as string | undefined,
-		tree: { entries: [] as unknown[] },
+		tree: { entries: [] as unknown[] } as { entries: unknown[] } | undefined,
+		treePending: false,
 	},
 	queriesSeen: [] as Array<{ queryKey: readonly unknown[]; enabled?: boolean }>,
 }));
@@ -28,7 +29,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 				isError: state.versionError,
 			};
 		}
-		return { data: state.tree, isFetching: false, refetch: vi.fn() };
+		return { data: state.tree, isFetching: false, isPending: state.treePending, refetch: vi.fn() };
 	},
 }));
 vi.mock('@tanstack/react-router', () => ({
@@ -53,6 +54,7 @@ beforeEach(() => {
 		versionError: false,
 		project: undefined,
 		tree: { entries: [{ name: 'shop', entries: [] }] },
+		treePending: false,
 	});
 });
 
@@ -68,11 +70,12 @@ describe('ConfigPreviewsIndex', () => {
 		expect(componentsQuery()?.enabled).toBe(false);
 	});
 
-	it.each(['5.3.4', '5.4.0-alpha.1'])('names the version it needs on %s', (version) => {
+	it.each(['5.3.4', '5.4.0-alpha.1'])('names the build it needs on %s', (version) => {
 		state.version = version;
 		state.project = 'shop';
 		render(<ConfigPreviewsIndex />);
-		expect(screen.getByText(`PR previews need Harper 5.4 or later. This instance runs ${version}.`)).toBeTruthy();
+		expect(screen.getByText(`PR previews need Harper 5.4.0-alpha.2 or later. This instance runs ${version}.`))
+			.toBeTruthy();
 		expect(screen.queryByText('Panel for shop')).toBeNull();
 		expect(componentsQuery()?.enabled).toBe(false);
 	});
@@ -93,6 +96,28 @@ describe('ConfigPreviewsIndex', () => {
 
 	it('shows the panel of the application in the URL', () => {
 		state.project = 'shop';
+		render(<ConfigPreviewsIndex />);
+		expect(screen.getByText('Panel for shop')).toBeTruthy();
+	});
+
+	it('waits for the tree before deciding a deep link is an application', () => {
+		state.project = 'shop-pr-3';
+		state.tree = undefined;
+		state.treePending = true;
+		render(<ConfigPreviewsIndex />);
+		expect(screen.queryByText('Panel for shop-pr-3')).toBeNull();
+	});
+
+	it('still shows the panel when the tree could not be read', () => {
+		state.project = 'shop';
+		state.tree = undefined;
+		render(<ConfigPreviewsIndex />);
+		expect(screen.getByText('Panel for shop')).toBeTruthy();
+	});
+
+	it('does not take a null preview for one', () => {
+		state.project = 'shop';
+		state.tree = { entries: [{ name: 'shop', entries: [], preview: null }] };
 		render(<ConfigPreviewsIndex />);
 		expect(screen.getByText('Panel for shop')).toBeTruthy();
 	});
