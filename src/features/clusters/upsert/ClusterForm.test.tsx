@@ -283,6 +283,23 @@ describe('ClusterForm — region rows', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 
+	it('sends a scaling edit as region plans alone, never a version or an immediate restart', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const { findByRole } = renderRows([{ regionId: 'oreg-1', quantity: 2 }], {
+			clusterId: 'clu-1',
+			startOffOnBilling: true,
+		});
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		fireEvent.click(submit);
+
+		await waitFor(() => expect(put).toHaveBeenCalled());
+		expect(put.mock.calls.at(-1)?.[1]).toStrictEqual({
+			regionPlans: [{ autoRenew: true, planId: PAID.id, regionId: 'oreg-1', quantity: 2 }],
+		});
+	});
+
 	it('still allows only one catalog region on that plan', async () => {
 		const { findByText } = renderRows([{ regionId: 'oreg-1', quantity: 1 }, { regionId: 'us-1' }, {
 			regionId: 'eu-1',

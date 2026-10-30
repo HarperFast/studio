@@ -387,7 +387,6 @@ export function ClusterDetails({
 										cloudProvider={cloudProvider}
 									/>
 								)}
-							{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 						</CardContent>
 					</Card>
 				</div>
