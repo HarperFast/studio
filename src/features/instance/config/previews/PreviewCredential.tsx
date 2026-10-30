@@ -1,0 +1,116 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useSecretsKeySource } from '@/features/instance/secrets/useSecretsKeySource';
+import { previewComponentPattern, previewCredentialSecretName } from '@/integrations/api/instance/previews/previews';
+import {
+	listSecretsQueryOptions,
+	secretsPublicKeyQueryOptions,
+	useGrantSecret,
+	useSetSecret,
+} from '@/integrations/api/instance/secrets/secrets';
+import { gitHubRepositoryQueryOptions } from '@/integrations/github/lookUpGitHubRepository';
+import { useQuery } from '@tanstack/react-query';
+import { FormEvent, useState } from 'react';
+import { toast } from 'sonner';
+
+const NEW_TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
+
+/** Whether `harper preview deploy credential=true` would find a token for this application's previews. */
+export function usePreviewCredentialSealed(app: string): boolean {
+	const instanceParams = useInstanceClientIdParams();
+	const { data } = useQuery(listSecretsQueryOptions(instanceParams));
+	const name = previewCredentialSecretName(app);
+	const secret = data?.secrets.find((candidate) => candidate.name === name);
+	return !!secret?.grants.includes(previewComponentPattern(app));
+}
+
+/**
+ * The GitHub token the cluster fetches a private repository's PR commits with: what `harper preview setup
+ * credential=true` does, in the browser. It is sealed to the cluster's public key here, so only ciphertext leaves, and
+ * it can't be read back. The two calls match the CLI's `storeSealedSecret`: a `set_secret` carrying `grants` would
+ * replace any grant someone added to the row by hand, and `grant_secret` only adds this one.
+ */
+export function PreviewCredential({ app, repository }: { app: string; repository: string }) {
+	const instanceParams = useInstanceClientIdParams();
+	const { keySource, known } = useSecretsKeySource(instanceParams);
+	const { data: lookup } = useQuery(gitHubRepositoryQueryOptions(repository));
+	// Only when a token is wanted: a cluster with no secrets key fails this read, and a public repository never needs it.
+	const needsToken = !!lookup && !(lookup.status === 'found' && !lookup.repository.private);
+	const { isError: noSecretsKey } = useQuery({
+		...secretsPublicKeyQueryOptions(keySource),
+		enabled: known && needsToken,
+	});
+	const { refetch } = useQuery(listSecretsQueryOptions(instanceParams));
+	const sealed = usePreviewCredentialSealed(app);
+	const { mutateAsync: setSecret, isPending: isSetting } = useSetSecret();
+	const { mutateAsync: grantSecret, isPending: isGranting } = useGrantSecret();
+	const [token, setToken] = useState('');
+
+	if (!needsToken) {
+		return null;
+	}
+
+	const name = previewCredentialSecretName(app);
+	const onSubmit = async (event: FormEvent) => {
+		event.preventDefault();
+		try {
+			await setSecret({ ...keySource, name, value: token.trim(), processEnv: false });
+			await grantSecret({ ...instanceParams, name, component: previewComponentPattern(app) });
+			setToken('');
+			toast.success('Sealed the GitHub token on the cluster.');
+		} catch {
+			// The mutation cache has toasted it, and the token stays in the field to try again.
+		} finally {
+			await refetch();
+		}
+	};
+
+	return (
+		<section className="flex flex-col gap-2 rounded-md border p-4 text-sm" aria-label="GitHub token">
+			<div className="flex flex-wrap items-center gap-2">
+				<h3 className="font-semibold">GitHub token</h3>
+				{sealed ? <Badge variant="success">Sealed</Badge> : <Badge variant="warning">Not set</Badge>}
+			</div>
+			<p className="text-muted-foreground">
+				{repository}{' '}
+				isn't public, or GitHub couldn't say. A private repository needs a token the cluster can fetch each pull request
+				with. It is encrypted in this browser and can't be read back.
+			</p>
+			{noSecretsKey
+				? (
+					<p className="text-muted-foreground">
+						This cluster has no secrets key, so it can't hold a token. Private repositories can't be previewed until it
+						has one.
+					</p>
+				)
+				: (
+					<form className="flex flex-col gap-2" onSubmit={(event) => void onSubmit(event)}>
+						<label className="flex max-w-md flex-col gap-1">
+							{sealed ? 'Replace the token' : 'Fine-grained token'}
+							<Input
+								type="password"
+								// Not a sign-in: a saved password filled in here would be sealed as the token.
+								autoComplete="new-password"
+								value={token}
+								onChange={(event) => setToken(event.target.value)}
+							/>
+						</label>
+						<p className="text-muted-foreground">
+							<a className="underline" href={NEW_TOKEN_URL} target="_blank" rel="noreferrer">
+								Create one
+							</a>{' '}
+							with access to this repository only and the Contents: Read-only permission. Commit the workflow below
+							again after adding it, since it passes <code className="font-mono">credential=true</code>.
+						</p>
+						<div>
+							<Button type="submit" size="sm" disabled={!token.trim() || !known || isSetting || isGranting}>
+								Seal token
+							</Button>
+						</div>
+					</form>
+				)}
+		</section>
+	);
+}

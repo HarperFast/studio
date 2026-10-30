@@ -1,10 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { grantableComponentNames } from '@/features/instance/config/secrets/grantableComponents';
 import { SecretGrantsEditor } from '@/features/instance/config/secrets/SecretGrantsEditor';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
+import { useSecretsKeySource } from '@/features/instance/secrets/useSecretsKeySource';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
 	listSecretsQueryOptions,
@@ -25,7 +24,7 @@ import { useCallback, useMemo } from 'react';
  */
 export function ConfigSecretsIndex() {
 	const navigate = useNavigate();
-	const { secretName, clusterId }: { secretName?: string; clusterId?: string } = useParams({ strict: false });
+	const { secretName }: { secretName?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const { data, refetch, isFetching } = useQuery(listSecretsQueryOptions(instanceParams));
 
@@ -36,31 +35,13 @@ export function ConfigSecretsIndex() {
 	const { data: componentsTree } = useQuery(getComponentsQueryOptions({ ...instanceParams, enabled: canManage }));
 	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
-	// Fabric-managed clusters get their public key from central-manager (the custodian — it mints
-	// the keypair on first use, central-manager#409); self-hosted/local nodes serve their own.
-	const clusterQuery = useQuery(getClusterInfoQueryOptions(clusterId, false));
-	const cluster = clusterQuery.data;
-	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
-	const managedClusterId = !isSelfManaged ? clusterId : undefined;
-	const keySource = useMemo(() => ({ ...instanceParams, managedClusterId }), [instanceParams, managedClusterId]);
-
-	// The key source (node vs central-manager) depends on the cluster tier, so it isn't known until
-	// the cluster lookup SUCCEEDS. `cluster === undefined` covers both the load window and a failed
-	// fetch (getClusterInfoQuery has retry:false, so `data` stays undefined on error) — treating
-	// either as self-managed would route a managed cluster to the node key: a transient banner flash
-	// while loading, and a non-self-healing mis-route on error (set_secret would then encrypt against
-	// the wrong key and fail a kid mismatch the retry can't heal). So gate the fetch on isSuccess,
-	// and only skip the gate when there's no clusterId (local Studio — the node is always right).
-	const clusterTierKnown = !clusterId || clusterQuery.isSuccess;
+	const { keySource, known: clusterTierKnown, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
 	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted, so
 	// the store stays browsable read-only.
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: clusterTierKnown,
 	});
-	// A failed cluster lookup is a distinct degraded state from "no secrets key" — surface it as such
-	// instead of leaving the page silently read-only (or, worse, guessing the wrong custody).
-	const clusterInfoUnavailable = !!clusterId && clusterQuery.isError;
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
