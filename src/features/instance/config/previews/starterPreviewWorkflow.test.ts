@@ -52,6 +52,12 @@ describe('previewWorkflowText', () => {
 		}))).toBe(`${base} domain=app.example.com credential=true branchedDatabases=false || deployed=$?`);
 	});
 
+	it('installs the version it is told to, in both jobs', () => {
+		const text = previewWorkflowText({ app: 'shop', branch: 'main', harperVersion: '5.4.0-alpha.2' });
+		expect(text.match(/--global harper@5\.4\.0-alpha\.2/g)).toHaveLength(2);
+		expect(previewWorkflowText({ app: 'shop', branch: 'main' }).match(/--global harper@\^5\.4/g)).toHaveLength(2);
+	});
+
 	it('ends with a newline, for a file that is pasted as it is', () => {
 		expect(previewWorkflowText({ app: 'shop', branch: 'main' }).endsWith('exit 1\n')).toBe(true);
 	});

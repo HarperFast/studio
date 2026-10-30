@@ -114,6 +114,13 @@ describe('the operations', () => {
 		expect(post).toHaveBeenCalledWith('/', { operation: 'disable_previews', app: 'shop' }, { timeout: 600_000 });
 	});
 
+	it("outwaits Harper's 5 minutes for a peer, so a hung peer comes back as that peer's result", async () => {
+		const { post, client } = instanceClient();
+		await dropPreview({ instanceClient: client, project: 'shop-pr-3', replicated: true });
+		const [, , config] = post.mock.calls[0] as unknown as [string, unknown, { timeout: number }];
+		expect(config.timeout).toBeGreaterThan(5 * 60_000);
+	});
+
 	it("sends a drop as told, and keeps each peer's result", async () => {
 		const { post, client } = instanceClient();
 		await dropPreview({ instanceClient: client, project: 'shop-pr-3', replicated: true });

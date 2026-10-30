@@ -262,18 +262,22 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('environment: preview-cleanup');
 		});
 
-		it('says the install line can not match on a prerelease, and which version will', async () => {
+		it("installs a prerelease cluster's own version, since ^5.4 matches no prerelease", async () => {
 			cluster.operations.registration_info = () => ({ version: '5.4.0-alpha.2' });
 			renderPanel({ policy: ENABLED });
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect(await section.findByText('harper@5.4.0-alpha.2')).toBeTruthy();
+			await waitFor(() =>
+				expect(section.getByText(/pull_request_target:/).textContent).toContain('--global harper@5.4.0-alpha.2')
+			);
+			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('harper@^5.4');
 		});
 
-		it('says nothing about the install line on a release', async () => {
+		it('installs the release range on a release', async () => {
 			renderPanel({ policy: ENABLED });
 			await screen.findByRole('region', { name: 'What to commit' });
 			await waitFor(() => expect(cluster.calls.map((call) => call.operation)).toContain('registration_info'));
-			expect(screen.queryByText(/a prerelease/)).toBeNull();
+			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
+			expect(workflow.getByText(/pull_request_target:/).textContent).toContain('--global harper@^5.4');
 		});
 
 		it("lists this application's previews, not another's", async () => {
@@ -422,7 +426,7 @@ describe('ApplicationPreviews', () => {
 							project: 'shop-pr-3',
 							deploymentId: 'd1',
 							componentRemoved: false,
-							message: 'Kept the branched database storage',
+							message: 'Kept its branched database storage',
 						},
 					],
 					removed: ['user shop-ci-preview', 'role shop-ci-preview'],
@@ -434,10 +438,25 @@ describe('ApplicationPreviews', () => {
 			await confirmDisable();
 			expect(await screen.findByText('Disabled previews of shop')).toBeTruthy();
 			expect(screen.getByText('shop-pr-3 on node-1: dropped')).toBeTruthy();
-			expect(screen.getByText('shop-pr-3 on node-2: did not hold it. Kept the branched database storage')).toBeTruthy();
+			expect(screen.getByText('shop-pr-3 on node-2: Kept its branched database storage')).toBeTruthy();
 			expect(screen.getByText('Removed user shop-ci-preview, role shop-ci-preview.')).toBeTruthy();
 			expect(screen.getByText(/Still deploying when previews were revoked: shop-pr-4/)).toBeTruthy();
 			await waitFor(async () => expect((await previewSwitch()).getAttribute('aria-checked')).toBe('false'));
+		});
+
+		it('reads as off when the disable landed, even if the read after it fails', async () => {
+			cluster.operations.disable_previews = () => {
+				cluster.operations.get_preview_policy = () => {
+					throw httpError(503, 'node is restarting');
+				};
+				return { message: 'Disabled previews of shop', app: 'shop', dropped: [], removed: ['role shop-ci-preview'] };
+			};
+			renderPanel({ policy: ENABLED });
+			await confirmDisable();
+			expect(await screen.findByText('Disabled previews of shop')).toBeTruthy();
+			await waitFor(async () => expect((await previewSwitch()).getAttribute('aria-checked')).toBe('false'));
+			expect(screen.queryByRole('region', { name: 'Preview status' })).toBeNull();
+			expect(screen.queryByRole('region', { name: 'GitHub token' })).toBeNull();
 		});
 
 		it('says why it stopped and offers the rerun, which resumes', async () => {
@@ -561,6 +580,21 @@ describe('ApplicationPreviews', () => {
 				{ operation: 'grant_secret', name: secret.name, component: 'shop-pr-*' },
 			]);
 			expect(JSON.stringify(cluster.calls)).not.toContain('github_pat_plaintext');
+		});
+
+		it('takes the plaintext out of the cache before the grant goes out', async () => {
+			let duringGrant = '';
+			cluster.operations.set_secret = () => ({ name: secret.name, kid: 'print', created: true });
+			cluster.operations.grant_secret = async () => {
+				// A grant goes over the network, and `gcTime: 0` removes the entry on the next tick.
+				await new Promise((resolve) => setTimeout(resolve));
+				duringGrant = JSON.stringify(lastQueryClient.getMutationCache().getAll().map((m) => m.state.variables));
+				return { name: secret.name, grants: secret.grants, changed: true };
+			};
+			renderPanel({ policy: ENABLED });
+			await sealToken();
+			await waitFor(() => expect(duringGrant).not.toBe(''));
+			expect(duringGrant).not.toContain('github_pat_plaintext');
 		});
 
 		it('leaves no plaintext in the mutation cache once it is sealed, or once sealing failed', async () => {

@@ -110,21 +110,34 @@ describe('EnablePreviewsForm', () => {
 		expect((screen.getByLabelText('Branch') as HTMLInputElement).value).toBe('trunk');
 	});
 
-	it("asks for the id when GitHub can't see the repository, and refuses to go without it", async () => {
+	it("takes GitHub's spelling from the command when it can't see the repository", async () => {
 		stubGitHub(404, { message: 'Not Found' });
 		renderForm();
 		type(repositoryField(), 'acme/private');
-		const idField = await screen.findByLabelText('Repository id');
-		expect(screen.getByText(/enter its id below/)).toBeTruthy();
-		expect(screen.getByText("gh api repos/acme/private --jq '.id, .full_name'")).toBeTruthy();
+		const identityField = await screen.findByLabelText('Repository id and name');
+		expect(screen.getByText(/paste its id and name below/)).toBeTruthy();
+		expect(screen.getByText('gh api repos/acme/private --jq \'"\\(.id) \\(.full_name)"\'')).toBeTruthy();
 		submit();
-		expect(await screen.findByText('Enter the numeric id.')).toBeTruthy();
+		expect(await screen.findByText(/Paste the line the command prints/)).toBeTruthy();
+		type(identityField, '123456');
+		submit();
+		expect(await screen.findByText(/Paste the line the command prints/)).toBeTruthy();
 		expect(post).not.toHaveBeenCalled();
 
-		type(idField, '123456');
+		type(identityField, '123456 Acme/Private');
 		submit();
 		await waitFor(() => expect(post).toHaveBeenCalled());
-		expect(enableRequest()).toMatchObject({ repository: 'acme/private', repository_id: '123456' });
+		expect(enableRequest()).toMatchObject({ repository: 'Acme/Private', repository_id: '123456' });
+	});
+
+	it('refuses a pasted line for another repository', async () => {
+		stubGitHub(404, { message: 'Not Found' });
+		renderForm();
+		type(repositoryField(), 'acme/private');
+		type(await screen.findByLabelText('Repository id and name'), '123456 Acme/Other');
+		submit();
+		expect(await screen.findByText('That line is for Acme/Other, not acme/private.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
 	});
 
 	const stubBothRepositories = () =>
@@ -141,7 +154,7 @@ describe('EnablePreviewsForm', () => {
 		stubBothRepositories();
 		renderForm();
 		type(repositoryField(), 'acme/private');
-		type(await screen.findByLabelText('Repository id'), 'not-a-number');
+		type(await screen.findByLabelText('Repository id and name'), 'not-a-number');
 		type(repositoryField(), 'HarperFast/studio');
 		await screen.findByText('HarperFast/studio, id 219919692.');
 		submit();
@@ -155,7 +168,7 @@ describe('EnablePreviewsForm', () => {
 		type(repositoryField(), 'HarperFast/studio');
 		await waitFor(() => expect((screen.getByLabelText('Branch') as HTMLInputElement).value).toBe('stage'));
 		type(repositoryField(), 'acme/private');
-		await screen.findByLabelText('Repository id');
+		await screen.findByLabelText('Repository id and name');
 		await waitFor(() => expect((screen.getByLabelText('Branch') as HTMLInputElement).value).toBe('main'));
 	});
 
@@ -164,7 +177,7 @@ describe('EnablePreviewsForm', () => {
 		renderForm();
 		type(repositoryField(), 'acme/shop');
 		expect(await screen.findByText(/limit on lookups/)).toBeTruthy();
-		expect(screen.getByLabelText('Repository id')).toBeTruthy();
+		expect(screen.getByLabelText('Repository id and name')).toBeTruthy();
 	});
 
 	it('refuses what is not a repository, or an answer it is still waiting for', async () => {
@@ -273,7 +286,7 @@ describe('EnablePreviewsForm', () => {
 describe('buildEnablePreviewsRequest', () => {
 	const values = {
 		repository: 'x',
-		repositoryId: '',
+		repositoryIdentity: '',
 		branch: 'main',
 		dataMode: 'branched' as const,
 		maxPreviews: '',

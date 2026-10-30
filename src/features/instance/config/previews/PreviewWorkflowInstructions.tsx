@@ -24,6 +24,7 @@ export function PreviewWorkflowInstructions(
 ) {
 	const copy = useCopyTextToClipboard();
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(useInstanceClientIdParams()));
+	const version = registrationInfo?.version;
 	const { app, branch, audience } = policy;
 	const repository = policy.repository && parseGitHubRepository(policy.repository);
 	if (!branch || !audience) {
@@ -36,6 +37,7 @@ export function PreviewWorkflowInstructions(
 		branch,
 		environment: policy.environment,
 		cleanupEnvironment: policy.cleanupEnvironment,
+		harperVersion: version?.includes('-') ? version : undefined,
 		domain: domain === defaultPreviewDomain(audience) ? undefined : domain,
 		credential: credentialSealed,
 		shared: constraints?.branchedDatabases !== 'required',
@@ -43,7 +45,6 @@ export function PreviewWorkflowInstructions(
 	const workflowPath = policy.workflow ?? PREVIEW_WORKFLOW_PATH;
 	const environment = policy.environment ?? PREVIEW_ENVIRONMENT;
 	const cleanupEnvironment = policy.cleanupEnvironment ?? PREVIEW_CLEANUP_ENVIRONMENT;
-	const version = registrationInfo?.version;
 
 	return (
 		<section className="flex flex-col gap-3 rounded-md border p-4 text-sm" aria-label="What to commit">
@@ -116,13 +117,6 @@ export function PreviewWorkflowInstructions(
 					without them, so closing a pull request never waits for an approval.
 				</li>
 			</ol>
-			{version?.includes('-') && (
-				<p>
-					This cluster runs {version}, a prerelease, and <code className="font-mono">harper@^5.4</code>{' '}
-					matches only a release. Until 5.4.0 is published, change both install lines to{' '}
-					<code className="font-mono">harper@{version}</code>.
-				</p>
-			)}
 			<p className="text-muted-foreground">
 				On a public repository, GitHub's default rule blocks pull_request_target from 2026-12-02, so its Actions policy
 				has to allow this workflow.{' '}

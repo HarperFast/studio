@@ -19,7 +19,12 @@ import {
 	EnablePreviewsResponse,
 	useEnablePreviews,
 } from '@/integrations/api/instance/previews/previews';
-import { GitHubRepositoryLookup, useGitHubRepositoryLookup } from '@/integrations/github/lookUpGitHubRepository';
+import {
+	gitHubRepositoryCommand,
+	GitHubRepositoryLookup,
+	parseGitHubRepositoryIdentity,
+	useGitHubRepositoryLookup,
+} from '@/integrations/github/lookUpGitHubRepository';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,7 +44,7 @@ const positiveNumber = (value: string) => Number.isFinite(Number(value)) && Numb
 
 const schema = z.object({
 	repository: z.string().trim().min(1, { error: 'Enter the GitHub repository.' }),
-	repositoryId: z.string().trim().regex(/^([1-9]\d{0,19})?$/, { error: 'Enter the numeric id.' }),
+	repositoryIdentity: z.string().trim(),
 	branch: z.string().trim().min(1, { error: 'Enter the branch.' }),
 	dataMode: z.enum(['branched', 'shared']),
 	maxPreviews: z.string().trim().refine(
@@ -106,10 +111,10 @@ function RepositoryLookupMessage(
 	return (
 		<FormDescription>
 			{lookup.status === 'not-found'
-				? `GitHub doesn't show ${fullName} publicly. If it's private, enter its id below. Otherwise, check the name.`
+				? `GitHub doesn't show ${fullName} publicly. If it's private, paste its id and name below. Otherwise, check the name.`
 				: lookup.status === 'rate-limited'
-				? "GitHub's limit on lookups from this address was reached, so enter the id below."
-				: "GitHub couldn't be reached, so enter the id below."}
+				? "GitHub's limit on lookups from this address was reached, so paste the id and name below."
+				: "GitHub couldn't be reached, so paste the id and name below."}
 		</FormDescription>
 	);
 }
@@ -129,7 +134,7 @@ export function EnablePreviewsForm(
 		mode: 'onTouched',
 		defaultValues: {
 			repository: '',
-			repositoryId: '',
+			repositoryIdentity: '',
 			branch: DEFAULT_BRANCH,
 			dataMode: 'branched' as const,
 			maxPreviews: '',
@@ -150,15 +155,6 @@ export function EnablePreviewsForm(
 		}
 	}, [lookup, foundBranch, form]);
 
-	// The field is gone once the repository is found, and a bad value left in it would still fail validation, unseen.
-	const foundId = found?.id;
-	useEffect(() => {
-		if (foundId) {
-			form.setValue('repositoryId', '');
-			form.clearErrors('repositoryId');
-		}
-	}, [foundId, form]);
-
 	const onSubmit = async (values: EnablePreviewsValues) => {
 		setFailure(undefined);
 		if (!audience) {
@@ -172,9 +168,13 @@ export function EnablePreviewsForm(
 			form.setError('repository', { message: `Still looking ${fullName} up. Try again in a moment.` });
 			return;
 		}
-		const repositoryId = found?.id ?? values.repositoryId;
-		if (!repositoryId) {
-			form.setError('repositoryId', { message: 'Enter the numeric id.' });
+		const identity = found ?? parseGitHubRepositoryIdentity(values.repositoryIdentity);
+		if (!identity) {
+			form.setError('repositoryIdentity', { message: 'Paste the line the command prints: the id, then the name.' });
+			return;
+		}
+		if (identity.fullName.toLowerCase() !== fullName.toLowerCase()) {
+			form.setError('repositoryIdentity', { message: `That line is for ${identity.fullName}, not ${fullName}.` });
 			return;
 		}
 		if (needsHostSuffix && !values.hostSuffix.replace(/^\.+/, '')) {
@@ -186,8 +186,8 @@ export function EnablePreviewsForm(
 				instanceClient,
 				request: buildEnablePreviewsRequest(values, {
 					app,
-					repository: found?.fullName ?? fullName,
-					repositoryId,
+					repository: identity.fullName,
+					repositoryId: identity.id,
 					audience,
 					needsHostSuffix,
 				}),
@@ -236,16 +236,16 @@ export function EnablePreviewsForm(
 				{needsId && (
 					<FormField
 						control={form.control}
-						name="repositoryId"
+						name="repositoryIdentity"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel>Repository id</FormLabel>
+								<FormLabel>Repository id and name</FormLabel>
 								<FormControl>
-									<Input inputMode="numeric" autoComplete="off" {...field} />
+									<Input placeholder="123456 owner/name" autoComplete="off" {...field} />
 								</FormControl>
 								<FormDescription>
-									<code className="font-mono">gh api repos/{fullName} --jq '.id, .full_name'</code>{' '}
-									prints it, and GitHub's exact spelling of the name, which the repository above has to match.
+									<code className="font-mono">{fullName && gitHubRepositoryCommand(fullName)}</code>{' '}
+									prints the line to paste. GitHub Actions has to match its spelling exactly.
 								</FormDescription>
 								<FormMessage />
 							</FormItem>

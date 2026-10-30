@@ -8,7 +8,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { branchStorageMessage } from '@/integrations/api/instance/applications/branchedDatabases';
 import { DisablePreviewsResponse, DroppedPreview } from '@/integrations/api/instance/previews/previews';
 import { ArrowLeft } from 'lucide-react';
 
@@ -45,9 +44,8 @@ export function DisablePreviewsDialog({
 }
 
 function describeDrop(drop: DroppedPreview): string {
-	const outcome = drop.error ? `failed: ${drop.error}` : drop.componentRemoved ? 'dropped' : 'did not hold it';
-	const storage = branchStorageMessage(drop);
-	return `${drop.project} on ${drop.node}: ${outcome}${storage ? `. ${storage}` : ''}`;
+	const answer = drop.message ?? (drop.componentRemoved ? 'dropped' : 'did not hold it');
+	return `${drop.project} on ${drop.node}: ${drop.error ? `failed: ${drop.error}` : answer}`;
 }
 
 export function DisablePreviewsResult(

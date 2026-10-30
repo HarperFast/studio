@@ -47,7 +47,9 @@ without grants, then `grant_secret` to `<app>-pr-*`, under the name harper's `de
 The two calls matter, because `set_secret` with `grants` replaces the row's grants and would drop one someone added.
 
 GitHub answers an anonymous lookup of a private repository with a 404, so the panel can't tell private from mistyped. It
-asks for the token whenever the lookup didn't find the repository, and says so in those words.
+asks for the token whenever the lookup didn't find the repository, and says so in those words. The same 404 hides the
+repository's spelling, which `workflow_ref` needs exactly, so the form takes the id and the name together from one
+`gh api` line rather than trusting what was typed, and refuses a line for another repository.
 
 ## The repository lookup is shared
 
@@ -58,9 +60,9 @@ compared byte for byte, so `harperfast/studio` would never match `HarperFast/stu
 ## The workflow text is a copy
 
 Harper has no operation that returns `starterPreviewWorkflow`, so `starterPreviewWorkflow.ts` copies it, and is the only
-file to change when `HarperFast/deploy-action` (harper#3055) ships. It installs `harper@^5.4`, which matches no
-prerelease, so a run can't install the CLI until 5.4.0 is published. The panel says so on a prerelease cluster, and which
-version to pin instead, rather than generating text that differs from what the CLI writes.
+file to change when `HarperFast/deploy-action` (harper#3055) ships. Harper's installs `harper@^5.4`, which matches no
+prerelease, so on a prerelease cluster the panel writes that cluster's version instead. Otherwise the file can't install
+the CLI until 5.4.0 is published.
 
 ## A drop replicates from any page of a cluster
 

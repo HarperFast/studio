@@ -62,6 +62,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 		event.preventDefault();
 		try {
 			await setSecret({ ...keySource, name, value: token.trim(), processEnv: false });
+			resetSetSecret();
 			await grantSecret({ ...instanceParams, name, component: previewComponentPattern(app) });
 			setToken('');
 			toast.success('Sealed the GitHub token on the cluster.');

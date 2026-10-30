@@ -57,6 +57,15 @@ export function ApplicationPreviews({ app, tree }: { app: string; tree: APIDirec
 		try {
 			const response = await disablePreviews({ instanceClient, app });
 			setDisableOutcome({ response });
+			// The records are gone whether or not the read below answers, and the page must not say otherwise.
+			queryClient.setQueryData(policyQuery.queryKey, {
+				...policy,
+				enabled: false,
+				grant: null,
+				operations: null,
+				trust: [],
+				problems: [],
+			});
 			toast.success(response.message);
 		} catch (error) {
 			const unanswered = !shouldToastOwnFailure(error);

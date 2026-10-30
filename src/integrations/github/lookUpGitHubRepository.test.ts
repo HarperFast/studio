@@ -1,6 +1,12 @@
 import { focusManager, onlineManager, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { gitHubRepositoryQueryOptions, lookUpGitHubRepository, parseGitHubRepository } from './lookUpGitHubRepository';
+import {
+	gitHubRepositoryCommand,
+	gitHubRepositoryQueryOptions,
+	lookUpGitHubRepository,
+	parseGitHubRepository,
+	parseGitHubRepositoryIdentity,
+} from './lookUpGitHubRepository';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -42,6 +48,20 @@ describe('parseGitHubRepository', () => {
 	});
 });
 
+describe('parseGitHubRepositoryIdentity', () => {
+	it('reads the line the command prints', () => {
+		expect(gitHubRepositoryCommand('acme/shop')).toBe('gh api repos/acme/shop --jq \'"\\(.id) \\(.full_name)"\'');
+		expect(parseGitHubRepositoryIdentity(' 123456 Acme/Shop\n')).toEqual({ id: '123456', fullName: 'Acme/Shop' });
+	});
+
+	it.each(['', '123456', 'Acme/Shop', '0 Acme/Shop', 'abc Acme/Shop', '123 Acme', '123 Acme/Shop extra'])(
+		'refuses %j',
+		(input) => {
+			expect(parseGitHubRepositoryIdentity(input)).toBeUndefined();
+		},
+	);
+});
+
 describe('lookUpGitHubRepository', () => {
 	const stubResponse = (status: number, body?: unknown) => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify(body ?? {}), { status }));
@@ -62,7 +82,10 @@ describe('lookUpGitHubRepository', () => {
 		});
 		expect(fetchMock.mock.calls[0]).toEqual([
 			'https://api.github.com/repos/harperfast/studio',
-			{ headers: { Accept: 'application/vnd.github+json' } },
+			expect.objectContaining({
+				headers: { Accept: 'application/vnd.github+json' },
+				signal: expect.any(AbortSignal),
+			}),
 		]);
 	});
 
@@ -80,6 +103,23 @@ describe('lookUpGitHubRepository', () => {
 		stubResponse(502);
 		await expect(lookUpGitHubRepository('acme/shop')).resolves.toEqual({ status: 'unavailable' });
 		stubResponse(200, { id: 'not-a-number', full_name: 'acme/shop' });
+		await expect(lookUpGitHubRepository('acme/shop')).resolves.toEqual({ status: 'unavailable' });
+	});
+
+	it('gives up on a GitHub that accepts the connection and then says nothing', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((_url: string, { signal }: { signal: AbortSignal }) =>
+				new Promise((_resolve, reject) => {
+					signal.addEventListener('abort', () => reject(signal.reason));
+				})
+			),
+		);
+		vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => {
+			const controller = new AbortController();
+			setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')));
+			return controller.signal;
+		});
 		await expect(lookUpGitHubRepository('acme/shop')).resolves.toEqual({ status: 'unavailable' });
 	});
 

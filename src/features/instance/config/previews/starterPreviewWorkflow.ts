@@ -3,7 +3,7 @@
  * `HarperFast/deploy-action` (harper#3055) ships: swap the body of `previewWorkflowText` for that form.
  *
  * Until then this is `starterPreviewWorkflow` from harper's `bin/previewSetup.ts`, line for line apart from the header
- * comment and the cleanup environment, which Harper's takes from a constant and this reads from the policy. Harper has no operation that returns it, so a change there has to be copied here;
+ * comment and two values Harper's fixes: the cleanup environment, which this reads from the policy, and the CLI version. Harper has no operation that returns it, so a change there has to be copied here;
  * `starterPreviewWorkflow.test.ts` pins the text that matters.
  */
 
@@ -17,6 +17,8 @@ export interface PreviewWorkflowOptions {
 	branch: string;
 	environment?: string;
 	cleanupEnvironment?: string;
+	/** A version `npm install` can resolve; the default matches no prerelease, so a prerelease cluster names its own. */
+	harperVersion?: string;
 	/** Passed to `harper preview deploy` only when it is not the target's default. */
 	domain?: string;
 	credential?: boolean;
@@ -33,6 +35,7 @@ export function previewWorkflowText({
 	branch,
 	environment = PREVIEW_ENVIRONMENT,
 	cleanupEnvironment = PREVIEW_CLEANUP_ENVIRONMENT,
+	harperVersion = '^5.4',
 	domain,
 	credential,
 	shared,
@@ -52,7 +55,7 @@ export function previewWorkflowText({
 		'      - uses: actions/setup-node@v7',
 		'        with:',
 		'          node-version: 24',
-		'      - run: npm install --global harper@^5.4',
+		`      - run: npm install --global harper@${harperVersion}`,
 	];
 	return [
 		'# Set up with the Previews panel in Harper Studio.',

@@ -11,6 +11,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 const LOOKUP_DEBOUNCE_MS = 400;
+const LOOKUP_TIMEOUT_MS = 10_000;
 const FOUND_STALE_MS = 5 * 60_000;
 const MISS_STALE_MS = 60_000;
 
@@ -46,6 +47,21 @@ export function parseGitHubRepository(input: string): string | undefined {
 	return REPOSITORY_SEGMENT.test(owner) && REPOSITORY_SEGMENT.test(name) ? `${owner}/${name}` : undefined;
 }
 
+/**
+ * What to run for a repository the lookup can't see. It prints both halves of the identity on one line, so GitHub's
+ * spelling comes from GitHub and not from what someone typed.
+ */
+export function gitHubRepositoryCommand(fullName: string): string {
+	return `gh api repos/${fullName} --jq '"\\(.id) \\(.full_name)"'`;
+}
+
+/** The id and name from the line `gitHubRepositoryCommand` prints, such as `123456 Acme/Shop`. */
+export function parseGitHubRepositoryIdentity(input: string): Pick<GitHubRepository, 'id' | 'fullName'> | undefined {
+	const match = /^([1-9]\d{0,19})\s+(\S+)$/.exec(input.trim());
+	const fullName = match ? parseGitHubRepository(match[2]) : undefined;
+	return match && fullName ? { id: match[1], fullName } : undefined;
+}
+
 function parseRepository(body: unknown): GitHubRepository | undefined {
 	const data = body as { id?: unknown; full_name?: unknown; private?: unknown; default_branch?: unknown } | null;
 	if (!Number.isSafeInteger(data?.id) || (data?.id as number) <= 0 || typeof data?.full_name !== 'string') {
@@ -65,6 +81,7 @@ export async function lookUpGitHubRepository(fullName: string): Promise<GitHubRe
 	try {
 		const response = await fetch(`https://api.github.com/repos/${owner}/${name}`, {
 			headers: { Accept: 'application/vnd.github+json' },
+			signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
 		});
 		if (response.status === 404) {
 			return { status: 'not-found' };
@@ -100,5 +117,6 @@ export function useGitHubRepositoryLookup(input: string): { fullName?: string; l
 	const fullName = parseGitHubRepository(input);
 	const settled = useDebounce(fullName, LOOKUP_DEBOUNCE_MS);
 	const { data } = useQuery(gitHubRepositoryQueryOptions(settled));
-	return { fullName, lookup: fullName && settled === fullName ? data : undefined };
+	// Without regard to case, as the query key is: changing a name's case changes nothing GitHub would answer.
+	return { fullName, lookup: fullName && settled?.toLowerCase() === fullName.toLowerCase() ? data : undefined };
 }
