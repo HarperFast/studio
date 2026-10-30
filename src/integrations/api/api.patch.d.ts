@@ -65,6 +65,7 @@ export type StaffPermission =
 	| 'grant:write'
 	| 'plan:read'
 	| 'plan:write'
+	| 'monitoringPolicy:write'
 	| 'systemStatus:write'
 	| 'apiToken:create'
 	| 'apiToken:self'

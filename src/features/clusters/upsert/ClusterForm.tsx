@@ -210,6 +210,7 @@ export function ClusterForm({
 			const voucherRegionIds = clusterId
 				? null
 				: trialScope(organization?.unboundGrants?.find((grant) => grant.id === data.grantId))?.regionIds ?? null;
+			const selectedRegions: RegionCohort[] = [];
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
 				const region = regionLookup.get(regionPlan.regionId);
@@ -224,6 +225,7 @@ export function ClusterForm({
 					continue;
 				}
 				const cohort = regionCohortKey(region);
+				selectedRegions.push({ key: cohort, name: region.name });
 				if (!names.has(cohort)) {
 					names.add(cohort);
 				} else {
@@ -297,12 +299,21 @@ export function ClusterForm({
 					message: `A cluster needs at least ${MIN_CLUSTER_INSTANCES} instances in total.`,
 				});
 			}
+			const regionSwap = describeRegionSwap({
+				currentRegions,
+				selectedRegions,
+				singleRegionTier: !selectedPlan?.priceUsd || !!selectedPlan.allowedRegionIds?.length,
+			});
+			if (regionSwap) {
+				ctx.addIssue({ code: 'custom', path: ['regionPlans.0.regionId'], message: regionSwap });
+			}
 		}
 	}, [
 		alreadyUsingFree,
 		canUseCustomRegions,
 		clusterId,
 		colocatedRegionLookup,
+		currentRegions,
 		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
 		mode,

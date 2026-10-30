@@ -32,3 +32,17 @@ saved form values can bring it back after a billing redirect. So `onClusterSaved
 the cluster it was editing.
 
 Region rows are keyed by region id, catalog or custom (`upsert/lib/regionLookup.ts`). A stored id the form cannot resolve is never dropped: saving without it would delete that region, so an edit refuses to open (`upsert/index.tsx`), and a draft keeps the row, blank or not, for validation to report (`upsert/lib/regionPlanDefaults.ts`). Only a deployment switch remaps a row, to the same family in the new catalog. Payment review submits outside the details form, so it re-runs validation first (`executeChangesToCluster`), and the submit lock is claimed before that await and released on every early return.
+
+A tier with `allowedRegionIds` takes one region, and the form corrects that region whenever it is the only one left,
+which includes the moment a second region is removed. A custom region is never corrected, since the allow-list describes
+the catalog. The correction keeps the chosen region, matching the catalog entry's name for the stored region id, and
+moves only its latency when the tier offers that region at all. It falls back to the default region only when the tier
+offers nothing there (#1275).
+
+Central manager refuses a cluster update that leaves every region the cluster runs in while adding another, so moving a
+cluster takes two saves. It matches a catalog region by name, whatever its latency tier, and a custom region by id
+(`regionCohortKey`). `lib/describeRegionSwap.ts` blocks that selection on an edit with the steps instead of letting the
+update fail (#1311). It mirrors only the case the server is certain to refuse, so it can never block an update the
+server would accept. The server also counts shrinking a kept region as leaving it (a smaller tier of a catalog region,
+or fewer units of a custom one); a selection that shrinks every current region while adding one is not mirrored and
+still gets the server's error.
