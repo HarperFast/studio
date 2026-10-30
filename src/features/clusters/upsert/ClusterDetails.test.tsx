@@ -459,3 +459,27 @@ describe('ClusterDetails — locked by a scoped grant', () => {
 		expect(isLocked(selectFor(/^Region/))).toBe(false);
 	});
 });
+
+// A dedicated create holds the request open while the cloud provider builds the hosts.
+describe('ClusterDetails — while a submit is in flight', () => {
+	const DEDICATED = plan('fabric-block-dedicated-2', 1500, 'High (100K read/min)', 'Dedicated');
+	const submitButton = () => screen.getByRole('button', { name: /Create New Cluster|Confirm Payment Details/ });
+
+	it('spins the submit button and says the dedicated hosts are being set up', async () => {
+		await mountEditor({ isPending: true, selectedPlan: DEDICATED });
+		expect(submitButton().querySelector('.animate-spin')).toBeTruthy();
+		expect(screen.getByRole('status').textContent).toMatch(/Setting up dedicated hosts/);
+	});
+
+	it('spins without the hosts note for a colocated plan', async () => {
+		await mountEditor({ isPending: true });
+		expect(submitButton().querySelector('.animate-spin')).toBeTruthy();
+		expect(screen.queryByText(/Setting up dedicated hosts/)).toBeNull();
+	});
+
+	it('shows neither when nothing is in flight', async () => {
+		await mountEditor({ selectedPlan: DEDICATED });
+		expect(submitButton().querySelector('.animate-spin')).toBeNull();
+		expect(screen.queryByText(/Setting up dedicated hosts/)).toBeNull();
+	});
+});
