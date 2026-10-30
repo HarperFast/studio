@@ -1,17 +1,18 @@
 import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { OrganizationRegionFormModal } from '@/features/admin/organizationRegions/components/OrganizationRegionFormModal';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { OrganizationRegion } from '@/integrations/api/api.patch';
-import { MapPinnedIcon, PlusIcon } from 'lucide-react';
+import { MapPinnedIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import { RegionFormInputs } from './components/RegionFormInputs';
 import { PremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { UsageScale } from './lib/calculateUsageScale';
-import { regionCohortKey, RegionLookup } from './lib/regionLookup';
+import { regionCohortKey, RegionLookup, ResolvedRegion } from './lib/regionLookup';
 import { RegionPlanEntry, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
@@ -114,11 +115,28 @@ export function ClusterRegions({
 		}
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
-	const [definingCustomRegion, setDefiningCustomRegion] = useState(false);
+	const [regionModalOpen, setRegionModalOpen] = useState(false);
+	const [editingRegion, setEditingRegion] = useState<OrganizationRegion | null>(null);
+	const openRegionModal = useCallback((region: OrganizationRegion | null) => {
+		setEditingRegion(region);
+		setRegionModalOpen(true);
+	}, []);
 	// Defining never edits the rows: staff choose which custom regions this cluster deploys.
 	const onCustomRegionSaved = useCallback((region: OrganizationRegion) => {
 		toast.success(`${region.name} is ready to pick under Custom regions`);
 	}, []);
+	const onCustomRegionEdited = useCallback((region: OrganizationRegion) => {
+		toast.success(`${region.name} saved`);
+	}, []);
+	// Every one the organization owns, inactive included so it can be turned back on; not only this
+	// cluster's, since a region nobody has deployed yet is the one whose shape can still change.
+	const organizationRegions = useMemo(
+		() =>
+			[...regionLookup.values()]
+				.filter((region): region is Extract<ResolvedRegion, { kind: 'organization' }> => region.kind === 'organization')
+				.sort((a, b) => a.name.localeCompare(b.name)),
+		[regionLookup],
+	);
 
 	const offersCustomRegion = lockedOrganizationRegionIds.length > 0 || canDefineCustomRegions
 		|| (canUseCustomRegions
@@ -194,20 +212,41 @@ export function ClusterRegions({
 						<Button
 							type="button"
 							variant="outline"
-							onClick={() => setDefiningCustomRegion(true)}
+							onClick={() => openRegionModal(null)}
 						>
 							<MapPinnedIcon />
 							Define custom region
 						</Button>
 					)}
+					{canDefineCustomRegions && !disabled && organizationRegions.length > 0 && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button type="button" variant="outline">
+									<PencilIcon />
+									Edit custom region
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								{organizationRegions.map((region) => (
+									<DropdownMenuItem
+										key={region.id}
+										onSelect={() => openRegionModal(region.source)}
+									>
+										{region.active ? region.name : `${region.name} (inactive)`}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 				</div>
 			)}
 			{canDefineCustomRegions && (
 				<OrganizationRegionFormModal
-					open={definingCustomRegion}
-					onOpenChange={setDefiningCustomRegion}
+					open={regionModalOpen}
+					onOpenChange={setRegionModalOpen}
 					organizationId={organizationId}
-					onSaved={onCustomRegionSaved}
+					region={editingRegion}
+					onSaved={editingRegion ? onCustomRegionEdited : onCustomRegionSaved}
 				/>
 			)}
 		</>
