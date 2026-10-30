@@ -646,4 +646,35 @@ describe('acquireApplicationTypes', () => {
 		expect(batches).toBeLessThan(MAX_EXTRA_LIB_FILES_TOTAL / 20);
 		expect(declarationRequests.length).toBeLessThanOrEqual(MAX_EXTRA_LIB_FILES_TOTAL + 1 + MAX_CDN_REQUESTS_IN_FLIGHT);
 	}, 30_000);
+
+	it('keeps adding the rest of a batch when one library fails to add', async () => {
+		vi.stubGlobal('fetch', async (input: string) => {
+			if (input.endsWith('.d.ts')) {
+				return new Response('export declare const x: unknown;\n');
+			}
+			if (input.endsWith('/resolve/npm/few-types@latest')) {
+				return Response.json({ version: '1.0.0' });
+			}
+			if (input.endsWith('/npm/few-types@1.0.0/flat')) {
+				return Response.json({ files: [{ name: '/a.d.ts' }, { name: '/b.d.ts' }, { name: '/c.d.ts' }] });
+			}
+			if (input.endsWith('/package.json')) {
+				return new Response('{}');
+			}
+			return new Response(null, { status: 404 });
+		});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const { typescript } = await import('@/lib/monaco/languageServices');
+		const addExtraLib = vi.mocked(typescript.typescriptDefaults.addExtraLib);
+		addExtraLib.mockClear();
+		addExtraLib.mockImplementationOnce(() => {
+			throw new Error('rejected');
+		});
+
+		const { acquireApplicationTypes } = await import('./typeAcquisition');
+		await expect(acquireApplicationTypes([`import { x } from 'few-types';`])).resolves.toBeUndefined();
+
+		const declarations = addExtraLib.mock.calls.map(([, uri]) => uri).filter((uri) => uri?.endsWith('.d.ts'));
+		expect(declarations).toHaveLength(3);
+	});
 });

@@ -710,8 +710,13 @@ function flushExtraLibs(): void {
 	pendingExtraLibs = [];
 	const { typescriptDefaults, javascriptDefaults } = typescript;
 	for (const { code, uri } of batch) {
-		typescriptDefaults.addExtraLib(code, uri);
-		javascriptDefaults.addExtraLib(code, uri);
+		try {
+			typescriptDefaults.addExtraLib(code, uri);
+			javascriptDefaults.addExtraLib(code, uri);
+		} catch (error) {
+			// Not console.error: RUM reports it, and acquisition is best-effort.
+			console.debug(`[harper] type acquisition: could not add ${uri}`, error);
+		}
 	}
 }
 
