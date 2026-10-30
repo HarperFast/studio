@@ -76,10 +76,7 @@ function TopUpList({ topUps }: { topUps: TopUp[] }) {
 	);
 }
 
-/**
- * What a region was charged in a cycle that has ended. Nothing for a region that was never billed, as
- * for the current cycle. Never "billed" or "paid": CM records what it charged, not what was collected.
- */
+/** Never "billed" or "paid": CM records what it charged, not what was collected. */
 export function PastRegionCost({ region }: { region: PastCycleRegion }) {
 	if (!(region.cycleUsd > 0)) { return null; }
 	const cause = region.overageCause;
