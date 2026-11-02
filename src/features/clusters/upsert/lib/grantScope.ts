@@ -1,24 +1,25 @@
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { ClusterGrant, GrantShapeEntry } from '@/integrations/api/api.patch';
 
-/** Plan-and-region pairs keyed as central-manager's shapeKeys does: one key per pair, never merged. */
-const pairKeys = (pairs: ReadonlyArray<{ planId: string; regionId?: string | null }>) =>
-	pairs.map((pair) => `${pair.planId}@${pair.regionId ?? '-'}`).sort();
+/** Keyed as central-manager's shapeKeys does: plan, region and an org region's quantity, never merged. */
+const shapeKeys = (entries: ReadonlyArray<{ planId: string; regionId?: string | null; quantity?: number }>) =>
+	entries.map((entry) => `${entry.planId}@${entry.regionId ?? '-'}x${entry.quantity ?? 1}`).sort();
 
 /**
- * Whether a comp's shape covers exactly this request: the same pairs, as many of each, nothing more
- * or less. That is the test central-manager applies before waiving the card; anything else converts
- * the cluster to paid. A self-hosted request carries one pair per instance, so `regionIds` must too
- * (a null each). An unresolved region (undefined) covers nothing.
+ * Whether a comp's shape covers exactly this request: the same entries, as many of each, nothing more
+ * or less, an org region's quantity included. That is the test central-manager applies before waiving
+ * the card; anything else, a resize among it, converts the cluster to paid. A self-hosted request carries
+ * one row per instance, so `rows` must too (a null region each). An unresolved region (undefined)
+ * covers nothing.
  */
 export function shapeCoversRequest(
 	shape: GrantShapeEntry[] | null | undefined,
 	planId: string | undefined,
-	regionIds: ReadonlyArray<string | null | undefined>,
+	rows: ReadonlyArray<{ regionId: string | null | undefined; quantity?: number }>,
 ): boolean {
-	if (!shape?.length || !planId || regionIds.some((id) => id === undefined)) { return false; }
-	const wanted = pairKeys(shape);
-	const offered = pairKeys(regionIds.map((regionId) => ({ planId, regionId })));
+	if (!shape?.length || !planId || rows.some((row) => row.regionId === undefined)) { return false; }
+	const wanted = shapeKeys(shape);
+	const offered = shapeKeys(rows.map((row) => ({ planId, regionId: row.regionId, quantity: row.quantity })));
 	return wanted.length === offered.length && wanted.every((key, i) => key === offered[i]);
 }
 

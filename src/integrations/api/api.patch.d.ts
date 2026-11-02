@@ -425,6 +425,8 @@ export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceF
 export interface GrantShapeEntry {
 	planId: string;
 	regionId: string | null;
+	/** An org region's units; absent means 1. */
+	quantity?: number;
 }
 
 /** What a promo code gives: money off the org's bills, or a free cluster of a fixed shape. */
