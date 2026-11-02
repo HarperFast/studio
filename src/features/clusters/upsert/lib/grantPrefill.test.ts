@@ -78,6 +78,15 @@ describe('plansFromShape', () => {
 		]);
 	});
 
+	it("claims an org region at the shape's quantity, which central-manager matches", () => {
+		expect(
+			plansFromShape([{ planId: LEVEL_1.id, regionId: 'oreg-1', quantity: 3 }], instances, 9925),
+		).toEqual([{ autoRenew: true, planId: LEVEL_1.id, regionId: 'oreg-1', quantity: 3 }]);
+		expect(prefill([{ planId: LEVEL_1.id, regionId: 'oreg-1', quantity: 3 }])?.regionPlans).toEqual([
+			{ regionId: 'oreg-1', quantity: 3 },
+		]);
+	});
+
 	it('gives every instance the self-hosted plan when the shape has no regions', () => {
 		expect(plansFromShape(shape([SELF_HOSTED.id, null]), instances, 9925)).toEqual([
 			{

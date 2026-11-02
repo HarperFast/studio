@@ -415,10 +415,13 @@ export function ClusterForm({
 	// A live comp waives the card for exactly what its shape names — the test central-manager applies.
 	const coveredByComp = useMemo(() => {
 		if (!clusterId || currentGrant?.source !== 'comped' || !currentGrant.isActive) { return false; }
-		const regionIds = selectedDeployment === 'Self-Hosted'
-			? selectedInstances.map(() => null)
-			: selectedRegionPlans.map((rp) => regionLookup.get(rp.regionId)?.id);
-		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, regionIds);
+		const rows = selectedDeployment === 'Self-Hosted'
+			? selectedInstances.map(() => ({ regionId: null }))
+			: selectedRegionPlans.map((rp) => {
+				const region = regionLookup.get(rp.regionId);
+				return { regionId: region?.id, quantity: region?.kind === 'organization' ? rp.quantity : undefined };
+			});
+		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, rows);
 	}, [
 		clusterId,
 		currentGrant,
