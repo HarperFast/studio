@@ -31,7 +31,7 @@ export function prefillFromGrant(
 	const otherPlanIds = [...new Set(shape.map((entry) => entry.planId).filter((id) => id !== plan.id))];
 	const regionPlans: GrantPrefill['regionPlans'] = shape
 		.filter((entry) => entry.planId === plan.id && entry.regionId != null)
-		.map((entry) => ({ regionId: entry.regionId! }));
+		.map((entry) => ({ regionId: entry.regionId!, ...(entry.quantity ? { quantity: entry.quantity } : {}) }));
 	return {
 		deploymentDescription: plan.deploymentDescription,
 		performanceDescription: plan.performanceDescription,
@@ -50,7 +50,7 @@ export function plansFromShape(
 	instances: UpsertClusterSchemaType['instances'],
 	defaultOperationsApiPort: number,
 ): Array<
-	{ autoRenew: true; planId: string; regionId: string } | {
+	{ autoRenew: true; planId: string; regionId: string; quantity?: number } | {
 		autoRenew: true;
 		planId: string;
 		instanceFqdn: string;
@@ -60,7 +60,12 @@ export function plansFromShape(
 > {
 	const hosted = shape.filter((entry) => entry.regionId != null);
 	if (hosted.length > 0) {
-		return hosted.map((entry) => ({ autoRenew: true, planId: entry.planId, regionId: entry.regionId! }));
+		return hosted.map((entry) => ({
+			autoRenew: true,
+			planId: entry.planId,
+			regionId: entry.regionId!,
+			...(entry.quantity ? { quantity: entry.quantity } : {}),
+		}));
 	}
 	return instances.map((instance) => ({
 		autoRenew: true,
