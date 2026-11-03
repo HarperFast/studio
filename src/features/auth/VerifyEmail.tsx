@@ -491,14 +491,17 @@ export function VerifyEmail() {
 	const isCurrent = useCallback((id: number) => mounted.current && attempt.current === id, []);
 
 	const enterApp = useCallback(async (id: number, user: User) => {
+		let entered = false;
 		try {
 			toastVerified();
-			await completeSignIn(user);
+			entered = await completeSignIn(user);
 		} catch (error) {
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
-				setSessionLost(true);
 			}
+		}
+		if (!entered && isCurrent(id)) {
+			setSessionLost(true);
 		}
 	}, [completeSignIn, isCurrent]);
 
@@ -516,12 +519,16 @@ export function VerifyEmail() {
 			}
 			return;
 		}
+		if (!isCurrent(id)) {
+			return;
+		}
 		if (
-			isCurrent(id)
-			&& authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
+			authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
 			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision
 		) {
 			await enterApp(id, user);
+		} else {
+			setSessionLost(true);
 		}
 	}, [enterApp, isCurrent]);
 
@@ -549,7 +556,6 @@ export function VerifyEmail() {
 					void pickUpSession(id);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
-					toastVerified();
 					logIn({ email: response.email, password: sent.password }, {
 						onSuccess: (user) => {
 							if (isCurrent(id)) {

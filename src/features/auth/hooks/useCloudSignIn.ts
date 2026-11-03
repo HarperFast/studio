@@ -18,13 +18,14 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
+/** Resolves false when a sign-out landed before it could navigate. */
 export function useCompleteCloudSignIn() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const { redirect } = useSearch({ strict: false });
 
-	return useCallback(async (user: User) => {
+	return useCallback(async (user: User): Promise<boolean> => {
 		authStore.setUserForEntity(OverallAppSignIn, user);
 		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 		// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
@@ -43,10 +44,11 @@ export function useCompleteCloudSignIn() {
 		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
-			return;
+			return false;
 		}
 		void router.invalidate();
 		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+		return true;
 	}, [navigate, queryClient, redirect, router]);
 }
 

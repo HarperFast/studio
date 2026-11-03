@@ -325,8 +325,8 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		});
 		render(page());
 
-		await waitFor(() => expect(authStore.setUserForEntity).toHaveBeenCalled());
-		await act(async () => {});
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(authStore.setUserForEntity).toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
@@ -343,6 +343,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
+		expect(screen.getByText('Sign in to continue.')).toBeTruthy();
 	});
 
 	it('still takes them into the app when sign-in analytics throw', async () => {
@@ -803,6 +804,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			enterPassword('correct horse');
 
 			await expectSignedIntoApp();
+			expect(toast.success).toHaveBeenCalledTimes(1);
 			expect(post).toHaveBeenCalledWith('/Login/', { email: SIGNED_UP_EMAIL, password: 'correct horse' });
 			expect(fetchCurrentUser).not.toHaveBeenCalled();
 		});
