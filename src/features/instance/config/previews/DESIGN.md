@@ -51,6 +51,15 @@ asks for the token whenever the lookup didn't find the repository, and says so i
 repository's spelling, which `workflow_ref` needs exactly, so the form takes the id and the name together from one
 `gh api` line rather than trusting what was typed, and refuses a line for another repository.
 
+Whether a token is sealed decides whether the workflow passes `credential=true`, so the workflow is held back until
+the secrets are read, and says it may be missing the flag when they can't be. Showing it earlier would hand out a file
+that leaves out a sealed token.
+
+## A preview's Application menu opens its application's previews
+
+A preview has no previews of its own, so its menu item leads to the page of the application it previews, which lists
+and deletes it.
+
 ## The repository lookup is shared
 
 `integrations/github/lookUpGitHubRepository.ts` belongs to neither panel. Deploy from GitHub (studio#1788) needs the same

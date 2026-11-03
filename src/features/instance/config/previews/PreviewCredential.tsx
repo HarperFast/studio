@@ -19,14 +19,21 @@ import { toast } from 'sonner';
 
 const NEW_TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 
-/** `ungranted`: stored, as when the grant failed after the seal, so `harper preview deploy` can't use it yet. */
-export type PreviewCredentialState = 'none' | 'ungranted' | 'sealed';
+/**
+ * `ungranted`: stored, as when the grant failed after the seal, so `harper preview deploy` can't use it yet.
+ * `unknown`: the secrets aren't read yet, and `unreadable`: the read failed. Neither is `none`: a workflow copied then
+ * would leave out a token that is sealed.
+ */
+export type PreviewCredentialState = 'unknown' | 'unreadable' | 'none' | 'ungranted' | 'sealed';
 
 export function usePreviewCredentialState(app: string, enabled: boolean): PreviewCredentialState {
 	const instanceParams = useInstanceClientIdParams();
-	const { data } = useQuery({ ...listSecretsQueryOptions(instanceParams), enabled });
+	const { data, isError } = useQuery({ ...listSecretsQueryOptions(instanceParams), enabled });
+	if (!data) {
+		return isError ? 'unreadable' : 'unknown';
+	}
 	const name = previewCredentialSecretName(app);
-	const secret = data?.secrets.find((candidate) => candidate.name === name);
+	const secret = data.secrets.find((candidate) => candidate.name === name);
 	if (!secret) {
 		return 'none';
 	}
@@ -95,7 +102,9 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				<h3 className="font-semibold">GitHub token</h3>
 				{credential === 'sealed'
 					? <Badge variant="success">Sealed</Badge>
-					: <Badge variant="warning">{credential === 'ungranted' ? 'Not granted' : 'Not set'}</Badge>}
+					: credential === 'ungranted' || credential === 'none'
+					? <Badge variant="warning">{credential === 'ungranted' ? 'Not granted' : 'Not set'}</Badge>
+					: null}
 			</div>
 			<p className="text-muted-foreground">
 				{repository}{' '}
@@ -120,7 +129,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				: (
 					<form className="flex flex-col gap-2" onSubmit={(event) => void onSubmit(event)}>
 						<label className="flex max-w-md flex-col gap-1">
-							{credential === 'none' ? 'Fine-grained token' : 'Replace the token'}
+							{credential === 'sealed' || credential === 'ungranted' ? 'Replace the token' : 'Fine-grained token'}
 							<Input
 								type="password"
 								// Not a sign-in: a saved password filled in here would be sealed as the token.

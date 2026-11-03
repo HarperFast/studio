@@ -281,7 +281,7 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText('https://cluster.example.com:9925/')).toBeTruthy();
 			expect(section.getByText('.github/workflows/preview.yaml')).toBeTruthy();
 			expect(section.getAllByText('preview-cleanup').length).toBeGreaterThan(0);
-			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('domain=');
+			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('domain=');
 		});
 
 		it('writes a domain into the workflow only when it is not the default for the audience', async () => {
@@ -292,14 +292,41 @@ describe('ApplicationPreviews', () => {
 				},
 			});
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect(section.getByText(/pull_request_target:/).textContent).toContain('domain=apps.acme.dev');
+			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('domain=apps.acme.dev');
+		});
+
+		it('holds the workflow back until it knows whether a token is sealed', async () => {
+			let answerSecrets = () => undefined as void;
+			cluster.operations.list_secrets = () =>
+				new Promise((resolve) => {
+					answerSecrets = () => resolve({ secrets: [], custody_fingerprint: null });
+				});
+			renderPanel({ policy: ENABLED });
+			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect(section.getByText(/Checking whether a GitHub token is sealed/)).toBeTruthy();
+			expect(section.queryByRole('button', { name: 'Copy workflow' })).toBeNull();
+			expect(section.queryByText(/pull_request_target:/)).toBeNull();
+			answerSecrets();
+			expect(await section.findByRole('button', { name: 'Copy workflow' })).toBeTruthy();
+		});
+
+		it('says the workflow may be missing the token when the secrets could not be read', async () => {
+			cluster.operations.list_secrets = () => {
+				throw httpError(500, 'node is restarting');
+			};
+			renderPanel({ policy: ENABLED });
+			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect(await section.findByText(/may be missing/)).toBeTruthy();
+			expect(section.getByRole('button', { name: 'Copy workflow' })).toBeTruthy();
 		});
 
 		it('asks for the cleanup environment the policy pins, not the default', async () => {
 			renderPanel({ policy: { ...ENABLED, cleanupEnvironment: 'teardown' } });
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect(section.getByText(/pull_request_target:/).textContent).toContain('environment: teardown');
-			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('environment: preview-cleanup');
+			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('environment: teardown');
+			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain(
+				'environment: preview-cleanup',
+			);
 		});
 
 		it("installs a prerelease cluster's own version, since ^5.4 matches no prerelease", async () => {
@@ -309,7 +336,7 @@ describe('ApplicationPreviews', () => {
 			await waitFor(() =>
 				expect(section.getByText(/pull_request_target:/).textContent).toContain('--global harper@5.4.0-alpha.2')
 			);
-			expect(section.getByText(/pull_request_target:/).textContent).not.toContain('harper@^5.4');
+			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('harper@^5.4');
 		});
 
 		it('installs the release range on a release', async () => {
@@ -317,7 +344,7 @@ describe('ApplicationPreviews', () => {
 			await screen.findByRole('region', { name: 'What to commit' });
 			await waitFor(() => expect(cluster.calls.map((call) => call.operation)).toContain('registration_info'));
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect(workflow.getByText(/pull_request_target:/).textContent).toContain('--global harper@^5.4');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('--global harper@^5.4');
 		});
 
 		it("lists this application's previews, not another's", async () => {
@@ -607,7 +634,7 @@ describe('ApplicationPreviews', () => {
 			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
 			expect(await section.findByText('Sealed')).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect(workflow.getByText(/pull_request_target:/).textContent).toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential=true');
 		});
 
 		const sealToken = async () => {
@@ -678,7 +705,7 @@ describe('ApplicationPreviews', () => {
 			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
 			expect(await section.findByText('Sealed')).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect(workflow.getByText(/pull_request_target:/).textContent).toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential=true');
 		});
 
 		it('keeps the token in the field when sealing fails, to try again', async () => {
@@ -709,7 +736,7 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText('Not granted')).toBeTruthy();
 			expect(section.getByText(/no preview can use it yet/)).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect(workflow.getByText(/pull_request_target:/).textContent).not.toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).not.toContain('credential=true');
 		});
 
 		it('still mentions a stored token after disabling, granted or not', async () => {

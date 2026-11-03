@@ -20,7 +20,7 @@ import {
 	useDeploymentsAvailable,
 	useStagedDeploymentsAvailable,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
-import { usePreviewsAvailable } from '@/features/instance/config/previews/usePreviewsAvailable';
+import { usePreviewsProject } from '@/features/instance/config/previews/usePreviewsAvailable';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
@@ -88,7 +88,6 @@ export function ContentActions({
 	const canManageInstance = useInstanceManagePermission();
 	const deploymentsAvailable = useDeploymentsAvailable();
 	const stagingAvailable = useStagedDeploymentsAvailable();
-	const previewsAvailable = usePreviewsAvailable();
 	const canViewDeployments = canManageInstance && deploymentsAvailable;
 	const navigate = useNavigate();
 	const routeParams: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({
@@ -155,7 +154,7 @@ export function ContentActions({
 
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
-	const previewsProject = previewsAvailable && openedEntry?.project ? openedEntry.project : undefined;
+	const previewsProject = usePreviewsProject(openedEntry?.project);
 	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject
 		|| !!previewsProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.

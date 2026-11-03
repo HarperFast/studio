@@ -7,8 +7,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildEnablePreviewsRequest, EnablePreviewsForm } from './EnablePreviewsForm';
 
-const { state, post, toast } = vi.hoisted(() => ({
-	state: { operationsUrl: 'https://cluster.example.com:9925/' as string | undefined },
+const { state, post, toast, getCluster } = vi.hoisted(() => ({
+	state: {
+		operationsUrl: 'https://cluster.example.com:9925/' as string | undefined,
+		clusterId: undefined as string | undefined,
+	},
+	getCluster: vi.fn(),
 	post: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
 }));
@@ -20,7 +24,15 @@ vi.mock('@/config/useInstanceClient', () => {
 vi.mock('@/features/auth/store/authStore', () => ({
 	authStore: { getOperationsUrl: () => state.operationsUrl },
 }));
-vi.mock('@tanstack/react-router', () => ({ useParams: () => ({}) }));
+vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ clusterId: state.clusterId }) }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
+	getClusterInfoQueryOptions: (clusterId?: string) => ({
+		queryKey: [clusterId],
+		queryFn: getCluster,
+		enabled: !!clusterId,
+		retry: false,
+	}),
+}));
 vi.mock('sonner', () => ({ toast }));
 
 function httpError(status: number, error: string) {
@@ -58,6 +70,8 @@ const enableRequest = () => post.mock.calls[0]?.[1];
 
 beforeEach(() => {
 	state.operationsUrl = 'https://cluster.example.com:9925/';
+	state.clusterId = undefined;
+	getCluster.mockReset();
 	post.mockReset();
 	post.mockResolvedValue({ data: { message: 'Enabled previews of shop', created: [] } });
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -280,6 +294,24 @@ describe('EnablePreviewsForm', () => {
 		submit();
 		await screen.findByRole('alert');
 		expect(console.error).toHaveBeenCalled();
+	});
+
+	it("waits for the cluster's details before saying it has no URL", async () => {
+		stubGitHub(404);
+		state.operationsUrl = undefined;
+		state.clusterId = 'clu-1';
+		let answerCluster = (_cluster: unknown) => undefined as void;
+		getCluster.mockReturnValue(
+			new Promise((resolve) => {
+				answerCluster = resolve;
+			}),
+		);
+		renderForm();
+		expect(screen.queryByText(/doesn't know this cluster's operations URL/)).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Enable previews' })).toBeNull();
+		answerCluster({ fqdn: 'cluster.example.com' });
+		expect(await screen.findByText(/https:\/\/cluster\.example\.com:9925\//)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Enable previews' })).toBeTruthy();
 	});
 
 	it("never falls back to Studio's own host, which no token is requested for", () => {

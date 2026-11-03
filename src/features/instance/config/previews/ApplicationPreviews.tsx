@@ -98,7 +98,10 @@ export function ApplicationPreviews(
 			</label>
 
 			{disableOutcome && 'response' in disableOutcome && (
-				<DisablePreviewsResult response={disableOutcome.response} credentialStored={credential !== 'none'} />
+				<DisablePreviewsResult
+					response={disableOutcome.response}
+					credentialStored={credential === 'sealed' || credential === 'ungranted'}
+				/>
 			)}
 			{disableOutcome && 'failure' in disableOutcome && (
 				<Alert variant="destructive">
@@ -150,7 +153,7 @@ export function ApplicationPreviews(
 				<>
 					<PreviewWarnings shared={policy.grant?.constraints?.branchedDatabases !== 'required'} />
 					{policy.repository && <PreviewCredential app={app} repository={policy.repository} />}
-					<PreviewWorkflowInstructions policy={policy} credentialSealed={credential === 'sealed'} />
+					<PreviewWorkflowInstructions policy={policy} credential={credential} />
 				</>
 			)}
 

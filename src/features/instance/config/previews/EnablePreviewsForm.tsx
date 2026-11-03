@@ -1,3 +1,4 @@
+import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
@@ -86,14 +87,16 @@ export function buildEnablePreviewsRequest(
  * which Harper serves from its operations port, can use the page's origin. Anywhere else that is Studio's own host, and
  * an audience no token is ever requested for.
  */
-function useAudience(entityId: EntityIds): string | undefined {
+function useAudience(entityId: EntityIds): { audience: string | undefined; pending: boolean } {
 	const { clusterId }: { clusterId?: EntityIds } = useParams({ strict: false });
-	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
-	return previewAudience(
+	const { data: cluster, isLoading } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	const audience = previewAudience(
 		getOperationsUrlForCluster(cluster)
 			?? authStore.getOperationsUrl(clusterId ?? entityId)
 			?? (isLocalStudio ? window.location.origin : undefined),
 	);
+	// Until the cluster answers, a missing URL is unknown rather than absent.
+	return { audience, pending: !audience && isLoading };
 }
 
 function RepositoryLookupMessage(
@@ -124,7 +127,7 @@ export function EnablePreviewsForm(
 ) {
 	const instanceParams = useInstanceClientIdParams();
 	const { instanceClient, entityId } = instanceParams;
-	const audience = useAudience(entityId);
+	const { audience, pending: audiencePending } = useAudience(entityId);
 	const needsHostSuffix = !!audience && !defaultPreviewDomain(audience);
 	const { mutateAsync: enablePreviews, isPending } = useEnablePreviews();
 	const [failure, setFailure] = useState<string>();
@@ -200,6 +203,9 @@ export function EnablePreviewsForm(
 	};
 
 	if (!audience) {
+		if (audiencePending) {
+			return <Loading text="Loading..." />;
+		}
 		return (
 			<Alert variant="destructive">
 				<AlertDescription>

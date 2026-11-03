@@ -7,6 +7,7 @@ import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubReposit
 import { useQuery } from '@tanstack/react-query';
 import { CopyIcon } from 'lucide-react';
 import { defaultPreviewDomain } from './previewAudience';
+import { PreviewCredentialState } from './PreviewCredential';
 import {
 	PREVIEW_CLEANUP_ENVIRONMENT,
 	PREVIEW_ENVIRONMENT,
@@ -20,7 +21,7 @@ const GITHUB_RULE_URL =
 
 /** Built from what the cluster holds rather than the form, so it reads the same on every visit. */
 export function PreviewWorkflowInstructions(
-	{ policy, credentialSealed }: { policy: PreviewPolicy; credentialSealed: boolean },
+	{ policy, credential }: { policy: PreviewPolicy; credential: PreviewCredentialState },
 ) {
 	const copy = useCopyTextToClipboard();
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(useInstanceClientIdParams()));
@@ -39,7 +40,7 @@ export function PreviewWorkflowInstructions(
 		cleanupEnvironment: policy.cleanupEnvironment,
 		harperVersion: version?.includes('-') ? version : undefined,
 		domain: domain === defaultPreviewDomain(audience) ? undefined : domain,
-		credential: credentialSealed,
+		credential: credential === 'sealed',
 		shared: constraints?.branchedDatabases !== 'required',
 	});
 	const workflowPath = policy.workflow ?? PREVIEW_WORKFLOW_PATH;
@@ -56,20 +57,36 @@ export function PreviewWorkflowInstructions(
 						<code className="font-mono">{workflowPath}</code>. Pull requests run it from that branch, so a pull request
 						can't change it.
 					</p>
-					<div className="relative mt-2">
-						<Button
-							className="absolute top-2 right-2"
-							size="sm"
-							variant="defaultOutline"
-							onClick={() => copy(workflow)}
-						>
-							<CopyIcon />
-							<span className="sr-only">Copy workflow</span>
-						</Button>
-						<pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 text-xs leading-relaxed">
-							<code>{workflow}</code>
-						</pre>
-					</div>
+					{credential === 'unknown'
+						? (
+							<p className="mt-2 text-muted-foreground">
+								Checking whether a GitHub token is sealed, which this file names…
+							</p>
+						)
+						: (
+							<>
+								{credential === 'unreadable' && (
+									<p className="mt-2 text-destructive">
+										This cluster's secrets couldn't be read, so this file may be missing{' '}
+										<code className="font-mono">credential=true</code>, which a private repository needs.
+									</p>
+								)}
+								<div className="relative mt-2">
+									<Button
+										className="absolute top-2 right-2"
+										size="sm"
+										variant="defaultOutline"
+										onClick={() => copy(workflow)}
+									>
+										<CopyIcon />
+										<span className="sr-only">Copy workflow</span>
+									</Button>
+									<pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 text-xs leading-relaxed">
+											<code>{workflow}</code>
+									</pre>
+								</div>
+							</>
+						)}
 				</li>
 				<li>
 					<p>
