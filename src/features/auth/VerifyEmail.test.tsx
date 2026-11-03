@@ -298,6 +298,38 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
+	it('ignores a session it loads for a link that left and came back', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		let resolveUser!: (user: unknown) => void;
+		fetchCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		const { rerender } = render(page());
+		await waitFor(() => expect(fetchCurrentUser).toHaveBeenCalled());
+
+		search.token = undefined;
+		rerender(page());
+		search.token = 'verify-token';
+		rerender(page());
+		await act(async () => resolveUser(USER));
+
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('does not navigate when a sign-out lands while the session is being taken into the app', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		let generation = 1;
+		vi.spyOn(authStore, 'getSignOutGeneration').mockImplementation(() => generation);
+		vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(async () => {
+			generation = 2;
+		});
+		render(page());
+
+		await waitFor(() => expect(authStore.setUserForEntity).toHaveBeenCalled());
+		await act(async () => {});
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
 	it('ignores a session it loads after a sign-out', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		let resolveUser!: (user: unknown) => void;
@@ -802,6 +834,36 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			expect(screen.queryByText('Invalid email or password')).toBeNull();
 		});
 
+		it('ignores a sign-in that answers after the link changed', async () => {
+			put.mockResolvedValue(answer());
+			let resolveLogin!: (value: unknown) => void;
+			post.mockReturnValue(new Promise((r) => (resolveLogin = r)));
+			const { rerender } = render(page());
+			enterPassword('correct horse');
+			await waitFor(() => expect(post).toHaveBeenCalled());
+
+			search.token = 'another-token';
+			rerender(page());
+			await act(async () => resolveLogin({ data: USER }));
+
+			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+			expect(navigate).not.toHaveBeenCalled();
+			expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		});
+
+		it('asks them to sign in when taking the signed-in user into the app throws', async () => {
+			put.mockResolvedValue(answer());
+			post.mockResolvedValue({ data: USER });
+			vi.mocked(authStore.setUserForEntity).mockImplementation(() => {
+				throw new Error('store refused');
+			});
+			render(page());
+
+			enterPassword('correct horse');
+
+			expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		});
+
 		it('says a new password was not saved, and does not sign in with it', async () => {
 			put.mockResolvedValue(answer());
 			render(page());
@@ -812,6 +874,21 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			expect(post).not.toHaveBeenCalled();
 			expect(navigate).not.toHaveBeenCalled();
 		});
+	});
+
+	it('shows a new link’s form, not the answer for the link it replaced', async () => {
+		let resolve!: (value: unknown) => void;
+		put.mockReturnValue(new Promise((r) => (resolve = r)));
+		const { rerender } = render(page());
+		enterPassword('correct horse');
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+
+		search.token = 'another-token';
+		rerender(page());
+		await act(async () => resolve(answer('verified', false)));
+
+		expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		expect(screen.queryByText('Sign in to continue.')).toBeNull();
 	});
 
 	it('resubmits the same password on Try again', async () => {

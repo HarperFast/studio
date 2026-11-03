@@ -30,7 +30,7 @@ vi.mock('./hooks/useVerifyEmail', () => ({
 	isVerifyEmailUnconfirmed: () => false,
 }));
 vi.mock('./hooks/useCloudSignIn', () => ({
-	useCloudSignIn: () => ({ submitForm: state.signIn, clearSubmitError: state.clearSignInError }),
+	useLoginMutation: () => ({ mutate: state.signIn }),
 	useCompleteCloudSignIn: () => state.completeSignIn,
 }));
 vi.mock('./hooks/useResendEmailVerification', () => ({

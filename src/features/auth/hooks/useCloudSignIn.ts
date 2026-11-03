@@ -40,7 +40,11 @@ export function useCompleteCloudSignIn() {
 		} catch (error) {
 			console.debug('Sign-in bookkeeping failed, carrying on:', error);
 		}
+		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
+			return;
+		}
 		void router.invalidate();
 		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 	}, [navigate, queryClient, redirect, router]);
@@ -91,7 +95,7 @@ export function useCloudSignIn() {
 	};
 }
 
-function useLoginMutation() {
+export function useLoginMutation() {
 	return useMutation<User, Error, z.infer<typeof EmailSignInSchema>>({
 		...failFastOffline(onLoginSubmit),
 		// submitForm renders the login-error UX itself (redirecting unverified users into the

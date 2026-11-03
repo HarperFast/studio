@@ -6,6 +6,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import { User } from '@/integrations/api/api.patch';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,8 +19,9 @@ import { z } from 'zod';
 import { AuthHeading } from './components/AuthHeading';
 import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
+import { describeAuthFailure } from './describeAuthFailure';
 import { OFFLINE_MESSAGE, OfflineSubmitError, reportAuthFailure } from './failFastOffline';
-import { useCloudSignIn, useCompleteCloudSignIn } from './hooks/useCloudSignIn';
+import { useCompleteCloudSignIn, useLoginMutation } from './hooks/useCloudSignIn';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 import {
 	isVerifyEmailUnconfirmed,
@@ -466,11 +468,14 @@ export function VerifyEmail() {
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
+	const { mutate: logIn } = useLoginMutation();
 	const completeSignIn = useCompleteCloudSignIn();
-	const { submitForm: signIn, submitError: signInError, clearSubmitError: clearSignInError } = useCloudSignIn();
 	const submittedToken = useRef<string | undefined>(undefined);
+	// Bumped by every submit and every change of link, so a late answer can tell it has been superseded.
+	const attempt = useRef(0);
 	const mounted = useRef(false);
 	const [sessionLost, setSessionLost] = useState(false);
+	const [signInError, setSignInError] = useState<string>();
 	// The link's account, from central-manager's answer: a stored proof may be another sign-up's.
 	const [accountEmail, setAccountEmail] = useState<string>();
 	const [retrying, setRetrying] = useState(false);
@@ -483,45 +488,50 @@ export function VerifyEmail() {
 		};
 	}, []);
 
-	const enterApp = useCallback(async (verifiedToken: string) => {
-		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
-		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
-		const stillHere = () => mounted.current && submittedToken.current === verifiedToken;
-		const failed = (error: unknown) => {
-			if (stillHere()) {
+	const isCurrent = useCallback((id: number) => mounted.current && attempt.current === id, []);
+
+	const enterApp = useCallback(async (id: number, user: User) => {
+		try {
+			toastVerified();
+			await completeSignIn(user);
+		} catch (error) {
+			if (isCurrent(id)) {
 				reportAuthFailure(error);
 				setSessionLost(true);
 			}
-		};
+		}
+	}, [completeSignIn, isCurrent]);
+
+	const pickUpSession = useCallback(async (id: number) => {
+		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 		let user;
 		try {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
 			user = await fetchCurrentUser();
 		} catch (error) {
-			failed(error);
+			if (isCurrent(id)) {
+				reportAuthFailure(error);
+				setSessionLost(true);
+			}
 			return;
 		}
 		if (
-			!stillHere()
-			|| authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
-			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
+			isCurrent(id)
+			&& authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
+			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision
 		) {
-			return;
+			await enterApp(id, user);
 		}
-		try {
-			toastVerified();
-			await completeSignIn(user);
-		} catch (error) {
-			failed(error);
-		}
-	}, [completeSignIn]);
+	}, [enterApp, isCurrent]);
 
 	const submit = useCallback(
 		(request: VerifyEmailRequest) => {
+			const id = ++attempt.current;
 			setSessionLost(false);
-			clearSignInError();
+			setSignInError(undefined);
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
-				if (submittedToken.current !== sent.token) {
+				if (!isCurrent(id)) {
 					return;
 				}
 				setAccountEmail(response.email);
@@ -536,16 +546,27 @@ export function VerifyEmail() {
 				}
 				clearSignUpBrowserProof(response.email);
 				if (opensSession(response)) {
-					void enterApp(sent.token);
+					void pickUpSession(id);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					toastVerified();
-					signIn({ email: response.email, password: sent.password });
+					logIn({ email: response.email, password: sent.password }, {
+						onSuccess: (user) => {
+							if (isCurrent(id)) {
+								void enterApp(id, user);
+							}
+						},
+						onError: (loginError) => {
+							if (isCurrent(id)) {
+								setSignInError(describeAuthFailure(loginError, 'Try signing in again.'));
+							}
+						},
+					});
 				}
 			};
 			submitVerification(request, { onSuccess: (response) => onSuccess(request, response) });
 		},
-		[clearSignInError, enterApp, signIn, submitVerification],
+		[enterApp, isCurrent, logIn, pickUpSession, submitVerification],
 	);
 
 	// Once per arrival of a token, and only with this browser's sign-up proof: a mail scanner opening the link
@@ -553,10 +574,12 @@ export function VerifyEmail() {
 	// development, and the second PUT would answer `already_verified` and replace the first answer. A token
 	// that comes back after another one or after none is handled again.
 	useEffect(() => {
-		if (!token) {
-			submittedToken.current = undefined;
-		} else if (submittedToken.current !== token) {
-			submittedToken.current = token;
+		if (submittedToken.current === token) {
+			return;
+		}
+		attempt.current++;
+		submittedToken.current = token;
+		if (token) {
 			setAccountEmail(undefined);
 			setRetrying(false);
 			if (proof) {
@@ -602,7 +625,7 @@ export function VerifyEmail() {
 					: <SignInToContinue email={email} passwordSet={outcome === 'password_set'} />;
 			}
 			if (outcome === undefined) {
-				return submission === 'password' && !signInError
+				return submission === 'password' && !signInError && !sessionLost
 					? <Pending message="Signing you in..." />
 					: (
 						<SignInToContinue

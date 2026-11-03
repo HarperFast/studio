@@ -17,7 +17,6 @@ type SignUpBrowserProof = {
 	expiresAt: number;
 };
 
-// Keyed by address, so signing up a second account in this browser keeps the first one's proof.
 type SignUpBrowserProofs = Record<string, SignUpBrowserProof>;
 
 function addressKey(email: string): string {
@@ -30,7 +29,6 @@ function isSignUpBrowserProof(value: unknown): value is SignUpBrowserProof {
 		&& typeof record.expiresAt === 'number';
 }
 
-// Storage that throws reads as empty: the page asks for the password.
 function readProofs(now: number): SignUpBrowserProofs {
 	let stored: unknown;
 	try {
