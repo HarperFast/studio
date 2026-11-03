@@ -4,35 +4,56 @@ import { useMutation } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { failFastOffline, OfflineSubmitError, reportAuthFailure, toastsAuthFailures } from '../failFastOffline';
 
-type VerifyEmailToken = {
+/**
+ * A verification proves the mailbox; central-manager also wants proof that its sender chose the account's
+ * password (central-manager#781): the sign-up's browser proof, or that password. `newPassword` replaces it
+ * instead. Send one of the three. A central-manager without that change ignores them and verifies on the
+ * token alone.
+ */
+type VerifyEmailRequest = {
 	token: string;
+	browserProof?: string;
+	password?: string;
+	newPassword?: string;
 };
 
 /**
- * What central-manager did with the account's password while verifying it, or `already_verified` when an
- * earlier request did the verifying. A token-only verify replaces the sign-up password with a random one,
- * then emails a set-password link (`reset_email_sent`) or, when that email can't be sent, leaves Forgot
- * Password as the way in (`password_reset_required`).
+ * - `verified`: proven by the browser proof or the password, which is kept.
+ * - `password_set`: `newPassword` replaced it.
+ * - `password_required`, `password_mismatch`: nothing changed; the proof didn't match, or the password was wrong.
+ * - `reset_email_sent`, `password_reset_required`: a `newPassword` sent with a link too old to set one. The
+ *   sign-up password was replaced with a random one and a set-password link emailed, or, when that email
+ *   couldn't be sent, Forgot Password is the way in.
+ * - `already_verified`: an earlier request did the verifying.
  */
-type VerifyEmailOutcome = 'password_set' | 'reset_email_sent' | 'password_reset_required' | 'already_verified';
+type VerifyEmailOutcome =
+	| 'verified'
+	| 'password_set'
+	| 'password_required'
+	| 'password_mismatch'
+	| 'reset_email_sent'
+	| 'password_reset_required'
+	| 'already_verified';
 
 type VerifyEmailResponse = {
 	userId: string;
 	email: string;
 	/**
-	 * Absent from a central-manager that keeps the sign-up password. Open-ended because a newer one may
-	 * answer with an outcome this build doesn't know.
+	 * Absent from a central-manager without central-manager#781's change, which verified on the token alone.
+	 * Open-ended because a newer one may answer with an outcome this build doesn't know.
 	 */
 	outcome?: VerifyEmailOutcome | (string & {});
+	/** Whether central-manager opened a session, as Login does. */
+	signedIn?: boolean;
 };
 
 const UNAVAILABLE_RETRIES = 3;
 const UNAVAILABLE_RETRY_BASE_MS = 2_000;
 const UNAVAILABLE_RETRY_MAX_MS = 10_000;
 
-const onVerifyEmailTokenSubmit = async ({ token }: VerifyEmailToken): Promise<VerifyEmailResponse> => {
+const onVerifyEmailSubmit = async (request: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
 	// TODO: The OpenAPI types don't describe the request body, either; Record<string, never>
-	const { data } = await apiClient.put<VerifyEmailToken>('/VerifyEmail/', { token });
+	const { data } = await apiClient.put<VerifyEmailRequest>('/VerifyEmail/', request);
 	return data as VerifyEmailResponse;
 };
 
@@ -55,8 +76,8 @@ function isVerifyEmailUnconfirmed(error: unknown): boolean {
 }
 
 function useVerifyEmailMutation() {
-	return useMutation<VerifyEmailResponse, Error, VerifyEmailToken>({
-		...failFastOffline(onVerifyEmailTokenSubmit),
+	return useMutation<VerifyEmailResponse, Error, VerifyEmailRequest>({
+		...failFastOffline(onVerifyEmailSubmit),
 		...toastsAuthFailures,
 		retry: (failureCount, error) => failureCount < UNAVAILABLE_RETRIES && isVerifyEmailUnavailable(error),
 		retryDelay: (failureCount) => Math.min(UNAVAILABLE_RETRY_BASE_MS * 2 ** failureCount, UNAVAILABLE_RETRY_MAX_MS),
@@ -71,4 +92,5 @@ function useVerifyEmailMutation() {
 	});
 }
 
+export type { VerifyEmailRequest, VerifyEmailResponse };
 export { isVerifyEmailUnavailable, isVerifyEmailUnconfirmed, useVerifyEmailMutation };

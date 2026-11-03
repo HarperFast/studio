@@ -9,3 +9,18 @@ export const zodRequirePassword = z
 export const ACCOUNT_PASSWORD_MAX_LENGTH = 256;
 export const ACCOUNT_PASSWORD_TOO_LONG_ERROR =
 	`Password cannot be longer than ${ACCOUNT_PASSWORD_MAX_LENGTH} characters.`;
+
+/** A password being chosen for a Fabric account: sign-up, reset, and choosing one while verifying. */
+export const zodNewAccountPassword = zodRequirePassword
+	.min(8, { error: 'Password must be at least 8 characters long.' })
+	.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR });
+
+export const NewAccountPasswordSchema = z
+	.object({
+		password: zodNewAccountPassword,
+		confirmPassword: z.string(),
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		error: 'Passwords do not match.',
+		path: ['confirmPassword'],
+	});

@@ -3,6 +3,7 @@ import { SchemaUser } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 import { failFastOffline, reportAuthFailure } from '../failFastOffline';
 import { isCaptchaVerificationError } from '../isCaptchaVerificationError';
+import { SIGN_UP_BROWSER_PROOF_HEADER, storeSignUpBrowserProof } from '../signUpBrowserProof';
 import { clearCaptchaFailures } from './useCaptchaChallenge';
 
 export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
@@ -15,11 +16,16 @@ export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 
 export async function onSignUpSubmit({ captchaToken, ...signUpCredentials }: SignUpCredentials) {
 	// TODO: The types in our OpenAPI for this endpoint aren't defined.
-	const { data } = await apiClient.post('/User/', {
+	const { data, headers } = await apiClient.post('/User/', {
 		...signUpCredentials,
 		...(captchaToken ? { captchaToken } : {}),
 	});
 	if (data) {
+		// Absent from a central-manager without #781's change.
+		const browserProof = headers?.[SIGN_UP_BROWSER_PROOF_HEADER];
+		if (typeof browserProof === 'string' && browserProof) {
+			storeSignUpBrowserProof(browserProof, signUpCredentials.email);
+		}
 		return data;
 	} else {
 		throw new Error('Something went wrong');

@@ -4,27 +4,41 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { zodRequireEmail } from '@/lib/zod/email';
+import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KeyRound, LoaderCircle, MailCheck, MailWarning } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { AuthHeading } from './components/AuthHeading';
 import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
-import { OFFLINE_MESSAGE, OfflineSubmitError } from './failFastOffline';
+import { OFFLINE_MESSAGE, OfflineSubmitError, reportAuthFailure } from './failFastOffline';
+import { useCloudSignIn, useCompleteCloudSignIn } from './hooks/useCloudSignIn';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
-import { isVerifyEmailUnconfirmed, useVerifyEmailMutation } from './hooks/useVerifyEmail';
+import {
+	isVerifyEmailUnconfirmed,
+	useVerifyEmailMutation,
+	VerifyEmailRequest,
+	VerifyEmailResponse,
+} from './hooks/useVerifyEmail';
+import { clearSignUpBrowserProof, readSignUpBrowserProof } from './signUpBrowserProof';
 
 // Claims no outcome: each of these can follow a verify that landed (`unansweredWrite.ts`).
 const VERIFICATION_UNCONFIRMED_MESSAGE =
 	"We couldn't confirm your email was verified. Your link still works, so try again in a minute.";
+const PASSWORD_MISMATCH_MESSAGE = "That isn't the password you chose when you signed up.";
 
 const VerifyEmailSchema = z.object({
 	email: zodRequireEmail,
+});
+
+const SignUpPasswordSchema = z.object({
+	password: zodRequirePassword,
 });
 
 function SendEmailVerification() {
@@ -91,20 +105,226 @@ function SendEmailVerification() {
 	);
 }
 
-// No outcome: a central-manager that keeps the sign-up password when verifying.
-function signsInNext(outcome: string | undefined): boolean {
-	return outcome === undefined || outcome === 'password_set';
+type Submission = 'browserProof' | 'password' | 'newPassword';
+
+function submissionOf(request: VerifyEmailRequest | undefined): Submission | undefined {
+	if (!request) {
+		return undefined;
+	}
+	if (request.newPassword !== undefined) {
+		return 'newPassword';
+	}
+	return request.password !== undefined ? 'password' : 'browserProof';
 }
 
-function VerifyingEmail() {
+function opensSession(response: VerifyEmailResponse): boolean {
+	return (response.outcome === 'verified' || response.outcome === 'password_set') && response.signedIn === true;
+}
+
+function Pending({ message }: { message: string }) {
 	return (
 		<div className="auth-form">
 			<AuthHeading icon={MailCheck} title="Verify Email" />
 			<p role="status" className="auth-pending-message">
-				<LoaderCircle aria-hidden="true" className="auth-loading-icon" />Verifying email...
+				<LoaderCircle aria-hidden="true" className="auth-loading-icon" />
+				{message}
 			</p>
 		</div>
 	);
+}
+
+// The hidden field lets a password manager match the password to its account.
+function SignedUpAs({ email }: { email: string | undefined }) {
+	if (!email) {
+		return null;
+	}
+	return (
+		<>
+			<p className="text-sm">
+				Signed up as <strong>{email}</strong>
+			</p>
+			<input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
+		</>
+	);
+}
+
+function EnterSignUpPassword({ email, pending, mismatch, onSubmit, onChooseNewPassword }: {
+	email: string | undefined;
+	pending: boolean;
+	mismatch: boolean;
+	onSubmit: (password: string) => void;
+	onChooseNewPassword: () => void;
+}) {
+	const methods = useForm({
+		resolver: zodResolver(SignUpPasswordSchema),
+		defaultValues: {
+			password: '',
+		},
+	});
+	const { setFocus, setError, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('password');
+	}, [setFocus]);
+
+	useEffect(() => {
+		if (mismatch) {
+			setError('password', { type: 'server', message: PASSWORD_MISMATCH_MESSAGE }, { shouldFocus: true });
+		}
+	}, [mismatch, setError]);
+
+	return (
+		<div className="auth-form">
+			<AuthHeading icon={KeyRound} title="Verify Email" subtitle="Enter the password you chose when you signed up." />
+			<Form {...methods}>
+				<form
+					id="auth-verify-email-password-form"
+					name="auth-verify-email-password-form"
+					onSubmit={handleSubmit(({ password }) => onSubmit(password))}
+					className="sign-in-form"
+				>
+					<SignedUpAs email={email} />
+					<FormField
+						control={control}
+						name="password"
+						render={({ field }) => (
+							<FormItem className="auth-field">
+								<FormLabel>Password</FormLabel>
+								<AuthInput
+									disabled={pending}
+									type="password"
+									autoComplete="current-password"
+									placeholder="Your password"
+									{...field}
+								/>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<Button type="submit" variant="submit" disabled={pending} className="sign-in-submit">
+						Verify Email
+					</Button>
+				</form>
+			</Form>
+			<div className="auth-links">
+				<button type="button" className="auth-link-button" disabled={pending} onClick={onChooseNewPassword}>
+					Forgot it? Choose a new password
+				</button>
+			</div>
+		</div>
+	);
+}
+
+function ChooseNewPassword({ email, pending, onSubmit, onEnterPassword }: {
+	email: string | undefined;
+	pending: boolean;
+	onSubmit: (newPassword: string) => void;
+	onEnterPassword: () => void;
+}) {
+	const methods = useForm({
+		resolver: zodResolver(NewAccountPasswordSchema),
+		defaultValues: {
+			password: '',
+			confirmPassword: '',
+		},
+	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('password');
+	}, [setFocus]);
+
+	return (
+		<div className="auth-form">
+			<AuthHeading
+				icon={KeyRound}
+				title="Choose a new password"
+				subtitle="It replaces the password you chose when you signed up."
+			/>
+			<Form {...methods}>
+				<form
+					id="auth-verify-email-new-password-form"
+					name="auth-verify-email-new-password-form"
+					onSubmit={handleSubmit(({ password }) => onSubmit(password))}
+					className="sign-in-form"
+				>
+					<SignedUpAs email={email} />
+					<FormField
+						control={control}
+						name="password"
+						render={({ field }) => (
+							<FormItem className="auth-field">
+								<FormLabel>New Password</FormLabel>
+								<AuthInput
+									disabled={pending}
+									type="password"
+									autoComplete="new-password"
+									placeholder="Your new password"
+									passwordLabel="new password"
+									{...field}
+								/>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={control}
+						name="confirmPassword"
+						render={({ field }) => (
+							<FormItem className="auth-field">
+								<FormLabel>Confirm Password</FormLabel>
+								<AuthInput
+									disabled={pending}
+									type="password"
+									autoComplete="new-password"
+									placeholder="Confirm your new password"
+									passwordLabel="password confirmation"
+									{...field}
+								/>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<Button type="submit" variant="submit" disabled={pending} className="sign-in-submit">
+						Set Password and Verify
+					</Button>
+				</form>
+			</Form>
+			<div className="auth-links">
+				<button type="button" className="auth-link-button" disabled={pending} onClick={onEnterPassword}>
+					Remember it? Enter your password instead
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// Without the browser that signed up, verifying takes the sign-up password, or a new one in its place.
+function VerifyWithPassword({ email, pending, mismatch, onSubmit }: {
+	email: string | undefined;
+	pending: boolean;
+	mismatch: boolean;
+	onSubmit: (credential: Pick<VerifyEmailRequest, 'password' | 'newPassword'>) => void;
+}) {
+	const [choosingNewPassword, setChoosingNewPassword] = useState(false);
+	return choosingNewPassword
+		? (
+			<ChooseNewPassword
+				email={email}
+				pending={pending}
+				onSubmit={(newPassword) => onSubmit({ newPassword })}
+				onEnterPassword={() => setChoosingNewPassword(false)}
+			/>
+		)
+		: (
+			<EnterSignUpPassword
+				email={email}
+				pending={pending}
+				mismatch={mismatch}
+				onSubmit={(password) => onSubmit({ password })}
+				onChooseNewPassword={() => setChoosingNewPassword(true)}
+			/>
+		);
 }
 
 function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: string | undefined }) {
@@ -121,8 +341,8 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 				</>
 			);
 		case 'already_verified':
-			// A repeat visit: a reload, a second click, a mail scanner that opened the link first, or a retry
-			// of a request whose answer was lost. The first visit may have replaced the password.
+			// A repeat visit: a reload, a second click, or a retry of a request whose answer was lost. The first
+			// visit may have replaced the password.
 			return (
 				<>
 					<AuthHeading icon={MailCheck} title="Already verified" subtitle="Your email is already verified." />
@@ -153,11 +373,12 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 	}
 }
 
-function SignInLinks() {
+function SignInLinks({ email }: { email: string | undefined }) {
+	const search = email ? { me: email } : undefined;
 	return (
 		<div className="auth-links">
-			<Link className="text-sm" to="/sign-in">Back to sign in</Link>
-			<Link className="text-sm" to="/forgot-password">Forgot password?</Link>
+			<Link className="text-sm" to="/sign-in" search={search}>Back to sign in</Link>
+			<Link className="text-sm" to="/forgot-password" search={search}>Forgot password?</Link>
 		</div>
 	);
 }
@@ -166,7 +387,45 @@ function VerifiedOutcome(props: { outcome: string | undefined; email: string | u
 	return (
 		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
 			<VerifiedCopy {...props} />
-			<SignInLinks />
+			<SignInLinks email={props.email} />
+		</div>
+	);
+}
+
+// Verified, but this page couldn't sign them in: central-manager didn't open a session (Harper staff sign in
+// with Google), or Studio couldn't pick it up.
+function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError }: {
+	email: string;
+	passwordSet?: boolean;
+	newPasswordIgnored?: boolean;
+	signInError?: string;
+}) {
+	const navigate = useNavigate();
+	return (
+		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
+			<AuthHeading
+				icon={MailCheck}
+				title="Email verified"
+				subtitle={passwordSet ? 'Sign in with your new password.' : 'Sign in to continue.'}
+			/>
+			{newPasswordIgnored && (
+				<p>
+					We couldn't save your new password, so sign in with the one you chose when you signed up. If you don't
+					remember it, use Forgot Password.
+				</p>
+			)}
+			<SubmitErrorMessage message={signInError} />
+			<Button
+				type="button"
+				variant="submit"
+				className="sign-in-submit"
+				onClick={() => void navigate({ to: '/sign-in', search: { me: email } })}
+			>
+				Sign In
+			</Button>
+			<div className="auth-links">
+				<Link className="text-sm" to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
+			</div>
 		</div>
 	);
 }
@@ -179,67 +438,136 @@ function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRet
 			<Button type="button" variant="submit" className="sign-in-submit" onClick={onRetry}>
 				Try again
 			</Button>
-			<SignInLinks />
+			<SignInLinks email={undefined} />
 		</div>
 	);
+}
+
+function toastVerified() {
+	toast.success('Success', {
+		description: 'Email verified successfully',
+		action: {
+			label: 'Dismiss',
+			onClick: () => toast.dismiss(),
+		},
+	});
 }
 
 export function VerifyEmail() {
 	const { token: searchToken } = useSearch({ strict: false });
 	// central-manager's tokens are JWTs, which the router's JSON parse of search values leaves as strings.
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
-	const navigate = useNavigate();
 
-	const { mutate: submitEmailVerificationToken, data, error, status } = useVerifyEmailMutation();
+	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
+	const completeSignIn = useCompleteCloudSignIn();
+	const { submitForm: signIn, submitError: signInError } = useCloudSignIn();
 	const submittedToken = useRef<string | undefined>(undefined);
+	const [sessionLost, setSessionLost] = useState(false);
+	// Read once per link, so its address still labels the password form after a rejected proof is cleared.
+	const signUp = useMemo(() => (token ? readSignUpBrowserProof() : null), [token]);
 
-	const submitEmailToken = useCallback(
-		(emailToken: string) => {
-			submitEmailVerificationToken({ token: emailToken }, {
+	const enterApp = useCallback(async () => {
+		let user;
+		try {
+			user = await getCurrentUser();
+		} catch (error) {
+			reportAuthFailure(error);
+			setSessionLost(true);
+			return;
+		}
+		toastVerified();
+		await completeSignIn(user);
+	}, [completeSignIn]);
+
+	const submit = useCallback(
+		(request: VerifyEmailRequest) => {
+			setSessionLost(false);
+			submitVerification(request, {
 				onSuccess: (response) => {
 					// Also skipped when the route dropped this token while its PUT was out.
-					if (submittedToken.current !== emailToken || !signsInNext(response?.outcome)) {
+					if (submittedToken.current !== request.token) {
 						return;
 					}
-					toast.success('Success', {
-						description: 'Email verified successfully',
-						action: {
-							label: 'Dismiss',
-							onClick: () => toast.dismiss(),
-						},
-					});
-					void navigate({ to: '/sign-in' });
+					// Spent or rejected either way: what's left to prove it with is the password.
+					clearSignUpBrowserProof();
+					if (opensSession(response)) {
+						void enterApp();
+					} else if (response.outcome === undefined && request.password !== undefined) {
+						// A central-manager without #781's change verified on the token alone, and opens no session.
+						toastVerified();
+						signIn({ email: response.email, password: request.password });
+					}
 				},
 			});
 		},
-		[submitEmailVerificationToken, navigate],
+		[enterApp, signIn, submitVerification],
 	);
 
-	// Once per arrival of a token. StrictMode runs this twice in development, and the second PUT would
-	// answer `already_verified` and replace the first answer, which may be the only word of a set-password
-	// email. A token that comes back after another one or after none is sent again, and that answer is
-	// explained.
+	// Once per arrival of a token, and only with this browser's sign-up proof: a mail scanner opening the link
+	// has none, and must not verify the email for whoever chose the password. StrictMode runs this twice in
+	// development, and the second PUT would answer `already_verified` and replace the first answer. A token
+	// that comes back after another one or after none is handled again.
 	useEffect(() => {
 		if (!token) {
 			submittedToken.current = undefined;
 		} else if (submittedToken.current !== token) {
 			submittedToken.current = token;
-			submitEmailToken(token);
+			if (signUp) {
+				submit({ token, browserProof: signUp.proof });
+			} else {
+				// Drops an expired proof, and any answer for an earlier link: the page now asks for the password.
+				clearSignUpBrowserProof();
+				reset();
+			}
 		}
-	}, [submitEmailToken, token]);
+	}, [reset, signUp, submit, token]);
 
 	if (token) {
-		if (status === 'idle' || status === 'pending' || (status === 'success' && signsInNext(data?.outcome))) {
-			return <VerifyingEmail />;
+		const submission = submissionOf(variables);
+		const passwordForm = (pending: boolean, mismatch = false) => (
+			<VerifyWithPassword
+				key={token}
+				email={signUp?.email}
+				pending={pending}
+				mismatch={mismatch}
+				onSubmit={(credential) => submit({ token, ...credential })}
+			/>
+		);
+
+		if (status === 'idle') {
+			return signUp ? <Pending message="Verifying email..." /> : passwordForm(false);
+		}
+		if (status === 'pending') {
+			return submission === 'browserProof' ? <Pending message="Verifying email..." /> : passwordForm(true);
 		}
 		if (status === 'success') {
-			return <VerifiedOutcome outcome={data?.outcome} email={data?.email} />;
+			const { outcome, email } = data;
+			if (outcome === 'password_required' || outcome === 'password_mismatch') {
+				return passwordForm(false, outcome === 'password_mismatch');
+			}
+			if (outcome === 'verified' || outcome === 'password_set') {
+				return opensSession(data) && !sessionLost
+					? <Pending message="Signing you in..." />
+					: <SignInToContinue email={email} passwordSet={outcome === 'password_set'} />;
+			}
+			if (outcome === undefined) {
+				return submission === 'password' && !signInError
+					? <Pending message="Signing you in..." />
+					: (
+						<SignInToContinue
+							email={email}
+							newPasswordIgnored={submission === 'newPassword'}
+							signInError={signInError}
+						/>
+					);
+			}
+			return <VerifiedOutcome outcome={outcome} email={email} />;
 		}
-		if (isVerifyEmailUnconfirmed(error)) {
+		if (isVerifyEmailUnconfirmed(error) && variables) {
 			return (
 				<VerificationUnconfirmed
 					offline={error instanceof OfflineSubmitError}
-					onRetry={() => submitEmailToken(token)}
+					onRetry={() => submit(variables)}
 				/>
 			);
 		}

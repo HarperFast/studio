@@ -6,8 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
 	status: 'idle',
 	token: undefined as string | undefined,
+	variables: undefined as object | undefined,
 	mutate: vi.fn(),
+	reset: vi.fn(),
 	navigate: vi.fn(),
+	signIn: vi.fn(),
+	completeSignIn: vi.fn(),
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useRouter: () => ({ invalidate: vi.fn() }),
@@ -16,8 +20,17 @@ vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: PropsWithChildren<{ to?: string }>) => <a href={to || '#'}>{children}</a>,
 }));
 vi.mock('./hooks/useVerifyEmail', () => ({
-	useVerifyEmailMutation: () => ({ mutate: state.mutate, status: state.status }),
+	useVerifyEmailMutation: () => ({
+		mutate: state.mutate,
+		reset: state.reset,
+		status: state.status,
+		variables: state.variables,
+	}),
 	isVerifyEmailUnconfirmed: () => false,
+}));
+vi.mock('./hooks/useCloudSignIn', () => ({
+	useCloudSignIn: () => ({ submitForm: state.signIn }),
+	useCompleteCloudSignIn: () => state.completeSignIn,
 }));
 vi.mock('./hooks/useResendEmailVerification', () => ({
 	useResendEmailVerification: () => ({ mutate: state.mutate, isPending: false }),
@@ -40,6 +53,7 @@ import { Verifying } from './Verifying';
 afterEach(() => {
 	state.status = 'idle';
 	state.token = undefined;
+	state.variables = undefined;
 	vi.clearAllMocks();
 });
 
@@ -62,6 +76,7 @@ describe('verification screens', () => {
 	it('announces verification in progress instead of exposing the resend form', () => {
 		state.status = 'pending';
 		state.token = 'verify-token';
+		state.variables = { token: 'verify-token', browserProof: 'browser-proof' };
 		render(<VerifyEmail />);
 		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
 		expect(screen.queryByLabelText('Email')).toBeNull();

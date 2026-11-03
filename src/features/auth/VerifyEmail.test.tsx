@@ -10,35 +10,53 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post, put } = vi.hoisted(() => ({ post: vi.fn(), put: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post, put } }));
 
-// One navigate for the whole file, matching production's stable one: it sits in a dependency array.
-const { navigate, search } = vi.hoisted(() => ({ navigate: vi.fn(), search: { token: undefined as unknown } }));
+// One navigate and one router for the whole file, matching production's stable ones: both sit in dependency arrays.
+const { navigate, router, search } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	router: { invalidate: vi.fn() },
+	search: { token: undefined as unknown },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
+	useRouter: () => router,
 	useSearch: () => search,
-	Link: ({ children, to, className }: PropsWithChildren<{ to?: string; className?: string }>) => (
-		<a href={to} className={className}>{children}</a>
-	),
+	Link: ({ children, to, search, className }: PropsWithChildren<
+		{ to?: string; search?: Record<string, string>; className?: string }
+	>) => <a href={`${to}${search ? `?${new URLSearchParams(search)}` : ''}`} className={className}>{children}</a>,
 }));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), dismiss: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
+const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
+vi.mock('@/features/auth/queries/getCurrentUser', () => ({ getCurrentUser, currentUserQueryKey: ['current-user'] }));
+vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi.fn() }));
+vi.mock('@/integrations/reo/reo', () => ({ reoClient: undefined }));
+vi.mock('@/lib/urls/getDefaultSignedInCloudRouteForUser', () => ({
+	getDefaultSignedInCloudRouteForUser: () => '/default-org',
+}));
+
+import { authStore } from '@/features/auth/store/authStore';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 // The app's own routing, so a failure that also reached the global toast would show up here.
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OFFLINE_MESSAGE } from './failFastOffline';
+import { SIGN_UP_BROWSER_PROOF_TTL_MS, storeSignUpBrowserProof } from './signUpBrowserProof';
 import { VerifyEmail } from './VerifyEmail';
 
 const UNCONFIRMED = /couldn't confirm your email was verified\. Your link still works/;
+const SIGNED_UP_EMAIL = 'ada@example.com';
+const USER = { id: 'u1', email: SIGNED_UP_EMAIL };
 
 // The shape axios rejects with: `isUnansweredWrite` needs the request's `config`.
 const verifyRequest = { method: 'put', url: '/VerifyEmail/' };
 
-function axiosError(status: number, data?: unknown): AxiosError {
+function axiosError(status: number, data?: unknown, config: object = verifyRequest): AxiosError {
 	return {
 		isAxiosError: true,
 		code: 'ERR_BAD_RESPONSE',
 		message: `Request failed with status code ${status}`,
-		config: verifyRequest,
+		config,
 		response: { status, data },
 	} as AxiosError;
 }
@@ -55,8 +73,23 @@ const offlineRejection = {
 	config: { ...verifyRequest, baseURL: 'https://central-manager.example.com/' },
 } as AxiosError;
 
-function answer(outcome?: string) {
-	return { data: { userId: 'u1', email: 'ada@example.com', ...(outcome === undefined ? {} : { outcome }) } };
+function answer(outcome?: string, signedIn?: boolean) {
+	return {
+		data: {
+			userId: 'u1',
+			email: SIGNED_UP_EMAIL,
+			...(outcome === undefined ? {} : { outcome }),
+			...(signedIn === undefined ? {} : { signedIn }),
+		},
+	};
+}
+
+function storeProof() {
+	storeSignUpBrowserProof('browser-proof', SIGNED_UP_EMAIL);
+}
+
+function storedProof() {
+	return localStorage.getItem(LocalStorageKeys.SignUpBrowserProof);
 }
 
 let queryClient: QueryClient;
@@ -76,13 +109,41 @@ function signInLinks() {
 	};
 }
 
+const PREFILLED = { signIn: '/sign-in?me=ada%40example.com', forgotPassword: '/forgot-password?me=ada%40example.com' };
+
+function enterPassword(password: string) {
+	fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } });
+	fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
+}
+
+function chooseNewPassword(password: string, confirmation = password) {
+	fireEvent.click(screen.getByRole('button', { name: 'Forgot it? Choose a new password' }));
+	fireEvent.change(screen.getByLabelText('New Password'), { target: { value: password } });
+	fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirmation } });
+	fireEvent.click(screen.getByRole('button', { name: 'Set Password and Verify' }));
+}
+
+async function expectSignedIntoApp() {
+	await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/default-org' }));
+	expect(authStore.setUserForEntity).toHaveBeenCalledWith('OverallAppSignIn', USER);
+	expect(router.invalidate).toHaveBeenCalled();
+	expect(toast.success).toHaveBeenCalledWith(
+		'Success',
+		expect.objectContaining({ description: 'Email verified successfully' }),
+	);
+}
+
 beforeEach(() => {
 	// mockReset, not the afterEach mockClear: a queued mockResolvedValueOnce would otherwise answer the next test.
 	put.mockReset();
 	post.mockReset();
+	getCurrentUser.mockReset();
+	localStorage.clear();
 	queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
 	search.token = 'verify-token';
 	vi.spyOn(console, 'error').mockImplementation(() => {});
+	vi.spyOn(console, 'debug').mockImplementation(() => {});
+	vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -92,34 +153,91 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('VerifyEmail with a token', () => {
-	// A central-manager that keeps the sign-up password answers without an outcome.
-	it('sends a verify with no outcome to sign in, as before', async () => {
+describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
+	beforeEach(storeProof);
+
+	it('sends the proof with the token, and shows "Verifying" instead of flashing a form', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		render(page());
+
+		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token', browserProof: 'browser-proof' })
+		);
+		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
+		expect(screen.queryByLabelText('Password')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Send Verification Email' })).toBeNull();
+	});
+
+	it('takes a verify that opened a session into the app, as a sign-in does, and forgets the proof', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		getCurrentUser.mockResolvedValue(USER);
+		render(page());
+
+		await expectSignedIntoApp();
+		expect(storedProof()).toBeNull();
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('says "Signing you in" while it loads the user', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		getCurrentUser.mockReturnValue(new Promise(() => {}));
+		render(page());
+
+		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Signing you in...'));
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('asks them to sign in when the session it opened can’t be loaded', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		const rejection = axiosError(401, undefined, { method: 'get', url: '/User/current' });
+		getCurrentUser.mockRejectedValue(rejection);
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(console.error).toHaveBeenCalledWith(rejection);
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('asks them to sign in, with the address filled in, when central-manager opened no session', async () => {
+		put.mockResolvedValue(answer('verified', false));
+		render(page());
+
+		expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeTruthy();
+		expect(screen.getByText('Sign in to continue.')).toBeTruthy();
+		expect(storedProof()).toBeNull();
+		expect(getCurrentUser).not.toHaveBeenCalled();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', search: { me: SIGNED_UP_EMAIL } });
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).getAttribute('href')).toBe(PREFILLED.forgotPassword);
+	});
+
+	it('asks for the password when central-manager rejects the proof, and forgets it', async () => {
+		put.mockResolvedValue(answer('password_required', false));
+		render(page());
+
+		expect(await screen.findByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		expect(screen.getByText(SIGNED_UP_EMAIL).tagName).toBe('STRONG');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).autocomplete).toBe('current-password');
+		expect(storedProof()).toBeNull();
+		expect(put).toHaveBeenCalledTimes(1);
+	});
+
+	// A central-manager without #781's change verified on the token alone, and opened no session.
+	it('asks them to sign in after a verify with no outcome', async () => {
 		put.mockResolvedValue(answer());
 		render(page());
 
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
-		expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token' });
-		expect(toast.success).toHaveBeenCalledWith(
-			'Success',
-			expect.objectContaining({ description: 'Email verified successfully' }),
-		);
-	});
-
-	it('sends password_set to sign in', async () => {
-		put.mockResolvedValue(answer('password_set'));
-		render(page());
-
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
-		expect(toast.success).toHaveBeenCalledWith(
-			'Success',
-			expect.objectContaining({ description: 'Email verified successfully' }),
-		);
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(storedProof()).toBeNull();
+		expect(post).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	// A repeat visit, after which the sign-up password may already have been replaced.
 	it('stays on the page for already_verified, pointing at the set-password email, without claiming a password was saved', async () => {
-		put.mockResolvedValue(answer('already_verified'));
+		put.mockResolvedValue(answer('already_verified', false));
 		render(page());
 
 		expect(await screen.findByRole('heading', { name: 'Already verified' })).toBeTruthy();
@@ -127,32 +245,7 @@ describe('VerifyEmail with a token', () => {
 		expect(status).toMatch(/If we emailed you a link to set your password, use it before signing in\./);
 		expect(status).toMatch(/use Forgot Password/);
 		expect(status).not.toMatch(/successfully|password (?:was|has been) (?:set|saved)/i);
-		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
-		expect(navigate).not.toHaveBeenCalled();
-		expect(toast.success).not.toHaveBeenCalled();
-	});
-
-	it('stays on the page for reset_email_sent and says the sign-up password was replaced', async () => {
-		put.mockResolvedValue(answer('reset_email_sent'));
-		render(page());
-
-		expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeTruthy();
-		expect(screen.getByText(/the password you chose when signing up has been replaced/)).toBeTruthy();
-		expect(screen.getByText('ada@example.com').tagName).toBe('STRONG');
-		expect(screen.getByText('Check your inbox to set your password.')).toBeTruthy();
-		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
-		expect(navigate).not.toHaveBeenCalled();
-		expect(toast.success).not.toHaveBeenCalled();
-	});
-
-	it('points password_reset_required at Forgot Password', async () => {
-		put.mockResolvedValue(answer('password_reset_required'));
-		render(page());
-
-		expect(await screen.findByText('Set a new password to sign in.')).toBeTruthy();
-		expect(screen.getByText(/couldn't send you a\s+link to set a new one\. Use Forgot Password to get one\./))
-			.toBeTruthy();
-		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual(PREFILLED);
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
 	});
@@ -165,25 +258,8 @@ describe('VerifyEmail with a token', () => {
 		expect(screen.getByText("If your password doesn't work when you sign in, use Forgot Password to set a new one."))
 			.toBeTruthy();
 		expect(screen.queryByText(/has been replaced/)).toBeNull();
-		expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+		expect(signInLinks()).toEqual(PREFILLED);
 		expect(navigate).not.toHaveBeenCalled();
-	});
-
-	it('shows "Verifying" before the first answer instead of flashing the resend form', () => {
-		put.mockReturnValue(new Promise(() => {}));
-		render(page());
-
-		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
-		expect(screen.queryByRole('button', { name: 'Send Verification Email' })).toBeNull();
-	});
-
-	// Tokens are JWTs, which the router's JSON parse never turns into anything else.
-	it.each([12345, 0, true, null])('treats a search value the router parsed into %s as no token', (value) => {
-		search.token = value;
-		render(page());
-
-		expect(screen.getByRole('button', { name: 'Send Verification Email' })).toBeTruthy();
-		expect(put).not.toHaveBeenCalled();
 	});
 
 	describe('submits once per token', () => {
@@ -207,7 +283,7 @@ describe('VerifyEmail with a token', () => {
 			expect(put).toHaveBeenCalledTimes(1);
 		});
 
-		it('and again for a different token', async () => {
+		it('and again for a different token, which a spent proof leaves to the password', async () => {
 			put.mockResolvedValue(answer('reset_email_sent'));
 			const { rerender } = render(page());
 			await screen.findByText('Check your inbox to set your password.');
@@ -215,26 +291,23 @@ describe('VerifyEmail with a token', () => {
 			search.token = 'another-token';
 			rerender(page());
 
-			await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
-			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'another-token' });
+			expect(await screen.findByText('Enter the password you chose when you signed up.')).toBeTruthy();
+			expect(put).toHaveBeenCalledTimes(1);
 		});
 
-		it('and sends a token that comes back after another, explaining the repeat answer', async () => {
-			put.mockResolvedValueOnce(answer('reset_email_sent')).mockResolvedValueOnce(answer('reset_email_sent'))
-				.mockResolvedValueOnce(answer('already_verified'));
+		it('and sends a proof again for a token that comes back after another', async () => {
+			put.mockResolvedValueOnce(answer('password_required')).mockResolvedValueOnce(answer('already_verified'));
 			const { rerender } = render(page());
-			await screen.findByText('Check your inbox to set your password.');
+			await screen.findByText('Enter the password you chose when you signed up.');
 			search.token = 'another-token';
 			rerender(page());
-			await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
-			await screen.findByText('Check your inbox to set your password.');
+			storeProof();
 
 			search.token = 'verify-token';
 			rerender(page());
 
 			expect(await screen.findByRole('heading', { name: 'Already verified' })).toBeTruthy();
-			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token' });
-			expect(navigate).not.toHaveBeenCalled();
+			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', browserProof: 'browser-proof' });
 		});
 
 		it('and sends a token again when it comes back after none, so a failed one gets another try', async () => {
@@ -263,7 +336,7 @@ describe('VerifyEmail with a token', () => {
 			vi.useFakeTimers();
 		});
 
-		it('says the link still works and offers a retry instead of a new link, with no toast', async () => {
+		it('says the link still works and offers a retry instead of a new link, with no toast, keeping the proof', async () => {
 			put.mockRejectedValue(
 				axiosError(503, { title: 'Verification could not start right now; retry with the same link' }),
 			);
@@ -275,6 +348,7 @@ describe('VerifyEmail with a token', () => {
 			expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: 'Send Verification Email' })).toBeNull();
 			expect(toast.error).not.toHaveBeenCalled();
+			expect(storedProof()).not.toBeNull();
 		});
 
 		// The first attempt may have landed before its answer was lost.
@@ -288,7 +362,7 @@ describe('VerifyEmail with a token', () => {
 			expect(navigate).not.toHaveBeenCalled();
 		});
 
-		it('resubmits the same token on Try again', async () => {
+		it('resubmits the same proof on Try again', async () => {
 			put.mockRejectedValue(axiosError(503));
 			render(page());
 			await exhaustRetries();
@@ -301,7 +375,7 @@ describe('VerifyEmail with a token', () => {
 			await act(() => vi.advanceTimersByTimeAsync(100));
 
 			expect(put).toHaveBeenCalledTimes(1);
-			expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token' });
+			expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token', browserProof: 'browser-proof' });
 			expect(screen.getByText('Check your inbox to set your password.')).toBeTruthy();
 		});
 
@@ -340,7 +414,6 @@ describe('VerifyEmail with a token', () => {
 
 	describe('sent while offline', () => {
 		beforeEach(() => {
-			vi.spyOn(console, 'debug').mockImplementation(() => {});
 			onlineManager.setOnline(false);
 		});
 
@@ -348,7 +421,7 @@ describe('VerifyEmail with a token', () => {
 			onlineManager.setOnline(true);
 		});
 
-		it('says so and keeps the link, then resubmits the same token on Try again once back online', async () => {
+		it('says so and keeps the link, then resubmits the same proof on Try again once back online', async () => {
 			put.mockRejectedValueOnce(offlineRejection).mockResolvedValueOnce(answer('reset_email_sent'));
 			render(page());
 
@@ -364,7 +437,7 @@ describe('VerifyEmail with a token', () => {
 
 			expect(await screen.findByText('Check your inbox to set your password.')).toBeTruthy();
 			expect(put).toHaveBeenCalledTimes(2);
-			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token' });
+			expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', browserProof: 'browser-proof' });
 		});
 
 		it('says it is offline again for a retry that is still offline', async () => {
@@ -386,17 +459,18 @@ describe('VerifyEmail with a token', () => {
 
 		search.token = undefined;
 		rerender(page());
-		await act(async () => resolve(answer()));
+		await act(async () => resolve(answer('verified', true)));
 
 		expect(screen.getByRole('button', { name: 'Send Verification Email' })).toBeTruthy();
+		expect(getCurrentUser).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
-		expect(toast.success).not.toHaveBeenCalled();
+		expect(storedProof()).not.toBeNull();
 	});
 
 	it.each([
 		['an invalid or expired link', 401, { title: 'Invalid or expired verify token' }],
 		['an account still signing up', 403, { title: 'Finish signing up before verifying your email' }],
-	])('toasts %s and falls back to requesting a new link, as before', async (_case, status, data) => {
+	])('toasts %s and falls back to requesting a new link, keeping the proof for it', async (_case, status, data) => {
 		put.mockRejectedValue(axiosError(status, data));
 		render(page());
 
@@ -404,16 +478,211 @@ describe('VerifyEmail with a token', () => {
 		expect(toast.error).toHaveBeenCalledTimes(1);
 		expect(put).toHaveBeenCalledTimes(1);
 		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		expect(storedProof()).not.toBeNull();
+	});
+});
+
+describe('VerifyEmail with a token and no sign-up proof', () => {
+	// What a mail scanner opening the link sees: it no longer verifies the email by itself.
+	it('asks for the sign-up password and sends nothing', () => {
+		render(page());
+
+		expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		const password = screen.getByLabelText('Password') as HTMLInputElement;
+		expect(password.autocomplete).toBe('current-password');
+		expect(screen.queryByText(/Signed up as/)).toBeNull();
+		expect(put).not.toHaveBeenCalled();
+	});
+
+	it('treats an expired proof as none, and forgets it', () => {
+		storeSignUpBrowserProof('browser-proof', SIGNED_UP_EMAIL, Date.now() - SIGN_UP_BROWSER_PROOF_TTL_MS - 1);
+		render(page());
+
+		expect(screen.getByLabelText('Password')).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+		expect(storedProof()).toBeNull();
+	});
+
+	it('requires a password before sending one', async () => {
+		render(page());
+		fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
+
+		expect(await screen.findByText('Please enter your password.')).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
+	});
+
+	it('sends the password with the token, keeps the form while it is out, and signs in on the session it opened', async () => {
+		let resolve!: (value: unknown) => void;
+		put.mockReturnValue(new Promise((r) => (resolve = r)));
+		getCurrentUser.mockResolvedValue(USER);
+		render(page());
+
+		enterPassword('correct horse');
+
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token', password: 'correct horse' })
+		);
+		expect((screen.getByRole('button', { name: 'Verify Email' }) as HTMLButtonElement).disabled).toBe(true);
+		await act(async () => resolve(answer('verified', true)));
+
+		await expectSignedIntoApp();
+	});
+
+	it('says a wrong password is wrong, on the field, offers a new one, and takes the right one next', async () => {
+		put.mockResolvedValueOnce(answer('password_mismatch', false)).mockResolvedValueOnce(answer('verified', false));
+		render(page());
+
+		enterPassword('wrong horse');
+
+		expect(await screen.findByText("That isn't the password you chose when you signed up.")).toBeTruthy();
+		expect(screen.getByLabelText('Password').getAttribute('aria-invalid')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Forgot it? Choose a new password' })).toBeTruthy();
+
+		enterPassword('correct horse');
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', password: 'correct horse' });
+	});
+
+	describe('choosing a new password', () => {
+		it.each([
+			['a short one', 'short', 'short', 'Password must be at least 8 characters long.'],
+			['a mismatched confirmation', 'correct horse', 'correct house', 'Passwords do not match.'],
+		])('refuses %s before sending it', async (_case, password, confirmation, message) => {
+			render(page());
+			chooseNewPassword(password, confirmation);
+
+			expect(await screen.findByText(message)).toBeTruthy();
+			expect(put).not.toHaveBeenCalled();
+		});
+
+		it('sends it as newPassword and signs in on the session it opened', async () => {
+			put.mockResolvedValue(answer('password_set', true));
+			getCurrentUser.mockResolvedValue(USER);
+			render(page());
+
+			chooseNewPassword('battery staple');
+
+			await expectSignedIntoApp();
+			expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token', newPassword: 'battery staple' });
+		});
+
+		it('asks them to sign in with it when central-manager opened no session', async () => {
+			put.mockResolvedValue(answer('password_set', false));
+			render(page());
+
+			chooseNewPassword('battery staple');
+
+			expect(await screen.findByText('Sign in with your new password.')).toBeTruthy();
+			expect(getCurrentUser).not.toHaveBeenCalled();
+		});
+
+		// central-manager ignores a newPassword sent with a link older than its reset-token window.
+		it('stays on the page for reset_email_sent and says the sign-up password was replaced', async () => {
+			put.mockResolvedValue(answer('reset_email_sent', false));
+			render(page());
+
+			chooseNewPassword('battery staple');
+
+			expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeTruthy();
+			expect(screen.getByText(/the password you chose when signing up has been replaced/)).toBeTruthy();
+			expect(screen.getByText(SIGNED_UP_EMAIL).tagName).toBe('STRONG');
+			expect(screen.getByText('Check your inbox to set your password.')).toBeTruthy();
+			expect(signInLinks()).toEqual(PREFILLED);
+			expect(navigate).not.toHaveBeenCalled();
+			expect(toast.success).not.toHaveBeenCalled();
+		});
+
+		it('points password_reset_required at Forgot Password', async () => {
+			put.mockResolvedValue(answer('password_reset_required', false));
+			render(page());
+
+			chooseNewPassword('battery staple');
+
+			expect(await screen.findByText('Set a new password to sign in.')).toBeTruthy();
+			expect(screen.getByText(/couldn't send you a\s+link to set a new one\. Use Forgot Password to get one\./))
+				.toBeTruthy();
+			expect(signInLinks()).toEqual(PREFILLED);
+			expect(navigate).not.toHaveBeenCalled();
+		});
+
+		it('goes back to the sign-up password on request', () => {
+			render(page());
+			fireEvent.click(screen.getByRole('button', { name: 'Forgot it? Choose a new password' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Remember it? Enter your password instead' }));
+
+			expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		});
+	});
+
+	describe('against a central-manager without #781’s change, which verifies on the token alone', () => {
+		it('signs in with the password they typed', async () => {
+			put.mockResolvedValue(answer());
+			post.mockResolvedValue({ data: USER });
+			render(page());
+
+			enterPassword('correct horse');
+
+			await expectSignedIntoApp();
+			expect(post).toHaveBeenCalledWith('/Login/', { email: SIGNED_UP_EMAIL, password: 'correct horse' });
+			expect(getCurrentUser).not.toHaveBeenCalled();
+		});
+
+		it('says the email is verified and shows why sign-in failed', async () => {
+			put.mockResolvedValue(answer());
+			post.mockRejectedValue(axiosError(401, { title: 'Invalid email or password' }, { url: '/Login/' }));
+			render(page());
+
+			enterPassword('wrong horse');
+
+			expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+			expect(screen.getByRole('alert').textContent).toBe('Invalid email or password');
+			expect(navigate).not.toHaveBeenCalled();
+		});
+
+		it('says a new password was not saved, and does not sign in with it', async () => {
+			put.mockResolvedValue(answer());
+			render(page());
+
+			chooseNewPassword('battery staple');
+
+			expect(await screen.findByText(/We couldn't save your new password/)).toBeTruthy();
+			expect(post).not.toHaveBeenCalled();
+			expect(navigate).not.toHaveBeenCalled();
+		});
+	});
+
+	it('resubmits the same password on Try again', async () => {
+		put.mockRejectedValueOnce(axiosError(502)).mockResolvedValueOnce(answer('verified', false));
+		render(page());
+
+		enterPassword('correct horse');
+		fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(put).toHaveBeenCalledTimes(2);
+		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', password: 'correct horse' });
+	});
+
+	// Tokens are JWTs, which the router's JSON parse never turns into anything else.
+	it.each([12345, 0, true, null])('treats a search value the router parsed into %s as no token', (value) => {
+		search.token = value;
+		render(page());
+
+		expect(screen.getByRole('button', { name: 'Send Verification Email' })).toBeTruthy();
+		expect(put).not.toHaveBeenCalled();
 	});
 });
 
 describe('VerifyEmail without a token', () => {
-	it('asks for an address to send a new link to, and verifies nothing', () => {
+	it('asks for an address to send a new link to, and verifies nothing, even with a proof', () => {
+		storeProof();
 		search.token = undefined;
 		render(page());
 
 		expect(screen.getByText('Enter your email to receive a verification link.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Send Verification Email' })).toBeTruthy();
 		expect(put).not.toHaveBeenCalled();
+		expect(storedProof()).not.toBeNull();
 	});
 });

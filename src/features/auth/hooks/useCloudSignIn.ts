@@ -18,11 +18,35 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
-export function useCloudSignIn() {
+/** Takes a user central-manager has just opened a session for into the app: Login's answer, or a verified email's. */
+export function useCompleteCloudSignIn() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const { redirect } = useSearch({ strict: false });
+
+	return useCallback(async (user: User) => {
+		authStore.setUserForEntity(OverallAppSignIn, user);
+		clearUtmParamsFromUrl();
+		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+
+		loginSuccessDatadogAction(user);
+
+		const company = parseCompanyFromEmail(user.email);
+		reoClient?.identify?.({
+			username: user.email,
+			type: 'email',
+			...(company ? { company } : {}),
+		});
+		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+		void router.invalidate();
+		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+	}, [navigate, queryClient, redirect, router]);
+}
+
+export function useCloudSignIn() {
+	const navigate = useNavigate();
+	const completeSignIn = useCompleteCloudSignIn();
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
@@ -33,23 +57,7 @@ export function useCloudSignIn() {
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		setSubmitError(undefined);
 		submitLoginData(formData, {
-			onSuccess: async (data) => {
-				authStore.setUserForEntity(OverallAppSignIn, data);
-				clearUtmParamsFromUrl();
-				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
-
-				loginSuccessDatadogAction(data);
-
-				const company = parseCompanyFromEmail(data.email);
-				reoClient?.identify?.({
-					username: data.email,
-					type: 'email',
-					...(company ? { company } : {}),
-				});
-				await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-				void router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
-			},
+			onSuccess: completeSignIn,
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
 			// can special-case the unverified-email rejection instead of dead-ending on a red toast.
 			onError: (error) => {
@@ -71,7 +79,7 @@ export function useCloudSignIn() {
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [navigate, queryClient, redirect, resendEmailVerification, router, submitLoginData]);
+	}, [completeSignIn, navigate, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,

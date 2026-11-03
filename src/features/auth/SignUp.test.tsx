@@ -581,3 +581,68 @@ describe('SignUp — offline', () => {
 		expect(post).toHaveBeenCalledTimes(3);
 	});
 });
+
+describe('SignUp — browser proof', () => {
+	const VERIFYING = { to: '/verifying?email=taken%40example.com' };
+
+	beforeEach(() => {
+		localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('keeps central-manager’s browser proof for the address, for a day', async () => {
+		post.mockResolvedValue({
+			data: 'Check your email to continue signing up',
+			headers: { 'x-signup-browser-proof': 'proof-from-header' },
+		});
+		const before = Date.now();
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		const stored = JSON.parse(localStorage.getItem('SignUpBrowserProof') ?? 'null');
+		expect(stored).toMatchObject({ proof: 'proof-from-header', email: 'taken@example.com' });
+		expect(stored.expiresAt).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000);
+		expect(stored.expiresAt).toBeLessThanOrEqual(Date.now() + 24 * 60 * 60 * 1000);
+	});
+
+	// A central-manager without central-manager#781's change.
+	it('stores nothing when the answer carries no proof', async () => {
+		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		expect(localStorage.getItem('SignUpBrowserProof')).toBeNull();
+	});
+
+	it('still signs up when storage refuses the proof, and reports nothing', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+			throw new DOMException('The operation is insecure.', 'SecurityError');
+		});
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+		post.mockResolvedValue({
+			data: 'Check your email to continue signing up',
+			headers: { 'x-signup-browser-proof': 'proof-from-header' },
+		});
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(consoleError).not.toHaveBeenCalled();
+	});
+});
