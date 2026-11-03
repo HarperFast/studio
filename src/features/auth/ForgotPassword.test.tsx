@@ -10,10 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, historyState } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	historyState: {} as { prefillEmail?: string },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useSearch: () => ({}),
+	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
+		select({ state: historyState }),
 	Link: ({ children }: PropsWithChildren) => <a>{children}</a>,
 }));
 
@@ -85,6 +90,18 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.clearAllMocks());
+
+describe('ForgotPassword — prefill', () => {
+	it('fills in the address it was handed in history state', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		try {
+			const { container } = renderForm();
+			expect((container.querySelector('input[type="email"]') as HTMLInputElement).value).toBe('ada@example.com');
+		} finally {
+			delete historyState.prefillEmail;
+		}
+	});
+});
 
 describe('ForgotPassword — reCAPTCHA', () => {
 	it('mints a forgot_password token at submit and sends it as captchaToken', async () => {

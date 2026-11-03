@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
@@ -379,11 +379,11 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 }
 
 function SignInLinks({ email }: { email: string | undefined }) {
-	const search = email ? { me: email } : undefined;
+	const state = email ? { prefillEmail: email } : undefined;
 	return (
 		<div className="auth-links">
-			<Link className="text-sm" to="/sign-in" search={search}>Back to sign in</Link>
-			<Link className="text-sm" to="/forgot-password" search={search}>Forgot password?</Link>
+			<Link className="text-sm" to="/sign-in" state={state}>Back to sign in</Link>
+			<Link className="text-sm" to="/forgot-password" state={state}>Forgot password?</Link>
 		</div>
 	);
 }
@@ -424,12 +424,14 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 				type="button"
 				variant="submit"
 				className="sign-in-submit"
-				onClick={() => void navigate({ to: '/sign-in', search: { me: email } })}
+				onClick={() => void navigate({ to: '/sign-in', state: { prefillEmail: email } })}
 			>
 				Sign In
 			</Button>
 			<div className="auth-links">
-				<Link className="text-sm" to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
+				<Link className="text-sm" to="/forgot-password" state={{ prefillEmail: email }}>
+					Forgot password?
+				</Link>
 			</div>
 		</div>
 	);
@@ -467,28 +469,40 @@ export function VerifyEmail() {
 	const completeSignIn = useCompleteCloudSignIn();
 	const { submitForm: signIn, submitError: signInError, clearSubmitError: clearSignInError } = useCloudSignIn();
 	const submittedToken = useRef<string | undefined>(undefined);
+	const mounted = useRef(false);
 	const [sessionLost, setSessionLost] = useState(false);
 	// The link's account, from central-manager's answer: a stored proof may be another sign-up's.
 	const [accountEmail, setAccountEmail] = useState<string>();
 	const [retrying, setRetrying] = useState(false);
 	const proof = useMemo(() => (token ? readNewestSignUpBrowserProof() : null), [token]);
 
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+		};
+	}, []);
+
 	const enterApp = useCallback(async (verifiedToken: string) => {
 		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
-		let user;
-		try {
-			user = await getCurrentUser();
-		} catch (error) {
-			if (submittedToken.current === verifiedToken) {
+		const stillHere = () => mounted.current && submittedToken.current === verifiedToken;
+		const failed = (error: unknown) => {
+			if (stillHere()) {
 				reportAuthFailure(error);
 				setSessionLost(true);
 			}
+		};
+		let user;
+		try {
+			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
+			user = await fetchCurrentUser();
+		} catch (error) {
+			failed(error);
 			return;
 		}
-		// A sign-out or another sign-in since the GET went out, as `getCurrentUser` itself guards.
 		if (
-			submittedToken.current !== verifiedToken
+			!stillHere()
 			|| authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
 			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
 		) {
@@ -498,8 +512,7 @@ export function VerifyEmail() {
 			toastVerified();
 			await completeSignIn(user);
 		} catch (error) {
-			reportAuthFailure(error);
-			setSessionLost(true);
+			failed(error);
 		}
 	}, [completeSignIn]);
 
@@ -508,7 +521,6 @@ export function VerifyEmail() {
 			setSessionLost(false);
 			clearSignInError();
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
-				// Also skipped when the route dropped this token while its PUT was out.
 				if (submittedToken.current !== sent.token) {
 					return;
 				}
@@ -522,7 +534,6 @@ export function VerifyEmail() {
 					submitVerification(retry, { onSuccess: (answer) => onSuccess(retry, answer) });
 					return;
 				}
-				// Spent or rejected either way: what's left to prove it with is the password.
 				clearSignUpBrowserProof(response.email);
 				if (opensSession(response)) {
 					void enterApp(sent.token);
@@ -552,7 +563,6 @@ export function VerifyEmail() {
 				submit({ token, browserProof: proof.proof });
 			} else {
 				clearSignUpBrowserProof(undefined);
-				// Any answer for an earlier link: the page now asks for the password.
 				reset();
 			}
 		}

@@ -44,6 +44,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 vi.mock('./queries/getCurrentUser', () => ({
 	currentUserQueryKey: ['currentUser'],
 	getCurrentUser: () => new Promise(() => {}),
+	fetchCurrentUser: () => new Promise(() => {}),
 }));
 vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi.fn() }));
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));

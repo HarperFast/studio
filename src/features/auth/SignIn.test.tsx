@@ -11,11 +11,17 @@ const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
 // One router object for the whole file, matching production's stable one.
-const { navigate, router } = vi.hoisted(() => ({ navigate: vi.fn(), router: { invalidate: vi.fn() } }));
+const { navigate, router, historyState } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	router: { invalidate: vi.fn() },
+	historyState: {} as { prefillEmail?: string },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
 	useSearch: () => ({}),
+	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
+		select({ state: historyState }),
 	Link: ({ children, ...rest }: PropsWithChildren<{ className?: string }>) => <a {...rest}>{children}</a>,
 }));
 
@@ -68,6 +74,17 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignIn', () => {
+	// How the verify page hands over an address without putting it in the URL.
+	it('fills in the address it was handed in history state', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		try {
+			renderSignIn();
+			expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('ada@example.com');
+		} finally {
+			delete historyState.prefillEmail;
+		}
+	});
+
 	it('reveals and hides the password without submitting or changing its value', () => {
 		renderSignIn();
 		fillValidForm();

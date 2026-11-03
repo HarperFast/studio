@@ -15,17 +15,19 @@ import { GoogleAuthenticationButton } from './components/GoogleAuthenticationBut
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { useCloudSignIn } from './hooks/useCloudSignIn';
 import { useLastUsedSignInMethod } from './hooks/useLastUsedSignInMethod';
+import { usePrefillEmail } from './prefillEmail';
 
 const rememberControlClassName =
 	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 
 	const methods = useForm({
 		resolver: zodResolver(EmailSignInSchema),
 		defaultValues: {
-			email: formPersistenceEmail || '',
+			email: formPersistenceEmail || prefillEmail || '',
 			password: '',
 		},
 	});

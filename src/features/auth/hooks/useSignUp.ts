@@ -21,7 +21,6 @@ export async function onSignUpSubmit({ captchaToken, ...signUpCredentials }: Sig
 		...(captchaToken ? { captchaToken } : {}),
 	});
 	if (data) {
-		// Absent from a central-manager without #781's change.
 		const browserProof = headers?.[SIGN_UP_BROWSER_PROOF_HEADER];
 		if (typeof browserProof === 'string' && browserProof) {
 			storeSignUpBrowserProof(browserProof, signUpCredentials.email);

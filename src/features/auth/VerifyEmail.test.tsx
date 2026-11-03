@@ -20,15 +20,15 @@ vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
 	useSearch: () => search,
-	Link: ({ children, to, search, className }: PropsWithChildren<
-		{ to?: string; search?: Record<string, string>; className?: string }
-	>) => <a href={`${to}${search ? `?${new URLSearchParams(search)}` : ''}`} className={className}>{children}</a>,
+	Link: ({ children, to, state, className }: PropsWithChildren<
+		{ to?: string; state?: { prefillEmail?: string }; className?: string }
+	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
 
-const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
-vi.mock('@/features/auth/queries/getCurrentUser', () => ({ getCurrentUser, currentUserQueryKey: ['current-user'] }));
+const { fetchCurrentUser } = vi.hoisted(() => ({ fetchCurrentUser: vi.fn() }));
+vi.mock('@/features/auth/queries/getCurrentUser', () => ({ fetchCurrentUser, currentUserQueryKey: ['current-user'] }));
 vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi.fn() }));
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: undefined }));
 vi.mock('@/lib/urls/getDefaultSignedInCloudRouteForUser', () => ({
@@ -36,6 +36,7 @@ vi.mock('@/lib/urls/getDefaultSignedInCloudRouteForUser', () => ({
 }));
 
 import { authStore } from '@/features/auth/store/authStore';
+import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 // The app's own routing, so a failure that also reached the global toast would show up here.
 import { mutationErrorHandler } from '@/react-query/queryClient';
@@ -104,14 +105,24 @@ function page(): ReactNode {
 	);
 }
 
-function signInLinks() {
-	return {
-		signIn: screen.getByRole('link', { name: 'Back to sign in' }).getAttribute('href'),
-		forgotPassword: screen.getByRole('link', { name: 'Forgot password?' }).getAttribute('href'),
-	};
+// The address rides in history state, never the URL: every analytics pixel reads the URL.
+function linkTarget(name: string) {
+	const link = screen.getByRole('link', { name });
+	return { href: link.getAttribute('href'), prefillEmail: link.getAttribute('data-prefill-email') };
 }
 
-const PREFILLED = { signIn: '/sign-in?me=ada%40example.com', forgotPassword: '/forgot-password?me=ada%40example.com' };
+function signInLinks() {
+	return { signIn: linkTarget('Back to sign in'), forgotPassword: linkTarget('Forgot password?') };
+}
+
+const PREFILLED = {
+	signIn: { href: '/sign-in', prefillEmail: SIGNED_UP_EMAIL },
+	forgotPassword: { href: '/forgot-password', prefillEmail: SIGNED_UP_EMAIL },
+};
+const NOT_PREFILLED = {
+	signIn: { href: '/sign-in', prefillEmail: null },
+	forgotPassword: { href: '/forgot-password', prefillEmail: null },
+};
 
 function enterPassword(password: string) {
 	fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } });
@@ -139,7 +150,7 @@ beforeEach(() => {
 	// mockReset, not the afterEach mockClear: a queued mockResolvedValueOnce would otherwise answer the next test.
 	put.mockReset();
 	post.mockReset();
-	getCurrentUser.mockReset();
+	fetchCurrentUser.mockReset();
 	localStorage.clear();
 	queryClient = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
 	search.token = 'verify-token';
@@ -173,7 +184,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 	it('takes a verify that opened a session into the app, as a sign-in does, and forgets the proof', async () => {
 		put.mockResolvedValue(answer('verified', true));
-		getCurrentUser.mockResolvedValue(USER);
+		fetchCurrentUser.mockResolvedValue(USER);
 		render(page());
 
 		await expectSignedIntoApp();
@@ -183,7 +194,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 	it('says "Signing you in" while it loads the user', async () => {
 		put.mockResolvedValue(answer('verified', true));
-		getCurrentUser.mockReturnValue(new Promise(() => {}));
+		fetchCurrentUser.mockReturnValue(new Promise(() => {}));
 		render(page());
 
 		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Signing you in...'));
@@ -193,7 +204,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 	it('asks them to sign in when the session it opened can’t be loaded', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		const rejection = axiosError(401, undefined, { method: 'get', url: '/User/current' });
-		getCurrentUser.mockRejectedValue(rejection);
+		fetchCurrentUser.mockRejectedValue(rejection);
 		render(page());
 
 		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
@@ -208,11 +219,11 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(await screen.findByRole('heading', { name: 'Email verified' })).toBeTruthy();
 		expect(screen.getByText('Sign in to continue.')).toBeTruthy();
 		expect(storedProof()).toBeNull();
-		expect(getCurrentUser).not.toHaveBeenCalled();
+		expect(fetchCurrentUser).not.toHaveBeenCalled();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', search: { me: SIGNED_UP_EMAIL } });
-		expect(screen.getByRole('link', { name: 'Forgot password?' }).getAttribute('href')).toBe(PREFILLED.forgotPassword);
+		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: SIGNED_UP_EMAIL } });
+		expect(linkTarget('Forgot password?')).toEqual(PREFILLED.forgotPassword);
 	});
 
 	it('asks for the password when central-manager rejects the proof, and forgets it', async () => {
@@ -257,27 +268,43 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 	it('ignores a session it loads for a link the route has since dropped', async () => {
 		put.mockResolvedValue(answer('verified', true));
+		const syncAppUser = vi.spyOn(authStore, 'syncAppUser');
 		let resolveUser!: (user: unknown) => void;
-		getCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		fetchCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
 		const { rerender } = render(page());
-		await waitFor(() => expect(getCurrentUser).toHaveBeenCalled());
+		await waitFor(() => expect(fetchCurrentUser).toHaveBeenCalled());
 
 		search.token = undefined;
 		rerender(page());
 		await act(async () => resolveUser(USER));
 
 		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(syncAppUser).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('ignores a session it loads after the page unmounts', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		let resolveUser!: (user: unknown) => void;
+		fetchCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		const { unmount } = render(page());
+		await waitFor(() => expect(fetchCurrentUser).toHaveBeenCalled());
+
+		unmount();
+		await act(async () => resolveUser(USER));
+
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	it('ignores a session it loads after a sign-out', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		let resolveUser!: (user: unknown) => void;
-		getCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		fetchCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
 		const generation = vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(1);
 		render(page());
-		await waitFor(() => expect(getCurrentUser).toHaveBeenCalled());
+		await waitFor(() => expect(fetchCurrentUser).toHaveBeenCalled());
 
 		generation.mockReturnValue(2);
 		await act(async () => resolveUser(USER));
@@ -286,9 +313,20 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
+	it('still takes them into the app when sign-in analytics throw', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		vi.mocked(loginSuccessDatadogAction).mockImplementationOnce(() => {
+			throw new Error('RUM not initialised');
+		});
+		render(page());
+
+		await expectSignedIntoApp();
+	});
+
 	it('asks them to sign in when taking the session into the app throws', async () => {
 		put.mockResolvedValue(answer('verified', true));
-		getCurrentUser.mockResolvedValue(USER);
+		fetchCurrentUser.mockResolvedValue(USER);
 		const failure = new Error('replaceState throttled');
 		vi.mocked(authStore.setUserForEntity).mockImplementation(() => {
 			throw failure;
@@ -481,7 +519,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 			expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
 			expect(screen.getByRole('alert').textContent).toMatch(UNCONFIRMED);
-			expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+			expect(signInLinks()).toEqual(NOT_PREFILLED);
 			expect(put).toHaveBeenCalledTimes(1);
 			expect(toast.error).not.toHaveBeenCalled();
 		},
@@ -502,7 +540,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 			expect((await screen.findByRole('alert')).textContent).toBe(OFFLINE_MESSAGE);
 			expect(screen.queryByRole('button', { name: 'Send Verification Email' })).toBeNull();
-			expect(signInLinks()).toEqual({ signIn: '/sign-in', forgotPassword: '/forgot-password' });
+			expect(signInLinks()).toEqual(NOT_PREFILLED);
 			expect(toast.error).not.toHaveBeenCalled();
 			// Being offline is not a Studio failure: `console.error` would file it in RUM.
 			expect(console.error).not.toHaveBeenCalled();
@@ -537,7 +575,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		await act(async () => resolve(answer('verified', true)));
 
 		expect(screen.getByRole('button', { name: 'Send Verification Email' })).toBeTruthy();
-		expect(getCurrentUser).not.toHaveBeenCalled();
+		expect(fetchCurrentUser).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 		expect(storedProof()).not.toBeNull();
 	});
@@ -589,7 +627,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 	it('sends the password with the token, keeps the form while it is out, and signs in on the session it opened', async () => {
 		let resolve!: (value: unknown) => void;
 		put.mockReturnValue(new Promise((r) => (resolve = r)));
-		getCurrentUser.mockResolvedValue(USER);
+		fetchCurrentUser.mockResolvedValue(USER);
 		render(page());
 
 		enterPassword('correct horse');
@@ -667,7 +705,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 
 		it('sends it as newPassword and signs in on the session it opened', async () => {
 			put.mockResolvedValue(answer('password_set', true));
-			getCurrentUser.mockResolvedValue(USER);
+			fetchCurrentUser.mockResolvedValue(USER);
 			render(page());
 
 			chooseNewPassword('battery staple');
@@ -683,7 +721,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			chooseNewPassword('battery staple');
 
 			expect(await screen.findByText('Sign in with your new password.')).toBeTruthy();
-			expect(getCurrentUser).not.toHaveBeenCalled();
+			expect(fetchCurrentUser).not.toHaveBeenCalled();
 		});
 
 		// central-manager ignores a newPassword sent with a link older than its reset-token window.
@@ -734,7 +772,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 
 			await expectSignedIntoApp();
 			expect(post).toHaveBeenCalledWith('/Login/', { email: SIGNED_UP_EMAIL, password: 'correct horse' });
-			expect(getCurrentUser).not.toHaveBeenCalled();
+			expect(fetchCurrentUser).not.toHaveBeenCalled();
 		});
 
 		it('says the email is verified and shows why sign-in failed', async () => {

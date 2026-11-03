@@ -26,17 +26,20 @@ export function useCompleteCloudSignIn() {
 
 	return useCallback(async (user: User) => {
 		authStore.setUserForEntity(OverallAppSignIn, user);
-		clearUtmParamsFromUrl();
 		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-
-		loginSuccessDatadogAction(user);
-
-		const company = parseCompanyFromEmail(user.email);
-		reoClient?.identify?.({
-			username: user.email,
-			type: 'email',
-			...(company ? { company } : {}),
-		});
+		// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
+		try {
+			clearUtmParamsFromUrl();
+			loginSuccessDatadogAction(user);
+			const company = parseCompanyFromEmail(user.email);
+			reoClient?.identify?.({
+				username: user.email,
+				type: 'email',
+				...(company ? { company } : {}),
+			});
+		} catch (error) {
+			console.debug('Sign-in bookkeeping failed, carrying on:', error);
+		}
 		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 		void router.invalidate();
 		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });

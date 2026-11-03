@@ -16,6 +16,7 @@ import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
+import { usePrefillEmail } from './prefillEmail';
 
 // The link may already be on its way: sending them to the inbox beats a duplicate request.
 const OUTCOME_UNKNOWN_RECOVERY = 'Check your inbox before requesting another link.';
@@ -27,10 +28,11 @@ const ForgotPasswordSchema = z.object({
 export function ForgotPassword() {
 	const navigate = useNavigate();
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 	const methods = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
 		defaultValues: {
-			email: formPersistenceEmail || '',
+			email: formPersistenceEmail || prefillEmail || '',
 		},
 	});
 	const email = methods.watch('email');
