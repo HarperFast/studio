@@ -10,11 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, historyState } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	historyState: {} as { prefillEmail?: string },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useSearch: () => ({}),
-	Link: ({ children, ...rest }: PropsWithChildren<{ className?: string }>) => <a {...rest}>{children}</a>,
+	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
+		select({ state: historyState }),
+	Link: ({ children, to, state, className }: PropsWithChildren<
+		{ to?: string; state?: { prefillEmail?: string }; className?: string }
+	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
 }));
 
 vi.mock('sonner', () => ({
@@ -582,8 +589,29 @@ describe('SignUp — offline', () => {
 	});
 });
 
+describe('SignUp — handing the address over', () => {
+	it('fills in the address it was handed in history state', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		try {
+			renderSignUp();
+			expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('ada@example.com');
+		} finally {
+			delete historyState.prefillEmail;
+		}
+	});
+
+	it('hands the typed address to the sign-in link in history state, not the URL', () => {
+		renderSignUp();
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+
+		const link = screen.getByRole('link', { name: 'Already have an account? Sign in instead.' });
+		expect(link.getAttribute('data-prefill-email')).toBe('ada@example.com');
+		expect(link.getAttribute('href')).not.toContain('ada');
+	});
+});
+
 describe('SignUp — browser proof', () => {
-	const VERIFYING = { to: '/verifying?email=taken%40example.com' };
+	const VERIFYING = { to: '/verifying', state: { prefillEmail: 'taken@example.com' } };
 
 	beforeEach(() => {
 		localStorage.clear();

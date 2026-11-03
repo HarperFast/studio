@@ -86,7 +86,7 @@ export function SignIn() {
 						Sign In <ArrowRight aria-hidden="true" />
 					</Button>
 					<div className="sign-in-recovery">
-						<Link to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
+						<Link to="/forgot-password" state={{ prefillEmail: email }}>Forgot password?</Link>
 					</div>
 				</form>
 			</Form>
@@ -111,7 +111,7 @@ export function SignIn() {
 			</div>
 
 			<p className="sign-in-signup">
-				Don’t have an account? <Link to="/sign-up" search={{ me: email }}>Sign up for free</Link>
+				Don’t have an account? <Link to="/sign-up" state={{ prefillEmail: email }}>Sign up for free</Link>
 			</p>
 
 			{remember

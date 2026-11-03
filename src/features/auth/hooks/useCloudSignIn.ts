@@ -81,7 +81,7 @@ export function useCloudSignIn() {
 								description: `We sent a new verification link to ${formData.email}.`,
 							}),
 					});
-					void navigate({ to: '/verifying?email=' + encodeURIComponent(formData.email) });
+					void navigate({ to: '/verifying', state: { prefillEmail: formData.email } });
 					return;
 				}
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));

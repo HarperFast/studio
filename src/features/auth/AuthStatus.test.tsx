@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
 	useRouter: () => ({ invalidate: vi.fn() }),
 	useSearch: () => ({ token: state.token }),
+	useLocation: ({ select }: { select: (location: { state: object }) => unknown }) => select({ state: {} }),
 	useNavigate: () => state.navigate,
 	Link: ({ children, to }: PropsWithChildren<{ to?: string }>) => <a href={to || '#'}>{children}</a>,
 }));

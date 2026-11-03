@@ -22,7 +22,9 @@ vi.mock('@tanstack/react-router', () => ({
 	useSearch: () => ({}),
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children, ...rest }: PropsWithChildren<{ className?: string }>) => <a {...rest}>{children}</a>,
+	Link: ({ children, to, state, className }: PropsWithChildren<
+		{ to?: string; state?: { prefillEmail?: string }; className?: string }
+	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
 }));
 
 vi.mock('sonner', () => ({
@@ -82,6 +84,17 @@ describe('SignIn', () => {
 			expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('ada@example.com');
 		} finally {
 			delete historyState.prefillEmail;
+		}
+	});
+
+	it('hands the typed address to the forgot-password and sign-up links in history state, not the URL', () => {
+		renderSignIn();
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+
+		for (const name of ['Forgot password?', 'Sign up for free']) {
+			const link = screen.getByRole('link', { name });
+			expect(link.getAttribute('data-prefill-email')).toBe('ada@example.com');
+			expect(link.getAttribute('href')).not.toContain('ada');
 		}
 	});
 

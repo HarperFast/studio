@@ -926,4 +926,18 @@ describe('VerifyEmail without a token', () => {
 		expect(put).not.toHaveBeenCalled();
 		expect(storedProof()).not.toBeNull();
 	});
+
+	it('hands the address to sign-in in history state once the new link is sent', async () => {
+		search.token = undefined;
+		post.mockResolvedValue({ data: 'Check your inbox for a new link.' });
+		render(page());
+
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: SIGNED_UP_EMAIL } });
+		fireEvent.click(screen.getByRole('button', { name: 'Send Verification Email' }));
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: SIGNED_UP_EMAIL } })
+		);
+		expect(post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: SIGNED_UP_EMAIL });
+	});
 });

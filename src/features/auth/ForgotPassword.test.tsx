@@ -19,7 +19,9 @@ vi.mock('@tanstack/react-router', () => ({
 	useSearch: () => ({}),
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children }: PropsWithChildren) => <a>{children}</a>,
+	Link: ({ children, to, state }: PropsWithChildren<{ to?: string; state?: { prefillEmail?: string } }>) => (
+		<a href={to} data-prefill-email={state?.prefillEmail}>{children}</a>
+	),
 }));
 
 vi.mock('sonner', () => ({
@@ -100,6 +102,29 @@ describe('ForgotPassword — prefill', () => {
 		} finally {
 			delete historyState.prefillEmail;
 		}
+	});
+
+	it('hands the typed address to the sign-in and sign-up links in history state, not the URL', () => {
+		const { container, getByRole } = renderForm();
+		fireEvent.change(container.querySelector('input[type="email"]')!, { target: { value: 'ada@example.com' } });
+
+		for (const name of ['Sign in to your account', 'Sign up for free']) {
+			const link = getByRole('link', { name });
+			expect(link.getAttribute('data-prefill-email')).toBe('ada@example.com');
+			expect(link.getAttribute('href')).not.toContain('ada');
+		}
+	});
+
+	it('hands the address to sign-in in history state once the link is sent', async () => {
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: 'ada@example.com' } })
+		);
 	});
 });
 

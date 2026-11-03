@@ -61,7 +61,7 @@ export function ForgotPassword() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/sign-in', search: { me: email } });
+				navigate({ to: '/sign-in', state: { prefillEmail: formData.email } });
 			},
 			onError: (error) => {
 				setSubmitError(captcha.describeCaptchaError(error) ?? describeAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY));
@@ -104,10 +104,10 @@ export function ForgotPassword() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
+				<Link className="text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
 					Sign in to your account
 				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
+				<Link className="text-sm hover:text-blue-300" to="/sign-up" state={{ prefillEmail: email }}>
 					Sign up for free
 				</Link>
 			</div>

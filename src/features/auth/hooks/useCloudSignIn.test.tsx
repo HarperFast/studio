@@ -66,7 +66,7 @@ describe('useCloudSignIn — unverified email', () => {
 		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
 		expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL });
 		// The "we sent a link" toast only fires once the resend actually succeeds.
 		await waitFor(() => expect(toast.info).toHaveBeenCalled());
@@ -105,7 +105,7 @@ describe('useCloudSignIn — unverified email', () => {
 		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
 		await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL }));
 		expect(toast.info).not.toHaveBeenCalled();
 	});

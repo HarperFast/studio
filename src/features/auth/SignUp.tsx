@@ -24,6 +24,7 @@ import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useSignUpMutation } from './hooks/useSignUp';
+import { usePrefillEmail } from './prefillEmail';
 
 // The account may already exist: sending them to the inbox beats a resubmit that 409s (#1668).
 const SIGN_UP_OUTCOME_UNKNOWN_RECOVERY = 'Check your email for a verification link before signing up again.';
@@ -66,6 +67,7 @@ const SignUpSchema = z.object({
 export function SignUp() {
 	const navigate = useNavigate();
 	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 	const [flashTerms, setFlashTerms] = useState(false);
 
 	const methods = useForm({
@@ -73,7 +75,7 @@ export function SignUp() {
 		defaultValues: {
 			firstname: '',
 			lastname: '',
-			email: formPersistenceEmail || searchEmail || '',
+			email: formPersistenceEmail || searchEmail || prefillEmail || '',
 			password: '',
 			confirmPassword: '',
 			acceptTerms: false,
@@ -110,7 +112,7 @@ export function SignUp() {
 					...(company ? { company } : {}),
 				});
 				clearUtmParamsFromUrl();
-				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
+				void navigate({ to: '/verifying', state: { prefillEmail: userData.email } });
 			},
 			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
 			// and renders the failure in the form instead. RUM showed people resubmitting the
@@ -311,7 +313,7 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
+				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
 					Already have an account? Sign in instead.
 				</Link>
 			</div>
