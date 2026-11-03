@@ -1,10 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { PreviewPolicy } from '@/integrations/api/instance/previews/previews';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
-import { useQuery } from '@tanstack/react-query';
 import { CopyIcon } from 'lucide-react';
 import { defaultPreviewDomain } from './previewAudience';
 import { PreviewCredentialState } from './PreviewCredential';
@@ -24,8 +21,6 @@ export function PreviewWorkflowInstructions(
 	{ policy, credential }: { policy: PreviewPolicy; credential: PreviewCredentialState },
 ) {
 	const copy = useCopyTextToClipboard();
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(useInstanceClientIdParams()));
-	const version = registrationInfo?.version;
 	const { app, branch, audience } = policy;
 	const repository = policy.repository && parseGitHubRepository(policy.repository);
 	if (!branch || !audience) {
@@ -38,7 +33,6 @@ export function PreviewWorkflowInstructions(
 		branch,
 		environment: policy.environment,
 		cleanupEnvironment: policy.cleanupEnvironment,
-		harperVersion: version?.includes('-') ? version : undefined,
 		domain: domain === defaultPreviewDomain(audience) ? undefined : domain,
 		credential: credential === 'sealed',
 		shared: constraints?.branchedDatabases !== 'required',
@@ -68,7 +62,7 @@ export function PreviewWorkflowInstructions(
 								{credential === 'unreadable' && (
 									<p className="mt-2 text-destructive">
 										This cluster's secrets couldn't be read, so this file may be missing{' '}
-										<code className="font-mono">credential=true</code>, which a private repository needs.
+										<code className="font-mono">credential: true</code>, which a private repository needs.
 									</p>
 								)}
 								<div className="relative mt-2">

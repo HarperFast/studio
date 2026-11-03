@@ -281,7 +281,7 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText('https://cluster.example.com:9925/')).toBeTruthy();
 			expect(section.getByText('.github/workflows/preview.yaml')).toBeTruthy();
 			expect(section.getAllByText('preview-cleanup').length).toBeGreaterThan(0);
-			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('domain=');
+			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('domain:');
 		});
 
 		it('writes a domain into the workflow only when it is not the default for the audience', async () => {
@@ -292,7 +292,19 @@ describe('ApplicationPreviews', () => {
 				},
 			});
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('domain=apps.acme.dev');
+			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('domain: apps.acme.dev');
+		});
+
+		it('turns off branched databases in the workflow when the policy shares the data', async () => {
+			renderPanel({ policy: ENABLED });
+			const branched = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect((await branched.findByText(/pull_request_target:/)).textContent).not.toContain('branched_databases');
+			cleanup();
+			renderPanel({
+				policy: { ...ENABLED, grant: { names: ['shop-pr-*'], constraints: { hostSuffix: '.app.example.com' } } },
+			});
+			const shared = within(await screen.findByRole('region', { name: 'What to commit' }));
+			expect((await shared.findByText(/pull_request_target:/)).textContent).toContain('branched_databases: false');
 		});
 
 		it('holds the workflow back until it knows whether a token is sealed', async () => {
@@ -327,24 +339,6 @@ describe('ApplicationPreviews', () => {
 			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain(
 				'environment: preview-cleanup',
 			);
-		});
-
-		it("installs a prerelease cluster's own version, since ^5.4 matches no prerelease", async () => {
-			cluster.operations.registration_info = () => ({ version: '5.4.0-alpha.2' });
-			renderPanel({ policy: ENABLED });
-			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			await waitFor(() =>
-				expect(section.getByText(/pull_request_target:/).textContent).toContain('--global harper@5.4.0-alpha.2')
-			);
-			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('harper@^5.4');
-		});
-
-		it('installs the release range on a release', async () => {
-			renderPanel({ policy: ENABLED });
-			await screen.findByRole('region', { name: 'What to commit' });
-			await waitFor(() => expect(cluster.calls.map((call) => call.operation)).toContain('registration_info'));
-			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('--global harper@^5.4');
 		});
 
 		it("lists this application's previews, not another's", async () => {
@@ -634,7 +628,7 @@ describe('ApplicationPreviews', () => {
 			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
 			expect(await section.findByText('Sealed')).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential: true');
 		});
 
 		const sealToken = async () => {
@@ -705,7 +699,7 @@ describe('ApplicationPreviews', () => {
 			const section = within(await screen.findByRole('region', { name: 'GitHub token' }));
 			expect(await section.findByText('Sealed')).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).toContain('credential: true');
 		});
 
 		it('keeps the token in the field when sealing fails, to try again', async () => {
@@ -736,7 +730,7 @@ describe('ApplicationPreviews', () => {
 			expect(section.getByText('Not granted')).toBeTruthy();
 			expect(section.getByText(/no preview can use it yet/)).toBeTruthy();
 			const workflow = within(screen.getByRole('region', { name: 'What to commit' }));
-			expect((await workflow.findByText(/pull_request_target:/)).textContent).not.toContain('credential=true');
+			expect((await workflow.findByText(/pull_request_target:/)).textContent).not.toContain('credential: true');
 		});
 
 		it('still mentions a stored token after disabling, granted or not', async () => {

@@ -51,7 +51,7 @@ asks for the token whenever the lookup didn't find the repository, and says so i
 repository's spelling, which `workflow_ref` needs exactly, so the form takes the id and the name together from one
 `gh api` line rather than trusting what was typed, and refuses a line for another repository.
 
-Whether a token is sealed decides whether the workflow passes `credential=true`, so the workflow is held back until
+Whether a token is sealed decides whether the workflow passes `credential: true`, so the workflow is held back until
 the secrets are read, and says it may be missing the flag when they can't be. Showing it earlier would hand out a file
 that leaves out a sealed token.
 
@@ -66,12 +66,18 @@ and deletes it.
 id, and the same parse of what people paste. The id has to be GitHub's, and so does the spelling: `workflow_ref` is
 compared byte for byte, so `harperfast/studio` would never match `HarperFast/studio`.
 
-## The workflow text is a copy
+## The workflow runs deploy-action
 
-Harper has no operation that returns `starterPreviewWorkflow`, so `starterPreviewWorkflow.ts` copies it, and is the only
-file to change when `HarperFast/deploy-action` (harper#3055) ships. Harper's installs `harper@^5.4`, which matches no
-prerelease, so on a prerelease cluster the panel writes that cluster's version instead. Otherwise the file can't install
-the CLI until 5.4.0 is published.
+The file the panel hands out is `HarperFast/deploy-action`'s `examples/preview.yaml` (harper#3055), with this policy's
+application, branch and environments. The action holds the lifecycle that harper's `starterPreviewWorkflow` spells out
+in shell: deploy only while the PR is open at that commit, drop on close once a running deploy lets go, keep a reopened
+PR's preview. It also keeps a PR comment and a GitHub Deployment, which is why both jobs get `pull-requests: write` and
+`deployments: write`. Its default CLI range, `>=5.4.0-alpha.1 <6`, takes 5.4's prereleases, so the panel no longer
+writes the cluster's version into the file.
+
+Only the deploy names `domain`, `credential` and `branched_databases`, and only when they differ from the action's
+defaults: the drop reads none of them. The file names `@v1`, which exists once deploy-action#1 merges and is tagged, so
+this ships after it.
 
 ## A drop replicates from any page of a cluster
 

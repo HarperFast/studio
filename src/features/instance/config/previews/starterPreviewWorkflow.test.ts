@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { previewWorkflowText } from './starterPreviewWorkflow';
 
-const deployLine = (text: string) => text.split('\n').find((line) => line.includes('harper preview deploy'))?.trim();
+const job = (text: string, name: 'deploy' | 'cleanup') =>
+	name === 'deploy'
+		? text.slice(text.indexOf('  deploy:'), text.indexOf('  cleanup:'))
+		: text.slice(text.indexOf('  cleanup:'));
 
 describe('previewWorkflowText', () => {
 	it('keeps PR code away from the identity: pull_request_target, no checkout, same repository only', () => {
@@ -14,51 +17,68 @@ describe('previewWorkflowText', () => {
 		expect(text).toContain(`if: github.event.action == 'closed' && ${sameRepository}`);
 	});
 
-	it('reads the target from the repository variable the panel tells people to set', () => {
-		expect(previewWorkflowText({ app: 'shop', branch: 'main' })).toContain(
-			'HARPER_CLI_TARGET: ${{ vars.HARPER_PREVIEW_TARGET }}',
-		);
+	it('runs deploy-action in both jobs, pointed at the repository variable the panel tells people to set', () => {
+		const text = previewWorkflowText({ app: 'shop', branch: 'main' });
+		for (const name of ['deploy', 'cleanup'] as const) {
+			expect(job(text, name)).toContain(
+				[
+					'      - uses: HarperFast/deploy-action@v1',
+					'        with:',
+					'          target: ${{ vars.HARPER_PREVIEW_TARGET }}',
+					'          app: shop',
+					'          preview: true',
+				].join('\n'),
+			);
+		}
+		expect(text).not.toContain('npm install');
+	});
+
+	it('grants each job what the action needs for the PR comment and the Deployment', () => {
+		const text = previewWorkflowText({ app: 'shop', branch: 'main' });
+		const permissions =
+			'    permissions:\n      id-token: write\n      pull-requests: write\n      deployments: write\n';
+		expect(job(text, 'deploy')).toContain(permissions);
+		expect(job(text, 'cleanup')).toContain(permissions);
 	});
 
 	it('runs the two jobs in the two environments the trust policies pin', () => {
 		const text = previewWorkflowText({ app: 'shop', branch: 'main' });
-		expect(text).toContain('    environment: preview\n');
-		expect(text).toContain('    environment: preview-cleanup\n');
+		expect(job(text, 'deploy')).toContain('    environment: preview\n');
+		expect(job(text, 'cleanup')).toContain('    environment: preview-cleanup\n');
 		const custom = previewWorkflowText({
 			app: 'shop',
 			branch: 'main',
 			environment: 'review',
 			cleanupEnvironment: 'teardown',
 		});
-		expect(custom).toContain('    environment: review\n');
-		expect(custom).toContain('    environment: teardown\n');
+		expect(job(custom, 'deploy')).toContain('    environment: review\n');
+		expect(job(custom, 'cleanup')).toContain('    environment: teardown\n');
 	});
 
-	it('quotes the branch, and names the application in every preview command', () => {
-		const text = previewWorkflowText({ app: 'shop', branch: 'release/1.0' });
-		expect(text).toContain('branches: ["release/1.0"]');
-		expect(text).toContain('harper preview drop app=shop pr="$PR" && exit 0');
+	it('quotes the branch', () => {
+		expect(previewWorkflowText({ app: 'shop', branch: 'release/1.0' })).toContain('branches: ["release/1.0"]');
 	});
 
-	it('passes only what differs from the defaults to the deploy', () => {
-		const base = 'harper preview deploy app=shop pr="$PR" branch="$BRANCH" by_ref=true ref="$SHA"';
-		expect(deployLine(previewWorkflowText({ app: 'shop', branch: 'main' }))).toBe(`${base} || deployed=$?`);
-		expect(deployLine(previewWorkflowText({
+	it('passes only what differs from the defaults, and only to the deploy', () => {
+		const base = previewWorkflowText({ app: 'shop', branch: 'main' });
+		expect(base).not.toMatch(/domain:|credential:|branched_databases:/);
+		const text = previewWorkflowText({
 			app: 'shop',
 			branch: 'main',
 			domain: 'app.example.com',
 			credential: true,
 			shared: true,
-		}))).toBe(`${base} domain=app.example.com credential=true branchedDatabases=false || deployed=$?`);
-	});
-
-	it('installs the version it is told to, in both jobs', () => {
-		const text = previewWorkflowText({ app: 'shop', branch: 'main', harperVersion: '5.4.0-alpha.2' });
-		expect(text.match(/--global harper@5\.4\.0-alpha\.2/g)).toHaveLength(2);
-		expect(previewWorkflowText({ app: 'shop', branch: 'main' }).match(/--global harper@\^5\.4/g)).toHaveLength(2);
+		});
+		expect(job(text, 'deploy')).toContain(
+			'          preview: true\n'
+				+ '          domain: app.example.com\n'
+				+ '          credential: true\n'
+				+ '          branched_databases: false\n',
+		);
+		expect(job(text, 'cleanup')).not.toMatch(/domain:|credential:|branched_databases:/);
 	});
 
 	it('ends with a newline, for a file that is pasted as it is', () => {
-		expect(previewWorkflowText({ app: 'shop', branch: 'main' }).endsWith('exit 1\n')).toBe(true);
+		expect(previewWorkflowText({ app: 'shop', branch: 'main' }).endsWith('preview: true\n')).toBe(true);
 	});
 });

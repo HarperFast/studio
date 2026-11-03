@@ -1,12 +1,12 @@
 /**
- * The workflow the Previews panel tells people to commit, and the one place to change when
- * `HarperFast/deploy-action` (harper#3055) ships: swap the body of `previewWorkflowText` for that form.
- *
- * Until then this is `starterPreviewWorkflow` from harper's `bin/previewSetup.ts`, line for line apart from the header
- * comment and two values Harper's fixes: the cleanup environment, which this reads from the policy, and the CLI version. Harper has no operation that returns it, so a change there has to be copied here;
+ * The workflow the Previews panel tells people to commit: `HarperFast/deploy-action`'s `examples/preview.yaml`, with
+ * this policy's application, branch and environments. The action holds the lifecycle (it deploys only while the PR is
+ * open at that commit, drops what it deployed if the PR closed meanwhile, waits out a running deploy before a drop, and
+ * keeps a reopened PR's preview), and it picks the CLI version. So the file only names what differs from its defaults;
  * `starterPreviewWorkflow.test.ts` pins the text that matters.
  */
 
+export const PREVIEW_ACTION = 'HarperFast/deploy-action@v1';
 export const PREVIEW_ENVIRONMENT = 'preview';
 export const PREVIEW_CLEANUP_ENVIRONMENT = 'preview-cleanup';
 export const PREVIEW_TARGET_VARIABLE = 'HARPER_PREVIEW_TARGET';
@@ -17,9 +17,7 @@ export interface PreviewWorkflowOptions {
 	branch: string;
 	environment?: string;
 	cleanupEnvironment?: string;
-	/** A version `npm install` can resolve; the default matches no prerelease, so a prerelease cluster names its own. */
-	harperVersion?: string;
-	/** Passed to `harper preview deploy` only when it is not the target's default. */
+	/** Passed only when it is not the action's default, `app.<target host>`. */
 	domain?: string;
 	credential?: boolean;
 	shared?: boolean;
@@ -35,27 +33,32 @@ export function previewWorkflowText({
 	branch,
 	environment = PREVIEW_ENVIRONMENT,
 	cleanupEnvironment = PREVIEW_CLEANUP_ENVIRONMENT,
-	harperVersion = '^5.4',
 	domain,
 	credential,
 	shared,
 }: PreviewWorkflowOptions): string {
-	const deployArguments = [
-		`app=${app}`,
-		'pr="$PR"',
-		'branch="$BRANCH"',
-		'by_ref=true',
-		'ref="$SHA"',
-		...(domain ? [`domain=${domain}`] : []),
-		...(credential ? ['credential=true'] : []),
-		...(shared ? ['branchedDatabases=false'] : []),
-	].join(' ');
 	const sameRepository = 'github.event.pull_request.head.repo.full_name == github.repository';
-	const setup = [
-		'      - uses: actions/setup-node@v7',
+	const steps = (...inputs: string[]) => [
+		'    steps:',
+		`      - uses: ${PREVIEW_ACTION}`,
 		'        with:',
-		'          node-version: 24',
-		`      - run: npm install --global harper@${harperVersion}`,
+		`          target: \${{ vars.${PREVIEW_TARGET_VARIABLE} }}`,
+		`          app: ${app}`,
+		'          preview: true',
+		...inputs.map((input) => `          ${input}`),
+	];
+	// A drop reads none of these, so only the deploy names them.
+	const deployInputs = [
+		...(domain ? [`domain: ${domain}`] : []),
+		...(credential ? ['credential: true'] : []),
+		...(shared ? ['branched_databases: false'] : []),
+	];
+	// The PR comment and the GitHub Deployment need the two writes.
+	const permissions = [
+		'    permissions:',
+		'      id-token: write',
+		'      pull-requests: write',
+		'      deployments: write',
 	];
 	return [
 		'# Set up with the Previews panel in Harper Studio.',
@@ -65,56 +68,21 @@ export function previewWorkflowText({
 		'    types: [opened, reopened, synchronize, closed]',
 		`    branches: [${JSON.stringify(branch)}]`,
 		'permissions: {}',
-		'env:',
-		`  HARPER_CLI_TARGET: \${{ vars.${PREVIEW_TARGET_VARIABLE} }}`,
-		'  PR: ${{ github.event.pull_request.number }}',
 		'jobs:',
 		'  deploy:',
 		`    if: github.event.action != 'closed' && ${sameRepository}`,
 		'    runs-on: ubuntu-latest',
 		`    environment: ${environment}`,
-		'    permissions:',
-		'      id-token: write',
-		'      pull-requests: read',
+		...permissions,
 		'    concurrency:',
 		'      group: harper-preview-${{ github.event.pull_request.number }}',
-		'    env:',
-		'      BRANCH: ${{ github.event.pull_request.head.ref }}',
-		'      SHA: ${{ github.event.pull_request.head.sha }}',
-		'      GH_TOKEN: ${{ github.token }}',
-		'    steps:',
-		...setup,
-		'      - run: |',
-		`          pr() { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.state + " " + .head.sha'; }`,
-		'          before=$(pr)',
-		'          if [ "$before" = "open $SHA" ]; then',
-		`            harper preview deploy ${deployArguments} || deployed=$?`,
-		'            # Closed while this deployed: its cleanup may have run first.',
-		'            after=$(pr)',
-		`            if [ "\${after%% *}" = closed ]; then harper preview drop app=${app} pr="$PR"; fi`,
-		'            exit "${deployed:-0}"',
-		'          fi',
+		...steps(...deployInputs),
 		'  cleanup:',
 		`    if: github.event.action == 'closed' && ${sameRepository}`,
 		'    runs-on: ubuntu-latest',
 		`    environment: ${cleanupEnvironment}`,
-		'    permissions:',
-		'      id-token: write',
-		'      pull-requests: read',
-		'    env:',
-		'      GH_TOKEN: ${{ github.token }}',
-		'    steps:',
-		...setup,
-		'      - run: |',
-		'          # A deploy still holding the preview answers 409 until it finishes; a reopened PR keeps its preview.',
-		'          for attempt in 1 2 3 4 5; do',
-		`            if state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .state); then`,
-		'              [ "$state" = closed ] || exit 0',
-		`              harper preview drop app=${app} pr="$PR" && exit 0`,
-		'            fi',
-		'            sleep 30',
-		'          done',
-		'          exit 1',
+		...permissions,
+		...steps(),
 		'',
 	].join('\n');
 }

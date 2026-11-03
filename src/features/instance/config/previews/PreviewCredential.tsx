@@ -143,7 +143,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 								Create one
 							</a>{' '}
 							with access to this repository only and the Contents: Read-only permission. Commit the workflow below
-							again after adding it, since it passes <code className="font-mono">credential=true</code>.
+							again after adding it, since it passes <code className="font-mono">credential: true</code>.
 						</p>
 						<div>
 							<Button type="submit" size="sm" disabled={!token.trim() || !known || isSetting || isGranting}>
