@@ -292,7 +292,7 @@ describe('ApplicationPreviews', () => {
 				},
 			});
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('domain: apps.acme.dev');
+			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('domain: "apps.acme.dev"');
 		});
 
 		it('turns off branched databases in the workflow when the policy shares the data', async () => {
@@ -335,9 +335,9 @@ describe('ApplicationPreviews', () => {
 		it('asks for the cleanup environment the policy pins, not the default', async () => {
 			renderPanel({ policy: { ...ENABLED, cleanupEnvironment: 'teardown' } });
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
-			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('environment: teardown');
+			expect((await section.findByText(/pull_request_target:/)).textContent).toContain('environment: "teardown"');
 			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain(
-				'environment: preview-cleanup',
+				'environment: "preview-cleanup"',
 			);
 		});
 

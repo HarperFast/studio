@@ -76,7 +76,8 @@ PR's preview. It also keeps a PR comment and a GitHub Deployment, which is why b
 writes the cluster's version into the file.
 
 Only the deploy names `domain`, `credential` and `branched_databases`, and only when they differ from the action's
-defaults: the drop reads none of them. The file names `@v1`, which exists once deploy-action#1 merges and is tagged, so
+defaults: the drop reads none of them. Every value from the policy is written as a quoted string, so a host suffix or an
+environment name holding a newline can't add a step to a job that holds `id-token: write`. The file names `@v1`, which exists once deploy-action#1 merges and is tagged, so
 this ships after it.
 
 ## A drop replicates from any page of a cluster

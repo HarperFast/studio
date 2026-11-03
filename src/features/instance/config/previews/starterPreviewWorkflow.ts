@@ -3,10 +3,11 @@
  * this policy's application, branch and environments. The action holds the lifecycle (it deploys only while the PR is
  * open at that commit, drops what it deployed if the PR closed meanwhile, waits out a running deploy before a drop, and
  * keeps a reopened PR's preview), and it picks the CLI version. So the file only names what differs from its defaults;
- * `starterPreviewWorkflow.test.ts` pins the text that matters.
+ * `starterPreviewWorkflow.test.ts` pins the text that matters. Every value from the policy is quoted, so none can add a
+ * key or a step to a job that holds the identity.
  */
 
-export const PREVIEW_ACTION = 'HarperFast/deploy-action@v1';
+const PREVIEW_ACTION = 'HarperFast/deploy-action@v1';
 export const PREVIEW_ENVIRONMENT = 'preview';
 export const PREVIEW_CLEANUP_ENVIRONMENT = 'preview-cleanup';
 export const PREVIEW_TARGET_VARIABLE = 'HARPER_PREVIEW_TARGET';
@@ -43,13 +44,13 @@ export function previewWorkflowText({
 		`      - uses: ${PREVIEW_ACTION}`,
 		'        with:',
 		`          target: \${{ vars.${PREVIEW_TARGET_VARIABLE} }}`,
-		`          app: ${app}`,
+		`          app: ${JSON.stringify(app)}`,
 		'          preview: true',
 		...inputs.map((input) => `          ${input}`),
 	];
 	// A drop reads none of these, so only the deploy names them.
 	const deployInputs = [
-		...(domain ? [`domain: ${domain}`] : []),
+		...(domain ? [`domain: ${JSON.stringify(domain)}`] : []),
 		...(credential ? ['credential: true'] : []),
 		...(shared ? ['branched_databases: false'] : []),
 	];
@@ -72,7 +73,7 @@ export function previewWorkflowText({
 		'  deploy:',
 		`    if: github.event.action != 'closed' && ${sameRepository}`,
 		'    runs-on: ubuntu-latest',
-		`    environment: ${environment}`,
+		`    environment: ${JSON.stringify(environment)}`,
 		...permissions,
 		'    concurrency:',
 		'      group: harper-preview-${{ github.event.pull_request.number }}',
@@ -80,7 +81,7 @@ export function previewWorkflowText({
 		'  cleanup:',
 		`    if: github.event.action == 'closed' && ${sameRepository}`,
 		'    runs-on: ubuntu-latest',
-		`    environment: ${cleanupEnvironment}`,
+		`    environment: ${JSON.stringify(cleanupEnvironment)}`,
 		...permissions,
 		...steps(),
 		'',
