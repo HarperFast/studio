@@ -1,17 +1,17 @@
-# Playwright runner. Node pinned to the repo's .nvmrc (24.19.0); Chromium's Linux
+# Playwright runner. Node pinned to match the repo's .nvmrc; Chromium's Linux
 # build + system deps are installed to match the resolved Playwright version, so
 # screenshot baselines are stable and reproducible (generate baselines HERE, not
 # on macOS). Multi-arch base — builds natively on Apple Silicon (arm64).
 FROM node:26.13.0-bookworm
 
-RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
-
 WORKDIR /e2e
 
 # Install e2e deps first for layer caching. pnpm-workspace.yaml makes /e2e its
-# own pnpm root (see that file); the lockfile pins versions.
+# own pnpm root (see that file); the lockfile pins versions. Node 25+ images no
+# longer ship corepack, so install the pnpm that package.json's packageManager names.
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN npm install -g "$(node -p "require('./package.json').packageManager")" \
+	&& pnpm install --frozen-lockfile
 
 # Chromium + its Debian system libraries, pinned to the installed Playwright.
 RUN pnpm exec playwright install --with-deps chromium
