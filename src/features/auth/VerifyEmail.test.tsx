@@ -41,7 +41,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OFFLINE_MESSAGE } from './failFastOffline';
-import { SIGN_UP_BROWSER_PROOF_TTL_MS, storeSignUpBrowserProof } from './signUpBrowserProof';
+import { readSignUpBrowserProofFor, SIGN_UP_BROWSER_PROOF_TTL_MS, storeSignUpBrowserProof } from './signUpBrowserProof';
 import { VerifyEmail } from './VerifyEmail';
 
 const UNCONFIRMED = /couldn't confirm your email was verified\. Your link still works/;
@@ -73,19 +73,21 @@ const offlineRejection = {
 	config: { ...verifyRequest, baseURL: 'https://central-manager.example.com/' },
 } as AxiosError;
 
-function answer(outcome?: string, signedIn?: boolean) {
+function answer(outcome?: string, signedIn?: boolean, email = SIGNED_UP_EMAIL) {
 	return {
 		data: {
 			userId: 'u1',
-			email: SIGNED_UP_EMAIL,
+			email,
 			...(outcome === undefined ? {} : { outcome }),
 			...(signedIn === undefined ? {} : { signedIn }),
 		},
 	};
 }
 
-function storeProof() {
-	storeSignUpBrowserProof('browser-proof', SIGNED_UP_EMAIL);
+const OTHER_EMAIL = 'grace@example.com';
+
+function storeProof(email = SIGNED_UP_EMAIL, proof = 'browser-proof', now = Date.now()) {
+	storeSignUpBrowserProof(proof, email, now);
 }
 
 function storedProof() {
@@ -154,7 +156,7 @@ afterEach(() => {
 });
 
 describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
-	beforeEach(storeProof);
+	beforeEach(() => storeProof());
 
 	it('sends the proof with the token, and shows "Verifying" instead of flashing a form', async () => {
 		put.mockReturnValue(new Promise(() => {}));
@@ -222,6 +224,79 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect((screen.getByLabelText('Password') as HTMLInputElement).autocomplete).toBe('current-password');
 		expect(storedProof()).toBeNull();
 		expect(put).toHaveBeenCalledTimes(1);
+	});
+
+	// Sign up Ada, then Grace, then open Ada's link: Grace's proof is the newest, and goes first.
+	it('resends with the proof for the account central-manager names, keeping the other one', async () => {
+		storeProof(OTHER_EMAIL, 'grace-proof', Date.now() + 1_000);
+		put.mockResolvedValueOnce(answer('password_required', false)).mockResolvedValueOnce(answer('verified', false));
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(put.mock.calls.map(([, body]) => body)).toEqual([
+			{ token: 'verify-token', browserProof: 'grace-proof' },
+			{ token: 'verify-token', browserProof: 'browser-proof' },
+		]);
+		expect(readSignUpBrowserProofFor(SIGNED_UP_EMAIL)).toBeNull();
+		expect(readSignUpBrowserProofFor(OTHER_EMAIL)).toMatchObject({ proof: 'grace-proof' });
+	});
+
+	it('labels the password form with the link’s account, not another sign-up’s, and keeps that one’s proof', async () => {
+		localStorage.clear();
+		storeProof(OTHER_EMAIL, 'grace-proof');
+		put.mockResolvedValue(answer('password_required', false));
+		render(page());
+
+		expect(await screen.findByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		expect(screen.getByText(SIGNED_UP_EMAIL).tagName).toBe('STRONG');
+		expect(screen.queryByText(OTHER_EMAIL)).toBeNull();
+		expect((document.querySelector('input[autocomplete="username"]') as HTMLInputElement).value).toBe(SIGNED_UP_EMAIL);
+		expect(readSignUpBrowserProofFor(OTHER_EMAIL)).toMatchObject({ proof: 'grace-proof' });
+		expect(put).toHaveBeenCalledTimes(1);
+	});
+
+	it('ignores a session it loads for a link the route has since dropped', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		let resolveUser!: (user: unknown) => void;
+		getCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		const { rerender } = render(page());
+		await waitFor(() => expect(getCurrentUser).toHaveBeenCalled());
+
+		search.token = undefined;
+		rerender(page());
+		await act(async () => resolveUser(USER));
+
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('ignores a session it loads after a sign-out', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		let resolveUser!: (user: unknown) => void;
+		getCurrentUser.mockReturnValue(new Promise((r) => (resolveUser = r)));
+		const generation = vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(1);
+		render(page());
+		await waitFor(() => expect(getCurrentUser).toHaveBeenCalled());
+
+		generation.mockReturnValue(2);
+		await act(async () => resolveUser(USER));
+
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('asks them to sign in when taking the session into the app throws', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		getCurrentUser.mockResolvedValue(USER);
+		const failure = new Error('replaceState throttled');
+		vi.mocked(authStore.setUserForEntity).mockImplementation(() => {
+			throw failure;
+		});
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(console.error).toHaveBeenCalledWith(failure);
 	});
 
 	// A central-manager without #781's change verified on the token alone, and opened no session.
@@ -495,7 +570,7 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 	});
 
 	it('treats an expired proof as none, and forgets it', () => {
-		storeSignUpBrowserProof('browser-proof', SIGNED_UP_EMAIL, Date.now() - SIGN_UP_BROWSER_PROOF_TTL_MS - 1);
+		storeProof(SIGNED_UP_EMAIL, 'browser-proof', Date.now() - SIGN_UP_BROWSER_PROOF_TTL_MS - 1);
 		render(page());
 
 		expect(screen.getByLabelText('Password')).toBeTruthy();
@@ -542,6 +617,40 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 
 		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
 		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', password: 'correct horse' });
+	});
+
+	it('labels the form with the account central-manager names after a wrong password', async () => {
+		put.mockResolvedValue(answer('password_mismatch', false));
+		render(page());
+
+		enterPassword('wrong horse');
+
+		expect(await screen.findByText(SIGNED_UP_EMAIL)).toBeTruthy();
+	});
+
+	it('does not flag the field again after they leave a wrong password for a new one and come back', async () => {
+		put.mockResolvedValue(answer('password_mismatch', false));
+		render(page());
+		enterPassword('wrong horse');
+		await screen.findByText("That isn't the password you chose when you signed up.");
+
+		fireEvent.click(screen.getByRole('button', { name: 'Forgot it? Choose a new password' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Remember it? Enter your password instead' }));
+
+		expect(screen.queryByText("That isn't the password you chose when you signed up.")).toBeNull();
+		expect(screen.getByLabelText('Password').getAttribute('aria-invalid')).toBe('false');
+	});
+
+	it('shows "Verifying" while Try again resends a new password', async () => {
+		put.mockRejectedValueOnce(axiosError(502)).mockReturnValueOnce(new Promise(() => {}));
+		render(page());
+
+		chooseNewPassword('battery staple');
+		fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
+		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', newPassword: 'battery staple' });
 	});
 
 	describe('choosing a new password', () => {
@@ -638,6 +747,21 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
 			expect(screen.getByRole('alert').textContent).toBe('Invalid email or password');
 			expect(navigate).not.toHaveBeenCalled();
+		});
+
+		it('drops a failed sign-in’s error when another link comes in', async () => {
+			put.mockResolvedValue(answer());
+			post.mockRejectedValue(axiosError(401, { title: 'Invalid email or password' }, { url: '/Login/' }));
+			const { rerender } = render(page());
+			enterPassword('wrong horse');
+			await screen.findByText('Invalid email or password');
+
+			search.token = 'another-token';
+			rerender(page());
+			chooseNewPassword('battery staple');
+
+			expect(await screen.findByText(/We couldn't save your new password/)).toBeTruthy();
+			expect(screen.queryByText('Invalid email or password')).toBeNull();
 		});
 
 		it('says a new password was not saved, and does not sign in with it', async () => {

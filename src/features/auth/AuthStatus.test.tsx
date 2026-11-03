@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 	reset: vi.fn(),
 	navigate: vi.fn(),
 	signIn: vi.fn(),
+	clearSignInError: vi.fn(),
 	completeSignIn: vi.fn(),
 }));
 vi.mock('@tanstack/react-router', () => ({
@@ -29,7 +30,7 @@ vi.mock('./hooks/useVerifyEmail', () => ({
 	isVerifyEmailUnconfirmed: () => false,
 }));
 vi.mock('./hooks/useCloudSignIn', () => ({
-	useCloudSignIn: () => ({ submitForm: state.signIn }),
+	useCloudSignIn: () => ({ submitForm: state.signIn, clearSubmitError: state.clearSignInError }),
 	useCompleteCloudSignIn: () => state.completeSignIn,
 }));
 vi.mock('./hooks/useResendEmailVerification', () => ({

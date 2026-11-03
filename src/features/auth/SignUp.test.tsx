@@ -605,7 +605,7 @@ describe('SignUp — browser proof', () => {
 		submit();
 
 		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
-		const stored = JSON.parse(localStorage.getItem('SignUpBrowserProof') ?? 'null');
+		const stored = JSON.parse(localStorage.getItem('SignUpBrowserProof') ?? '{}')['taken@example.com'];
 		expect(stored).toMatchObject({ proof: 'proof-from-header', email: 'taken@example.com' });
 		expect(stored.expiresAt).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000);
 		expect(stored.expiresAt).toBeLessThanOrEqual(Date.now() + 24 * 60 * 60 * 1000);

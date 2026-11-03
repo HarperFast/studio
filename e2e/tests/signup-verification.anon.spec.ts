@@ -1,22 +1,17 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { deleteSessionAccount, signupApiBase } from './accountCleanup';
-import {
-	deleteMailTo,
-	mailConfigured,
-	newTestEmailAddress,
-	waitForSetPasswordEmail,
-	waitForVerificationEmail,
-} from './mail';
+import { deleteMailTo, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
  * verification email via Mailosaur → follow its link → confirm the account is
- * verified by signing in without being bounced back to /#/verifying.
+ * verified by landing signed in, not bounced back to /#/verifying.
  *
- * A central-manager that replaces the sign-up password when verifying keeps the user on the page and
- * emails a set-password link instead. The spec follows whichever answer the target gives: sign in
- * with the sign-up password, or set a new one from that email first and sign in with it.
+ * The link opens in the browser that signed up, so a central-manager with central-manager#781's
+ * change verifies it with the sign-up's browser proof and opens a session. One without it sends no
+ * proof, so the page asks for the sign-up password, verifies, and signs in with it. The spec follows
+ * whichever the target does, and signs in by hand if the page asks it to.
  *
  * Runs in the `anon` project (starts logged-out; it creates and then logs into a
  * brand-new account within the test). Skips cleanly until Mailosaur is configured.
@@ -39,17 +34,17 @@ test.describe('signup → email verification → login', () => {
 	// The outer timeout exists to catch a hang that no INNER timeout covers, so it must exceed the
 	// sum of those inner budgets — otherwise a slow-but-progressing run trips it and reports a
 	// failure while nothing actually timed out. The arithmetic, worst case:
-	//   6 navigations / waitForURL @30s ......... 180s   (goto x3, waitForURL x3)
-	//   2 mail polls (mail.ts timeoutMs @90s) ... 180s   (verification, set-password)
+	//   5 navigations / waitForURL @30s ......... 150s   (goto x2, waitForURL x3)
+	//   1 mail poll (mail.ts timeoutMs @90s) ...... 90s   (verification)
 	//   waitForResponse on signup (default) ...... 30s
-	//   13 form actions @15s (actionTimeout) .... 195s
-	//   verified-or-sign-in expect @30s .......... 30s
+	//   14 form actions @15s (actionTimeout) .... 210s
+	//   2 landing expects @30s ................... 60s
 	//   3 expects @10s ........................... 30s
 	//   2 cleanup API requests @30s .............. 60s
 	//                                            ------
-	//                                             705s
-	// The set-password steps run only against a central-manager that sends that email, but the bound
-	// has to hold for them. 840s keeps the invariant true with headroom. If you change any inner wait —
+	//                                             630s
+	// The password and sign-in steps run only when the target asks for them, but the bound has to
+	// hold for them. 840s keeps the invariant true with headroom. If you change any inner wait —
 	// especially mail.ts's timeoutMs — re-do this sum.
 	test.setTimeout(840_000);
 	// Retries multiply that budget AND sign up another real account each time. Halve the project's
@@ -117,35 +112,29 @@ test.describe('signup → email verification → login', () => {
 
 			// 3. Fetch the verification email and follow its link.
 			const { link } = await waitForVerificationEmail(email, { receivedAfter });
-			const verifiedAfter = new Date(Date.now() - 15_000);
 			await page.goto(link);
 
-			// 4. Verifying the token lands the user back on sign-in, or stays to say the sign-up password
-			//    was replaced. Then the password to sign in with is the one set from the email that
-			//    verification sent.
+			// 4. The sign-up's browser proof verifies and signs in on its own. Without one the page asks for the
+			//    sign-up password; a verify that opens no session ends on a Sign In button.
+			const passwordPrompt = page.getByText('Enter the password you chose when you signed up.');
 			const signInButton = page.getByRole('button', { name: 'Sign In' });
-			const verifiedHeading = page.getByRole('heading', { name: 'Email verified' });
-			await expect(signInButton.or(verifiedHeading)).toBeVisible({ timeout: 30_000 });
-			let signInPassword = password;
-			if (await verifiedHeading.isVisible()) {
-				// Any other verified state, such as the set-password email failing to send, fails here.
-				await expect(page.getByText('Check your inbox to set your password.'), 'set-password email sent')
-					.toBeVisible();
-				const { link: setPasswordLink } = await waitForSetPasswordEmail(email, { receivedAfter: verifiedAfter });
-				signInPassword = randomPassword();
-				await page.goto(setPasswordLink);
-				await page.getByLabel('New Password', { exact: true }).fill(signInPassword);
-				await page.getByLabel('Confirm Password', { exact: true }).fill(signInPassword);
-				await page.getByRole('button', { name: 'Submit New Password' }).click();
+			const accountMenu = page.getByRole('button', { name: 'Account menu' });
+			await expect(passwordPrompt.or(signInButton).or(accountMenu)).toBeVisible({ timeout: 30_000 });
+			if (await passwordPrompt.isVisible()) {
+				await page.getByLabel('Password', { exact: true }).fill(password);
+				await page.getByRole('button', { name: 'Verify Email' }).click();
+				await expect(signInButton.or(accountMenu)).toBeVisible({ timeout: 30_000 });
 			}
-			await page.waitForURL(/#\/sign-in/, { timeout: 30_000 });
 
-			// 5. The real proof: logging in now succeeds instead of bouncing to
-			//    /#/verifying (which is what an unverified account would do).
-			await page.getByLabel('Email').fill(email);
-			await page.getByLabel('Password', { exact: true }).fill(signInPassword);
-			await page.getByRole('button', { name: 'Sign In' }).click();
-
+			// 5. The real proof: signing in succeeds instead of bouncing to /#/verifying, which is what an
+			//    unverified account would do.
+			if (await signInButton.isVisible()) {
+				await signInButton.click();
+				await page.waitForURL(/#\/sign-in/, { timeout: 30_000 });
+				await page.getByLabel('Email').fill(email);
+				await page.getByLabel('Password', { exact: true }).fill(password);
+				await page.getByRole('button', { name: 'Sign In' }).click();
+			}
 			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
 			await expect(page).not.toHaveURL(/#\/verifying/);
 			await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();

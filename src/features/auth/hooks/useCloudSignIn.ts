@@ -18,7 +18,6 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
-/** Takes a user central-manager has just opened a session for into the app: Login's answer, or a verified email's. */
 export function useCompleteCloudSignIn() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();

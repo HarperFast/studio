@@ -43,7 +43,6 @@ type VerifyEmailResponse = {
 	 * Open-ended because a newer one may answer with an outcome this build doesn't know.
 	 */
 	outcome?: VerifyEmailOutcome | (string & {});
-	/** Whether central-manager opened a session, as Login does. */
 	signedIn?: boolean;
 };
 

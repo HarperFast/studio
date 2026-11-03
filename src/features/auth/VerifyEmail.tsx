@@ -5,6 +5,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +27,7 @@ import {
 	VerifyEmailRequest,
 	VerifyEmailResponse,
 } from './hooks/useVerifyEmail';
-import { clearSignUpBrowserProof, readSignUpBrowserProof } from './signUpBrowserProof';
+import { clearSignUpBrowserProof, readNewestSignUpBrowserProof, readSignUpBrowserProofFor } from './signUpBrowserProof';
 
 // Claims no outcome: each of these can follow a verify that landed (`unansweredWrite.ts`).
 const VERIFICATION_UNCONFIRMED_MESSAGE =
@@ -299,14 +300,15 @@ function ChooseNewPassword({ email, pending, onSubmit, onEnterPassword }: {
 	);
 }
 
-// Without the browser that signed up, verifying takes the sign-up password, or a new one in its place.
 function VerifyWithPassword({ email, pending, mismatch, onSubmit }: {
 	email: string | undefined;
 	pending: boolean;
-	mismatch: boolean;
+	/** The `password_mismatch` answer, by identity, so one the user moved on from isn't shown again. */
+	mismatch: VerifyEmailResponse | undefined;
 	onSubmit: (credential: Pick<VerifyEmailRequest, 'password' | 'newPassword'>) => void;
 }) {
 	const [choosingNewPassword, setChoosingNewPassword] = useState(false);
+	const [dismissedMismatch, setDismissedMismatch] = useState<VerifyEmailResponse>();
 	return choosingNewPassword
 		? (
 			<ChooseNewPassword
@@ -320,9 +322,12 @@ function VerifyWithPassword({ email, pending, mismatch, onSubmit }: {
 			<EnterSignUpPassword
 				email={email}
 				pending={pending}
-				mismatch={mismatch}
+				mismatch={!!mismatch && mismatch !== dismissedMismatch}
 				onSubmit={(password) => onSubmit({ password })}
-				onChooseNewPassword={() => setChoosingNewPassword(true)}
+				onChooseNewPassword={() => {
+					setDismissedMismatch(mismatch);
+					setChoosingNewPassword(true);
+				}}
 			/>
 		);
 }
@@ -460,47 +465,76 @@ export function VerifyEmail() {
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
 	const completeSignIn = useCompleteCloudSignIn();
-	const { submitForm: signIn, submitError: signInError } = useCloudSignIn();
+	const { submitForm: signIn, submitError: signInError, clearSubmitError: clearSignInError } = useCloudSignIn();
 	const submittedToken = useRef<string | undefined>(undefined);
 	const [sessionLost, setSessionLost] = useState(false);
-	// Read once per link, so its address still labels the password form after a rejected proof is cleared.
-	const signUp = useMemo(() => (token ? readSignUpBrowserProof() : null), [token]);
+	// The link's account, from central-manager's answer: a stored proof may be another sign-up's.
+	const [accountEmail, setAccountEmail] = useState<string>();
+	const [retrying, setRetrying] = useState(false);
+	const proof = useMemo(() => (token ? readNewestSignUpBrowserProof() : null), [token]);
 
-	const enterApp = useCallback(async () => {
+	const enterApp = useCallback(async (verifiedToken: string) => {
+		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 		let user;
 		try {
 			user = await getCurrentUser();
 		} catch (error) {
-			reportAuthFailure(error);
-			setSessionLost(true);
+			if (submittedToken.current === verifiedToken) {
+				reportAuthFailure(error);
+				setSessionLost(true);
+			}
 			return;
 		}
-		toastVerified();
-		await completeSignIn(user);
+		// A sign-out or another sign-in since the GET went out, as `getCurrentUser` itself guards.
+		if (
+			submittedToken.current !== verifiedToken
+			|| authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
+		) {
+			return;
+		}
+		try {
+			toastVerified();
+			await completeSignIn(user);
+		} catch (error) {
+			reportAuthFailure(error);
+			setSessionLost(true);
+		}
 	}, [completeSignIn]);
 
 	const submit = useCallback(
 		(request: VerifyEmailRequest) => {
 			setSessionLost(false);
-			submitVerification(request, {
-				onSuccess: (response) => {
-					// Also skipped when the route dropped this token while its PUT was out.
-					if (submittedToken.current !== request.token) {
-						return;
-					}
-					// Spent or rejected either way: what's left to prove it with is the password.
-					clearSignUpBrowserProof();
-					if (opensSession(response)) {
-						void enterApp();
-					} else if (response.outcome === undefined && request.password !== undefined) {
-						// A central-manager without #781's change verified on the token alone, and opens no session.
-						toastVerified();
-						signIn({ email: response.email, password: request.password });
-					}
-				},
-			});
+			clearSignInError();
+			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
+				// Also skipped when the route dropped this token while its PUT was out.
+				if (submittedToken.current !== sent.token) {
+					return;
+				}
+				setAccountEmail(response.email);
+				const own = readSignUpBrowserProofFor(response.email);
+				if (
+					response.outcome === 'password_required' && sent.browserProof !== undefined && own
+					&& own.proof !== sent.browserProof
+				) {
+					const retry = { token: sent.token, browserProof: own.proof };
+					submitVerification(retry, { onSuccess: (answer) => onSuccess(retry, answer) });
+					return;
+				}
+				// Spent or rejected either way: what's left to prove it with is the password.
+				clearSignUpBrowserProof(response.email);
+				if (opensSession(response)) {
+					void enterApp(sent.token);
+				} else if (response.outcome === undefined && sent.password !== undefined) {
+					// A central-manager without #781's change verified on the token alone, and opens no session.
+					toastVerified();
+					signIn({ email: response.email, password: sent.password });
+				}
+			};
+			submitVerification(request, { onSuccess: (response) => onSuccess(request, response) });
 		},
-		[enterApp, signIn, submitVerification],
+		[clearSignInError, enterApp, signIn, submitVerification],
 	);
 
 	// Once per arrival of a token, and only with this browser's sign-up proof: a mail scanner opening the link
@@ -512,38 +546,45 @@ export function VerifyEmail() {
 			submittedToken.current = undefined;
 		} else if (submittedToken.current !== token) {
 			submittedToken.current = token;
-			if (signUp) {
-				submit({ token, browserProof: signUp.proof });
+			setAccountEmail(undefined);
+			setRetrying(false);
+			if (proof) {
+				submit({ token, browserProof: proof.proof });
 			} else {
-				// Drops an expired proof, and any answer for an earlier link: the page now asks for the password.
-				clearSignUpBrowserProof();
+				clearSignUpBrowserProof(undefined);
+				// Any answer for an earlier link: the page now asks for the password.
 				reset();
 			}
 		}
-	}, [reset, signUp, submit, token]);
+	}, [proof, reset, submit, token]);
 
 	if (token) {
 		const submission = submissionOf(variables);
-		const passwordForm = (pending: boolean, mismatch = false) => (
+		const passwordForm = (pending: boolean, mismatch?: VerifyEmailResponse) => (
 			<VerifyWithPassword
 				key={token}
-				email={signUp?.email}
+				email={accountEmail}
 				pending={pending}
 				mismatch={mismatch}
-				onSubmit={(credential) => submit({ token, ...credential })}
+				onSubmit={(credential) => {
+					setRetrying(false);
+					submit({ token, ...credential });
+				}}
 			/>
 		);
 
 		if (status === 'idle') {
-			return signUp ? <Pending message="Verifying email..." /> : passwordForm(false);
+			return proof ? <Pending message="Verifying email..." /> : passwordForm(false);
 		}
 		if (status === 'pending') {
-			return submission === 'browserProof' ? <Pending message="Verifying email..." /> : passwordForm(true);
+			return submission === 'browserProof' || retrying
+				? <Pending message="Verifying email..." />
+				: passwordForm(true);
 		}
 		if (status === 'success') {
 			const { outcome, email } = data;
 			if (outcome === 'password_required' || outcome === 'password_mismatch') {
-				return passwordForm(false, outcome === 'password_mismatch');
+				return passwordForm(false, outcome === 'password_mismatch' ? data : undefined);
 			}
 			if (outcome === 'verified' || outcome === 'password_set') {
 				return opensSession(data) && !sessionLost
@@ -567,7 +608,10 @@ export function VerifyEmail() {
 			return (
 				<VerificationUnconfirmed
 					offline={error instanceof OfflineSubmitError}
-					onRetry={() => submit(variables)}
+					onRetry={() => {
+						setRetrying(true);
+						submit(variables);
+					}}
 				/>
 			);
 		}
