@@ -101,6 +101,69 @@ describe('workflow privilege boundary', () => {
 	});
 });
 
+/**
+ * `pull_request_target` runs this repo's own YAML from `stage`, with a write-capable token and, in
+ * `preview.yaml`, the Harper preview identity. What makes that safe is that no job runs a PR's code
+ * and no job runs for a fork. `harper preview setup` checks both, but only once, at setup; the
+ * cluster's trust policy pins the file's path, not its content, so a later edit would go unnoticed.
+ */
+const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repository';
+
+type Step = { uses?: unknown };
+type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
+
+function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
+	const problems: string[] = [];
+	for (const [name, job] of Object.entries((doc.jobs ?? {}) as Record<string, TargetJob>)) {
+		const condition = typeof job.if === 'string' ? job.if : '';
+		// `&&` only: an `||` anywhere can bypass the guard.
+		if (!condition.includes(FORK_GUARD) || condition.includes('||')) {
+			problems.push(`${name}: no fork guard`);
+		}
+		if (job.uses !== undefined) { problems.push(`${name}: calls a reusable workflow`); }
+		for (const step of job.steps ?? []) {
+			const uses = typeof step.uses === 'string' ? step.uses : '';
+			// A checkout or a local action would run whatever the checked-out tree holds.
+			if (uses.startsWith('actions/checkout@') || uses.startsWith('./')) {
+				problems.push(`${name}: uses ${uses}`);
+			}
+		}
+	}
+	return problems;
+}
+
+describe('pull_request_target workflows run no PR code', () => {
+	const targetWorkflows = workflowFiles().filter((name) =>
+		triggers(parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8'))).includes('pull_request_target')
+	);
+
+	it('finds preview.yaml, so the scan cannot pass by finding nothing', () => {
+		expect(targetWorkflows).toContain('preview.yaml');
+	});
+
+	it.each(targetWorkflows)('%s guards every job and checks out nothing', (name) => {
+		expect(pullRequestTargetProblems(parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8')))).toEqual([]);
+	});
+
+	const job = (body: string) => `on: [pull_request_target]\njobs:\n  j:\n${body}`;
+	const guarded = `    if: \${{ ${FORK_GUARD} }}\n`;
+
+	it.each([
+		['a job with no fork guard', job('    steps:\n      - run: echo hi\n')],
+		['a guard that `||` can bypass', job(`    if: \${{ ${FORK_GUARD} || true }}\n`)],
+		['a checkout', job(`${guarded}    steps:\n      - uses: actions/checkout@v7\n`)],
+		['a local action', job(`${guarded}    steps:\n      - uses: ./.github/actions/studio-verify\n`)],
+		['a reusable workflow', job(`${guarded}    uses: ./.github/workflows/x.yaml\n`)],
+	])('flags %s', (_label, raw) => {
+		expect(pullRequestTargetProblems(parse(raw))).not.toEqual([]);
+	});
+
+	it('passes a guarded job that only calls a pinned action', () => {
+		const raw = job(`${guarded}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
+		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);
+	});
+});
+
 describe('isPrivileged recognises every privileged form', () => {
 	const job = (body: string) => `on: [merge_group]\njobs:\n  j:\n${body}`;
 

@@ -1,0 +1,68 @@
+name: Build PR Preview
+
+# Builds each pull request's head commit and uploads `web/` as the `pr-<number>-build` artifact.
+# This workflow runs the PR's code, so its token is read-only and it holds no credential and no
+# identity token.
+#
+# preview.yaml waits for this run, downloads the artifact and deploys it as the PR's preview. Keep
+# `branches` the same as there: its deploy job waits for a run of this workflow, and fails if none
+# starts.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [stage]
+
+permissions:
+  contents: read
+
+# A newer push cancels the build of the commit it replaces; that commit's preview run then stops
+# waiting and deploys nothing.
+concurrency:
+  group: preview-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build PR Preview
+    # Fork PRs get no preview, so their build would go unused.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The head commit, not the merge commit: the preview records this SHA.
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+          node-version-file: '.nvmrc'
+      - name: Disable Husky
+        run: echo "HUSKY=0" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        run: pnpm install
+      # Dev mode: `.github/deploy-public-env/.env.dev` points the bundle at the dev central manager,
+      # with Stripe's test key and Reo off. `VITE_TELEMETRY_ENABLED` stays unset, so
+      # `isDeployedBuild` is false and the preview loads neither Datadog RUM nor GTM.
+      - name: Build
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: VITE_STUDIO_VERSION="pr-${PR}_${SHA:0:7}" pnpm build --mode dev
+      # Dev mode writes hidden sourcemaps for Datadog, which a preview never uploads.
+      - name: Drop sourcemaps
+        run: find web -name '*.js.map' -delete
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-${{ github.event.pull_request.number }}-build
+          path: web/
+          if-no-files-found: error
+          retention-days: 7

@@ -35,6 +35,28 @@ Every workflow declares `permissions:` explicitly, because the repo default is *
 that omits the block gets a write-capable token whether it needs one or not; only `deploy-stage`
 needs `contents: write`, and only because semantic-release pushes the tag.
 
+## PR previews
+
+Each PR into `stage` from a branch of this repository gets its own Studio at
+`https://<branch>.app.<cluster domain>/`, deployed with
+[`HarperFast/deploy-action`](https://github.com/HarperFast/deploy-action) and dropped when the PR
+closes. Fork PRs get none.
+
+| Workflow             | Runs on               | Holds credentials                              |
+| -------------------- | --------------------- | ---------------------------------------------- |
+| `preview-build.yaml` | `pull_request`        | **no**: read-only token, runs the PR's code    |
+| `preview.yaml`       | `pull_request_target` | an OIDC identity token; never runs a PR's code |
+
+`preview-build.yaml` builds the PR's head commit with `--mode dev`, so the bundle talks to the dev
+central manager, and without `VITE_TELEMETRY_ENABLED`, so it reports nothing to Datadog or GTM. It
+uploads `web/` as an artifact. `preview.yaml` runs from `stage`, waits for that build, writes its
+own `config.yaml` serving `web/` with Harper's static plugin, and deploys the result as `hdbms-pr-<N>`.
+The deploy template is not used, so a template change is not exercised by its PR's preview.
+
+The cluster trusts `preview.yaml` by path, branch, event and environment, not by content, and
+`harper preview setup` checks its content only once. `src/lib/workflowPrivilege.test.ts` keeps
+checking that every `pull_request_target` job has the fork guard and checks out nothing.
+
 ## The merge queue, and why no deploy workflow accepts `merge_group`
 
 The merge queue is in use on `stage`. **`verify-stage.yaml` owns its check** — `Verify Stage` is
