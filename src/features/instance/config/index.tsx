@@ -4,6 +4,7 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
+import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
@@ -13,6 +14,7 @@ import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
+	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -43,6 +45,7 @@ export function ConfigIndex() {
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
+	const previewsSupported = supportsPreviews(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -99,6 +102,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<BrickWallFireIcon className="hidden md:inline-block" /> <span className="ms-3">Firewall</span>
+					</Link>
+				</li>
+			)}
+			{previewsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/previews')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<GitPullRequestIcon className="hidden md:inline-block" /> <span className="ms-3">Previews</span>
 					</Link>
 				</li>
 			)}

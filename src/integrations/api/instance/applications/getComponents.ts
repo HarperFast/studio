@@ -11,11 +11,26 @@ export interface ComponentStatus {
 	lastChecked?: unknown;
 }
 
+/** What a PR preview was deployed from (harper `components/deploymentProvenance.ts`), on Harper 5.4+. */
+export interface PreviewMetadata {
+	app: string;
+	pr: number;
+	repository?: string;
+	branch?: string;
+	sha?: string;
+	/** ISO 8601, or epoch milliseconds. */
+	expiresAt?: string | number;
+}
+
 export interface APIDirectoryEntry extends APIFileEntry {
 	entries: Array<APIDirectoryEntry | APIFileEntry>;
 	package?: string;
 	/** Present on Harper >= 5.1.0 for top-level component entries. */
 	status?: ComponentStatus;
+	/** The host an isolated application serves on. */
+	host?: string;
+	/** Present on a top-level entry whose live release was deployed as a preview. */
+	preview?: PreviewMetadata;
 }
 
 export interface APIFileEntry {
