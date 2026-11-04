@@ -3,6 +3,9 @@ name: Build PR Preview
 # Runs the PR's code, so it gets a read-only token and no identity token; preview.yaml deploys its
 # artifact. Keep `branches` the same as there: its deploy job fails when no run of this one starts.
 
+# preview.yaml finds this run by its title: keep the two the same.
+run-name: 'Build PR Preview #${{ github.event.pull_request.number }}'
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]

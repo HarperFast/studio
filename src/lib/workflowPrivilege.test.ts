@@ -110,13 +110,16 @@ const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repo
 type Step = { uses?: unknown };
 type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
 
-/** Whether the guard is a top-level `&&` term, so nothing negates, quotes or bypasses it. */
+/**
+ * Whether the guard is a top-level `&&` term, so nothing negates, quotes or bypasses it. Grouping and
+ * a second `${{ }}` are refused outright rather than parsed: the guard needs neither.
+ */
 function hasForkGuard(condition: unknown): boolean {
 	if (typeof condition !== 'string') { return false; }
 	const expression = condition.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1')
 		// String literals can hold `&&` and the guard's own text.
 		.replace(/'(?:[^']|'')*'/g, "''");
-	if (expression.includes('||')) { return false; }
+	if (/\|\||[(){}]/.test(expression)) { return false; }
 	return expression.split('&&').some((term) => term.trim() === FORK_GUARD);
 }
 
@@ -156,6 +159,8 @@ describe('pull_request_target workflows run no PR code', () => {
 		// `&&` binds tighter, so this is `true || (… && guard)`, and its last term is the guard itself.
 		['a guard that `||` can bypass', job(`    if: \${{ true || github.event.action != 'closed' && ${FORK_GUARD} }}\n`)],
 		['a negated guard', job(`    if: \${{ !(${FORK_GUARD}) }}\n`)],
+		['a guard inside a negated group', job(`    if: \${{ !(true && ${FORK_GUARD} && true) }}\n`)],
+		['a guard between two interpolations', job(`    if: \${{ false }} && ${FORK_GUARD} && \${{ false }}\n`)],
 		['a guard inside a string', job(`    if: contains('x && ${FORK_GUARD} && y', 'z')\n`)],
 		['a guard compared again', job(`    if: \${{ ${FORK_GUARD} == false }}\n`)],
 		['a checkout', job(`${guarded}    steps:\n      - uses: actions/checkout@v7\n`)],
@@ -165,8 +170,11 @@ describe('pull_request_target workflows run no PR code', () => {
 		expect(pullRequestTargetProblems(parse(raw))).not.toEqual([]);
 	});
 
-	it('passes a guarded job that only calls a pinned action', () => {
-		const raw = job(`${guarded}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
+	it.each([
+		['a bare guard', guarded],
+		['a guard after `!=`', `    if: github.event.action != 'closed' && ${FORK_GUARD}\n`],
+	])('passes %s on a job that only calls a pinned action', (_label, condition) => {
+		const raw = job(`${condition}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
 		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);
 	});
 });
