@@ -25,7 +25,6 @@ export function WorkflowStatusBadge({ row }: { row: Pick<WorkflowRow, 'status' |
 	);
 }
 
-/** ISO stamps as the viewer's local time, the raw value kept in the tooltip for copying. */
 export function Timestamp({ value }: { value?: string | null }) {
 	if (!value) { return <span className="text-muted-foreground">—</span>; }
 	const date = new Date(value);
@@ -52,5 +51,13 @@ export function DetailRow({ label, children }: { label: string; children: ReactN
 			<dt className="text-muted-foreground">{label}</dt>
 			<dd className="min-w-0 break-words">{children}</dd>
 		</div>
+	);
+}
+
+export function RefreshFailed() {
+	return (
+		<p className="mb-4 text-sm text-destructive">
+			Couldn't refresh from central manager; showing what was last read. Retrying.
+		</p>
 	);
 }

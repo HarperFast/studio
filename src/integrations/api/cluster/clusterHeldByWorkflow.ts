@@ -1,9 +1,8 @@
 import { errorText } from '@/lib/errorText';
 import { AxiosError } from 'axios';
 
-export const CLUSTER_BUSY_TITLE = 'Upgrade in progress';
-export const CLUSTER_BUSY_MESSAGE =
-	'This cluster is busy with an upgrade or another change. Try again once it finishes.';
+export const CLUSTER_BUSY_TITLE = 'Update in progress';
+export const CLUSTER_BUSY_MESSAGE = 'This cluster is busy with an update. Try again once it finishes.';
 
 // Central manager's two refusals (`assertClusterMutable`, `admitClusterContainerOp`) both open this way and carry no
 // machine-readable code, so the sentence is the contract.

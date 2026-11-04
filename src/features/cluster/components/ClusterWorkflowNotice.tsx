@@ -29,13 +29,13 @@ export function ClusterWorkflowNotice(
 	if (!workflowId) {
 		return null;
 	}
-	// Checked at render as well as on the query: a cached row must not outlive the permission that fetched it.
+	// Also checked at render: a cached row must not outlive the permission that fetched it.
 	if (!canReadWorkflows || !row) {
 		return (
 			<div className={className}>
 				<Alert variant="warning" role="status" aria-live="polite">
 					<LoaderCircleIcon className="animate-spin" />
-					<AlertTitle>Upgrade in progress</AlertTitle>
+					<AlertTitle>Update in progress</AlertTitle>
 					<AlertDescription>
 						This cluster is being updated one instance at a time. Other changes to it wait until this finishes.
 					</AlertDescription>

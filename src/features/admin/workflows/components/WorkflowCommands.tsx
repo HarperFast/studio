@@ -52,8 +52,8 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 	const mutation = useWorkflowCommandMutation();
 	const [abandoning, setAbandoning] = useState(false);
 	const commands = offeredCommands(detail, canManage);
-	// A command already written and not yet taken by the executor: the server refuses another until it is.
-	const pending = detail.command?.action;
+	// Central manager refuses any command while one is still waiting for the executor; acceptedCommands doesn't say so.
+	const pending = !!detail.command?.action;
 
 	if (!commands.length) { return null; }
 
@@ -76,31 +76,38 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 					size="sm"
 					variant={COMMAND_COPY[command].variant}
 					title={COMMAND_COPY[command].title}
-					disabled={mutation.isPending || !!pending}
+					disabled={mutation.isPending || pending}
 					onClick={() => send(command)}
 				>
 					{mutation.isPending && mutation.variables?.command === command && <Loader2Icon className="animate-spin" />}
 					{COMMAND_COPY[command].label}
 				</Button>
 			))}
-			{pending && (
-				<span className="text-xs text-muted-foreground">
-					{pending} sent{detail.command?.by ? ` by ${detail.command.by}` : ''}, waiting for the next step boundary
-				</span>
+			{abandoning && (
+				<AbandonDialog
+					key={detail.id}
+					workflowId={detail.id}
+					held={pending}
+					onClose={() => setAbandoning(false)}
+				/>
 			)}
-			{abandoning && <AbandonDialog workflowId={detail.id} onClose={() => setAbandoning(false)} />}
 		</div>
 	);
 }
 
-/** Mount only while open, so a reason typed for an abandoned attempt never carries into the next. */
-export function AbandonDialog({ workflowId, onClose }: { workflowId: string; onClose: () => void }) {
+/**
+ * Mount only while open, keyed by the workflow, so a reason typed for one attempt never carries into the next or onto
+ * another workflow. `held`: another command arrived meanwhile, which central manager would refuse this behind.
+ */
+export function AbandonDialog(
+	{ workflowId, held = false, onClose }: { workflowId: string; held?: boolean; onClose: () => void },
+) {
 	const mutation = useWorkflowCommandMutation();
 	const [reason, setReason] = useState('');
 	const trimmed = reason.trim();
 
 	const abandon = () => {
-		if (!trimmed || mutation.isPending) { return; }
+		if (!trimmed || held || mutation.isPending) { return; }
 		mutation.mutate({ id: workflowId, command: 'abandon', reason: trimmed }, {
 			onSuccess: () => {
 				toast.success('Abandon sent', { description: workflowId });
@@ -132,7 +139,12 @@ export function AbandonDialog({ workflowId, onClose }: { workflowId: string; onC
 				</div>
 				<DialogFooter>
 					<Button type="button" variant="outline" disabled={mutation.isPending} onClick={onClose}>Cancel</Button>
-					<Button type="button" variant="destructive" disabled={!trimmed || mutation.isPending} onClick={abandon}>
+					<Button
+						type="button"
+						variant="destructive"
+						disabled={!trimmed || held || mutation.isPending}
+						onClick={abandon}
+					>
 						{mutation.isPending && <Loader2Icon className="animate-spin" />}
 						Abandon
 					</Button>

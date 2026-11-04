@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Timestamp, WorkflowStatusBadge } from '@/features/admin/workflows/components/WorkflowBits';
+import { RefreshFailed, Timestamp, WorkflowStatusBadge } from '@/features/admin/workflows/components/WorkflowBits';
 import {
 	INTAKE_MODES,
 	IntakeMode,
@@ -10,7 +10,6 @@ import {
 	useSetIntakeMutation,
 	WORKFLOW_STATUSES,
 	WorkflowFilters,
-	workflowIntakeQueryOptions,
 	workflowsQueryOptions,
 	WorkflowStatus,
 	WorkflowSummary,
@@ -19,6 +18,7 @@ import {
 import { workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
+import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -29,7 +29,7 @@ const ALL = 'all';
 type StatusChoice = WorkflowStatus | typeof ACTIVE | typeof ALL;
 
 /** `active` and `all` are the endpoint's `?active=true` and no status; anything else is one status. */
-export function filtersFor(status: StatusChoice, type: string, clusterId: string): WorkflowFilters {
+function filtersFor(status: StatusChoice, type: string, clusterId: string): WorkflowFilters {
 	return {
 		status: status === ACTIVE || status === ALL ? undefined : status,
 		active: status === ACTIVE,
@@ -101,7 +101,7 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 								{row.id}
 							</Link>{' '}
 							<span className="text-destructive">{row.why}</span>
-							{row.step && <span className="text-muted-foreground">at {row.step}</span>}
+							{row.step && <span className="text-muted-foreground">{` at ${row.step}`}</span>}
 						</li>
 					))}
 				</ul>
@@ -110,11 +110,10 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 	);
 }
 
-function IntakeControl() {
+/** Reads the mode from the polled summary, so a change another operator makes shows up here too. */
+function IntakeControl({ mode }: { mode: IntakeMode }) {
 	const canManage = useStaffPermission('workflow:manage');
-	const { data: mode } = useQuery(workflowIntakeQueryOptions());
 	const mutation = useSetIntakeMutation();
-	if (!mode) { return null; }
 	return (
 		<div className="flex items-center gap-2 text-sm">
 			<span className="text-muted-foreground">Intake</span>
@@ -143,7 +142,9 @@ export function WorkflowsAdminIndex() {
 	const [clusterText, setClusterText] = useState('');
 	const clusterId = useDebounce(clusterText, 300);
 	const { data: summary } = useQuery(workflowSummaryQueryOptions());
-	const { data: rows, isLoading, isError } = useQuery(workflowsQueryOptions(filtersFor(status, type, clusterId)));
+	const { data: rows, isLoading, isError, error } = useQuery(
+		workflowsQueryOptions(filtersFor(status, type, clusterId)),
+	);
 
 	return (
 		<div>
@@ -155,7 +156,7 @@ export function WorkflowsAdminIndex() {
 						paused, resumed, retried, undone or abandoned from its page.
 					</p>
 				</div>
-				<IntakeControl />
+				{summary && <IntakeControl mode={summary.intake} />}
 			</div>
 
 			{summary && <SummaryPanel summary={summary} />}
@@ -192,10 +193,11 @@ export function WorkflowsAdminIndex() {
 			</div>
 
 			<div className="mt-4">
+				{rows && !!error && <RefreshFailed />}
 				{isLoading
 					? <p className="text-sm text-muted-foreground">Loading workflows…</p>
-					: isError
-					? <p className="text-sm text-destructive">Couldn't load workflows.</p>
+					: isError && !rows
+					? <p className="text-sm text-destructive">{describeError(error).message}</p>
 					: !rows?.length
 					? <p className="text-sm text-muted-foreground">No workflows match these filters.</p>
 					: (

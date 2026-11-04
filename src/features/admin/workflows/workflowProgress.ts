@@ -13,8 +13,7 @@ interface Resolved {
 	endsOnItem: boolean;
 }
 
-function resolve(stepPath: string, plan: WorkflowPlanStep[]): Resolved | null {
-	const kinds = new Map(plan.map((step) => [step.path, step.kind]));
+function resolve(stepPath: string, kinds: Map<string, PlanStepKind>): Resolved | null {
 	const segments = stepPath.split('/');
 	const parts: string[] = [];
 	for (let index = 0; index < segments.length; index++) {
@@ -34,8 +33,10 @@ function resolve(stepPath: string, plan: WorkflowPlanStep[]): Resolved | null {
  * Every forEach step is followed by its item id, which is dropped. Null when the path leaves the plan.
  */
 export function itemDefinitionPath(stepPath: string, plan: WorkflowPlanStep[]): string | null {
-	return resolve(stepPath, plan)?.path ?? null;
+	return resolve(stepPath, kindsByPath(plan))?.path ?? null;
 }
+
+const kindsByPath = (plan: WorkflowPlanStep[]) => new Map(plan.map((step) => [step.path, step.kind]));
 
 export type StatusCounts = Partial<Record<string, number>>;
 
@@ -46,8 +47,9 @@ export type StatusCounts = Partial<Record<string, number>>;
 export function statusCountsByStep(detail: Pick<WorkflowDetail, 'plan' | 'items'>): Map<string, StatusCounts> {
 	const counts = new Map<string, StatusCounts>();
 	if (!detail.plan) { return counts; }
+	const kinds = kindsByPath(detail.plan);
 	for (const item of detail.items) {
-		const resolved = resolve(item.stepPath, detail.plan);
+		const resolved = resolve(item.stepPath, kinds);
 		if (!resolved || resolved.endsOnItem) { continue; }
 		const forStep = counts.get(resolved.path) ?? {};
 		forStep[item.status] = (forStep[item.status] ?? 0) + 1;
@@ -71,14 +73,17 @@ const isIdList = (value: unknown): value is string[] =>
 /**
  * Progress through an upgrade's batches, from its own checkpoint: admission plans `state.batchIds`, and each batch's
  * `settle` step records `state.lastBatchFinished` once that batch is out of the way. Null for a workflow without them.
+ * A current batch only while it runs forward: undo and cleanup walk the batches by other rules.
  */
-export function batchProgress(row: Pick<WorkflowRow, 'state'>): BatchProgress | null {
+export function batchProgress(row: Pick<WorkflowRow, 'state' | 'status' | 'phase'>): BatchProgress | null {
 	const state = row.state as { batchIds?: unknown; lastBatchFinished?: unknown } | null | undefined;
 	if (!isIdList(state?.batchIds) || !state.batchIds.length) { return null; }
 	const ids = state.batchIds;
 	const last = typeof state.lastBatchFinished === 'string' ? ids.indexOf(state.lastBatchFinished) : -1;
 	const finished = last + 1;
-	const current = finished < ids.length ? finished + 1 : null;
+	const forward = row.phase === 'run'
+		&& (row.status === 'RUNNING' || row.status === 'PAUSED' || row.status === 'PENDING');
+	const current = forward && finished < ids.length ? finished + 1 : null;
 	return { total: ids.length, finished, current, currentId: current ? ids[current - 1] : null };
 }
 

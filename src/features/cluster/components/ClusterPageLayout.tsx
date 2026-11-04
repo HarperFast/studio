@@ -57,7 +57,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 				</aside>
 				<section className="md:col-span-9 lg:col-span-10 min-w-0">
 					<RestartingNotice entityId={clusterId} clusterId={clusterId} noun="cluster" className="mb-4" />
-					<ClusterWorkflowNotice clusterId={clusterId} workflowId={cluster?.workflowId} className="mb-4" />
+					{cluster?.workflowId && (
+						<ClusterWorkflowNotice clusterId={clusterId} workflowId={cluster.workflowId} className="mb-4" />
+					)}
 					{children}
 				</section>
 			</div>

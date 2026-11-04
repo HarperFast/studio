@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
 	DetailRow,
 	JsonBlock,
+	RefreshFailed,
 	Timestamp,
 	WorkflowStatusBadge,
 } from '@/features/admin/workflows/components/WorkflowBits';
@@ -184,7 +185,8 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 							</TableCell>
 							<TableCell className="text-xs">
 								{event.kind}
-								{event.attempt != null && <span className="text-muted-foreground">(attempt {event.attempt})</span>}
+								{event.attempt != null && <span className="text-muted-foreground">{` (attempt ${event.attempt})`}
+								</span>}
 							</TableCell>
 							<TableCell className="font-mono text-xs">
 								{[event.step, event.item].filter(Boolean).join(' · ') || '—'}
@@ -200,7 +202,7 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 	);
 }
 
-export function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
+function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 	const counts = useMemo(() => statusCountsByStep(detail), [detail]);
 	const progress = batchProgress(detail);
 	return (
@@ -226,7 +228,9 @@ export function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 				<DetailRow label="Phase">{detail.phase ?? '—'}</DetailRow>
 				<DetailRow label="Step">
 					<span className="font-mono">{detail.step ?? '—'}</span>
-					{detail.stepAttempt ? <span className="text-muted-foreground">(attempt {detail.stepAttempt})</span> : null}
+					{detail.stepAttempt
+						? <span className="text-muted-foreground">{` (attempt ${detail.stepAttempt})`}</span>
+						: null}
 				</DetailRow>
 				{progress && (
 					<DetailRow label="Batches">
@@ -235,6 +239,12 @@ export function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 					</DetailRow>
 				)}
 				{detail.status === 'PAUSED' && <DetailRow label="Paused">{pauseLabel(detail.pause?.reason)}</DetailRow>}
+				{detail.command?.action && (
+					<DetailRow label="Pending command">
+						{detail.command.action}
+						{detail.command.by && ` by ${detail.command.by}`}, waiting for the next step boundary
+					</DetailRow>
+				)}
 				{(detail.failedStep || detail.failedItem) && (
 					<DetailRow label="Failed at">
 						<span className="font-mono">{[detail.failedStep, detail.failedItem].filter(Boolean).join(' · ')}</span>
@@ -352,13 +362,18 @@ export function WorkflowDetailPage() {
 			<Link to="/admin/workflows" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground">
 				<ArrowLeftIcon className="size-4" /> Workflows
 			</Link>
-			{isLoading
+			{data && data.id === workflowId
+				? (
+					<>
+						{!!error && <RefreshFailed />}
+						<WorkflowDetailView key={workflowId} detail={data} />
+					</>
+				)
+				: isLoading
 				? <p className="text-sm text-muted-foreground">Loading workflow…</p>
 				: notFound
 				? <p className="text-sm text-muted-foreground">No workflow has the id {workflowId}.</p>
-				: error || !data
-				? <p className="text-sm text-destructive">Couldn't load this workflow.</p>
-				: <WorkflowDetailView detail={data} />}
+				: <p className="text-sm text-destructive">Couldn't load this workflow.</p>}
 		</div>
 	);
 }

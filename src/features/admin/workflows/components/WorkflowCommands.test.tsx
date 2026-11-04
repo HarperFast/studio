@@ -95,7 +95,6 @@ describe('WorkflowCommands', () => {
 			<WorkflowCommands detail={detail({ command: { action: 'pause', by: 'ops@example.com' } })} />,
 		);
 		for (const button of screen.getAllByRole('button')) { expect(button).toHaveProperty('disabled', true); }
-		expect(screen.getByText(/pause sent by ops@example.com/)).toBeTruthy();
 	});
 
 	it('asks for a reason before abandoning instead of sending at once', () => {
@@ -119,6 +118,12 @@ describe('AbandonDialog', () => {
 		expect(confirm).toHaveProperty('disabled', true);
 		fireEvent.change(screen.getByLabelText('Reason'), { target: { value: '   ' } });
 		expect(confirm).toHaveProperty('disabled', true);
+	});
+
+	it('holds the confirmation once another command is pending', () => {
+		renderWithClient(<AbandonDialog workflowId="wf-1" held onClose={() => undefined} />);
+		fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'host retired' } });
+		expect(screen.getByRole('button', { name: 'Abandon' })).toHaveProperty('disabled', true);
 	});
 
 	it('sends the trimmed reason and closes', async () => {

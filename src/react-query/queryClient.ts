@@ -194,6 +194,11 @@ export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (
 	if (isClaimedByRoute(query)) {
 		return;
 	}
+	// An optional read whose UI already has a fallback for it.
+	if (query.meta?.quietErrors) {
+		console.debug('Suppressed a failure from an optional read', error);
+		return;
+	}
 	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {
 		console.error(error);
 		return;

@@ -559,8 +559,8 @@ describe('a cluster a durable workflow holds', () => {
 
 	it('is described in our words, without the workflow id', () => {
 		const described = describeError(held);
-		expect(described.title).toBe('Upgrade in progress');
-		expect(described.message).toMatch(/busy with an upgrade/);
+		expect(described.title).toBe('Update in progress');
+		expect(described.message).toMatch(/busy with an update/);
 		expect(JSON.stringify(described)).not.toContain('wf-abc');
 	});
 
@@ -584,5 +584,20 @@ describe('a cluster a durable workflow holds', () => {
 		const observer = new MutationObserver(queryClient, { mutationFn: () => Promise.reject(new Error('nope')) });
 		await expect(observer.mutate()).rejects.toThrow('nope');
 		expect(invalidate).not.toHaveBeenCalled();
+	});
+});
+
+describe('an optional read', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('fails quietly when it says so: no toast, nothing for RUM', () => {
+		vi.clearAllMocks();
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		queryErrorHandler(new Error('boom'), { queryKey: ['x'], meta: { quietErrors: true } } as never);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });

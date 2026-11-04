@@ -1,5 +1,5 @@
-// Central manager's staff-only `/Admin/Workflow` endpoint. Its OpenAPI entry types every answer as a bare object, so
-// the shapes are written here and the URLs are cast as elsewhere. The endpoint enforces every permission the UI gates on.
+// Central manager's `/Admin/Workflow`. Its OpenAPI entry types every answer as a bare object, so the shapes are written
+// here and the URLs cast as elsewhere.
 import { apiClient } from '@/config/apiClient';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -13,7 +13,7 @@ export const WORKFLOW_STATUSES = [
 	'ABANDONED',
 ] as const;
 export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
-export const ACTIVE_WORKFLOW_STATUSES: readonly WorkflowStatus[] = ['PENDING', 'RUNNING', 'UNDOING', 'PAUSED'];
+const ACTIVE_WORKFLOW_STATUSES: readonly WorkflowStatus[] = ['PENDING', 'RUNNING', 'UNDOING', 'PAUSED'];
 
 export const WORKFLOW_COMMANDS = ['pause', 'resume', 'retry', 'undo', 'abandon'] as const;
 export type WorkflowCommand = (typeof WORKFLOW_COMMANDS)[number];
@@ -24,16 +24,8 @@ export type IntakeMode = (typeof INTAKE_MODES)[number];
 export type PauseReason = 'command' | 'failed' | 'unknown' | 'finalize-failed' | 'missing-step';
 export type WorkflowPhase = 'run' | 'undo' | 'finalize';
 
-/** The workflow types central manager registers today; the filter also accepts any other typed value. */
+/** The workflow types central manager registers today, offered by the type filter. */
 export const KNOWN_WORKFLOW_TYPES = ['UPDATE_HARPER_VERSION', 'UPDATE_RECORD_LOCKS'] as const;
-
-/** What an upgrade keeps in `state`: admission's batch plan and the last batch `settle` stamped. */
-export interface UpgradeState {
-	batchIds?: string[];
-	batches?: Record<string, string[]>;
-	targetIds?: string[];
-	lastBatchFinished?: string | null;
-}
 
 export interface WorkflowRow {
 	id: string;
@@ -173,7 +165,7 @@ export function workflowsQueryString(filters: WorkflowFilters): string {
 	return params.toString();
 }
 
-export const isActiveWorkflow = (row: Pick<WorkflowRow, 'status'>) => ACTIVE_WORKFLOW_STATUSES.includes(row.status);
+const isActiveWorkflow = (row: Pick<WorkflowRow, 'status'>) => ACTIVE_WORKFLOW_STATUSES.includes(row.status);
 
 const workflowsQueryPrefix = ['fabric-admin', 'workflows'] as const;
 const LIST_POLL_MS = 10_000;
@@ -181,9 +173,12 @@ const DETAIL_POLL_MS = 5_000;
 /** Central manager's page size when the request names none; a full page may not be every match. */
 export const LIST_PAGE_SIZE = 100;
 
-// Any failure stops the timer: an older central manager answers 404 for good, and the pages already show the error.
-const untilFailure = (interval: number) => (query: { state: { error: unknown } }) =>
-	query.state.error ? false : interval;
+const RETRY_POLL_MS = 30_000;
+const isNotFound = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status === 404;
+
+// A 404 stops the timer: an older central manager has no such endpoint, for good. Anything else keeps polling, slower.
+const pollUnlessGone = (interval: number) => (query: { state: { error: unknown } }) =>
+	isNotFound(query.state.error) ? false : query.state.error ? RETRY_POLL_MS : interval;
 
 export function workflowsQueryOptions(filters: WorkflowFilters) {
 	return queryOptions({
@@ -195,15 +190,12 @@ export function workflowsQueryOptions(filters: WorkflowFilters) {
 			return data as unknown as WorkflowRow[];
 		},
 		retry: false,
-		refetchInterval: untilFailure(LIST_POLL_MS),
+		meta: { quietErrors: true },
+		refetchInterval: pollUnlessGone(LIST_POLL_MS),
 	});
 }
 
-export function workflowDetailQueryKey(id: string) {
-	return [...workflowsQueryPrefix, 'detail', id] as const;
-}
-
-export async function getWorkflowDetail(id: string): Promise<WorkflowDetail> {
+async function getWorkflowDetail(id: string): Promise<WorkflowDetail> {
 	const { data } = await apiClient.get(workflowPath(id) as '/Admin/Region/');
 	const detail = data as unknown as Partial<WorkflowDetail> | undefined;
 	if (!detail?.id || !Array.isArray(detail.acceptedCommands)) {
@@ -218,66 +210,72 @@ export async function getWorkflowDetail(id: string): Promise<WorkflowDetail> {
 	} as WorkflowDetail;
 }
 
-/** Polls only while the workflow is active: an ended row no longer changes. */
+/** An ended row no longer changes; a paused one changes only on a command, so its full history is fetched less often. */
 export function workflowDetailQueryOptions(id: string | null | undefined) {
 	return queryOptions({
-		queryKey: workflowDetailQueryKey(id ?? ''),
+		queryKey: [...workflowsQueryPrefix, 'detail', id ?? ''],
 		queryFn: () => getWorkflowDetail(id as string),
 		enabled: !!id,
 		retry: false,
-		refetchInterval: (query) =>
-			query.state.data && !isActiveWorkflow(query.state.data) ? false : untilFailure(DETAIL_POLL_MS)(query),
+		meta: { quietErrors: true },
+		refetchInterval: (query) => {
+			const row = query.state.data;
+			if (row && !isActiveWorkflow(row)) { return false; }
+			return pollUnlessGone(row?.status === 'PAUSED' ? RETRY_POLL_MS : DETAIL_POLL_MS)(query);
+		},
 	});
 }
 
 /**
  * The cluster notice's read of the workflow holding a cluster: its row from the list, which carries no items or
- * events, so a page left open polls something light. A failure is not news there (the notice falls back to its plain
- * state), so it settles to null instead of reaching the global error toast, and stops polling. `console.debug` is not
- * collected.
+ * events. `quietErrors`: the notice falls back to its plain state, so a failure is not news, and the last row read
+ * stays shown while polling carries on.
  */
 export function heldClusterWorkflowQueryOptions(clusterId: string | undefined, workflowId: string | null | undefined) {
 	return queryOptions({
 		queryKey: [...workflowsQueryPrefix, 'notice', clusterId ?? '', workflowId ?? ''],
 		queryFn: async (): Promise<WorkflowRow | null> => {
-			try {
-				const { data } = await apiClient.get(
-					`${BASE}?${workflowsQueryString({ clusterId, active: true })}` as '/Admin/Region/',
-				);
-				return Array.isArray(data)
-					? (data as unknown as WorkflowRow[]).find((row) => row.id === workflowId) ?? null
-					: null;
-			} catch (error) {
-				console.debug('Could not read the workflow holding this cluster', error);
-				return null;
-			}
+			const { data } = await apiClient.get(
+				`${BASE}?${workflowsQueryString({ clusterId, active: true })}` as '/Admin/Region/',
+			);
+			if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of workflows.'); }
+			return (data as unknown as WorkflowRow[]).find((row) => row.id === workflowId) ?? null;
 		},
 		enabled: !!clusterId && !!workflowId,
 		retry: false,
-		refetchInterval: (query) => (query.state.data === null ? false : LIST_POLL_MS),
+		meta: { quietErrors: true },
+		refetchInterval: pollUnlessGone(LIST_POLL_MS),
 	});
 }
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export function workflowSummaryQueryOptions() {
 	return queryOptions({
 		queryKey: [...workflowsQueryPrefix, 'summary'],
-		queryFn: async () => {
+		queryFn: async (): Promise<WorkflowSummary> => {
 			const { data } = await apiClient.get(`${BASE}summary` as '/Admin/Region/');
-			return data as unknown as WorkflowSummary;
+			const summary = data as unknown as Partial<WorkflowSummary> | undefined;
+			if (!isObject(summary) || typeof summary.active !== 'number') {
+				throw new Error('Central manager did not answer with a workflow summary.');
+			}
+			return {
+				...summary,
+				intake: INTAKE_MODES.includes(summary.intake as IntakeMode) ? summary.intake as IntakeMode : 'open',
+				byStatus: isObject(summary.byStatus) ? summary.byStatus : {},
+				byType: isObject(summary.byType) ? summary.byType as Record<string, number> : {},
+				byNode: isObject(summary.byNode) ? summary.byNode as Record<string, number> : {},
+				stuck: Array.isArray(summary.stuck) ? summary.stuck : [],
+				pausedOnFailure: Array.isArray(summary.pausedOnFailure) ? summary.pausedOnFailure : [],
+				lockAvailable: summary.lockAvailable ?? null,
+				oldestActive: summary.oldestActive ?? null,
+				oldestActiveSeconds: summary.oldestActiveSeconds ?? 0,
+			} as WorkflowSummary;
 		},
 		retry: false,
-		refetchInterval: untilFailure(LIST_POLL_MS),
-	});
-}
-
-export function workflowIntakeQueryOptions() {
-	return queryOptions({
-		queryKey: [...workflowsQueryPrefix, 'intake'],
-		queryFn: async () => {
-			const { data } = await apiClient.get(`${BASE}intake` as '/Admin/Region/');
-			return (data as unknown as { mode: IntakeMode }).mode;
-		},
-		retry: false,
+		meta: { quietErrors: true },
+		refetchInterval: pollUnlessGone(LIST_POLL_MS),
 	});
 }
 
@@ -299,7 +297,9 @@ export function useWorkflowCommandMutation() {
 				command === 'abandon' ? { reason } : {},
 			);
 		},
-		onSettled: () => queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix }),
+		onSettled: () => {
+			void queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix });
+		},
 	});
 }
 
@@ -310,6 +310,8 @@ export function useSetIntakeMutation() {
 		mutationFn: async (mode: IntakeMode) => {
 			await apiClient.post(`${BASE}intake` as '/Admin/Region/', { mode });
 		},
-		onSettled: () => queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix }),
+		onSettled: () => {
+			void queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix });
+		},
 	});
 }

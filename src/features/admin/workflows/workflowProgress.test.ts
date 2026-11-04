@@ -80,8 +80,10 @@ describe('statusCountsByStep', () => {
 });
 
 describe('batchProgress', () => {
+	const running = { status: 'RUNNING', phase: 'run' } as const;
+
 	it('reads the batch plan and the last batch settle stamped', () => {
-		expect(batchProgress({ state: { batchIds: ['b1', 'b2', 'b3'], lastBatchFinished: 'b1' } })).toEqual({
+		expect(batchProgress({ ...running, state: { batchIds: ['b1', 'b2', 'b3'], lastBatchFinished: 'b1' } })).toEqual({
 			total: 3,
 			finished: 1,
 			current: 2,
@@ -90,14 +92,14 @@ describe('batchProgress', () => {
 	});
 
 	it('is on the first batch before any has finished', () => {
-		expect(batchProgress({ state: { batchIds: ['b1', 'b2'], lastBatchFinished: null } })).toMatchObject({
+		expect(batchProgress({ ...running, state: { batchIds: ['b1', 'b2'], lastBatchFinished: null } })).toMatchObject({
 			finished: 0,
 			current: 1,
 		});
 	});
 
 	it('has no current batch once the last one finished', () => {
-		expect(batchProgress({ state: { batchIds: ['b1', 'b2'], lastBatchFinished: 'b2' } })).toMatchObject({
+		expect(batchProgress({ ...running, state: { batchIds: ['b1', 'b2'], lastBatchFinished: 'b2' } })).toMatchObject({
 			finished: 2,
 			current: null,
 		});
@@ -109,6 +111,22 @@ describe('batchProgress', () => {
 		['an empty batch plan', { batchIds: [] }],
 		['a malformed batch plan', { batchIds: 'b1' }],
 	])('is null for %s', (_case, state) => {
-		expect(batchProgress({ state })).toBeNull();
+		expect(batchProgress({ ...running, state })).toBeNull();
+	});
+
+	it.each(
+		[
+			['undoing', { status: 'UNDOING', phase: 'undo' }],
+			['undone', { status: 'UNDONE', phase: 'undo' }],
+			['abandoned', { status: 'ABANDONED', phase: 'finalize' }],
+			['paused in undo', { status: 'PAUSED', phase: 'undo' }],
+		] as const,
+	)('names no current batch while %s', (_case, row) => {
+		expect(batchProgress({ ...row, state: { batchIds: ['b1', 'b2', 'b3'], lastBatchFinished: 'b1' } })).toEqual({
+			total: 3,
+			finished: 1,
+			current: null,
+			currentId: null,
+		});
 	});
 });

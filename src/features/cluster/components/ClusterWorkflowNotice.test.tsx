@@ -27,6 +27,7 @@ const upgrade: WorkflowRow = {
 	id: 'wf-1',
 	type: 'UPDATE_HARPER_VERSION',
 	status: 'RUNNING',
+	phase: 'run',
 	clusterId: 'clu-1',
 	step: 'batch/b2/drain',
 	state: { batchIds: ['b1', 'b2'], lastBatchFinished: 'b1' },
@@ -60,7 +61,7 @@ describe('ClusterWorkflowNotice', () => {
 	it('shows customers the plain state and never asks for the workflow', async () => {
 		auth.canRead = false;
 		renderNotice();
-		expect(screen.getByText('Upgrade in progress')).toBeTruthy();
+		expect(screen.getByText('Update in progress')).toBeTruthy();
 		expect(screen.queryByText(/wf-1/)).toBeNull();
 		await waitFor(() => expect(mockedGet).toHaveBeenCalled());
 		expect(mockedGet.mock.calls.some(([url]) => isWorkflowRead(url))).toBe(false);
@@ -78,14 +79,22 @@ describe('ClusterWorkflowNotice', () => {
 
 	it('falls back to the plain state for staff when the workflow cannot be read', async () => {
 		auth.canRead = true;
-		const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 		mockedGet.mockImplementation(async (url: string) => {
-			if (isWorkflowRead(url)) { throw new AxiosError('Request failed with status code 403'); }
+			if (isWorkflowRead(url)) { throw new AxiosError('Request failed with status code 503'); }
 			return { data: { id: 'clu-1', workflowId: 'wf-1' } };
 		});
 		renderNotice();
-		await waitFor(() => expect(debug).toHaveBeenCalled());
-		expect(screen.getByText('Upgrade in progress')).toBeTruthy();
-		debug.mockRestore();
+		await waitFor(() => expect(mockedGet.mock.calls.some(([url]) => isWorkflowRead(url))).toBe(true));
+		expect(screen.getByText('Update in progress')).toBeTruthy();
+	});
+
+	it('falls back to the plain state when the cluster’s workflow is not in the active list', async () => {
+		auth.canRead = true;
+		mockedGet.mockImplementation(async (url: string) =>
+			isWorkflowRead(url) ? { data: [{ ...upgrade, id: 'wf-other' }] } : { data: {} }
+		);
+		renderNotice();
+		await waitFor(() => expect(mockedGet.mock.calls.some(([url]) => isWorkflowRead(url))).toBe(true));
+		expect(screen.getByText('Update in progress')).toBeTruthy();
 	});
 });
