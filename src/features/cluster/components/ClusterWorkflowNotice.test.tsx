@@ -77,6 +77,24 @@ describe('ClusterWorkflowNotice', () => {
 		expect(screen.getByRole('link').getAttribute('href')).toBe('/admin/workflows/wf-1');
 	});
 
+	it('says how far an undoing upgrade got, not that every batch finished', async () => {
+		auth.canRead = true;
+		mockedGet.mockImplementation(async (url: string) =>
+			isWorkflowRead(url)
+				? {
+					data: [{
+						...upgrade,
+						status: 'UNDOING',
+						phase: 'undo',
+						state: { batchIds: ['b1', 'b2', 'b3'], lastBatchFinished: 'b1' },
+					}],
+				}
+				: { data: {} }
+		);
+		renderNotice();
+		expect(await screen.findByText(/1 of 3 batches finished/)).toBeTruthy();
+	});
+
 	it('falls back to the plain state for staff when the workflow cannot be read', async () => {
 		auth.canRead = true;
 		mockedGet.mockImplementation(async (url: string) => {

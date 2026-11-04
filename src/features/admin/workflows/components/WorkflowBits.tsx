@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
-import type { WorkflowRow, WorkflowStatus } from '@/features/admin/workflows/workflowAdminApi';
+import { isLastingFailure, type WorkflowRow, type WorkflowStatus } from '@/features/admin/workflows/workflowAdminApi';
 import { pauseLabel } from '@/features/admin/workflows/workflowProgress';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 const STATUS_BADGE: Record<WorkflowStatus, 'success' | 'warning' | 'secondary' | 'outline' | 'destructive'> = {
 	PENDING: 'secondary',
@@ -54,10 +54,22 @@ export function DetailRow({ label, children }: { label: string; children: ReactN
 	);
 }
 
-export function RefreshFailed() {
+export function RefreshFailed({ error }: { error: unknown }) {
 	return (
 		<p className="mb-4 text-sm text-destructive">
-			Couldn't refresh from central manager; showing what was last read. Retrying.
+			Couldn't refresh from central manager; showing what was last read.{isLastingFailure(error) ? '' : ' Retrying.'}
 		</p>
+	);
+}
+
+/** The JSON is built only once opened: receipts and event data can be large, and the detail page re-renders on every poll. */
+export function Collapsible({ summary, value }: { summary: string; value: unknown }) {
+	const [open, setOpen] = useState(false);
+	if (value === undefined || value === null) { return null; }
+	return (
+		<details onToggle={(event) => setOpen(event.currentTarget.open)}>
+			<summary className="cursor-pointer text-xs text-muted-foreground">{summary}</summary>
+			{open && <JsonBlock value={value} label={summary} />}
+		</details>
 	);
 }

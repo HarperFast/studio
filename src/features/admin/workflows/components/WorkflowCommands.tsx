@@ -18,7 +18,6 @@ import {
 import { useStaffPermission } from '@/hooks/useAuth';
 import { Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 const COMMAND_COPY: Record<
 	WorkflowCommand,
@@ -62,9 +61,7 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 			setAbandoning(true);
 			return;
 		}
-		mutation.mutate({ id: detail.id, command }, {
-			onSuccess: () => toast.success(`${COMMAND_COPY[command].label} sent`, { description: detail.id }),
-		});
+		mutation.mutate({ id: detail.id, command });
 	};
 
 	return (
@@ -109,10 +106,7 @@ export function AbandonDialog(
 	const abandon = () => {
 		if (!trimmed || held || mutation.isPending) { return; }
 		mutation.mutate({ id: workflowId, command: 'abandon', reason: trimmed }, {
-			onSuccess: () => {
-				toast.success('Abandon sent', { description: workflowId });
-				onClose();
-			},
+			onSuccess: onClose,
 		});
 	};
 

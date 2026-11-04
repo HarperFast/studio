@@ -2,6 +2,7 @@
 // here and the URLs cast as elsewhere.
 import { apiClient } from '@/config/apiClient';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export const WORKFLOW_STATUSES = [
 	'PENDING',
@@ -174,11 +175,12 @@ const DETAIL_POLL_MS = 5_000;
 export const LIST_PAGE_SIZE = 100;
 
 const RETRY_POLL_MS = 30_000;
-const isNotFound = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status === 404;
+const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
+/** An answer that polling won't change: no such endpoint or row (an older central manager), or no permission. */
+export const isLastingFailure = (error: unknown) => [403, 404].includes(statusOf(error) ?? 0);
 
-// A 404 stops the timer: an older central manager has no such endpoint, for good. Anything else keeps polling, slower.
 const pollUnlessGone = (interval: number) => (query: { state: { error: unknown } }) =>
-	isNotFound(query.state.error) ? false : query.state.error ? RETRY_POLL_MS : interval;
+	isLastingFailure(query.state.error) ? false : query.state.error ? RETRY_POLL_MS : interval;
 
 export function workflowsQueryOptions(filters: WorkflowFilters) {
 	return queryOptions({
@@ -250,6 +252,7 @@ export function heldClusterWorkflowQueryOptions(clusterId: string | undefined, w
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
+const hasId = (value: unknown) => isObject(value) && typeof value.id === 'string';
 
 export function workflowSummaryQueryOptions() {
 	return queryOptions({
@@ -266,8 +269,8 @@ export function workflowSummaryQueryOptions() {
 				byStatus: isObject(summary.byStatus) ? summary.byStatus : {},
 				byType: isObject(summary.byType) ? summary.byType as Record<string, number> : {},
 				byNode: isObject(summary.byNode) ? summary.byNode as Record<string, number> : {},
-				stuck: Array.isArray(summary.stuck) ? summary.stuck : [],
-				pausedOnFailure: Array.isArray(summary.pausedOnFailure) ? summary.pausedOnFailure : [],
+				stuck: Array.isArray(summary.stuck) ? summary.stuck.filter(hasId) : [],
+				pausedOnFailure: Array.isArray(summary.pausedOnFailure) ? summary.pausedOnFailure.filter(hasId) : [],
 				lockAvailable: summary.lockAvailable ?? null,
 				oldestActive: summary.oldestActive ?? null,
 				oldestActiveSeconds: summary.oldestActiveSeconds ?? 0,
@@ -297,9 +300,11 @@ export function useWorkflowCommandMutation() {
 				command === 'abandon' ? { reason } : {},
 			);
 		},
-		onSettled: () => {
-			void queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix });
-		},
+		// Here, not in a caller's mutate options, which React Query skips once that component unmounts.
+		onSuccess: (_data, { id, command }) =>
+			toast.success(`${command[0].toUpperCase()}${command.slice(1)} sent`, { description: id }),
+		// Returned: the mutation stays pending until the refetch shows the command it wrote, which holds the controls.
+		onSettled: () => queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix }),
 	});
 }
 

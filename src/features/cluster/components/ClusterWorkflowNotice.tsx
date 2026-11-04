@@ -50,7 +50,9 @@ export function ClusterWorkflowNotice(
 		paused ? pauseLabel(row.pause?.reason) : row.status.toLowerCase(),
 		progress && (progress.current
 			? `batch ${progress.current} of ${progress.total}`
-			: `all ${progress.total} batches finished`),
+			: progress.finished === progress.total
+			? `all ${progress.total} batches finished`
+			: `${progress.finished} of ${progress.total} batches finished`),
 		row.step && `step ${row.step}`,
 	].filter(Boolean);
 	return (

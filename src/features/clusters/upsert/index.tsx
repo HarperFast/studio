@@ -120,13 +120,16 @@ export function UpsertCluster() {
 	// "current" and offers nothing newer, so the form can never become dirty — leaving no way to
 	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
 	// the current target as a recovery path — unless a pinned (scoped) version is among the lagging
-	// ones, in which case the target is ambiguous and the user picks it.
+	// ones, in which case the target is ambiguous and the user picks it. While a workflow holds the cluster the
+	// lagging instances are the ones its upgrade hasn't reached yet, not a failure to recover from.
 	const partialUpgrade = useMemo(
 		() =>
-			detectPartialUpgrade(
-				cluster?.instances ?? [],
-				(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
-			),
+			cluster?.workflowId
+				? null
+				: detectPartialUpgrade(
+					cluster?.instances ?? [],
+					(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
+				),
 		[cluster, newHarperVersions],
 	);
 

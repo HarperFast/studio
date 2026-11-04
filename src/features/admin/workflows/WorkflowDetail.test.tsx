@@ -8,7 +8,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowDetailPage } from './WorkflowDetail';
 
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn(() => new Promise(() => {})), post: vi.fn() } }));
-vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => true }));
+const auth = vi.hoisted(() => ({ canManage: true }));
+vi.mock('@/hooks/useAuth', () => ({
+	useStaffPermission: (permission: string) => permission !== 'workflow:manage' || auth.canManage,
+}));
 
 const route = vi.hoisted(() => ({ workflowId: 'wf-a' }));
 vi.mock('@tanstack/react-router', () => ({
@@ -53,5 +56,23 @@ describe('WorkflowDetailPage', () => {
 		rerender(page());
 		expect(screen.getByText('wf-b')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('shows a command that is waiting for the executor, to readers who cannot send one too', () => {
+		auth.canManage = false;
+		const client = new QueryClient();
+		client.setQueryData(['fabric-admin', 'workflows', 'detail', 'wf-a'], {
+			...detail('wf-a'),
+			command: { action: 'pause', by: 'ops@example.com' },
+		});
+		route.workflowId = 'wf-a';
+		render(
+			<QueryClientProvider client={client}>
+				<WorkflowDetailPage />
+			</QueryClientProvider>,
+		);
+		expect(screen.getByText(/pause by ops@example.com, waiting for the next step boundary/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
+		auth.canManage = true;
 	});
 });

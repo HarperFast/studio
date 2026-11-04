@@ -32,10 +32,15 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
 vi.mock('./ClusterForm', () => ({
-	ClusterForm: ({ defaultValues, startOffOnBilling }: {
+	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade }: {
 		defaultValues: { regionPlans: unknown };
 		startOffOnBilling: boolean;
-	}) => <output data-billing={startOffOnBilling}>{JSON.stringify(defaultValues.regionPlans)}</output>,
+		partialUpgrade: unknown;
+	}) => (
+		<output data-billing={startOffOnBilling} data-partial={JSON.stringify(partialUpgrade ?? null)}>
+			{JSON.stringify(defaultValues.regionPlans)}
+		</output>
+	),
 }));
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
@@ -122,5 +127,31 @@ describe('UpsertCluster', () => {
 		expect(toast.warning).toHaveBeenCalledWith(
 			'Your saved cluster changes could not be restored. Please make them again.',
 		);
+	});
+
+	describe('on the Version page of a cluster with instances on two versions', () => {
+		const mixed = {
+			...dedicatedCluster,
+			status: 'RUNNING',
+			plans: [{ regionId: 'eu-ded', planId: 'plan-ded' }],
+			instances: [{ status: 'RUNNING', version: '5.3.2' }, { status: 'RUNNING', version: '5.3.0' }],
+		};
+
+		it('offers to re-run an upgrade that stopped part way', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: mixed as unknown as Cluster };
+			renderUpsert();
+
+			const partial = JSON.parse((await screen.findByRole('status')).getAttribute('data-partial')!);
+			expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
+		});
+
+		it('does not while a workflow is still upgrading it', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: { ...mixed, workflowId: 'wf-1' } as unknown as Cluster };
+			renderUpsert();
+
+			expect((await screen.findByRole('status')).getAttribute('data-partial')).toBe('null');
+		});
 	});
 });

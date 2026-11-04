@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+	Collapsible,
 	DetailRow,
 	JsonBlock,
 	RefreshFailed,
@@ -32,16 +33,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 			<h2 className="mb-2 text-lg font-light">{title}</h2>
 			{children}
 		</section>
-	);
-}
-
-function Collapsible({ summary, value }: { summary: string; value: unknown }) {
-	if (value === undefined || value === null) { return null; }
-	return (
-		<details>
-			<summary className="cursor-pointer text-xs text-muted-foreground">{summary}</summary>
-			<JsonBlock value={value} label={summary} />
-		</details>
 	);
 }
 
@@ -365,7 +356,7 @@ export function WorkflowDetailPage() {
 			{data && data.id === workflowId
 				? (
 					<>
-						{!!error && <RefreshFailed />}
+						{!!error && <RefreshFailed error={error} />}
 						<WorkflowDetailView key={workflowId} detail={data} />
 					</>
 				)

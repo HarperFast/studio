@@ -141,7 +141,7 @@ export function WorkflowsAdminIndex() {
 	const [type, setType] = useState<string>(ALL);
 	const [clusterText, setClusterText] = useState('');
 	const clusterId = useDebounce(clusterText, 300);
-	const { data: summary } = useQuery(workflowSummaryQueryOptions());
+	const { data: summary, error: summaryError } = useQuery(workflowSummaryQueryOptions());
 	const { data: rows, isLoading, isError, error } = useQuery(
 		workflowsQueryOptions(filtersFor(status, type, clusterId)),
 	);
@@ -159,6 +159,17 @@ export function WorkflowsAdminIndex() {
 				{summary && <IntakeControl mode={summary.intake} />}
 			</div>
 
+			{!!summaryError && (summary
+				? (
+					<div className="mt-6">
+						<RefreshFailed error={summaryError} />
+					</div>
+				)
+				: (
+					<p className="mt-6 text-sm text-destructive">
+						Couldn't load the summary: {describeError(summaryError).message}
+					</p>
+				))}
 			{summary && <SummaryPanel summary={summary} />}
 
 			<div className="mt-6 flex flex-wrap gap-2">
@@ -193,7 +204,7 @@ export function WorkflowsAdminIndex() {
 			</div>
 
 			<div className="mt-4">
-				{rows && !!error && <RefreshFailed />}
+				{rows && !!error && <RefreshFailed error={error} />}
 				{isLoading
 					? <p className="text-sm text-muted-foreground">Loading workflows…</p>
 					: isError && !rows
