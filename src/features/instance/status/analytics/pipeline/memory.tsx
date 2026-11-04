@@ -32,7 +32,7 @@ export const memorySpec: MetricSpec = {
 	bucket: { source: 'period-field', fallbackMs: 60000 },
 	aggregator: { temporal: 'last', crossNode: 'mean' },
 	primitive: 'line',
-	yAxis: { unit: ' B', formatter: 'bytes-si' },
+	yAxis: { unit: '', formatter: 'bytes-si' },
 };
 
 interface RendererProps {

@@ -20,6 +20,7 @@ import {
 	useDeploymentsAvailable,
 	useStagedDeploymentsAvailable,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { usePreviewsProject } from '@/features/instance/config/previews/usePreviewsAvailable';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
@@ -34,6 +35,7 @@ import {
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
+	GitPullRequestIcon,
 	HistoryIcon,
 	LockIcon,
 	PackageIcon,
@@ -152,7 +154,9 @@ export function ContentActions({
 
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
-	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject;
+	const previewsProject = usePreviewsProject(openedEntry?.project);
+	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject
+		|| !!previewsProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.
 	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
 
@@ -432,6 +436,18 @@ export function ContentActions({
 									>
 										<RocketIcon />
 										Staged Releases
+									</DropdownMenuItem>
+								)}
+								{previewsProject && (
+									<DropdownMenuItem
+										onSelect={() =>
+											void navigate({
+												to: buildAbsoluteLinkToPage(routeParams, 'config/previews'),
+												search: { project: previewsProject },
+											})}
+									>
+										<GitPullRequestIcon />
+										Previews
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>

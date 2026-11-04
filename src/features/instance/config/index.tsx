@@ -6,6 +6,7 @@ import { useVisibleExtensionPages } from '@/features/instance/extensions/useStud
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
+import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -16,6 +17,7 @@ import { Link, Navigate, Outlet, useLoaderData, useLocation, useParams } from '@
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
+	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -53,6 +55,7 @@ export function ConfigIndex() {
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
+	const previewsSupported = supportsPreviews(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -73,6 +76,7 @@ export function ConfigIndex() {
 				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
 				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
 				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
+				previewsSupported && { name: 'Previews', page: 'config/previews', icon: <GitPullRequestIcon /> },
 				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
 				// Secrets (the replicated hdb_secret store): any instance or cluster on a supported version — key
 				// custody may be file-based (self-hosted) or injected (Fabric). Manage-gated like every built-in

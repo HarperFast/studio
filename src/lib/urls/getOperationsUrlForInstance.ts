@@ -2,12 +2,20 @@ import { Instance } from '@/integrations/api/api.patch';
 
 export function getOperationsUrlForInstance(
 	instance: Pick<Instance, 'instanceFqdn' | 'operationsApiSecure' | 'operationsApiPort'>,
-): string {
+): string | null {
 	let fqdn = instance.instanceFqdn;
+	if (!fqdn) {
+		return null;
+	}
 	if (!fqdn.match(/^https?:\/\//i)) {
 		fqdn = `https://${fqdn}`;
 	}
-	const url = new URL(fqdn);
+	let url: URL;
+	try {
+		url = new URL(fqdn);
+	} catch {
+		return null;
+	}
 	if (instance.operationsApiPort) {
 		url.port = String(instance.operationsApiPort);
 	}

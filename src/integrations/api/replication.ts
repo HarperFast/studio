@@ -1,6 +1,13 @@
 import { pluralize } from '@/lib/pluralize';
 import type { AxiosResponse } from 'axios';
 
+declare module 'axios' {
+	interface AxiosRequestConfig {
+		/** Resolve with `replicated` even when a peer failed: the caller shows each node's result itself. */
+		keepReplicationFailures?: boolean;
+	}
+}
+
 export interface ReplicatedResponse {
 	message: string;
 	replicated?: Array<ReplicatedResponseSuccess | ReplicatedResponseFailure>;
@@ -60,8 +67,10 @@ export function acknowledgedReplicationNodes(response: unknown): Set<string> {
 	return acknowledged;
 }
 
-export function rejectReplicationFailures(response: Pick<AxiosResponse<ReplicatedResponse>, 'data'>) {
-	if (replicationFailed(response.data)) {
+export function rejectReplicationFailures(
+	response: Pick<AxiosResponse<ReplicatedResponse>, 'data'> & { config?: { keepReplicationFailures?: boolean } },
+) {
+	if (!response.config?.keepReplicationFailures && replicationFailed(response.data)) {
 		// `replicated` lists the called node's peers, not the called node itself.
 		const peerCount = response.data.replicated.length;
 		const failures = response.data.replicated.filter(isReplicatedResponseFailure);

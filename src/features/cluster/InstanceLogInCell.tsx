@@ -28,9 +28,10 @@ export function InstanceLogInCell(
 		await signOutOfInstance({ instance, instanceClient });
 	}, [instance, instanceClient]);
 
-	// A stopped / mid-transition instance isn't reachable — you can't connect or sign in — so show a
-	// neutral placeholder instead of the perpetual spinner (which is meant for instances coming up).
-	if (isStoppedOrTransitioning(instance.status)) {
+	// A stopped / mid-transition instance, or one without an address yet, isn't reachable — you can't
+	// connect or sign in — so show a neutral placeholder instead of the perpetual spinner (which is meant
+	// for instances coming up).
+	if (!operationsUrl || isStoppedOrTransitioning(instance.status)) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
 

@@ -16,7 +16,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { SchemaHdbInstance } from '@/integrations/api/api.gen';
+import { Instance } from '@/integrations/api/api.patch';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { getInstanceHealthQueryOptions } from '@/integrations/api/instance/status/getInstanceHealth';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -36,7 +36,7 @@ export function ClusterInstanceSignIn() {
 		getClusterInfoQueryOptions(clusterId, true),
 	);
 
-	const instance: SchemaHdbInstance | undefined = useMemo(
+	const instance: Instance | undefined = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId) || undefined,
 		[cluster, instanceId],
 	);
@@ -47,19 +47,19 @@ export function ClusterInstanceSignIn() {
 	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';
 
 	const operationsUrl = useMemo(() => {
-		if (cluster) {
-			// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
-			// so the sign-in / health requests go directly to the instance rather than through the proxy.
-			// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll).
-			if (instance) {
-				authStore.flagForFabricConnect(instance.id, false);
-				return getOperationsUrlForInstance(instance);
-			} else {
-				authStore.flagForFabricConnect(cluster.id, false);
-				return getOperationsUrlForCluster(cluster);
-			}
+		if (!cluster) {
+			return null;
 		}
-		return null;
+		const entity = instance ?? cluster;
+		const url = instance ? getOperationsUrlForInstance(instance) : getOperationsUrlForCluster(cluster);
+		// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
+		// so the sign-in / health requests go directly to the instance rather than through the proxy.
+		// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll). Without
+		// a URL there is no direct request to make, so the flag is left alone.
+		if (url) {
+			authStore.flagForFabricConnect(entity.id, false);
+		}
+		return url;
 	}, [cluster, instance]);
 
 	// Drop any existing connected user ONCE on entering the sign-in form (keyed on the stable entity id,
@@ -85,9 +85,10 @@ export function ClusterInstanceSignIn() {
 		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
 		[operationsUrl],
 	);
+	const hasNoAddress = !!cluster && (!instanceId || !!instance) && !operationsUrl;
 	const { data: healthy } = useQuery({
 		...getInstanceHealthQueryOptions(instanceParams),
-		enabled: !isTerminated,
+		enabled: !isTerminated && !hasNoAddress,
 	});
 
 	const methods = useForm({
@@ -113,7 +114,7 @@ export function ClusterInstanceSignIn() {
 		);
 	}
 
-	if (!instanceId && cluster && !cluster?.fqdn) {
+	if (cluster && hasNoAddress) {
 		return (
 			<Navigate
 				to={buildAbsoluteLinkToPage({ organizationId: cluster.organizationId, clusterId: cluster.id }, 'instances')}

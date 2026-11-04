@@ -111,6 +111,44 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 		expect(establishSpy).toHaveBeenCalledTimes(1);
 	});
 
+	it('connects an instance with an address directly', async () => {
+		permissions = { update: true };
+		const cluster = {
+			id: CLUSTER_ID,
+			organizationId: 'org-1',
+			instances: [{ id: 'ins-1', status: 'RUNNING', instanceFqdn: 'ins-1.example.com', operationsApiPort: 9925 }],
+		} as Cluster;
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: overallAuthReady, cluster },
+				params: { ...PARAMS, instanceId: 'ins-1' },
+			}),
+		).resolves.toBeUndefined();
+		expect(establishSpy).toHaveBeenCalledWith({ id: 'ins-1', operationsUrl: 'https://ins-1.example.com:9925/' });
+	});
+
+	it.each([
+		['a first visit', false],
+		['a reload of a flagged connection', true],
+	])('sends an instance with no address to sign-in without connecting, on %s', async (_, flagged) => {
+		permissions = { update: true };
+		(authStore.checkForFabricConnect as ReturnType<typeof vi.fn>).mockReturnValue(flagged);
+		const cluster = {
+			id: CLUSTER_ID,
+			organizationId: 'org-1',
+			instances: [{ id: 'ins-1', status: 'RUNNING' }],
+		} as Cluster;
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: overallAuthReady, cluster },
+				params: { ...PARAMS, instanceId: 'ins-1' },
+			}),
+		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}/instance/ins-1/sign-in` } });
+		expect(establishSpy).not.toHaveBeenCalled();
+	});
+
 	it('redirects to sign-in when not flagged and the user cannot manage', async () => {
 		permissions = { update: false };
 

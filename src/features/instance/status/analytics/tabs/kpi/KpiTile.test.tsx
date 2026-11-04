@@ -77,10 +77,20 @@ describe('KpiTile', () => {
 		const { Wrapper } = makeWrapper(params);
 		render(<KpiTile def={durationTile} />, { wrapper: Wrapper });
 
-		// Latest bucket p95 = 20 → "20.0 ms"; window means 15 vs 10 → +50%.
-		await waitFor(() => expect(screen.getByText('20.0 ms')).toBeTruthy());
+		// Latest bucket p95 = 20 → "20 ms"; window means 15 vs 10 → +50%.
+		await waitFor(() => expect(screen.getByText('20 ms')).toBeTruthy());
 		expect(screen.getByLabelText('up +50.0% vs previous 2m')).toBeTruthy();
 		expect(screen.getByText('+50.0%')).toBeTruthy();
+	});
+
+	it('groups the digits of a large delta off a near-zero baseline', async () => {
+		const params = makeInstanceParams((body) =>
+			body.start_time === START ? CUR_ROWS : PREV_ROWS.map((r) => ({ ...r, p95: 0.01 }))
+		);
+		const { Wrapper } = makeWrapper(params);
+		render(<KpiTile def={durationTile} />, { wrapper: Wrapper });
+
+		await waitFor(() => expect(screen.getByText('+149,900%')).toBeTruthy());
 	});
 
 	it('shows an em-dash and no delta when data is absent', async () => {
@@ -97,7 +107,7 @@ describe('KpiTile', () => {
 		const { Wrapper } = makeWrapper(params);
 		render(<KpiTile def={durationTile} />, { wrapper: Wrapper });
 
-		await waitFor(() => expect(screen.getByText('20.0 ms')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('20 ms')).toBeTruthy());
 		expect(screen.queryByText(/vs prev/)).toBeNull();
 	});
 
@@ -114,7 +124,7 @@ describe('KpiTile', () => {
 		const params = makeInstanceParams(twoWindowHandler);
 		const { Wrapper, client } = makeWrapper(params);
 		render(<KpiTile def={durationTile} />, { wrapper: Wrapper });
-		await waitFor(() => expect(screen.getByText('20.0 ms')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('20 ms')).toBeTruthy());
 
 		const keys = client.getQueryCache().getAll().map((q) => JSON.stringify(q.queryKey));
 		// Exactly what MetricPanel's useAnalyticsRecords would key for this
@@ -168,7 +178,7 @@ describe('KpiTile', () => {
 			</>,
 			{ wrapper: Wrapper },
 		);
-		await waitFor(() => expect(screen.getByText('20.0 ms')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('20 ms')).toBeTruthy());
 
 		const post = params.instanceClient.post as unknown as ReturnType<typeof vi.fn>;
 		const bodies = post.mock.calls.map((c) => c[1] as PostBody);
@@ -236,7 +246,7 @@ describe('KpiTile', () => {
 
 		releaseCurrent();
 		// Both sides settled: fresh pair, means 30 vs 15 → +100%.
-		await waitFor(() => expect(screen.getByText('40.0 ms')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('40 ms')).toBeTruthy());
 		expect(screen.getByText('+100.0%')).toBeTruthy();
 	});
 

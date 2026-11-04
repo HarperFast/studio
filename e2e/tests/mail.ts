@@ -71,6 +71,43 @@ export async function waitForVerificationEmail(
 	return { subject: message.subject ?? '', link };
 }
 
+// The set-password email central-manager sends after a verify that replaced the sign-up password.
+const SET_PASSWORD_SUBJECT = 'Set your Fabric password';
+
+/**
+ * Matched on subject so the earlier verification email, whose link also carries a token, can never
+ * answer it.
+ */
+export async function waitForSetPasswordEmail(
+	address: string,
+	{ timeoutMs = 90_000, receivedAfter }: { timeoutMs?: number; receivedAfter?: Date } = {},
+): Promise<{ link: string }> {
+	const { client, serverId } = getClient();
+	const message = await client.messages.get(
+		serverId,
+		{ sentTo: address, subject: SET_PASSWORD_SUBJECT },
+		{ timeout: timeoutMs, receivedAfter },
+	).catch((err: unknown) => {
+		throw new Error(
+			`No "${SET_PASSWORD_SUBJECT}" email reached ${address} in ${timeoutMs}ms. If central-manager reworded that `
+				+ 'subject, update SET_PASSWORD_SUBJECT.',
+			{ cause: err },
+		);
+	});
+
+	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
+		.map((l) => l.href)
+		.filter((href): href is string => Boolean(href));
+	const link = hrefs.find((href) => /reset-password\?token=/i.test(href));
+	if (!link) {
+		throw new Error(
+			`No set-password link found in email to ${address} (subject: "${message.subject}"). `
+				+ `Links seen: ${hrefs.join(', ') || 'none'}`,
+		);
+	}
+	return { link };
+}
+
 /**
  * Best-effort cleanup of the mail sent to `address`, so the server doesn't accumulate test mail.
  * Never the whole server: every lane and developer shares it, and a purge while another run is

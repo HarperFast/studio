@@ -21,10 +21,14 @@
 			"pinDigests": true
 		},
 		{
-			"matchPackageNames": [
-				"@fastify/static"
+			"description": "@fastify/static majors can move to a new fastify major, and the deploy template runs on the fastify embedded in the CM's Harper. A mismatch passes CI and the deploy, then 404s every asset at the CM's next restart (.github/deploying.md), so a major waits for approval on the Dependency Dashboard instead of opening a PR on its own.",
+			"matchFileNames": [
+				".github/deploy-template/package.json"
 			],
-			"enabled": false
+			"matchUpdateTypes": [
+				"major"
+			],
+			"dependencyDashboardApproval": true
 		},
 		{
 			"description": "e2e/ enforces its own 7-day supply-chain floor (minimumReleaseAge: 10080 in e2e/pnpm-workspace.yaml, deliberate - the harness runs on the automation laptop with real secrets). The global 3 days is shorter, so Renovate would open an e2e PR and then fail its own artifact step with ERR_PNPM_NO_MATURE_MATCHING_VERSION, since pnpm refuses to resolve a version it considers too young. Match the floor so an e2e PR is only ever opened once its lockfile can actually be generated.",

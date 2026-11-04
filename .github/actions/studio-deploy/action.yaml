@@ -16,11 +16,8 @@ inputs:
     description: 'Cut a semantic release before building the bundle that gets deployed'
     default: 'false'
   restart:
-    description: 'Restart the component after deploying. Required for a Harper-major switch to take effect'
+    description: 'Restart the component after deploying. Required for a template dependency change to take effect'
     default: 'false'
-  harper-version:
-    description: 'v4 | v5 — Harper major running on the target CM'
-    default: 'v4'
   github-token:
     description: 'Token semantic-release pushes the tag and release with; only needed when release is true'
     default: ''
@@ -87,31 +84,18 @@ runs:
       shell: bash
       env:
         RESTART_INPUT: ${{ inputs.restart }}
-        HARPER_INPUT: ${{ inputs.harper-version }}
-        # The template carries the harperdb 4.x pin; this is the Harper 5.x override, so the
-        # range stays the only difference between a v4 and a v5 deploy. Pairing it wrong fails
-        # silently on the CM rather than here — see .github/deploying.md.
-        FASTIFY_STATIC_V5: '^8.3.0'
       run: |
         RESTART=false
         if [ "$RESTART_INPUT" = 'true' ]; then
           RESTART=true
         fi
-        HARPER=v4
-        if [ "$HARPER_INPUT" = 'v5' ]; then
-          HARPER=v5
-        fi
 
         mkdir deploy
         cp -R .github/deploy-template/. deploy/
-        if [ "$HARPER" = 'v5' ]; then
-          jq --arg range "$FASTIFY_STATIC_V5" '.dependencies["@fastify/static"] = $range' \
-            .github/deploy-template/package.json > deploy/package.json
-        fi
         mv web deploy/
 
         echo "DEPLOY_RESTART=$RESTART" >> "$GITHUB_ENV"
-        echo "Deploying the Harper $HARPER template with restart=$RESTART"
+        echo "Deploying with restart=$RESTART"
         cat deploy/package.json
     - name: Deploy to ${{ inputs.environment }}
       shell: bash

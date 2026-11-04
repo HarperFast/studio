@@ -964,7 +964,7 @@ class AuthStore {
 			return OverallAppSignIn;
 		}
 		if (isInstance(entity)) {
-			return getOperationsUrlForInstance(entity);
+			return getOperationsUrlForInstance(entity) || undefined;
 		}
 		if (isCluster(entity)) {
 			return getOperationsUrlForCluster(entity) || undefined;

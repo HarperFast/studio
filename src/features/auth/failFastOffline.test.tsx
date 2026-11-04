@@ -167,7 +167,7 @@ const cases: [string, Case][] = [
 		request: put,
 		useHook: useVerifyEmailMutation,
 		variables: { token: 'verify-token' },
-		shownIn: 'toast',
+		shownIn: 'form',
 	}],
 	['resend verification email', {
 		request: post,

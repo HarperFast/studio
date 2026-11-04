@@ -1,8 +1,7 @@
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { SchemaHdbInstance } from '@/integrations/api/api.gen';
-import { Cluster } from '@/integrations/api/api.patch';
+import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { useInstanceLoginMutation } from '@/integrations/api/instance/auth/useInstanceLoginMutation';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
@@ -16,7 +15,7 @@ export function useClusterInstanceSignIn({
 	instanceParams,
 }: {
 	cluster: Cluster | undefined;
-	instance: SchemaHdbInstance | undefined;
+	instance: Instance | undefined;
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }) {
 	const navigate = useNavigate();
