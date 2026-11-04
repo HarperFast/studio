@@ -40,7 +40,9 @@ needs `contents: write`, and only because semantic-release pushes the tag.
 Each PR into `stage` from a branch of this repository gets its own Studio at
 `https://<branch>.app.<cluster domain>/`, deployed with
 [`HarperFast/deploy-action`](https://github.com/HarperFast/deploy-action) and dropped when the PR
-closes. Fork PRs get none.
+closes, provided a user listed in the `HARPER_PREVIEW_AUTHORS` repository variable (a JSON array of
+GitHub logins) opened it and caused the event. Fork PRs get none, and with the variable unset nobody
+does: a preview's JavaScript runs with its visitor's dev CM session.
 
 | Workflow             | Runs on               | Holds credentials                              |
 | -------------------- | --------------------- | ---------------------------------------------- |
@@ -53,6 +55,11 @@ uploads `web/` as an artifact. `preview.yaml` runs from `stage`, waits for that 
 own `config.yaml` serving `web/` with Harper's static plugin, and deploys the result as `hdbms-pr-<N>`.
 The deploy template is not used, so a template change is not exercised by its PR's preview, and an
 unknown path gets Harper's plain 404 rather than Studio's page.
+
+That a preview runs no server code is what makes it safe to host beside the central manager: a
+preview is a worker thread in the cluster's own Harper process, not a sandbox. It is also why
+previews share the cluster's data (`branched_databases: false`) rather than branching it, which
+would fork every database on the node but `system`, the central manager's included.
 
 A preview is a client of the dev CM from another origin, so it works only while the dev CM's
 `http.corsAccessList` allows the preview domain. Sign in with email and password there: OAuth

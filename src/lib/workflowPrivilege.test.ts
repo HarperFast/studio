@@ -111,16 +111,34 @@ type Step = { uses?: unknown };
 type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
 
 /**
- * Whether the guard is a top-level `&&` term, so nothing negates, quotes or bypasses it. Grouping and
- * a second `${{ }}` are refused outright rather than parsed: the guard needs neither.
+ * Whether the guard is a term of the top-level `&&` chain, outside every parenthesis, so nothing
+ * negates, quotes, wraps or bypasses it. A top-level `||` or a second `${{ }}` is refused outright.
  */
 function hasForkGuard(condition: unknown): boolean {
 	if (typeof condition !== 'string') { return false; }
 	const expression = condition.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1')
-		// String literals can hold `&&` and the guard's own text.
+		// String literals can hold `&&`, parentheses and the guard's own text.
 		.replace(/'(?:[^']|'')*'/g, "''");
-	if (/\|\||[(){}]/.test(expression)) { return false; }
-	return expression.split('&&').some((term) => term.trim() === FORK_GUARD);
+	if (/[{}]/.test(expression)) { return false; }
+	const terms: string[] = [];
+	let depth = 0;
+	let start = 0;
+	for (let index = 0; index < expression.length; index++) {
+		const char = expression[index];
+		if (char === '(') {
+			depth++;
+		} else if (char === ')') {
+			if (--depth < 0) { return false; }
+		} else if (depth === 0 && expression.startsWith('||', index)) {
+			return false;
+		} else if (depth === 0 && expression.startsWith('&&', index)) {
+			terms.push(expression.slice(start, index));
+			start = index + 2;
+			index++;
+		}
+	}
+	terms.push(expression.slice(start));
+	return depth === 0 && terms.some((term) => term.trim() === FORK_GUARD);
 }
 
 function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
@@ -160,6 +178,9 @@ describe('pull_request_target workflows run no PR code', () => {
 		['a guard that `||` can bypass', job(`    if: \${{ true || github.event.action != 'closed' && ${FORK_GUARD} }}\n`)],
 		['a negated guard', job(`    if: \${{ !(${FORK_GUARD}) }}\n`)],
 		['a guard inside a negated group', job(`    if: \${{ !(true && ${FORK_GUARD} && true) }}\n`)],
+		['a guard inside a call', job(`    if: \${{ format('{0}', true && ${FORK_GUARD}) }}\n`)],
+		['unbalanced parentheses', job(`    if: \${{ ${FORK_GUARD} && (true }}\n`)],
+		['a parenthesis closed before it opens', job(`    if: \${{ true) && (true && ${FORK_GUARD} }}\n`)],
 		['a guard between two interpolations', job(`    if: \${{ false }} && ${FORK_GUARD} && \${{ false }}\n`)],
 		['a guard inside a string', job(`    if: contains('x && ${FORK_GUARD} && y', 'z')\n`)],
 		['a guard compared again', job(`    if: \${{ ${FORK_GUARD} == false }}\n`)],
@@ -173,6 +194,10 @@ describe('pull_request_target workflows run no PR code', () => {
 	it.each([
 		['a bare guard', guarded],
 		['a guard after `!=`', `    if: github.event.action != 'closed' && ${FORK_GUARD}\n`],
+		[
+			'a guard beside an `||` inside a call',
+			`    if: ${FORK_GUARD} && contains(fromJSON(vars.LIST || '[]'), github.actor)\n`,
+		],
 	])('passes %s on a job that only calls a pinned action', (_label, condition) => {
 		const raw = job(`${condition}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
 		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);

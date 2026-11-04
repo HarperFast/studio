@@ -15,7 +15,14 @@ permissions: {}
 
 jobs:
   deploy:
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    # A preview's JavaScript runs with its visitor's dev CM session, so it deploys only for a PR a
+    # listed user opened, on an event a listed user caused. HARPER_PREVIEW_AUTHORS is a JSON array of
+    # GitHub logins; unset, nobody gets a preview.
+    if: >-
+      github.event.action != 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.event.pull_request.user.login)
+      && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.actor)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: preview
@@ -108,6 +115,9 @@ jobs:
           preview: true
           by_ref: false
           path: site
+          # Branching forks every database on the node but `system`, CM's own included. The payload
+          # runs no server code, so it touches no data.
+          branched_databases: false
 
   cleanup:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
