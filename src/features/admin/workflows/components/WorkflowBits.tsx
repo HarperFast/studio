@@ -38,7 +38,7 @@ export function JsonBlock({ value, label }: { value: unknown; label?: string }) 
 	return (
 		<pre
 			aria-label={label}
-			className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-2 text-xs leading-relaxed whitespace-pre-wrap break-words"
+			className="max-h-80 overflow-auto mt-2 rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed whitespace-pre-wrap break-words"
 		>
 			{text}
 		</pre>
@@ -47,9 +47,9 @@ export function JsonBlock({ value, label }: { value: unknown; label?: string }) 
 
 export function DetailRow({ label, children }: { label: string; children: ReactNode }) {
 	return (
-		<div className="grid grid-cols-[10rem_1fr] gap-3 text-sm">
-			<dt className="text-muted-foreground">{label}</dt>
-			<dd className="min-w-0 break-words">{children}</dd>
+		<div className="flex min-w-0 flex-col gap-1.5 text-sm">
+			<dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+			<dd className="min-w-0 break-words [overflow-wrap:anywhere]">{children}</dd>
 		</div>
 	);
 }
@@ -67,8 +67,13 @@ export function Collapsible({ summary, value }: { summary: string; value: unknow
 	const [open, setOpen] = useState(false);
 	if (value === undefined || value === null) { return null; }
 	return (
-		<details onToggle={(event) => setOpen(event.currentTarget.open)}>
-			<summary className="cursor-pointer text-xs text-muted-foreground">{summary}</summary>
+		<details
+			className="min-w-0 rounded-lg border bg-muted/20 p-3 [&+details]:mt-2"
+			onToggle={(event) => setOpen(event.currentTarget.open)}
+		>
+			<summary className="cursor-pointer rounded-sm text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+				{summary}
+			</summary>
 			{open && <JsonBlock value={value} label={summary} />}
 		</details>
 	);

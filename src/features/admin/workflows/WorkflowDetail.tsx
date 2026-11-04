@@ -29,9 +29,11 @@ import { ReactNode, useMemo } from 'react';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section className="mt-8">
-			<h2 className="mb-2 text-lg font-light">{title}</h2>
-			{children}
+		<section className="mt-6 min-w-0 overflow-hidden rounded-xl border bg-card/70 shadow-sm">
+			<div className="border-b px-5 py-4">
+				<h2 className="text-sm font-semibold">{title}</h2>
+			</div>
+			<div className="p-4 sm:p-5">{children}</div>
 		</section>
 	);
 }
@@ -64,8 +66,8 @@ function StepProgress({ counts }: { counts: StatusCounts | undefined }) {
 function PlanTable({ plan, counts }: { plan: WorkflowPlanStep[]; counts: Map<string, StatusCounts> }) {
 	return (
 		<div className="overflow-x-auto">
-			<Table className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3">
-				<TableHeader>
+			<Table className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
+				<TableHeader className="bg-muted/40">
 					<TableRow>
 						<TableHead>Step</TableHead>
 						<TableHead>Kind</TableHead>
@@ -110,8 +112,8 @@ function ItemsTable({ detail }: { detail: WorkflowDetail }) {
 	if (!items.length) { return <p className="text-sm text-muted-foreground">No step has run yet.</p>; }
 	return (
 		<div className="overflow-x-auto">
-			<Table className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3">
-				<TableHeader>
+			<Table className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
+				<TableHeader className="bg-muted/40">
 					<TableRow>
 						<TableHead>Path</TableHead>
 						<TableHead>Status</TableHead>
@@ -159,8 +161,8 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 	if (!events.length) { return <p className="text-sm text-muted-foreground">No events yet.</p>; }
 	return (
 		<div className="overflow-x-auto">
-			<Table className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3">
-				<TableHeader>
+			<Table className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
+				<TableHeader className="bg-muted/40">
 					<TableRow>
 						<TableHead>At</TableHead>
 						<TableHead>Event</TableHead>
@@ -200,7 +202,7 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 		<div>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div className="min-w-0">
-					<h1 className="text-2xl font-light">{workflowTypeLabel(detail.type)}</h1>
+					<h1 className="text-2xl font-semibold tracking-tight">{workflowTypeLabel(detail.type)}</h1>
 					<p className="mt-1 font-mono text-sm break-all text-muted-foreground">{detail.id}</p>
 					<div className="mt-2">
 						<WorkflowStatusBadge row={detail} />
@@ -215,7 +217,7 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 				</p>
 			)}
 
-			<dl className="mt-6 flex flex-col gap-2">
+			<dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-5 rounded-xl border bg-card/70 p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-3">
 				<DetailRow label="Phase">{detail.phase ?? '—'}</DetailRow>
 				<DetailRow label="Step">
 					<span className="font-mono">{detail.step ?? '—'}</span>
@@ -350,7 +352,10 @@ export function WorkflowDetailPage() {
 	const notFound = error instanceof AxiosError && error.response?.status === 404;
 	return (
 		<div>
-			<Link to="/admin/workflows" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground">
+			<Link
+				to="/admin/workflows"
+				className="mb-5 inline-flex items-center gap-2 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+			>
 				<ArrowLeftIcon className="size-4" /> Workflows
 			</Link>
 			{data && data.id === workflowId

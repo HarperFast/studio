@@ -48,9 +48,15 @@ const INTAKE_COPY: Record<IntakeMode, string> = {
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'alert' }) {
 	return (
-		<div className="rounded-lg border px-4 py-3">
-			<div className="text-xs text-muted-foreground">{label}</div>
-			<div className={tone === 'alert' ? 'text-2xl text-destructive' : 'text-2xl'}>{value}</div>
+		<div className="rounded-xl border bg-card/70 px-4 py-4 shadow-sm">
+			<div className="text-xs font-medium text-muted-foreground">{label}</div>
+			<div
+				className={tone === 'alert'
+					? 'mt-2 text-3xl font-semibold tracking-tight text-destructive tabular-nums'
+					: 'mt-2 text-3xl font-semibold tracking-tight tabular-nums'}
+			>
+				{value}
+			</div>
 		</div>
 	);
 }
@@ -73,7 +79,7 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 	];
 	return (
 		<section aria-label="Summary" className="mt-6 space-y-3">
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
 				<Stat label="Active" value={summary.active} />
 				<Stat label="Running" value={(summary.byStatus.RUNNING ?? 0) + (summary.byStatus.UNDOING ?? 0)} />
 				<Stat label="Paused" value={summary.byStatus.PAUSED ?? 0} />
@@ -114,7 +120,7 @@ function IntakeControl({ mode }: { mode: IntakeMode }) {
 	const canManage = useStaffPermission('workflow:manage');
 	const mutation = useSetIntakeMutation();
 	return (
-		<div className="flex items-center gap-2 text-sm">
+		<div className="flex w-full flex-col items-start gap-2 text-sm xl:w-auto">
 			<span className="text-muted-foreground">Intake</span>
 			<Select
 				value={mode}
@@ -124,7 +130,7 @@ function IntakeControl({ mode }: { mode: IntakeMode }) {
 						onSuccess: () => toast.success(`Workflow intake set to ${next}`),
 					})}
 			>
-				<SelectTrigger className="w-72" aria-label="Workflow intake">
+				<SelectTrigger className="w-full min-w-0 sm:w-80" aria-label="Workflow intake">
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
@@ -149,10 +155,10 @@ export function WorkflowsAdminIndex() {
 		<div>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-light">Workflows</h1>
+					<h1 className="text-2xl font-semibold tracking-tight">Workflows</h1>
 					<p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-						Durable workflows central manager runs, such as Harper version upgrades. Each survives a restart and can be
-						paused, resumed, retried, undone or abandoned from its page.
+						Monitor durable operations across your clusters. Open a workflow to inspect its progress and manage its next
+						steps.
 					</p>
 				</div>
 				{summary && <IntakeControl mode={summary.intake} />}
@@ -171,35 +177,44 @@ export function WorkflowsAdminIndex() {
 				))}
 			{summary && <SummaryPanel summary={summary} />}
 
-			<div className="mt-6 flex flex-wrap gap-2">
-				<Select value={status} onValueChange={(value) => setStatus(value as StatusChoice)}>
-					<SelectTrigger className="w-44" aria-label="Status">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value={ACTIVE}>Active (not ended)</SelectItem>
-						<SelectItem value={ALL}>All statuses</SelectItem>
-						{WORKFLOW_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
-					</SelectContent>
-				</Select>
-				<Select value={type} onValueChange={setType}>
-					<SelectTrigger className="w-56" aria-label="Type">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value={ALL}>All types</SelectItem>
-						{KNOWN_WORKFLOW_TYPES.map((value) => (
-							<SelectItem key={value} value={value}>{workflowTypeLabel(value)}</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Input
-					value={clusterText}
-					onChange={(event) => setClusterText(event.target.value)}
-					placeholder="Cluster id (clu-…)"
-					aria-label="Cluster"
-					className="w-56"
-				/>
+			<div className="mt-6 flex flex-wrap items-end gap-3 rounded-xl border bg-card/70 p-4 shadow-sm">
+				<div className="flex flex-1 flex-col gap-1.5 sm:flex-none">
+					<span className="text-xs font-medium text-muted-foreground">Status</span>
+					<Select value={status} onValueChange={(value) => setStatus(value as StatusChoice)}>
+						<SelectTrigger className="w-full sm:w-48" aria-label="Status">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ACTIVE}>Active (not ended)</SelectItem>
+							<SelectItem value={ALL}>All statuses</SelectItem>
+							{WORKFLOW_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+						</SelectContent>
+					</Select>
+				</div>
+				<div className="flex flex-1 flex-col gap-1.5 sm:flex-none">
+					<span className="text-xs font-medium text-muted-foreground">Type</span>
+					<Select value={type} onValueChange={setType}>
+						<SelectTrigger className="w-full sm:w-60" aria-label="Type">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ALL}>All types</SelectItem>
+							{KNOWN_WORKFLOW_TYPES.map((value) => (
+								<SelectItem key={value} value={value}>{workflowTypeLabel(value)}</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				<label className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-1">
+					<span className="text-xs font-medium text-muted-foreground">Cluster</span>
+					<Input
+						value={clusterText}
+						onChange={(event) => setClusterText(event.target.value)}
+						placeholder="Cluster id (clu-…)"
+						aria-label="Cluster"
+						className="w-full sm:min-w-48"
+					/>
+				</label>
 			</div>
 
 			<div className="mt-4">
@@ -217,9 +232,9 @@ export function WorkflowsAdminIndex() {
 									? `The newest ${rows.length} workflows; narrow the filters to see older ones`
 									: `${rows.length === 1 ? '1 workflow' : `${rows.length} workflows`}, newest first`}
 							</p>
-							<div className="overflow-x-auto">
-								<Table className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3">
-									<TableHeader>
+							<div className="overflow-hidden rounded-xl border bg-card/70 shadow-sm">
+								<Table className="[&_td]:px-3 [&_td]:py-4 [&_td]:align-top [&_th]:px-3">
+									<TableHeader className="bg-muted/40">
 										<TableRow>
 											<TableHead>Workflow</TableHead>
 											<TableHead>Status</TableHead>
@@ -237,11 +252,11 @@ export function WorkflowsAdminIndex() {
 													<Link
 														to="/admin/workflows/$workflowId"
 														params={{ workflowId: row.id }}
-														className="font-mono text-xs underline underline-offset-2"
+														className="rounded-sm text-sm font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
 													>
-														{row.id}
+														{workflowTypeLabel(row.type)}
 													</Link>
-													<div className="text-xs text-muted-foreground">{workflowTypeLabel(row.type)}</div>
+													<div className="mt-1 font-mono text-xs text-muted-foreground">{row.id}</div>
 												</TableCell>
 												<TableCell>
 													<WorkflowStatusBadge row={row} />
