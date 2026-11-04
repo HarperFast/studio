@@ -107,8 +107,9 @@ describe('workflow privilege boundary', () => {
  */
 const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repository';
 
-type Step = { uses?: unknown };
-type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
+function isMapping(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 /**
  * Whether the guard is a term of the top-level `&&` chain, outside every parenthesis, so nothing
@@ -139,15 +140,30 @@ function hasForkGuard(condition: unknown): boolean {
 		}
 	}
 	terms.push(expression.slice(start));
-	return depth === 0 && terms.some((term) => term.trim() === FORK_GUARD);
+	return depth === 0 && terms.some((term) => term.replace(/\s+/g, ' ').trim() === FORK_GUARD);
 }
 
+// A shape this can't read is reported, not skipped, so it fails the test instead of passing it.
 function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
 	const problems: string[] = [];
-	for (const [name, job] of Object.entries((doc.jobs ?? {}) as Record<string, TargetJob>)) {
+	if (doc.jobs !== undefined && !isMapping(doc.jobs)) { return ['jobs: not a mapping']; }
+	for (const [name, job] of Object.entries(doc.jobs ?? {})) {
+		if (!isMapping(job)) {
+			problems.push(`${name}: not a mapping`);
+			continue;
+		}
 		if (!hasForkGuard(job.if)) { problems.push(`${name}: no fork guard`); }
 		if (job.uses !== undefined) { problems.push(`${name}: calls a reusable workflow`); }
-		for (const step of job.steps ?? []) {
+		const steps = job.steps ?? [];
+		if (!Array.isArray(steps)) {
+			problems.push(`${name}: steps is not a list`);
+			continue;
+		}
+		for (const step of steps) {
+			if (!isMapping(step)) {
+				problems.push(`${name}: a step is not a mapping`);
+				continue;
+			}
 			const uses = typeof step.uses === 'string' ? step.uses : '';
 			if (uses.startsWith('actions/checkout@') || uses.startsWith('./')) {
 				problems.push(`${name}: uses ${uses}`);
@@ -189,6 +205,10 @@ describe('pull_request_target workflows run no PR code', () => {
 		['a checkout', job(`${guarded}    steps:\n      - uses: actions/checkout@v7\n`)],
 		['a local action', job(`${guarded}    steps:\n      - uses: ./.github/actions/studio-verify\n`)],
 		['a reusable workflow', job(`${guarded}    uses: ./.github/workflows/x.yaml\n`)],
+		['jobs that are not a mapping', 'on: [pull_request_target]\njobs: 1\n'],
+		['a job that is not a mapping', job('')],
+		['steps that are not a list', job(`${guarded}    steps:\n      uses: actions/checkout@v7\n`)],
+		['a step that is not a mapping', job(`${guarded}    steps:\n      - actions/checkout@v7\n`)],
 	])('flags %s', (_label, raw) => {
 		expect(pullRequestTargetProblems(parse(raw))).not.toEqual([]);
 	});
@@ -199,6 +219,10 @@ describe('pull_request_target workflows run no PR code', () => {
 		[
 			'a guard beside an `||` inside a call',
 			`    if: ${FORK_GUARD} && contains(fromJSON(vars.LIST || '[]'), github.actor)\n`,
+		],
+		[
+			'a guard split across lines',
+			`    if: |-\n      true &&\n      ${FORK_GUARD.replace(' == ', '\n        ==  ')}\n`,
 		],
 	])('passes %s on a job that only calls a pinned action', (_label, condition) => {
 		const raw = job(`${condition}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
