@@ -112,14 +112,15 @@ type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
 
 /**
  * Whether the guard is a term of the top-level `&&` chain, outside every parenthesis, so nothing
- * negates, quotes, wraps or bypasses it. A top-level `||` or a second `${{ }}` is refused outright.
+ * negates, quotes, wraps or bypasses it. A top-level `||`, an index expression or a second `${{ }}`
+ * is refused outright.
  */
 function hasForkGuard(condition: unknown): boolean {
 	if (typeof condition !== 'string') { return false; }
 	const expression = condition.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1')
 		// String literals can hold `&&`, parentheses and the guard's own text.
 		.replace(/'(?:[^']|'')*'/g, "''");
-	if (/[{}]/.test(expression)) { return false; }
+	if (/[{}[\]]/.test(expression)) { return false; }
 	const terms: string[] = [];
 	let depth = 0;
 	let start = 0;
@@ -179,6 +180,7 @@ describe('pull_request_target workflows run no PR code', () => {
 		['a negated guard', job(`    if: \${{ !(${FORK_GUARD}) }}\n`)],
 		['a guard inside a negated group', job(`    if: \${{ !(true && ${FORK_GUARD} && true) }}\n`)],
 		['a guard inside a call', job(`    if: \${{ format('{0}', true && ${FORK_GUARD}) }}\n`)],
+		['a guard inside an index', job(`    if: \${{ github.event[true && ${FORK_GUARD} && true] }}\n`)],
 		['unbalanced parentheses', job(`    if: \${{ ${FORK_GUARD} && (true }}\n`)],
 		['a parenthesis closed before it opens', job(`    if: \${{ true) && (true && ${FORK_GUARD} }}\n`)],
 		['a guard between two interpolations', job(`    if: \${{ false }} && ${FORK_GUARD} && \${{ false }}\n`)],

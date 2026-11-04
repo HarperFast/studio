@@ -58,8 +58,9 @@ unknown path gets Harper's plain 404 rather than Studio's page.
 
 That a preview runs no server code is what makes it safe to host beside the central manager: a
 preview is a worker thread in the cluster's own Harper process, not a sandbox. It is also why
-previews share the cluster's data (`branched_databases: false`) rather than branching it, which
-would fork every database on the node but `system`, the central manager's included.
+previews share the cluster's data (`branched_databases: false`, so setup takes `dataMode=shared`)
+rather than branching it, which would fork every database on the node but `system`, the central
+manager's included.
 
 A preview is a client of the dev CM from another origin, so it works only while the dev CM's
 `http.corsAccessList` allows the preview domain. Sign in with email and password there: OAuth

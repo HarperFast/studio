@@ -2,7 +2,8 @@ name: Preview
 
 # Runs from stage with the cluster's preview identity, so nothing here may check out or run a PR's
 # code: preview-build.yaml builds it unprivileged, and this deploys only its `web/`. The cluster
-# trusts this file by path, branch, event and environment (`harper preview setup app=hdbms`). See
+# trusts this file by path, branch, event and environment (`harper preview setup app=hdbms
+# dataMode=shared`, which `branched_databases: false` below needs). See
 # .github/deploying.md and https://github.com/HarperFast/deploy-action#pull-request-previews
 
 on:
@@ -128,7 +129,12 @@ jobs:
       pull-requests: write
       deployments: write
     steps:
-      - uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
+      # Gated here, not on the job: `harper preview setup` can only verify that cleanup runs on close
+      # when the job's `if:` has nothing else in it. The author alone, so whoever merges, cleans up.
+      - if: >-
+          vars.HARPER_PREVIEW_TARGET != ''
+          && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.event.pull_request.user.login)
+        uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
         with:
           target: ${{ vars.HARPER_PREVIEW_TARGET }}
           app: hdbms
