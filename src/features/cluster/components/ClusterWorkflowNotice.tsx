@@ -29,7 +29,7 @@ export function ClusterWorkflowNotice(
 	if (!workflowId) {
 		return null;
 	}
-	// Also checked at render: a cached row must not outlive the permission that fetched it.
+	// A cached row must not outlive the permission that fetched it.
 	if (!canReadWorkflows || !row) {
 		return (
 			<div className={className}>
@@ -37,7 +37,7 @@ export function ClusterWorkflowNotice(
 					<LoaderCircleIcon className="animate-spin" />
 					<AlertTitle>Update in progress</AlertTitle>
 					<AlertDescription>
-						This cluster is being updated one instance at a time. Other changes to it wait until this finishes.
+						A change to this cluster is in progress. Other changes to it wait until it finishes.
 					</AlertDescription>
 				</Alert>
 			</div>

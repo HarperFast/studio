@@ -7,6 +7,7 @@ import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
@@ -65,6 +66,12 @@ export function UpsertCluster() {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
+	// The route's cluster is a snapshot from navigation; the cached record follows the cluster notice's polling.
+	const { data: liveCluster } = useQuery({
+		...getClusterInfoQueryOptions(clusterId),
+		enabled: !!clusterId && !!cluster,
+	});
+	const heldByWorkflow = !!(liveCluster ?? cluster)?.workflowId;
 	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
@@ -124,13 +131,13 @@ export function UpsertCluster() {
 	// lagging instances are the ones its upgrade hasn't reached yet, not a failure to recover from.
 	const partialUpgrade = useMemo(
 		() =>
-			cluster?.workflowId
+			heldByWorkflow
 				? null
 				: detectPartialUpgrade(
 					cluster?.instances ?? [],
 					(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
 				),
-		[cluster, newHarperVersions],
+		[cluster, heldByWorkflow, newHarperVersions],
 	);
 
 	const alreadyUsingFree = useMemo(() => {

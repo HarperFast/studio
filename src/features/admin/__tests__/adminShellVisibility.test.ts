@@ -88,7 +88,6 @@ describe('admin section visibility', () => {
 		]);
 	});
 
-	// The role-name fallback would grant workflow:read, but an API without staffPermissions has no workflow endpoints.
 	it('hides Workflows from a legacy-API fabric_admin', () => {
 		expect(labels(user('fabric_admin'))).not.toContain('Workflows');
 	});

@@ -65,7 +65,6 @@ describe('WorkflowCommands', () => {
 	});
 	afterEach(cleanup);
 
-	// The three rules the issue names, as acceptedCommands carries them from central manager.
 	it.each(
 		[
 			['past the point of no return: no undo', ['pause', 'abandon'], ['Pause', 'Abandon']],
@@ -95,6 +94,25 @@ describe('WorkflowCommands', () => {
 			<WorkflowCommands detail={detail({ command: { action: 'pause', by: 'ops@example.com' } })} />,
 		);
 		for (const button of screen.getAllByRole('button')) { expect(button).toHaveProperty('disabled', true); }
+	});
+
+	it('stays held after a command is accepted until a read moves past the row it was sent from', async () => {
+		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+		const view = (row: WorkflowDetail) => (
+			<QueryClientProvider client={client}>
+				<WorkflowCommands detail={row} />
+			</QueryClientProvider>
+		);
+		const before = detail({ updatedAt: '2026-11-04T20:00:00.000Z' });
+		const { rerender } = render(view(before));
+		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true));
+		// The refetch failed or hasn't landed: the same row must not unlock the controls.
+		rerender(view({ ...before }));
+		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true);
+		rerender(view({ ...before, updatedAt: '2026-11-04T20:00:05.000Z' }));
+		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
 	});
 
 	it('asks for a reason before abandoning instead of sending at once', () => {

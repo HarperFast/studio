@@ -303,8 +303,9 @@ export function useWorkflowCommandMutation() {
 		// Here, not in a caller's mutate options, which React Query skips once that component unmounts.
 		onSuccess: (_data, { id, command }) =>
 			toast.success(`${command[0].toUpperCase()}${command.slice(1)} sent`, { description: id }),
-		// Returned: the mutation stays pending until the refetch shows the command it wrote, which holds the controls.
-		onSettled: () => queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix }),
+		onSettled: () => {
+			void queryClient.invalidateQueries({ queryKey: workflowsQueryPrefix });
+		},
 	});
 }
 

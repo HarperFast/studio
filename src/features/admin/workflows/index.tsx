@@ -110,7 +110,6 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 	);
 }
 
-/** Reads the mode from the polled summary, so a change another operator makes shows up here too. */
 function IntakeControl({ mode }: { mode: IntakeMode }) {
 	const canManage = useStaffPermission('workflow:manage');
 	const mutation = useSetIntakeMutation();

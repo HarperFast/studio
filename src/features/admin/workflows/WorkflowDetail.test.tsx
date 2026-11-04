@@ -35,8 +35,7 @@ const detail = (id: string): WorkflowDetail => ({
 describe('WorkflowDetailPage', () => {
 	afterEach(cleanup);
 
-	// Regression: Back from one cached workflow to another reuses the route component, and an open Abandon dialog
-	// (with its reason) used to carry over and abandon the workflow now on screen.
+	// Back between two cached workflows reuses the route component, so nothing local may carry across.
 	it('closes an open Abandon dialog when the page moves to another workflow', () => {
 		const client = new QueryClient();
 		client.setQueryData(['fabric-admin', 'workflows', 'detail', 'wf-a'], detail('wf-a'));

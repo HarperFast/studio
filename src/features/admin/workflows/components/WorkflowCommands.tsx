@@ -50,9 +50,14 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 	const canManage = useStaffPermission('workflow:manage');
 	const mutation = useWorkflowCommandMutation();
 	const [abandoning, setAbandoning] = useState(false);
+	// The row as it was when a command was accepted. Until a read moves past it, the cached row can't show that command
+	// yet, and central manager would refuse a second one.
+	const [sentAt, setSentAt] = useState<string | null>(null);
 	const commands = offeredCommands(detail, canManage);
+	const stamp = detail.updatedAt ?? '';
 	// Central manager refuses any command while one is still waiting for the executor; acceptedCommands doesn't say so.
-	const pending = !!detail.command?.action;
+	const pending = !!detail.command?.action || sentAt === stamp;
+	const sent = () => setSentAt(stamp);
 
 	if (!commands.length) { return null; }
 
@@ -61,7 +66,7 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 			setAbandoning(true);
 			return;
 		}
-		mutation.mutate({ id: detail.id, command });
+		mutation.mutate({ id: detail.id, command }, { onSuccess: sent });
 	};
 
 	return (
@@ -85,6 +90,7 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 					key={detail.id}
 					workflowId={detail.id}
 					held={pending}
+					onSent={sent}
 					onClose={() => setAbandoning(false)}
 				/>
 			)}
@@ -97,7 +103,12 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
  * another workflow. `held`: another command arrived meanwhile, which central manager would refuse this behind.
  */
 export function AbandonDialog(
-	{ workflowId, held = false, onClose }: { workflowId: string; held?: boolean; onClose: () => void },
+	{ workflowId, held = false, onSent, onClose }: {
+		workflowId: string;
+		held?: boolean;
+		onSent?: () => void;
+		onClose: () => void;
+	},
 ) {
 	const mutation = useWorkflowCommandMutation();
 	const [reason, setReason] = useState('');
@@ -106,7 +117,10 @@ export function AbandonDialog(
 	const abandon = () => {
 		if (!trimmed || held || mutation.isPending) { return; }
 		mutation.mutate({ id: workflowId, command: 'abandon', reason: trimmed }, {
-			onSuccess: onClose,
+			onSuccess: () => {
+				onSent?.();
+				onClose();
+			},
 		});
 	};
 
