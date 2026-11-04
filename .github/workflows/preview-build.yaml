@@ -1,12 +1,7 @@
 name: Build PR Preview
 
-# Builds each pull request's head commit and uploads `web/` as the `pr-<number>-build` artifact.
-# This workflow runs the PR's code, so its token is read-only and it holds no credential and no
-# identity token.
-#
-# preview.yaml waits for this run, downloads the artifact and deploys it as the PR's preview. Keep
-# `branches` the same as there: its deploy job waits for a run of this workflow, and fails if none
-# starts.
+# Runs the PR's code, so it gets a read-only token and no identity token; preview.yaml deploys its
+# artifact. Keep `branches` the same as there: its deploy job fails when no run of this one starts.
 
 on:
   pull_request:
@@ -48,9 +43,8 @@ jobs:
         run: echo "HUSKY=0" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: pnpm install
-      # Dev mode: `.github/deploy-public-env/.env.dev` points the bundle at the dev central manager,
-      # with Stripe's test key and Reo off. `VITE_TELEMETRY_ENABLED` stays unset, so
-      # `isDeployedBuild` is false and the preview loads neither Datadog RUM nor GTM.
+      # Dev mode points the bundle at the dev central manager. `VITE_TELEMETRY_ENABLED` stays unset so
+      # `isDeployedBuild` is false: a preview must not report to Datadog RUM or GTM.
       - name: Build
         env:
           PR: ${{ github.event.pull_request.number }}

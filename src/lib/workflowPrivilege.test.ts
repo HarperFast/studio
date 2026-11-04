@@ -102,28 +102,31 @@ describe('workflow privilege boundary', () => {
 });
 
 /**
- * `pull_request_target` runs this repo's own YAML from `stage`, with a write-capable token and, in
- * `preview.yaml`, the Harper preview identity. What makes that safe is that no job runs a PR's code
- * and no job runs for a fork. `harper preview setup` checks both, but only once, at setup; the
- * cluster's trust policy pins the file's path, not its content, so a later edit would go unnoticed.
+ * The cluster's trust policy pins `preview.yaml`'s path, not its content, and `harper preview setup`
+ * checks the content only once. A `run:` step that executes the downloaded artifact is not caught.
  */
 const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repository';
 
 type Step = { uses?: unknown };
 type TargetJob = { if?: unknown; uses?: unknown; steps?: Step[] };
 
+/** Whether the guard is a top-level `&&` term, so nothing negates, quotes or bypasses it. */
+function hasForkGuard(condition: unknown): boolean {
+	if (typeof condition !== 'string') { return false; }
+	const expression = condition.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1')
+		// String literals can hold `&&` and the guard's own text.
+		.replace(/'(?:[^']|'')*'/g, "''");
+	if (expression.includes('||')) { return false; }
+	return expression.split('&&').some((term) => term.trim() === FORK_GUARD);
+}
+
 function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
 	const problems: string[] = [];
 	for (const [name, job] of Object.entries((doc.jobs ?? {}) as Record<string, TargetJob>)) {
-		const condition = typeof job.if === 'string' ? job.if : '';
-		// `&&` only: an `||` anywhere can bypass the guard.
-		if (!condition.includes(FORK_GUARD) || condition.includes('||')) {
-			problems.push(`${name}: no fork guard`);
-		}
+		if (!hasForkGuard(job.if)) { problems.push(`${name}: no fork guard`); }
 		if (job.uses !== undefined) { problems.push(`${name}: calls a reusable workflow`); }
 		for (const step of job.steps ?? []) {
 			const uses = typeof step.uses === 'string' ? step.uses : '';
-			// A checkout or a local action would run whatever the checked-out tree holds.
 			if (uses.startsWith('actions/checkout@') || uses.startsWith('./')) {
 				problems.push(`${name}: uses ${uses}`);
 			}
@@ -150,7 +153,11 @@ describe('pull_request_target workflows run no PR code', () => {
 
 	it.each([
 		['a job with no fork guard', job('    steps:\n      - run: echo hi\n')],
-		['a guard that `||` can bypass', job(`    if: \${{ ${FORK_GUARD} || true }}\n`)],
+		// `&&` binds tighter, so this is `true || (… && guard)`, and its last term is the guard itself.
+		['a guard that `||` can bypass', job(`    if: \${{ true || github.event.action != 'closed' && ${FORK_GUARD} }}\n`)],
+		['a negated guard', job(`    if: \${{ !(${FORK_GUARD}) }}\n`)],
+		['a guard inside a string', job(`    if: contains('x && ${FORK_GUARD} && y', 'z')\n`)],
+		['a guard compared again', job(`    if: \${{ ${FORK_GUARD} == false }}\n`)],
 		['a checkout', job(`${guarded}    steps:\n      - uses: actions/checkout@v7\n`)],
 		['a local action', job(`${guarded}    steps:\n      - uses: ./.github/actions/studio-verify\n`)],
 		['a reusable workflow', job(`${guarded}    uses: ./.github/workflows/x.yaml\n`)],

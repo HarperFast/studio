@@ -51,7 +51,12 @@ closes. Fork PRs get none.
 central manager, and without `VITE_TELEMETRY_ENABLED`, so it reports nothing to Datadog or GTM. It
 uploads `web/` as an artifact. `preview.yaml` runs from `stage`, waits for that build, writes its
 own `config.yaml` serving `web/` with Harper's static plugin, and deploys the result as `hdbms-pr-<N>`.
-The deploy template is not used, so a template change is not exercised by its PR's preview.
+The deploy template is not used, so a template change is not exercised by its PR's preview, and an
+unknown path gets Harper's plain 404 rather than Studio's page.
+
+A preview is a client of the dev CM from another origin, so it works only while the dev CM's
+`http.corsAccessList` allows the preview domain. Sign in with email and password there: OAuth
+sign-in belongs to the CM's origin (see AGENTS.md) and finishes on dev Studio, not on the preview.
 
 The cluster trusts `preview.yaml` by path, branch, event and environment, not by content, and
 `harper preview setup` checks its content only once. `src/lib/workflowPrivilege.test.ts` keeps
