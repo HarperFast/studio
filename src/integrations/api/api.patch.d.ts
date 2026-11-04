@@ -63,7 +63,9 @@ export type StaffPermission =
 	| 'user:status'
 	| 'systemStatus:write'
 	| 'apiToken:create'
-	| 'apiToken:self';
+	| 'apiToken:self'
+	| 'workflow:read'
+	| 'workflow:manage';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
@@ -404,6 +406,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
 	plans?: RegionPlan[];
+	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
+	workflowId?: string | null;
 }
 
 export interface ClusterSyncSummary {

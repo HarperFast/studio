@@ -537,3 +537,52 @@ describe('a load job Studio stopped following before it ended', () => {
 		expect(describeError(pollFailure()).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
 	});
 });
+
+describe('a cluster a durable workflow holds', () => {
+	const config = { url: '/Cluster/clu-1', method: 'put' } as InternalAxiosRequestConfig;
+	const held = new AxiosError('Request failed with status code 409', AxiosError.ERR_BAD_REQUEST, config, undefined, {
+		status: 409,
+		statusText: '',
+		data: { code: 'Conflict', title: 'Cluster is held by workflow wf-abc; wait for it to finish before the update' },
+		headers: {},
+		config,
+	});
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+		queryClient.clear();
+	});
+
+	it('is described in our words, without the workflow id', () => {
+		const described = describeError(held);
+		expect(described.title).toBe('Upgrade in progress');
+		expect(described.message).toMatch(/busy with an upgrade/);
+		expect(JSON.stringify(described)).not.toContain('wf-abc');
+	});
+
+	it('refetches that cluster’s record and nothing else, even for a mutation that renders its own failure', async () => {
+		queryClient.setQueryData(['clu-1'], { id: 'clu-1' });
+		queryClient.setQueryData(['clu-1', 'databases'], {});
+		queryClient.setQueryData(['clu-2'], { id: 'clu-2' });
+		const observer = new MutationObserver(queryClient, {
+			mutationFn: () => Promise.reject(held),
+			meta: { skipGlobalErrorToast: true },
+		});
+		await expect(observer.mutate()).rejects.toBe(held);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(queryClient.getQueryState(['clu-1'])?.isInvalidated).toBe(true);
+		expect(queryClient.getQueryState(['clu-1', 'databases'])?.isInvalidated).toBe(false);
+		expect(queryClient.getQueryState(['clu-2'])?.isInvalidated).toBe(false);
+	});
+
+	it('refetches nothing for an unrelated failure', async () => {
+		const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+		const observer = new MutationObserver(queryClient, { mutationFn: () => Promise.reject(new Error('nope')) });
+		await expect(observer.mutate()).rejects.toThrow('nope');
+		expect(invalidate).not.toHaveBeenCalled();
+	});
+});
