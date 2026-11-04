@@ -250,7 +250,7 @@ export function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 					</DetailRow>
 				)}
 				<DetailRow label="Point of no return">
-					{detail.pointOfNoReturnAt ? <Timestamp value={detail.pointOfNoReturnAt} /> : 'not reached; undo is possible'}
+					<Timestamp value={detail.pointOfNoReturnAt} />
 				</DetailRow>
 				<DetailRow label="Cluster">
 					<span className="font-mono">{detail.clusterId ?? '—'}</span>
