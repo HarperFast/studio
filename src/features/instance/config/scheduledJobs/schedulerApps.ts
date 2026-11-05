@@ -4,13 +4,9 @@ import { APP_CONFIG_FILES } from './jobsConfig';
 
 export interface SchedulerApp {
 	name: string;
-	/** The config file Harper reads for it, when it has one. */
 	configFile?: string;
-	/** Every file in the app, by its path from the app's folder. */
 	files: ReadonlySet<string>;
-	/** Why Studio won't change this app's jobs. */
 	readOnly?: string;
-	/** Whether Harper reports the app's scheduler failed to load, which stops every one of its jobs. */
 	schedulerFailed: boolean;
 }
 
@@ -42,7 +38,6 @@ function readOnlyReason(entry: APIDirectoryEntry): string | undefined {
 	return undefined;
 }
 
-/** Every app in the components tree, alphabetically, with what the Scheduled jobs page needs to know about it. */
 export function schedulerApps(tree: APIDirectoryEntry | undefined): SchedulerApp[] {
 	if (!tree) {
 		return [];

@@ -61,14 +61,19 @@ in the file's text and warns about a name it can't find, and it flags a handler 
 
 The `yaml` Document API edits the file in place, so comments, other keys and a value's own inline comment survive. New
 keys go in the documented order. A cron expression is written in single quotes, since a bare `*` or `@daily` is YAML
-syntax. A `jobs:` list written flush with its key stays that way.
+syntax. A `jobs:` list written flush with its key stays that way. An edited job loses any key Harper refuses, such as a
+misspelt `timeZone`: the form replaces the job, and keeping the key would keep the app from loading.
 
 An app with no config file gets a new `config.yaml` that starts from Harper's defaults (`components/DEFAULT_CONFIG.ts`).
 Without them the app would stop loading its REST, schema, resources and static files.
 
-Before writing, the save re-reads the components tree and the file, and refuses if either changed since the page read
-them. Nothing else stops two people's edits overwriting each other. It writes with `set_component_file`, replicated on a
-cluster, as the editor does.
+A dialog keeps the file's text from when it opened, and the save compares against that, not the latest the page holds.
+A job is found by its position, so a refetch while the dialog is open could otherwise pair that position with a file
+where someone inserted a job above it, and change or remove the wrong one.
+
+Before writing, the save re-reads the components tree and the file, and refuses if either changed since that text, or
+if a deploy has since made the app one Studio won't change. Nothing else stops two people's edits overwriting each
+other. It writes with `set_component_file`, replicated on a cluster, as the editor does.
 
 Saving sets `restartRequired`, and Harper keeps running the old jobs until a restart (checked on 5.3.5). So the page
 offers the same restart as the editor's menu.
@@ -76,5 +81,6 @@ offers the same restart as the editor's menu.
 ## What Studio won't edit
 
 An app deployed from a package, a pull request preview, or a platform-managed component shows its jobs read-only, since
-the next deploy replaces its config. So does an app whose config isn't valid YAML, or whose `scheduler.jobs` isn't a
-list: Studio won't rewrite a file it can't read.
+the next deploy replaces its config. So does an app whose config isn't valid YAML, can't be read as data (an alias to
+an anchor that's never set parses cleanly and then throws), or whose `scheduler` isn't a set of keys or whose
+`scheduler.jobs` isn't a list: Studio won't rewrite a file it can't read, or replace a value it doesn't understand.

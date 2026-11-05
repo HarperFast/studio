@@ -103,7 +103,6 @@ function parseField(fieldValue: string, spec: FieldSpec, fieldName: string, expr
 	return allowed;
 }
 
-/** Whether a parsed expression matches some minute within the next eight years, walking wall-clock fields in UTC. */
 function canFire(fields: boolean[][], dayOfMonthRestricted: boolean, dayOfWeekRestricted: boolean): boolean {
 	const [minutes, hours, daysOfMonth, months, daysOfWeek] = fields;
 	const dayMatches = (date: Date) => {
@@ -146,7 +145,6 @@ function canFire(fields: boolean[][], dayOfMonthRestricted: boolean, dayOfWeekRe
 	return false;
 }
 
-/** Why Harper would refuse this cron expression, or `undefined` when it accepts it. */
 export function cronProblem(expression: string): string | undefined {
 	const normalized = (MACROS[expression.trim().toLowerCase()] ?? expression).trim();
 	const fields = normalized.split(/\s+/);
@@ -190,7 +188,6 @@ function intervalMs(interval: unknown): number {
 	return 0;
 }
 
-/** Why Harper would refuse this interval, or `undefined` when it accepts it. */
 export function intervalProblem(interval: unknown): string | undefined {
 	if (typeof interval === 'string' && !/^\d+(\.\d+)?[smhd]?$/.test(interval.trim())) {
 		return `Interval "${interval}" is not a supported duration — use a number of seconds or a value like 90s, 5m, 1h, 1d`;
@@ -202,7 +199,6 @@ export function intervalProblem(interval: unknown): string | undefined {
 	return undefined;
 }
 
-/** Why Harper would refuse this IANA timezone, or `undefined` when this browser knows it. */
 export function timezoneProblem(timezone: string): string | undefined {
 	try {
 		new Intl.DateTimeFormat('en-US', { timeZone: timezone });
@@ -212,13 +208,11 @@ export function timezoneProblem(timezone: string): string | undefined {
 	}
 }
 
-/** The IANA zones this browser knows, for the picker. Empty where `Intl.supportedValuesOf` is missing. */
 export function knownTimezones(): string[] {
 	const supportedValuesOf = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
 	return supportedValuesOf ? supportedValuesOf('timeZone') : [];
 }
 
-/** `15m` → `every 15 minutes`; a bare number is seconds. Falls back to the value as written. */
 export function describeInterval(interval: unknown): string {
 	const ms = intervalMs(interval);
 	if (intervalProblem(interval)) {

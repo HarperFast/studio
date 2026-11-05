@@ -5,10 +5,13 @@ import { setComponentFile } from '@/integrations/api/instance/applications/setCo
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SchedulerApp, schedulerApps } from './schedulerApps';
 
-/** The file changed on the instance after this page read it: saving would overwrite that change. */
 export class ConfigChangedError extends Error {
-	constructor(file: string) {
-		super(`${file} changed on the instance since this page loaded it. Refresh, then make the change again.`);
+	constructor(file: string, readOnly?: string) {
+		super(
+			readOnly
+				? `The app changed since this page loaded it. ${readOnly}`
+				: `${file} changed on the instance since this page loaded it. Refresh, then make the change again.`,
+		);
 		this.name = 'ConfigChangedError';
 	}
 }
@@ -32,6 +35,9 @@ export async function saveAppJobs(
 	const fresh = schedulerApps(await getComponents(params)).find((candidate) => candidate.name === app.name);
 	if (!fresh || fresh.configFile !== app.configFile) {
 		throw new ConfigChangedError(fresh?.configFile ?? app.configFile ?? 'config.yaml');
+	}
+	if (fresh.readOnly) {
+		throw new ConfigChangedError(app.configFile ?? 'config.yaml', fresh.readOnly);
 	}
 	const file = app.configFile ?? 'config.yaml';
 	if (app.configFile) {

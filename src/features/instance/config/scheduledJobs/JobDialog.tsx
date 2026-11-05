@@ -15,6 +15,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
@@ -25,8 +26,8 @@ import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { SaveIcon, TriangleAlertIcon } from 'lucide-react';
-import { useMemo } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useMemo, useState } from 'react';
+import { ControllerRenderProps, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { isHandlerModule, readModuleExports } from './handlerExports';
 import {
@@ -42,11 +43,17 @@ import { SchedulerApp } from './schedulerApps';
 
 /** Radix's Select can't hold an empty value, and "no timezone" is the most common choice. */
 const SERVER_TIMEZONE = '__server__';
+const OTHER = '__other__';
 
 export interface JobDialogTarget {
 	app: SchedulerApp;
-	/** The job being changed; absent when adding one. */
 	job?: ScheduledJobConfig;
+	/**
+	 * The file and its jobs as the page showed them when the dialog opened. The save is checked against this text, so a
+	 * refetch while the dialog is open can't pair `job.index` with a different file.
+	 */
+	baseText: string | undefined;
+	config: AppJobsConfig | undefined;
 }
 
 function jobFormSchema(
@@ -77,7 +84,11 @@ function jobFormSchema(
 			if (problem) {
 				context.addIssue({ code: 'custom', path: ['cron'], message: problem });
 			}
-			const zoneProblem = values.timezone === SERVER_TIMEZONE ? undefined : timezoneProblem(values.timezone);
+			const zoneProblem = values.timezone === SERVER_TIMEZONE
+				? undefined
+				: values.timezone.trim()
+				? timezoneProblem(values.timezone.trim())
+				: 'Enter an IANA timezone, like America/New_York.';
 			if (zoneProblem) {
 				context.addIssue({ code: 'custom', path: ['timezone'], message: zoneProblem });
 			}
@@ -114,22 +125,79 @@ function initialValues(job: ScheduledJobConfig | undefined, files: ReadonlySet<s
 	};
 }
 
-export function toDraft(values: JobFormValues): JobDraft {
+function toDraft(values: JobFormValues): JobDraft {
 	return {
 		name: values.name.trim(),
 		schedule: values.kind === 'cron'
 			? {
 				cron: values.cron.trim(),
-				timezone: values.timezone === SERVER_TIMEZONE ? undefined : values.timezone,
+				timezone: values.timezone === SERVER_TIMEZONE ? undefined : values.timezone.trim(),
 			}
 			: { interval: asInterval(values.interval) },
 		handler: buildHandler(values.file, values.exportName.trim()),
 	};
 }
 
+/**
+ * A list to choose from, plus "Another…", which swaps in a text field for a value the list doesn't hold: an export the
+ * text scan missed, or a timezone this browser doesn't list. With nothing to list, it is just the text field.
+ */
+function PickOrType({
+	field,
+	options,
+	label,
+	placeholder,
+	otherLabel,
+	optionLabel,
+	pending = false,
+}: {
+	field: ControllerRenderProps<JobFormValues, 'exportName' | 'timezone'>;
+	options: readonly string[];
+	label: string;
+	placeholder: string;
+	otherLabel: string;
+	optionLabel?: (option: string) => string;
+	pending?: boolean;
+}) {
+	const [chosenOther, setChosenOther] = useState(false);
+	const listed = pending || options.length > 0;
+	const typing = !listed || chosenOther || (!pending && field.value !== '' && !options.includes(field.value));
+	const trigger = (
+		<SelectTrigger className="w-full" aria-label={label}>
+			<SelectValue placeholder={pending ? 'Reading the file…' : `Choose ${label.toLowerCase()}`} />
+		</SelectTrigger>
+	);
+	return (
+		<>
+			{listed && (
+				<Select
+					value={typing ? OTHER : field.value}
+					disabled={pending}
+					onValueChange={(next) => {
+						setChosenOther(next === OTHER);
+						field.onChange(next === OTHER ? '' : next);
+					}}
+				>
+					{typing ? trigger : <FormControl>{trigger}</FormControl>}
+					<SelectContent>
+						{options.map((option) => (
+							<SelectItem key={option} value={option}>{optionLabel?.(option) ?? option}</SelectItem>
+						))}
+						<SelectItem value={OTHER}>{otherLabel}</SelectItem>
+					</SelectContent>
+				</Select>
+			)}
+			{typing && (
+				<FormControl>
+					<Input autoComplete="off" spellCheck={false} placeholder={placeholder} aria-label={label} {...field} />
+				</FormControl>
+			)}
+		</>
+	);
+}
+
 export function JobDialog({
 	target,
-	config,
 	instanceParams,
 	isSaving,
 	saveError,
@@ -137,16 +205,16 @@ export function JobDialog({
 	onClose,
 }: {
 	target: JobDialogTarget;
-	config: AppJobsConfig | undefined;
 	instanceParams: InstanceClientIdConfig;
 	isSaving: boolean;
 	saveError: unknown;
 	onSave: (draft: JobDraft) => void;
 	onClose: () => void;
 }) {
-	const { app, job } = target;
+	const { app, job, config } = target;
 	const resolver = useMemo(() => zodResolver(jobFormSchema(config, job, app.files)), [app.files, config, job]);
-	const form = useForm<JobFormValues>({ resolver, mode: 'onChange', defaultValues: initialValues(job, app.files) });
+	const form = useForm<JobFormValues>({ resolver, mode: 'onTouched', defaultValues: initialValues(job, app.files) });
+	const { isDirty, isValid } = form.formState;
 	const kind = useWatch({ control: form.control, name: 'kind' });
 	const file = useWatch({ control: form.control, name: 'file' });
 	const exportName = useWatch({ control: form.control, name: 'exportName' });
@@ -155,21 +223,24 @@ export function JobDialog({
 	const fileOptions = file && !modules.includes(file) ? [file, ...modules] : modules;
 	const timezones = useMemo(() => {
 		const known = knownTimezones();
-		return job?.timezone && !known.includes(job.timezone) ? [job.timezone, ...known] : known;
-	}, [job?.timezone]);
+		return [SERVER_TIMEZONE, ...(known.includes('UTC') ? [] : ['UTC']), ...known];
+	}, []);
 
-	const { data: moduleText, isError: moduleUnreadable } = useQuery(getComponentFileQueryOptions({
-		...instanceParams,
-		project: app.name,
-		file: app.files.has(file) ? file : undefined,
-		encoding: 'utf8',
-	}));
-	const moduleExports = moduleText ? readModuleExports(moduleText.message) : undefined;
-	const offerList = !!moduleExports && moduleExports.names.length > 0 && !moduleExports.incomplete;
-	const exportOptions = offerList && exportName && !moduleExports.names.includes(exportName)
-		? [exportName, ...moduleExports.names]
-		: moduleExports?.names ?? [];
-	const exportMissing = offerList && !!exportName && !moduleExports.names.includes(exportName);
+	const { data: moduleText, isLoading: moduleLoading, isError: moduleUnreadable } = useQuery(
+		getComponentFileQueryOptions({
+			...instanceParams,
+			project: app.name,
+			file: app.files.has(file) ? file : undefined,
+			encoding: 'utf8',
+		}),
+	);
+	const moduleSource = moduleText?.message;
+	const moduleExports = useMemo(
+		() => (moduleSource === undefined ? undefined : readModuleExports(moduleSource)),
+		[moduleSource],
+	);
+	const exportMissing = !!moduleExports && moduleExports.names.length > 0 && !moduleExports.incomplete
+		&& exportName !== '' && !moduleExports.names.includes(exportName);
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && !isSaving && onClose()}>
@@ -178,6 +249,7 @@ export function JobDialog({
 					<form
 						id="scheduled-job-form"
 						onSubmit={form.handleSubmit((values) => onSave(toDraft(values)))}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 						className="grid gap-4"
 					>
 						<DialogHeader>
@@ -272,17 +344,14 @@ export function JobDialog({
 										render={({ field }) => (
 											<FormItem>
 												<FormLabel>Timezone</FormLabel>
-												<Select value={field.value} onValueChange={field.onChange}>
-													<FormControl>
-														<SelectTrigger className="w-full" aria-label="Timezone">
-															<SelectValue />
-														</SelectTrigger>
-													</FormControl>
-													<SelectContent>
-														<SelectItem value={SERVER_TIMEZONE}>The server's timezone</SelectItem>
-														{timezones.map((zone) => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}
-													</SelectContent>
-												</Select>
+												<PickOrType
+													field={field}
+													options={timezones}
+													label="Timezone"
+													placeholder="America/New_York"
+													otherLabel="Another timezone…"
+													optionLabel={(zone) => (zone === SERVER_TIMEZONE ? "The server's timezone" : zone)}
+												/>
 												<FormMessage />
 											</FormItem>
 										)}
@@ -345,38 +414,21 @@ export function JobDialog({
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Export</FormLabel>
-									{offerList
-										? (
-											<Select value={field.value} onValueChange={field.onChange}>
-												<FormControl>
-													<SelectTrigger className="w-full" aria-label="Export">
-														<SelectValue placeholder="Choose an export" />
-													</SelectTrigger>
-												</FormControl>
-												<SelectContent>
-													{exportOptions.map((name) => (
-														<SelectItem key={name} value={name}>
-															{name === 'default' ? 'The default export' : name}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										)
-										: (
-											<FormControl>
-												<Input
-													autoComplete="off"
-													spellCheck={false}
-													placeholder="syncRates, or default"
-													{...field}
-												/>
-											</FormControl>
-										)}
+									<PickOrType
+										key={file}
+										field={field}
+										options={moduleExports?.names ?? []}
+										pending={moduleLoading}
+										label="Export"
+										placeholder="syncRates, or default"
+										otherLabel="Another export…"
+										optionLabel={(name) => (name === 'default' ? 'The default export' : name)}
+									/>
 									<FormDescription>
 										{moduleUnreadable
-											? 'Studio couldn’t read this file to list its exports.'
+											? 'Studio couldn’t read this file to list its exports: type the name of the one to call.'
 											: moduleExports?.incomplete
-											? 'This file re-exports another, so Studio can’t list every export: type its name.'
+											? 'This file re-exports another, so the list may be short.'
 											: moduleExports && moduleExports.names.length === 0
 											? 'Studio found no exports in this file: type the name of the one to call.'
 											: 'Harper calls it with the job’s name, when it was due, and whether it is making up a missed run.'}
@@ -407,7 +459,7 @@ export function JobDialog({
 							<Button
 								type="submit"
 								variant="submit"
-								disabled={isSaving || !form.formState.isValid || (!!job && !form.formState.isDirty)}
+								disabled={isSaving || !isValid || (!!job && !isDirty)}
 							>
 								<SaveIcon /> {isSaving ? 'Saving…' : job ? 'Save job' : 'Add job'}
 							</Button>

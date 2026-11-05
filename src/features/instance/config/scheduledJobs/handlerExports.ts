@@ -1,4 +1,3 @@
-/** Files Harper can import a handler from. */
 const MODULE_FILE = /\.(?:[cm]?js|[cm]?ts)$/;
 const DECLARATION_FILE = /\.d\.[cm]?ts$/;
 

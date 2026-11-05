@@ -1,7 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatFullTimestamp, formatRelativeTime } from '@/features/organization/serviceAccounts/lib/timeText';
 
-/** A relative time for the middle of a sentence ("1 minute ago"), with the full time on hover. */
 export function SentenceTime({ value }: { value: string }) {
 	const text = formatRelativeTime(value);
 	return (

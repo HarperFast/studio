@@ -60,6 +60,17 @@ describe('readAppJobs', () => {
 			editable: false,
 			problem: 'scheduler.jobs must be a list of jobs.',
 		});
+		expect(readAppJobs('scheduler: [legacy]\n')).toEqual({
+			jobs: [],
+			editable: false,
+			problem: 'scheduler is a list, not a set of keys, so Studio can’t add jobs to it.',
+		});
+		expect(readAppJobs('scheduler: true\n')).toMatchObject({ editable: false });
+		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
+			jobs: [],
+			editable: false,
+			problem: expect.stringMatching(/^Studio can’t read the file: Unresolved alias/),
+		});
 	});
 
 	it.each([
@@ -112,6 +123,14 @@ describe('writeJob', () => {
 			"    - name: sync-rates\n      cron: '@daily'\n      timezone: Europe/Paris\n      handler: ./jobs.js#syncRates\n",
 		);
 		expect(next).not.toContain('interval');
+	});
+
+	it('drops a key Harper refuses, so the saved job loads', () => {
+		const text =
+			"scheduler:\n  jobs:\n    - name: a\n      cron: '@daily'\n      timeZone: UTC\n      handler: ./a.js\n";
+		const next = writeJob(text, 0, { name: 'a', schedule: { cron: '@daily', timezone: 'UTC' }, handler: './a.js' });
+		expect(next).not.toContain('timeZone');
+		expect(readAppJobs(next).jobs[0]).toMatchObject({ timezone: 'UTC', problem: undefined });
 	});
 
 	it('drops the timezone when a cron job goes back to the server timezone', () => {
@@ -186,6 +205,8 @@ describe('writeJob', () => {
 		const draft = { name: 'n', schedule: { interval: '5m' }, handler: './a.js' };
 		expect(() => writeJob('scheduler: [\n', undefined, draft)).toThrow(/valid YAML/);
 		expect(() => writeJob('scheduler:\n  jobs: nope\n', undefined, draft)).toThrow(/not a list/);
+		expect(() => writeJob('scheduler: [legacy]\n', undefined, draft)).toThrow(/not a set of keys/);
+		expect(writeJob('scheduler:\n', undefined, draft)).toContain('    - name: n\n');
 	});
 });
 

@@ -24,7 +24,7 @@ export interface RunSources {
 	logFailed: boolean;
 }
 
-export function JobSchedule({ job }: { job: ScheduledJobConfig }) {
+function JobSchedule({ job }: { job: ScheduledJobConfig }) {
 	if (job.cron !== undefined) {
 		return (
 			<span>
@@ -106,6 +106,10 @@ function LoadFailure({ app, sources }: { app: SchedulerApp; sources: RunSources 
 							</span>
 						</p>
 					)
+					: sources.logFailed
+					? <p>Studio couldn’t read Harper’s log for the reason. The problems Studio can see are marked below.</p>
+					: !sources.log
+					? <p>Reading Harper’s log for the reason…</p>
 					: (
 						<p>
 							Harper’s log doesn’t say why: an instance running one worker thread prints the reason to its console

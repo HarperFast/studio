@@ -80,12 +80,15 @@ export function lastLoggedLoadError(log: readonly ReadLogItem[], app: string): L
 		if (at < 0) {
 			continue;
 		}
-		newest = line;
-		reason = line.message
+		const candidate = line.message
 			.slice(at + marker.length)
 			.split(/\r?\n\s+at /)[0]
 			.replace(/\s+statusCode=\d+\s*$/, '')
 			.trim();
+		if (candidate) {
+			newest = line;
+			reason = candidate;
+		}
 	}
 	return newest && reason ? { at: newest.timestamp, reason } : undefined;
 }

@@ -6,15 +6,18 @@ import { ConfigChangedError, saveAppJobs } from './useSaveAppJobs';
 
 const ORIGINAL = 'rest: true\n';
 
-function tree(files: string[]): APIDirectoryEntry {
-	return { name: 'components', entries: [{ name: 'app', entries: files.map((name) => ({ name })) }] };
+function tree(files: string[], packageSpec?: string): APIDirectoryEntry {
+	return {
+		name: 'components',
+		entries: [{ name: 'app', package: packageSpec, entries: files.map((name) => ({ name })) }],
+	};
 }
 
-function fakeInstance({ files, text }: { files: string[]; text: string }) {
+function fakeInstance({ files, text, packageSpec }: { files: string[]; text: string; packageSpec?: string }) {
 	const post = vi.fn(async (_url: string, body: { operation: string }) => {
 		switch (body.operation) {
 			case 'get_components':
-				return { data: tree(files) };
+				return { data: tree(files, packageSpec) };
 			case 'get_component_file':
 				return { data: { message: text } };
 			case 'set_component_file':
@@ -65,6 +68,15 @@ describe('saveAppJobs', () => {
 		const [app] = schedulerApps(tree([]));
 		await expect(saveAppJobs(params, { app, baseText: undefined, change: () => 'x' })).rejects.toBeInstanceOf(
 			ConfigChangedError,
+		);
+		expect(writes(post)).toEqual([]);
+	});
+
+	it('refuses an app a deploy took over since the page loaded', async () => {
+		const { post, params } = fakeInstance({ files: ['config.yaml'], text: ORIGINAL, packageSpec: 'github:acme/jobs' });
+		const [app] = schedulerApps(tree(['config.yaml']));
+		await expect(saveAppJobs(params, { app, baseText: ORIGINAL, change: () => 'x' })).rejects.toThrow(
+			/Deployed from github:acme\/jobs/,
 		);
 		expect(writes(post)).toEqual([]);
 	});

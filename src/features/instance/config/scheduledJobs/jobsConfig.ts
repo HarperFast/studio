@@ -110,11 +110,25 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 	if (doc.errors.length > 0) {
 		return { jobs: [], editable: false, problem: `The file isn't valid YAML: ${doc.errors[0].message}` };
 	}
-	const config = doc.toJSON() as Record<string, unknown> | null;
+	let config: Record<string, unknown> | null;
+	try {
+		config = doc.toJSON() as Record<string, unknown> | null;
+	} catch (error) {
+		// An alias whose anchor is never set (`<<: *missing`) parses without errors, then throws here.
+		return { jobs: [], editable: false, problem: `Studio can’t read the file: ${(error as Error).message}` };
+	}
 	const scheduler = typeof config === 'object' && config !== null ? config.scheduler : undefined;
-	const jobs = typeof scheduler === 'object' && scheduler !== null
-		? (scheduler as Record<string, unknown>).jobs
-		: undefined;
+	if (scheduler == null) {
+		return { jobs: [], editable: true };
+	}
+	if (typeof scheduler !== 'object' || Array.isArray(scheduler)) {
+		return {
+			jobs: [],
+			editable: false,
+			problem: `scheduler is ${describeValue(scheduler)}, not a set of keys, so Studio can’t add jobs to it.`,
+		};
+	}
+	const jobs = (scheduler as Record<string, unknown>).jobs;
 	if (jobs == null) {
 		return { jobs: [], editable: true };
 	}
@@ -137,7 +151,7 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 	};
 }
 
-export type JobSchedule = { cron: string; timezone?: string } | { interval: string | number };
+type JobSchedule = { cron: string; timezone?: string } | { interval: string | number };
 
 export interface JobDraft {
 	name: string;
@@ -190,7 +204,9 @@ function setKey(map: YAMLMap, key: string, value: string | number | undefined, q
 	}
 }
 
+/** Writes the form over the entry. A key Harper refuses, such as a misspelt `timeZone`, goes: the form replaces it. */
 function writeDraft(map: YAMLMap, draft: JobDraft) {
+	map.items = map.items.filter((pair) => KNOWN_JOB_KEYS.has(String(isScalar(pair.key) ? pair.key.value : pair.key)));
 	setKey(map, 'name', draft.name);
 	if ('cron' in draft.schedule) {
 		setKey(map, 'interval', undefined);
@@ -217,6 +233,9 @@ function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq;
 	}
 	let scheduler = doc.get('scheduler', true);
 	if (!isMap(scheduler)) {
+		if (scheduler !== undefined && !(isScalar(scheduler) && scheduler.value === null)) {
+			throw new Error('scheduler is not a set of keys, so Studio can’t add jobs to it.');
+		}
 		scheduler = new YAMLMap();
 		doc.set('scheduler', scheduler);
 	}
@@ -241,7 +260,6 @@ function serialize(doc: Document, text: string | undefined): string {
 	return doc.toString({ lineWidth: 0, indentSeq: text === undefined || indentsSequences(text) });
 }
 
-/** The file with `draft` written over the job at `index`, or added when `index` is undefined. Comments are kept. */
 export function writeJob(text: string | undefined, index: number | undefined, draft: JobDraft): string {
 	const { doc, jobs } = openJobsList(text);
 	if (index === undefined) {
@@ -271,7 +289,6 @@ export function removeJob(text: string, index: number): string {
 	return serialize(doc, text);
 }
 
-/** The app-relative path a handler's module resolves to, as Harper joins it onto the app's folder, or `undefined`. */
 export function handlerModulePath(handler: string): string | undefined {
 	const hashIndex = handler.indexOf('#');
 	const modulePath = hashIndex >= 0 ? handler.slice(0, hashIndex) : handler;
@@ -295,18 +312,15 @@ export function handlerModulePath(handler: string): string | undefined {
 	return parts.length > 0 ? parts.join('/') : undefined;
 }
 
-/** The export a handler names: what follows `#`, or the module's default export. */
 export function handlerExportName(handler: string): string {
 	const hashIndex = handler.indexOf('#');
 	return hashIndex >= 0 ? handler.slice(hashIndex + 1) : 'default';
 }
 
-/** `./jobs.ts#syncRates`, or `./jobs.ts` for a default export. */
 export function buildHandler(file: string, exportName: string): string {
 	return exportName === 'default' ? `./${file}` : `./${file}#${exportName}`;
 }
 
-/** Why Harper can't load this handler's module, judged from the app's files; `undefined` when it's there. */
 export function handlerFileProblem(handler: string, appFiles: ReadonlySet<string>): string | undefined {
 	const path = handlerModulePath(handler);
 	if (path === undefined || appFiles.has(path)) {

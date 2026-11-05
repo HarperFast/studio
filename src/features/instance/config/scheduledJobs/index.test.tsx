@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 import { ConfigScheduledJobsIndex } from '.';
@@ -42,7 +42,10 @@ vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org', clusterId: 'clu', instanceId: 'ins' }),
 	Link: ({ children }: { children: React.ReactNode }) => <a href="#status">{children}</a>,
 }));
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), loading: vi.fn(), dismiss: vi.fn() }) }));
+vi.mock(
+	'sonner',
+	() => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), loading: vi.fn(), dismiss: vi.fn(), error: vi.fn() }) }),
+);
 
 function answer(body: Record<string, unknown>) {
 	switch (body.operation) {
@@ -181,7 +184,6 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(rows[2].textContent).toContain('America/New_York');
 		expect(rows[2].textContent).toContain('report service returned 503');
 		expect(screen.getByText('node-b')).toBeTruthy();
-		// An app without jobs gets no card.
 		expect(screen.queryByText('quiet-app', { selector: '[data-slot="card-title"]' })).toBeNull();
 	});
 
@@ -255,5 +257,23 @@ describe('ConfigScheduledJobsIndex', () => {
 		fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
 		expect(await screen.findByText(/changed on the instance since this page loaded it/)).toBeTruthy();
 		expect(state.files['metrics-app/config.yaml']).toBe(changedElsewhere);
+	});
+
+	it('never removes a different job after a refresh moves the one it was opened on', async () => {
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove sync-rates' }));
+		const inserted = METRICS_CONFIG.replace(
+			'  jobs:\n',
+			'  jobs:\n    - name: added-elsewhere\n      interval: 1h\n      handler: ./jobs.js#syncRates\n',
+		);
+		state.files['metrics-app/config.yaml'] = inserted;
+		// What a window-focus refetch does while the dialog is open; the modal hides the page's own Refresh.
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Refresh', hidden: true }));
+		});
+		await waitFor(() => expect(screen.getAllByText('added-elsewhere').length).toBeGreaterThan(0));
+		fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+		expect(await screen.findByText(/changed on the instance since this page loaded it/)).toBeTruthy();
+		expect(state.files['metrics-app/config.yaml']).toBe(inserted);
 	});
 });

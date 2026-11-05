@@ -24,6 +24,7 @@ import {
 	getSchedulerLogQueryOptions,
 	getSchedulerStateQueryOptions,
 	SCHEDULED_JOBS_MIN_VERSION,
+	SCHEDULER_LOG_LIMIT,
 	SCHEDULER_STATE_READABLE_FROM,
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
@@ -33,7 +34,7 @@ import { describeError } from '@/react-query/queryClient';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { PlusIcon, RefreshCwIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppJobsCard, RunSources } from './AppJobsCard';
 import { JobDialog, JobDialogTarget } from './JobDialog';
@@ -48,7 +49,6 @@ const STALE_HEARTBEAT_MS = 5 * 60_000;
 
 interface AppView {
 	app: SchedulerApp;
-	/** The config file's text: `undefined` when the app has none. */
 	text?: string;
 	config?: AppJobsConfig;
 	isLoading: boolean;
@@ -140,6 +140,19 @@ export function ConfigScheduledJobsIndex() {
 	const logQuery = useQuery(getSchedulerLogQueryOptions({ ...instanceParams, enabled }));
 	const stateQuery = useQuery(getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState }));
 
+	// Keyed by text: a render that changes no file re-parses none.
+	const parsed = useRef(new Map<string, AppJobsConfig>()).current;
+	const readJobs = (text: string | undefined) => {
+		if (text === undefined) {
+			return readAppJobs(undefined);
+		}
+		let config = parsed.get(text);
+		if (!config) {
+			config = readAppJobs(text);
+			parsed.set(text, config);
+		}
+		return config;
+	};
 	const views: AppView[] = apps.map((app, index) => {
 		const query = configQueries[index];
 		const text = app.configFile ? query?.data?.message : undefined;
@@ -147,7 +160,7 @@ export function ConfigScheduledJobsIndex() {
 		return {
 			app,
 			text,
-			config: pending || query?.isError ? undefined : readAppJobs(text),
+			config: pending || query?.isError ? undefined : readJobs(text),
 			isLoading: pending,
 			error: app.configFile ? query?.error : undefined,
 		};
@@ -166,17 +179,23 @@ export function ConfigScheduledJobsIndex() {
 	const addable = views.filter(canEditView);
 
 	const [dialog, setDialog] = useState<JobDialogTarget | undefined>();
-	const [removing, setRemoving] = useState<{ app: SchedulerApp; job: ScheduledJobConfig } | undefined>();
+	const [removing, setRemoving] = useState<
+		{ app: SchedulerApp; job: ScheduledJobConfig; baseText: string | undefined } | undefined
+	>();
 	const [addApp, setAddApp] = useState<string | undefined>();
 	const [restartPending, setRestartPending] = useState(false);
 	const save = useSaveAppJobs(instanceParams);
 	const { refetch: refetchTree } = treeQuery;
 	const { refetch: refetchLog } = logQuery;
 	const { refetch: refetchState } = stateQuery;
-	const refresh = useCallback(
-		() => Promise.all([refetchTree(), refetchLog(), readsState ? refetchState() : undefined]),
-		[readsState, refetchLog, refetchState, refetchTree],
-	);
+	const refetchConfigs = configQueries.map((query) => query.refetch);
+	const refresh = () =>
+		Promise.all([
+			refetchTree(),
+			refetchLog(),
+			readsState ? refetchState() : undefined,
+			...refetchConfigs.map((refetch) => refetch()),
+		]);
 	const onRefreshClick = useRefreshClick(refresh);
 	const { onRestartClick, isRestartPending } = useRestartInstanceClick({
 		operation: 'restart_service',
@@ -188,17 +207,16 @@ export function ConfigScheduledJobsIndex() {
 		},
 	});
 
-	const viewOf = (app: SchedulerApp) => views.find((view) => view.app.name === app.name);
-	const openDialog = (target: JobDialogTarget) => {
+	const openDialog = (view: AppView, job?: ScheduledJobConfig) => {
 		save.reset();
-		setDialog(target);
+		setDialog({ app: view.app, job, baseText: view.text, config: view.config });
 	};
 	const onSave = (draft: JobDraft) => {
 		if (!dialog) {
 			return;
 		}
-		const { app, job } = dialog;
-		save.mutate({ app, baseText: viewOf(app)?.text, change: (text) => writeJob(text, job?.index, draft) }, {
+		const { app, job, baseText } = dialog;
+		save.mutate({ app, baseText, change: (text) => writeJob(text, job?.index, draft) }, {
 			onSuccess: ({ file }) => {
 				setDialog(undefined);
 				setRestartPending(true);
@@ -212,8 +230,8 @@ export function ConfigScheduledJobsIndex() {
 		if (!removing) {
 			return;
 		}
-		const { app, job } = removing;
-		save.mutate({ app, baseText: viewOf(app)?.text, change: (text) => removeJob(text ?? '', job.index) }, {
+		const { app, job, baseText } = removing;
+		save.mutate({ app, baseText, change: (text) => removeJob(text ?? '', job.index) }, {
 			onSuccess: () => {
 				setRemoving(undefined);
 				setRestartPending(true);
@@ -264,7 +282,7 @@ export function ConfigScheduledJobsIndex() {
 									))}
 								</SelectContent>
 							</Select>
-							<Button variant="defaultOutline" onClick={() => addTarget && openDialog({ app: addTarget.app })}>
+							<Button variant="defaultOutline" onClick={() => addTarget && openDialog(addTarget)}>
 								<PlusIcon /> Add job
 							</Button>
 						</div>
@@ -299,8 +317,10 @@ export function ConfigScheduledJobsIndex() {
 				{!readsState && (
 					<p className="text-sm text-muted-foreground">
 						Harper {version}{' '}
-						doesn’t let Studio read each job’s last run, so Studio shows the last failure in Harper’s log. A successful
-						run isn’t logged. Harper {SCHEDULER_STATE_READABLE_FROM} and later show every run.
+						doesn’t let Studio read each job’s last run, so Studio shows the last failure among the newest{' '}
+						{SCHEDULER_LOG_LIMIT.toLocaleString()}{' '}
+						scheduler lines in Harper’s log. A successful run isn’t logged. Harper {SCHEDULER_STATE_READABLE_FROM}{' '}
+						and later show every run.
 					</p>
 				)}
 				{readsState && stateQuery.isError && (
@@ -341,11 +361,11 @@ export function ConfigScheduledJobsIndex() {
 								config={view.config}
 								sources={sources}
 								canEdit={canEditView(view)}
-								onAdd={() => openDialog({ app: view.app })}
-								onEdit={(job) => openDialog({ app: view.app, job })}
+								onAdd={() => openDialog(view)}
+								onEdit={(job) => openDialog(view, job)}
 								onRemove={(job) => {
 									save.reset();
-									setRemoving({ app: view.app, job });
+									setRemoving({ app: view.app, job, baseText: view.text });
 								}}
 							/>
 						)
@@ -355,7 +375,6 @@ export function ConfigScheduledJobsIndex() {
 				<JobDialog
 					key={`${dialog.app.name}:${dialog.job?.index ?? 'new'}`}
 					target={dialog}
-					config={viewOf(dialog.app)?.config}
 					instanceParams={instanceParams}
 					isSaving={save.isPending}
 					saveError={save.error}

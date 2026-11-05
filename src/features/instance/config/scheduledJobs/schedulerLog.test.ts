@@ -110,4 +110,20 @@ describe('lastLoggedLoadError', () => {
 		expect(lastLoggedLoadError(LOG, 'broken')).toBeUndefined();
 		expect(lastLoggedLoadError(LOG, 'metrics-app')).toBeUndefined();
 	});
+
+	it('keeps an older reason when the newest line has none', () => {
+		const log = [
+			line({
+				timestamp: '2026-11-05T22:00:00.000Z',
+				level: 'error',
+				message: "Error: Could not load component 'scheduler' for application 'a' due to: \n    at x (/y.ts:1:1)",
+			}),
+			line({
+				timestamp: '2026-11-05T21:00:00.000Z',
+				level: 'error',
+				message: "Error: Could not load component 'scheduler' for application 'a' due to: bad cron",
+			}),
+		];
+		expect(lastLoggedLoadError(log, 'a')).toEqual({ at: '2026-11-05T21:00:00.000Z', reason: 'bad cron' });
+	});
 });
