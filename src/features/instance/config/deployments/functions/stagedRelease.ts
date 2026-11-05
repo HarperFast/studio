@@ -51,8 +51,10 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 	}
 	const activation = released.find((record) => record.activated_from === staged.deployment_id);
 	if (!activation) {
-		// Once anything has gone live since, a failed attempt at this one no longer decides what runs.
-		const failed = failedAfter(released[0], (record) => record.activated_from === staged.deployment_id);
+		// Once anything has succeeded since, a failed attempt at this one no longer decides what runs. A `partial` one
+		// does not settle it: a node that did not take it may still run this release.
+		const newestSuccess = released.find((record) => record.status === 'success');
+		const failed = failedAfter(newestSuccess, (record) => record.activated_from === staged.deployment_id);
 		return failed ? { kind: 'uncertain', failed } : { kind: 'waiting' };
 	}
 	const replacedBy = newestFirst.slice(0, newestFirst.indexOf(activation)).find((record) =>
