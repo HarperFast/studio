@@ -1,4 +1,4 @@
-import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -98,14 +98,18 @@ describe('listWafRulesQueryOptions', () => {
 });
 
 describe('refetchWafRulesToRest', () => {
-	/** A mounted list query, already loaded, whose every later read waits to be answered by hand. */
 	async function loadedList() {
 		const answers: Array<(rows: unknown) => void> = [];
 		const { instanceClient } = client(() => new Promise((resolve) => answers.push(resolve)));
 		const queryClient = new QueryClient();
+		queryClient.mount();
 		const options = listWafRulesQueryOptions({ instanceClient, entityId: 'clu-1' });
 		const observer = new QueryObserver(queryClient, options);
-		const unsubscribe = observer.subscribe(() => undefined);
+		const unsubscribeObserver = observer.subscribe(() => undefined);
+		const unsubscribe = () => {
+			unsubscribeObserver();
+			queryClient.unmount();
+		};
 		await vi.waitFor(() => expect(answers).toHaveLength(1));
 		answers[0]([]);
 		await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [] }));
@@ -152,6 +156,31 @@ describe('refetchWafRulesToRest', () => {
 		await reread;
 		expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [starterRule()] });
 		unsubscribe();
+	});
+
+	it('keeps waiting while the last read is paused offline', async () => {
+		const { answers, observer, unsubscribe, reread, settled } = await loadedList();
+		try {
+			void observer.refetch();
+			await vi.waitFor(() => expect(answers).toHaveLength(3));
+			await idle();
+			onlineManager.setOnline(false);
+			void observer.refetch();
+			answers[1]([]);
+			answers[2]([]);
+			await idle();
+			expect(answers).toHaveLength(3);
+			expect(settled()).toBe(false);
+
+			onlineManager.setOnline(true);
+			await vi.waitFor(() => expect(answers).toHaveLength(4));
+			answers[3]([starterRule()]);
+			await reread;
+			expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [starterRule()] });
+		} finally {
+			onlineManager.setOnline(true);
+			unsubscribe();
+		}
 	});
 });
 
