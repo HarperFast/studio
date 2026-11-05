@@ -1,7 +1,7 @@
 import type { ActivationIntent } from '../components/ActivateRelease';
 import type { ReleaseCheck } from '../hooks/useComponentReleases';
 
-export interface ReleaseOffer {
+interface ReleaseOffer {
 	intent: ActivationIntent;
 	offer: boolean;
 	disabled: boolean;

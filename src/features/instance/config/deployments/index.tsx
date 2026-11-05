@@ -121,11 +121,11 @@ export function ConfigDeploymentsIndex() {
 	const queryClient = useQueryClient();
 	const onRefreshClick = useRefreshClick(
 		useCallback(async () => {
-			if (project && releaseTracking) {
-				void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases', { project }] });
+			if (releaseTracking) {
+				void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'] });
 			}
 			return refetch();
-		}, [project, releaseTracking, queryClient, instanceParams.entityId, refetch]),
+		}, [releaseTracking, queryClient, instanceParams.entityId, refetch]),
 	);
 	const projectInput = useRef<HTMLInputElement>(null);
 	useEffect(() => {

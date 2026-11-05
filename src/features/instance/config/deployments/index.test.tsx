@@ -38,7 +38,12 @@ vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
 	getDeploymentsQueryOptions: (params: { enabled?: boolean; limit?: number }) => {
 		// The releases panel watches the component's newest record to know when to ask the nodes again.
 		if (params.limit === 1) {
-			return { queryKey: ['newest', params], queryFn: () => new Promise(() => {}), enabled: false };
+			return {
+				queryKey: ['newest', params],
+				queryFn: () => new Promise(() => {}),
+				enabled: false,
+				initialData: { deployments: [], total: 0 },
+			};
 		}
 		// The page asks for a page; what became of a staged record is asked of the component's whole history.
 		if (params.limit === undefined) {

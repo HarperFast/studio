@@ -137,6 +137,8 @@ describe('ActivateRelease', () => {
 		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
 		rerender(view(true));
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
 		expect(state.mutateAsync).not.toHaveBeenCalled();
 	});
 

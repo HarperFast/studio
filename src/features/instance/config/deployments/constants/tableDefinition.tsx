@@ -17,7 +17,6 @@ function ago(ms?: number) {
 	return ms ? translateSecondsToAgo((Date.now() - ms) / 1000, ms) : '—';
 }
 
-/** `commitFilterable`: the Harper version filters `list_deployments` by commit. */
 export function deploymentColumns(
 	{ commitFilterable }: { commitFilterable: boolean },
 ): Array<ColumnDef<DeploymentRow>> {

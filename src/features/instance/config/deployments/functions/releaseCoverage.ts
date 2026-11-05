@@ -101,7 +101,6 @@ export function missingReason(node: string, record: Deployment | undefined): Mis
 	return record?.package_identifier?.startsWith('file:') ? 'local-directory' : 'not-kept';
 }
 
-/** The release a record put live: an activation's is the one it activated, anything else's its own. */
 export function releasedId(record: Deployment): string {
 	return record.activated_from || record.deployment_id;
 }

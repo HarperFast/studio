@@ -57,9 +57,12 @@ async function renderBoth() {
 	return queryClient;
 }
 
-/** Makes the component's newest record read differently, as the list poll would see it. */
-async function newestChanges(queryClient: QueryClient, status: string) {
-	state.newest = { deployments: [{ deployment_id: 'v4', project: 'web', status }], total: 4 };
+async function newestChanges(queryClient: QueryClient, status: string, activated = 0) {
+	const peer_results = Array.from(
+		{ length: activated },
+		(_, i) => ({ node: `n${i}`, activation: { activated: true } }),
+	);
+	state.newest = { deployments: [{ deployment_id: 'v4', project: 'web', status, peer_results }], total: 4 };
 	await act(() => queryClient.refetchQueries({ queryKey: ['clu-a', 'list_deployments'] }));
 }
 
@@ -87,6 +90,39 @@ describe('useComponentReleases', () => {
 		await act(async () => fail(new Error('timed out')));
 		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
 		expect(screen.getByTestId('panel').textContent).toBe('unreadable');
+	});
+
+	it('asks again for a change made while a walk runs, rather than take the answer of that walk', async () => {
+		const queryClient = await renderBoth();
+		const pending: Array<(value: object) => void> = [];
+		state.releases.push(() => new Promise((resolve) => pending.push(resolve)));
+		state.releases.push(() => new Promise((resolve) => pending.push(resolve)));
+		await newestChanges(queryClient, 'rolling_out');
+		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+		await newestChanges(queryClient, 'rolling_out', 1);
+		await vi.waitFor(() => expect(releaseCalls()).toBe(3));
+		await act(async () => pending[0]({ data: answer }));
+		expect(screen.getByTestId('detail').textContent).toBe('checking');
+		await act(async () => pending[1]({ data: answer }));
+		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('live-everywhere'));
+	});
+
+	it('lets a view opened later read the answer already in hand', async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const { rerender } = render(
+			<QueryClientProvider client={queryClient}>
+				<Panel />
+			</QueryClientProvider>,
+		);
+		await screen.findByText('ready');
+		rerender(
+			<QueryClientProvider client={queryClient}>
+				<Panel />
+				<Detail />
+			</QueryClientProvider>,
+		);
+		expect(screen.getByTestId('detail').textContent).toBe('live-everywhere');
+		expect(releaseCalls()).toBe(1);
 	});
 
 	it('does not ask again when the window regains focus', async () => {

@@ -34,7 +34,7 @@ import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 /** Keyed by the release, so every record of it (its own, each activation of it) shares one pending activation. */
@@ -151,16 +151,23 @@ export function ActivateRelease({
 		recordAction,
 	]);
 
-	if (!canActivate) {
-		return null;
-	}
-
 	// What this activation showed here outranks the records until they catch up, and where they cannot: the record
 	// reads `success` before the rolling restart reaches the other nodes, and after it fails there.
 	const lifecycle = started ? stream.state.lifecycle : 'idle';
 	const retry = lifecycle === 'error' || lifecycle === 'inconclusive';
 	const showButton = isPending || retry || (offer && lifecycle !== 'success');
 	const shownIntent = retry && !offer ? 'again' : intent;
+	const confirmable = showButton && !disabled && !isPending;
+	useEffect(() => {
+		// Dropped, not hidden, so a confirmation never comes back on its own over a release that changed under it.
+		if (!confirmable) {
+			setConfirming(false);
+		}
+	}, [confirmable]);
+
+	if (!canActivate) {
+		return null;
+	}
 
 	return (
 		<>
@@ -180,8 +187,7 @@ export function ActivateRelease({
 					<DeployProgress state={stream.state} />
 				</>
 			)}
-			{/* Closes once refused, rather than activate on what the button showed when it opened. */}
-			<AlertDialog open={confirming && !disabled && !isPending} onOpenChange={setConfirming}>
+			<AlertDialog open={confirming && confirmable} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
