@@ -92,8 +92,8 @@ the preset's components, merges its `studio_navigation` and `studio_landing` int
 `set_configuration` (replicated; flattened because harper refuses a nested `studio` object, which would
 clobber an app deployed under that name; no restart), and lands on `/start`. Central-manager records the
 job as `Cluster.preset` (HarperFast/central-manager#1047), so any browser can offer "Finish setting up"
-to a super user, whom every step needs. It outranks this browser's record (`pendingPresetSetup`, one
-`storage` listener per page), which is forgotten when they disagree.
+to a super user, whom every step needs. It outranks this browser's record (`pendingPresetSetup`, one key
+per cluster and one `storage` listener per page), which is forgotten when they disagree.
 
 - **Done** (`isPresetApplied`): a landing is set and the components declare the preset's landing page,
   so a landing set by hand isn't enough, and moving it later doesn't offer setup again.
@@ -101,9 +101,10 @@ to a super user, whom every step needs. It outranks this browser's record (`pend
   the config is unknown or `unavailable`, and is forgotten once the config shows the setup done.
 - **Merged, never overwritten**: the configure step reads the settings first, keeps the cluster's own
   tab placements and landing, never writes a null landing, and writes nothing if the read fails or is
-  `unavailable`. `/setup` starts by itself only with Web Locks and a loaded, available config holding no
-  landing and no placements; otherwise it says what it will change (and, without Web Locks, to close
-  other tabs) and waits for a click.
+  `unavailable`. `/setup` starts by itself only on a loaded, available config holding no landing and no
+  placements; otherwise it says what it will change and waits for a click. In a browser without Web
+  Locks it doesn't run at all (`PresetSetupUnsupportedError`), since nothing would keep two tabs from
+  both deploying.
 - **`/start`** lands on the landing when it is a visible or tucked tab, or a Config page the viewer's
   role may open (`config/ext/<key>`, a route of its own); otherwise on the nav's first tab. Never on a
   hidden tab, which would loop back through the index it hides. With nothing to open it says so: a super
@@ -127,7 +128,7 @@ A redeploy resends the private-database setting and install command read from `g
 package deploy rebuilds its root-config entry from the request alone (harper
 `components/operations.ts:966-979`); a failed read stops the step, and what Studio's request can't carry
 (`urlPath`, `host`, credentials, other `install` options) is dropped. A Web Lock per cluster keeps
-tabs' runs from overlapping, an abort stops a run before its next request, a failed `get_components` or
+tabs' runs from overlapping (and setup refuses to run without one), an abort stops a run before its next request, a failed `get_components` or
 deploy-record read stops setup, and a node that refuses the settings fails that step. Another browser
 sees neither the lock nor the marks; the deploy record catches its partial and running deploys.
 

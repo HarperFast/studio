@@ -7,7 +7,6 @@ import { attributeValue, displayText } from '@/features/instance/extensions/cont
 import type { ExtensionRecord } from '@/features/instance/extensions/dataSource';
 import type { ExtensionField } from '@/features/instance/extensions/manifest';
 
-/** The fields of a record editor or settings form, drawn with Studio's own inputs. */
 export function ExtensionFields({ fields, values, onChange, disabled, lockedAttribute, idPrefix }: {
 	fields: ExtensionField[];
 	values: ExtensionRecord;
@@ -125,7 +124,6 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 	}
 }
 
-/** The first required field left empty, for the inline error. */
 export function findMissingField(fields: ExtensionField[], values: ExtensionRecord): ExtensionField | undefined {
 	return fields.find((field) => {
 		const value = attributeValue(values, field.attribute);

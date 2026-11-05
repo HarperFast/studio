@@ -6,6 +6,7 @@ import { markDeploy } from '@/features/clusters/presets/presetDeployMarks';
 import {
 	PresetInstallUnconfirmedError,
 	presetSetupSteps,
+	PresetSetupUnsupportedError,
 	runPresetSetup,
 	setupHoldsAcrossTabs,
 	SetupStep,
@@ -27,8 +28,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * `/<org>/<cluster>/setup`: finishes a preset cluster once its admin is signed in — installs the
  * preset's components, focuses Studio on the job, then lands on the preset's page. Starts by itself on
  * a cluster with no Studio settings of its own; one that has some waits for a click, since setup merges
- * into them, and so does every cluster in a browser whose tabs cannot wait for each other's setup. A
- * failure stops it with Retry, which is safe because every step is idempotent.
+ * into them. A browser whose tabs cannot wait for each other's setup doesn't run it at all. A failure
+ * stops it with Retry, which is safe because every step is idempotent.
  */
 export function PresetSetup() {
 	const params: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
@@ -115,7 +116,7 @@ export function PresetSetup() {
 			void run();
 		}
 	}, [canManage, preset, startsByItself, run]);
-	const awaitingClick = canManage && !attempted && !configuration.isPending && !startsByItself;
+	const awaitingClick = canManage && acrossTabs && !attempted && !configuration.isPending && !startsByItself;
 
 	if (!preset) {
 		return <Navigate to={start} replace />;
@@ -140,11 +141,8 @@ export function PresetSetup() {
 						)
 						: (
 							<>
-								{awaitingClick && !acrossTabs && (
-									<p className="text-sm text-muted-foreground">
-										This browser can't stop two tabs from running setup at once, so close any other tab open on this
-										cluster before you start.
-									</p>
+								{!acrossTabs && (
+									<p className="text-sm text-muted-foreground">{new PresetSetupUnsupportedError().message}</p>
 								)}
 								{awaitingClick && (
 									<p className="text-sm text-muted-foreground">

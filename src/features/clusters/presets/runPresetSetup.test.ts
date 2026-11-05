@@ -4,6 +4,7 @@ import {
 	PresetDeployInFlightError,
 	PresetInstallUnconfirmedError,
 	presetSetupSteps,
+	PresetSetupUnsupportedError,
 	runPresetSetup,
 	setupHoldsAcrossTabs,
 } from '@/features/clusters/presets/runPresetSetup';
@@ -737,23 +738,12 @@ describe('runPresetSetup when the user leaves /setup', () => {
 		expect(waiting.log).toEqual([]);
 	});
 
-	it('without Web Locks, sends nothing once the run ahead of it in this tab lets go', async () => {
+	it('refuses to run without Web Locks, sending nothing', async () => {
 		vi.stubGlobal('navigator', {});
 		expect(setupHoldsAcrossTabs()).toBe(false);
-		const first = deferred<{ message: string }>();
-		deployAndFollowComponent.mockReturnValueOnce(first.promise);
-		const holder = run();
-		await vi.waitFor(() => expect(deployAndFollowComponent).toHaveBeenCalledTimes(1));
-
-		const waiting = runAborted();
-		waiting.abort();
-		first.reject(answered(404));
-		await expect(holder.promise).rejects.toThrow('404');
-		expect(await waiting.outcome).toBe('AbortError');
-		expect(getComponents).toHaveBeenCalledTimes(1);
-		expect(deployAndFollowComponent).toHaveBeenCalledTimes(1);
-		expect(setConfiguration).not.toHaveBeenCalled();
-		expect(waiting.log).toEqual([]);
+		await expect(run().promise).rejects.toThrow(PresetSetupUnsupportedError);
+		expect(getComponents).not.toHaveBeenCalled();
+		sentNothing();
 	});
 
 	it('reports a components read that fails after the abort as the abort, not as a failed step', async () => {

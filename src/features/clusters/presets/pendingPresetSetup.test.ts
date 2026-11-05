@@ -17,8 +17,12 @@ vi.mock('@/config/constants', async (importOriginal) => ({
 	},
 }));
 
-const KEY = 'Studio:PendingPresetSetups';
-const stored = () => JSON.parse(localStorage.getItem(KEY) ?? 'null');
+const key = (clusterId: string) => `Studio:PendingPresetSetup:${clusterId}`;
+const stored = (clusterId: string) => JSON.parse(localStorage.getItem(key(clusterId)) ?? 'null');
+const storedClusters = () =>
+	Object.keys(localStorage).filter((name) => name.startsWith('Studio:PendingPresetSetup:')).map((name) =>
+		name.slice('Studio:PendingPresetSetup:'.length)
+	).sort();
 const storageListeners = (spy: { mock: { calls: unknown[][] } }) =>
 	spy.mock.calls.filter(([type]) => type === 'storage').length;
 
@@ -35,31 +39,40 @@ afterEach(() => {
 describe('pendingPresetSetup storage', () => {
 	it('never brings back a record another tab cleared', () => {
 		rememberPendingPresetSetup('clu-1', 'redirects');
-		localStorage.removeItem(KEY);
+		localStorage.removeItem(key('clu-1'));
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
 
 		rememberPendingPresetSetup('clu-2', 'redirects');
-		expect(Object.keys(stored())).toEqual(['clu-2']);
+		expect(storedClusters()).toEqual(['clu-2']);
 	});
 
-	it('keeps what another tab wrote for other clusters when it changes one', () => {
+	it('keeps each cluster under its own key, so a change to one never rewrites another', () => {
 		rememberPendingPresetSetup('clu-1', 'redirects');
-		localStorage.setItem(KEY, JSON.stringify({ ...stored(), 'clu-2': { preset: 'prerendering', since: 1 } }));
+		localStorage.setItem(key('clu-2'), JSON.stringify({ preset: 'prerendering', since: 1 }));
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
 		forgetPendingPresetSetup('clu-1');
-		expect(stored()).toEqual({ 'clu-2': { preset: 'prerendering', since: 1 } });
+		rememberPendingPresetSetup('clu-3', 'redirects');
+		expect(setItem.mock.calls.map(([name]) => name)).toEqual([key('clu-3')]);
+		expect(storedClusters()).toEqual(['clu-2', 'clu-3']);
+		expect(stored('clu-2')).toEqual({ preset: 'prerendering', since: 1 });
 	});
 
 	it('writes nothing to forget a cluster it holds no record for', () => {
 		rememberPendingPresetSetup('clu-1', 'redirects');
 		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+		const removeItem = vi.spyOn(Storage.prototype, 'removeItem');
 		forgetPendingPresetSetup('clu-2');
 		expect(setItem).not.toHaveBeenCalled();
+		expect(removeItem).not.toHaveBeenCalled();
 	});
 
 	it('holds the record for this tab when storage refuses to write it', () => {
 		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
 			throw new DOMException('full', 'QuotaExceededError');
+		});
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('denied', 'SecurityError');
 		});
 		rememberPendingPresetSetup('clu-1', 'redirects');
 		expect(getPendingPresetSetup('clu-1')).toBe('redirects');
@@ -69,26 +82,28 @@ describe('pendingPresetSetup storage', () => {
 	});
 
 	it('reads a record this tab could not forget as forgotten, though a full storage still holds it', () => {
-		localStorage.setItem(KEY, JSON.stringify({ 'clu-1': { preset: 'redirects', since: 1 } }));
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('full', 'QuotaExceededError');
+		localStorage.setItem(key('clu-1'), JSON.stringify({ preset: 'redirects', since: 1 }));
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+			throw new DOMException('denied', 'SecurityError');
 		});
 		forgetPendingPresetSetup('clu-1');
 
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
-		expect(Object.keys(stored())).toEqual(['clu-1']);
+		expect(storedClusters()).toEqual(['clu-1']);
 	});
 
-	it("drops this tab's refused record once another tab changes the key", () => {
+	it("drops this tab's refused record once another tab changes that cluster's key, and only then", () => {
 		const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
 			throw new DOMException('full', 'QuotaExceededError');
 		});
 		rememberPendingPresetSetup('clu-1', 'redirects');
 		setItem.mockRestore();
 
-		localStorage.setItem(KEY, JSON.stringify({ 'clu-2': { preset: 'prerendering', since: 1 } }));
-		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
-		localStorage.removeItem(KEY);
+		localStorage.setItem(key('clu-2'), JSON.stringify({ preset: 'prerendering', since: 1 }));
+		expect(getPendingPresetSetup('clu-1')).toBe('redirects');
+		localStorage.setItem(key('clu-1'), JSON.stringify({ preset: 'prerendering', since: 2 }));
+		expect(getPendingPresetSetup('clu-1')).toBe('prerendering');
+		localStorage.removeItem(key('clu-1'));
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
 	});
 
@@ -97,10 +112,10 @@ describe('pendingPresetSetup storage', () => {
 			throw new DOMException('full', 'QuotaExceededError');
 		});
 		rememberPendingPresetSetup('clu-1', 'redirects');
-		rememberPendingPresetSetup('clu-2', 'redirects');
-		expect(Object.keys(stored())).toEqual(['clu-1', 'clu-2']);
+		rememberPendingPresetSetup('clu-1', 'prerendering');
+		expect(storedClusters()).toEqual(['clu-1']);
 
-		localStorage.removeItem(KEY);
+		localStorage.removeItem(key('clu-1'));
 		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
 	});
 });
@@ -127,8 +142,9 @@ describe('usePendingPresetSetup', () => {
 		expect(first.result.current).toBe('redirects');
 
 		act(() => {
-			localStorage.setItem(KEY, JSON.stringify({ 'clu-2': { preset: 'prerendering', since: 1 } }));
-			window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+			localStorage.removeItem(key('clu-1'));
+			localStorage.setItem(key('clu-2'), JSON.stringify({ preset: 'prerendering', since: 1 }));
+			window.dispatchEvent(new StorageEvent('storage', { key: key('clu-2') }));
 		});
 		expect(first.result.current).toBeUndefined();
 		expect(second.result.current).toBe('prerendering');

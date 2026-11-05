@@ -98,25 +98,19 @@ describe('PresetSetup', () => {
 		},
 	);
 
-	it('waits for a click in a browser whose tabs cannot wait for each other, and says to close the others', async () => {
+	it('runs nothing in a browser whose tabs cannot wait for each other, and says why', async () => {
 		browser.locks = false;
 		renderSetup(async () => ({ navigation: {}, pages: [] }));
-		const button = await screen.findByRole('button', { name: 'Set up HTTP redirects' });
+		expect(await screen.findByText(/can't keep two tabs from running setup at the same time/)).toBeTruthy();
 		await settled();
 		expect(runPresetSetup).not.toHaveBeenCalled();
-		expect(screen.getByText(/can't stop two tabs from running setup at once/)).toBeTruthy();
-		expect(screen.getByText(/close any other tab open on this cluster/)).toBeTruthy();
-		expect(screen.getByText(/installs HTTP redirects's components, then opens the cluster on HTTP redirects/))
-			.toBeTruthy();
-
-		fireEvent.click(button);
-		await waitFor(() => expect(runPresetSetup).toHaveBeenCalledTimes(1));
+		expect(screen.queryByRole('button', { name: 'Set up HTTP redirects' })).toBeNull();
 	});
 
 	it('says nothing about other tabs where they wait for each other', async () => {
 		renderSetup(async () => ({ navigation: {}, landing: 'databases', pages: [] }));
 		await screen.findByRole('button', { name: 'Set up HTTP redirects' });
-		expect(screen.queryByText(/can't stop two tabs/)).toBeNull();
+		expect(screen.queryByText(/can't keep two tabs/)).toBeNull();
 	});
 
 	it('waits for a click when it cannot read the cluster’s settings', async () => {

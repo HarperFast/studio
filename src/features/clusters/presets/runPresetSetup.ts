@@ -89,12 +89,21 @@ export class PresetDeployInFlightError extends Error {
 // Harper's own terminal set (harper `components/deploymentOperations.ts:22`, `TERMINAL_STATUSES`).
 const ENDED_DEPLOYMENT_STATUSES = new Set(['success', 'failed', 'partial', 'rolled_back', 'staged']);
 
-const inFlight = new Map<string, Promise<void>>();
+/** Setup refuses to run in a browser that can't hold runs in different tabs apart (`setupHoldsAcrossTabs`). */
+export class PresetSetupUnsupportedError extends Error {
+	constructor() {
+		super(
+			"This browser can't keep two tabs from running setup at the same time, so Studio won't run it here. "
+				+ 'Open this page in a current version of Chrome, Edge, Firefox or Safari.',
+		);
+		this.name = 'PresetSetupUnsupportedError';
+	}
+}
 
 /**
- * Whether runs in different tabs wait for each other. Without Web Locks only runs in this tab do, so
- * setup must not start by itself: two tabs opened on `/setup` would both pass the checks before either
- * marks its deploy, and both send it.
+ * Whether runs in different tabs wait for each other. Without Web Locks nothing does: two tabs on
+ * `/setup` would both pass the checks before either marks its deploy, and both send it, so setup doesn't
+ * run at all there. Every browser Studio supports has them in a secure context, which the cloud is.
  */
 export function setupHoldsAcrossTabs(): boolean {
 	return typeof navigator !== 'undefined' && !!navigator.locks;
@@ -109,7 +118,7 @@ export function setupHoldsAcrossTabs(): boolean {
  * nothing the second time.
  *
  * Runs for one cluster never overlap in this browser: a Web Lock holds them across tabs, so a second tab
- * or a remount waits for the deploy in flight instead of sending another. Another browser has neither
+ * or a remount waits for the deploy in flight instead of sending another, and without one it refuses. Another browser has neither
  * the lock nor the marks; that limit comes with setting the cluster up from the browser at all.
  *
  * An abort stops it before the next request, whether it arrives during the wait for the lock or during a
@@ -119,22 +128,10 @@ export function setupHoldsAcrossTabs(): boolean {
  * Every step needs super_user, which the cluster's first admin is.
  */
 export function runPresetSetup(args: RunArgs): Promise<void> {
-	if (setupHoldsAcrossTabs()) {
-		return navigator.locks.request(`Studio:PresetSetup:${args.entityId}`, { signal: args.signal }, () => runOnce(args));
+	if (!setupHoldsAcrossTabs()) {
+		return Promise.reject(new PresetSetupUnsupportedError());
 	}
-	const previous = inFlight.get(args.entityId);
-	const run = (async () => {
-		await previous?.catch(() => undefined);
-		await runOnce(args);
-	})();
-	inFlight.set(args.entityId, run);
-	const settled = () => {
-		if (inFlight.get(args.entityId) === run) {
-			inFlight.delete(args.entityId);
-		}
-	};
-	run.then(settled, settled);
-	return run;
+	return navigator.locks.request(`Studio:PresetSetup:${args.entityId}`, { signal: args.signal }, () => runOnce(args));
 }
 
 async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<void> {
@@ -285,7 +282,6 @@ async function installedProjects(args: InstanceClientIdConfig): Promise<Set<stri
 	return new Set((tree.entries ?? []).map((entry) => entry.name));
 }
 
-/** The root-config fields of a listed application that Studio's deploy request can carry. */
 type KeptDeploySettings = { branchedDatabases?: BranchedDatabases; installCommand?: string };
 
 /**

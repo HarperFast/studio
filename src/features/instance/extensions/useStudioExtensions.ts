@@ -75,7 +75,6 @@ export function useStudioConfiguration(): { configuration: StudioConfiguration; 
 	return { configuration, isPending };
 }
 
-/** Where a built-in tab or component page sits in the nav. */
 export function useNavigationVisibility(): (key: string) => TabVisibility {
 	const { configuration } = useStudioConfiguration();
 	return useMemo(() => (key: string) => configuration.navigation[key] ?? 'visible', [configuration.navigation]);
