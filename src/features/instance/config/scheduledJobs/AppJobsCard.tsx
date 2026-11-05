@@ -17,6 +17,8 @@ import { SentenceTime } from './SentenceTime';
 export interface RunSources {
 	/** `system.hdb_scheduler_state`, where Harper lets Studio read it. */
 	state?: SchedulerState;
+	/** Waiting on that read, which replaces the log as the source once it answers. */
+	statePending: boolean;
 	/** Harper's scheduler log lines; `undefined` while loading or when they couldn't be read. */
 	log?: readonly ReadLogItem[];
 	logFailed: boolean;
@@ -59,6 +61,9 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 				{failed && run.lastError && <span className="block break-words text-xs text-red">{run.lastError}</span>}
 			</span>
 		);
+	}
+	if (sources.statePending) {
+		return <span className="text-muted-foreground">Loading…</span>;
 	}
 	if (sources.logFailed) {
 		return <span className="text-muted-foreground">Couldn’t read the log</span>;

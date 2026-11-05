@@ -24,6 +24,7 @@ import {
 	getSchedulerLogQueryOptions,
 	getSchedulerStateQueryOptions,
 	SCHEDULED_JOBS_MIN_VERSION,
+	SCHEDULER_STATE_READABLE_FROM,
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -78,8 +79,8 @@ function HowJobsRun() {
 	);
 }
 
-function Leader({ sources, readsState }: { sources: RunSources; readsState: boolean }) {
-	if (readsState && sources.state) {
+function Leader({ sources }: { sources: RunSources }) {
+	if (sources.state) {
 		const leader = sources.state.leader;
 		if (!leader?.leaderNode) {
 			return <p className="text-sm text-muted-foreground">No node has started running jobs yet.</p>;
@@ -97,7 +98,7 @@ function Leader({ sources, readsState }: { sources: RunSources; readsState: bool
 			</p>
 		);
 	}
-	if (!sources.log) {
+	if (sources.statePending || !sources.log) {
 		return null;
 	}
 	const takeover = lastLoggedTakeover(sources.log);
@@ -151,7 +152,12 @@ export function ConfigScheduledJobsIndex() {
 			error: app.configFile ? query?.error : undefined,
 		};
 	});
-	const sources: RunSources = { state: stateQuery.data, log: logQuery.data, logFailed: logQuery.isError };
+	const sources: RunSources = {
+		state: stateQuery.data,
+		statePending: readsState && stateQuery.isPending,
+		log: logQuery.data,
+		logFailed: logQuery.isError,
+	};
 	const canEditView = (view: AppView) => !view.app.readOnly && !!view.config?.editable;
 	const shown = views.filter((view) =>
 		view.isLoading || view.error != null || view.app.schedulerFailed || !!view.config?.problem
@@ -289,11 +295,18 @@ export function ConfigScheduledJobsIndex() {
 			<HowJobsRun />
 
 			<div className="space-y-1">
-				<Leader sources={sources} readsState={readsState} />
+				<Leader sources={sources} />
 				{!readsState && (
 					<p className="text-sm text-muted-foreground">
-						This Harper doesn’t let Studio read each job’s last run, so Studio shows the last failure in Harper’s log. A
-						successful run isn’t logged.
+						Harper {version}{' '}
+						doesn’t let Studio read each job’s last run, so Studio shows the last failure in Harper’s log. A successful
+						run isn’t logged. Harper {SCHEDULER_STATE_READABLE_FROM} and later show every run.
+					</p>
+				)}
+				{readsState && stateQuery.isError && (
+					<p className="text-sm text-red">
+						Studio couldn’t read each job’s last run ({describeError(stateQuery.error).message}), so it shows the last
+						failure in Harper’s log.
 					</p>
 				)}
 				{logQuery.isError && (

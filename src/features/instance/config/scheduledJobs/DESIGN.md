@@ -13,27 +13,31 @@ Harper reads an app's config from `harper-config.yaml`, then `harperdb-config.ya
 (`components/componentLoader.ts`), so the page does too. The version floor is `5.2.0-beta.2`, the first tag with the
 scheduler. `5.2.0-beta.1` predates it.
 
-## Last runs come from the log, because Harper won't let Studio read `hdb_scheduler_state`
+## Last runs: `hdb_scheduler_state` from 5.4.0-beta.1, Harper's log before it
 
-The issue planned to read each job's last run from `system.hdb_scheduler_state`. No released Harper allows that, and
-neither does harper `main`. A super user's read grants on system tables are built from the static `json/systemSchema.json`
-(`security/user.ts`), and this table is defined at runtime by `table()` in `resources/scheduler/engine.ts`, so it isn't
-listed. `verifyPerms` then reports the table as missing. On 5.3.5 `search_by_value`, `search_by_id`, `sql` and
-`describe_table` all answered 403 `Table 'system.hdb_scheduler_state' does not exist`, even after a restart, while
-`describe_database` listed the table with four rows. Each refusal also writes an error to the customer's log.
+Each job's last run, and the leader's heartbeat, are in `system.hdb_scheduler_state`. Before harper#2122 (first tagged
+in `v5.4.0-beta.1`, first on npm as `5.4.0-beta.2`) no caller could read it. A super user's system-table grants came from
+the static `json/systemSchema.json` (`security/user.ts`), and this table is defined at runtime by `table()` in
+`resources/scheduler/engine.ts`, so `verifyPerms` reported it as missing (harper#2120). On 5.3.5 `search_by_value`,
+`search_by_id`, `sql` and `describe_table` all answered 403 `Table 'system.hdb_scheduler_state' does not exist`, even
+after a restart, while `describe_database` listed the table with four rows. Each refusal also writes an error to the
+customer's log. On 5.4.0-beta.2 the same `search_by_value` returns the rows.
 
-So Studio doesn't send that read. `SCHEDULER_STATE_READABLE_FROM` is `undefined`. Once a Harper version grants the read,
-set it to that version: the reader, the leader's heartbeat and the "Last run" column are already built for it.
+So Studio reads the table only from `SCHEDULER_STATE_READABLE_FROM` (`5.4.0-beta.1`). A job's row is `job:<app>:<name>`,
+and a row with only `firstSeenAt` hasn't run yet. A table that doesn't exist yet, because no app with jobs has loaded,
+still answers that same 403, and the page reads it as no runs. If the read fails any other way, the page says so and
+falls back to the log.
 
-Until then the page shows what Harper logs. These lines are worded the same from 5.2.0-beta.2 through 5.3.5:
+Below that version, and on that fallback, the page shows what Harper logs. These lines are worded the same from
+5.2.0-beta.2 through 5.3.5:
 
 - every failed run, at `warn`: `Job job:<app>:<name> failed after <n>ms: <error>`
 - every takeover, at `info`: `Scheduler leader started on <node>`
 - an app whose jobs stop it loading, at `error`: `… for application '<app>' due to: <reason>`
 
-A successful run is logged only at `trace`, so the column is "Last failure", never "Last run", and the page says so. A
-leader that keeps leading logs nothing, so the leader line is the last takeover, which can be old. On a cluster the read
-is replicated, because the leader can be any node.
+A successful run is logged only at `trace`, so the column is then "Last failure", and the page says why. A leader that
+keeps leading logs nothing, so the leader line is the last takeover, which can be old. On a cluster the read is
+replicated, because the leader can be any node. The log is read on every version, since load errors are only there.
 
 ## Harper's own load error, and where it goes missing
 

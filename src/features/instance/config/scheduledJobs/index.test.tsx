@@ -24,6 +24,7 @@ const { state, post } = vi.hoisted(() => {
 		canManage: true,
 		version: '5.3.5',
 		files: {} as Record<string, string>,
+		stateFails: false,
 	};
 	const post = vi.fn();
 	return { state, post };
@@ -74,6 +75,29 @@ function answer(body: Record<string, unknown>) {
 		case 'set_component_file':
 			state.files[`${body.project}/${body.file}`] = body.payload as string;
 			return { message: 'Successfully set component' };
+		case 'search_by_value':
+			if (state.stateFails) {
+				throw new Error('state read failed');
+			}
+			// What harper 5.4.0-beta.2 answered for these apps.
+			return [
+				{
+					id: 'job:metrics-app:flaky-report',
+					firstSeenAt: '2026-11-05T22:19:19.745Z',
+					lastRunAt: '2026-11-05T22:20:00.004Z',
+					lastStatus: 'error',
+					lastError: 'report service returned 503',
+					lastDurationMs: 0,
+				},
+				{
+					id: 'job:metrics-app:sync-rates',
+					firstSeenAt: '2026-11-05T22:19:29.746Z',
+					lastRunAt: '2026-11-05T22:20:29.753Z',
+					lastStatus: 'success',
+					lastDurationMs: 26,
+				},
+				{ id: 'leader', leaderNode: 'node-c', lastHeartbeat: new Date().toISOString() },
+			];
 		case 'read_log':
 			return [
 				{
@@ -116,6 +140,7 @@ beforeEach(() => {
 	Object.assign(state, {
 		canManage: true,
 		version: '5.3.5',
+		stateFails: false,
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
 			'broken-app/config.yaml':
@@ -166,13 +191,42 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(screen.getByText(/has no function export named "missingExport"/)).toBeTruthy();
 	});
 
-	it('never reads the scheduler state table, which every Harper so far refuses and logs as an error', async () => {
+	it('never reads the scheduler state table below 5.4.0-beta.1, which refuses it and logs an error', async () => {
 		renderPage();
 		await screen.findByText('metrics-app');
 		await waitFor(() => expect(operationsSent()).toContain('read_log'));
 		expect(post.mock.calls.some(([, body]) => (body as { table?: string }).table === 'hdb_scheduler_state')).toBe(
 			false,
 		);
+	});
+
+	it('shows each job’s last run, and the node running them, where Harper lets Studio read them', async () => {
+		state.version = '5.4.0-beta.2';
+		renderPage();
+		const card = (await screen.findByText('metrics-app')).closest('[data-slot="card"]') as HTMLElement;
+		await within(card).findByText('Succeeded');
+		const rows = within(card).getAllByRole('row');
+		expect(rows[0].textContent).toContain('Last run');
+		expect(rows[1].textContent).toContain('took 26 ms');
+		expect(rows[2].textContent).toContain('Failed');
+		expect(rows[2].textContent).toContain('report service returned 503');
+		expect(screen.getByText('node-c')).toBeTruthy();
+		const nightly = within(
+			screen.getByText('broken-app', { selector: '[data-slot="card-title"]' }).closest(
+				'[data-slot="card"]',
+			) as HTMLElement,
+		).getAllByRole('row')[1];
+		expect(nightly.textContent).toContain('Not run yet');
+	});
+
+	it('falls back to the log when the state read fails', async () => {
+		state.version = '5.4.0-beta.2';
+		state.stateFails = true;
+		renderPage();
+		expect(await screen.findByText(/Studio couldn’t read each job’s last run \(state read failed\)/)).toBeTruthy();
+		const card = screen.getByText('metrics-app').closest('[data-slot="card"]') as HTMLElement;
+		expect(within(card).getAllByRole('row')[0].textContent).toContain('Last failure');
+		expect(await within(card).findByText('report service returned 503')).toBeTruthy();
 	});
 
 	it('removes a job from the file, keeps the rest, and asks for a restart', async () => {

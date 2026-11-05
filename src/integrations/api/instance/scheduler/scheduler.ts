@@ -1,7 +1,7 @@
 /**
  * Harper's built-in scheduler (harper `resources/scheduler`, harper#951): what an app's jobs are comes from its config
- * file, and what they did comes from Harper's log. Why the log and not `system.hdb_scheduler_state`:
- * src/features/instance/config/scheduledJobs/DESIGN.md.
+ * file, and what they did comes from `system.hdb_scheduler_state` where Harper lets Studio read it, and from Harper's
+ * log before that: src/features/instance/config/scheduledJobs/DESIGN.md.
  */
 import { InstanceClientConfig, InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
@@ -17,15 +17,15 @@ export function supportsScheduledJobs(version: string | undefined): boolean {
 }
 
 /**
- * The first Harper that lets a super user read `system.hdb_scheduler_state`. None does yet: a super user's system-table
- * grants come from the static `json/systemSchema.json`, which doesn't list this runtime-defined table, so every read is
- * refused as "Table does not exist" and logged as an error. Studio doesn't send one until this names a version.
+ * The first Harper that lets a super user read `system.hdb_scheduler_state`. Before it, a super user's system-table
+ * grants came from the static `json/systemSchema.json`, which doesn't list this runtime-defined table, so every read was
+ * refused as "Table does not exist" and logged as an error (harper#2120, fixed by harper#2122). Studio doesn't send the
+ * read to an older Harper.
  */
-export const SCHEDULER_STATE_READABLE_FROM: string | undefined = undefined;
+export const SCHEDULER_STATE_READABLE_FROM = '5.4.0-beta.1';
 
 export function canReadSchedulerState(version: string | undefined): boolean {
-	return SCHEDULER_STATE_READABLE_FROM !== undefined && !!version
-		&& wasAReleasedBeforeB(SCHEDULER_STATE_READABLE_FROM, version);
+	return !!version && wasAReleasedBeforeB(SCHEDULER_STATE_READABLE_FROM, version);
 }
 
 const SCHEDULER_STATE_TABLE = 'hdb_scheduler_state';
