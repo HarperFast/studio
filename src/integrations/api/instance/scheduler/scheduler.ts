@@ -31,7 +31,7 @@ export function canReadSchedulerState(version: string | undefined): boolean {
 const SCHEDULER_STATE_TABLE = 'hdb_scheduler_state';
 
 /** One job's row, `job:<app>:<job name>` (harper `resources/scheduler/engine.ts`). */
-export interface SchedulerJobRun {
+interface SchedulerJobRun {
 	lastRunAt?: string;
 	lastStatus?: string;
 	lastError?: string;

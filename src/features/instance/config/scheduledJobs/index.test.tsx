@@ -29,6 +29,7 @@ const { state, post, restart } = vi.hoisted(() => {
 		writeAnswerLost: false,
 		logFails: false,
 		restartRequired: false,
+		entityId: 'instance-1',
 	};
 	const post = vi.fn();
 	const restart = { clicks: 0, succeeded: undefined as (() => void) | undefined };
@@ -36,8 +37,14 @@ const { state, post, restart } = vi.hoisted(() => {
 });
 
 vi.mock('@/config/useInstanceClient', () => {
-	const params = { instanceClient: { post }, entityId: 'instance-1', entityType: 'instance' };
-	return { useInstanceClientIdParams: () => params };
+	const byEntity = new Map<string, object>();
+	const paramsFor = (entityId: string) => {
+		if (!byEntity.has(entityId)) {
+			byEntity.set(entityId, { instanceClient: { post }, entityId, entityType: 'instance' });
+		}
+		return byEntity.get(entityId);
+	};
+	return { useInstanceClientIdParams: () => paramsFor(state.entityId) };
 });
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
 vi.mock('@/hooks/useRestartInstanceClick', () => ({
@@ -165,6 +172,7 @@ beforeEach(() => {
 		writeAnswerLost: false,
 		logFails: false,
 		restartRequired: false,
+		entityId: 'instance-1',
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
 			'broken-app/config.yaml':
@@ -352,6 +360,19 @@ describe('ConfigScheduledJobsIndex', () => {
 		state.restartRequired = true;
 		renderPage();
 		expect(await screen.findByText('Harper keeps running the old jobs until the app restarts.')).toBeTruthy();
+	});
+
+	it('drops an open dialog when the page moves to another instance', async () => {
+		const { rerender } = renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove sync-rates' }));
+		expect(await screen.findByText('Remove sync-rates?')).toBeTruthy();
+		state.entityId = 'instance-2';
+		rerender(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<ConfigScheduledJobsIndex />
+			</QueryClientProvider>,
+		);
+		expect(screen.queryByText('Remove sync-rates?')).toBeNull();
 	});
 
 	it('keeps an app with no config file in the Add list after a refresh', async () => {

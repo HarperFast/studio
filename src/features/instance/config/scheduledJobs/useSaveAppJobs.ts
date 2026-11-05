@@ -16,7 +16,7 @@ export class ConfigChangedError extends Error {
 	}
 }
 
-export interface SaveAppJobsVariables {
+interface SaveAppJobsVariables {
 	app: SchedulerApp;
 	/** The text the change was made against: `undefined` for an app with no config file. */
 	baseText: string | undefined;

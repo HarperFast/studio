@@ -11,19 +11,19 @@
  */
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 
-export interface LoggedFailure {
+interface LoggedFailure {
 	at: string;
 	durationMs: number;
 	error: string;
 	node?: string;
 }
 
-export interface LoggedTakeover {
+interface LoggedTakeover {
 	at: string;
 	node: string;
 }
 
-export interface LoggedLoadError {
+interface LoggedLoadError {
 	at: string;
 	reason: string;
 }

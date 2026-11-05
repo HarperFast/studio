@@ -118,7 +118,13 @@ function Leader({ sources }: { sources: RunSources }) {
 	);
 }
 
+/** Keyed by instance: the route keeps its component mounted when the instance changes, and nothing here may carry over. */
 export function ConfigScheduledJobsIndex() {
+	const { entityId } = useInstanceClientIdParams();
+	return <ScheduledJobsPage key={entityId} />;
+}
+
+function ScheduledJobsPage() {
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
 	// The nav hides this page below 5.2, but a bookmark still lands here.

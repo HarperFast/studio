@@ -5,7 +5,7 @@ export function isHandlerModule(path: string): boolean {
 	return MODULE_FILE.test(path) && !DECLARATION_FILE.test(path);
 }
 
-export interface ModuleExports {
+interface ModuleExports {
 	/** Value exports a job could name, `default` included. Classes are left out: Harper calls a handler, never `new`s it. */
 	names: string[];
 	/** `export * from …` re-exports names Studio can't see, so the list may be short. */
@@ -101,7 +101,6 @@ function skipTemplate(source: string, at: number): number {
 	return end + 1;
 }
 
-/** Code up to the end, or up to the `}` closing an interpolation, with comments gone and literals emptied. */
 function scan(source: string, start: number, untilBrace: boolean): { code: string; end: number } {
 	let code = '';
 	let depth = 0;
@@ -149,10 +148,7 @@ function scan(source: string, start: number, untilBrace: boolean): { code: strin
 	return { code, end: at };
 }
 
-/**
- * The source with comments removed and every string, template and regex literal emptied, so neither commented-out
- * code nor `"export function fake() {}"` in a literal offers an export.
- */
+/** Literals are emptied so that `"export function fake() {}"` in a string offers nothing. Without a parser a regex after `)` reads as division. */
 function codeOnly(source: string): string {
 	return scan(source, 0, false).code;
 }
