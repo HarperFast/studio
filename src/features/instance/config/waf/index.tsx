@@ -63,13 +63,20 @@ function WafPage() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsWaf(registrationInfo.version);
-	const { data, isFetching, isError, refetch } = useQuery(
+	const { data, dataUpdatedAt, isFetching, isError, refetch } = useQuery(
 		listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
 	);
 	const onRefreshClick = useRefreshClick(refetch);
 
-	const { mutate: toggleRule, isPending: isTogglePending } = useToggleWafRule();
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
+	// When each rule was last written. Its card stays locked until a list read newer than that lands, so
+	// it never acts on the row the write replaced. Other cards stay usable meanwhile: each write re-reads
+	// its own rule before sending anyway.
+	const [writtenAt, setWrittenAt] = useState<Readonly<Record<string, number>>>({});
+	const onWritten = (id: string) => {
+		setWrittenAt((current) => ({ ...current, [id]: Date.now() }));
+		void refetch();
+	};
 	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
 	// Every open, close and reload starts a new session, and so does leaving the page: the form remounts
 	// on each, and a reload that comes back after any of them is dropped.
@@ -78,8 +85,8 @@ function WafPage() {
 		dialogSessions.current += 1;
 	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
-	// Held through the refetch too, so a second click never acts on the row the write just replaced.
-	const busy = isTogglePending || isDropPending || isFetching;
+	const isLocked = (id: string) =>
+		(isDropPending && dropTarget?.id === id) || (writtenAt[id] ?? -Infinity) > dataUpdatedAt;
 
 	const rules = useMemo(
 		() =>
@@ -116,14 +123,6 @@ function WafPage() {
 		);
 	}
 
-	// Per-call callbacks, dropped if the page unmounts, so a write never reports on the next cluster.
-	const onAlter = (rule: WafRule, patch: { shadow?: boolean; enabled?: boolean }, success: string) => {
-		toggleRule({ ...instanceParams, loaded: rule, patch }, {
-			onSuccess: () => toast.success(success),
-			onSettled: () => void refetch(),
-		});
-	};
-
 	const showDialog = (target?: WafRuleDialogTarget) => {
 		dialogSessions.current += 1;
 		setDialog(target && { target, session: dialogSessions.current });
@@ -151,7 +150,7 @@ function WafPage() {
 			onSuccess: () => toast.success(`Deleted firewall rule '${dropTarget.id}'`),
 			onSettled: () => {
 				setDropTarget(undefined);
-				void refetch();
+				onWritten(dropTarget.id);
 			},
 		});
 	};
@@ -206,15 +205,8 @@ function WafPage() {
 								<WafRuleCard
 									key={rule.id}
 									rule={rule}
-									disabled={busy}
-									onSetShadow={(shadow) =>
-										onAlter(
-											rule,
-											{ shadow },
-											shadow ? `'${rule.id}' is now watch-only` : `'${rule.id}' is now enforced`,
-										)}
-									onSetEnabled={(enabled) =>
-										onAlter(rule, { enabled }, `${enabled ? 'Enabled' : 'Disabled'} '${rule.id}'`)}
+									locked={isLocked(rule.id)}
+									onWritten={() => onWritten(rule.id)}
 									onEdit={() => showDialog({ kind: 'edit', rule })}
 									onDelete={() => setDropTarget(rule)}
 								/>
@@ -228,14 +220,14 @@ function WafPage() {
 					key={dialog.session}
 					target={dialog.target}
 					onClose={() => showDialog()}
-					onFailed={() => void refetch()}
+					onFailed={() => (dialog.target.kind === 'edit' ? onWritten(dialog.target.rule.id) : void refetch())}
 					onReload={(id) => void reloadDialogRule(id)}
 					onSaved={(id) => {
 						toast.success(
 							dialog.target.kind === 'edit' ? `Saved firewall rule '${id}'` : `Added firewall rule '${id}'`,
 						);
 						showDialog();
-						void refetch();
+						onWritten(id);
 					}}
 				/>
 			)}
@@ -272,14 +264,24 @@ function WafRuleStatus({ rule, deferred }: { rule: WafRule; deferred: boolean })
 	return <Badge variant="success">{rule.action === 'score' ? 'Scoring' : 'Blocking'}</Badge>;
 }
 
-function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDelete }: {
+function WafRuleCard({ rule, locked, onWritten, onEdit, onDelete }: {
 	rule: WafRule;
-	disabled: boolean;
-	onSetShadow: (shadow: boolean) => void;
-	onSetEnabled: (enabled: boolean) => void;
+	locked: boolean;
+	onWritten: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
 }) {
+	const instanceParams = useInstanceClientIdParams();
+	// One mutation per card, so toggles on two rules can overlap and each still reports its own result.
+	// Its per-call callbacks are dropped if the card unmounts, so a write never reports on the next cluster.
+	const { mutate: toggleRule, isPending } = useToggleWafRule();
+	const disabled = locked || isPending;
+	const alter = (patch: { shadow?: boolean; enabled?: boolean }, success: string) => {
+		toggleRule({ ...instanceParams, loaded: rule, patch }, {
+			onSuccess: () => toast.success(success),
+			onSettled: () => onWritten(),
+		});
+	};
 	const deferrals = wafRuleDeferrals(rule);
 	const starter = isFabricStarterRule(rule);
 	const provenance = starter ? 'Added by Fabric when the cluster was created' : describeWafProvenance(rule);
@@ -311,7 +313,11 @@ function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDele
 							size="sm"
 							variant={watchOnly ? 'positiveOutline' : 'defaultOutline'}
 							disabled={disabled}
-							onClick={() => onSetShadow(!watchOnly)}
+							onClick={() =>
+								alter(
+									{ shadow: !watchOnly },
+									watchOnly ? `'${rule.id}' is now enforced` : `'${rule.id}' is now watch-only`,
+								)}
 							title={watchOnly
 								? `Matching requests will be ${rule.action === 'score' ? 'scored' : 'blocked'}, not just logged.`
 								: 'Matching requests will be logged as would-block and let through.'}
@@ -319,7 +325,12 @@ function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDele
 							{watchOnly ? (rule.action === 'score' ? 'Start scoring' : 'Start blocking') : 'Watch only'}
 						</Button>
 					)}
-					<Button size="sm" variant="defaultOutline" disabled={disabled} onClick={() => onSetEnabled(!enabled)}>
+					<Button
+						size="sm"
+						variant="defaultOutline"
+						disabled={disabled}
+						onClick={() => alter({ enabled: !enabled }, `${enabled ? 'Disabled' : 'Enabled'} '${rule.id}'`)}
+					>
 						{enabled ? 'Disable' : 'Enable'}
 					</Button>
 					<Button size="sm" variant="defaultOutline" disabled={disabled} onClick={onEdit}>
