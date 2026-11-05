@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	describeWafAction,
@@ -69,12 +70,10 @@ function WafPage() {
 	const onRefreshClick = useRefreshClick(refetch);
 
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
-	// When each rule was last written. Its card stays locked until a list read newer than that lands, so
-	// it never acts on the row the write replaced. Other cards stay usable meanwhile: each write re-reads
-	// its own rule before sending anyway.
 	const [writtenAt, setWrittenAt] = useState<Readonly<Record<string, number>>>({});
 	const onWritten = (id: string) => {
-		setWrittenAt((current) => ({ ...current, [id]: Date.now() }));
+		const settledAt = Date.now();
+		setWrittenAt((current) => ({ ...current, [id]: settledAt }));
 		void refetch();
 	};
 	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
@@ -85,8 +84,9 @@ function WafPage() {
 		dialogSessions.current += 1;
 	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
+	// A read landing in the same millisecond as the write may predate it, so a tie stays locked.
 	const isLocked = (id: string) =>
-		(isDropPending && dropTarget?.id === id) || (writtenAt[id] ?? -Infinity) > dataUpdatedAt;
+		(isDropPending && dropTarget?.id === id) || (writtenAt[id] ?? -Infinity) >= dataUpdatedAt;
 
 	const rules = useMemo(
 		() =>
@@ -193,10 +193,16 @@ function WafPage() {
 
 			<section className="flex flex-col gap-3" aria-label="Firewall rules">
 				<h3 className="text-base font-semibold">Rules</h3>
-				{isError
-					? <PageNotice>The firewall rules could not be loaded.</PageNotice>
-					: rules === undefined
-					? <Loading text="Loading..." />
+				{isError && (
+					<PageNotice>
+						{rules === undefined
+							? 'The firewall rules could not be loaded.'
+							: 'The firewall rules could not be reloaded, so this list may be out of date.'}
+					</PageNotice>
+				)}
+				{/* A failed reload keeps the last list mounted, so a toggle still in flight still reports. */}
+				{rules === undefined
+					? !isError && <Loading text="Loading..." />
 					: rules.length === 0
 					? <PageNotice>No firewall rules yet. Add one to start filtering requests.</PageNotice>
 					: (
@@ -205,6 +211,7 @@ function WafPage() {
 								<WafRuleCard
 									key={rule.id}
 									rule={rule}
+									instanceParams={instanceParams}
 									locked={isLocked(rule.id)}
 									onWritten={() => onWritten(rule.id)}
 									onEdit={() => showDialog({ kind: 'edit', rule })}
@@ -235,7 +242,8 @@ function WafPage() {
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={`firewall rule '${dropTarget?.id ?? ''}'`}
 				isModalOpen={dropTarget !== undefined}
-				setIsModalOpen={(open) => !open && setDropTarget(undefined)}
+				// Held open while the delete runs: closing it would unlock a rule that is mid-delete.
+				setIsModalOpen={(open) => !open && !isDropPending && setDropTarget(undefined)}
 				deletionConfirmed={onDropConfirmed}
 				deletionPending={isDropPending}
 				hideDataLossWarning
@@ -264,16 +272,16 @@ function WafRuleStatus({ rule, deferred }: { rule: WafRule; deferred: boolean })
 	return <Badge variant="success">{rule.action === 'score' ? 'Scoring' : 'Blocking'}</Badge>;
 }
 
-function WafRuleCard({ rule, locked, onWritten, onEdit, onDelete }: {
+function WafRuleCard({ rule, instanceParams, locked, onWritten, onEdit, onDelete }: {
 	rule: WafRule;
+	instanceParams: InstanceClientIdConfig;
 	locked: boolean;
 	onWritten: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
 }) {
-	const instanceParams = useInstanceClientIdParams();
-	// One mutation per card, so toggles on two rules can overlap and each still reports its own result.
-	// Its per-call callbacks are dropped if the card unmounts, so a write never reports on the next cluster.
+	// Per card, because `mutate`'s own callbacks fire only for its latest call: one page-level hook would
+	// drop the result of an overlapping toggle on another rule.
 	const { mutate: toggleRule, isPending } = useToggleWafRule();
 	const disabled = locked || isPending;
 	const alter = (patch: { shadow?: boolean; enabled?: boolean }, success: string) => {

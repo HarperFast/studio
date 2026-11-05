@@ -301,7 +301,6 @@ function comparable(rule: WafRule): unknown {
 	});
 }
 
-/** An empty patch writes nothing, but still refuses if the rule changed: saving must not hide that it did. */
 export async function editWafRule({ instanceClient, loaded, patch }: WafRuleWriteArgs & { patch: WafRulePatch }) {
 	await rereadUnchanged(instanceClient, loaded);
 	if (!Object.keys(patch).length) {

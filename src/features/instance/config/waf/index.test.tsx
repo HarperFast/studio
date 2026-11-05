@@ -17,6 +17,8 @@ const { state, toggleRule, dropRule, editRule, setMode, refetch, queryOptionsSee
 		list: undefined as WafRuleList | undefined,
 		dataUpdatedAt: 0,
 		isFetching: false,
+		isListError: false,
+		dropPending: false,
 		editError: null as Error | null,
 		configuration: { waf: {} } as unknown,
 		entityId: 'clu-1',
@@ -43,7 +45,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 			data: state.list,
 			dataUpdatedAt: state.dataUpdatedAt,
 			isFetching: state.isFetching,
-			isError: false,
+			isError: state.isListError,
 			refetch,
 		};
 	},
@@ -59,7 +61,7 @@ vi.mock('@/integrations/api/instance/waf/waf', async (importOriginal) => {
 	return {
 		...(await importOriginal<typeof import('@/integrations/api/instance/waf/waf')>()),
 		useToggleWafRule: () => useMutation({ mutationFn: toggleRule }),
-		useDropWafRule: () => ({ mutate: dropRule, isPending: false }),
+		useDropWafRule: () => ({ mutate: dropRule, isPending: state.dropPending }),
 		useSetWafMode: () => ({ mutate: setMode, isPending: false }),
 		useAddWafRule: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 		useEditWafRule: () => ({ mutate: editRule, isPending: false, error: state.editError }),
@@ -126,6 +128,8 @@ beforeEach(() => {
 	state.list = { available: true, rules: [] };
 	state.dataUpdatedAt = 0;
 	state.isFetching = false;
+	state.isListError = false;
+	state.dropPending = false;
 	state.configuration = { waf: {} };
 	state.entityId = 'clu-1';
 	state.editError = null;
@@ -220,12 +224,20 @@ describe('ConfigWafIndex', () => {
 		await waitFor(() => expect(cardButtonsDisabled('a')).not.toContain(false));
 		expect(cardButtonsDisabled('b')).not.toContain(true);
 
+		const settledAt = 1_000_000;
+		const now = vi.spyOn(Date, 'now').mockReturnValue(settledAt);
 		await act(async () => finish());
+		now.mockRestore();
 		expect(refetch).toHaveBeenCalled();
 		expect(cardButtonsDisabled('a')).not.toContain(false);
 		expect(cardButtonsDisabled('b')).not.toContain(true);
 
-		state.dataUpdatedAt = Date.now() + 1;
+		// A read that landed in the same millisecond may predate the write.
+		state.dataUpdatedAt = settledAt;
+		rerender(<ConfigWafIndex />);
+		expect(cardButtonsDisabled('a')).not.toContain(false);
+
+		state.dataUpdatedAt = settledAt + 1;
 		rerender(<ConfigWafIndex />);
 		expect(cardButtonsDisabled('a')).not.toContain(true);
 	});
@@ -261,6 +273,47 @@ describe('ConfigWafIndex', () => {
 		state.dataUpdatedAt = Date.now() + 1;
 		rerender(<ConfigWafIndex />);
 		expect(cardButtonsDisabled('a')).not.toContain(true);
+	});
+
+	it('holds the delete dialog open while its delete runs, so the rule stays locked', () => {
+		state.list = { available: true, rules: [starterRule({ id: 'a' })] };
+		const { rerender } = renderPage();
+		fireEvent.click(card('a').getByRole('button', { name: 'Delete' }));
+		state.dropPending = true;
+		rerender(<ConfigWafIndex />);
+		fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		const buttons = document.querySelectorAll<HTMLButtonElement>('li[aria-label="Firewall rule a"] button');
+		expect([...buttons].map((button) => button.disabled)).not.toContain(false);
+
+		state.dropPending = false;
+		rerender(<ConfigWafIndex />);
+		fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('keeps the last list, and a toggle in flight, when a reload fails', async () => {
+		state.list = { available: true, rules: [starterRule({ id: 'a' })] };
+		let finish: () => void = () => undefined;
+		toggleRule.mockImplementationOnce(() => new Promise((resolve) => (finish = () => resolve({ message: 'ok' }))));
+		const { rerender } = renderPage();
+		fireEvent.click(card('a').getByRole('button', { name: 'Start blocking' }));
+		await waitFor(() => expect(toggleRule).toHaveBeenCalled());
+
+		state.isListError = true;
+		rerender(<ConfigWafIndex />);
+		expect(screen.getByText(/could not be reloaded, so this list may be out of date/)).toBeTruthy();
+		await act(async () => finish());
+		expect(toast.success).toHaveBeenCalledWith("'a' is now enforced");
+		expect(refetch).toHaveBeenCalled();
+	});
+
+	it('says the rules could not be loaded when there is no list to fall back on', () => {
+		state.list = undefined;
+		state.isListError = true;
+		renderPage();
+		expect(screen.getByText('The firewall rules could not be loaded.')).toBeTruthy();
+		expect(screen.queryByText('Loading...')).toBeNull();
 	});
 
 	it('offers to watch an enforced rule again', () => {
