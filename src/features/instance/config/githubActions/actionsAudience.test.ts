@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionsAudience } from './actionsAudience';
+import { actionsAudience, isPrivateAudience } from './actionsAudience';
 
 describe('actionsAudience', () => {
 	it.each([
@@ -27,4 +27,25 @@ describe('actionsAudience', () => {
 	])('refuses %j, whose token could never match', (url) => {
 		expect(actionsAudience(url)).toBeUndefined();
 	});
+});
+
+describe('isPrivateAudience', () => {
+	it.each([
+		'http://localhost:9925/',
+		'http://127.0.0.1:9925/',
+		'http://[::1]:9925/',
+		'http://10.0.3.7:9925/',
+		'http://172.20.1.1:9925/',
+		'http://192.168.1.10:9925/',
+		'http://harper.local:9925/',
+	])('is private for %s, which a hosted runner cannot reach', (audience) => {
+		expect(isPrivateAudience(audience)).toBe(true);
+	});
+
+	it.each(['https://cluster.example.com:9925/', 'http://172.32.0.1:9925/', 'https://8.8.8.8:443/'])(
+		'is public for %s',
+		(audience) => {
+			expect(isPrivateAudience(audience)).toBe(false);
+		},
+	);
 });

@@ -4,7 +4,7 @@
 import { ciDeployNames } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationDeploys } from './ApplicationDeploys';
 
@@ -22,7 +22,16 @@ const { cluster, post, toast } = vi.hoisted(() => {
 		const { operation, ...rest } = body;
 		switch (operation) {
 			case 'list_oidc_trust':
-				return { data: { policies: cluster.policies } };
+				// As Harper does, marking a policy whose user is gone.
+				return {
+					data: {
+						policies: cluster.policies.map((policy) =>
+							cluster.users.some((user) => user.username === policy.user)
+								? policy
+								: { ...policy, invalid_reason: `names user '${String(policy.user)}', which does not exist` }
+						),
+					},
+				};
 			case 'list_roles':
 				return { data: cluster.roles };
 			case 'list_users':
@@ -225,13 +234,24 @@ describe('ApplicationDeploys', () => {
 		Object.assign(cluster, {
 			roles: [role()],
 			users: [],
-			policies: [storedPolicy({ invalid_reason: "names user 'web-ci-deploy', which does not exist" })],
+			policies: [storedPolicy()],
 		});
 		renderPanel();
 		expect(await screen.findByText(/User "web-ci-deploy" is missing\./)).toBeTruthy();
 		fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
-		await waitFor(() => expect(writes().map((body) => body.operation)).toEqual(['add_user']));
+		expect(await screen.findByText('Deploys from GitHub are set up')).toBeTruthy();
+		expect(writes().map((body) => body.operation)).toEqual(['add_user']);
+		expect(screen.getByText('Created user web-ci-deploy.')).toBeTruthy();
+		expect(within(screen.getByRole('region', { name: 'Deploy status' })).getByText('Set up')).toBeTruthy();
 		expect(writes()[0]).toMatchObject({ username: 'web-ci-deploy', role: 'web-ci-deploy', active: true });
+	});
+
+	it("shows, but builds no workflow from, a policy whose branch Studio wouldn't write", async () => {
+		const claims = { ...storedPolicy().claims, workflow_ref: "Acme/web/.github/workflows/deploy.yaml@refs/heads/it's" };
+		Object.assign(cluster, { roles: [role()], users: [user()], policies: [storedPolicy({ claims })] });
+		renderPanel();
+		expect(await screen.findByText(/isn't one Studio can check or write a workflow for/)).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'What to commit' })).toBeNull();
 	});
 
 	it("flags a policy for another cluster URL, or one Harper says can't match", async () => {
@@ -266,6 +286,14 @@ describe('ApplicationDeploys', () => {
 			expect(vi.mocked(console.error).mock.calls.length > 0).toBe(reported);
 		},
 	);
+
+	it("warns, without refusing, when the cluster's URL is one GitHub's hosted runners can't reach", async () => {
+		cluster.operationsUrl = 'http://localhost:9925';
+		renderPanel();
+		expect(await screen.findByText(/hosted runners can't reach this address/)).toBeTruthy();
+		expect(screen.getByText('http://localhost:9925/')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Set up deploys' })).toBeTruthy();
+	});
 
 	it("can't set up without the cluster's own URL, which the token is requested for", async () => {
 		cluster.operationsUrl = undefined;

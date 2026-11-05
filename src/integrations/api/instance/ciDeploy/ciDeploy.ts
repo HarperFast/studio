@@ -8,6 +8,7 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { OidcTrustPolicy } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
+import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useMutation } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
@@ -86,7 +87,7 @@ export function canonicalCiDeployWorkflow(workflow: string): string | undefined 
 	return WORKFLOW_PATTERN.test(path) ? path : undefined;
 }
 
-export function buildWorkflowRef(repository: string, workflow: string, branch: string): string {
+function buildWorkflowRef(repository: string, workflow: string, branch: string): string {
 	return `${repository}/${workflow}@refs/heads/${branch}`;
 }
 
@@ -100,14 +101,24 @@ export interface CiDeploySource {
 	environment: string;
 }
 
-/** The source a stored policy pins, read back from its claims. Undefined for a policy that isn't of this shape. */
+/**
+ * The source a stored policy pins, read back from its claims. Undefined for a policy of another shape, and for one whose
+ * names Studio would not write itself: the page builds the workflow from them, so a branch the CLI took with a quote in
+ * it must not reach the `if:` of a job that holds `id-token: write`.
+ */
 export function ciDeploySourceOf(policy: { claims?: Record<string, unknown> }): CiDeploySource | undefined {
 	const { repository_id: repositoryId, workflow_ref: workflowRef, environment } = policy.claims ?? {};
 	const match = typeof workflowRef === 'string' ? WORKFLOW_REF_PATTERN.exec(workflowRef) : null;
-	if (!match || typeof repositoryId !== 'string' || typeof environment !== 'string') {
+	if (!match || typeof repositoryId !== 'string' || !/^[1-9]\d*$/.test(repositoryId)) {
 		return undefined;
 	}
-	return { repositoryId, repository: match[1], workflow: match[2], branch: match[3], environment };
+	const [, repository, workflow, branch] = match;
+	const writable = parseGitHubRepository(repository) === repository
+		&& canonicalCiDeployWorkflow(workflow) === workflow
+		&& isCiDeployBranch(branch)
+		&& typeof environment === 'string'
+		&& isCiDeployEnvironment(environment);
+	return writable ? { repositoryId, repository, workflow, branch, environment } : undefined;
 }
 
 export interface CiDeployRecords {
@@ -218,7 +229,7 @@ async function listRecords(instanceClient: InstanceClientConfig['instanceClient'
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-export async function readCiDeployExisting(
+async function readCiDeployExisting(
 	{ instanceClient }: InstanceClientConfig,
 ): Promise<CiDeployExisting> {
 	const [policies, roles, users] = await Promise.all(
@@ -265,7 +276,7 @@ export async function setUpCiDeploy(
 		}
 		if (plan.policy === 'create') {
 			// add_oidc_trust replaces, so a policy another super user created since the first read would be overwritten.
-			// Reading again narrows that to one round trip; an existing policy is never written.
+			// Reading again narrows that to one round trip, as the CLI does; one created within it is still replaced.
 			const policies = await listRecords(instanceClient, 'list_oidc_trust');
 			if (policies.some((policy) => policy?.id === names.policy)) {
 				throw new CiDeploySetupError('refused', [

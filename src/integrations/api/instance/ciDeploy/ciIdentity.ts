@@ -141,7 +141,7 @@ export function roleDifference(existing: any, desired: DesiredRole): string | un
 	return undefined;
 }
 
-export function userDifference(existing: any, desired: DesiredUser): string | undefined {
+function userDifference(existing: any, desired: DesiredUser): string | undefined {
 	const roleName = typeof existing?.role === 'object' ? existing.role?.role : existing?.role;
 	if (roleName !== desired.role) {
 		return `it is in role "${roleName}", not "${desired.role}"`;

@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { CopyIcon } from 'lucide-react';
 
-/** A value to paste somewhere else, such as a repository variable, with a button that copies it. */
 export function CopyableValue({ value, label }: { value: string; label: string }) {
 	const copy = useCopyTextToClipboard();
 	return (
@@ -16,7 +15,6 @@ export function CopyableValue({ value, label }: { value: string; label: string }
 	);
 }
 
-/** A file to commit, shown whole, with a button that copies it. */
 export function CopyableBlock({ text, label }: { text: string; label: string }) {
 	const copy = useCopyTextToClipboard();
 	return (

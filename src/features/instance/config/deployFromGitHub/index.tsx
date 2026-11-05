@@ -29,7 +29,7 @@ export function ConfigDeployFromGitHubIndex() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsCiDeploy(registrationInfo.version);
-	const { data: tree, isFetching, isPending, refetch } = useQuery(
+	const { data: tree, isFetching, isPending, isError: treeFailed, refetch } = useQuery(
 		getComponentsQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
 	);
 
@@ -116,6 +116,15 @@ export function ConfigDeployFromGitHubIndex() {
 				? <PageNotice>Choose an application, or name one that isn't on this cluster yet.</PageNotice>
 				: isPending
 				? <Loading text="Loading..." />
+				: !tree
+				// Without the tree a preview can't be told from an application, and a preview has its own workflow.
+				? treeFailed
+					? (
+						<PageNotice>
+							This cluster's applications could not be read, so deploys from GitHub can't be set up.
+						</PageNotice>
+					)
+					: <Loading text="Loading..." />
 				: isPreview
 				? <PageNotice>{project} is a preview, which its application's preview workflow deploys.</PageNotice>
 				: !names

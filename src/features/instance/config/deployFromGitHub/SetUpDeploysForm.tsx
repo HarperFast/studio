@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -8,6 +9,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
+import { isPrivateAudience } from '@/features/instance/config/githubActions/actionsAudience';
 import {
 	RepositoryIdentityHint,
 	RepositoryLookupMessage,
@@ -24,6 +26,7 @@ import {
 } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { useGitHubRepositoryLookup } from '@/integrations/github/lookUpGitHubRepository';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { TriangleAlertIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -168,6 +171,15 @@ export function SetUpDeploysForm({ audience, pending, onSubmit }: {
 				<p className="text-sm text-muted-foreground">
 					GitHub Actions will sign in to <code className="break-all font-mono">{audience}</code>
 				</p>
+				{isPrivateAudience(audience) && (
+					<Alert variant="warning">
+						<TriangleAlertIcon />
+						<AlertDescription>
+							GitHub's hosted runners can't reach this address, so only a self-hosted runner on its network could
+							deploy.
+						</AlertDescription>
+					</Alert>
+				)}
 				<div>
 					<Button type="submit" disabled={pending}>Set up deploys</Button>
 				</div>

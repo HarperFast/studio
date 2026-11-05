@@ -86,8 +86,9 @@ export function ApplicationDeploys({ app, names }: { app: string; names: CiDeplo
 		...(source
 			? []
 			: [
-				`Trust policy "${names.policy}" doesn't pin a repository id, a workflow file on a branch and an environment, as`
-				+ ' Studio and the CLI write it. To set it up here, drop it on the Trust Policies page.',
+				`Trust policy "${names.policy}" isn't one Studio can check or write a workflow for: it has to pin a repository`
+				+ ' id, a workflow file on a branch and an environment, named with letters, numbers, ".", "_", "-" and "/".'
+				+ ' Manage it with the harper CLI, or drop it on the Trust Policies page to set it up here.',
 			]),
 		...(plan ? plan.conflicts : []),
 		...(policy.invalid_reason ? [`Trust policy "${names.policy}" ${policy.invalid_reason}.`] : []),

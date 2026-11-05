@@ -17,7 +17,9 @@ look-alike, because the two have to agree: a role Studio wrote with one more gra
 and the reverse. Setup only creates. A matching record is kept, and a differing one, a deactivated user, a disabled
 policy, or another enabled policy that could match the same runs for a different user stops it before it writes. It lists
 the policies again just before `add_oidc_trust`, which replaces, and reads the policy back afterwards, comparing it claim
-by claim and failing on `invalid_reason`, since a mismatch otherwise shows up only as the exchange's 401 in CI.
+by claim and failing on `invalid_reason`, since a mismatch otherwise shows up only as the exchange's 401 in CI. A policy
+another super user creates within that last round trip is still replaced and reported as created, as with the CLI:
+closing it needs a create-only write in Harper, and `hdb_oidc_trust` replicates, so even that would be per node.
 
 ## What the CLI does that this doesn't
 
@@ -62,3 +64,11 @@ Setup is several writes, so a failure says what was created before it stopped, a
 4xx are expected answers, so they skip the global toast and RUM. A 5xx or no answer still reaches RUM through
 `console.error` at mutation level (`AGENTS.md`, "Dropping `errorHandler` from an `onError` also drops the RUM report").
 The user's password is 32 random bytes that are never shown; nothing signs in with it.
+
+## Where GitHub can't reach, it warns and the CLI tab deploys from the laptop
+
+GitHub's hosted runners can't reach a loopback, private or `.local` address, so the form warns about such an audience. It
+doesn't refuse it, since a self-hosted runner on that network can. New Application → CLI shows create-harper's
+`deploy:setup-ci` outro only on a cluster at the floor and outside Local Studio. Anywhere else, including a cluster whose
+version can't be read, it keeps `npm run deploy` from the laptop. That outro also needs a 5.4 CLI: harper 5.3.5's
+`deploy setup` refuses `provider=github-actions`, so the step says to install `harper@next` until 5.4 ships.

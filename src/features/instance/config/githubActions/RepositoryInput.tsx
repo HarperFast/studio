@@ -30,7 +30,6 @@ export function RepositoryLookupMessage(
 	);
 }
 
-/** Under the pasted-identity field: the command that prints it. */
 export function RepositoryIdentityHint({ fullName }: { fullName: string | undefined }) {
 	return (
 		<FormDescription>

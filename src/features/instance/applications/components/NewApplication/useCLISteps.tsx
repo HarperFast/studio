@@ -1,9 +1,12 @@
 import { isLocalStudio } from '@/config/constants';
-import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Cluster, Instance } from '@/integrations/api/api.patch';
+import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { useQuery } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
@@ -13,13 +16,46 @@ export interface CLIStep {
 	note?: string;
 }
 
+const LOGIN_STEP: CLIStep = {
+	title: 'Sign in to your cluster as a super user',
+	code: 'harper login',
+	note: 'It saves a token in your home directory, so no password goes into your project.',
+};
+
 /**
  * The steps follow create-harper's own outro (`lib/steps/installAndOptionallyStart.js`): it takes the cluster URL and
- * scaffolds a workflow that deploys on each merge to `main`. A super user's `harper login` lets `deploy:setup-ci`
- * create the trust policy that workflow signs in with, so neither the project nor GitHub holds a password.
+ * scaffolds a workflow that deploys on each merge to `main`, once `deploy:setup-ci` has created the trust policy the
+ * workflow signs in with. A cluster too old for that (`ciDeploy` false), or one whose version Studio couldn't read,
+ * deploys from the laptop instead, with the same login.
  */
-export function buildCLISteps(appName: string, target: string | null | undefined): CLIStep[] {
+export function buildCLISteps(appName: string, target: string | null | undefined, ciDeploy: boolean): CLIStep[] {
 	const directoryName = toKebabCase(appName);
+	const deploySteps: CLIStep[] = ciDeploy
+		? [
+			LOGIN_STEP,
+			{
+				title: 'Let GitHub Actions deploy it',
+				code: 'npm run deploy:setup-ci',
+				note:
+					'Push the project to a GitHub repository first. This creates the trust policy its deploy workflow signs in'
+					+ " with and sets the repository's HARPER_CLI_TARGET variable, so GitHub stores no Harper credential. It needs"
+					+ ' the Harper CLI 5.4 or later: until 5.4 is released, install it with npm install -g harper@next. Deploy from GitHub,'
+					+ " on this cluster's Config page, sets up the cluster side without the CLI.",
+			},
+			{
+				title: 'Deploy!',
+				code: 'git push origin main',
+				note: "Every merge to main deploys. Your project's README explains it in its Deployment section.",
+			},
+		]
+		: [
+			LOGIN_STEP,
+			{
+				title: 'Deploy!',
+				code: 'npm run deploy',
+				note: 'It signs in with the login from the step before.',
+			},
+		];
 	return [
 		{
 			title: 'Install or update the Harper CLI',
@@ -39,34 +75,21 @@ export function buildCLISteps(appName: string, target: string | null | undefined
 			title: 'Learn, make changes, grow!',
 			code: `cat AGENTS.md`,
 		},
-		{
-			title: 'Sign in to your cluster as a super user',
-			code: 'harper login',
-			note: 'It saves a token in your home directory, so no password goes into your project.',
-		},
-		{
-			title: 'Let GitHub Actions deploy it',
-			code: 'npm run deploy:setup-ci',
-			note: 'Push the project to a GitHub repository first. This creates the trust policy its deploy workflow signs in'
-				+ " with, and sets the repository's HARPER_CLI_TARGET variable, so GitHub stores no Harper credential. The"
-				+ " application's Deploy from GitHub page in Studio can set up the cluster side too.",
-		},
-		{
-			title: 'Deploy!',
-			code: 'git push origin main',
-			note: "Every merge to main deploys. Your project's README explains it in its Deployment section.",
-		},
+		...deploySteps,
 	];
 }
 
 export function useCLISteps(appName: string) {
-	const instanceParams = useInstanceClientParams();
+	const instanceParams = useInstanceClientIdParams();
 	const { instance, cluster }: { instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	// GitHub's runners can't reach the Harper behind a Local Studio, so it deploys from the laptop.
+	const ciDeploy = !isLocalStudio && supportsCiDeploy(registrationInfo?.version);
 	const target = isLocalStudio
 		? instanceParams.instanceClient.defaults.baseURL
 		: instance
 		? getOperationsUrlForInstance(instance)
 		: getOperationsUrlForCluster(cluster);
 
-	return useMemo(() => buildCLISteps(appName, target), [appName, target]);
+	return useMemo(() => buildCLISteps(appName, target, ciDeploy), [appName, target, ciDeploy]);
 }

@@ -11,7 +11,8 @@ const { state, navigate } = vi.hoisted(() => ({
 		canManage: true,
 		version: '5.3.4' as string | undefined,
 		project: undefined as string | undefined,
-		tree: { entries: [] as unknown[] },
+		tree: { entries: [] as unknown[] } as { entries: unknown[] } | undefined,
+		treeFailed: false,
 	},
 	navigate: vi.fn(),
 }));
@@ -22,7 +23,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	useQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean }) =>
 		options.queryKey[0] === 'registration_info'
 			? { data: state.version === undefined ? undefined : { version: state.version }, isError: false }
-			: { data: state.tree, isFetching: false, isPending: false, refetch: vi.fn() },
+			: { data: state.tree, isFetching: false, isPending: false, isError: state.treeFailed, refetch: vi.fn() },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
@@ -43,6 +44,7 @@ beforeEach(() => {
 		canManage: true,
 		version: '5.3.4',
 		project: undefined,
+		treeFailed: false,
 		tree: {
 			entries: [
 				{ name: 'shop', entries: [] },
@@ -100,6 +102,13 @@ describe('ConfigDeployFromGitHubIndex', () => {
 		state.project = 'not valid';
 		render(<ConfigDeployFromGitHubIndex />);
 		expect(screen.getByText(/not valid can't be set up here/)).toBeTruthy();
+		expect(screen.queryByText(/Panel for/)).toBeNull();
+	});
+
+	it("sets nothing up when the cluster's applications can't be read, since a preview couldn't be told apart", () => {
+		Object.assign(state, { tree: undefined, treeFailed: true, project: 'shop-pr-3' });
+		render(<ConfigDeployFromGitHubIndex />);
+		expect(screen.getByText(/applications could not be read/)).toBeTruthy();
 		expect(screen.queryByText(/Panel for/)).toBeNull();
 	});
 

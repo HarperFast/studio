@@ -2,7 +2,7 @@
  * The workflow Deploy from GitHub tells people to commit: create-harper's `deploy.yaml` (HarperFast/create-harper#156)
  * without its `test` job, which runs a package manager's scripts Studio can't know. Everything else is that file's text,
  * except that the branch, environment and application are this policy's, and are quoted: none of them can then add a
- * key or a step to a job that holds `id-token: write`. `deployWorkflow.test.ts` pins the lines that matter.
+ * key or a step to a job that holds `id-token: write`.
  */
 import { CI_DEPLOY_TARGET_VARIABLE } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 

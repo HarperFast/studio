@@ -88,6 +88,23 @@ describe('names and inputs', () => {
 		expect(ciDeploySourceOf({ claims: { ...matchingPolicy().claims, repository_id: 1 } })).toBeUndefined();
 	});
 
+	it("reads nothing from a policy whose names it wouldn't write into a workflow itself", () => {
+		const claims = matchingPolicy().claims;
+		for (
+			const changed of [
+				{ workflow_ref: "Acme/web/.github/workflows/deploy.yaml@refs/heads/main' || true || '" },
+				{ workflow_ref: "Acme/web/.github/workflows/deploy.yaml@refs/heads/it's" },
+				{ workflow_ref: 'Acme/w"eb/.github/workflows/deploy.yaml@refs/heads/main' },
+				{ workflow_ref: 'Acme/web/.github/workflows/de ploy.yaml@refs/heads/main' },
+				{ environment: '' },
+				{ environment: 'prod: true' },
+				{ repository_id: '012' },
+			]
+		) {
+			expect(ciDeploySourceOf({ claims: { ...claims, ...changed } }), JSON.stringify(changed)).toBeUndefined();
+		}
+	});
+
 	it('normalizes a workflow path to what workflow_ref names, and refuses one GitHub never runs', () => {
 		expect(canonicalCiDeployWorkflow('./.github/workflows/deploy.yml')).toBe('.github/workflows/deploy.yml');
 		expect(canonicalCiDeployWorkflow('.github\\workflows\\deploy.yaml')).toBe('.github/workflows/deploy.yaml');

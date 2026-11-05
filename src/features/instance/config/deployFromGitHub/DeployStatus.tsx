@@ -17,7 +17,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 	);
 }
 
-const operationList = (operations: string[]) => `${operations.slice(0, -1).join(', ')} and ${operations.at(-1)}`;
+const operationList = (operations: string[]) => new Intl.ListFormat('en', { type: 'conjunction' }).format(operations);
 
 export function DeployStatus({
 	app,
