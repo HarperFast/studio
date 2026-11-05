@@ -43,7 +43,11 @@ edit offers to load the current rule, because retrying the same copy can never s
 close and reload starts a new dialog session (as does leaving the page), so a reload always starts
 the form over and one that returns late is dropped. Comparison fills in the engine's readings
 first (`enabled !== false`, `shadow === true`, priority 0, block status 403, `null` as absent), so
-only a real change refuses. An edit that changes nothing writes nothing. Rule
+only a real change refuses. An edit that changes nothing writes nothing, but still re-reads, so a
+rule changed meanwhile is refused with the reload offer rather than the dialog closing over it. A
+card is locked only from a write to its own rule until a list read newer than that write lands
+(`isLocked` in [`index.tsx`](index.tsx)), not through every refetch: the re-read already refuses a
+stale write, and the lock only keeps the card from offering one. Rule
 ids are normalized to `String(id)`, which is how Harper keys them, so a numeric id from another
 client is listed and editable rather than hidden.
 

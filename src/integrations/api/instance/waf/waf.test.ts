@@ -225,6 +225,23 @@ describe('editWafRule', () => {
 		await expect(refusal).rejects.toMatchObject({ name: 'WafOperationError' });
 		expect(post.mock.calls.map(([, body]) => body.operation)).toEqual(['list_waf_rules']);
 	});
+
+	it('only re-reads for an edit that changes nothing', async () => {
+		const { post, instanceClient } = client((body) =>
+			body.operation === 'list_waf_rules' ? [starterRule()] : { message: 'ok' }
+		);
+		await editWafRule({ instanceClient, loaded: starterRule(), patch: {} });
+		expect(post.mock.calls.map(([, body]) => body.operation)).toEqual(['list_waf_rules']);
+	});
+
+	it('still refuses an edit that changes nothing once the rule changed meanwhile', async () => {
+		const { instanceClient } = client((body) =>
+			body.operation === 'list_waf_rules' ? [starterRule({ shadow: false })] : { message: 'ok' }
+		);
+		await expect(editWafRule({ instanceClient, loaded: starterRule(), patch: {} })).rejects.toBeInstanceOf(
+			WafRuleChangedError,
+		);
+	});
 });
 
 describe('dropWafRule', () => {
