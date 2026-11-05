@@ -22,23 +22,25 @@ import {
 } from '@/features/instance/applications/context/editorFileContent';
 import {
 	invalidateApplicationConfiguration,
+	readApplicationSetting,
 	useApplicationBranchedDatabases,
 	useApplicationEntryHasPackage,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { BranchedDatabases, readBranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
+import { measureProjectPackage, packageCaution } from '@/features/instance/applications/lib/projectPackageSize';
+import { BranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
 import {
 	PackagingError,
 	useDeployApplicationFilesMutation,
 } from '@/integrations/api/instance/applications/deployComponent';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
-import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { humanFileSize } from '@/lib/humanFileSize';
 import { describeError } from '@/react-query/queryClient';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { DatabaseIcon } from 'lucide-react';
@@ -47,7 +49,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { deployNotes, reportDeployFailure, reportDeployOutcome } from './reportDeployHealth';
 
-/** The sent setting as `readBranchedDatabases` reads it back: an empty list is no setting. */
 function asRead(setting: BranchedDatabases): BranchedDatabases | undefined {
 	return setting === true || setting.length ? setting : undefined;
 }
@@ -75,7 +76,7 @@ export function ApplicationPrivateCopyModal() {
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
 
-	const { openedEntry, isSavingAnyFile } = useEditorView();
+	const { openedEntry, rootEntries, isSavingAnyFile } = useEditorView();
 	const project = openedEntry?.project;
 	const editorContentId = useEditorFileContentId();
 	// Any file of the application, not just the open one: the dialog opens with the application's root selected.
@@ -102,6 +103,12 @@ export function ApplicationPrivateCopyModal() {
 	// `running` arrives a render after the mutation starts, too late for a second submit in the same tick.
 	const submitting = useRef(new Set<string>());
 	const [includeNodeModules, setIncludeNodeModules] = useState(false);
+	const measured = useMemo(() => (isModalOpen ? measureProjectPackage(rootEntries, project) : undefined), [
+		isModalOpen,
+		rootEntries,
+		project,
+	]);
+	const largeArchive = packageCaution(measured, includeNodeModules) === 'large';
 	const [phase, setPhase] = useState<Phase>('form');
 	const [packagingFailure, setPackagingFailure] = useState<string>();
 	const attemptOnScreen = useRef<symbol>(undefined);
@@ -116,6 +123,9 @@ export function ApplicationPrivateCopyModal() {
 		}
 	}, [isModalOpen, queryClient, instanceParams.entityId]);
 	useEffect(() => {
+		choiceTouched.current = false;
+	}, [project]);
+	useEffect(() => {
 		if (isModalOpen && !choiceTouched.current) {
 			setValue('privateCopy', privateCopyFromSetting(current.setting));
 		}
@@ -126,7 +136,6 @@ export function ApplicationPrivateCopyModal() {
 		attemptToRestoreFocus(trigger);
 		attemptOnScreen.current = undefined;
 		choiceTouched.current = false;
-		// The form takes the current setting again when it next opens.
 		reset();
 		setIncludeNodeModules(false);
 		setPhase('form');
@@ -146,21 +155,10 @@ export function ApplicationPrivateCopyModal() {
 		: undefined;
 	const canSave = !!project && !blocker && !running && current.known && !current.loading && changed;
 
-	const readSettingBack = useCallback(async (): Promise<BranchedDatabases | undefined | 'unknown'> => {
-		if (!project) {
-			return 'unknown';
-		}
-		await invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
-		try {
-			const configuration = await queryClient.fetchQuery({
-				...getConfigurationQueryOptions(instanceParams),
-				staleTime: 0,
-			});
-			return readBranchedDatabases(configuration, project);
-		} catch {
-			return 'unknown';
-		}
-	}, [queryClient, instanceParams, project]);
+	const readSettingBack = useCallback(
+		async () => (project ? readApplicationSetting(queryClient, instanceParams, project) : 'unknown' as const),
+		[queryClient, instanceParams, project],
+	);
 
 	const invalidateComponents = useCallback(() => {
 		void queryClient.invalidateQueries({
@@ -170,10 +168,11 @@ export function ApplicationPrivateCopyModal() {
 	}, [queryClient, instanceParams.entityId]);
 
 	const save = async ({ privateCopy: choice }: { privateCopy: PrivateCopyValue }) => {
-		if (!canSave || !project || submitting.current.has(project) || hasUnsavedEdits()) {
+		const attemptKey = `${instanceParams.entityId}:${project}`;
+		if (!canSave || !project || submitting.current.has(attemptKey) || hasUnsavedEdits()) {
 			return;
 		}
-		submitting.current.add(project);
+		submitting.current.add(attemptKey);
 		const sent = privateCopyToPayloadSetting(choice);
 		const wanted = asRead(sent);
 		const attempt = Symbol(project);
@@ -266,7 +265,7 @@ export function ApplicationPrivateCopyModal() {
 				action: recordAction(deployFailureDetails(error).deploymentId),
 			});
 		} finally {
-			submitting.current.delete(project);
+			submitting.current.delete(attemptKey);
 		}
 	};
 
@@ -322,6 +321,14 @@ export function ApplicationPrivateCopyModal() {
 										? 'Every node then restarts the application.'
 										: 'Every node then installs its dependencies and restarts the application.'}
 								</p>
+								{largeArchive && (
+									<p className="text-sm text-warning">
+										{includeNodeModules || !measured
+											? `With node_modules, ${project}'s archive can be large.`
+											: `${project} is about ${humanFileSize(measured.bytes)}.`}{' '}
+										The browser holds the whole archive while it uploads, which can take several minutes.
+									</p>
+								)}
 								{blocker === 'proxy' && (
 									<p role="alert" className="text-sm text-warning">
 										Saving uploads the application&apos;s files, which Studio does only over a direct connection. Switch

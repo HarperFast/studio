@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
 		editor: {
 			openedEntry: { name: 'web', path: 'web', project: 'web', entries: [] },
 			openedEntryContents: undefined as string | undefined,
+			rootEntries: [] as unknown[],
 			isSavingAnyFile: false,
 		},
 		unsavedEdits: false,
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => {
 		configurationAfter: {} as unknown,
 		configurationReadFails: false,
 		runHealthCheck: vi.fn(),
+		readSetting: vi.fn(),
 		invalidateConfiguration: vi.fn(),
 	};
 });
@@ -46,6 +48,7 @@ vi.mock('@/features/instance/applications/context/editorFileContent', () => ({
 	hasEditorFileContentAtOrUnder: (_id: string, project: string) => project === 'web' && mocks.unsavedEdits,
 }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	readApplicationSetting: mocks.readSetting,
 	useApplicationBranchedDatabases: () => mocks.current,
 	useApplicationEntryHasPackage: () => mocks.hasPackage,
 	invalidateApplicationConfiguration: mocks.invalidateConfiguration,
@@ -61,6 +64,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponentStream', async 
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 
 import { authStore } from '@/features/auth/store/authStore';
+import { readBranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
 import { deployComponentStream } from '@/integrations/api/instance/applications/deployComponentStream';
 import { fetchComponentArchive } from '@/integrations/api/instance/applications/packageComponent';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
@@ -117,18 +121,18 @@ beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	vi.spyOn(authStore, 'isDirectConnection').mockReturnValue(true);
 	mocks.editor.isSavingAnyFile = false;
+	mocks.editor.rootEntries = [];
 	mocks.editor.openedEntry = { name: 'web', path: 'web', project: 'web', entries: [] };
+	mocks.instanceParams.entityId = 'clu-1';
 	mocks.unsavedEdits = false;
 	mocks.current = { readable: true, setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
 	mocks.hasPackage = false;
 	mocks.configurationAfter = { web: { branchedDatabases: [] } };
 	mocks.configurationReadFails = false;
-	mocks.post.mockImplementation(async (_url: string, { operation }: { operation: string }) => {
-		if (operation === 'get_configuration' && mocks.configurationReadFails) {
-			throw new Error('network down');
-		}
-		return { data: operation === 'get_configuration' ? mocks.configurationAfter : { data: {} } };
-	});
+	mocks.post.mockResolvedValue({ data: { data: {} } });
+	mocks.readSetting.mockImplementation(async (_queryClient: unknown, _params: unknown, project: string) =>
+		mocks.configurationReadFails ? 'unknown' : readBranchedDatabases(mocks.configurationAfter, project)
+	);
 	mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
 	vi.mocked(fetchComponentArchive).mockResolvedValue(ARCHIVE);
 	vi.mocked(deployComponentStream).mockResolvedValue({ message: 'deployed', deployment_id: 'dep-1' });
@@ -157,7 +161,7 @@ describe('ApplicationPrivateCopyModal', () => {
 		expect(body).toMatchObject({ project: 'web', branchedDatabases: [], replicated: true });
 		expect(body).not.toHaveProperty('package');
 		expect(file).toMatchObject({ name: 'payload', blob: ARCHIVE });
-		expect(mocks.post).toHaveBeenCalledWith('/', { operation: 'get_configuration' });
+		expect(mocks.readSetting).toHaveBeenCalledWith(expect.anything(), mocks.instanceParams, 'web');
 		expect(mocks.invalidateConfiguration).toHaveBeenCalled();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
@@ -173,6 +177,27 @@ describe('ApplicationPrivateCopyModal', () => {
 
 		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalled());
 		expect(vi.mocked(fetchComponentArchive).mock.calls[0][0].skipNodeModules).toBe(false);
+	});
+
+	it('says when the archive is large, and when node_modules makes it so', async () => {
+		mocks.editor.rootEntries = [{
+			name: 'web',
+			path: 'web',
+			project: 'web',
+			entries: [{ name: 'big.bin', path: 'web/big.bin', project: 'web', size: 150_000_000 }],
+		}];
+		await renderOpenModal();
+		expect(screen.getByText(/web is about 150/)).toBeTruthy();
+
+		mocks.editor.rootEntries = [{ name: 'web', path: 'web', project: 'web', entries: [] }];
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', false));
+		cleanup();
+		await renderOpenModal();
+		expect(screen.queryByText(/holds the whole archive/)).toBeNull();
+		await act(async () => {
+			fireEvent.click(screen.getByRole('switch'));
+		});
+		expect(screen.getByText(/With node_modules, web's archive can be large/)).toBeTruthy();
 	});
 
 	it('offers Save only once the choice differs from a current reading of the setting', async () => {
@@ -223,7 +248,7 @@ describe('ApplicationPrivateCopyModal', () => {
 		);
 		expect(deployComponentStream).not.toHaveBeenCalled();
 		expect(mocks.invalidateConfiguration).toHaveBeenCalledTimes(readsOnOpen);
-		expect(mocks.post).not.toHaveBeenCalledWith('/', { operation: 'get_configuration' });
+		expect(mocks.readSetting).not.toHaveBeenCalled();
 	});
 
 	it('never calls a deploy that lost its stream a success', async () => {
@@ -274,6 +299,24 @@ describe('ApplicationPrivateCopyModal', () => {
 
 		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalled());
 		expect(fetchComponentArchive).toHaveBeenCalledOnce();
+	});
+
+	it("doesn't hold the same application on another instance behind a save still running", async () => {
+		vi.mocked(fetchComponentArchive).mockReturnValueOnce(new Promise(() => {}));
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+		await act(async () => {
+			fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+		});
+
+		mocks.instanceParams.entityId = 'clu-2';
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalledTimes(2));
+		expect(vi.mocked(fetchComponentArchive).mock.calls[1][0].connection).toEqual({ id: 'clu-2' });
 	});
 
 	it("doesn't hold another application's save behind one still running", async () => {

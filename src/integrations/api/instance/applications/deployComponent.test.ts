@@ -453,7 +453,7 @@ describe('a payload deploy', () => {
 		const error = await onDeployComponentSubmit({ ...payloadArgs, instanceClient: client as any })
 			.catch((caught: unknown) => caught);
 
-		expect((error as Error).message).toBe("database 'nope' does not exist");
+		expect(error).toMatchObject({ name: 'HarperRefusalError', message: "database 'nope' does not exist" });
 		expect(error).not.toBeInstanceOf(SSEInconclusiveError);
 		expect(client.post).not.toHaveBeenCalled();
 	});

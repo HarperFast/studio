@@ -1,5 +1,6 @@
 import { InstanceClientConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { EntityIds } from '@/features/auth/store/authStore';
+import { HarperRefusalError } from '@/integrations/api/readResponseRefusal';
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { SSEInconclusiveError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
 import { useMutation } from '@tanstack/react-query';
@@ -144,7 +145,9 @@ async function deployPayload(
 		}
 		// Never resent buffered, which would mean base64 in JSON.
 		if (refusedBeforeRunning(error)) {
-			throw new Error(error.refusal ?? `Harper refused the deploy (status ${error.status}).`, { cause: error });
+			throw new HarperRefusalError(error.refusal ?? `Harper refused the deploy (status ${error.status}).`, {
+				cause: error,
+			});
 		}
 		throw new SSEInconclusiveError(
 			'The deploy did not stream and may already have started, so it was not sent again.',
@@ -178,7 +181,7 @@ export async function deployAndFollowComponent(args: DeployComponentArgs): Promi
 	return { ...result, rollout };
 }
 
-/** Packaging failed, so no deploy was sent. */
+/** No deploy was sent. Its message can be Harper's, so it is withheld from RUM like one. */
 export class PackagingError extends Error {
 	constructor(message: string, options?: { cause?: unknown }) {
 		super(message, options);

@@ -2,6 +2,14 @@ import { errorText } from '@/lib/errorText';
 
 const MAX_REFUSAL_LENGTH = 1000;
 
+/** Harper's own words refusing a request, which can quote what the customer sent: withheld from RUM. */
+export class HarperRefusalError extends Error {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = 'HarperRefusalError';
+	}
+}
+
 /**
  * Harper's own words from a refused `fetch` response, if it gave any: `{ error }`, `{ message }`, or a problem
  * document's `detail`/`title`, else the text.
@@ -21,7 +29,7 @@ export async function readResponseRefusal(response: Response): Promise<string | 
 			}
 		}
 	} catch {
-		// Not JSON: the text itself is the answer.
+		// Not JSON.
 	}
 	return text.slice(0, MAX_REFUSAL_LENGTH);
 }

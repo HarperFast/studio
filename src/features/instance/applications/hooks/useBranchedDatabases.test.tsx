@@ -25,6 +25,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
 import {
 	invalidateApplicationConfiguration,
+	readApplicationSetting,
 	useApplicationBranchedDatabases,
 	useApplicationEntryHasPackage,
 	useBranchedDatabasesAvailable,
@@ -183,6 +184,18 @@ describe('a role that is not a super user', () => {
 		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 
+	it('lets a later failure of another kind replace a refusal', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValueOnce(forbidden());
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.readable).toBe(false));
+
+		mocks.post.mockRejectedValue(new Error('network down'));
+		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
+
+		await waitFor(() => expect(result.current).toMatchObject({ readable: true, failed: true }));
+	});
+
 	it('holds a refusal while a dialog asks again, and lets a later read that succeeds clear it', async () => {
 		mocks.canManage.value = false;
 		mocks.post.mockRejectedValueOnce(forbidden());
@@ -198,6 +211,7 @@ describe('a role that is not a super user', () => {
 		await act(async () => {
 			void invalidateApplicationConfiguration(queryClient, 'ins-1');
 		});
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(2));
 		expect(result.current).toMatchObject({ readable: false, loading: false, failed: false });
 
 		await act(async () => answer({ data: CONFIGURATION }));
@@ -257,5 +271,27 @@ describe('useBranchedDatabasesAvailable', () => {
 		rerender();
 
 		await waitFor(() => expect(result.current).toBe(true));
+	});
+});
+
+describe('readApplicationSetting', () => {
+	it('reads once, after dropping a read already in flight', async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+		mocks.post.mockReturnValueOnce(new Promise(() => {}));
+		void queryClient.prefetchQuery({
+			queryKey: ['get_configuration', 'ins-1'],
+			queryFn: () => mocks.instanceParams.instanceClient.post('/', { operation: 'get_configuration' }),
+		});
+		mocks.post.mockResolvedValueOnce({ data: { web: { branchedDatabases: [] } } });
+
+		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBeUndefined();
+		expect(mocks.post).toHaveBeenCalledTimes(2);
+	});
+
+	it("is unknown when the read fails, Harper's refusal included", async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+		mocks.post.mockRejectedValue(forbidden());
+
+		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBe('unknown');
 	});
 });

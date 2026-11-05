@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { readResponseRefusal } from '@/integrations/api/readResponseRefusal';
+import { HarperRefusalError, readResponseRefusal } from '@/integrations/api/readResponseRefusal';
 import {
 	resolveInstanceConnection,
 	ResolveInstanceConnectionParams,
@@ -79,7 +79,7 @@ export async function fetchComponentArchive({
 	});
 	if (!response.ok) {
 		const refusal = await readResponseRefusal(response);
-		throw new Error(refusal ?? `Harper couldn't package ${project} (status ${response.status}).`);
+		throw new HarperRefusalError(refusal ?? `Harper couldn't package ${project} (status ${response.status}).`);
 	}
 	if ((response.headers.get('content-type') ?? '').includes('application/json')) {
 		await response.body?.cancel().catch(() => {});

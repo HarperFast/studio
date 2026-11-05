@@ -69,7 +69,10 @@ describe('fetchComponentArchive', () => {
 	it("rejects with Harper's own words when it refuses", async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"error":"Project not found"}', { status: 404 })));
 
-		await expect(fetchComponentArchive(args)).rejects.toThrow('Project not found');
+		await expect(fetchComponentArchive(args)).rejects.toMatchObject({
+			name: 'HarperRefusalError',
+			message: 'Project not found',
+		});
 	});
 
 	it('rejects a JSON answer, which is the base64 shape it did not ask for', async () => {

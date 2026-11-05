@@ -1,3 +1,4 @@
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceConfigurationReadPermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import {
@@ -10,7 +11,7 @@ import {
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
-import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Query, QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 
 function useHarperVersion(enabled: boolean): string | undefined {
@@ -27,6 +28,22 @@ function isRefusal(error: unknown): boolean {
  * toasted, and it holds while a dialog asks again, so the setting doesn't read as loading meanwhile.
  */
 const CONFIGURATION_READ = { retry: retryUnlessRejected(), meta: { refusalIsAnAnswer: true } };
+
+// When each read was refused. A refetch with no data clears the query's `error` before it answers, and the refusal has
+// to outlive that until a read succeeds or fails some other way.
+const refusedAt = new WeakMap<Query, number>();
+
+function isRefusedNow(query: Query | undefined): boolean {
+	if (!query) {
+		return false;
+	}
+	const { error, errorUpdatedAt, dataUpdatedAt } = query.state;
+	if (isRefusal(error)) {
+		refusedAt.set(query, errorUpdatedAt);
+	}
+	const at = refusedAt.get(query);
+	return at !== undefined && at >= errorUpdatedAt && at >= dataUpdatedAt;
+}
 
 /**
  * Whether to offer the private database copy setting on a package deploy: to a super user, on Harper 5.3.2 or later.
@@ -102,7 +119,7 @@ export function useApplicationsBranchedDatabases(projects: readonly string[]): A
 	const enabled = canRead && projects.length > 0;
 	const options = getConfigurationQueryOptions(params);
 	// Through `select`, so the settings keep their identity until they change and can sit in a dependency list.
-	const { data, isSuccess, isError, error, fetchStatus, refetch } = useQuery({
+	const { data, isSuccess, isError, fetchStatus, refetch } = useQuery({
 		...options,
 		...CONFIGURATION_READ,
 		enabled,
@@ -112,7 +129,8 @@ export function useApplicationsBranchedDatabases(projects: readonly string[]): A
 				return setting ? [{ project, setting }] : [];
 			}),
 	});
-	const refused = enabled && isRefusal(error);
+	const refused = enabled
+		&& isRefusedNow(queryClient.getQueryCache().find({ queryKey: options.queryKey, exact: true }));
 	// A failed read marks the query invalidated too, so only a successful read clears it.
 	const known = enabled && isSuccess && !queryClient.getQueryState(options.queryKey)?.isInvalidated;
 	const failed = enabled && !known && !refused && isError && fetchStatus === 'idle';
@@ -133,7 +151,6 @@ export function useApplicationBranchedDatabases(project: string | undefined): Ap
 
 const NO_PROJECTS: string[] = [];
 
-/** False until the read lands. */
 export function useApplicationEntryHasPackage(project: string | undefined): boolean {
 	const params = useInstanceClientIdParams();
 	const canRead = useInstanceConfigurationReadPermission();
@@ -144,6 +161,25 @@ export function useApplicationEntryHasPackage(project: string | undefined): bool
 		select: configuration => !!project && entryHasPackage(configuration, project),
 	});
 	return data === true;
+}
+
+/**
+ * `project`'s setting as Harper reports it now, or `unknown` when it can't be read. One fresh read, after any already in
+ * flight is cancelled, since that read was sent before whatever is being confirmed.
+ */
+export async function readApplicationSetting(
+	queryClient: QueryClient,
+	params: InstanceClientIdConfig,
+	project: string,
+): Promise<BranchedDatabases | undefined | 'unknown'> {
+	const options = getConfigurationQueryOptions(params);
+	await queryClient.cancelQueries({ queryKey: options.queryKey });
+	try {
+		const configuration = await queryClient.fetchQuery({ ...options, ...CONFIGURATION_READ, staleTime: 0 });
+		return readBranchedDatabases(configuration, project);
+	} catch {
+		return 'unknown';
+	}
 }
 
 /** Call after Studio writes an application's entry, answered or not. */
