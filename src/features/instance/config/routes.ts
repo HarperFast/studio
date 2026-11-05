@@ -7,6 +7,7 @@ import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigPreviewsIndex } from '@/features/instance/config/previews';
 import { validatePreviewsSearch } from '@/features/instance/config/previews/previewsSearch';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigScheduledJobsIndex } from '@/features/instance/config/scheduledJobs';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
@@ -108,6 +109,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigPreviewsIndex,
 	});
 
+	const instanceConfigScheduledJobsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'scheduled-jobs',
+		head: () => ({ meta: [{ title: 'Scheduled Jobs — Harper Fabric' }] }),
+		component: ConfigScheduledJobsIndex,
+	});
+
 	const instanceConfigSecretsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'secrets',
@@ -161,6 +169,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigScheduledJobsRoute,
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,
