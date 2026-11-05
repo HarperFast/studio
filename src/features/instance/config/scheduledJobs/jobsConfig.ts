@@ -1,4 +1,4 @@
-import { Document, isMap, isScalar, isSeq, Pair, parseDocument, Scalar, YAMLMap, YAMLSeq } from 'yaml';
+import { Document, isAlias, isMap, isScalar, isSeq, Pair, parseDocument, Scalar, YAMLMap, YAMLSeq } from 'yaml';
 import { cronProblem, intervalProblem, timezoneProblem } from './schedule';
 
 /** The files Harper reads an app's config from, in the order it looks (harper `components/componentLoader.ts`). */
@@ -143,8 +143,12 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 		return { jobs: [], editable: false, problem: 'scheduler.jobs must be a list of jobs.' };
 	}
 	const seen = new Set<string>();
+	// The data reads through an alias, but the edit works on the nodes, which would be the alias itself.
+	const schedulerNode = doc.get('scheduler', true);
+	const aliased = isAlias(schedulerNode) || (isMap(schedulerNode) && isAlias(schedulerNode.get('jobs', true)));
 	return {
-		editable: true,
+		editable: !aliased,
+		problem: aliased ? 'The jobs come through a YAML alias (*name), so Studio can’t change them in place.' : undefined,
 		jobs: jobs.map((entry, index) => {
 			const job = asJob(entry, index);
 			if (!job.problem && job.name !== undefined) {

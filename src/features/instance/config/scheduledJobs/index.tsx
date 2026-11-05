@@ -29,6 +29,7 @@ import {
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { describeError } from '@/react-query/queryClient';
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -154,7 +155,7 @@ export function ConfigScheduledJobsIndex() {
 		return {
 			app,
 			text,
-			config: pending || query?.isError ? undefined : readJobs(app.name, text),
+			config: pending || (app.configFile && query?.isError) ? undefined : readJobs(app.name, text),
 			isLoading: pending,
 			error: app.configFile ? query?.error : undefined,
 		};
@@ -164,7 +165,7 @@ export function ConfigScheduledJobsIndex() {
 		// React Query keeps the last answer after a refetch fails; the page then says the read failed and uses the log.
 		state: readsState && !stateQuery.isError ? stateQuery.data : undefined,
 		statePending: readsState && stateQuery.isPending,
-		log: logIndex,
+		log: logQuery.isError ? undefined : logIndex,
 		logFailed: logQuery.isError,
 	};
 	const canEditView = (view: AppView) => !view.app.readOnly && !!view.config?.editable;
@@ -180,11 +181,19 @@ export function ConfigScheduledJobsIndex() {
 	>();
 	const [addApp, setAddApp] = useState<string | undefined>();
 	const [restartPending, setRestartPending] = useState(false);
+	// A write that lands while a restart is already running isn't covered by it, so it keeps the prompt.
+	const writes = useRef(0);
+	const writesAtRestart = useRef(0);
+	const wrote = () => {
+		writes.current += 1;
+		setRestartPending(true);
+	};
 	const save = useSaveAppJobs(instanceParams);
 	const { refetch: refetchTree } = treeQuery;
 	const { refetch: refetchLog } = logQuery;
 	const { refetch: refetchState } = stateQuery;
-	const refetchConfigs = configQueries.map((query) => query.refetch);
+	// An app with no config file has no read to refetch: forcing one errors, and that hides the app from Add.
+	const refetchConfigs = configQueries.filter((_, index) => apps[index]?.configFile).map((query) => query.refetch);
 	const refresh = () =>
 		Promise.all([
 			refetchTree(),
@@ -197,11 +206,24 @@ export function ConfigScheduledJobsIndex() {
 		operation: 'restart_service',
 		instanceClient: instanceParams.instanceClient,
 		onRestartedSuccessfully: () => {
-			setRestartPending(false);
+			if (writes.current === writesAtRestart.current) {
+				setRestartPending(false);
+			}
 			// The restart reloads every app, so their status and Harper's log both have news.
 			void refresh();
 		},
 	});
+
+	const startRestart = () => {
+		writesAtRestart.current = writes.current;
+		onRestartClick();
+	};
+	// A write whose answer was lost may have landed, so it still offers the restart.
+	const onWriteError = (error: unknown) => {
+		if (isUnansweredWrite(error)) {
+			wrote();
+		}
+	};
 
 	const openDialog = (view: AppView, job?: ScheduledJobConfig) => {
 		save.reset();
@@ -215,11 +237,12 @@ export function ConfigScheduledJobsIndex() {
 		save.mutate({ app, baseText, change: (text) => writeJob(text, job?.index, draft) }, {
 			onSuccess: ({ file }) => {
 				setDialog(undefined);
-				setRestartPending(true);
+				wrote();
 				toast.success(`${job ? 'Saved' : 'Added'} ${draft.name}`, {
 					description: `${app.name}/${file} is saved. Restart for Harper to run the change.`,
 				});
 			},
+			onError: onWriteError,
 		});
 	};
 	const onRemove = () => {
@@ -230,11 +253,12 @@ export function ConfigScheduledJobsIndex() {
 		save.mutate({ app, baseText, change: (text) => removeJob(text ?? '', job.index) }, {
 			onSuccess: () => {
 				setRemoving(undefined);
-				setRestartPending(true);
+				wrote();
 				toast.success(`Removed ${job.name ?? 'the job'}`, {
 					description: `It keeps running until ${app.name} restarts.`,
 				});
 			},
+			onError: onWriteError,
 		});
 	};
 
@@ -300,7 +324,7 @@ export function ConfigScheduledJobsIndex() {
 					<TriangleAlertIcon />
 					<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
 						<span>Harper keeps running the old jobs until the app restarts.</span>
-						<Button size="sm" variant="warning" onClick={onRestartClick} disabled={isRestartPending}>
+						<Button size="sm" variant="warning" onClick={startRestart} disabled={isRestartPending}>
 							<RotateCcwIcon /> {isRestartPending ? 'Restarting…' : 'Restart now'}
 						</Button>
 					</AlertDescription>

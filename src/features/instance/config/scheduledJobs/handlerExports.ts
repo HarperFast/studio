@@ -13,11 +13,43 @@ export interface ModuleExports {
 }
 
 /**
+ * The source with comments removed and every string and template literal emptied, so neither commented-out code nor
+ * `"export function fake() {}"` in a string offers an export. Regex literals are left as they are.
+ */
+function codeOnly(source: string): string {
+	let code = '';
+	let at = 0;
+	while (at < source.length) {
+		const char = source[at];
+		const next = source[at + 1];
+		if (char === '/' && next === '/') {
+			const end = source.indexOf('\n', at);
+			at = end < 0 ? source.length : end;
+		} else if (char === '/' && next === '*') {
+			const end = source.indexOf('*/', at + 2);
+			at = end < 0 ? source.length : end + 2;
+			code += ' ';
+		} else if (char === '"' || char === "'" || char === '`') {
+			let end = at + 1;
+			while (end < source.length && source[end] !== char && (char === '`' || source[end] !== '\n')) {
+				end += source[end] === '\\' ? 2 : 1;
+			}
+			code += char + char;
+			at = end + 1;
+		} else {
+			code += char;
+			at += 1;
+		}
+	}
+	return code;
+}
+
+/**
  * The exports a module declares, read from its text rather than run, so it's a guide: `export *` and generated exports
- * are invisible to it. Comments are stripped first so commented-out code doesn't offer an export.
+ * are invisible to it.
  */
 export function readModuleExports(source: string): ModuleExports {
-	const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1');
+	const code = codeOnly(source);
 	const names = new Set<string>();
 	if (/\bexport\s+default\b/.test(code)) {
 		names.add('default');

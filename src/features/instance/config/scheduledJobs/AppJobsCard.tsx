@@ -163,7 +163,7 @@ export function AppJobsCard({
 					<Alert variant="destructive" role="alert">
 						<TriangleAlertIcon />
 						<AlertDescription>
-							{config.problem} Fix it in the editor: Studio won’t rewrite a file it can’t read.
+							{config.problem} Change it in the editor instead.
 						</AlertDescription>
 					</Alert>
 				)}

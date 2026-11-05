@@ -3,6 +3,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 import { ConfigScheduledJobsIndex } from '.';
@@ -19,15 +20,18 @@ scheduler:
       handler: ./jobs.js#flakyReport
 `;
 
-const { state, post } = vi.hoisted(() => {
+const { state, post, restart } = vi.hoisted(() => {
 	const state = {
 		canManage: true,
 		version: '5.3.5',
 		files: {} as Record<string, string>,
 		stateFails: false,
+		writeAnswerLost: false,
+		logFails: false,
 	};
 	const post = vi.fn();
-	return { state, post };
+	const restart = { clicks: 0, succeeded: undefined as (() => void) | undefined };
+	return { state, post, restart };
 });
 
 vi.mock('@/config/useInstanceClient', () => {
@@ -36,7 +40,10 @@ vi.mock('@/config/useInstanceClient', () => {
 });
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
 vi.mock('@/hooks/useRestartInstanceClick', () => ({
-	useRestartInstanceClick: () => ({ onRestartClick: vi.fn(), isRestartPending: false }),
+	useRestartInstanceClick: (options: { onRestartedSuccessfully?: () => void }) => {
+		restart.succeeded = options.onRestartedSuccessfully;
+		return { onRestartClick: () => void (restart.clicks += 1), isRestartPending: false };
+	},
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org', clusterId: 'clu', instanceId: 'ins' }),
@@ -76,6 +83,12 @@ function answer(body: Record<string, unknown>) {
 			return { message: state.files[`${body.project}/${body.file}`] };
 		case 'set_component_file':
 			state.files[`${body.project}/${body.file}`] = body.payload as string;
+			if (state.writeAnswerLost) {
+				// The write landed; the answer timed out on the way back.
+				throw new AxiosError('timeout of 300000ms exceeded', AxiosError.ECONNABORTED, {
+					data: JSON.stringify(body),
+				} as InternalAxiosRequestConfig);
+			}
 			return { message: 'Successfully set component' };
 		case 'search_by_value':
 			if (state.stateFails) {
@@ -101,6 +114,9 @@ function answer(body: Record<string, unknown>) {
 				{ id: 'leader', leaderNode: 'node-c', lastHeartbeat: new Date().toISOString() },
 			];
 		case 'read_log':
+			if (state.logFails) {
+				throw new Error('log read failed');
+			}
 			return [
 				{
 					timestamp: '2026-11-05T21:45:20.494Z',
@@ -143,12 +159,15 @@ beforeEach(() => {
 		canManage: true,
 		version: '5.3.5',
 		stateFails: false,
+		writeAnswerLost: false,
+		logFails: false,
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
 			'broken-app/config.yaml':
 				"scheduler:\n  jobs:\n    - name: nightly\n      cron: '0 2 * * *'\n      handler: ./jobs.js#missingExport\n",
 		},
 	});
+	Object.assign(restart, { clicks: 0, succeeded: undefined });
 	post.mockReset();
 	post.mockImplementation(async (_url: string, body: Record<string, unknown>) => ({ data: answer(body) }));
 });
@@ -288,5 +307,50 @@ describe('ConfigScheduledJobsIndex', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 		expect(await screen.findByText(/changed on the instance since this page loaded it/)).toBeTruthy();
 		expect(state.files['metrics-app/config.yaml']).toBe(inserted);
+	});
+
+	it('still offers the restart when a removal’s answer is lost, since it may have landed', async () => {
+		state.writeAnswerLost = true;
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove sync-rates' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+		expect(await screen.findByText('Harper keeps running the old jobs until the app restarts.')).toBeTruthy();
+	});
+
+	it('keeps the restart prompt for a removal saved while a restart was already running', async () => {
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove sync-rates' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'Restart now' }));
+		expect(restart.clicks).toBe(1);
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove flaky-report' }));
+		fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+		await waitFor(() => expect(state.files['metrics-app/config.yaml']).not.toContain('flaky-report'));
+		await act(async () => {
+			restart.succeeded?.();
+		});
+		expect(screen.getByText('Harper keeps running the old jobs until the app restarts.')).toBeTruthy();
+	});
+
+	it('stops showing what the log said once a refetch of it fails', async () => {
+		renderPage();
+		expect(await screen.findByText('node-b')).toBeTruthy();
+		state.logFails = true;
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+		});
+		expect(await screen.findByText(/Studio couldn’t read Harper’s log: log read failed/)).toBeTruthy();
+		expect(screen.queryByText('node-b')).toBeNull();
+		expect(screen.queryByText(/has no function export named/)).toBeNull();
+	});
+
+	it('keeps an app with no config file in the Add list after a refresh', async () => {
+		renderPage();
+		await screen.findByText('metrics-app', { selector: '[data-slot="card-title"]' });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+		});
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' }).hasAttribute('disabled')).toBe(false));
+		expect(post.mock.calls.some(([, body]) => (body as { project?: string }).project === 'quiet-app')).toBe(false);
 	});
 });

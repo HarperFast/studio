@@ -33,6 +33,16 @@ const url = 'https://example.com'; export function live() {}
 		expect(readModuleExports(source).names).toEqual(['live']);
 	});
 
+	it('ignores exports written inside strings and templates', () => {
+		const source = [
+			'const docs = "export function fake() {}";',
+			"const other = 'export const alsoFake = 1, \\'quoted\\'';",
+			'const tpl = `export function templated() {}\nexport const multiline = 1`;',
+			'export function real() {}',
+		].join('\n');
+		expect(readModuleExports(source).names).toEqual(['real']);
+	});
+
 	it('says the list may be short when the module re-exports another', () => {
 		expect(readModuleExports("export * from './jobs.js';\nexport function a() {}")).toEqual({
 			names: ['a'],

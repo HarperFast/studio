@@ -73,6 +73,14 @@ describe('readAppJobs', () => {
 		});
 		expect(readAppJobs('42\n')).toMatchObject({ editable: false });
 		expect(readAppJobs('# nothing yet\n')).toEqual({ jobs: [], editable: true });
+		const aliasedBlock = 'shared: &s { jobs: [{ name: a, interval: 5m, handler: ./a.js }] }\nscheduler: *s\n';
+		expect(readAppJobs(aliasedBlock)).toMatchObject({
+			editable: false,
+			problem: expect.stringMatching(/YAML alias/),
+			jobs: [expect.objectContaining({ name: 'a' })],
+		});
+		const aliasedList = 'list: &j [{ name: a, interval: 5m, handler: ./a.js }]\nscheduler:\n  jobs: *j\n';
+		expect(readAppJobs(aliasedList)).toMatchObject({ editable: false });
 		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
 			jobs: [],
 			editable: false,

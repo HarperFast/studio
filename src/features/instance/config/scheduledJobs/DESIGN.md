@@ -76,7 +76,8 @@ if a deploy has since made the app one Studio won't change. Nothing else stops t
 other. It writes with `set_component_file`, replicated on a cluster, as the editor does.
 
 Saving sets `restartRequired`, and Harper keeps running the old jobs until a restart (checked on 5.3.5). So the page
-offers the same restart as the editor's menu.
+offers the same restart as the editor's menu. It offers it after a save whose answer was lost too, since that write may
+have landed, and a restart that was already running when a save landed leaves the prompt up.
 
 ## What Studio won't edit
 

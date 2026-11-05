@@ -10,7 +10,7 @@ export class ConfigChangedError extends Error {
 		super(
 			readOnly
 				? `The app changed since this page loaded it. ${readOnly}`
-				: `${file} changed on the instance since this page loaded it. Refresh, then make the change again.`,
+				: `${file} changed on the instance since this page loaded it. Close this and open the job again from the refreshed page.`,
 		);
 		this.name = 'ConfigChangedError';
 	}
