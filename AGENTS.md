@@ -19,6 +19,17 @@ at `.husky`. In a fresh clone or worktree that skipped install, `core.hooksPath`
 the hook never fires, and a non-conforming message commits silently — CI is the first thing
 that objects.
 
+## Imports — extensionless by design; the TypeStrip extension rule doesn't apply
+
+Studio is a bundler-resolved app: Vite resolves its imports, and `tsc -b` type-checks them with
+`"moduleResolution": "bundler"`. Node never loads its source through type stripping, so local
+imports stay extensionless (`from './wafRuleForm'`, `from '@/lib/stableJson'`), as every import
+in the repo already is. Harper's TypeStrip checklist asks for `.ts` on every import; studio is
+exempt (decided in #1994). Reviewers: don't raise a missing extension as a finding.
+
+Adding one wouldn't compile anyway: neither `tsconfig.app.json` nor `tsconfig.node.json` sets
+`allowImportingTsExtensions`, so a `.ts` specifier fails `tsc -b` with TS5097.
+
 ## Routing — keep `getParentRoute` and `addChildren` in lockstep
 
 In the TanStack Router setup (`src/router/rootRouteTree.ts`), every route's declared
