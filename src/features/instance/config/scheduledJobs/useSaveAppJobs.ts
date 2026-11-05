@@ -69,6 +69,7 @@ export function useSaveAppJobs(params: InstanceClientIdConfig & InstanceTypeConf
 					componentFilesAtOrUnder(params.entityId, `${app.name}/${app.configFile ?? 'config.yaml'}`),
 				),
 				queryClient.invalidateQueries({ queryKey: [params.entityId, 'get_components'] }),
+				queryClient.invalidateQueries({ queryKey: ['get_status', params.entityId] }),
 			]),
 	});
 }

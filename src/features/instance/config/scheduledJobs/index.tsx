@@ -29,6 +29,7 @@ import {
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { describeError } from '@/react-query/queryClient';
@@ -120,7 +121,7 @@ function Leader({ sources }: { sources: RunSources }) {
 export function ConfigScheduledJobsIndex() {
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
-	// The route's loader read it. The nav hides this page below 5.2, but a bookmark still lands here.
+	// The nav hides this page below 5.2, but a bookmark still lands here.
 	const { version }: Partial<RegistrationInfoResponse> = useLoaderData({ strict: false }) ?? {};
 	const supported = supportsScheduledJobs(version);
 	const enabled = canManage && supported === true;
@@ -136,8 +137,9 @@ export function ConfigScheduledJobsIndex() {
 	});
 	const logQuery = useQuery(getSchedulerLogQueryOptions({ ...instanceParams, enabled }));
 	const stateQuery = useQuery(getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState }));
+	// Harper's own flag, which the nav polls too: it outlives this page, so a save made before leaving it still shows.
+	const { data: status } = useQuery(getStatusQueryOptions(instanceParams, enabled && supportsGetStatus(version)));
 
-	// The latest parse per app: a render that changes no file re-parses none, and an old file isn't kept.
 	const parsed = useRef(new Map<string, { text: string | undefined; config: AppJobsConfig }>()).current;
 	const readJobs = (app: string, text: string | undefined) => {
 		const cached = parsed.get(app);
@@ -209,7 +211,6 @@ export function ConfigScheduledJobsIndex() {
 			if (writes.current === writesAtRestart.current) {
 				setRestartPending(false);
 			}
-			// The restart reloads every app, so their status and Harper's log both have news.
 			void refresh();
 		},
 	});
@@ -319,7 +320,7 @@ export function ConfigScheduledJobsIndex() {
 				</div>
 			</div>
 
-			{restartPending && (
+			{(restartPending || status?.restartRequired === true) && (
 				<Alert variant="warning">
 					<TriangleAlertIcon />
 					<AlertDescription className="flex flex-wrap items-center justify-between gap-2">

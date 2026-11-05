@@ -124,7 +124,20 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 			problem: `The file is ${describeValue(config)}, not a set of keys, so Studio can’t add jobs to it.`,
 		};
 	}
-	const scheduler = config?.scheduler;
+	const read = readSchedulerValue(config?.scheduler);
+	// The data reads through an alias, empty or not, but an edit works on the nodes, which would be the alias itself.
+	const schedulerNode = doc.get('scheduler', true);
+	const aliased = isAlias(schedulerNode) || (isMap(schedulerNode) && isAlias(schedulerNode.get('jobs', true)));
+	return aliased
+		? {
+			...read,
+			editable: false,
+			problem: read.problem ?? 'The jobs come through a YAML alias (*name), so Studio can’t change them in place.',
+		}
+		: read;
+}
+
+function readSchedulerValue(scheduler: unknown): AppJobsConfig {
 	if (scheduler == null) {
 		return { jobs: [], editable: true };
 	}
@@ -143,12 +156,8 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 		return { jobs: [], editable: false, problem: 'scheduler.jobs must be a list of jobs.' };
 	}
 	const seen = new Set<string>();
-	// The data reads through an alias, but the edit works on the nodes, which would be the alias itself.
-	const schedulerNode = doc.get('scheduler', true);
-	const aliased = isAlias(schedulerNode) || (isMap(schedulerNode) && isAlias(schedulerNode.get('jobs', true)));
 	return {
-		editable: !aliased,
-		problem: aliased ? 'The jobs come through a YAML alias (*name), so Studio can’t change them in place.' : undefined,
+		editable: true,
 		jobs: jobs.map((entry, index) => {
 			const job = asJob(entry, index);
 			if (!job.problem && job.name !== undefined) {
@@ -242,7 +251,10 @@ function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq;
 	if (doc.errors.length > 0) {
 		throw new Error(`The config file isn't valid YAML: ${doc.errors[0].message}`);
 	}
-	if (doc.contents !== null && !isMap(doc.contents)) {
+	if (isScalar(doc.contents) && doc.contents.value === null) {
+		// `~` or `null` as the whole file reads as empty, like a blank one.
+		doc.contents = new YAMLMap();
+	} else if (doc.contents !== null && !isMap(doc.contents)) {
 		throw new Error('The config file isn’t a set of keys, so Studio can’t add jobs to it.');
 	}
 	let scheduler = doc.get('scheduler', true);

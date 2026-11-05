@@ -9,7 +9,10 @@ export default async function cleanup() {}
 export async function syncRates(context) {}
 export function* generator() {}
 export const snapshot = async () => {};
+export const single = ctx => ctx;
+export const viaFunction = function () {};
 export let counter = 0;
+export const settings = { every: '5m' };
 function internal() {}
 const helper = () => {};
 export { internal, helper as renamed };
@@ -19,7 +22,7 @@ export interface Shape {}
 export type { Shape as Other };
 `;
 		expect(readModuleExports(source)).toEqual({
-			names: ['default', 'counter', 'generator', 'internal', 'renamed', 'snapshot', 'syncRates'],
+			names: ['default', 'generator', 'internal', 'renamed', 'single', 'snapshot', 'syncRates', 'viaFunction'],
 			incomplete: false,
 		});
 	});
@@ -41,6 +44,22 @@ const url = 'https://example.com'; export function live() {}
 			'export function real() {}',
 		].join('\n');
 		expect(readModuleExports(source).names).toEqual(['real']);
+	});
+
+	it('reads past regex literals and template interpolations', () => {
+		const source = [
+			'const quote = /["\'`]/g; export function afterRegex() {}',
+			'const ratio = total / count; export function afterDivision() {}',
+			'function check(text) { return /export function fake\\/\\//.test(text); }',
+			"const nested = `a ${items.map((item) => `b ${item}`).join('}')} c`; export function afterTemplate() {}",
+			"const tick = `x ${'`'} y`; export function afterQuotedTick() {}",
+		].join('\n');
+		expect(readModuleExports(source).names).toEqual([
+			'afterDivision',
+			'afterQuotedTick',
+			'afterRegex',
+			'afterTemplate',
+		]);
 	});
 
 	it('says the list may be short when the module re-exports another', () => {

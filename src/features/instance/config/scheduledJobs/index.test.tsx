@@ -28,6 +28,7 @@ const { state, post, restart } = vi.hoisted(() => {
 		stateFails: false,
 		writeAnswerLost: false,
 		logFails: false,
+		restartRequired: false,
 	};
 	const post = vi.fn();
 	const restart = { clicks: 0, succeeded: undefined as (() => void) | undefined };
@@ -113,6 +114,8 @@ function answer(body: Record<string, unknown>) {
 				},
 				{ id: 'leader', leaderNode: 'node-c', lastHeartbeat: new Date().toISOString() },
 			];
+		case 'get_status':
+			return { restartRequired: state.restartRequired };
 		case 'read_log':
 			if (state.logFails) {
 				throw new Error('log read failed');
@@ -161,6 +164,7 @@ beforeEach(() => {
 		stateFails: false,
 		writeAnswerLost: false,
 		logFails: false,
+		restartRequired: false,
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
 			'broken-app/config.yaml':
@@ -342,6 +346,12 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(await screen.findByText(/Studio couldn’t read Harper’s log: log read failed/)).toBeTruthy();
 		expect(screen.queryByText('node-b')).toBeNull();
 		expect(screen.queryByText(/has no function export named/)).toBeNull();
+	});
+
+	it('offers the restart whenever Harper says one is required, as after a save made before leaving the page', async () => {
+		state.restartRequired = true;
+		renderPage();
+		expect(await screen.findByText('Harper keeps running the old jobs until the app restarts.')).toBeTruthy();
 	});
 
 	it('keeps an app with no config file in the Add list after a refresh', async () => {

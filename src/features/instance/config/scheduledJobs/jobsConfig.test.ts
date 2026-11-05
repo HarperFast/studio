@@ -81,6 +81,8 @@ describe('readAppJobs', () => {
 		});
 		const aliasedList = 'list: &j [{ name: a, interval: 5m, handler: ./a.js }]\nscheduler:\n  jobs: *j\n';
 		expect(readAppJobs(aliasedList)).toMatchObject({ editable: false });
+		expect(readAppJobs('empty: &e\nscheduler: *e\n')).toMatchObject({ editable: false, jobs: [] });
+		expect(readAppJobs('none: &n\nscheduler:\n  jobs: *n\n')).toMatchObject({ editable: false, jobs: [] });
 		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
 			jobs: [],
 			editable: false,
@@ -223,6 +225,10 @@ describe('writeJob', () => {
 		expect(() => writeJob('scheduler: [legacy]\n', undefined, draft)).toThrow(/not a set of keys/);
 		expect(() => writeJob('- item\n', undefined, draft)).toThrow(/isn’t a set of keys/);
 		expect(parse(writeJob('# nothing yet\n', undefined, draft))).toEqual({
+			scheduler: { jobs: [{ name: 'n', interval: '5m', handler: './a.js' }] },
+		});
+		expect(readAppJobs('~\n')).toEqual({ jobs: [], editable: true });
+		expect(parse(writeJob('~\n', undefined, draft))).toEqual({
 			scheduler: { jobs: [{ name: 'n', interval: '5m', handler: './a.js' }] },
 		});
 		expect(writeJob('scheduler:\n', undefined, draft)).toContain('    - name: n\n');

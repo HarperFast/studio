@@ -12,36 +12,149 @@ export interface ModuleExports {
 	incomplete: boolean;
 }
 
-/**
- * The source with comments removed and every string and template literal emptied, so neither commented-out code nor
- * `"export function fake() {}"` in a string offers an export. Regex literals are left as they are.
- */
-function codeOnly(source: string): string {
+/** After one of these, a `/` starts a regex literal rather than dividing. */
+const BEFORE_REGEX = new Set([
+	'',
+	'(',
+	',',
+	'=',
+	':',
+	'[',
+	'!',
+	'&',
+	'|',
+	'?',
+	'{',
+	'}',
+	';',
+	'+',
+	'-',
+	'*',
+	'%',
+	'<',
+	'>',
+	'~',
+	'^',
+]);
+const KEYWORDS_BEFORE_REGEX = new Set([
+	'return',
+	'typeof',
+	'instanceof',
+	'in',
+	'of',
+	'new',
+	'delete',
+	'void',
+	'throw',
+	'case',
+	'do',
+	'else',
+	'yield',
+	'await',
+]);
+
+function skipString(source: string, at: number): number {
+	const quote = source[at];
+	let end = at + 1;
+	while (end < source.length && source[end] !== quote && source[end] !== '\n') {
+		end += source[end] === '\\' ? 2 : 1;
+	}
+	return end + 1;
+}
+
+function skipRegex(source: string, at: number): number {
+	let end = at + 1;
+	let inClass = false;
+	while (end < source.length && source[end] !== '\n') {
+		const char = source[end];
+		if (char === '\\') {
+			end += 2;
+			continue;
+		}
+		if (char === '[') {
+			inClass = true;
+		} else if (char === ']') {
+			inClass = false;
+		} else if (char === '/' && !inClass) {
+			break;
+		}
+		end += 1;
+	}
+	end += 1;
+	while (end < source.length && /[a-z]/i.test(source[end])) {
+		end += 1;
+	}
+	return end;
+}
+
+function skipTemplate(source: string, at: number): number {
+	let end = at + 1;
+	while (end < source.length && source[end] !== '`') {
+		if (source[end] === '\\') {
+			end += 2;
+		} else if (source[end] === '$' && source[end + 1] === '{') {
+			end = scan(source, end + 2, true).end;
+		} else {
+			end += 1;
+		}
+	}
+	return end + 1;
+}
+
+/** Code up to the end, or up to the `}` closing an interpolation, with comments gone and literals emptied. */
+function scan(source: string, start: number, untilBrace: boolean): { code: string; end: number } {
 	let code = '';
-	let at = 0;
+	let depth = 0;
+	let at = start;
+	// The last non-space character and the word it ends, which decide whether a `/` starts a regex.
+	let last = '';
+	let word = '';
+	const value = (placeholder: string) => {
+		code += placeholder;
+		last = '0';
+		word = '';
+	};
 	while (at < source.length) {
 		const char = source[at];
 		const next = source[at + 1];
+		if (untilBrace && char === '}' && depth === 0) {
+			return { code, end: at + 1 };
+		}
 		if (char === '/' && next === '/') {
-			const end = source.indexOf('\n', at);
-			at = end < 0 ? source.length : end;
+			const lineEnd = source.indexOf('\n', at);
+			at = lineEnd < 0 ? source.length : lineEnd;
 		} else if (char === '/' && next === '*') {
-			const end = source.indexOf('*/', at + 2);
-			at = end < 0 ? source.length : end + 2;
+			const commentEnd = source.indexOf('*/', at + 2);
+			at = commentEnd < 0 ? source.length : commentEnd + 2;
 			code += ' ';
-		} else if (char === '"' || char === "'" || char === '`') {
-			let end = at + 1;
-			while (end < source.length && source[end] !== char && (char === '`' || source[end] !== '\n')) {
-				end += source[end] === '\\' ? 2 : 1;
-			}
-			code += char + char;
-			at = end + 1;
+		} else if (char === '"' || char === "'") {
+			at = skipString(source, at);
+			value(char + char);
+		} else if (char === '`') {
+			at = skipTemplate(source, at);
+			value('``');
+		} else if (char === '/' && (BEFORE_REGEX.has(last) || KEYWORDS_BEFORE_REGEX.has(word))) {
+			at = skipRegex(source, at);
+			value('/./');
 		} else {
+			depth += char === '{' ? 1 : char === '}' ? -1 : 0;
 			code += char;
 			at += 1;
+			if (!/\s/.test(char)) {
+				word = /[\w$]/.test(char) ? (/[\w$]/.test(last) && source[at - 2] === last ? word : '') + char : '';
+				last = char;
+			}
 		}
 	}
-	return code;
+	return { code, end: at };
+}
+
+/**
+ * The source with comments removed and every string, template and regex literal emptied, so neither commented-out
+ * code nor `"export function fake() {}"` in a literal offers an export.
+ */
+function codeOnly(source: string): string {
+	return scan(source, 0, false).code;
 }
 
 /**
@@ -57,7 +170,10 @@ export function readModuleExports(source: string): ModuleExports {
 	for (const match of code.matchAll(/\bexport\s+(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/g)) {
 		names.add(match[1]);
 	}
-	for (const match of code.matchAll(/\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
+	// Only a binding that is plainly a function: Harper refuses a handler that isn't one, and the rest can be typed.
+	const functionBinding =
+		/\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/g;
+	for (const match of code.matchAll(functionBinding)) {
 		names.add(match[1]);
 	}
 	for (const match of code.matchAll(/\bexport\s+(type\s+)?\{([^}]*)\}/g)) {
