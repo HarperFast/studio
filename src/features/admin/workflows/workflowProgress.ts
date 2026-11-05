@@ -8,50 +8,9 @@ import type {
 
 const isForEach = (kind: PlanStepKind | undefined) => kind === 'forEach' || kind === 'forEach-steps';
 
-interface Resolved {
-	path: string;
-	/** The runtime path ends on a forEach item id (`batch/b1`), so it names an item rather than a step. */
-	endsOnItem: boolean;
-}
-
-function resolve(stepPath: string, kinds: Map<string, PlanStepKind>): Resolved | null {
-	const segments = stepPath.split('/');
-	const parts: string[] = [];
-	for (let index = 0; index < segments.length; index++) {
-		parts.push(segments[index]);
-		const kind = kinds.get(parts.join('/'));
-		if (!kind) { return null; }
-		if (isForEach(kind) && index + 1 < segments.length) {
-			index++;
-			if (index === segments.length - 1) { return { path: parts.join('/'), endsOnItem: true }; }
-		}
-	}
-	return { path: parts.join('/'), endsOnItem: false };
-}
-
 const kindsByPath = (plan: WorkflowPlanStep[]) => new Map(plan.map((step) => [step.path, step.kind]));
 
-export type StatusCounts = Partial<Record<string, number>>;
-
-/**
- * Item statuses per definition step. Central manager's plan reads one status per definition path, which misses every
- * row nested under a forEach (those are keyed by runtime path), so the counts come from the items instead.
- */
-export function statusCountsByStep(detail: Pick<WorkflowDetail, 'plan' | 'items'>): Map<string, StatusCounts> {
-	const counts = new Map<string, StatusCounts>();
-	if (!detail.plan) { return counts; }
-	const kinds = kindsByPath(detail.plan);
-	for (const item of detail.items) {
-		const resolved = resolve(item.stepPath, kinds);
-		if (!resolved || resolved.endsOnItem) { continue; }
-		const forStep = counts.get(resolved.path) ?? {};
-		forStep[item.status] = (forStep[item.status] ?? 0) + 1;
-		counts.set(resolved.path, forStep);
-	}
-	return counts;
-}
-
-export interface BatchProgress {
+interface BatchProgress {
 	total: number;
 	/** Batches the upgrade has marked done, in admission's order. */
 	finished: number;

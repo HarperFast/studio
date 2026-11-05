@@ -1,13 +1,6 @@
 import type { WorkflowItem, WorkflowPlanStep } from '@/features/admin/workflows/workflowAdminApi';
 import { describe, expect, it } from 'vitest';
-import {
-	batchProgress,
-	describeStep,
-	heldClusterIds,
-	itemTree,
-	statusCountsByStep,
-	stepRuns,
-} from './workflowProgress';
+import { batchProgress, describeStep, heldClusterIds, itemTree, stepRuns } from './workflowProgress';
 
 const step = (path: string, kind: WorkflowPlanStep['kind'] = 'step'): WorkflowPlanStep => ({
 	path,
@@ -62,21 +55,6 @@ describe('itemTree definition paths', () => {
 		['batch/b1/members/ins-1/requestUpdate', 'batch/members/requestUpdate'],
 	])('maps %s to %s', (runtime, definition) => {
 		expect(itemTree({ plan, items }).find((row) => row.path === runtime)?.definitionPath).toBe(definition);
-	});
-});
-
-describe('statusCountsByStep', () => {
-	it('counts step rows under their definition path, leaving out the per-item rows', () => {
-		const counts = statusCountsByStep({ plan, items });
-		expect(counts.get('batch')).toEqual({ running: 1 });
-		expect(counts.get('batch/waitForPeersToRelease')).toEqual({ done: 2 });
-		expect(counts.get('batch/drainBatch')).toEqual({ done: 1, running: 1 });
-		expect(counts.get('batch/members/requestUpdate')).toEqual({ done: 1 });
-		expect(counts.has('batch/markBatchDone')).toBe(true);
-	});
-
-	it('is empty without a plan', () => {
-		expect(statusCountsByStep({ plan: null, items }).size).toBe(0);
 	});
 });
 

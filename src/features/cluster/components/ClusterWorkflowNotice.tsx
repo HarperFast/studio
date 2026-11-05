@@ -51,7 +51,6 @@ export function ClusterWorkflowNotice(
 
 	const paused = row.status === 'PAUSED';
 	const progress = batchProgress(row);
-	// describeStep names the batch only while one is current; once undoing or past the last, say how far they got.
 	const facts = [
 		paused ? pauseLabel(row.pause?.reason) : row.status.toLowerCase(),
 		describeStep(row),
