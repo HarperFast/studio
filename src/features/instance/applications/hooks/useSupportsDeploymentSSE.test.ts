@@ -21,7 +21,6 @@ describe('supportsStagedDeployments', () => {
 
 describe('supportsReleaseTracking', () => {
 	it.each([
-		// `list_releases`, `source` and the `sha` filter ship in the first 5.4 prerelease (harper#3502).
 		['5.4.0-alpha.1', true],
 		['5.4.0-beta.2', true],
 		['5.4.0', true],

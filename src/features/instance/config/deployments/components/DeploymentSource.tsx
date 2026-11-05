@@ -30,7 +30,6 @@ function ExternalLink({ href, children }: { href?: string; children: React.React
 		: <>{children}</>;
 }
 
-/** `filterable`: `list_deployments` takes `sha` (5.4.0-alpha.1+). Only a hash survives the page's search validation. */
 function CommitFilter({ sha, label, filterable }: { sha: string; label: string; filterable: boolean }) {
 	const navigate = useNavigate();
 	if (!filterable || !isCommitSha(sha)) {

@@ -28,7 +28,6 @@ export const FILTERABLE_STATUSES: readonly DeploymentStatus[] = [
 const ROLLING_STATUSES: readonly DeploymentStatus[] = ['rolling_out', 'partial'];
 
 export function filterableStatuses(stagingSupported: boolean, harperVersion?: string): readonly DeploymentStatus[] {
-	// Harper writes them from 5.4.0-alpha.1 (harper `v5.4.0-alpha.1:components/deploymentOperations.ts:22`).
 	const rollingSupported = supportsReleaseTracking(harperVersion);
 	return FILTERABLE_STATUSES.filter((status) =>
 		(stagingSupported || status !== 'staged') && (rollingSupported || !ROLLING_STATUSES.includes(status))

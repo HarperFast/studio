@@ -4,8 +4,8 @@ import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployme
 import { getReleasesQueryOptions } from '@/integrations/api/instance/deployments/listReleases';
 import { ListDeploymentsResponse } from '@/integrations/api/instance/deployments/types';
 import { describeError } from '@/react-query/queryClient';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import {
 	ReleaseAvailability,
 	releaseAvailability,
@@ -39,7 +39,7 @@ function recordsGeneration({ total, deployments: [newest] }: ListDeploymentsResp
 export function useComponentReleases(project: string | undefined) {
 	const instanceParams = useInstanceClientIdParams();
 	const supported = useReleaseTrackingAvailable() && !!project;
-	const { data: newest } = useQuery(
+	const { data: newest, error: newestError } = useQuery(
 		getDeploymentsQueryOptions({ ...instanceParams, project, limit: 1, enabled: supported, pollWhileOpen: true }),
 	);
 	const generation = newest && recordsGeneration(newest);
@@ -58,12 +58,29 @@ export function useComponentReleases(project: string | undefined) {
 		if (status === 'error') {
 			return { kind: 'unreadable', message: describeError(error).message };
 		}
+		if (!newest && newestError) {
+			return { kind: 'unreadable', message: describeError(newestError).message };
+		}
 		const summary = data && summarizeReleases(data, project!);
 		return summary && status === 'success' && !isPlaceholderData && fetchStatus === 'idle'
 			? { kind: 'ready', summary }
 			: { kind: 'checking', previous: summary };
-	}, [supported, data, error, status, isPlaceholderData, fetchStatus, project]);
+	}, [supported, data, error, status, isPlaceholderData, fetchStatus, newest, newestError, project]);
 	return { state };
+}
+
+/** Asks again after a failure: the component's newest record, and what each node holds. */
+export function useRetryReleases(): () => Promise<unknown> {
+	const queryClient = useQueryClient();
+	const { entityId } = useInstanceClientIdParams();
+	return useCallback(
+		() =>
+			Promise.all([
+				queryClient.invalidateQueries({ queryKey: [entityId, 'list_deployments'] }),
+				queryClient.invalidateQueries({ queryKey: [entityId, 'list_releases'] }),
+			]),
+		[queryClient, entityId],
+	);
 }
 
 export type ReleaseCheck =

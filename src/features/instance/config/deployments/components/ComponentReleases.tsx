@@ -1,10 +1,9 @@
 import { humanFileSize } from '@/lib/humanFileSize';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { ReleaseCoverage, ReleasesSummary } from '../functions/releaseCoverage';
-import { useComponentReleases } from '../hooks/useComponentReleases';
+import { useComponentReleases, useRetryReleases } from '../hooks/useComponentReleases';
 import { DeploymentLink } from './StagedReleaseNote';
 
-// "Every node" only when every node answered: one that could not may hold anything.
 function nodesText(nodes: readonly string[], summary: ReleasesSummary): string {
 	return nodes.length === summary.nodes.length && summary.unreadable.length === 0 ? 'every node' : nodes.join(', ');
 }
@@ -35,12 +34,17 @@ const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
  */
 export function ComponentReleasesPanel({ project }: { project: string }) {
 	const { state } = useComponentReleases(project);
+	const retry = useRetryReleases();
 
 	if (state.kind === 'unsupported') {
 		return null;
 	}
 	return (
-		<section aria-label={`Releases of ${project}`} className="mb-4 rounded-md border border-border p-3 text-sm">
+		<section
+			aria-label={`Releases of ${project}`}
+			aria-busy={state.kind === 'checking'}
+			className="mb-4 rounded-md border border-border p-3 text-sm"
+		>
 			<h2 className="mb-2 font-medium">
 				Releases of {project} on each node
 				{state.kind === 'checking' && state.previous && (
@@ -52,7 +56,12 @@ export function ComponentReleasesPanel({ project }: { project: string }) {
 			)}
 			{state.kind === 'checking' && state.previous && <ReleasesList summary={state.previous} />}
 			{state.kind === 'unreadable' && (
-				<p className="text-muted-foreground">Couldn&apos;t ask the nodes which releases they hold: {state.message}</p>
+				<p className="text-muted-foreground">
+					Couldn&apos;t ask the nodes which releases they hold: {state.message}{' '}
+					<button type="button" className="underline" onClick={() => void retry()}>
+						Try again
+					</button>
+				</p>
 			)}
 			{state.kind === 'ready' && <ReleasesList summary={state.summary} />}
 		</section>

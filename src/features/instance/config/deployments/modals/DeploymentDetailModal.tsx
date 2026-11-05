@@ -24,7 +24,6 @@ export function DeploymentDetailModal({
 					<DialogTitle>Deployment</DialogTitle>
 				</DialogHeader>
 				<div className="min-h-0 flex-1 overflow-y-auto">
-					{/* Keyed so one record's activation progress never shows on the next record opened. */}
 					<DeploymentDetail key={deploymentId} deploymentId={deploymentId} />
 				</div>
 			</DialogContent>

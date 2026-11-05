@@ -161,6 +161,19 @@ describe('useComponentReleases', () => {
 		expect(screen.getByTestId('panel').textContent).toBe('checking');
 	});
 
+	it('cannot answer, rather than check forever, when the records of the component cannot be read', async () => {
+		state.params = {
+			...clusterA,
+			instanceClient: { post: () => Promise.reject(Object.assign(new Error('denied'), { response: { status: 403 } })) },
+		};
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<Detail />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+	});
+
 	it('does not ask again when the window regains focus', async () => {
 		await renderBoth();
 		await act(async () => {

@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	history: [] as object[] | Error | 'pending',
-	/** Harper 5.4.0-alpha.1+: `list_releases` answers with this. */
 	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
 	mutateAsync: vi.fn(),

@@ -17,7 +17,6 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	const instanceParams = useInstanceClientIdParams();
 	const releaseId = releasedId(deployment);
 	const check = useReleaseCheck(deployment.project, releaseId);
-	// Only the deployment that built a release can say why a node has none of it.
 	const builtByOther = releaseId !== deployment.deployment_id;
 	const { data: builtBy } = useQuery({
 		...getDeploymentQueryOptions({ ...instanceParams, deploymentId: releaseId }),

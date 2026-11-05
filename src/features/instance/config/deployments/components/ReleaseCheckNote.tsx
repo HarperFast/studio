@@ -1,8 +1,6 @@
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
-import { useQueryClient } from '@tanstack/react-query';
 import { MissingReason, missingReason } from '../functions/releaseCoverage';
-import type { ReleaseCheck } from '../hooks/useComponentReleases';
+import { type ReleaseCheck, useRetryReleases } from '../hooks/useComponentReleases';
 
 const MISSING_REASON: Record<MissingReason, string> = {
 	'failed-there': 'this deploy failed there',
@@ -28,8 +26,7 @@ export function ReleaseCheckNote({
 	trustRecords: boolean;
 	showLive?: boolean;
 }) {
-	const queryClient = useQueryClient();
-	const { entityId } = useInstanceClientIdParams();
+	const retry = useRetryReleases();
 	switch (check.kind) {
 		case 'unsupported':
 			return null;
@@ -44,7 +41,7 @@ export function ReleaseCheckNote({
 					<button
 						type="button"
 						className="underline"
-						onClick={() => void queryClient.invalidateQueries({ queryKey: [entityId, 'list_releases'] })}
+						onClick={() => void retry()}
 					>
 						Try again
 					</button>
