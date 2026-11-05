@@ -1,13 +1,11 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { IntakeControl } from '@/features/admin/workflows/components/IntakeControl';
 import { RefreshFailed, Timestamp, WorkflowStatusBadge } from '@/features/admin/workflows/components/WorkflowBits';
 import {
-	INTAKE_MODES,
-	IntakeMode,
 	KNOWN_WORKFLOW_TYPES,
 	LIST_PAGE_SIZE,
-	useSetIntakeMutation,
 	WORKFLOW_STATUSES,
 	WorkflowFilters,
 	WorkflowRow,
@@ -17,14 +15,12 @@ import {
 	workflowSummaryQueryOptions,
 } from '@/features/admin/workflows/workflowAdminApi';
 import { describeStep, heldClusterIds, workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
-import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 const ACTIVE = 'active';
 const ALL = 'all';
@@ -39,14 +35,6 @@ function filtersFor(status: StatusChoice, type: string, clusterId: string): Work
 		clusterId: clusterId.trim() || undefined,
 	};
 }
-
-// As the executor claims: `queue` holds only PENDING rows; `pause` also stops running ones at their next step boundary,
-// and they continue on their own once intake is open again.
-const INTAKE_COPY: Record<IntakeMode, string> = {
-	open: 'Open: workflows start and run',
-	queue: 'Queue: new ones wait, running ones continue',
-	pause: 'Pause: every workflow stops at its next step',
-};
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'alert' }) {
 	return (
@@ -115,31 +103,6 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 				</ul>
 			)}
 		</section>
-	);
-}
-
-function IntakeControl({ mode }: { mode: IntakeMode }) {
-	const canManage = useStaffPermission('workflow:manage');
-	const mutation = useSetIntakeMutation();
-	return (
-		<div className="flex w-full flex-col items-start gap-2 text-sm xl:w-auto">
-			<span className="text-muted-foreground">Intake</span>
-			<Select
-				value={mode}
-				disabled={!canManage || mutation.isPending}
-				onValueChange={(next) =>
-					mutation.mutate(next as IntakeMode, {
-						onSuccess: () => toast.success(`Workflow intake set to ${next}`),
-					})}
-			>
-				<SelectTrigger className="w-full min-w-0 sm:w-80" aria-label="Workflow intake">
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{INTAKE_MODES.map((option) => <SelectItem key={option} value={option}>{INTAKE_COPY[option]}</SelectItem>)}
-				</SelectContent>
-			</Select>
-		</div>
 	);
 }
 
