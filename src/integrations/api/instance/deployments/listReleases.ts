@@ -59,14 +59,17 @@ export async function listReleases(
 }
 
 /**
- * Not polled: every node walks each kept release's tree to size it. The page refetches it when the component's
- * records change, and an activation invalidates it with the rest of the entity's queries.
+ * Never polled, nor fetched again on focus or reconnect: every node walks each kept release's tree to size it.
+ * `useComponentReleases` asks again when the component's newest record changes, and an activation invalidates it
+ * with the rest of the entity's queries.
  */
 export function getReleasesQueryOptions(params: ListReleasesParams) {
 	return queryOptions({
 		queryKey: [params.entityId, 'list_releases', { project: params.project }] as const,
 		queryFn: () => listReleases(params),
 		retry: false,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
 		enabled: params.enabled !== false,
 	});
 }

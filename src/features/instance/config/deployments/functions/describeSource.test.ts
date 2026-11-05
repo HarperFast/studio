@@ -42,6 +42,7 @@ describe('describeSource', () => {
 		const elsewhere = describeSource({ via: 'oidc', policy: 'p', repository: 'group/web', sha: SHA, run_id: '9' });
 		expect(elsewhere.commitUrl).toBeUndefined();
 		expect(elsewhere.run).toEqual({ label: 'Run #9', url: undefined });
+		expect(describeSource({ via: 'declared', run_id: '9', workflow_ref: '' }).run?.label).toBe('Run #9');
 		const otherRepository = describeSource({ ...github, workflow_ref: 'acme/ci/.github/workflows/x.yml@main' });
 		expect(otherRepository.commitUrl).toBeUndefined();
 	});

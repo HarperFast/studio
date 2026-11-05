@@ -1,12 +1,11 @@
 import { Badge } from '@/components/ui/badge';
-import { useReleaseTrackingAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { Deployment, DeploymentSource } from '@/integrations/api/instance/deployments/types';
 import { useNavigate } from '@tanstack/react-router';
-import type { DeploymentsSearch } from '../deploymentsSearch';
+import { type DeploymentsSearch, isCommitSha } from '../deploymentsSearch';
 import { deploymentSource } from '../functions/deploymentSource';
 import { describeSource } from '../functions/describeSource';
 
-export function SourceViaBadge({ source }: { source: DeploymentSource }) {
+function SourceViaBadge({ source }: { source: DeploymentSource }) {
 	const { attested, via, viaDetail } = describeSource(source);
 	return (
 		<Badge variant={attested ? 'success' : 'outline'} title={viaDetail}>
@@ -31,11 +30,10 @@ function ExternalLink({ href, children }: { href?: string; children: React.React
 		: <>{children}</>;
 }
 
-/** Shows the deployments of the commit, where `list_deployments` can filter by it (5.4.0-alpha.1+). */
-function CommitFilter({ sha, label }: { sha: string; label: string }) {
+/** `filterable`: `list_deployments` takes `sha` (5.4.0-alpha.1+). Only a hash survives the page's search validation. */
+function CommitFilter({ sha, label, filterable }: { sha: string; label: string; filterable: boolean }) {
 	const navigate = useNavigate();
-	const filterable = useReleaseTrackingAvailable();
-	if (!filterable) {
+	if (!filterable || !isCommitSha(sha)) {
 		return <span className="font-mono" title={sha}>{label}</span>;
 	}
 	return (
@@ -56,8 +54,9 @@ function CommitFilter({ sha, label }: { sha: string; label: string }) {
 	);
 }
 
-/** The list's Source cell: what was deployed, and for a deploy that says so, the commit it was built from. */
-export function DeploymentSourceCell({ deployment }: { deployment: Deployment }) {
+export function DeploymentSourceCell(
+	{ deployment, commitFilterable }: { deployment: Deployment; commitFilterable: boolean },
+) {
 	const built = deploymentSource(deployment);
 	const source = deployment.source ? describeSource(deployment.source) : undefined;
 	if (!built && !source) {
@@ -68,7 +67,7 @@ export function DeploymentSourceCell({ deployment }: { deployment: Deployment })
 			{built && <span className="break-all" title={built.title}>{built.label}</span>}
 			{source?.sha && (
 				<span className="flex flex-wrap items-center gap-1 text-muted-foreground">
-					<CommitFilter sha={source.sha} label={source.shortSha!} />
+					<CommitFilter sha={source.sha} label={source.shortSha!} filterable={commitFilterable} />
 					{source.repository && <span className="break-all">{source.repository}</span>}
 					<SourceViaBadge source={deployment.source!} />
 				</span>
@@ -87,7 +86,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 	);
 }
 
-/** Where a deploy came from, in the record's detail (5.4.0+). */
 export function DeploymentSourceFields({ source }: { source: DeploymentSource }) {
 	const described = describeSource(source);
 	return (

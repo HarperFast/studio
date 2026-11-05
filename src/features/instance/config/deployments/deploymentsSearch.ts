@@ -40,6 +40,10 @@ export const DEPLOYMENTS_PAGE_SIZE = 25;
 /** A full or abbreviated commit, SHA-1 or SHA-256. Harper compares it whole, so only a full one matches anything. */
 const COMMIT_SHA = /^[0-9a-f]{7,64}$/i;
 
+export function isCommitSha(value: string): boolean {
+	return COMMIT_SHA.test(value);
+}
+
 export function validateDeploymentsSearch(search: Record<string, unknown>): DeploymentsSearch {
 	const project = typeof search.project === 'string' ? search.project.trim() : '';
 	const status = FILTERABLE_STATUSES.find((candidate) => candidate === search.status);

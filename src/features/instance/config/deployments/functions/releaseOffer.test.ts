@@ -4,15 +4,16 @@ import { releaseOffer } from './releaseOffer';
 const fromRecords = { intent: 'rollback' as const, offer: true };
 
 describe('releaseOffer', () => {
-	it('goes by the records alone where Harper cannot be asked, only when they are enough', () => {
-		expect(releaseOffer({ kind: 'unsupported' }, fromRecords, true)).toEqual({ ...fromRecords, disabled: false });
-		expect(releaseOffer({ kind: 'unsupported' }, fromRecords, false)).toEqual({ ...fromRecords, disabled: true });
-		expect(releaseOffer({ kind: 'unreadable', message: 'x' }, fromRecords, true).disabled).toBe(false);
-		expect(releaseOffer({ kind: 'unreadable', message: 'x' }, fromRecords, false).disabled).toBe(true);
+	it('goes by the records alone where Harper cannot be asked, and otherwise offers nothing', () => {
+		for (const check of [{ kind: 'unsupported' as const }, { kind: 'unreadable' as const, message: 'x' }]) {
+			expect(releaseOffer(check, fromRecords, true)).toEqual({ ...fromRecords, disabled: false });
+			expect(releaseOffer(check, fromRecords, false)).toMatchObject({ offer: false });
+		}
 	});
 
-	it('holds the action back while it asks', () => {
+	it('holds the action back while it asks, and shows none it may not offer', () => {
 		expect(releaseOffer({ kind: 'checking' }, fromRecords, true)).toEqual({ ...fromRecords, disabled: true });
+		expect(releaseOffer({ kind: 'checking' }, fromRecords, false)).toMatchObject({ offer: false, disabled: true });
 	});
 
 	it('offers nothing for a release live on every node, whatever the records say', () => {

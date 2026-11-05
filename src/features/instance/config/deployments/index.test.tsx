@@ -36,6 +36,10 @@ vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 }));
 vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
 	getDeploymentsQueryOptions: (params: { enabled?: boolean; limit?: number }) => {
+		// The releases panel watches the component's newest record to know when to ask the nodes again.
+		if (params.limit === 1) {
+			return { queryKey: ['newest', params], queryFn: () => new Promise(() => {}), enabled: false };
+		}
 		// The page asks for a page; what became of a staged record is asked of the component's whole history.
 		if (params.limit === undefined) {
 			state.historyParams.push(params);
@@ -281,6 +285,16 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		expect(update.search({ project: 'web', page: 3 })).toEqual({ project: 'web', sha: SHA, page: undefined });
 	});
 
+	it('shows a declared commit that is not a hash without offering to filter by it', () => {
+		state.listData = {
+			deployments: [row('d1', { source: { via: 'declared', repository: 'acme/web', sha: 'main' } })],
+			total: 1,
+		};
+		renderPage('5.4.0-beta.2');
+		expect(screen.getByText('main').tagName).toBe('SPAN');
+		expect(screen.queryByRole('button', { name: 'main' })).toBeNull();
+	});
+
 	it('shows what each node holds of the component it is filtered to', () => {
 		state.search = { project: 'web' };
 		const at = Date.now() - 60_000;
@@ -300,7 +314,8 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		};
 		renderPage('5.4.0-beta.2');
 		const panel = screen.getByRole('region', { name: 'Releases of web' });
-		expect(panel.textContent).toContain('Live on every node');
+		// c did not answer, so nothing is said to be on "every node".
+		expect(panel.textContent).toContain('Live on a, b');
 		expect(panel.textContent).toContain('Kept on a · not on b');
 		expect(panel.textContent).toContain("c couldn't say what it holds: timed out");
 		expect(state.releasesAsked.at(-1)).toMatchObject({ project: 'web' });

@@ -22,11 +22,10 @@ export function releaseOffer(
 ): ReleaseOffer {
 	switch (check.kind) {
 		case 'unsupported':
-			return { ...fromRecords, disabled: !trustRecords };
-		case 'checking':
-			return { ...fromRecords, disabled: true };
 		case 'unreadable':
-			return { ...fromRecords, disabled: !trustRecords };
+			return trustRecords ? { ...fromRecords, disabled: false } : { ...fromRecords, offer: false, disabled: true };
+		case 'checking':
+			return { ...fromRecords, offer: fromRecords.offer && trustRecords, disabled: true };
 		case 'live-everywhere':
 			return { ...fromRecords, offer: false, disabled: false };
 		case 'available':

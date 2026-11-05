@@ -11,7 +11,7 @@ import {
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
-import { DeploymentStatus, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { Row } from '@/lib/table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -91,16 +91,7 @@ export function ConfigDeploymentsIndex() {
 	const firstShown = total === 0 ? 0 : (page - 1) * DEPLOYMENTS_PAGE_SIZE + 1;
 	const lastShown = Math.min(total, (page - 1) * DEPLOYMENTS_PAGE_SIZE + deployments.length);
 	const filtered = !!project || !!status || !!sha;
-	// What is on disk changes when a deploy of the component starts or ends, so the panel asks again then.
-	const recordsKey = useMemo(
-		() =>
-			`${total}|${
-				deployments.filter((deployment) => !isTerminalDeploymentStatus(deployment.status)).map((deployment) =>
-					deployment.deployment_id
-				).join(',')
-			}`,
-		[total, deployments],
-	);
+	const columns = useMemo(() => deploymentColumns({ commitFilterable: releaseTracking }), [releaseTracking]);
 
 	const setSearch = useCallback(
 		(patch: DeploymentsSearch) => {
@@ -162,11 +153,11 @@ export function ConfigDeploymentsIndex() {
 
 	return (
 		<>
-			{project && releaseTracking && <ComponentReleasesPanel project={project} recordsKey={recordsKey} />}
+			{project && releaseTracking && <ComponentReleasesPanel project={project} />}
 			<SimpleBrowseDataTable<DeploymentRow>
 				data={rows}
 				isFetching={isFetching || isRefetching || (!versionKnown && !versionUnavailable)}
-				columns={deploymentColumns}
+				columns={columns}
 				onRowClick={onRowClick}
 			>
 				<form

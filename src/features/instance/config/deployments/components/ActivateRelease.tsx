@@ -180,7 +180,8 @@ export function ActivateRelease({
 					<DeployProgress state={stream.state} />
 				</>
 			)}
-			<AlertDialog open={confirming} onOpenChange={setConfirming}>
+			{/* Closes once refused, rather than activate on what the button showed when it opened. */}
+			<AlertDialog open={confirming && !disabled && !isPending} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>

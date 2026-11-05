@@ -40,7 +40,6 @@ function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { 
 export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) {
 	const records = useMemo(() => [deployment], [deployment]);
 	const release = useStagedReleases(records).get(deployment.deployment_id);
-	// The records say what became of it; from Harper 5.4 each node says what it holds, which decides the offer.
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const { intent, offer, disabled } = releaseOffer(check, {
 		intent: release?.kind === 'replaced'

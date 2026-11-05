@@ -307,11 +307,14 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
 	});
 
-	it('refuses to go back when the nodes cannot be asked', async () => {
+	// The record may be the live release's own, which has nothing to go back to.
+	it('offers no going back while it asks the nodes, or when they cannot be asked', async () => {
 		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, new Error('timed out'));
+		expect(screen.getByText(/Checking which nodes hold this release/)).toBeTruthy();
+		expect(rollBack()).toBeNull();
 
 		expect(await screen.findByText(/Going back needs every node to hold it\./)).toBeTruthy();
-		expect(rollBack()!.disabled).toBe(true);
+		expect(rollBack()).toBeNull();
 	});
 
 	it('offers no going back before Harper 5.4, which cannot say what each node keeps', () => {

@@ -30,7 +30,7 @@ export function supportsStagedDeployments(harperVersion: string | undefined): bo
  * record's `source` and `list_deployments`' `sha` filter, and the `rolling_out` and `partial` statuses. An older Harper
  * refuses `list_releases` and ignores `sha`, which would list every deployment under a commit filter.
  */
-export const MIN_RELEASE_TRACKING_VERSION = '5.4.0-alpha.1';
+const MIN_RELEASE_TRACKING_VERSION = '5.4.0-alpha.1';
 
 export function supportsReleaseTracking(harperVersion: string | undefined): boolean {
 	return !!harperVersion && wasAReleasedBeforeB(MIN_RELEASE_TRACKING_VERSION, harperVersion);

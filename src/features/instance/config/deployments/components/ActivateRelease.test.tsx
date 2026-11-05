@@ -107,7 +107,6 @@ describe('ActivateRelease', () => {
 		);
 		fireEvent.click(screen.getByRole('button', { name: 'Activate again' }));
 		expect(screen.getByText('Activate this release of web again?')).toBeTruthy();
-		// Not only a staged release is activated again: a deploy some node did not take is too.
 		const description = screen.getByText(/It was installed when it was deployed or staged/);
 		expect(description.textContent).toMatch(
 			/so each node just switches to it, and a node already running it restarts without changing anything\.$/,
@@ -124,6 +123,21 @@ describe('ActivateRelease', () => {
 		expect(button.disabled).toBe(true);
 		fireEvent.click(button);
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('closes an open confirmation once the release is refused, rather than activate it anyway', () => {
+		const queryClient = new QueryClient();
+		const view = (disabled: boolean) => (
+			<QueryClientProvider client={queryClient}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view(false));
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		rerender(view(true));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		expect(state.mutateAsync).not.toHaveBeenCalled();
 	});
 
 	it('goes back to a release by the id that built it, with the same activation call', () => {

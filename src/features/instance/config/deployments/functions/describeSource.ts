@@ -50,7 +50,7 @@ export function describeSource(source: DeploymentSource): DescribedSource {
 		ref: source.ref,
 		run: runId
 			? {
-				label: `${source.workflow_ref?.split('@')[0].split('/').pop() ?? 'Run'} #${runId}${attempt}`,
+				label: `${source.workflow_ref?.split('@')[0].split('/').pop() || 'Run'} #${runId}${attempt}`,
 				url: base && NUMBER.test(runId)
 					? `${base}/actions/runs/${runId}${
 						source.run_attempt && NUMBER.test(source.run_attempt) ? `/attempts/${source.run_attempt}` : ''
