@@ -29,8 +29,8 @@ const upgrade: WorkflowRow = {
 	status: 'RUNNING',
 	phase: 'run',
 	clusterId: 'clu-1',
-	step: 'batch/b2/drain',
-	state: { batchIds: ['b1', 'b2'], lastBatchFinished: 'b1' },
+	step: 'batch/b2/members/ins-2/waitUntilRunning',
+	state: { batchIds: ['b1', 'b2'], batches: { b1: ['ins-1'], b2: ['ins-2'] }, lastBatchFinished: 'b1' },
 };
 const isWorkflowRead = (url: unknown) => String(url).startsWith('/Admin/Workflow/');
 
@@ -72,8 +72,7 @@ describe('ClusterWorkflowNotice', () => {
 		renderNotice();
 		await waitFor(() => expect(mockedGet).toHaveBeenCalledWith('/Admin/Workflow/?active=true&clusterId=clu-1'));
 		expect(await screen.findByText('Harper version upgrade in progress')).toBeTruthy();
-		expect(screen.getByText(/batch 2 of 2/)).toBeTruthy();
-		expect(screen.getByText(/step batch\/b2\/drain/)).toBeTruthy();
+		expect(screen.getByText(/running · batch 2 of 2, member 1 of 1: waitUntilRunning/)).toBeTruthy();
 		expect(screen.getByRole('link').getAttribute('href')).toBe('/admin/workflows/wf-1');
 	});
 

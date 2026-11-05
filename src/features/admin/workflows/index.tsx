@@ -15,12 +15,13 @@ import {
 	WorkflowSummary,
 	workflowSummaryQueryOptions,
 } from '@/features/admin/workflows/workflowAdminApi';
-import { workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
+import { describeStep, workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -252,16 +253,26 @@ export function WorkflowsAdminIndex() {
 													<Link
 														to="/admin/workflows/$workflowId"
 														params={{ workflowId: row.id }}
-														className="rounded-sm text-sm font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+														className="group inline-flex items-start gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
 													>
-														{workflowTypeLabel(row.type)}
+														<span>
+															<span className="text-sm font-medium text-foreground underline underline-offset-4 decoration-muted-foreground/60 group-hover:decoration-foreground">
+																{workflowTypeLabel(row.type)}
+															</span>
+															<span className="mt-1 block font-mono text-xs text-muted-foreground">{row.id}</span>
+														</span>
+														<ChevronRightIcon
+															aria-hidden="true"
+															className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
+														/>
 													</Link>
-													<div className="mt-1 font-mono text-xs text-muted-foreground">{row.id}</div>
 												</TableCell>
 												<TableCell>
 													<WorkflowStatusBadge row={row} />
 												</TableCell>
-												<TableCell className="font-mono text-xs">{row.step ?? '—'}</TableCell>
+												<TableCell className="text-xs" title={row.step ?? undefined}>
+													{describeStep(row) ?? '—'}
+												</TableCell>
 												<TableCell className="font-mono text-xs">{row.clusterId ?? '—'}</TableCell>
 												<TableCell className="text-xs">{row.owner?.node ?? '—'}</TableCell>
 												<TableCell className="text-xs">

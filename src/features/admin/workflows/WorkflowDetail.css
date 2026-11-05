@@ -1,0 +1,7 @@
+.workflow-step-running {
+	background-color: color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+.workflow-step-running > td:first-child {
+	box-shadow: inset 3px 0 0 color-mix(in srgb, var(--foreground) 70%, transparent);
+}

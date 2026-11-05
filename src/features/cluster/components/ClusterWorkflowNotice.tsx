@@ -1,6 +1,11 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { heldClusterWorkflowQueryOptions } from '@/features/admin/workflows/workflowAdminApi';
-import { batchProgress, pauseLabel, workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
+import {
+	batchProgress,
+	describeStep,
+	pauseLabel,
+	workflowTypeLabel,
+} from '@/features/admin/workflows/workflowProgress';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -46,14 +51,14 @@ export function ClusterWorkflowNotice(
 
 	const paused = row.status === 'PAUSED';
 	const progress = batchProgress(row);
+	// While it runs forward the step says which batch and member it is on; otherwise how far the batches got.
 	const facts = [
 		paused ? pauseLabel(row.pause?.reason) : row.status.toLowerCase(),
-		progress && (progress.current
-			? `batch ${progress.current} of ${progress.total}`
-			: progress.finished === progress.total
-			? `all ${progress.total} batches finished`
-			: `${progress.finished} of ${progress.total} batches finished`),
-		row.step && `step ${row.step}`,
+		progress?.current
+			? describeStep(row)
+			: progress && (progress.finished === progress.total
+				? `all ${progress.total} batches finished`
+				: `${progress.finished} of ${progress.total} batches finished`),
 	].filter(Boolean);
 	return (
 		<div className={className}>

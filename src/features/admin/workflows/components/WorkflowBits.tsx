@@ -5,7 +5,7 @@ import { ReactNode, useState } from 'react';
 
 const STATUS_BADGE: Record<WorkflowStatus, 'success' | 'warning' | 'secondary' | 'outline' | 'destructive'> = {
 	PENDING: 'secondary',
-	RUNNING: 'secondary',
+	RUNNING: 'warning',
 	UNDOING: 'warning',
 	PAUSED: 'warning',
 	SUCCEEDED: 'success',

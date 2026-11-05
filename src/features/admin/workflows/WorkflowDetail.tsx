@@ -1,3 +1,4 @@
+import './WorkflowDetail.css';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -16,16 +17,18 @@ import {
 } from '@/features/admin/workflows/workflowAdminApi';
 import {
 	batchProgress,
+	describeStep,
+	itemTree,
+	ItemTreeRow,
 	pauseLabel,
-	StatusCounts,
-	statusCountsByStep,
+	stepRuns,
 	workflowTypeLabel,
 } from '@/features/admin/workflows/workflowProgress';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
-import { ArrowLeftIcon } from 'lucide-react';
-import { ReactNode, useMemo } from 'react';
+import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
+import { Fragment, ReactNode, useMemo, useState } from 'react';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
@@ -38,116 +41,254 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 	);
 }
 
-const COUNT_ORDER = ['done', 'running', 'failed', 'unknown', 'pending', 'skipped', 'undone'];
-
-function StepProgress({ counts }: { counts: StatusCounts | undefined }) {
-	if (!counts) { return <span className="text-muted-foreground">not reached</span>; }
-	const entries = Object.entries(counts).sort(([a], [b]) => COUNT_ORDER.indexOf(a) - COUNT_ORDER.indexOf(b));
+function BatchInstances({ state, batchId }: { state: unknown; batchId: string }) {
+	const batches = (state as { batches?: Record<string, unknown> } | null)?.batches;
+	const instanceIds = batches?.[batchId];
+	if (
+		!Array.isArray(instanceIds) || !instanceIds.length
+		|| !instanceIds.every((id) => typeof id === 'string' && id.length > 0)
+	) {
+		return null;
+	}
 	return (
-		<span className="flex flex-wrap gap-1">
-			{entries.map(([status, count]) => (
-				<Badge
-					key={status}
-					variant={status === 'done'
-						? 'success'
-						: status === 'failed' || status === 'unknown'
-						? 'destructive'
-						: status === 'running'
-						? 'warning'
-						: 'outline'}
-				>
-					{count} {status}
-				</Badge>
-			))}
-		</span>
-	);
-}
-
-function PlanTable({ plan, counts }: { plan: WorkflowPlanStep[]; counts: Map<string, StatusCounts> }) {
-	return (
-		<div className="overflow-x-auto">
-			<Table className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
-				<TableHeader className="bg-muted/40">
-					<TableRow>
-						<TableHead>Step</TableHead>
-						<TableHead>Kind</TableHead>
-						<TableHead>Undo</TableHead>
-						<TableHead>Max duration</TableHead>
-						<TableHead>Progress</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{plan.map((step) => {
-						const depth = step.path.split('/').length - 1;
-						return (
-							<TableRow key={step.path}>
-								<TableCell className="font-mono text-xs">
-									<span style={{ paddingLeft: `${depth * 1.25}rem` }}>{step.path.split('/').at(-1)}</span>
-									{step.pointOfNoReturn && (
-										<Badge variant="warning" className="ml-2" title="Cannot be undone once done">
-											point of no return
-										</Badge>
-									)}
-								</TableCell>
-								<TableCell className="text-xs">{step.kind}{step.parallel ? ' · parallel' : ''}</TableCell>
-								<TableCell className="text-xs">{step.undo}</TableCell>
-								<TableCell className="text-xs">{step.maxDuration ?? '—'}</TableCell>
-								<TableCell className="text-xs">
-									<StepProgress counts={counts.get(step.path)} />
-								</TableCell>
-							</TableRow>
-						);
-					})}
-				</TableBody>
-			</Table>
+		<div className="mt-1 text-xs text-muted-foreground">
+			<span className="font-mono break-all">{instanceIds.join(', ')}</span>
 		</div>
 	);
 }
 
-function ItemsTable({ detail }: { detail: WorkflowDetail }) {
-	const items = useMemo(
-		() => [...detail.items].sort((a, b) => a.stepPath.localeCompare(b.stepPath, undefined, { numeric: true })),
-		[detail.items],
-	);
-	if (!items.length) { return <p className="text-sm text-muted-foreground">No step has run yet.</p>; }
+interface WorkflowStepRow extends ItemTreeRow {
+	definition?: WorkflowPlanStep;
+}
+
+function workflowStepRows(detail: WorkflowDetail): WorkflowStepRow[] {
+	const plan = detail.plan ?? [];
+	const definitions = new Map(plan.map((step) => [step.path, step]));
+	const executions = new Map(detail.items.map((item) => [item.stepPath, item]));
+	const collections = new Set<string>();
+	const rows: WorkflowStepRow[] = [];
+	const collectionDepth = (path: string) => [...collections].filter((parent) => path.startsWith(`${parent}/`)).length;
+	for (const row of itemTree(detail)) {
+		const definitionPath = row.definitionPath;
+		const definition = definitionPath ? definitions.get(definitionPath) : undefined;
+		if (row.kind === 'group' && definition) {
+			const path = row.path.slice(0, row.path.lastIndexOf('/'));
+			if (!collections.has(path)) {
+				rows.push({
+					path,
+					depth: row.depth + collectionDepth(path),
+					kind: 'step',
+					label: definition.path.split('/').at(-1)!,
+					definition,
+					item: executions.get(path),
+				});
+				collections.add(path);
+			}
+		}
+		const depth = row.depth + (definition ? collectionDepth(row.path) : 0);
+		rows.push({ ...row, depth, definition });
+		if (row.kind === 'step' && (definition?.kind === 'forEach' || definition?.kind === 'forEach-steps')) {
+			for (const step of plan) {
+				if (!step.path.startsWith(`${definition.path}/`)) { continue; }
+				const relativePath = step.path.slice(definition.path.length + 1);
+				rows.push({
+					path: `${row.path}/${relativePath}`,
+					depth: depth + relativePath.split('/').length,
+					kind: 'step',
+					label: relativePath.split('/').at(-1)!,
+					definition: step,
+				});
+			}
+		}
+	}
+	return rows;
+}
+
+function StepDetails({ row, plan }: { row: WorkflowStepRow; plan: WorkflowPlanStep[] }) {
 	return (
-		<div className="overflow-x-auto">
-			<Table className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
+		<div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+			<div className="font-mono text-xs break-all text-muted-foreground">{row.path}</div>
+			{row.definition
+				? (
+					<dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+						<DetailRow label="Runs">{stepRuns(row.definition, plan)}</DetailRow>
+						<DetailRow label="Kind">{row.definition.kind}{row.definition.parallel ? ' · parallel' : ''}</DetailRow>
+						<DetailRow label="Undo">{row.definition.undo}</DetailRow>
+						<DetailRow label="Max duration">{row.definition.maxDuration ?? '—'}</DetailRow>
+					</dl>
+				)
+				: <p className="text-xs text-muted-foreground">This execution is not in the current plan.</p>}
+			<dl className="grid grid-cols-2 gap-4 lg:hidden">
+				<DetailRow label="Attempt">{row.item?.attempt ?? '—'}</DetailRow>
+				<DetailRow label="Started">
+					<Timestamp value={row.item?.startedAt} />
+				</DetailRow>
+				<DetailRow label="Finished">
+					<Timestamp value={row.item?.finishedAt} />
+				</DetailRow>
+			</dl>
+			{(row.definition?.pointOfNoReturn || row.item?.pointOfNoReturnAt) && (
+				<div className="text-xs text-muted-foreground">
+					<p className="font-medium">Point of no return</p>
+					{row.item?.pointOfNoReturnAt
+						? (
+							<p>
+								Reached <Timestamp value={row.item.pointOfNoReturnAt} />
+							</p>
+						)
+						: <p>This step cannot be undone once applied.</p>}
+				</div>
+			)}
+			{row.item?.error != null && (
+				<div>
+					<h3 className="text-xs font-medium">Error</h3>
+					<JsonBlock value={row.item.error} label="Step error" />
+				</div>
+			)}
+			{row.item?.receipt != null && (
+				<div>
+					<h3 className="text-xs font-medium">Receipt</h3>
+					<JsonBlock value={row.item.receipt} label="Step receipt" />
+				</div>
+			)}
+		</div>
+	);
+}
+
+function StepsTable({ detail }: { detail: WorkflowDetail }) {
+	const rows = useMemo(() =>
+		workflowStepRows(detail).map((row) => ({
+			...row,
+			rowKey: `${row.definition ? 'plan' : 'execution'}:${row.path}`,
+		})), [detail]);
+	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+	const [expandedDetails, setExpandedDetails] = useState<Set<string>>(() => new Set());
+	const toggle = (set: typeof setCollapsed, path: string) =>
+		set((current) => {
+			const next = new Set(current);
+			if (next.has(path)) { next.delete(path); }
+			else { next.add(path); }
+			return next;
+		});
+	let hiddenDepth: number | undefined;
+	const visibleRows = rows.map((row, index) => ({ ...row, hasChildren: (rows[index + 1]?.depth ?? -1) > row.depth }))
+		.filter((row) => {
+			if (hiddenDepth !== undefined && row.depth > hiddenDepth) { return false; }
+			hiddenDepth = row.hasChildren && collapsed.has(row.rowKey) ? row.depth : undefined;
+			return true;
+		});
+	if (!rows.length) { return <p className="text-sm text-muted-foreground">No steps are planned or recorded yet.</p>; }
+	return (
+		<div>
+			<p className="mb-4 text-xs text-muted-foreground">
+				Planned steps and recorded progress. Expand a row for its plan details, receipt, or error.
+			</p>
+			<Table aria-label="Workflow steps" className="[&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3">
 				<TableHeader className="bg-muted/40">
 					<TableRow>
-						<TableHead>Path</TableHead>
+						<TableHead>Step</TableHead>
 						<TableHead>Status</TableHead>
-						<TableHead>Attempt</TableHead>
-						<TableHead>Started</TableHead>
-						<TableHead>Finished</TableHead>
-						<TableHead>Receipt / error</TableHead>
+						<TableHead className="hidden sm:table-cell">Attempt</TableHead>
+						<TableHead className="hidden lg:table-cell">Started</TableHead>
+						<TableHead className="hidden lg:table-cell">Finished</TableHead>
+						<TableHead>
+							<span className="sr-only">Details</span>
+						</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{items.map((item) => (
-						<TableRow key={item.id}>
-							<TableCell className="font-mono text-xs">
-								{item.stepPath}
-								{item.pointOfNoReturnAt && (
-									<div className="text-muted-foreground">
-										point of no return <Timestamp value={item.pointOfNoReturnAt} />
-									</div>
+					{visibleRows.map((row) => {
+						const { path, depth, kind, label, position, item, definition, hasChildren, rowKey } = row;
+						const open = expandedDetails.has(rowKey);
+						const running = item?.status === 'running' && (detail.status === 'RUNNING' || detail.status === 'UNDOING');
+						return (
+							<Fragment key={rowKey}>
+								<TableRow className={running ? 'workflow-step-running' : kind === 'group' ? 'bg-muted/30' : undefined}>
+									<TableCell className="max-w-44 text-xs whitespace-normal sm:max-w-none" title={path}>
+										<div className="flex items-start gap-2" style={{ paddingLeft: `${depth * 1.25}rem` }}>
+											{hasChildren
+												? (
+													<button
+														type="button"
+														className="-m-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+														aria-expanded={!collapsed.has(rowKey)}
+														aria-label={`${collapsed.has(rowKey) ? 'Expand' : 'Collapse'} ${label}`}
+														onClick={() => toggle(setCollapsed, rowKey)}
+													>
+														{collapsed.has(rowKey)
+															? <ChevronRightIcon className="size-4" />
+															: <ChevronDownIcon className="size-4" />}
+													</button>
+												)
+												: <span className="w-4 shrink-0" />}
+											<div className="min-w-0">
+												<span
+													className={kind === 'group'
+														? 'font-medium [overflow-wrap:anywhere]'
+														: 'font-mono [overflow-wrap:anywhere]'}
+												>
+													{label}
+												</span>
+												{position && <span className="text-muted-foreground">{` · ${position}`}</span>}
+												{kind === 'group' && /^batch\/[^/]+$/.test(path) && (
+													<BatchInstances state={detail.state} batchId={path.split('/')[1]} />
+												)}
+												{!definition && <div className="mt-1 text-muted-foreground">Not in current plan</div>}
+											</div>
+										</div>
+									</TableCell>
+									<TableCell className="text-xs">
+										{item
+											? (
+												<Badge
+													variant={item.status === 'done'
+														? 'success'
+														: item.status === 'failed' || item.status === 'unknown'
+														? 'destructive'
+														: item.status === 'running'
+														? 'warning'
+														: 'outline'}
+												>
+													{running && (
+														<Loader2Icon aria-hidden="true" className="size-3 shrink-0 motion-safe:animate-spin" />
+													)}
+													{item.status}
+												</Badge>
+											)
+											: <span className="text-muted-foreground">not reached</span>}
+									</TableCell>
+									<TableCell className="hidden text-xs tabular-nums sm:table-cell">{item?.attempt ?? '—'}</TableCell>
+									<TableCell className="hidden text-xs lg:table-cell">
+										<Timestamp value={item?.startedAt} />
+									</TableCell>
+									<TableCell className="hidden text-xs lg:table-cell">
+										<Timestamp value={item?.finishedAt} />
+									</TableCell>
+									<TableCell className="text-right text-xs">
+										<button
+											type="button"
+											className="inline-flex items-center gap-1 rounded px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+											aria-label={`${open ? 'Hide' : 'Show'} details for ${label}`}
+											aria-expanded={open}
+											onClick={() => toggle(setExpandedDetails, rowKey)}
+										>
+											{item?.error != null
+												? <span className="hidden text-destructive sm:inline">Error</span>
+												: <span className="hidden sm:inline">Details</span>}
+											{open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
+										</button>
+									</TableCell>
+								</TableRow>
+								{open && (
+									<TableRow className="hover:bg-transparent">
+										<TableCell colSpan={6} className="whitespace-normal">
+											<StepDetails row={row} plan={detail.plan ?? []} />
+										</TableCell>
+									</TableRow>
 								)}
-							</TableCell>
-							<TableCell className="text-xs">{item.status}</TableCell>
-							<TableCell className="text-xs">{item.attempt ?? '—'}</TableCell>
-							<TableCell className="text-xs">
-								<Timestamp value={item.startedAt} />
-							</TableCell>
-							<TableCell className="text-xs">
-								<Timestamp value={item.finishedAt} />
-							</TableCell>
-							<TableCell className="max-w-md text-xs">
-								<Collapsible summary="error" value={item.error} />
-								<Collapsible summary="receipt" value={item.receipt} />
-							</TableCell>
-						</TableRow>
-					))}
+							</Fragment>
+						);
+					})}
 				</TableBody>
 			</Table>
 		</div>
@@ -196,7 +337,6 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 }
 
 function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
-	const counts = useMemo(() => statusCountsByStep(detail), [detail]);
 	const progress = batchProgress(detail);
 	return (
 		<div>
@@ -220,15 +360,17 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 			<dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-5 rounded-xl border bg-card/70 p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-3">
 				<DetailRow label="Phase">{detail.phase ?? '—'}</DetailRow>
 				<DetailRow label="Step">
-					<span className="font-mono">{detail.step ?? '—'}</span>
+					{describeStep(detail) ?? '—'}
 					{detail.stepAttempt
 						? <span className="text-muted-foreground">{` (attempt ${detail.stepAttempt})`}</span>
 						: null}
+					{detail.step && <div className="font-mono text-xs text-muted-foreground">{detail.step}</div>}
 				</DetailRow>
 				{progress && (
 					<DetailRow label="Batches">
 						{progress.finished} of {progress.total} finished
 						{progress.currentId && `, on ${progress.currentId}`}
+						{progress.currentId && <BatchInstances state={detail.state} batchId={progress.currentId} />}
 					</DetailRow>
 				)}
 				{detail.status === 'PAUSED' && <DetailRow label="Paused">{pauseLabel(detail.pause?.reason)}</DetailRow>}
@@ -304,14 +446,13 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 				</Section>
 			)}
 
-			<Section title="Plan">
-				{detail.plan
-					? <PlanTable plan={detail.plan} counts={counts} />
-					: <p className="text-sm text-muted-foreground">No plan: the definition is not registered.</p>}
+			<Section title="Input and state">
+				<Collapsible summary="input" value={detail.input} />
+				<Collapsible summary="state" value={detail.state} />
 			</Section>
 
-			<Section title="Items">
-				<ItemsTable detail={detail} />
+			<Section title="Steps">
+				<StepsTable detail={detail} />
 			</Section>
 
 			{detail.children.length > 0 && (
@@ -333,11 +474,6 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 					</ul>
 				</Section>
 			)}
-
-			<Section title="Input and state">
-				<Collapsible summary="input" value={detail.input} />
-				<Collapsible summary="state" value={detail.state} />
-			</Section>
 
 			<Section title="Events">
 				<EventsTable detail={detail} />
