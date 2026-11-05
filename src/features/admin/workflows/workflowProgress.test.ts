@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	batchProgress,
 	describeStep,
+	heldClusterIds,
 	itemDefinitionPath,
 	itemTree,
 	statusCountsByStep,
@@ -223,5 +224,17 @@ describe('itemTree', () => {
 			'a',
 			'b',
 		]);
+	});
+});
+
+describe('heldClusterIds', () => {
+	it.each([
+		['a host workflow', { clusterId: null, clusterIds: ['clu-a', 'clu-b'] }, ['clu-a', 'clu-b']],
+		['a cluster workflow', { clusterId: 'clu-a', clusterIds: ['clu-a'] }, ['clu-a']],
+		['a row from before clusterIds', { clusterId: 'clu-a' }, ['clu-a']],
+		['an empty footprint', { clusterId: null, clusterIds: [] }, []],
+		['a malformed footprint', { clusterId: 'clu-a', clusterIds: 'clu-b' as never }, ['clu-a']],
+	])('%s', (_case, row, ids) => {
+		expect(heldClusterIds(row)).toEqual(ids);
 	});
 });

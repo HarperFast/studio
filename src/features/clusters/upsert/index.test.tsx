@@ -60,6 +60,14 @@ vi.mock('@/features/clusters/queries/getRegionLocationsQuery', () => ({
 vi.mock('@/features/clusters/queries/getHarperVersionsQuery', () => ({
 	getHarperVersionsOptions: () => answer('versions', { value: [{ name: 'current', version: '5.3.2' }] }),
 }));
+// The cached record the cluster notice keeps polling; undefined leaves the route's snapshot in charge.
+const live = vi.hoisted(() => ({ cluster: undefined as unknown }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
+	getClusterInfoQueryOptions: () => ({
+		queryKey: ['cluster'],
+		queryFn: async () => live.cluster ?? new Promise(() => {}),
+	}),
+}));
 vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', () => ({
 	getOrganizationRegionsQueryOptions: () => answer('organizationRegions', []),
 }));
@@ -84,7 +92,10 @@ function renderUpsert() {
 	);
 }
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+	localStorage.clear();
+	live.cluster = undefined;
+});
 
 describe('UpsertCluster', () => {
 	it('retries a failed dedicated cluster from the dedicated catalog, where its regions are', async () => {
@@ -144,6 +155,26 @@ describe('UpsertCluster', () => {
 
 			const partial = JSON.parse((await screen.findByRole('status')).getAttribute('data-partial')!);
 			expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
+		});
+
+		it('reads versions from the live record once the workflow holding it finishes', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = {
+				organization,
+				cluster: {
+					...mixed,
+					workflowId: 'wf-1',
+					instances: [{ status: 'RUNNING', version: '5.3.0' }, { status: 'RUNNING', version: '5.3.0' }],
+				} as unknown as Cluster,
+			};
+			live.cluster = { ...mixed, workflowId: null };
+			renderUpsert();
+
+			await screen.findByRole('status');
+			await vi.waitFor(() => {
+				const partial = JSON.parse(screen.getByRole('status').getAttribute('data-partial')!);
+				expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
+			});
 		});
 
 		it('does not while a workflow is still upgrading it', async () => {

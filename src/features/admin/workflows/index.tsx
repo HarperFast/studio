@@ -10,12 +10,13 @@ import {
 	useSetIntakeMutation,
 	WORKFLOW_STATUSES,
 	WorkflowFilters,
+	WorkflowRow,
 	workflowsQueryOptions,
 	WorkflowStatus,
 	WorkflowSummary,
 	workflowSummaryQueryOptions,
 } from '@/features/admin/workflows/workflowAdminApi';
-import { describeStep, workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
+import { describeStep, heldClusterIds, workflowTypeLabel } from '@/features/admin/workflows/workflowProgress';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { describeError } from '@/react-query/queryClient';
@@ -139,6 +140,22 @@ function IntakeControl({ mode }: { mode: IntakeMode }) {
 				</SelectContent>
 			</Select>
 		</div>
+	);
+}
+
+const LISTED_CLUSTERS = 2;
+
+/** A host-scoped workflow holds several clusters; the cell names the first few and the scope. */
+function ClusterCell({ row }: { row: WorkflowRow }) {
+	const ids = heldClusterIds(row);
+	if (!ids.length) { return <span className="font-mono">{row.scope ?? '—'}</span>; }
+	const more = ids.length - LISTED_CLUSTERS;
+	return (
+		<span className="flex flex-col gap-0.5" title={ids.join('\n')}>
+			{ids.slice(0, LISTED_CLUSTERS).map((id) => <span key={id} className="font-mono">{id}</span>)}
+			{more > 0 && <span className="text-muted-foreground">{`+${more} more`}</span>}
+			{ids.length > 1 && row.scope && <span className="font-mono text-muted-foreground">{row.scope}</span>}
+		</span>
 	);
 }
 
@@ -273,7 +290,9 @@ export function WorkflowsAdminIndex() {
 												<TableCell className="text-xs" title={row.step ?? undefined}>
 													{describeStep(row) ?? '—'}
 												</TableCell>
-												<TableCell className="font-mono text-xs">{row.clusterId ?? '—'}</TableCell>
+												<TableCell className="text-xs">
+													<ClusterCell row={row} />
+												</TableCell>
 												<TableCell className="text-xs">{row.owner?.node ?? '—'}</TableCell>
 												<TableCell className="text-xs">
 													<Timestamp value={row.createdAt} />

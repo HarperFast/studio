@@ -207,6 +207,13 @@ const TYPE_LABELS: Record<string, string> = {
 	UPDATE_RECORD_LOCKS: 'Record locks change',
 };
 
+/** Every cluster the workflow holds: `clusterIds` from its admission, else the single `clusterId` older rows carry. */
+export function heldClusterIds(row: Pick<WorkflowRow, 'clusterId' | 'clusterIds'>): string[] {
+	const ids = Array.isArray(row.clusterIds) ? row.clusterIds.filter((id) => typeof id === 'string' && id) : [];
+	if (ids.length) { return ids; }
+	return row.clusterId ? [row.clusterId] : [];
+}
+
 export function workflowTypeLabel(type: string): string {
 	return TYPE_LABELS[type] ?? type;
 }

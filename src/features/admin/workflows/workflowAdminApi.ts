@@ -35,7 +35,9 @@ export interface WorkflowRow {
 	phase?: WorkflowPhase | null;
 	step?: string | null;
 	scope?: string | null;
+	/** Null for a workflow whose scope holds several clusters, such as `host:<id>`; `clusterIds` lists them. */
 	clusterId?: string | null;
+	clusterIds?: string[] | null;
 	parentId?: string | null;
 	stepInFlight?: boolean | null;
 	stepAttempt?: number | null;

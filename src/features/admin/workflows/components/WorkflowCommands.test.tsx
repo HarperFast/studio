@@ -115,6 +115,35 @@ describe('WorkflowCommands', () => {
 		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
 	});
 
+	it('holds from the row on screen when the command is acknowledged, not the one it was clicked on', async () => {
+		let acknowledge: (value: { data: object }) => void = () => undefined;
+		mockedPost.mockReturnValue(new Promise((resolve) => (acknowledge = resolve)) as never);
+		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+		const view = (row: WorkflowDetail) => (
+			<QueryClientProvider client={client}>
+				<WorkflowCommands detail={row} />
+			</QueryClientProvider>
+		);
+		const clicked = detail({ updatedAt: '2026-11-04T20:00:00.000Z' });
+		const { rerender } = render(view(clicked));
+		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+		// A poll lands before the acknowledgement, still without the command.
+		const polled = { ...clicked, updatedAt: '2026-11-04T20:00:02.000Z' };
+		rerender(view(polled));
+		acknowledge({ data: {} });
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true));
+		rerender(view({ ...polled, updatedAt: '2026-11-04T20:00:05.000Z' }));
+		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
+	});
+
+	it('does not lock for good when the row carries no updatedAt', async () => {
+		renderWithClient(<WorkflowCommands detail={detail()} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false));
+	});
+
 	it('asks for a reason before abandoning instead of sending at once', () => {
 		renderWithClient(<WorkflowCommands detail={detail()} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Abandon' }));

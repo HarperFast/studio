@@ -71,7 +71,9 @@ export function UpsertCluster() {
 		...getClusterInfoQueryOptions(clusterId),
 		enabled: !!clusterId && !!cluster,
 	});
-	const heldByWorkflow = !!(liveCluster ?? cluster)?.workflowId;
+	// Hold state and instance versions come from one record, so a finished upgrade can't pair with stale versions.
+	const currentCluster = liveCluster ?? cluster;
+	const heldByWorkflow = !!currentCluster?.workflowId;
 	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
@@ -113,14 +115,14 @@ export function UpsertCluster() {
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
-		if (cluster?.instances && newHarperVersions) {
+		if (currentCluster?.instances && newHarperVersions) {
 			return {
 				...newHarperVersions,
-				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], cluster.instances),
+				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], currentCluster.instances),
 			} satisfies HarperVersionsResponse;
 		}
 		return newHarperVersions;
-	}, [newHarperVersions, cluster]);
+	}, [newHarperVersions, currentCluster]);
 
 	// Detect a partially-upgraded cluster, where at least one instance failed to reach the version the
 	// rest of the cluster is on. In that state the version picker pre-selects the latest version as
@@ -134,10 +136,10 @@ export function UpsertCluster() {
 			heldByWorkflow
 				? null
 				: detectPartialUpgrade(
-					cluster?.instances ?? [],
+					currentCluster?.instances ?? [],
 					(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
 				),
-		[cluster, heldByWorkflow, newHarperVersions],
+		[currentCluster, heldByWorkflow, newHarperVersions],
 	);
 
 	const alreadyUsingFree = useMemo(() => {

@@ -18,6 +18,7 @@ import {
 import {
 	batchProgress,
 	describeStep,
+	heldClusterIds,
 	itemTree,
 	ItemTreeRow,
 	pauseLabel,
@@ -338,6 +339,7 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 
 function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 	const progress = batchProgress(detail);
+	const clusters = heldClusterIds(detail);
 	return (
 		<div>
 			<div className="flex flex-wrap items-start justify-between gap-4">
@@ -397,9 +399,20 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 				<DetailRow label="Point of no return">
 					<Timestamp value={detail.pointOfNoReturnAt} />
 				</DetailRow>
-				<DetailRow label="Cluster">
-					<span className="font-mono">{detail.clusterId ?? '—'}</span>
+				<DetailRow label={clusters.length > 1 ? 'Clusters' : 'Cluster'}>
+					{clusters.length
+						? (
+							<span className="flex flex-col gap-0.5 font-mono">
+								{clusters.map((id) => <span key={id}>{id}</span>)}
+							</span>
+						)
+						: '—'}
 				</DetailRow>
+				{detail.scope && !detail.scope.startsWith('cluster:') && (
+					<DetailRow label="Scope">
+						<span className="font-mono">{detail.scope}</span>
+					</DetailRow>
+				)}
 				{detail.parentId && (
 					<DetailRow label="Parent">
 						<Link

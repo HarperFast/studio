@@ -241,6 +241,14 @@ describe('WorkflowDetailPage', () => {
 		expect(screen.getByText('This execution is not in the current plan.')).toBeTruthy();
 	});
 
+	it('lists every cluster a host-scoped workflow holds, with its scope', () => {
+		renderWorkflow({ ...detail('wf-a'), scope: 'host:hst-1', clusterId: null, clusterIds: ['clu-a', 'clu-b'] });
+		expect(screen.getByText('Clusters')).toBeTruthy();
+		expect(screen.getByText('clu-a')).toBeTruthy();
+		expect(screen.getByText('clu-b')).toBeTruthy();
+		expect(screen.getByText('host:hst-1')).toBeTruthy();
+	});
+
 	it('shows a command that is waiting for the executor, to readers who cannot send one too', () => {
 		auth.canManage = false;
 		const client = new QueryClient();

@@ -17,7 +17,7 @@ import {
 } from '@/features/admin/workflows/workflowAdminApi';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { Loader2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 const COMMAND_COPY: Record<
 	WorkflowCommand,
@@ -54,10 +54,12 @@ export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
 	// yet, and central manager would refuse a second one.
 	const [sentAt, setSentAt] = useState<string | null>(null);
 	const commands = offeredCommands(detail, canManage);
-	const stamp = detail.updatedAt ?? '';
+	// Read at acknowledgement, not at click: a refresh that lands in between must not release the hold early.
+	const stamp = useRef(detail.updatedAt);
+	stamp.current = detail.updatedAt;
 	// Central manager refuses any command while one is still waiting for the executor; acceptedCommands doesn't say so.
-	const pending = !!detail.command?.action || sentAt === stamp;
-	const sent = () => setSentAt(stamp);
+	const pending = !!detail.command?.action || (!!detail.updatedAt && sentAt === detail.updatedAt);
+	const sent = () => setSentAt(stamp.current ?? null);
 
 	if (!commands.length) { return null; }
 
