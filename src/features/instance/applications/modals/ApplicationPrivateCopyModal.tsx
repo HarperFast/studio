@@ -47,6 +47,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { deployNotes, reportDeployFailure, reportDeployOutcome } from './reportDeployHealth';
 
+/** The sent setting as `readBranchedDatabases` reads it back: an empty list is no setting. */
+function asRead(setting: BranchedDatabases): BranchedDatabases | undefined {
+	return setting === true || setting.length ? setting : undefined;
+}
+
 function sameSetting(a: BranchedDatabases | undefined, b: BranchedDatabases | undefined): boolean {
 	if (a === true || b === true || a === undefined || b === undefined) {
 		return a === b;
@@ -77,8 +82,8 @@ export function ApplicationPrivateCopyModal() {
 	const hasUnsavedEdits = () =>
 		!!editorContentId && !!project && hasEditorFileContentAtOrUnder(editorContentId, project);
 
-	const current = useApplicationBranchedDatabases(project);
-	const hasPackage = useApplicationEntryHasPackage(project);
+	const current = useApplicationBranchedDatabases(isModalOpen ? project : undefined);
+	const hasPackage = useApplicationEntryHasPackage(isModalOpen ? project : undefined);
 	const direct = !!instanceParams.entityId && authStore.isDirectConnection(instanceParams.entityId);
 
 	const mutationKey = useMemo(() => ['deploy_application_files', instanceParams.entityId, project] as const, [
@@ -94,6 +99,8 @@ export function ApplicationPrivateCopyModal() {
 	const { control, handleSubmit, reset, setValue, watch } = methods;
 	const choice = watch('privateCopy');
 	const choiceTouched = useRef(false);
+	// `running` arrives a render after the mutation starts, too late for a second submit in the same tick.
+	const submitting = useRef(false);
 	const [includeNodeModules, setIncludeNodeModules] = useState(false);
 	const [phase, setPhase] = useState<Phase>('form');
 	const [packagingFailure, setPackagingFailure] = useState<string>();
@@ -109,25 +116,28 @@ export function ApplicationPrivateCopyModal() {
 		}
 	}, [isModalOpen, queryClient, instanceParams.entityId]);
 	useEffect(() => {
-		if (!choiceTouched.current) {
+		if (isModalOpen && !choiceTouched.current) {
 			setValue('privateCopy', privateCopyFromSetting(current.setting));
 		}
-	}, [setValue, current.setting]);
+	}, [isModalOpen, setValue, current.setting]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowApplicationPrivateCopyModal', false);
 		attemptToRestoreFocus(trigger);
 		attemptOnScreen.current = undefined;
 		choiceTouched.current = false;
-		reset({ privateCopy: privateCopyFromSetting(current.setting) });
+		// The form takes the current setting again when it next opens.
+		reset();
 		setIncludeNodeModules(false);
 		setPhase('form');
 		setPackagingFailure(undefined);
 		stream.reset();
-	}, [trigger, reset, current.setting, stream]);
+	}, [trigger, reset, stream]);
 
 	const changed = !sameSetting(privateCopyToSetting(choice), current.setting);
-	const blocker = !direct
+	const blocker = !isModalOpen
+		? undefined
+		: !direct
 		? 'proxy'
 		: hasPackage
 		? 'package'
@@ -160,10 +170,12 @@ export function ApplicationPrivateCopyModal() {
 	}, [queryClient, instanceParams.entityId]);
 
 	const save = async ({ privateCopy: choice }: { privateCopy: PrivateCopyValue }) => {
-		if (!canSave || !project || hasUnsavedEdits()) {
+		if (!canSave || !project || submitting.current || hasUnsavedEdits()) {
 			return;
 		}
-		const wanted = privateCopyToSetting(choice);
+		submitting.current = true;
+		const sent = privateCopyToPayloadSetting(choice);
+		const wanted = asRead(sent);
 		const attempt = Symbol(project);
 		const isOnScreen = () => attemptOnScreen.current === attempt;
 		attemptOnScreen.current = attempt;
@@ -174,7 +186,7 @@ export function ApplicationPrivateCopyModal() {
 		try {
 			const result = await deployFiles({
 				project,
-				branchedDatabases: privateCopyToPayloadSetting(choice),
+				branchedDatabases: sent,
 				skipNodeModules: !includeNodeModules,
 				onPackaged: () => {
 					if (isOnScreen()) {
@@ -182,25 +194,42 @@ export function ApplicationPrivateCopyModal() {
 						stream.markStarted();
 					}
 				},
-				onEvent: stream.onEvent,
+				onEvent: event => {
+					if (isOnScreen()) {
+						stream.onEvent(event);
+					}
+				},
 				...instanceParams,
 			});
 			invalidateComponents();
 			const readBack = await readSettingBack();
-			const followed = result?.rollout?.state !== 'unfollowable';
-			if (isOnScreen()) {
-				stream.markSettled(followed ? 'success' : 'inconclusive', undefined, { result });
-			}
 			const action = recordAction(result?.deployment_id);
-			if (readBack !== 'unknown' && !sameSetting(readBack, wanted)) {
+			if (readBack === 'unknown') {
+				if (isOnScreen()) {
+					stream.markSettled('inconclusive', undefined, { result });
+				}
+				toast.warning(`Couldn't confirm ${project}'s private database copy setting`, {
+					description: `${project} was redeployed, but Studio couldn't read its setting back.`,
+					action,
+				});
+				return;
+			}
+			if (!sameSetting(readBack, wanted)) {
+				if (isOnScreen()) {
+					stream.markSettled('error', 'Harper reports a different setting than the one saved.', { result });
+				}
 				toast.warning(`${project} was redeployed, but its private database copy setting didn't change`, {
 					description: 'Harper reports a different setting than the one saved. Check the deployment record.',
 					action,
 				});
 				return;
 			}
+			const followed = result?.rollout?.state !== 'unfollowable';
+			if (isOnScreen()) {
+				stream.markSettled(followed ? 'success' : 'inconclusive', undefined, { result });
+			}
 			await reportDeployOutcome(project, result, runHealthCheck, { action });
-			if (isOnScreen() && followed && readBack !== 'unknown' && !deployNotes(result).warn) {
+			if (isOnScreen() && followed && !deployNotes(result).warn) {
 				closeModal();
 			}
 		} catch (error) {
@@ -236,6 +265,8 @@ export function ApplicationPrivateCopyModal() {
 			reportDeployFailure(project, error, 'redeploy', {
 				action: recordAction(deployFailureDetails(error).deploymentId),
 			});
+		} finally {
+			submitting.current = false;
 		}
 	};
 

@@ -27,7 +27,6 @@ export function supportsPayloadBranchedDatabases(harperVersion: string | undefin
 	return !!harperVersion && wasAReleasedBeforeB(MIN_PAYLOAD_BRANCHED_DATABASES_VERSION, harperVersion);
 }
 
-/** Whether `project`'s entry names a package, so only a package deploy may write it. */
 export function entryHasPackage(configuration: unknown, project: string): boolean {
 	if (!isRecord(configuration) || !Object.hasOwn(configuration, project)) {
 		return false;

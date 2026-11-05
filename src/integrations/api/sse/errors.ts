@@ -13,7 +13,6 @@
  */
 export class SSEUnsupportedError extends Error {
 	readonly status?: number;
-	/** What the server said when it refused the request, from a non-OK response's body. */
 	readonly refusal?: string;
 
 	constructor(message: string, options?: { cause?: unknown; status?: number; refusal?: string }) {

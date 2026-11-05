@@ -39,6 +39,22 @@ describe('fetchComponentArchive', () => {
 		});
 		expect(init.headers.Accept).toBe('application/octet-stream');
 		expect(init.headers.Authorization).toBe('Bearer t');
+		expect(init.signal).toBeInstanceOf(AbortSignal);
+	});
+
+	it('gives up on an archive that never finishes, and on a caller who stops waiting', async () => {
+		const fetchMock = vi.fn((_url: string, init: RequestInit) =>
+			new Promise((_resolve, reject) => {
+				init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		const caller = new AbortController();
+
+		const pending = fetchComponentArchive({ ...args, signal: caller.signal }).catch((caught: unknown) => caught);
+		caller.abort(new Error('closed'));
+
+		expect(await pending).toMatchObject({ message: 'closed' });
 	});
 
 	it('refuses Fabric Connect before any request', async () => {

@@ -190,11 +190,9 @@ export interface DeployApplicationFilesArgs extends Omit<DeployComponentArgs, 'r
 	project: string;
 	branchedDatabases: BranchedDatabases;
 	skipNodeModules: boolean;
-	/** Called once the archive is in hand, before the deploy is sent. */
 	onPackaged?: () => void;
 }
 
-/** Package `project`'s files as they are now and deploy them again, as a payload carrying `branchedDatabases`. */
 export async function deployApplicationFiles({
 	project,
 	branchedDatabases,
@@ -221,7 +219,7 @@ export function useDeployApplicationFilesMutation(mutationKey: readonly unknown[
 	return useMutation({
 		mutationKey,
 		mutationFn: deployApplicationFiles,
-		// The caller shows its own failure, as for every deploy.
+		// Every caller shows its own failure: applications/DESIGN.md, "Who reports a failed deploy".
 		meta: { skipGlobalErrorToast: true },
 		onError: (error) => console.error(error),
 	});

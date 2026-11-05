@@ -27,13 +27,15 @@ import {
 	invalidateApplicationConfiguration,
 	useApplicationBranchedDatabases,
 	useApplicationEntryHasPackage,
+	useBranchedDatabasesAvailable,
 	useBranchedDatabasesPossible,
 } from './useBranchedDatabases';
 
 const CONFIGURATION = { http: { port: 9926 }, web: { package: 'npm:web', branchedDatabases: ['data'] } };
 
 function renderWithQueries<T>(hook: () => T) {
-	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	// `retryDelay: 0` because the hooks set their own `retry`, which this default can't turn off.
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
 	const rendered = renderHook(hook, {
 		wrapper: ({ children }: { children: ReactNode }) =>
 			createElement(QueryClientProvider, { client: queryClient }, children),
@@ -125,7 +127,7 @@ describe('useApplicationBranchedDatabases', () => {
 		const { result, queryClient } = renderCurrent();
 		await waitFor(() => expect(result.current.known).toBe(true));
 
-		mocks.post.mockRejectedValueOnce(new Error('network down'));
+		mocks.post.mockRejectedValue(new Error('network down'));
 		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
 
 		await waitFor(() => expect(result.current).toMatchObject({ known: false, loading: false, failed: true }));
@@ -178,6 +180,19 @@ describe('a role that is not a super user', () => {
 
 		await waitFor(() => expect(result.current.readable).toBe(false));
 		expect(result.current).toMatchObject({ known: false, loading: false, failed: false, setting: undefined });
+		expect(mocks.post).toHaveBeenCalledOnce();
+	});
+
+	it('asks no more once Harper has refused, so reopening a dialog neither asks again nor reads as loading', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValue(forbidden());
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.readable).toBe(false));
+
+		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
+
+		expect(result.current).toMatchObject({ readable: false, loading: false, failed: false });
+		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 });
 
@@ -201,11 +216,11 @@ describe('useBranchedDatabasesPossible', () => {
 		await waitFor(() => expect(result.current).toBe(true));
 	});
 
-	it('says nothing while the version is still on its way', () => {
+	it('counts a version still on its way as possible, so a redeploy sent meanwhile is warned about', () => {
 		mocks.post.mockReturnValue(new Promise(() => {}));
 		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
 
-		expect(result.current).toBe(false);
+		expect(result.current).toBe(true);
 	});
 });
 
@@ -219,5 +234,19 @@ describe('useApplicationEntryHasPackage', () => {
 
 		await waitFor(() => expect(result.current[0]).toBe(true));
 		expect(result.current[1]).toBe(false);
+	});
+});
+
+describe('useBranchedDatabasesAvailable', () => {
+	it('survives the permission resolving after the first render', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockResolvedValue({ data: { version: '5.4.0-beta.2' } });
+		const { result, rerender } = renderWithQueries(() => useBranchedDatabasesAvailable());
+		expect(result.current).toBe(false);
+
+		mocks.canManage.value = true;
+		rerender();
+
+		await waitFor(() => expect(result.current).toBe(true));
 	});
 });

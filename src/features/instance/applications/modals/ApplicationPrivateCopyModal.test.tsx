@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
 		},
 		hasPackage: false,
 		configurationAfter: {} as unknown,
+		configurationReadFails: false,
 		runHealthCheck: vi.fn(),
 		invalidateConfiguration: vi.fn(),
 	};
@@ -120,9 +121,13 @@ beforeEach(() => {
 	mocks.current = { readable: true, setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
 	mocks.hasPackage = false;
 	mocks.configurationAfter = { web: { branchedDatabases: [] } };
-	mocks.post.mockImplementation(async (_url: string, { operation }: { operation: string }) => ({
-		data: operation === 'get_configuration' ? mocks.configurationAfter : { data: {} },
-	}));
+	mocks.configurationReadFails = false;
+	mocks.post.mockImplementation(async (_url: string, { operation }: { operation: string }) => {
+		if (operation === 'get_configuration' && mocks.configurationReadFails) {
+			throw new Error('network down');
+		}
+		return { data: operation === 'get_configuration' ? mocks.configurationAfter : { data: {} } };
+	});
 	mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
 	vi.mocked(fetchComponentArchive).mockResolvedValue(ARCHIVE);
 	vi.mocked(deployComponentStream).mockResolvedValue({ message: 'deployed', deployment_id: 'dep-1' });
@@ -232,7 +237,7 @@ describe('ApplicationPrivateCopyModal', () => {
 		expect(mocks.invalidateConfiguration).toHaveBeenCalled();
 	});
 
-	it('says so when the entry reads differently after the deploy, instead of reporting success', async () => {
+	it('says so when the entry reads differently after the deploy, in the panel too, instead of reporting success', async () => {
 		mocks.configurationAfter = { web: { branchedDatabases: ['data'] } };
 		await renderOpenModal();
 		await choose(/^Off/);
@@ -241,6 +246,51 @@ describe('ApplicationPrivateCopyModal', () => {
 		await waitFor(() => expect(toast.warning).toHaveBeenCalled());
 		expect(vi.mocked(toast.warning).mock.calls[0][0]).toMatch(/didn't change/);
 		expect(toast.success).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog').textContent).toMatch(/Harper reports a different setting/);
+	});
+
+	it("never reports success when the setting can't be read back", async () => {
+		mocks.configurationReadFails = true;
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(toast.warning).toHaveBeenCalled());
+		expect(vi.mocked(toast.warning).mock.calls[0][0]).toMatch(/Couldn't confirm web's private database copy setting/);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(mocks.runHealthCheck).not.toHaveBeenCalled();
+	});
+
+	it('sends one save for two submits in the same tick', async () => {
+		vi.mocked(fetchComponentArchive).mockReturnValue(new Promise(() => {}));
+		await renderOpenModal();
+		await choose(/^Off/);
+
+		await act(async () => {
+			fireEvent.click(saveButton());
+			fireEvent.click(saveButton());
+		});
+
+		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalled());
+		expect(fetchComponentArchive).toHaveBeenCalledOnce();
+	});
+
+	it('reopens on the setting the save made, not the one before it', async () => {
+		const health = deferred<{ level: 'healthy' }>();
+		mocks.runHealthCheck.mockReturnValue(health.promise);
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+		await waitFor(() => expect(mocks.runHealthCheck).toHaveBeenCalled());
+
+		mocks.current = { ...mocks.current, setting: undefined };
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+		await act(async () => health.resolve({ level: 'healthy' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+		expect(screen.getByRole('radio', { name: /^Off/ }).getAttribute('aria-checked')).toBe('true');
+		expect(saveButton().disabled).toBe(true);
 	});
 
 	it('runs one save at a time', async () => {

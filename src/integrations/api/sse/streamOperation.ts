@@ -23,22 +23,27 @@ export interface StreamOperationOptions {
 	onMessage?: (message: SSEMessage) => void;
 }
 
+/** 64 KiB/s, a slow uplink: an upload slower than this counts as stalled. */
+const UPLOAD_FLOOR_BYTES_PER_MS = 64 * 1024 / 1000;
+
 export interface StreamOperationFile {
-	/** The form field Harper reads the file from, e.g. `payload` for a deploy. */
 	name: string;
 	filename: string;
 	blob: Blob;
 }
 
+/** The start of a value Harper's multipart parser decodes as JSON (harper `multipartParser.ts` `decodeFieldValue`). */
+const DECODED_AS_JSON = /^(?:[{["\-0-9]|true$|false$|null$)/;
+
 /**
- * Harper's multipart parser (harper `server/serverHelpers/multipartParser.ts`) needs every field before the file, and
- * reads a field that parses as JSON as that value, so non-strings go as JSON. The browser sets the boundary.
+ * Harper's multipart parser needs every field before the file, and decodes a field that looks like JSON as JSON. So a
+ * string that would be misread, such as a project named `123`, goes JSON-encoded too. The browser sets the boundary.
  */
 function multipartRequest(body: Record<string, unknown>, file: StreamOperationFile, headers: Record<string, string>) {
 	const form = new FormData();
 	for (const [name, value] of Object.entries(body)) {
 		if (value !== undefined) {
-			form.append(name, typeof value === 'string' ? value : JSON.stringify(value));
+			form.append(name, typeof value === 'string' && !DECODED_AS_JSON.test(value) ? value : JSON.stringify(value));
 		}
 	}
 	form.append(file.name, file.blob, file.filename);
@@ -72,6 +77,8 @@ export async function streamOperation({
 		throw new Error('Sending a file to Harper needs a direct connection, not Fabric Connect.');
 	}
 	const request = file ? multipartRequest(body, file, headers) : { headers, body: JSON.stringify(body) };
+	// `fetch` resolves only once a file has been uploaded, so the wait for the first answer allows for the upload.
+	const firstAnswerTimeoutMs = idleTimeoutMs + (file ? Math.ceil(file.blob.size / UPLOAD_FLOOR_BYTES_PER_MS) : 0);
 
 	// Idle watchdog: its own controller aborts the fetch when no event arrives in time. We
 	// combine it with the caller's signal so either source can stop the stream, and we can
@@ -80,17 +87,17 @@ export async function streamOperation({
 	const { signal: combinedSignal, cleanup: cleanupSignal } = anySignal([signal, idleController.signal]);
 
 	let idleTimer: ReturnType<typeof setTimeout> | undefined;
-	const resetIdleTimer = () => {
+	const resetIdleTimer = (timeoutMs = idleTimeoutMs) => {
 		if (idleTimer) {
 			clearTimeout(idleTimer);
 		}
-		idleTimer = setTimeout(() => idleController.abort(), idleTimeoutMs);
+		idleTimer = setTimeout(() => idleController.abort(), timeoutMs);
 	};
 
 	try {
 		let response: Response;
 		try {
-			resetIdleTimer();
+			resetIdleTimer(firstAnswerTimeoutMs);
 			response = await fetch(url, {
 				method: 'POST',
 				headers: request.headers,
@@ -112,6 +119,9 @@ export async function streamOperation({
 		if (!response.ok || !contentType.includes('text/event-stream') || !response.body) {
 			// Read or drain the body so the connection can be reused, then fall back.
 			const refusal = response.ok ? undefined : await readResponseRefusal(response);
+			if (signal?.aborted) {
+				throw signal.reason;
+			}
 			await response.body?.cancel().catch(() => {});
 			throw new SSEUnsupportedError(
 				`Server did not return an event stream (status ${response.status}, content-type "${contentType}").`,

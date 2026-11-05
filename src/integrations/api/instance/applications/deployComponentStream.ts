@@ -82,7 +82,6 @@ export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | un
 export interface DeployComponentStreamParams {
 	connection: ResolveInstanceConnectionParams;
 	body: Record<string, unknown>;
-	/** The archive of a payload deploy, sent after the fields. */
 	file?: StreamOperationFile;
 	signal?: AbortSignal;
 	/** Called for each live deploy event so the UI can render progress. */

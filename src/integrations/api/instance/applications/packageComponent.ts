@@ -46,6 +46,9 @@ interface ComponentArchiveParams {
 	signal?: AbortSignal;
 }
 
+/** As long as the buffered `package_component` above is given, since a retry builds the whole archive again. */
+const ARCHIVE_TIMEOUT_MS = 300_000;
+
 /**
  * `project`'s files as a gzipped tarball, streamed (`stream: true`, Harper 5.4) rather than base64 in JSON, which
  * holds several times the archive in Harper's shared process. Direct connections only: Fabric Connect relays JSON.
@@ -70,7 +73,9 @@ export async function fetchComponentArchive({
 			skip_node_modules: skipNodeModules,
 			stream: true,
 		}),
-		signal,
+		signal: signal
+			? AbortSignal.any([signal, AbortSignal.timeout(ARCHIVE_TIMEOUT_MS)])
+			: AbortSignal.timeout(ARCHIVE_TIMEOUT_MS),
 	});
 	if (!response.ok) {
 		const refusal = await readResponseRefusal(response);

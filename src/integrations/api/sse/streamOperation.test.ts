@@ -215,6 +215,57 @@ describe('streamOperation with a file', () => {
 		expect((form.get('payload') as File).name).toBe('package.tar.gz');
 	});
 
+	it("JSON-encodes a string Harper's parser would read as JSON, and leaves the rest as they are", async () => {
+		const fetchMock = vi.fn().mockResolvedValue(sseResponse('event: done\ndata: {"result":{}}\n\n'));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await streamOperation({
+			connection: { id: 'clu-1' },
+			body: { operation: 'deploy_component', project: '123', other: 'true', quoted: '"x"', plain: 'web-app' },
+			file,
+		});
+
+		const form = (fetchMock.mock.calls[0][1] as RequestInit).body as FormData;
+		expect(form.get('operation')).toBe('deploy_component');
+		expect(form.get('project')).toBe('"123"');
+		expect(form.get('other')).toBe('"true"');
+		expect(form.get('quoted')).toBe('"\\"x\\""');
+		expect(form.get('plain')).toBe('web-app');
+	});
+
+	it('gives the upload time before the idle watchdog starts counting', async () => {
+		vi.useFakeTimers();
+		try {
+			let aborted = false;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init: RequestInit) =>
+					new Promise((_resolve, reject) => {
+						init.signal?.addEventListener('abort', () => {
+							aborted = true;
+							reject(new DOMException('aborted', 'AbortError'));
+						});
+					})
+				),
+			);
+			const sixtyFourKibPerSecondFor10s = new Blob([new Uint8Array(64 * 1024 * 10)]);
+			const pending = streamOperation({
+				connection: { id: 'clu-1' },
+				body: { operation: 'deploy_component' },
+				file: { ...file, blob: sixtyFourKibPerSecondFor10s },
+				idleTimeoutMs: 1_000,
+			}).catch((caught: unknown) => caught);
+
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(aborted).toBe(false);
+			await vi.advanceTimersByTimeAsync(7_000);
+			expect(aborted).toBe(true);
+			expect(await pending).toBeInstanceOf(SSEUnsupportedError);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('refuses to send a file through Fabric Connect, before any request', async () => {
 		connection.mode = 'proxy';
 		const fetchMock = vi.fn();
