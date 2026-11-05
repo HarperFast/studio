@@ -1,9 +1,12 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { useMemo } from 'react';
+import { releaseOffer } from '../functions/releaseOffer';
 import { StagedReleaseState } from '../functions/stagedRelease';
+import { useReleaseCheck } from '../hooks/useComponentReleases';
 import { useStagedReleases } from '../hooks/useStagedReleases';
-import { ActivateStagedRelease } from './ActivateStagedRelease';
+import { ActivateRelease } from './ActivateRelease';
+import { ReleaseCheckNote } from './ReleaseCheckNote';
 import { DeploymentLink } from './StagedReleaseNote';
 
 const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
@@ -37,6 +40,16 @@ function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { 
 export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) {
 	const records = useMemo(() => [deployment], [deployment]);
 	const release = useStagedReleases(records).get(deployment.deployment_id);
+	// The records say what became of it; from Harper 5.4 each node says what it holds, which decides the offer.
+	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
+	const { intent, offer, disabled } = releaseOffer(check, {
+		intent: release?.kind === 'replaced'
+			? 'rollback'
+			: release?.kind === 'uncertain' || release?.kind === 'activating'
+			? 'again'
+			: 'activate',
+		offer: release !== undefined && release.kind !== 'live',
+	}, true);
 
 	return (
 		<>
@@ -69,15 +82,14 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				)}
 				{release?.kind === 'uncertain' && <UncertainRelease release={release} />}
 			</div>
+			<ReleaseCheckNote check={check} record={deployment} trustRecords showLive={release?.kind !== 'live'} />
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
-			<ActivateStagedRelease
-				deployment={deployment}
-				intent={release?.kind === 'replaced'
-					? 'rollback'
-					: release?.kind === 'uncertain' || release?.kind === 'activating'
-					? 'again'
-					: 'activate'}
-				offer={release !== undefined && release.kind !== 'live'}
+			<ActivateRelease
+				project={deployment.project}
+				releaseId={deployment.deployment_id}
+				intent={intent}
+				offer={offer}
+				disabled={disabled}
 			/>
 		</>
 	);

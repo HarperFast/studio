@@ -1,9 +1,10 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { DeploymentSourceCell } from '../components/DeploymentSource';
 import { DeploymentStatusBadge } from '../components/deploymentStatusBadge';
 import { StagedReleaseNote } from '../components/StagedReleaseNote';
-import { deploymentSource, shortDeploymentId } from '../functions/deploymentSource';
+import { shortDeploymentId } from '../functions/deploymentSource';
 import { StagedReleaseState } from '../functions/stagedRelease';
 
 export interface DeploymentRow extends Deployment {
@@ -47,12 +48,7 @@ export const deploymentColumns: Array<ColumnDef<DeploymentRow>> = [
 		header: 'Source',
 		id: 'source',
 		enableSorting: false,
-		cell: (props) => {
-			const source = deploymentSource(props.row.original);
-			return source
-				? <span className="break-all text-xs" title={source.title}>{source.label}</span>
-				: '—';
-		},
+		cell: (props) => <DeploymentSourceCell deployment={props.row.original} />,
 	}),
 	{
 		header: 'User',

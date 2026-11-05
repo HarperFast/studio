@@ -1,0 +1,37 @@
+import type { ActivationIntent } from '../components/ActivateRelease';
+import type { ReleaseCheck } from '../hooks/useComponentReleases';
+
+export interface ReleaseOffer {
+	intent: ActivationIntent;
+	offer: boolean;
+	disabled: boolean;
+}
+
+/**
+ * How to offer activating a release, given what the records suggest and what each node holds. What is on disk wins
+ * where it is known (Harper 5.4.0-alpha.1+): a release live on every node has nothing to activate, one live on some
+ * nodes is activated again, and one some node holds no copy of is refused there with a 404, so it is not offered.
+ *
+ * `trustRecords`: whether the records alone were enough before Harper could be asked, as they are for a staged
+ * release. Going back to any other release needs `list_releases` to say every node keeps it.
+ */
+export function releaseOffer(
+	check: ReleaseCheck,
+	fromRecords: Omit<ReleaseOffer, 'disabled'>,
+	trustRecords: boolean,
+): ReleaseOffer {
+	switch (check.kind) {
+		case 'unsupported':
+			return { ...fromRecords, disabled: !trustRecords };
+		case 'checking':
+			return { ...fromRecords, disabled: true };
+		case 'unreadable':
+			return { ...fromRecords, disabled: !trustRecords };
+		case 'live-everywhere':
+			return { ...fromRecords, offer: false, disabled: false };
+		case 'available':
+			return { intent: check.liveOn.length > 0 ? 'again' : fromRecords.intent, offer: true, disabled: false };
+		case 'missing':
+			return { intent: check.liveOn.length > 0 ? 'again' : fromRecords.intent, offer: true, disabled: true };
+	}
+}

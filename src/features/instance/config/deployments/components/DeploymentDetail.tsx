@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
+import { describeCertification } from '@/features/instance/applications/components/DeployProgress/describeDeployOutcome';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
@@ -21,7 +22,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { describePeerInstall } from '../functions/describePeerInstall';
+import { DeploymentSourceFields } from './DeploymentSource';
 import { DeploymentStatusBadge } from './deploymentStatusBadge';
+import { ReleasedRecordDetail } from './ReleasedRecordDetail';
 import { StagedReleaseDetail } from './StagedReleaseDetail';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -63,6 +66,19 @@ function peerOutcome(
 		label: `${peer.status ?? 'ok'}${peerError ? `: ${peerError}` : ''}`,
 		tone: peer.status === 'failed' ? 'destructive' : 'success',
 	};
+}
+
+/** A node's canary verdict, which Harper records only for a node that took the release. */
+function peerCertification(peer: DeploymentPeerResult) {
+	const certification = peer.activation?.activated ? peer.activation.certification : undefined;
+	return typeof certification === 'string' && certification ? describeCertification(certification) : undefined;
+}
+
+// A certified rollout's job records each other node's activation; the receiving node certified the release before the
+// job started, and only told the client that deployed (harper `v5.4.0-beta.2:components/operations.ts:1256`).
+function isCertifiedRollout(deployment: Deployment): boolean {
+	return deployment.status === 'rolling_out' || deployment.status === 'partial'
+		|| !!deployment.peer_results?.some((peer) => peer.activation);
 }
 
 function timestamp(ms?: number) {
@@ -174,7 +190,17 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 				/>
 			</div>
 
+			{deployment.source && (
+				<>
+					<Separator />
+					<DeploymentSourceFields source={deployment.source} />
+				</>
+			)}
+
 			{deployment.status === 'staged' && <StagedReleaseDetail deployment={deployment} />}
+			{(deployment.status === 'success' || deployment.status === 'partial') && (
+				<ReleasedRecordDetail deployment={deployment} />
+			)}
 
 			{showLiveProgress && (
 				<>
@@ -207,10 +233,19 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 					<Separator />
 					<div>
 						<div className="mb-1 text-xs font-medium text-muted-foreground">Other nodes</div>
+						{isCertifiedRollout(deployment) && (
+							<p className="mb-2 text-xs text-muted-foreground">
+								{deployment.origin_node ?? 'The node that received the deploy'}
+								{deployment.origin_node && ', which received it,'}{' '}
+								took the release first. Its certification went only to whoever started the deploy, so it isn&apos;t
+								recorded here.
+							</p>
+						)}
 						<ul className="flex flex-col gap-2 text-sm">
 							{deployment.peer_results.map((peer, i) => {
 								const outcome = peerOutcome(peer, deployment.status);
 								const install = describePeerInstall(peer);
+								const certification = peerCertification(peer);
 								return (
 									<li key={peer.node ?? i} className="flex flex-col gap-0.5">
 										<span className="flex items-center justify-between gap-2">
@@ -225,6 +260,14 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 												)}
 											>
 												{install.label}
+											</span>
+										)}
+										{certification && (
+											<span
+												className={cn('text-xs', certification.certified ? 'text-muted-foreground' : 'text-amber-600')}
+											>
+												{certification.label}
+												{certification.detail ? `: ${certification.detail}` : ''}
 											</span>
 										)}
 									</li>

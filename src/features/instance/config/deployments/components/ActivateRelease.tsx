@@ -29,7 +29,6 @@ import { describeBranchedDatabases } from '@/integrations/api/instance/applicati
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
-import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
@@ -38,12 +37,16 @@ import { RocketIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-export function activationMutationKey(entityId: string | undefined, deploymentId: string) {
-	return ['activate_deployment', entityId, deploymentId] as const;
+/** Keyed by the release, so every record of it (its own, each activation of it) shares one pending activation. */
+export function activationMutationKey(entityId: string | undefined, releaseId: string) {
+	return ['activate_deployment', entityId, releaseId] as const;
 }
 
-/** `rollback`: a later deploy replaced this release. `again`: a deploy failed, so it may not be live everywhere. */
-type ActivationIntent = 'activate' | 'rollback' | 'again';
+/**
+ * `activate`: a staged release nothing made live. `rollback`: a release a later deploy replaced. `again`: a release that
+ * may not be live everywhere, because a deploy failed or some node did not take it.
+ */
+export type ActivationIntent = 'activate' | 'rollback' | 'again';
 
 const BUTTON_LABEL: Record<ActivationIntent, string> = {
 	activate: 'Activate',
@@ -51,15 +54,26 @@ const BUTTON_LABEL: Record<ActivationIntent, string> = {
 	again: 'Activate again',
 };
 
-export function ActivateStagedRelease({
-	deployment,
+/**
+ * Makes a release live by its id: a staged one (HarperFast/studio#1787) or one a node kept when a later deploy replaced
+ * it (HarperFast/studio#1232). Both are the same `deploy_component { deployment_id }`, certified and followed like any
+ * rolling deploy.
+ */
+export function ActivateRelease({
+	project,
+	releaseId: deploymentId,
 	intent = 'activate',
 	offer = true,
+	disabled = false,
 }: {
-	deployment: Deployment;
+	project: string;
+	/** The id of the deployment that built it: an activation's `activated_from`, or a deploy's own id. */
+	releaseId: string;
 	intent?: ActivationIntent;
-	/** Whether the records say it is worth offering. The progress of an activation started here shows either way. */
+	/** Whether it is worth offering. The progress of an activation started here shows either way. */
 	offer?: boolean;
+	/** Offered but refused: some node holds no copy. The caller says which. */
+	disabled?: boolean;
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -68,7 +82,6 @@ export function ActivateStagedRelease({
 	const stream = useDeploymentStream();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
-	const { project, deployment_id: deploymentId } = deployment;
 	const canBranch = useBranchedDatabasesAvailable();
 	const currentBranches = useApplicationBranchedDatabases(canBranch ? project : undefined);
 	// Keyed so a detail closed and reopened mid-rollout still knows this release is being activated.
@@ -156,7 +169,7 @@ export function ActivateStagedRelease({
 					variant="positiveOutline"
 					className="self-start"
 					onClick={() => setConfirming(true)}
-					disabled={isPending}
+					disabled={isPending || disabled}
 				>
 					<RocketIcon /> {isPending ? 'Activating…' : BUTTON_LABEL[shownIntent]}
 				</Button>
@@ -184,12 +197,20 @@ export function ActivateStagedRelease({
 										when it was replaced, so it just switches back. A node that no longer keeps it refuses.
 									</>
 								)
+								: shownIntent === 'again'
+								? (
+									<>
+										Deployment <span className="font-mono">{deploymentId}</span>{' '}
+										goes live on all nodes, which restart one at a time. It was installed when it was deployed or
+										staged, so each node just switches to it, and a node already running it restarts without changing
+										anything.
+									</>
+								)
 								: (
 									<>
 										Deployment <span className="font-mono">{deploymentId}</span>{' '}
 										goes live on all nodes, which restart one at a time. Everything was installed when this release was
-										staged, so each node just switches to it.{shownIntent === 'again'
-											&& ' A node already running it restarts without changing anything.'}
+										staged, so each node just switches to it.
 									</>
 								)}
 						</AlertDialogDescription>

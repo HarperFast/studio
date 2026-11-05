@@ -125,6 +125,20 @@ because Harper's validator refuses the wrong mix outright: a stage with `restart
 install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
 nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.
 
+## Going back needs each node to say it keeps the release
+
+Activating an id a node does not hold answers 404 there, and the activation ends `partial`. The records cannot say which
+nodes hold what: retention prunes without writing a record, a release deployed from a `file:` directory or made live
+before 5.3.0 is never kept, and `origin_node` is the receiving node's host name rather than its node name. So from
+5.4.0-alpha.1 the Deployments page asks `list_releases` (`useComponentReleases`), and what is on disk decides the offer
+(`releaseOffer`): live on every node offers nothing, live on some offers Activate again, and a node with no copy, or
+one that could not answer, disables it and is named with the reason the record can give.
+
+A staged release keeps today's records-based offer when `list_releases` is unavailable or fails, because staging
+succeeds only once every node confirmed it. Going back to any other release is offered only where `list_releases`
+answered: before 5.4 nothing says a node still holds a release it once ran. `list_releases` is not polled, since every
+node walks each kept release's tree to size it; the page asks again when the component's records change.
+
 ## Private database copies
 
 Harper 5.3 can run an application on its own copy of some databases (`branchedDatabases`: a list of names, or `true` for

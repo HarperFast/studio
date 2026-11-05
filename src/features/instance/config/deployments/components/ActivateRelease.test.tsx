@@ -51,7 +51,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { warning: state.warning } }));
 
-import { ActivateStagedRelease, activationMutationKey } from './ActivateStagedRelease';
+import { ActivateRelease, activationMutationKey } from './ActivateRelease';
 
 const staged = {
 	deployment_id: 'a1b2c3d4-0000-4000-8000-000000000001',
@@ -62,7 +62,7 @@ const staged = {
 function renderButton(queryClient = new QueryClient()) {
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<ActivateStagedRelease deployment={staged} />
+			<ActivateRelease project={staged.project} releaseId={staged.deployment_id} />
 		</QueryClientProvider>,
 	);
 }
@@ -80,7 +80,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('ActivateStagedRelease', () => {
+describe('ActivateRelease', () => {
 	it('activates the staged release by its id, only once confirmed', () => {
 		state.mutateAsync.mockReturnValue(new Promise(() => {}));
 		renderButton();
@@ -102,15 +102,44 @@ describe('ActivateStagedRelease', () => {
 	it('adds, when activating it again, that a node already running it only restarts', () => {
 		render(
 			<QueryClientProvider client={new QueryClient()}>
-				<ActivateStagedRelease deployment={staged} intent="again" />
+				<ActivateRelease project={staged.project} releaseId={staged.deployment_id} intent="again" />
 			</QueryClientProvider>,
 		);
 		fireEvent.click(screen.getByRole('button', { name: 'Activate again' }));
 		expect(screen.getByText('Activate this release of web again?')).toBeTruthy();
-		const description = screen.getByText(/Everything was installed when this release was staged/);
+		// Not only a staged release is activated again: a deploy some node did not take is too.
+		const description = screen.getByText(/It was installed when it was deployed or staged/);
 		expect(description.textContent).toMatch(
-			/so each node just switches to it\. A node already running it restarts without changing anything\.$/,
+			/so each node just switches to it, and a node already running it restarts without changing anything\.$/,
 		);
+	});
+
+	it('shows a release some node holds no copy of without letting it be activated', () => {
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled />
+			</QueryClientProvider>,
+		);
+		const button = screen.getByRole('button', { name: /Roll back to this release/ }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		fireEvent.click(button);
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('goes back to a release by the id that built it, with the same activation call', () => {
+		state.mutateAsync.mockReturnValue(new Promise(() => {}));
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" />
+			</QueryClientProvider>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		fireEvent.click(screen.getAllByRole('button', { name: 'Roll back to this release' }).at(-1)!);
+		expect(state.mutateAsync.mock.calls[0][0]).toMatchObject({
+			request: { kind: 'activate', project: 'web', deploymentId: 'd0' },
+		});
+		expect(state.useDeployComponentMutation).toHaveBeenCalledWith(activationMutationKey('clu-a', 'd0'));
 	});
 
 	it('still reports an activation whose detail was closed before it settled', async () => {
