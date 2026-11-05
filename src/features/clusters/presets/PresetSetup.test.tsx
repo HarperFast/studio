@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { answer, browser, runPresetSetup, stable } = vi.hoisted(() => ({
+const { answer, browser, order, runPresetSetup, stable } = vi.hoisted(() => ({
+	order: [] as string[],
 	answer: { read: undefined as (() => Promise<StudioConfiguration>) | undefined },
 	browser: { locks: true },
 	runPresetSetup: vi.fn(),
@@ -14,7 +15,10 @@ const { answer, browser, runPresetSetup, stable } = vi.hoisted(() => ({
 		params: { organizationId: 'org-1', clusterId: 'clu-1' },
 		context: { cluster: { id: 'clu-1', preset: 'redirects' } },
 		instanceParams: { instanceClient: {}, entityId: 'clu-1', entityType: 'cluster' },
-		navigate: () => Promise.resolve(),
+		navigate: () => {
+			order.push('navigate');
+			return Promise.resolve();
+		},
 	},
 }));
 
@@ -29,6 +33,10 @@ vi.mock('@/features/clusters/presets/runPresetSetup', async (importOriginal) => 
 	...(await importOriginal<typeof import('@/features/clusters/presets/runPresetSetup')>()),
 	runPresetSetup,
 	setupHoldsAcrossTabs: () => browser.locks,
+}));
+vi.mock('@/features/clusters/presets/pendingPresetSetup', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/features/clusters/presets/pendingPresetSetup')>()),
+	forgetPendingPresetSetup: () => order.push('forget'),
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => true }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => stable.instanceParams }));
@@ -59,6 +67,7 @@ const settled = () => new Promise((resolve) => setTimeout(resolve, 20));
 beforeEach(() => {
 	browser.locks = true;
 	runPresetSetup.mockReset();
+	order.length = 0;
 	runPresetSetup.mockReturnValue(new Promise(() => undefined));
 });
 afterEach(cleanup);
@@ -68,6 +77,24 @@ describe('PresetSetup', () => {
 		renderSetup(async () => ({ navigation: {}, pages: [] }));
 		await waitFor(() => expect(runPresetSetup).toHaveBeenCalledTimes(1));
 		expect(screen.queryByRole('button', { name: /^Set up/ })).toBeNull();
+	});
+
+	it("forgets this browser's record only once the new settings are in, then opens /start", async () => {
+		let refetched: (configuration: StudioConfiguration) => void = () => undefined;
+		let reads = 0;
+		runPresetSetup.mockResolvedValue(undefined);
+		renderSetup(() => {
+			reads += 1;
+			return reads === 1
+				? Promise.resolve({ navigation: {}, pages: [] })
+				: new Promise((resolve) => (refetched = resolve));
+		});
+		await waitFor(() => expect(reads).toBe(2));
+		await settled();
+		expect(order).toEqual([]);
+
+		refetched({ navigation: {}, landing: 'harper-redirects.redirects', pages: [] });
+		await waitFor(() => expect(order).toEqual(['forget', 'navigate']));
 	});
 
 	it('waits for the cluster’s settings before starting', async () => {

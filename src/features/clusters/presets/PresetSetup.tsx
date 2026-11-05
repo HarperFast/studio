@@ -90,12 +90,14 @@ export function PresetSetup() {
 				onStep: (id, state, detail) =>
 					setSteps((current) => current.map((step) => step.id === id ? { ...step, state, detail } : step)),
 			});
-			forgetPendingPresetSetup(params.clusterId);
-			// The nav, the landing page and the Applications tree all just changed under this tab.
+			// The nav, the landing page and the Applications tree all just changed under this tab. The record goes
+			// only once the new settings are in: while the preset comes from it alone (no `Cluster.preset` yet),
+			// forgetting it re-renders this page without a preset, which sends the viewer to `/start` at once.
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'get_studio_configuration'] }),
 				queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'get_components'] }),
 			]);
+			forgetPendingPresetSetup(params.clusterId);
 			if (mounted.current) {
 				await navigate({ to: start, replace: true });
 			}
