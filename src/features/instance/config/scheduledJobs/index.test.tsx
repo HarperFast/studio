@@ -40,6 +40,7 @@ vi.mock('@/hooks/useRestartInstanceClick', () => ({
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org', clusterId: 'clu', instanceId: 'ins' }),
+	useLoaderData: () => ({ version: state.version }),
 	Link: ({ children }: { children: React.ReactNode }) => <a href="#status">{children}</a>,
 }));
 vi.mock(
@@ -49,8 +50,6 @@ vi.mock(
 
 function answer(body: Record<string, unknown>) {
 	switch (body.operation) {
-		case 'registration_info':
-			return { version: state.version };
 		case 'get_components':
 			return {
 				name: 'components',
@@ -170,7 +169,7 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(
 			await screen.findByText('Scheduled jobs need Harper 5.2.0-beta.2 or later. This instance runs 5.2.0-beta.1.'),
 		).toBeTruthy();
-		expect(operationsSent()).toEqual(['registration_info']);
+		expect(operationsSent()).toEqual([]);
 	});
 
 	it("lists each app's jobs with their schedule and the last failure Harper logged", async () => {
@@ -179,7 +178,7 @@ describe('ConfigScheduledJobsIndex', () => {
 		const rows = await within(card).findAllByRole('row');
 		expect(rows[1].textContent).toContain('sync-rates');
 		expect(rows[1].textContent).toContain('every 10 seconds');
-		expect(rows[1].textContent).toContain('None in the log');
+		expect(rows[1].textContent).toContain('None in the last 1,000 log lines');
 		expect(rows[2].textContent).toContain('* * * * *');
 		expect(rows[2].textContent).toContain('America/New_York');
 		expect(rows[2].textContent).toContain('report service returned 503');
@@ -219,6 +218,20 @@ describe('ConfigScheduledJobsIndex', () => {
 			) as HTMLElement,
 		).getAllByRole('row')[1];
 		expect(nightly.textContent).toContain('Not run yet');
+	});
+
+	it('falls back to the log when a refetch of the state fails, not to the last answer', async () => {
+		state.version = '5.4.0-beta.2';
+		renderPage();
+		const card = (await screen.findByText('metrics-app')).closest('[data-slot="card"]') as HTMLElement;
+		await within(card).findByText('Succeeded');
+		state.stateFails = true;
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+		});
+		expect(await screen.findByText(/Studio couldn’t read each job’s last run/)).toBeTruthy();
+		expect(within(card).queryByText('Succeeded')).toBeNull();
+		expect(within(card).getAllByRole('row')[0].textContent).toContain('Last failure');
 	});
 
 	it('falls back to the log when the state read fails', async () => {

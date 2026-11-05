@@ -28,11 +28,11 @@ import {
 	SCHEDULER_STATE_READABLE_FROM,
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { describeError } from '@/react-query/queryClient';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 import { PlusIcon, RefreshCwIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -40,7 +40,7 @@ import { AppJobsCard, RunSources } from './AppJobsCard';
 import { JobDialog, JobDialogTarget } from './JobDialog';
 import { AppJobsConfig, JobDraft, readAppJobs, removeJob, ScheduledJobConfig, writeJob } from './jobsConfig';
 import { SchedulerApp, schedulerApps } from './schedulerApps';
-import { lastLoggedTakeover } from './schedulerLog';
+import { indexSchedulerLog } from './schedulerLog';
 import { SentenceTime } from './SentenceTime';
 import { useSaveAppJobs } from './useSaveAppJobs';
 
@@ -101,7 +101,7 @@ function Leader({ sources }: { sources: RunSources }) {
 	if (sources.statePending || !sources.log) {
 		return null;
 	}
-	const takeover = lastLoggedTakeover(sources.log);
+	const { takeover } = sources.log;
 	return (
 		<p className="text-sm text-muted-foreground">
 			{takeover
@@ -119,13 +119,9 @@ function Leader({ sources }: { sources: RunSources }) {
 export function ConfigScheduledJobsIndex() {
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
-	// The nav hides this page below 5.2, but a bookmark still lands here.
-	const { data: registrationInfo, isError: isVersionError } = useQuery({
-		...getRegistrationInfoQueryOptions(instanceParams),
-		enabled: canManage,
-	});
-	const version = registrationInfo?.version;
-	const supported = registrationInfo === undefined ? undefined : supportsScheduledJobs(version);
+	// The route's loader read it. The nav hides this page below 5.2, but a bookmark still lands here.
+	const { version }: Partial<RegistrationInfoResponse> = useLoaderData({ strict: false }) ?? {};
+	const supported = supportsScheduledJobs(version);
 	const enabled = canManage && supported === true;
 	const readsState = canReadSchedulerState(version);
 
@@ -140,17 +136,15 @@ export function ConfigScheduledJobsIndex() {
 	const logQuery = useQuery(getSchedulerLogQueryOptions({ ...instanceParams, enabled }));
 	const stateQuery = useQuery(getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState }));
 
-	// Keyed by text: a render that changes no file re-parses none.
-	const parsed = useRef(new Map<string, AppJobsConfig>()).current;
-	const readJobs = (text: string | undefined) => {
-		if (text === undefined) {
-			return readAppJobs(undefined);
+	// The latest parse per app: a render that changes no file re-parses none, and an old file isn't kept.
+	const parsed = useRef(new Map<string, { text: string | undefined; config: AppJobsConfig }>()).current;
+	const readJobs = (app: string, text: string | undefined) => {
+		const cached = parsed.get(app);
+		if (cached && cached.text === text) {
+			return cached.config;
 		}
-		let config = parsed.get(text);
-		if (!config) {
-			config = readAppJobs(text);
-			parsed.set(text, config);
-		}
+		const config = readAppJobs(text);
+		parsed.set(app, { text, config });
 		return config;
 	};
 	const views: AppView[] = apps.map((app, index) => {
@@ -160,15 +154,17 @@ export function ConfigScheduledJobsIndex() {
 		return {
 			app,
 			text,
-			config: pending || query?.isError ? undefined : readJobs(text),
+			config: pending || query?.isError ? undefined : readJobs(app.name, text),
 			isLoading: pending,
 			error: app.configFile ? query?.error : undefined,
 		};
 	});
+	const logIndex = useMemo(() => (logQuery.data ? indexSchedulerLog(logQuery.data) : undefined), [logQuery.data]);
 	const sources: RunSources = {
-		state: stateQuery.data,
+		// React Query keeps the last answer after a refetch fails; the page then says the read failed and uses the log.
+		state: readsState && !stateQuery.isError ? stateQuery.data : undefined,
 		statePending: readsState && stateQuery.isPending,
-		log: logQuery.data,
+		log: logIndex,
 		logFailed: logQuery.isError,
 	};
 	const canEditView = (view: AppView) => !view.app.readOnly && !!view.config?.editable;
@@ -245,10 +241,10 @@ export function ConfigScheduledJobsIndex() {
 	if (!canManage) {
 		return <PageNotice>Only super users can view or change scheduled jobs.</PageNotice>;
 	}
-	if (supported === undefined) {
-		return isVersionError
-			? <PageNotice>This instance's Harper version could not be read, so its scheduled jobs are not shown.</PageNotice>
-			: <Loading text="Loading..." />;
+	if (!version) {
+		return (
+			<PageNotice>This instance's Harper version could not be read, so its scheduled jobs are not shown.</PageNotice>
+		);
 	}
 	if (!supported) {
 		return (
@@ -290,7 +286,8 @@ export function ConfigScheduledJobsIndex() {
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
-						disabled={treeQuery.isFetching || logQuery.isFetching}
+						disabled={treeQuery.isFetching || logQuery.isFetching || stateQuery.isFetching
+							|| configQueries.some((query) => query.isFetching)}
 					>
 						<RefreshCwIcon />
 						<span className="hidden lg:inline-block">Refresh</span>

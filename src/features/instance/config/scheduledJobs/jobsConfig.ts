@@ -117,7 +117,14 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 		// An alias whose anchor is never set (`<<: *missing`) parses without errors, then throws here.
 		return { jobs: [], editable: false, problem: `Studio can’t read the file: ${(error as Error).message}` };
 	}
-	const scheduler = typeof config === 'object' && config !== null ? config.scheduler : undefined;
+	if (config !== null && (typeof config !== 'object' || Array.isArray(config))) {
+		return {
+			jobs: [],
+			editable: false,
+			problem: `The file is ${describeValue(config)}, not a set of keys, so Studio can’t add jobs to it.`,
+		};
+	}
+	const scheduler = config?.scheduler;
 	if (scheduler == null) {
 		return { jobs: [], editable: true };
 	}
@@ -230,6 +237,9 @@ function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq;
 	const doc = text === undefined ? new Document(DEFAULT_APP_CONFIG) : parseDocument(text);
 	if (doc.errors.length > 0) {
 		throw new Error(`The config file isn't valid YAML: ${doc.errors[0].message}`);
+	}
+	if (doc.contents !== null && !isMap(doc.contents)) {
+		throw new Error('The config file isn’t a set of keys, so Studio can’t add jobs to it.');
 	}
 	let scheduler = doc.get('scheduler', true);
 	if (!isMap(scheduler)) {

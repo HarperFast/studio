@@ -66,6 +66,13 @@ describe('readAppJobs', () => {
 			problem: 'scheduler is a list, not a set of keys, so Studio can’t add jobs to it.',
 		});
 		expect(readAppJobs('scheduler: true\n')).toMatchObject({ editable: false });
+		expect(readAppJobs('- item\n')).toEqual({
+			jobs: [],
+			editable: false,
+			problem: 'The file is a list, not a set of keys, so Studio can’t add jobs to it.',
+		});
+		expect(readAppJobs('42\n')).toMatchObject({ editable: false });
+		expect(readAppJobs('# nothing yet\n')).toEqual({ jobs: [], editable: true });
 		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
 			jobs: [],
 			editable: false,
@@ -206,6 +213,10 @@ describe('writeJob', () => {
 		expect(() => writeJob('scheduler: [\n', undefined, draft)).toThrow(/valid YAML/);
 		expect(() => writeJob('scheduler:\n  jobs: nope\n', undefined, draft)).toThrow(/not a list/);
 		expect(() => writeJob('scheduler: [legacy]\n', undefined, draft)).toThrow(/not a set of keys/);
+		expect(() => writeJob('- item\n', undefined, draft)).toThrow(/isn’t a set of keys/);
+		expect(parse(writeJob('# nothing yet\n', undefined, draft))).toEqual({
+			scheduler: { jobs: [{ name: 'n', interval: '5m', handler: './a.js' }] },
+		});
 		expect(writeJob('scheduler:\n', undefined, draft)).toContain('    - name: n\n');
 	});
 });

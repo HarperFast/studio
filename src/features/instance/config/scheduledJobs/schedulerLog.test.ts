@@ -1,6 +1,12 @@
+import { schedulerJobRowId } from '@/integrations/api/instance/scheduler/scheduler';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { describe, expect, it } from 'vitest';
-import { lastLoggedFailure, lastLoggedLoadError, lastLoggedTakeover } from './schedulerLog';
+import { indexSchedulerLog } from './schedulerLog';
+
+const lastLoggedFailure = (log: ReadLogItem[], app: string, job: string) =>
+	indexSchedulerLog(log).failures.get(schedulerJobRowId(app, job));
+const lastLoggedTakeover = (log: ReadLogItem[]) => indexSchedulerLog(log).takeover;
+const lastLoggedLoadError = (log: ReadLogItem[], app: string) => indexSchedulerLog(log).loadErrors.get(app);
 
 function line(partial: Partial<ReadLogItem> & Pick<ReadLogItem, 'message' | 'timestamp'>): ReadLogItem {
 	return { level: 'warn', thread: 'http/1', tags: ['scheduler'], node: '', ...partial };

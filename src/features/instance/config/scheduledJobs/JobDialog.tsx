@@ -26,7 +26,7 @@ import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { SaveIcon, TriangleAlertIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ControllerRenderProps, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { isHandlerModule, readModuleExports } from './handlerExports';
@@ -138,10 +138,6 @@ function toDraft(values: JobFormValues): JobDraft {
 	};
 }
 
-/**
- * A list to choose from, plus "Another…", which swaps in a text field for a value the list doesn't hold: an export the
- * text scan missed, or a timezone this browser doesn't list. With nothing to list, it is just the text field.
- */
 function PickOrType({
 	field,
 	options,
@@ -161,7 +157,14 @@ function PickOrType({
 }) {
 	const [chosenOther, setChosenOther] = useState(false);
 	const listed = pending || options.length > 0;
-	const typing = !listed || chosenOther || (!pending && field.value !== '' && !options.includes(field.value));
+	const offList = !pending && field.value !== '' && !options.includes(field.value);
+	// Once the field is free text it stays so: clearing it, or typing a listed name, mustn't swap the input away.
+	useEffect(() => {
+		if (offList) {
+			setChosenOther(true);
+		}
+	}, [offList]);
+	const typing = !listed || chosenOther || offList;
 	const trigger = (
 		<SelectTrigger className="w-full" aria-label={label}>
 			<SelectValue placeholder={pending ? 'Reading the file…' : `Choose ${label.toLowerCase()}`} />

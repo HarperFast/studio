@@ -4,23 +4,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Timestamp } from '@/features/organization/serviceAccounts/components/Timestamp';
-import { schedulerJobRowId, SchedulerState } from '@/integrations/api/instance/scheduler/scheduler';
-import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import {
+	SCHEDULER_LOG_LIMIT,
+	schedulerJobRowId,
+	SchedulerState,
+} from '@/integrations/api/instance/scheduler/scheduler';
 import { formatDuration } from '@/lib/formatDuration';
 import { PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { AppJobsConfig, handlerFileProblem, ScheduledJobConfig } from './jobsConfig';
 import { describeInterval } from './schedule';
 import { SchedulerApp } from './schedulerApps';
-import { lastLoggedFailure, lastLoggedLoadError } from './schedulerLog';
+import { SchedulerLogIndex } from './schedulerLog';
 import { SentenceTime } from './SentenceTime';
 
 export interface RunSources {
 	/** `system.hdb_scheduler_state`, where Harper lets Studio read it. */
 	state?: SchedulerState;
-	/** Waiting on that read, which replaces the log as the source once it answers. */
 	statePending: boolean;
-	/** Harper's scheduler log lines; `undefined` while loading or when they couldn't be read. */
-	log?: readonly ReadLogItem[];
+	/** `undefined` while loading or when it couldn't be read. */
+	log?: SchedulerLogIndex;
 	logFailed: boolean;
 }
 
@@ -71,9 +73,11 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 	if (!sources.log) {
 		return <span className="text-muted-foreground">Loading…</span>;
 	}
-	const failure = lastLoggedFailure(sources.log, app, job.name);
+	const failure = sources.log.failures.get(schedulerJobRowId(app, job.name));
 	if (!failure) {
-		return <span className="text-muted-foreground">None in the log</span>;
+		return (
+			<span className="text-muted-foreground">None in the last {SCHEDULER_LOG_LIMIT.toLocaleString()} log lines</span>
+		);
 	}
 	return (
 		<span className="space-y-1">
@@ -91,7 +95,7 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 }
 
 function LoadFailure({ app, sources }: { app: SchedulerApp; sources: RunSources }) {
-	const logged = sources.log ? lastLoggedLoadError(sources.log, app.name) : undefined;
+	const logged = sources.log?.loadErrors.get(app.name);
 	return (
 		<Alert variant="destructive" role="alert">
 			<TriangleAlertIcon />

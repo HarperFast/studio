@@ -114,6 +114,7 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: 'scheduled-jobs',
 		head: () => ({ meta: [{ title: 'Scheduled Jobs — Harper Fabric' }] }),
 		component: ConfigScheduledJobsIndex,
+		loader: registrationInfoLoader,
 	});
 
 	const instanceConfigSecretsRoute = createRoute({

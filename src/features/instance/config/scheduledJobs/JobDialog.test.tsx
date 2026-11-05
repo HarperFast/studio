@@ -9,7 +9,6 @@ import { JobDialog, JobDialogTarget } from './JobDialog';
 import { readAppJobs } from './jobsConfig';
 import { schedulerApps } from './schedulerApps';
 
-/** The label a Select's trigger carries, found wherever it sits among the Select's children. */
 function triggerLabel(children: ReactNode): string | undefined {
 	for (const child of Children.toArray(children)) {
 		if (!isValidElement(child)) {
@@ -60,22 +59,22 @@ const post = vi.fn(async (_url: string, body: { operation: string; file?: string
 	throw new Error(`unexpected ${body.operation}`);
 });
 
-function target(withJob: boolean): JobDialogTarget {
+function target(withJob: boolean, configText = CONFIG): JobDialogTarget {
 	const [app] = schedulerApps({
 		name: 'components',
 		entries: [{ name: 'metrics-app', entries: [{ name: 'config.yaml' }, { name: 'jobs.js' }] }],
 	});
-	const config = readAppJobs(CONFIG);
-	return { app, job: withJob ? config.jobs[0] : undefined, baseText: CONFIG, config };
+	const config = readAppJobs(configText);
+	return { app, job: withJob ? config.jobs[0] : undefined, baseText: configText, config };
 }
 
-function renderDialog(withJob = false) {
+function renderDialog(withJob = false, configText = CONFIG) {
 	const onSave = vi.fn();
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
 			<JobDialog
-				target={target(withJob)}
+				target={target(withJob, configText)}
 				instanceParams={{ instanceClient: { post } as never, entityId: 'instance-1' }}
 				isSaving={false}
 				saveError={null}
@@ -154,6 +153,20 @@ describe('JobDialog', () => {
 		});
 		expect(screen.getByText('Cron expression "0 0 30 2 *" can never fire')).toBeTruthy();
 		expect(submit().disabled).toBe(true);
+	});
+
+	it('keeps a typed export typed while it is cleared and retyped', async () => {
+		renderDialog(true, CONFIG.replace('#syncRates', '#refreshRates'));
+		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());
+		const typed = () => screen.getByPlaceholderText('syncRates, or default') as HTMLInputElement;
+		expect(typed().value).toBe('refreshRates');
+		await act(async () => {
+			fireEvent.change(typed(), { target: { value: '' } });
+		});
+		await act(async () => {
+			fireEvent.change(typed(), { target: { value: 'syncRates' } });
+		});
+		expect(typed().value).toBe('syncRates');
 	});
 
 	it('enables Save on the first change to a valid job', async () => {
