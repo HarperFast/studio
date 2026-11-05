@@ -64,17 +64,23 @@ function WafPage() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsWaf(registrationInfo.version);
-	const { data, dataUpdatedAt, isFetching, isError, refetch } = useQuery(
+	const { data, isFetching, isError, refetch } = useQuery(
 		listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
 	);
 	const onRefreshClick = useRefreshClick(refetch);
 
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
-	const [writtenAt, setWrittenAt] = useState<Readonly<Record<string, number>>>({});
+	const [rereading, setRereading] = useState<Readonly<Record<string, number>>>({});
 	const onWritten = (id: string) => {
-		const settledAt = Date.now();
-		setWrittenAt((current) => ({ ...current, [id]: settledAt }));
-		void refetch();
+		const settle = (step: number) =>
+			setRereading((current) => {
+				const { [id]: count = 0, ...rest } = current;
+				return count + step > 0 ? { ...rest, [id]: count + step } : rest;
+			});
+		settle(1);
+		// A newer refetch cancels this one, and this promise then waits for that one, so it never settles
+		// on a list read before the write landed.
+		void refetch().finally(() => settle(-1));
 	};
 	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
 	// Every open, close and reload starts a new session, and so does leaving the page: the form remounts
@@ -84,9 +90,7 @@ function WafPage() {
 		dialogSessions.current += 1;
 	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
-	// A read landing in the same millisecond as the write may predate it, so a tie stays locked.
-	const isLocked = (id: string) =>
-		(isDropPending && dropTarget?.id === id) || (writtenAt[id] ?? -Infinity) >= dataUpdatedAt;
+	const isLocked = (id: string) => (isDropPending && dropTarget?.id === id) || id in rereading;
 
 	const rules = useMemo(
 		() =>
@@ -200,7 +204,6 @@ function WafPage() {
 							: 'The firewall rules could not be reloaded, so this list may be out of date.'}
 					</PageNotice>
 				)}
-				{/* A failed reload keeps the last list mounted, so a toggle still in flight still reports. */}
 				{rules === undefined
 					? !isError && <Loading text="Loading..." />
 					: rules.length === 0
@@ -242,7 +245,6 @@ function WafPage() {
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={`firewall rule '${dropTarget?.id ?? ''}'`}
 				isModalOpen={dropTarget !== undefined}
-				// Held open while the delete runs: closing it would unlock a rule that is mid-delete.
 				setIsModalOpen={(open) => !open && !isDropPending && setDropTarget(undefined)}
 				deletionConfirmed={onDropConfirmed}
 				deletionPending={isDropPending}

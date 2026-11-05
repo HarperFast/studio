@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -93,6 +93,32 @@ describe('listWafRulesQueryOptions', () => {
 		});
 		await expect(failure).rejects.toBeInstanceOf(WafOperationError);
 		await expect(failure).rejects.toThrow("Operation 'listWafRules' not found");
+	});
+
+	// The page's per-rule lock (`onWritten`) relies on this: it releases when its refetch settles.
+	it('settles a refetch cancelled by a newer one only with the newer read', async () => {
+		const answers: Array<(rows: unknown) => void> = [];
+		const { instanceClient } = client(() => new Promise((resolve) => answers.push(resolve)));
+		const observer = new QueryObserver(
+			new QueryClient(),
+			listWafRulesQueryOptions({ instanceClient, entityId: 'clu-1' }),
+		);
+		const unsubscribe = observer.subscribe(() => undefined);
+		await vi.waitFor(() => expect(answers).toHaveLength(1));
+		answers[0]([]);
+		await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [] }));
+
+		let settled = false;
+		const older = observer.refetch().then((result) => ((settled = true), result));
+		void observer.refetch();
+		await vi.waitFor(() => expect(answers).toHaveLength(3));
+		answers[1]([]);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(settled).toBe(false);
+
+		answers[2]([starterRule()]);
+		expect((await older).data).toEqual({ available: true, rules: [starterRule()] });
+		unsubscribe();
 	});
 });
 
