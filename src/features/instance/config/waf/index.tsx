@@ -34,6 +34,7 @@ import {
 	DEFAULT_WAF_SCORE_THRESHOLD,
 	isFabricStarterRule,
 	listWafRulesQueryOptions,
+	refetchWafRulesToRest,
 	supportsWaf,
 	useDropWafRule,
 	useSetWafMode,
@@ -42,7 +43,7 @@ import {
 	WafRule,
 	wafRuleDeferrals,
 } from '@/integrations/api/instance/waf/waf';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -64,23 +65,27 @@ function WafPage() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsWaf(registrationInfo.version);
-	const { data, isFetching, isError, refetch } = useQuery(
-		listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
-	);
+	const listQuery = listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true });
+	const { data, isFetching, isError, refetch } = useQuery(listQuery);
 	const onRefreshClick = useRefreshClick(refetch);
+	const queryClient = useQueryClient();
 
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
-	const [rereading, setRereading] = useState<Readonly<Record<string, number>>>({});
+	const [rereading, setRereading] = useState<ReadonlyMap<string, number>>(new Map());
 	const onWritten = (id: string) => {
 		const settle = (step: number) =>
 			setRereading((current) => {
-				const { [id]: count = 0, ...rest } = current;
-				return count + step > 0 ? { ...rest, [id]: count + step } : rest;
+				const next = new Map(current);
+				const count = (current.get(id) ?? 0) + step;
+				if (count > 0) {
+					next.set(id, count);
+				} else {
+					next.delete(id);
+				}
+				return next;
 			});
 		settle(1);
-		// A newer refetch cancels this one, and this promise then waits for that one, so it never settles
-		// on a list read before the write landed.
-		void refetch().finally(() => settle(-1));
+		void refetchWafRulesToRest(queryClient, listQuery.queryKey, refetch).finally(() => settle(-1));
 	};
 	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
 	// Every open, close and reload starts a new session, and so does leaving the page: the form remounts
@@ -90,7 +95,7 @@ function WafPage() {
 		dialogSessions.current += 1;
 	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
-	const isLocked = (id: string) => (isDropPending && dropTarget?.id === id) || id in rereading;
+	const isLocked = (id: string) => (isDropPending && dropTarget?.id === id) || rereading.has(id);
 
 	const rules = useMemo(
 		() =>

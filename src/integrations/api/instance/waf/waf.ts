@@ -6,7 +6,7 @@ import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceC
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { stableJson } from '@/lib/stableJson';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import { queryOptions, useMutation } from '@tanstack/react-query';
+import { QueryClient, QueryKey, queryOptions, RefetchOptions, useMutation } from '@tanstack/react-query';
 
 /** The first tagged harper-pro build with the WAF operations. */
 const WAF_MIN_VERSION = '5.2.0-beta.3';
@@ -165,6 +165,21 @@ export function listWafRulesQueryOptions(params: InstanceClientIdConfig & { enab
 		queryFn: () => listWafRuleState(params),
 		enabled: params.enabled,
 	});
+}
+
+/**
+ * Settles only once no list read is in flight, so nothing it leaves predates the call. A refetch cancelled
+ * by a newer one joins that one, but one cancelled twice settles early, so keep joining.
+ */
+export async function refetchWafRulesToRest(
+	queryClient: QueryClient,
+	queryKey: QueryKey,
+	refetch: (options?: RefetchOptions) => Promise<unknown>,
+) {
+	await refetch();
+	while (queryClient.isFetching({ queryKey, exact: true })) {
+		await refetch({ cancelRefetch: false });
+	}
 }
 
 export function isFabricStarterRule(rule: WafRule): boolean {
