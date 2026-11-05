@@ -18,15 +18,13 @@ const WORD_PARAMS = new Set(['mode']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPTIONAL_PARAM = /^\{-\$(\w+)\}$/;
 const SPLAT = '_splat';
+const SEGMENT_LABELS: Record<string, string> = { 'Apis': 'APIs', 'Deploy From Github': 'Deploy from GitHub' };
 
 /**
  * The parameter each URL segment fills, by name, read from the matched route's `fullPath` (for example
  * `/$organizationId/$clusterId/config/deployments/$deploymentId`). An optional `{-$name}` segment takes a URL
  * segment only when its parameter is present.
  */
-/** Segments whose capitalized form misspells a name. */
-const SEGMENT_LABELS: Record<string, string> = { 'Apis': 'APIs', 'Deploy From Github': 'Deploy from GitHub' };
-
 export function paramSegments(
 	routePath: string | undefined,
 	segmentCount: number,

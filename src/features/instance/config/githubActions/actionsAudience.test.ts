@@ -42,6 +42,8 @@ describe('isPrivateAudience', () => {
 		'http://[::]:9925/',
 		'http://[fe80::1]:9925/',
 		'http://100.101.102.103:9925/',
+		'http://[::ffff:127.0.0.1]:9925/',
+		'http://[::ffff:c0a8:10a]:9925/',
 	])('is private for %s, which a hosted runner cannot reach', (audience) => {
 		expect(isPrivateAudience(audience)).toBe(true);
 	});
@@ -51,6 +53,7 @@ describe('isPrivateAudience', () => {
 		'http://172.32.0.1:9925/',
 		'https://8.8.8.8:443/',
 		'http://100.128.0.1:9925/',
+		'http://[::ffff:808:808]:9925/',
 	])(
 		'is public for %s',
 		(audience) => {

@@ -34,9 +34,12 @@ export function isPrivateAudience(audience: string): boolean {
 	} catch {
 		return false;
 	}
-	const ipv4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(hostname);
-	if (ipv4) {
-		const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+	// `URL` writes an IPv4-mapped IPv6 address in hex, as `[::ffff:7f00:1]`.
+	const mapped = /^\[::ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}\]$/.exec(hostname);
+	const ipv4 = mapped ? undefined : /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(hostname);
+	if (mapped || ipv4) {
+		const high = mapped ? parseInt(mapped[1], 16) : 0;
+		const [a, b] = mapped ? [high >> 8, high & 0xff] : [Number(ipv4![1]), Number(ipv4![2])];
 		// Unspecified, private, loopback, link-local and CGNAT, where Tailscale addresses live.
 		return a === 0 || a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)
 			|| (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);

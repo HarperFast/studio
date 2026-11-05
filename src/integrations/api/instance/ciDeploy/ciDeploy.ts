@@ -1,5 +1,5 @@
 /**
- * Deploy from GitHub (studio#1788): the role, user and trust policy a GitHub Actions workflow deploys an application
+ * Deploy from GitHub: the role, user and trust policy a GitHub Actions workflow deploys an application
  * with, using its OIDC token and no stored credential. Studio makes the same records, with the same names, as `harper
  * deploy setup=true provider=github-actions` (harper `bin/deploySetupGithubActions.ts`), calling the cluster as the
  * signed-in super user, so a project set up by either reads as set up to the other. Why it only creates is in
