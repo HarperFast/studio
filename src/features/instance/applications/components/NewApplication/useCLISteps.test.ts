@@ -16,10 +16,18 @@ describe('buildCLISteps', () => {
 		}
 	});
 
-	it('tells people to take the harper login offer, and that the deploy uses it', () => {
+	it("ends with create-harper's outro: harper login, deploy:setup-ci, then each merge to main deploys", () => {
 		const steps = buildCLISteps('my-app', 'https://my-cluster.example.com:9925/');
-		expect(steps.find((step) => step.title === 'Create your awesome app')?.note).toMatch(/harper login/);
-		expect(steps.find((step) => step.title === 'Deploy!')?.note).toMatch(/login from step 2/);
+		expect(steps.slice(-3).map((step) => step.code)).toEqual([
+			'harper login',
+			'npm run deploy:setup-ci',
+			'git push origin main',
+		]);
+		expect(steps.at(-3)?.title).toMatch(/super user/);
+		expect(steps.at(-2)?.note).toMatch(/GitHub repository first/);
+		expect(steps.at(-1)?.note).toMatch(/Every merge to main deploys/);
+		// The old last step deployed from the laptop with the saved login.
+		expect(steps.map((step) => step.code)).not.toContain('npm run deploy');
 	});
 
 	it('leaves the URL out when the cluster has none yet', () => {

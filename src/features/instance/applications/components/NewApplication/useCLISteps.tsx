@@ -14,8 +14,9 @@ export interface CLIStep {
 }
 
 /**
- * The steps follow create-harper's own flow: it takes the cluster URL, offers to run `harper login`,
- * and stores no username or password in the project.
+ * The steps follow create-harper's own outro (`lib/steps/installAndOptionallyStart.js`): it takes the cluster URL and
+ * scaffolds a workflow that deploys on each merge to `main`. A super user's `harper login` lets `deploy:setup-ci`
+ * create the trust policy that workflow signs in with, so neither the project nor GitHub holds a password.
  */
 export function buildCLISteps(appName: string, target: string | null | undefined): CLIStep[] {
 	const directoryName = toKebabCase(appName);
@@ -27,8 +28,7 @@ export function buildCLISteps(appName: string, target: string | null | undefined
 		{
 			title: 'Create your awesome app',
 			code: `npm create harper ${directoryName}${target ? ` -- --deploymentURL="${target}"` : ''}`,
-			note: 'You will be asked some easy questions to get you started. When it offers to log in to this cluster,'
-				+ ' say yes: harper login saves a token in your home directory, so no password goes into your project.',
+			note: 'You will be asked some easy questions to get you started.',
 		},
 		{
 			title: 'Start local Harper instance',
@@ -40,10 +40,21 @@ export function buildCLISteps(appName: string, target: string | null | undefined
 			code: `cat AGENTS.md`,
 		},
 		{
+			title: 'Sign in to your cluster as a super user',
+			code: 'harper login',
+			note: 'It saves a token in your home directory, so no password goes into your project.',
+		},
+		{
+			title: 'Let GitHub Actions deploy it',
+			code: 'npm run deploy:setup-ci',
+			note: 'Push the project to a GitHub repository first. This creates the trust policy its deploy workflow signs in'
+				+ " with, and sets the repository's HARPER_CLI_TARGET variable, so GitHub stores no Harper credential. The"
+				+ " application's Deploy from GitHub page in Studio can set up the cluster side too.",
+		},
+		{
 			title: 'Deploy!',
-			code: `npm run deploy`,
-			note: "It signs in with the login from step 2. Your project's README explains what a deploy needs in its"
-				+ ' Deployment section.',
+			code: 'git push origin main',
+			note: "Every merge to main deploys. Your project's README explains it in its Deployment section.",
 		},
 	];
 }

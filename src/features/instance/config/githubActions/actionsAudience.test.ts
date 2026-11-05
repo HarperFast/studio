@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPreviewDomain, previewAudience } from './previewAudience';
+import { actionsAudience } from './actionsAudience';
 
-describe('previewAudience', () => {
+describe('actionsAudience', () => {
 	it.each([
 		['https://cluster.example.com:9925/', 'https://cluster.example.com:9925/'],
 		['https://cluster.example.com:9925', 'https://cluster.example.com:9925/'],
@@ -13,7 +13,7 @@ describe('previewAudience', () => {
 		['https://example.com/operations', 'https://example.com:443/operations/'],
 		['https://user:pass@cluster.example.com:9925/?a=b#c', 'https://cluster.example.com:9925/'],
 	])('turns %s into %s', (url, expected) => {
-		expect(previewAudience(url)).toBe(expected);
+		expect(actionsAudience(url)).toBe(expected);
 	});
 
 	it.each([
@@ -25,22 +25,6 @@ describe('previewAudience', () => {
 		undefined,
 		'ftp://cluster.example.com/',
 	])('refuses %j, whose token could never match', (url) => {
-		expect(previewAudience(url)).toBeUndefined();
-	});
-});
-
-describe('defaultPreviewDomain', () => {
-	it('is app. under the host name, lower-cased', () => {
-		expect(defaultPreviewDomain('https://Cluster.Example.com:9925/')).toBe('app.cluster.example.com');
-	});
-
-	it.each([
-		'http://localhost:9925/',
-		'http://127.0.0.1:9925/',
-		'http://[::1]:9925/',
-		undefined,
-		'not a url',
-	])('has none for %j, which is not a host name', (audience) => {
-		expect(defaultPreviewDomain(audience)).toBeUndefined();
+		expect(actionsAudience(url)).toBeUndefined();
 	});
 });
