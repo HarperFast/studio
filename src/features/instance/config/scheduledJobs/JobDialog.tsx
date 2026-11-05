@@ -166,7 +166,7 @@ function PickOrType({
 	}, [offList]);
 	const typing = !listed || chosenOther || offList;
 	const trigger = (
-		<SelectTrigger className="w-full" aria-label={label}>
+		<SelectTrigger className="w-full" aria-label={typing ? `${label} list` : label}>
 			<SelectValue placeholder={pending ? 'Reading the file…' : `Choose ${label.toLowerCase()}`} />
 		</SelectTrigger>
 	);
@@ -462,7 +462,7 @@ export function JobDialog({
 							<Button
 								type="submit"
 								variant="submit"
-								disabled={isSaving || !isValid || (!!job && !isDirty)}
+								disabled={isSaving || !isValid || (!!job && !isDirty && !job.problem)}
 							>
 								<SaveIcon /> {isSaving ? 'Saving…' : job ? 'Save job' : 'Add job'}
 							</Button>

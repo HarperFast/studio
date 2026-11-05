@@ -21,6 +21,8 @@ interface SaveAppJobsVariables {
 	/** The text the change was made against: `undefined` for an app with no config file. */
 	baseText: string | undefined;
 	change: (text: string | undefined) => string;
+	/** The handler's module, for a change that writes a job: it must still be in the app. */
+	handlerFile?: string;
 }
 
 /**
@@ -30,7 +32,7 @@ interface SaveAppJobsVariables {
  */
 export async function saveAppJobs(
 	params: InstanceClientIdConfig & InstanceTypeConfig,
-	{ app, baseText, change }: SaveAppJobsVariables,
+	{ app, baseText, change, handlerFile }: SaveAppJobsVariables,
 ): Promise<{ file: string }> {
 	const fresh = schedulerApps(await getComponents(params)).find((candidate) => candidate.name === app.name);
 	if (!fresh || fresh.configFile !== app.configFile) {
@@ -38,6 +40,12 @@ export async function saveAppJobs(
 	}
 	if (fresh.readOnly) {
 		throw new ConfigChangedError(app.configFile ?? 'config.yaml', fresh.readOnly);
+	}
+	if (handlerFile && !fresh.files.has(handlerFile)) {
+		throw new ConfigChangedError(
+			app.configFile ?? 'config.yaml',
+			`${handlerFile} is no longer in ${app.name}, so Harper couldn’t load the job.`,
+		);
 	}
 	const file = app.configFile ?? 'config.yaml';
 	if (app.configFile) {

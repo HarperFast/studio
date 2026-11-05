@@ -81,6 +81,15 @@ describe('saveAppJobs', () => {
 		expect(writes(post)).toEqual([]);
 	});
 
+	it('refuses a job whose handler file was deleted since the dialog opened', async () => {
+		const { post, params } = fakeInstance({ files: ['config.yaml'], text: ORIGINAL });
+		const [app] = schedulerApps(tree(['config.yaml', 'jobs.js']));
+		await expect(
+			saveAppJobs(params, { app, baseText: ORIGINAL, handlerFile: 'jobs.js', change: () => 'x' }),
+		).rejects.toThrow(/jobs.js is no longer in app/);
+		expect(writes(post)).toEqual([]);
+	});
+
 	it('creates config.yaml for an app that still has no config file, replicated on a cluster', async () => {
 		const { post, params } = fakeInstance({ files: ['jobs.js'], text: '' });
 		const [app] = schedulerApps(tree(['jobs.js']));

@@ -40,7 +40,15 @@ import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppJobsCard, RunSources } from './AppJobsCard';
 import { JobDialog, JobDialogTarget } from './JobDialog';
-import { AppJobsConfig, JobDraft, readAppJobs, removeJob, ScheduledJobConfig, writeJob } from './jobsConfig';
+import {
+	AppJobsConfig,
+	handlerModulePath,
+	JobDraft,
+	readAppJobs,
+	removeJob,
+	ScheduledJobConfig,
+	writeJob,
+} from './jobsConfig';
 import { SchedulerApp, schedulerApps } from './schedulerApps';
 import { indexSchedulerLog } from './schedulerLog';
 import { SentenceTime } from './SentenceTime';
@@ -241,7 +249,8 @@ function ScheduledJobsPage() {
 			return;
 		}
 		const { app, job, baseText } = dialog;
-		save.mutate({ app, baseText, change: (text) => writeJob(text, job?.index, draft) }, {
+		const handlerFile = handlerModulePath(draft.handler);
+		save.mutate({ app, baseText, handlerFile, change: (text) => writeJob(text, job?.index, draft) }, {
 			onSuccess: ({ file }) => {
 				setDialog(undefined);
 				wrote();

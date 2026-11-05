@@ -176,4 +176,10 @@ describe('JobDialog', () => {
 		await change('Interval', '15m');
 		await waitFor(() => expect(submit().disabled).toBe(false));
 	});
+
+	it('lets a job Harper would refuse be saved as the form already fixes it', async () => {
+		renderDialog(true, CONFIG.replace('      handler:', '      timeZone: UTC\n      handler:'));
+		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());
+		await waitFor(() => expect(submit().disabled).toBe(false));
+	});
 });

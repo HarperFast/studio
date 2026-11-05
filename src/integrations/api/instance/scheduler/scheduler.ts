@@ -63,7 +63,7 @@ function isMissingTable(error: unknown): boolean {
 		&& items.some((item) => typeof item === 'string' && item.includes(`system.${SCHEDULER_STATE_TABLE}`));
 }
 
-export async function getSchedulerState({ instanceClient }: InstanceClientConfig): Promise<SchedulerState> {
+async function getSchedulerState({ instanceClient }: InstanceClientConfig): Promise<SchedulerState> {
 	let rows: SchedulerStateRow[];
 	try {
 		const { data } = await instanceClient.post<SchedulerStateRow[]>('/', {
@@ -116,7 +116,7 @@ export const SCHEDULER_LOG_LIMIT = 1000;
  * because of a job names the `scheduler` component. `read_log`'s filter matches the tags as well as the message. A
  * cluster reads every node's log, since the leader may be any of them.
  */
-export async function getSchedulerLog(
+async function getSchedulerLog(
 	{ instanceClient, entityType }: InstanceClientConfig & InstanceTypeConfig,
 ): Promise<ReadLogItem[]> {
 	const { data } = await instanceClient.post<ReadLogItem[]>('/', {
