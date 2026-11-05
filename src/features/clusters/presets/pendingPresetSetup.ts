@@ -1,3 +1,4 @@
+import { clusterPresetsEnabled } from '@/config/constants';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
@@ -10,70 +11,121 @@ import { useCallback, useSyncExternalStore } from 'react';
  */
 const STORAGE_KEY = 'Studio:PendingPresetSetups';
 
-type PendingSetups = Record<string, { preset: string; since: number }>;
+type PendingSetup = { preset: string; since: number };
+type PendingSetups = Record<string, PendingSetup>;
 
-const listeners = new Set<() => void>();
-// Only for a browser whose storage refuses: the record then holds for this tab alone.
-let fallback: PendingSetups = {};
+/**
+ * A record storage refused to write (full, or private mode), for this tab alone, with the value storage
+ * held when it refused. It wins over that older value, which a full storage still holds, and gives way
+ * once another tab changes the key: a copy kept past that would bring back a record the other tab cleared.
+ */
+let fallback: { setups: PendingSetups; over: string | null } | undefined;
 
 function read(): PendingSetups {
+	let stored: string | null;
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored === null) {
-			return fallback;
+		stored = localStorage.getItem(STORAGE_KEY);
+	} catch {
+		return fallback?.setups ?? {};
+	}
+	if (fallback) {
+		if (stored === fallback.over) {
+			return fallback.setups;
 		}
+		fallback = undefined;
+	}
+	if (stored === null) {
+		return {};
+	}
+	try {
 		const parsed = JSON.parse(stored);
 		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
 	} catch {
-		return fallback;
+		return {};
 	}
 }
 
-function write(next: PendingSetups) {
-	fallback = next;
+/**
+ * Re-reads right before writing and changes only this cluster's entry, so what another tab wrote for
+ * any other cluster in the meantime is kept.
+ */
+function update(clusterId: string, entry: PendingSetup | undefined) {
+	const { [clusterId]: previous, ...others } = read();
+	if (!previous && !entry) {
+		return;
+	}
+	const next = entry ? { ...others, [clusterId]: entry } : others;
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+		fallback = undefined;
 	} catch {
-		// Private mode: the setup can still run in this tab, it just won't be offered after a reload.
+		// The setup can still run in this tab, it just won't be offered after a reload.
+		fallback = { setups: next, over: storedOrNull() };
 	}
-	for (const listener of listeners) {
-		listener();
+	notify();
+}
+
+// Storage that cannot be read at all never gets as far as comparing against this.
+function storedOrNull(): string | null {
+	try {
+		return localStorage.getItem(STORAGE_KEY);
+	} catch {
+		return null;
 	}
 }
 
 export function rememberPendingPresetSetup(clusterId: string, preset: string) {
-	write({ ...read(), [clusterId]: { preset, since: Date.now() } });
+	update(clusterId, { preset, since: Date.now() });
 }
 
 export function forgetPendingPresetSetup(clusterId: string) {
-	const { [clusterId]: _done, ...rest } = read();
-	write(rest);
+	update(clusterId, undefined);
 }
 
 export function getPendingPresetSetup(clusterId: string | undefined): string | undefined {
 	return clusterId ? read()[clusterId]?.preset : undefined;
 }
 
+// One `storage` listener for the whole page however many cluster cards read the record, installed by the
+// first subscriber and removed with the last.
+const listeners = new Set<() => void>();
+
+function notify() {
+	for (const listener of listeners) {
+		listener();
+	}
+}
+
+function onStorage(event: StorageEvent) {
+	if (event.key === STORAGE_KEY || event.key === null) {
+		notify();
+	}
+}
+
 function subscribe(listener: () => void) {
 	listeners.add(listener);
-	const onStorage = (event: StorageEvent) => {
-		if (event.key === STORAGE_KEY || event.key === null) {
-			listener();
-		}
-	};
-	window.addEventListener('storage', onStorage);
+	if (listeners.size === 1) {
+		window.addEventListener('storage', onStorage);
+	}
 	return () => {
 		listeners.delete(listener);
-		window.removeEventListener('storage', onStorage);
+		if (listeners.size === 0) {
+			window.removeEventListener('storage', onStorage);
+		}
 	};
 }
 
+const subscribeToNothing = () => () => undefined;
+
+/** Reads nothing and listens to nothing in a build without presets, where no record can be acted on. */
 export function usePendingPresetSetup(clusterId: string | undefined): string | undefined {
-	const getSnapshot = useCallback(() => getPendingPresetSetup(clusterId), [clusterId]);
-	return useSyncExternalStore(subscribe, getSnapshot);
+	const getSnapshot = useCallback(
+		() => clusterPresetsEnabled ? getPendingPresetSetup(clusterId) : undefined,
+		[clusterId],
+	);
+	return useSyncExternalStore(clusterPresetsEnabled ? subscribe : subscribeToNothing, getSnapshot);
 }
 
-/** Tests only. */
 export function resetPendingPresetSetupsForTests() {
-	fallback = {};
+	fallback = undefined;
 }

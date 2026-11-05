@@ -366,8 +366,8 @@ describe('declaredDataSource', () => {
 		[
 			['list', (source: ExtensionDataSource, t: string) => source.list('redirects', t, 'id', ['id']), 'reads'],
 			['count', (source: ExtensionDataSource, t: string) => source.count('redirects', t), 'reads'],
-			['get', (source: ExtensionDataSource, t: string) => source.get('redirects', t, 'id', 'a'), 'reads'],
-			['insert', (source: ExtensionDataSource, t: string) => source.insert('redirects', t, {}), 'inserts into'],
+			['get', (source: ExtensionDataSource, t: string) => source.get('redirects', t, 'id', 'a', ['id']), 'reads'],
+			['insert', (source: ExtensionDataSource, t: string) => source.insert('redirects', t, {}, 'id'), 'inserts into'],
 		] as const,
 	)('passes a declared %s through and refuses one on a table it does not declare', async (method, call, verb) => {
 		const source = inner();
@@ -380,9 +380,28 @@ describe('declaredDataSource', () => {
 		expect(source[method]).toHaveBeenCalledTimes(1);
 	});
 
+	it("passes a record read's projection through", async () => {
+		const source = inner();
+		await declaredDataSource(source, superUser, access).get('redirects', 'Rule', 'id', 'a', ['id', 'origin']);
+		expect(source.get).toHaveBeenCalledWith('redirects', 'Rule', 'id', 'a', ['id', 'origin']);
+	});
+
+	// The inner source proves a write by finding this key in Harper's answer, so a wrapper that drops it
+	// turns every update into "couldn't confirm" and every insert into the weaker count-only proof.
+	it("passes a write's primary key through", async () => {
+		const source = inner();
+		const declared = declaredDataSource(source, superUser, {
+			tables: [{ database: 'redirects', table: 'Rule', actions: ['insert', 'update'] }],
+		});
+		await declared.insert('redirects', 'Rule', { id: 'a' }, 'id');
+		await declared.update('redirects', 'Rule', { id: 'a', origin: 'x' }, 'id');
+		expect(source.insert).toHaveBeenCalledWith('redirects', 'Rule', { id: 'a' }, 'id');
+		expect(source.update).toHaveBeenCalledWith('redirects', 'Rule', { id: 'a', origin: 'x' }, 'id');
+	});
+
 	it.each(
 		[
-			['update', (source: ExtensionDataSource) => source.update('redirects', 'Rule', { id: 'a' }), 'updates'],
+			['update', (source: ExtensionDataSource) => source.update('redirects', 'Rule', { id: 'a' }, 'id'), 'updates'],
 			['remove', (source: ExtensionDataSource) => source.remove('redirects', 'Rule', 'a'), 'deletes from'],
 		] as const,
 	)('refuses a %s the page does not declare', async (method, call, verb) => {

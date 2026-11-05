@@ -6,7 +6,12 @@ import {
 	rememberPendingPresetSetup,
 	resetPendingPresetSetupsForTests,
 } from '@/features/clusters/presets/pendingPresetSetup';
-import { isPresetApplied, owedPreset, useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
+import {
+	isPresetApplied,
+	owedPreset,
+	useClusterPreset,
+	useOwedPresetSetup,
+} from '@/features/clusters/presets/usePresetSetup';
 import type { ResolvedExtensionPage } from '@/features/instance/extensions/manifest';
 import type { StudioConfiguration } from '@/features/instance/extensions/parseStudioConfiguration';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -41,7 +46,7 @@ vi.mock('@/integrations/api/instance/studio/getStudioConfiguration', () => ({
 	}),
 }));
 
-const [redirects] = CLUSTER_PRESETS;
+const [redirects, prerendering] = CLUSTER_PRESETS;
 const page = (key: string) => ({ key, placement: 'tab' }) as ResolvedExtensionPage;
 const configured: StudioConfiguration = {
 	navigation: redirects.studio.navigation,
@@ -88,6 +93,10 @@ describe('owedPreset', () => {
 
 	it('owes nothing on a cluster that cannot report its configuration, such as Harper before 5.4', () => {
 		expect(owedPreset({ remembered: undefined, recorded: redirects, configuration: unavailable })).toBeUndefined();
+	});
+
+	it("lets central-manager's preset decide over a different one this browser remembers", () => {
+		expect(owedPreset({ remembered: redirects, recorded: prerendering, configuration: blank })).toBe(prerendering);
 	});
 
 	it('owes nothing for a blank cluster', () => {
@@ -155,6 +164,58 @@ describe('useOwedPresetSetup', () => {
 		const { result } = renderOwed(true, 'redirects');
 
 		await waitFor(() => expect(result.current?.id).toBe('redirects'));
+	});
+
+	it("owes central-manager's preset, not a different one this browser remembers, and forgets the record", async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		answer.configuration = blank;
+		const { result } = renderOwed(true, 'prerendering');
+
+		await waitFor(() => expect(result.current?.id).toBe('prerendering'));
+		expect(getPendingPresetSetup('clu-1')).toBeUndefined();
+	});
+
+	it('never offers a signed-out viewer the record, not even before forgetting it, once central-manager records another preset', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		const offered: (string | undefined)[] = [];
+		const client = new QueryClient();
+		const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+		renderHook(() => {
+			const owed = useOwedPresetSetup({ id: 'clu-1', preset: 'prerendering' }, false);
+			offered.push(owed?.id);
+			return owed;
+		}, { wrapper });
+
+		await waitFor(() => expect(getPendingPresetSetup('clu-1')).toBeUndefined());
+		expect(offered.length).toBeGreaterThan(0);
+		expect(offered.every((id) => id === undefined)).toBe(true);
+	});
+});
+
+describe('useClusterPreset', () => {
+	beforeEach(() => {
+		localStorage.clear();
+		resetPendingPresetSetupsForTests();
+	});
+	afterEach(cleanup);
+
+	const renderPreset = (preset?: string) => renderHook(() => useClusterPreset({ id: 'clu-1', preset }));
+
+	it("takes central-manager's preset over a different one this browser remembers, and forgets the record", async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		const { result } = renderPreset('prerendering');
+
+		expect(result.current?.id).toBe('prerendering');
+		await waitFor(() => expect(getPendingPresetSetup('clu-1')).toBeUndefined());
+	});
+
+	it('keeps a record central-manager agrees with, or has not recorded yet', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		expect(renderPreset('redirects').result.current?.id).toBe('redirects');
+		expect(renderPreset(undefined).result.current?.id).toBe('redirects');
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(getPendingPresetSetup('clu-1')).toBe('redirects');
 	});
 });
 

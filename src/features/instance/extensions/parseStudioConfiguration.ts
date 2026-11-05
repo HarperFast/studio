@@ -19,10 +19,6 @@ import {
 } from '@/features/instance/extensions/manifest';
 import type { LocalRolePermissionAction } from '@/integrations/api/api.patch';
 
-/** Studio's own tabs, in nav order. These keys are what a cluster's `studio.navigation` names. */
-export const BUILT_IN_TABS = ['applications', 'databases', 'apis', 'operations', 'status', 'logs', 'config'] as const;
-export type BuiltInTab = (typeof BUILT_IN_TABS)[number];
-
 /**
  * `visible` is the default; `tucked` moves a tab into the nav's More menu; `hidden` leaves it out of the
  * nav entirely. Neither changes what the server allows — a hidden tab still opens from a link.

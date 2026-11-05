@@ -3,6 +3,7 @@ import { Loading } from '@/components/Loading';
 import { useNavigationVisibility, useStudioConfiguration } from '@/features/instance/extensions/useStudioExtensions';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { lazyRouteComponent, Navigate, useParams } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 /**
  * The local/instance index. Applications lives here, so a cluster that hides it sends this entry point
@@ -12,10 +13,18 @@ export function ApplicationsIndex() {
 	const params = useParams({ strict: false });
 	const { isPending } = useStudioConfiguration();
 	const visibilityOf = useNavigationVisibility();
+	const hidden = !isPending && visibilityOf('applications') === 'hidden';
+	// The editor's chunk is most of what this page waits for, so it downloads while the configuration is
+	// still being read rather than after. Only a cluster already known to hide Applications skips it.
+	useEffect(() => {
+		if (!hidden) {
+			void ApplicationsEditor.preload?.();
+		}
+	}, [hidden]);
 	if (isPending) {
 		return <Loading className="flex flex-col items-center justify-center py-24" text="Opening…" />;
 	}
-	if (visibilityOf('applications') === 'hidden') {
+	if (hidden) {
 		return <Navigate to={buildAbsoluteLinkToPage(params, 'start')} replace />;
 	}
 	return <ApplicationsEditor />;

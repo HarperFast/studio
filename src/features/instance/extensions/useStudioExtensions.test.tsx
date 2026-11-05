@@ -104,3 +104,41 @@ describe('useStudioConfiguration', () => {
 		expect(sent()).toEqual([]);
 	});
 });
+
+const PROTOTYPE_MODULES = {
+	data: '@/features/instance/extensions/prototype/demoDataSource',
+	extensions: '@/features/instance/extensions/prototype/demoExtensions',
+	state: '@/features/instance/extensions/prototype/prototypeState',
+};
+
+describe('the dev prototype', () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		for (const module of Object.values(PROTOTYPE_MODULES)) {
+			vi.doUnmock(module);
+		}
+	});
+
+	// A fresh copy of the hooks, evaluated as the given build would: the prototype is chosen at module load.
+	async function prototypeModulesLoadedWhen(dev: boolean) {
+		const loaded: string[] = [];
+		vi.stubEnv('DEV', dev);
+		vi.resetModules();
+		for (const [name, module] of Object.entries(PROTOTYPE_MODULES)) {
+			vi.doMock(module, (importOriginal) => {
+				loaded.push(name);
+				return importOriginal();
+			});
+		}
+		await import('@/features/instance/extensions/useStudioExtensions');
+		return loaded.sort();
+	}
+
+	it('loads on the dev server', async () => {
+		expect(await prototypeModulesLoadedWhen(true)).toEqual(['data', 'extensions', 'state']);
+	});
+
+	it('stays out of a production build', async () => {
+		expect(await prototypeModulesLoadedWhen(false)).toEqual([]);
+	});
+});

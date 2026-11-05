@@ -6,8 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { answer, runPresetSetup, stable } = vi.hoisted(() => ({
+const { answer, browser, runPresetSetup, stable } = vi.hoisted(() => ({
 	answer: { read: undefined as (() => Promise<StudioConfiguration>) | undefined },
+	browser: { locks: true },
 	runPresetSetup: vi.fn(),
 	stable: {
 		params: { organizationId: 'org-1', clusterId: 'clu-1' },
@@ -27,6 +28,7 @@ vi.mock('@/features/clusters/presets/usePresetSetup', () => ({ useClusterPreset:
 vi.mock('@/features/clusters/presets/runPresetSetup', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/clusters/presets/runPresetSetup')>()),
 	runPresetSetup,
+	setupHoldsAcrossTabs: () => browser.locks,
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => true }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => stable.instanceParams }));
@@ -55,6 +57,7 @@ function renderSetup(read: () => Promise<StudioConfiguration>) {
 const settled = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 beforeEach(() => {
+	browser.locks = true;
 	runPresetSetup.mockReset();
 	runPresetSetup.mockReturnValue(new Promise(() => undefined));
 });
@@ -94,6 +97,27 @@ describe('PresetSetup', () => {
 			expect(screen.queryByRole('button', { name: 'Set up HTTP redirects' })).toBeNull();
 		},
 	);
+
+	it('waits for a click in a browser whose tabs cannot wait for each other, and says to close the others', async () => {
+		browser.locks = false;
+		renderSetup(async () => ({ navigation: {}, pages: [] }));
+		const button = await screen.findByRole('button', { name: 'Set up HTTP redirects' });
+		await settled();
+		expect(runPresetSetup).not.toHaveBeenCalled();
+		expect(screen.getByText(/can't stop two tabs from running setup at once/)).toBeTruthy();
+		expect(screen.getByText(/close any other tab open on this cluster/)).toBeTruthy();
+		expect(screen.getByText(/installs HTTP redirects's components, then opens the cluster on HTTP redirects/))
+			.toBeTruthy();
+
+		fireEvent.click(button);
+		await waitFor(() => expect(runPresetSetup).toHaveBeenCalledTimes(1));
+	});
+
+	it('says nothing about other tabs where they wait for each other', async () => {
+		renderSetup(async () => ({ navigation: {}, landing: 'databases', pages: [] }));
+		await screen.findByRole('button', { name: 'Set up HTTP redirects' });
+		expect(screen.queryByText(/can't stop two tabs/)).toBeNull();
+	});
 
 	it('waits for a click when it cannot read the cluster’s settings', async () => {
 		renderSetup(() => Promise.reject(new Error('500')));

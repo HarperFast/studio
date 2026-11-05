@@ -9,14 +9,7 @@ import {
 	StudioConfiguration,
 	TabVisibility,
 } from '@/features/instance/extensions/parseStudioConfiguration';
-import { demoDataSource } from '@/features/instance/extensions/prototype/demoDataSource';
-import { DEMO_EXTENSIONS } from '@/features/instance/extensions/prototype/demoExtensions';
-import {
-	FOCUS_PRESETS,
-	PrototypeState,
-	SIMULATED_ROLES,
-	usePrototypeState,
-} from '@/features/instance/extensions/prototype/prototypeState';
+import type { PrototypeState } from '@/features/instance/extensions/prototype/prototypeState';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -34,6 +27,27 @@ export interface PlacedExtensionPage extends ResolvedExtensionPage {
 
 const UNAVAILABLE_STUDIO_CONFIGURATION: StudioConfiguration = { ...EMPTY_STUDIO_CONFIGURATION, unavailable: true };
 
+// The dev prototype loads only on the dev server. A production build reads `import.meta.env.DEV` as
+// `false` and drops these imports, so these hooks add none of it to the bundle. Imported statically, the
+// prototype modules' top-level code would still ship with every use behind a flag. Awaited here, not in
+// the hooks, because a hook can't switch to `usePrototypeState` once it arrives without changing its hook
+// count. The wait is safe: those modules import only types and React, so no cycle back here can stall it.
+const devPrototype = import.meta.env.DEV
+	? await Promise.all([
+		import('@/features/instance/extensions/prototype/prototypeState'),
+		import('@/features/instance/extensions/prototype/demoExtensions'),
+		import('@/features/instance/extensions/prototype/demoDataSource'),
+	]).then(([state, extensions, data]) => ({ ...state, ...extensions, ...data }))
+	: undefined;
+const PROTOTYPE_OFF: PrototypeState = Object.freeze({
+	enabled: false,
+	installed: {},
+	role: 'actual',
+	focus: 'none',
+	panelOpen: false,
+});
+const usePrototype: () => PrototypeState = devPrototype?.usePrototypeState ?? (() => PROTOTYPE_OFF);
+
 /**
  * The cluster's Studio configuration: its tab visibility, landing page and component pages. Empty
  * until the viewer is signed in to the entity, and on a Harper that predates the operation, which isn't
@@ -49,7 +63,7 @@ export function useStudioConfiguration(): { configuration: StudioConfiguration; 
 	const registration = useQuery({ ...getRegistrationInfoQueryOptions(instanceParams), enabled: signedIn });
 	const asks = !registration.isPending && mayAnswerStudioConfiguration(registration.data?.version);
 	const query = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: signedIn && asks }));
-	const prototype = usePrototypeState();
+	const prototype = usePrototype();
 	// Another view may still have cached a real answer, which wins over the version's.
 	const data = query.data ?? (registration.isPending || asks ? undefined : UNAVAILABLE_STUDIO_CONFIGURATION);
 	const configuration = useMemo(
@@ -93,8 +107,8 @@ export function useVisibleExtensionPages(placement: ResolvedExtensionPage['place
 export function useExtensionPermission(): LocalRolePermission | undefined {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(instanceId ?? clusterId);
-	const { role } = usePrototypeState();
-	return role === 'actual' ? user?.role?.permission : SIMULATED_ROLES[role].permission;
+	const { role } = usePrototype();
+	return role === 'actual' || !devPrototype ? user?.role?.permission : devPrototype.SIMULATED_ROLES[role].permission;
 }
 
 export function useExtensionDataSource(page: ResolvedExtensionPage): ExtensionDataSource {
@@ -102,7 +116,7 @@ export function useExtensionDataSource(page: ResolvedExtensionPage): ExtensionDa
 	const instanceClient = useInstanceClient();
 	const entityId = instanceId ?? clusterId ?? 'local';
 	return useMemo(
-		() => page.demo ? demoDataSource : createHarperDataSource(entityId, instanceClient),
+		() => page.demo && devPrototype ? devPrototype.demoDataSource : createHarperDataSource(entityId, instanceClient),
 		[page.demo, entityId, instanceClient],
 	);
 }
@@ -124,7 +138,7 @@ export function useExtensionPageName(key: unknown): string | undefined {
 		[queryClient, entityId],
 	);
 	const cached = useSyncExternalStore(subscribe, getSnapshot);
-	const prototype = usePrototypeState();
+	const prototype = usePrototype();
 	return useMemo(() => {
 		if (typeof key !== 'string') {
 			return undefined;
@@ -135,13 +149,13 @@ export function useExtensionPageName(key: unknown): string | undefined {
 
 /** Dev prototype: layers the switcher's demo components and focus preset over what the cluster said. */
 function withPrototype(configuration: StudioConfiguration, prototype: PrototypeState): StudioConfiguration {
-	if (!prototype.enabled) {
+	if (!devPrototype || !prototype.enabled) {
 		return configuration;
 	}
-	const preset = FOCUS_PRESETS[prototype.focus];
+	const preset = devPrototype.FOCUS_PRESETS[prototype.focus];
 	const real = new Set(configuration.pages.map((page) => page.key));
 	const demo = resolveExtensionPages(
-		DEMO_EXTENSIONS.filter((manifest) => prototype.installed[manifest.component]),
+		devPrototype.DEMO_EXTENSIONS.filter((manifest) => prototype.installed[manifest.component]),
 		true,
 	)
 		.filter((page) => !real.has(page.key));

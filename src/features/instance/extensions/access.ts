@@ -256,17 +256,17 @@ export function declaredDataSource(
 			require(database, table, 'read');
 			return dataSource.count(database, table, where);
 		},
-		get: async (database, table, primaryKey, id) => {
+		get: async (database, table, primaryKey, id, attributes) => {
 			require(database, table, 'read');
-			return dataSource.get(database, table, primaryKey, id);
+			return dataSource.get(database, table, primaryKey, id, attributes);
 		},
-		insert: async (database, table, record) => {
+		insert: async (database, table, record, primaryKey) => {
 			require(database, table, 'insert');
-			return dataSource.insert(database, table, record);
+			return dataSource.insert(database, table, record, primaryKey);
 		},
-		update: async (database, table, record) => {
+		update: async (database, table, record, primaryKey) => {
 			require(database, table, 'update');
-			return dataSource.update(database, table, record);
+			return dataSource.update(database, table, record, primaryKey);
 		},
 		remove: async (database, table, id) => {
 			require(database, table, 'delete');

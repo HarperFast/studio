@@ -92,7 +92,6 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 	);
 }
 
-/** The tabs a cluster tucked away: one click further, still there. */
 function MoreMenu({ tucked }: { tucked: InstanceNavLink[] }) {
 	const { pathname } = useLocation();
 	// The trigger carries the active style when the open page is one of these, so the nav still says where you are.

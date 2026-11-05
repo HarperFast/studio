@@ -113,8 +113,9 @@ export function ConfigIndex() {
 	);
 
 	// A lesser role reaches Config only for a component's entry, and the Overview is a super-user page, so
-	// the index opens their first entry instead.
-	if (!canManage && entries.length > 0 && pathname === buildAbsoluteLinkToPage(params, 'config')) {
+	// the index opens their first entry instead. The router matches `config/` to the same index.
+	const atIndex = pathname.replace(/\/+$/, '') === buildAbsoluteLinkToPage(params, 'config');
+	if (!canManage && entries.length > 0 && atIndex) {
 		return <Navigate to={buildAbsoluteLinkToPage(params, entries[0].page)} replace />;
 	}
 

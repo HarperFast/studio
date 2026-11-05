@@ -8,17 +8,23 @@ import type { ExtensionRecord } from '@/features/instance/extensions/dataSource'
 import type { ExtensionField } from '@/features/instance/extensions/manifest';
 
 /** The fields of a record editor or settings form, drawn with Studio's own inputs. */
-export function ExtensionFields({ fields, values, onChange, disabled, idPrefix }: {
+export function ExtensionFields({ fields, values, onChange, disabled, lockedAttribute, idPrefix }: {
 	fields: ExtensionField[];
 	values: ExtensionRecord;
 	onChange: (attribute: string, value: unknown) => void;
 	disabled?: boolean;
+	/**
+	 * Shown but not editable: the key of a record that already exists, which a save never changes, so an
+	 * edit to it would be dropped.
+	 */
+	lockedAttribute?: string;
 	idPrefix: string;
 }) {
 	return (
 		<div className="grid gap-4">
 			{fields.map((field) => {
 				const id = `${idPrefix}-${field.attribute}`;
+				const fieldDisabled = disabled || field.attribute === lockedAttribute;
 				return (
 					<div key={field.attribute} className={field.input === 'switch' ? 'flex items-center gap-3' : 'grid gap-1.5'}>
 						{field.input === 'switch'
@@ -28,7 +34,7 @@ export function ExtensionFields({ fields, values, onChange, disabled, idPrefix }
 										id={id}
 										checked={attributeValue(values, field.attribute) === true}
 										onCheckedChange={(checked) => onChange(field.attribute, checked)}
-										disabled={disabled}
+										disabled={fieldDisabled}
 									/>
 									<Label htmlFor={id}>{field.label}</Label>
 								</>
@@ -44,7 +50,7 @@ export function ExtensionFields({ fields, values, onChange, disabled, idPrefix }
 										field={field}
 										value={attributeValue(values, field.attribute)}
 										onChange={onChange}
-										disabled={disabled}
+										disabled={fieldDisabled}
 									/>
 								</>
 							)}

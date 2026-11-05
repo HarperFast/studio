@@ -3,12 +3,14 @@
  * declares (access.ts), never by naming it in `access.operations`, which is for the operations its own
  * component registers with `server.registerOperation`.
  *
- * Mirrors harper `utility/hdbTerms.ts` OPERATIONS_ENUM (all 124 names at harper 79aec74f9), which is
+ * Mirrors harper `utility/hdbTerms.ts` OPERATIONS_ENUM (all 125 names at harper 6d2054bee), which is
  * wider than the roles editor's catalog: it adds the token, login, release and preview operations. Then
- * the operations Harper Pro registers at boot, since Fabric clusters run Pro (harper-pro 8383c5f7:
- * replication/setNode.ts, clusterStatus.ts, blobRepair.ts, recordLock*.ts, security/certificate.ts,
- * keyService.ts, sshKeyOperations.ts, waf/waf.ts, licensing/usageLicensing.ts). Harper matches the name
- * exactly (`getOperationFunction`, server/serverHelpers/serverUtilities.ts:507), so no spelling variants.
+ * `get_studio_configuration`, which harper's unmerged studio-configuration branch adds (1cdcdd0bc:
+ * hdbTerms.ts:318, registered at server/serverHelpers/serverUtilities.ts:711), and the operations Harper
+ * Pro registers at boot, since Fabric clusters run Pro (harper-pro 8383c5f7: replication/setNode.ts,
+ * clusterStatus.ts, blobRepair.ts, recordLock*.ts, security/certificate.ts, keyService.ts,
+ * sshKeyOperations.ts, waf/waf.ts, licensing/usageLicensing.ts). Harper matches the name exactly
+ * (`getOperationFunction`, server/serverHelpers/serverUtilities.ts:509), so no spelling variants.
  * A built-in added after this Studio shipped isn't here, so this is a floor, not a guarantee.
  */
 export const HARPER_OPERATIONS: ReadonlySet<string> = new Set([
@@ -62,6 +64,7 @@ export const HARPER_OPERATIONS: ReadonlySet<string> = new Set([
 	'delete_job',
 	'update_job',
 	'registration_info',
+	'get_studio_configuration',
 	'set_configuration',
 	'drop_attribute',
 	'restart',
@@ -129,6 +132,8 @@ export const HARPER_OPERATIONS: ReadonlySet<string> = new Set([
 	'disable_previews',
 	'fence_preview_releases',
 	'get_preview_policy',
+	'set_network_access',
+	'get_network_access',
 	'get_deployment_payload',
 	'delete_deployment_payload',
 	'agent_prompt',
@@ -137,6 +142,7 @@ export const HARPER_OPERATIONS: ReadonlySet<string> = new Set([
 	'cancel_agent_run',
 	'approve_agent_action',
 	'set_agent_config',
+	'get_agent_config',
 	// Harper Pro
 	'set_node',
 	'add_node_back',

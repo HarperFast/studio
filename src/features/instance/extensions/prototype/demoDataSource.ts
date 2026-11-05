@@ -68,10 +68,12 @@ export const demoDataSource: ExtensionDataSource = {
 			).length;
 		return { count, bound: 'exact' };
 	},
-	async get(database, table, primaryKey, id) {
+	async get(database, table, primaryKey, id, attributes) {
 		await latency();
 		const record = rows(database, table).find((candidate) => candidate[primaryKey] === id);
-		return record && { ...record };
+		// As Harper projects one: an attribute the record lacks reads as null (resources/Table.ts:9031).
+		return record
+			&& Object.fromEntries([...new Set([primaryKey, ...attributes])].map((name) => [name, record[name] ?? null]));
 	},
 	async insert(database, table, record) {
 		await latency();

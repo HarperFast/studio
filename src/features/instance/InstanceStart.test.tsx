@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { InstanceStart } from '@/features/instance/InstanceStart';
 import { cleanup, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 interface Page {
@@ -34,6 +35,7 @@ vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 		studio.pages.filter((page) => page.placement === placement && page.allowed),
 }));
 vi.mock('@tanstack/react-router', () => ({
+	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
 	useLoaderData: () => ({ version: '5.4.0' }),
 	useParams: () => route.params,
@@ -106,5 +108,27 @@ describe('InstanceStart', () => {
 		studio.navigation = { logs: 'tucked' };
 		studio.landing = 'logs';
 		expect(landsOn()).toBe('/org-1/clu-1/logs');
+	});
+
+	it('explains, rather than showing a blank page, when the navigation hides every tab the role can open', () => {
+		permission.canManage = false;
+		route.params = cluster;
+		studio.navigation = { databases: 'hidden' };
+		expect(landsOn()).toBeUndefined();
+		expect(screen.getByRole('heading', { name: 'Nothing to open here' })).toBeTruthy();
+		expect(screen.getByText(/Ask an administrator/)).toBeTruthy();
+		expect(screen.queryByRole('link')).toBeNull();
+	});
+
+	it('points a super user, who can undo the navigation, at the tabs it hides rather than at an administrator', () => {
+		route.params = cluster;
+		studio.navigation = Object.fromEntries(
+			['applications', 'databases', 'apis', 'operations', 'status', 'logs', 'config'].map((key) => [key, 'hidden']),
+		);
+		expect(landsOn()).toBeUndefined();
+		expect(screen.getByRole('heading', { name: 'Nothing to open here' })).toBeTruthy();
+		expect(screen.queryByText(/administrator/)).toBeNull();
+		expect(screen.getByRole('link', { name: 'Config' }).getAttribute('href')).toBe('/org-1/clu-1/config');
+		expect(screen.getByRole('link', { name: 'Operations' }).getAttribute('href')).toBe('/org-1/clu-1/operations');
 	});
 });

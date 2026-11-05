@@ -40,8 +40,9 @@ unchanged.
   must meet all of it to see the page, and it bounds everything the page's sections send. Grants under
   `optional` (`tables`, `operations`) are declared but not required, so readers can see a table that
   only writers edit, or an admin-only action can sit on a page every reader sees; a control that needs one
-  appears only for roles that hold it. A page naming one of Harper's own operations, or with access
-  Studio can't fully read, is shown to no role, with the reason in place of "not available to your role".
+  appears only for roles that hold it. A page naming one of Harper's own operations (`HARPER_OPERATIONS`,
+  `get_studio_configuration` too), or with access Studio can't fully read, is shown to no role,
+  with the reason in place of "not available to your role".
 - **Body**: always `sections` drawn by Studio (text, stats, CRUD table, settings form, actions), so every
   page looks like Studio and gains whatever Studio's own components gain. No component code runs in
   Studio, and a component that wants its own UI serves it on the application port instead.
@@ -57,53 +58,78 @@ unchanged.
   guards against a careless manifest, not a hostile component: whoever can deploy a component already
   runs code with full rights on the cluster.
 - **Reads are bounded**: a table section loads at most `EXTENSION_ROW_LIMIT` rows, and says so when there
-  are more; it asks for its key and the attributes its columns and fields name (`*` again if Harper
-  refuses one). A count is `describe_table`'s (Harper's estimate on a large table), or, with `where`, a
-  `search_by_conditions` reading primary keys up to the same limit, so its attributes should be indexed.
-- **Writes say what they mean**: Add inserts, so a taken key fails rather than overwriting that row, and
-  Edit updates only the key and the fields the user changed, so attributes the form doesn't show (a
-  server-kept hit count), and ones a projected read returned as null because the record lacks them, are
-  never written back. Every table and form write is raw DML that Harper runs on the
-  table itself (`getTable` in harper `ResourceBridge.ts`), so a Resource the component exports, with its
+  are more. It and a settings form ask for the key and the attributes their columns or fields name (`*`
+  again if Harper refuses one). A count is `describe_table`'s (Harper's estimate on a large table), or,
+  with `where`, a `search_by_conditions` reading primary keys up to the same limit, so its attributes
+  should be indexed. An answer that isn't a list of records is an error, as is a `describe_table` answer
+  with no `record_count`, which Harper sends when its count fails.
+- **Writes say what they mean**: Add inserts, so a taken key fails rather than overwriting that row.
+  Edit (table or settings form) updates only the key, shown but locked, and the fields the user
+  changed from the record they opened, so attributes the form doesn't show (a server-kept hit count),
+  nulls a projected read returned for attributes the record lacks, and another writer's change to a field
+  left alone are never written back. Every table and form write is raw DML that Harper runs on the table
+  itself (`getTable` in harper `ResourceBridge.ts`), so a Resource the component exports, with its
   validation and `put`/`patch` overrides, doesn't run; a component whose writes need it registers an
   operation and offers it as an action.
+- **Writes are proven**: an insert, update or delete succeeds only when Harper's answer lists its key as
+  written and skips nothing (harper `dataLayer/insert.ts:283-301`, `ResourceBridge.ts:362-373`), or for
+  a keyless insert, whose key Harper makes up (`resources/Resource.ts:297`), any entry. One listing
+  nothing written is a plain failure; one Studio can't read, or naming another key, is an
+  `UnconfirmedWriteError`, handled like a write with no answer: Studio says it couldn't confirm it, asks
+  the user to check before retrying, and refetches. Writes and actions report failures themselves, inline
+  or as a toast, never through the global one.
+- **A settings form keeps unsaved edits** when a newer read changes what it shows, unless that read holds
+  them (their own save read back): a note says the record changed or was removed, with a button to
+  discard them and load it.
 
 ## Presets (cluster creation)
 
 `src/features/clusters/presets`: the create form offers a job (`CLUSTER_PRESETS`), only in a build
 with `VITE_CLUSTER_PRESETS=true` and from Harper 5.4 (`PRESET_MIN_HARPER_VERSION`); without the flag
-`findClusterPreset` finds none, so nothing offers, badges or resumes a preset. Once the new cluster's
-admin signs in, FinishSetup sends them to `/setup`, which deploys the preset's components, merges its
-`studio_navigation` and `studio_landing` into the cluster's with `set_configuration` (replicated;
-flattened because harper refuses a nested `studio` object, which would clobber an app deployed under
-that name; no restart), and lands on `/start`. Central-manager records the job as `Cluster.preset`
-(HarperFast/central-manager#1047), so any browser can offer "Finish setting up".
+`findClusterPreset` finds none, so nothing offers, badges or resumes a preset, or reads this browser's
+record of one. Once the new cluster's admin signs in, FinishSetup sends them to `/setup`, which deploys
+the preset's components, merges its `studio_navigation` and `studio_landing` into the cluster's with
+`set_configuration` (replicated; flattened because harper refuses a nested `studio` object, which would
+clobber an app deployed under that name; no restart), and lands on `/start`. Central-manager records the
+job as `Cluster.preset` (HarperFast/central-manager#1047), so any browser can offer "Finish setting up"
+to a super user, whom every step needs. It outranks this browser's record (`pendingPresetSetup`, one
+`storage` listener per page), which is forgotten when they disagree.
 
 - **Done** (`isPresetApplied`): a landing is set and the components declare the preset's landing page,
   so a landing set by hand isn't enough, and moving it later doesn't offer setup again.
-- **Owed** (`owedPreset`): the cluster's loaded config decides. This browser's record
-  (`pendingPresetSetup`) counts only while the config is unknown or `unavailable`, and is forgotten once
-  the config shows the setup done.
+- **Owed** (`owedPreset`): the cluster's loaded config decides. This browser's record counts only while
+  the config is unknown or `unavailable`, and is forgotten once the config shows the setup done.
 - **Merged, never overwritten**: the configure step reads the settings first, keeps the cluster's own
   tab placements and landing, never writes a null landing, and writes nothing if the read fails or is
-  `unavailable`. `/setup` starts by itself only when the config has loaded, is available and holds no
-  landing and no placements; otherwise it says what it will change and waits for a click.
+  `unavailable`. `/setup` starts by itself only with Web Locks and a loaded, available config holding no
+  landing and no placements; otherwise it says what it will change (and, without Web Locks, to close
+  other tabs) and waits for a click.
 - **`/start`** lands on the landing when it is a visible or tucked tab, or a Config page the viewer's
   role may open (`config/ext/<key>`, a route of its own); otherwise on the nav's first tab. Never on a
-  hidden tab, which would loop back through the index it hides.
+  hidden tab, which would loop back through the index it hides. With nothing to open it says so: a super
+  user gets links to Config and Operations, anyone else is told to ask an admin.
 
-Setup never sends a deploy twice by itself (applications/DESIGN.md, "A live deploy is sent once").
-`presetDeployMarks`, in this browser's storage, marks each deploy `unconfirmed` before sending it. Only
-a 4xx proves Harper never started it and clears the mark; no verdict keeps it, and any other failure
-marks it `partial`. A component still missing under `unconfirmed` is installed again only on "Install
-again". `partial` (or an unconfirmed install that has since appeared) is deployed again on Retry, since
-the node Studio reached listing it says nothing of the rest. On a cluster, a listed component with no
-mark is skipped only when its latest `hdb_deployment` record says every node took it (`success`, or
-`rolling_out` under a restart job; no failed peer; any restart job complete on every node). One still in
-flight stops setup, and one with no record was installed some other way and is left alone. A Web Lock
-per cluster keeps runs in different tabs from overlapping, a failed `get_components` or deploy-record
-read stops setup, and a node that refuses the settings fails that step. Another browser sees neither the
-lock nor the marks, though the deploy record catches its partial rollouts.
+Setup never sends a deploy twice by itself, nor beside one still running (applications/DESIGN.md, "A live
+deploy is sent once"). `presetDeployMarks`, in this browser's storage, marks each deploy `unconfirmed`
+before sending it. Only a 4xx proves Harper never started it and clears the mark; no verdict keeps it,
+and any other failure marks it `partial`. A missing component goes out again on Retry when `partial`,
+and under `unconfirmed` only on "Install again", which marks it `partial`. A listed one (on a single
+instance, only a marked one) is decided by its latest `hdb_deployment` record. A `rolling_out` one's
+restart job is followed to its end; one Studio can't follow, like any other still running (outside
+harper's `TERMINAL_STATUSES`, `components/deploymentOperations.ts:22`), stops setup, with Retry but no
+"Install again". One every node took (`success` or `rolling_out`, no failed peer, any restart job
+complete on every node) is skipped, its mark cleared; a failed staging peer, which
+`ignore_replication_errors` lets through to `rolling_out` (harper `components/operations.ts:1224-1246`),
+is waited out first. With no record, an unmarked one was installed some other way and is left alone.
+Anything else goes out again.
+
+A redeploy resends the private-database setting and install command read from `get_configuration`, as a
+package deploy rebuilds its root-config entry from the request alone (harper
+`components/operations.ts:966-979`); a failed read stops the step, and what Studio's request can't carry
+(`urlPath`, `host`, credentials, other `install` options) is dropped. A Web Lock per cluster keeps
+tabs' runs from overlapping, an abort stops a run before its next request, a failed `get_components` or
+deploy-record read stops setup, and a node that refuses the settings fails that step. Another browser
+sees neither the lock nor the marks; the deploy record catches its partial and running deploys.
 
 ## Open
 
@@ -116,6 +142,9 @@ lock nor the marks, though the deploy record catches its partial rollouts.
    `content` to Studio, so `requires` is how a newer shape reaches an older Studio; a versioned schema
    owned by Harper would let components validate against it.
 4. **No Studio UI changes a cluster's preset after creation**, though central-manager allows it.
+5. **An unfinished deploy record can block setup.** Harper's boot sweep ends only `rolling_out` ones (harper
+   `components/deploymentRecorder.ts:800`), so one a node left mid-install never ends. The stop says so:
+   Skip, or redeploy the package from Applications, whose newer record is the one Retry reads.
 
-`prototype/` is dev-server only (never a production build or a test run): demo components on an
-in-memory cluster, a simulated role, and focus presets, switched from the panel at the bottom left.
+`prototype/` is dev-server only (inert in tests, absent from builds): demo components on an in-memory
+cluster, a simulated role, and focus presets, switched from the panel at the bottom left.

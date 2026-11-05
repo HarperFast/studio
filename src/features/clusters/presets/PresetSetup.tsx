@@ -7,6 +7,7 @@ import {
 	PresetInstallUnconfirmedError,
 	presetSetupSteps,
 	runPresetSetup,
+	setupHoldsAcrossTabs,
 	SetupStep,
 } from '@/features/clusters/presets/runPresetSetup';
 import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
@@ -26,7 +27,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * `/<org>/<cluster>/setup`: finishes a preset cluster once its admin is signed in — installs the
  * preset's components, focuses Studio on the job, then lands on the preset's page. Starts by itself on
  * a cluster with no Studio settings of its own; one that has some waits for a click, since setup merges
- * into them. A failure stops it with Retry, which is safe because every step is idempotent.
+ * into them, and so does every cluster in a browser whose tabs cannot wait for each other's setup. A
+ * failure stops it with Retry, which is safe because every step is idempotent.
  */
 export function PresetSetup() {
 	const params: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
@@ -38,7 +40,9 @@ export function PresetSetup() {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const configuration = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: !!preset }));
-	const startsByItself = !!configuration.data && !configuration.data.unavailable && !hasSettings(configuration.data);
+	const acrossTabs = setupHoldsAcrossTabs();
+	const startsByItself = acrossTabs && !!configuration.data && !configuration.data.unavailable
+		&& !hasSettings(configuration.data);
 
 	const [steps, setSteps] = useState<SetupStep[]>(() => preset ? presetSetupSteps(preset) : []);
 	const [running, setRunning] = useState(false);
@@ -136,6 +140,12 @@ export function PresetSetup() {
 						)
 						: (
 							<>
+								{awaitingClick && !acrossTabs && (
+									<p className="text-sm text-muted-foreground">
+										This browser can't stop two tabs from running setup at once, so close any other tab open on this
+										cluster before you start.
+									</p>
+								)}
 								{awaitingClick && (
 									<p className="text-sm text-muted-foreground">
 										{describeMerge(preset.name, configuration.data)}
@@ -173,7 +183,8 @@ export function PresetSetup() {
 							<Button
 								variant="defaultOutline"
 								onClick={() => {
-									// Partial, not cleared: if it has appeared meanwhile it is still deployed once more.
+									// Partial, not cleared: once it is listed, its latest deploy record decides whether to skip,
+									// stop or deploy it again, rather than the mark alone.
 									markDeploy(instanceParams.entityId, unconfirmed, 'partial');
 									void run();
 								}}
@@ -209,6 +220,9 @@ function describeMerge(name: string, configuration: StudioConfiguration | undefi
 	if (!configuration || configuration.unavailable) {
 		return `Studio could not read this cluster's settings, so setup waits for you. `
 			+ `It installs ${name}'s components, then adds its Studio settings.`;
+	}
+	if (!hasSettings(configuration)) {
+		return `Setup installs ${name}'s components, then opens the cluster on ${name}.`;
 	}
 	const landing = configuration.landing
 		? `keeps the cluster's landing page (${configuration.landing})`

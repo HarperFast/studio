@@ -12,7 +12,6 @@ import { cn } from '@/lib/cn';
 import { useParams } from '@tanstack/react-router';
 import { LockIcon, PackageXIcon } from 'lucide-react';
 
-/** The route body for a component's page, in either placement. */
 export function ExtensionPage({ placement }: { placement: ResolvedExtensionPage['placement'] }) {
 	const { extensionKey }: { extensionKey?: string } = useParams({ strict: false });
 	const pages = useExtensionPages();

@@ -4,7 +4,6 @@ export interface BreadcrumbNames {
 	organization?: string;
 	cluster?: string;
 	instance?: string;
-	/** The name of the component page an `ext/<key>` route shows. */
 	extension?: string;
 }
 

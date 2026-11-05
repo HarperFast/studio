@@ -1,6 +1,10 @@
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import type { ClusterPreset } from '@/features/clusters/presets/clusterPresets';
 import { clearDeployMark, getDeployMarks, markDeploy } from '@/features/clusters/presets/presetDeployMarks';
+import {
+	type BranchedDatabases,
+	readBranchedDatabases,
+} from '@/integrations/api/instance/applications/branchedDatabases';
 import { deployAndFollowComponent } from '@/integrations/api/instance/applications/deployComponent';
 import { getComponents } from '@/integrations/api/instance/applications/getComponents';
 import { followRestartJob } from '@/integrations/api/instance/applications/restartJob';
@@ -61,27 +65,62 @@ export class PresetInstallUnconfirmedError extends Error {
  */
 type DeploymentRecord = Omit<Deployment, 'status'> & { status: string; restart_job_id?: string | null };
 
-// Harper's own terminal set (harper `components/deploymentOperations.ts`, `TERMINAL_STATUSES`).
+/**
+ * A deploy of the component that has not ended. Not a `PresetInstallUnconfirmedError`, so nothing offers
+ * "Install again": setup never sends a deploy beside one still running, even when asked. Retry checks again.
+ * Harper's boot sweep ends only `rolling_out` records (harper `components/deploymentRecorder.ts:800`), so one
+ * a node stopped mid-install never finishes; a redeploy writes a newer record, which is the one Retry reads
+ * (`list_deployments` is newest first, harper `components/deploymentOperations.ts:93-95`).
+ */
+export class PresetDeployInFlightError extends Error {
+	readonly project: string;
+
+	constructor(project: string, record: Pick<DeploymentRecord, 'deployment_id' | 'status'>) {
+		super(
+			`A deploy of this component is still running (deployment ${record.deployment_id}, ${record.status}). `
+				+ `Let it finish, then Retry. If it stays ${record.status}, the deploy may have stopped part way: `
+				+ 'redeploy the package from Applications, then Retry, or Skip for now.',
+		);
+		this.name = 'PresetDeployInFlightError';
+		this.project = project;
+	}
+}
+
+// Harper's own terminal set (harper `components/deploymentOperations.ts:22`, `TERMINAL_STATUSES`).
 const ENDED_DEPLOYMENT_STATUSES = new Set(['success', 'failed', 'partial', 'rolled_back', 'staged']);
 
 const inFlight = new Map<string, Promise<void>>();
 
 /**
+ * Whether runs in different tabs wait for each other. Without Web Locks only runs in this tab do, so
+ * setup must not start by itself: two tabs opened on `/setup` would both pass the checks before either
+ * marks its deploy, and both send it.
+ */
+export function setupHoldsAcrossTabs(): boolean {
+	return typeof navigator !== 'undefined' && !!navigator.locks;
+}
+
+/**
  * Sets a new cluster up for its preset, as the signed-in admin: deploys each component, then merges the
  * preset's Studio settings under the cluster's own. "Retry" runs it again from the top: a component
- * already on the cluster is left as it is unless a mark or its latest deploy record says not every node
- * may have it, one whose install may have started is waited for rather than sent again
- * (`presetDeployMarks`), and the settings merge changes nothing the second time.
+ * already on the cluster is left as it is when its latest deploy record says every node took it, a
+ * deploy still in flight stops it rather than having another sent beside it, one whose install may have
+ * started and is still missing is not sent again (`presetDeployMarks`), and the settings merge changes
+ * nothing the second time.
  *
  * Runs for one cluster never overlap in this browser: a Web Lock holds them across tabs, so a second tab
  * or a remount waits for the deploy in flight instead of sending another. Another browser has neither
  * the lock nor the marks; that limit comes with setting the cluster up from the browser at all.
  *
+ * An abort stops it before the next request, whether it arrives during the wait for the lock or during a
+ * read, and a read that fails after it rejects as the abort. A deploy already sent is not aborted, so its
+ * outcome is still recorded.
+ *
  * Every step needs super_user, which the cluster's first admin is.
  */
 export function runPresetSetup(args: RunArgs): Promise<void> {
-	if (typeof navigator !== 'undefined' && navigator.locks) {
-		return navigator.locks.request(`Studio:PresetSetup:${args.entityId}`, () => runOnce(args));
+	if (setupHoldsAcrossTabs()) {
+		return navigator.locks.request(`Studio:PresetSetup:${args.entityId}`, { signal: args.signal }, () => runOnce(args));
 	}
 	const previous = inFlight.get(args.entityId);
 	const run = (async () => {
@@ -99,10 +138,12 @@ export function runPresetSetup(args: RunArgs): Promise<void> {
 }
 
 async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<void> {
+	signal?.throwIfAborted();
 	let installed: Set<string>;
 	try {
 		installed = await installedProjects(args);
 	} catch (error) {
+		signal?.throwIfAborted();
 		// Deploying without knowing what is there could send a deploy that is already running.
 		onStep(
 			`deploy:${preset.components[0]?.project}`,
@@ -116,33 +157,56 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 		signal?.throwIfAborted();
 		const { project } = component;
 		const id = `deploy:${project}`;
-		if (marks[project] === 'unconfirmed' && !installed.has(project)) {
+		const mark = marks[project];
+		if (mark === 'unconfirmed' && !installed.has(project)) {
 			const error = new PresetInstallUnconfirmedError(project);
 			onStep(id, 'failed', error.message);
 			throw error;
 		}
-		// Appearing proves the node Studio reached took it, not the rest, so a marked one is deployed again.
-		if (installed.has(project) && !marks[project]) {
+		if (installed.has(project)) {
 			let covered: boolean;
 			try {
-				covered = args.entityType !== 'cluster'
-					|| await everyNodeHasIt({ ...args, project, signal, onWait: (detail) => onStep(id, 'running', detail) });
+				// A single instance listing an unmarked one is all of it. A marked one's deploy may still be running
+				// even there, if the tab that sent it closed mid-rollout, and is never sent again beside it.
+				covered = (!mark && args.entityType !== 'cluster') || await everyNodeHasIt({
+					...args,
+					project,
+					signal,
+					// This browser deployed a marked one, so with no record to show every node took it, it goes out again.
+					unrecorded: !mark,
+					onWait: (detail) => onStep(id, 'running', detail),
+				});
 			} catch (error) {
+				signal?.throwIfAborted();
 				onStep(
 					id,
 					'failed',
-					error instanceof PresetInstallUnconfirmedError
+					error instanceof PresetDeployInFlightError
 						? error.message
 						: `Could not read how this component was last deployed: ${messageOf(error)}`,
 				);
 				throw error;
 			}
 			if (covered) {
+				clearDeployMark(args.entityId, project);
 				onStep(id, 'done', 'Already installed');
 				continue;
 			}
 		}
 		onStep(id, 'running');
+		let kept: KeptDeploySettings = {};
+		if (installed.has(project)) {
+			try {
+				kept = await keptDeploySettings(args, project);
+			} catch (error) {
+				signal?.throwIfAborted();
+				// Redeploying without them would turn the application's private database copy off and drop its
+				// install command.
+				onStep(id, 'failed', `Could not read this component's deploy settings: ${messageOf(error)}`);
+				throw error;
+			}
+		}
+		signal?.throwIfAborted();
 		// Written before sending, so a tab closed mid-deploy, or another tab, never sends it again blind.
 		markDeploy(args.entityId, project, 'unconfirmed');
 		let result: Awaited<ReturnType<typeof deployAndFollowComponent>>;
@@ -150,7 +214,7 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 			// No `signal`: leaving the page lets the deploy in flight finish and record its outcome.
 			result = await deployAndFollowComponent({
 				...args,
-				request: { kind: 'deploy', project, package: component.package },
+				request: { kind: 'deploy', project, package: component.package, ...kept },
 			});
 		} catch (error) {
 			if (error instanceof SSEInconclusiveError || isUnansweredWrite(error)) {
@@ -182,10 +246,18 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 
 	signal?.throwIfAborted();
 	onStep('configure', 'running');
+	// The navigation map replaces the cluster's whole map, so what the cluster already set is read first
+	// and kept; settings Studio could not read are never written over blind.
+	let current: Awaited<ReturnType<typeof getStudioConfiguration>>;
 	try {
-		// The navigation map replaces the cluster's whole map, so what the cluster already set is read first
-		// and kept; settings Studio could not read are never written over blind.
-		const current = await getStudioConfiguration({ instanceClient: args.instanceClient, entityId: args.entityId });
+		current = await getStudioConfiguration({ instanceClient: args.instanceClient, entityId: args.entityId });
+	} catch (error) {
+		signal?.throwIfAborted();
+		onStep('configure', 'failed', messageOf(error));
+		throw error;
+	}
+	signal?.throwIfAborted();
+	try {
 		if (current.unavailable) {
 			throw new Error('This cluster did not report its Studio settings, so setup left them as they are.');
 		}
@@ -213,35 +285,67 @@ async function installedProjects(args: InstanceClientIdConfig): Promise<Set<stri
 	return new Set((tree.entries ?? []).map((entry) => entry.name));
 }
 
+/** The root-config fields of a listed application that Studio's deploy request can carry. */
+type KeptDeploySettings = { branchedDatabases?: BranchedDatabases; installCommand?: string };
+
 /**
- * Whether a component the node Studio reached lists is on every node of the cluster, from its latest
- * `hdb_deployment` record (which replicates). Another browser's rolling deploy may have stopped part way,
- * and this browser holds no mark for it.
+ * What a redeploy must resend of a listed application's root-config entry, read the way the Applications
+ * redeploy reads `branchedDatabases`: a package deploy writes that entry from the request alone, keeping
+ * `branchedDatabases` and `install.command` only when the request carries them (harper
+ * `components/operations.ts:966-979`).
  */
-async function everyNodeHasIt({ project, signal, onWait, ...client }: InstanceClientIdConfig & {
+async function keptDeploySettings(
+	{ instanceClient }: InstanceClientIdConfig,
+	project: string,
+): Promise<KeptDeploySettings> {
+	const { data } = await instanceClient.post('/', { operation: 'get_configuration' });
+	return { branchedDatabases: readBranchedDatabases(data, project), installCommand: readInstallCommand(data, project) };
+}
+
+// Harper reads it back from the root-config entry as `install.command` (harper `components/Application.ts:229`).
+function readInstallCommand(configuration: unknown, project: string): string | undefined {
+	const entry = isRecord(configuration) && Object.hasOwn(configuration, project) ? configuration[project] : undefined;
+	const install = isRecord(entry) ? entry.install : undefined;
+	const command = isRecord(install) ? install.command : undefined;
+	return typeof command === 'string' && command ? command : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Whether a component the node Studio reached lists is on every node, from its latest `hdb_deployment`
+ * record (which replicates): another browser's rolling deploy may have stopped part way, and this browser
+ * holds no mark for it. Throws `PresetDeployInFlightError` while that deploy has not ended, so none is sent
+ * beside it. `unrecorded` answers for a component with no record.
+ */
+async function everyNodeHasIt({ project, signal, onWait, unrecorded, ...client }: InstanceClientIdConfig & {
 	project: string;
 	signal?: AbortSignal;
+	unrecorded: boolean;
 	onWait: (detail: string) => void;
 }): Promise<boolean> {
 	const { deployments } = await listDeployments({ ...client, project, limit: 1 });
+	signal?.throwIfAborted();
 	const record = deployments?.[0] as DeploymentRecord | undefined;
 	if (!record) {
-		// Installed some other way, such as by the user from git: deploying the preset's package over it
-		// would replace their component.
-		return true;
+		// Unmarked, it was installed some other way, such as by the user from git: deploying the preset's
+		// package over it would replace their component.
+		return unrecorded;
 	}
-	const following = record.status === 'rolling_out' && !!record.restart_job_id;
-	if (!ENDED_DEPLOYMENT_STATUSES.has(record.status) && !following) {
-		throw new PresetInstallUnconfirmedError(
-			project,
-			`A deploy of this component is still running (deployment ${record.deployment_id}, ${record.status}). `
-				+ 'Let it finish, then Retry; install it again only if it is stuck.',
-		);
+	const rollingOut = record.status === 'rolling_out' && !!record.restart_job_id;
+	if (!ENDED_DEPLOYMENT_STATUSES.has(record.status) && !rollingOut) {
+		throw new PresetDeployInFlightError(project, record);
 	}
-	if (record.status !== 'success' && !following) {
+	if (record.status !== 'success' && !rollingOut) {
 		return false;
 	}
-	if (record.peer_results?.some((peer) => peer.status === 'failed' || !!peer.error)) {
+	const peerFailed = !!record.peer_results?.some((peer) => peer.status === 'failed' || !!peer.error);
+	// A rollout still activating is waited for first: a peer that failed to stage, which
+	// `ignore_replication_errors` lets through to `rolling_out` (harper `components/operations.ts:1224-1246`),
+	// must not send a deploy beside it.
+	if (peerFailed && !rollingOut) {
 		return false;
 	}
 	if (!record.restart_job_id) {
@@ -249,7 +353,12 @@ async function everyNodeHasIt({ project, signal, onWait, ...client }: InstanceCl
 	}
 	onWait('Checking that every node took the last install');
 	const rollout = await followRestartJob({ ...client, jobId: record.restart_job_id, signal });
-	return rollout.state === 'complete'
+	signal?.throwIfAborted();
+	// Losing track of a rollout says nothing of whether it ended, and its record says it has not.
+	if (rollingOut && rollout.state === 'unfollowable') {
+		throw new PresetDeployInFlightError(project, record);
+	}
+	return !peerFailed && rollout.state === 'complete'
 		&& rollout.nodes.every((node) => node.outcome === 'activated' || node.outcome === 'restarted');
 }
 

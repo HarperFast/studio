@@ -12,9 +12,12 @@ const FloatingChat = lazy(() =>
 	import('./applications/components/Chat/FloatingChat').then((m) => ({ default: m.FloatingChat }))
 );
 
-const PrototypePanel = lazy(() =>
-	import('./extensions/prototype/PrototypePanel').then((m) => ({ default: m.PrototypePanel }))
-);
+// PROTOTYPE: the component-pages scenario switcher, on the dev server only. Gated where it is declared, not
+// only where it renders: a production build keeps any `lazy()` it can reach, and so would still emit the
+// panel's chunk with the demo components in it, though nothing ever loads it.
+const PrototypePanel = import.meta.env.DEV
+	? lazy(() => import('./extensions/prototype/PrototypePanel').then((m) => ({ default: m.PrototypePanel })))
+	: undefined;
 
 export function InstanceLayout() {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
@@ -37,8 +40,7 @@ export function InstanceLayout() {
 					<FloatingChat />
 				</Suspense>
 			)}
-			{/* PROTOTYPE: the component-pages scenario switcher, dev builds only. */}
-			{import.meta.env.DEV && (
+			{PrototypePanel && (
 				<Suspense fallback={null}>
 					<PrototypePanel />
 				</Suspense>

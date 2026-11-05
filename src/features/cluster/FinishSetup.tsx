@@ -9,8 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultClusterUsername } from '@/config/constants';
 import { authStore } from '@/features/auth/store/authStore';
-import { findClusterPreset } from '@/features/clusters/presets/clusterPresets';
-import { getPendingPresetSetup } from '@/features/clusters/presets/pendingPresetSetup';
+import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
@@ -38,6 +37,7 @@ export function FinishSetup() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
+	const preset = useClusterPreset(cluster);
 
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
@@ -98,7 +98,7 @@ export function FinishSetup() {
 						? redirect
 						// A cluster created for a preset goes straight on to installing it, now that someone
 						// who can is signed in. Signed out, its home offers the setup once they connect.
-						: user && findClusterPreset(getPendingPresetSetup(clusterId) ?? cluster?.preset ?? undefined)
+						: user && preset
 						? `${home}/setup`
 						: home,
 				});
@@ -110,6 +110,7 @@ export function FinishSetup() {
 		instancesReady,
 		navigate,
 		operationsUrl,
+		preset,
 		queryClient,
 		redirect,
 		router,

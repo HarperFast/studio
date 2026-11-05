@@ -15,7 +15,7 @@ import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMen
 import { useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { useInstanceManagePermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
@@ -99,8 +99,11 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
 
 	const base = `/${cluster.organizationId}/${cluster.id}`;
-	// A cluster created for a job whose setup hasn't run yet: entering it finishes that first.
-	const pendingPreset = useOwedPresetSetup(cluster, !!user);
+	// Every step of setup needs super_user, so anyone else is offered the cluster as it is rather than a
+	// setup page that can only tell them so.
+	const canRunSetup = useInstanceManagePermission(cluster.id);
+	const owedPreset = useOwedPresetSetup(cluster, canRunSetup);
+	const pendingPreset = canRunSetup ? owedPreset : undefined;
 
 	const onFabricConnect = useCallback(async () => {
 		setIsConnecting(true);

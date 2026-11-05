@@ -13,8 +13,25 @@ import { useEffect, useMemo } from 'react';
  * it yet — what this browser remembered when it created the cluster.
  */
 export function useClusterPreset(cluster: Pick<Cluster, 'id' | 'preset'> | undefined): ClusterPreset | undefined {
-	const remembered = usePendingPresetSetup(cluster?.id);
-	return findClusterPreset(remembered ?? cluster?.preset ?? undefined);
+	const remembered = useRememberedPreset(cluster);
+	return findClusterPreset(cluster?.preset || remembered);
+}
+
+/**
+ * This browser's record of the preset it created the cluster with, unless central-manager records a
+ * different one: its preset can change after creation, and running the old one's setup would install
+ * components the cluster is no longer for. A record that disagrees is forgotten.
+ */
+function useRememberedPreset(cluster: Pick<Cluster, 'id' | 'preset'> | undefined): string | undefined {
+	const clusterId = cluster?.id;
+	const remembered = usePendingPresetSetup(clusterId);
+	const stale = !!remembered && !!cluster?.preset && remembered !== cluster.preset;
+	useEffect(() => {
+		if (stale && clusterId) {
+			forgetPendingPresetSetup(clusterId);
+		}
+	}, [stale, clusterId]);
+	return stale ? undefined : remembered;
 }
 
 /**
@@ -38,8 +55,8 @@ export function useOwedPresetSetup(
 	cluster: Pick<Cluster, 'id' | 'preset'>,
 	connected: boolean,
 ): ClusterPreset | undefined {
-	const remembered = findClusterPreset(usePendingPresetSetup(cluster.id));
-	const recorded = findClusterPreset(cluster.preset ?? undefined);
+	const remembered = findClusterPreset(useRememberedPreset(cluster));
+	const recorded = findClusterPreset(cluster.preset || undefined);
 	const instanceParams = useMemo(() => getInstanceClientIdFromParams({ clusterId: cluster.id }), [cluster.id]);
 	const { data } = useQuery(
 		getStudioConfigurationQueryOptions({ ...instanceParams, enabled: connected && !!(remembered ?? recorded) }),
@@ -53,14 +70,13 @@ export function useOwedPresetSetup(
 	return owedPreset({ remembered, recorded, configuration: data });
 }
 
-/** The decision behind {@link useOwedPresetSetup}, given what it could find out. */
 export function owedPreset({ remembered, recorded, configuration }: {
 	remembered: ClusterPreset | undefined;
 	recorded: ClusterPreset | undefined;
 	/** Undefined until the viewer is signed in to the cluster and its config has loaded. */
 	configuration: StudioConfiguration | undefined;
 }): ClusterPreset | undefined {
-	const preset = remembered ?? recorded;
+	const preset = recorded ?? remembered;
 	if (preset && configuration && !configuration.unavailable) {
 		return isPresetApplied(preset, configuration) ? undefined : preset;
 	}

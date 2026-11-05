@@ -1,3 +1,4 @@
+import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -430,6 +431,47 @@ describe('a write that got no verdict', () => {
 		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'restart' })))).toBe(false);
 		expect(shouldToastOwnFailure(timedOut(sent({ operation: 'get_status' })))).toBe(true);
 		expect(shouldToastOwnFailure(new Error('Secret "x" not found'))).toBe(true);
+	});
+});
+
+describe('a write Harper answered without saying whether it landed', () => {
+	const message = "Harper's answer didn't say it deleted that record, so it may or may not be gone.";
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('is described as an unknown outcome, in its own words and with what to do', () => {
+		const described = describeError(new UnconfirmedWriteError(message));
+
+		expect(described).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: described.message,
+			message: `${message} Check whether it took effect before you try again.`,
+		});
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(new UnconfirmedWriteError(message))).toBe(false);
+	});
+
+	it('gets a toast of its own, never collapsed with read timeouts', () => {
+		errorHandler(new UnconfirmedWriteError(message));
+		errorHandler(new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED));
+
+		const toasts = vi.mocked(toast.error).mock.calls.map(([title, options]) => [title, options?.id]);
+		expect(toasts).toEqual([[OUTCOME_UNKNOWN_TITLE, undefined], ['Error', 'request-timeout']]);
+	});
+
+	it('leaves a plain failure from the same writes an ordinary failure', () => {
+		const skipped = new Error('Harper skipped it: nothing is stored under that key any more.');
+
+		expect(describeError(skipped).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(shouldToastOwnFailure(skipped)).toBe(true);
 	});
 });
 

@@ -1,5 +1,6 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,6 +30,7 @@ import {
 	type ExtensionCount,
 	type ExtensionDataSource,
 	type ExtensionRecord,
+	UnconfirmedWriteError,
 } from '@/features/instance/extensions/dataSource';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import type {
@@ -44,6 +46,7 @@ import type {
 	UnsupportedNotice,
 } from '@/features/instance/extensions/manifest';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import type { ColumnDef } from '@/lib/table';
 import { describeError } from '@/react-query/queryClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -60,7 +63,7 @@ import {
 	ShieldOffIcon,
 	TriangleAlertIcon,
 } from 'lucide-react';
-import { Component, type ReactNode, useEffect, useId, useMemo, useState } from 'react';
+import { Component, type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 interface SectionProps {
@@ -212,6 +215,46 @@ function tableQueryKey(dataSource: ExtensionDataSource, database: string, table:
 	return [dataSource.id, 'extension-table', database, table] as const;
 }
 
+/**
+ * Says why a write failed, inline while its form is on screen and as a toast once the user has closed or
+ * left it. One that may have landed says so rather than inviting a retry, and reads the page's data again
+ * so what the user is told to check is current. These writes skip the global toast, and with it the
+ * `console.error` that is how a failed mutation reaches RUM, so this keeps that report.
+ */
+function reportWriteFailure(failure: unknown, { inline, failed, unconfirmed, refresh }: {
+	inline: ((message: string) => void) | undefined;
+	/** The toast's title for a definite failure. */
+	failed: string;
+	unconfirmed: string;
+	refresh: () => Promise<unknown>;
+}) {
+	console.error(failure);
+	const unknown = isUnansweredWrite(failure) || failure instanceof UnconfirmedWriteError;
+	if (unknown) {
+		void refresh();
+	}
+	const message = unknown ? unconfirmed : describeError(failure).message;
+	if (inline) {
+		inline(message);
+	} else if (unknown) {
+		toast.warning(unconfirmed);
+	} else {
+		toast.error(failed, { description: message });
+	}
+}
+
+/** Whether a form is still mounted and open when a write settles, which may be after the user left it. */
+function useShowing(open: boolean) {
+	const showing = useRef(open);
+	useEffect(() => {
+		showing.current = open;
+		return () => {
+			showing.current = false;
+		};
+	}, [open]);
+	return showing;
+}
+
 function useTableRows(
 	dataSource: ExtensionDataSource,
 	database: string,
@@ -239,8 +282,33 @@ function tableAttributes(primaryKey: string, section: TableSection): string[] {
 	];
 }
 
-/** Only the form's fields and the primary key, so an edit never writes back attributes it didn't show. */
-/** The record's key plus every field whose value differs from what was read. */
+function fieldsDiffer(fields: ExtensionField[], a: ExtensionRecord, b: ExtensionRecord): boolean {
+	return fields.some((field) => !Object.is(attributeValue(a, field.attribute), attributeValue(b, field.attribute)));
+}
+
+/**
+ * Whether `record` holds every field the user changed from `opened`. Only those: a field they left alone
+ * may differ for reasons that are no edit of theirs, such as another writer's change or a null that a
+ * projected read returns for an attribute the form never set.
+ */
+function holdsEdits(
+	fields: ExtensionField[],
+	values: ExtensionRecord,
+	opened: ExtensionRecord,
+	record: ExtensionRecord,
+): boolean {
+	return fields.every((field) => {
+		const value = attributeValue(values, field.attribute);
+		return Object.is(value, attributeValue(opened, field.attribute))
+			|| Object.is(value, attributeValue(record, field.attribute));
+	});
+}
+
+/**
+ * An update of only the fields the user changed from `record`, the one they opened, and its key. So an
+ * attribute the record lacks (which a projected read returns as null) isn't written as null, and another
+ * writer's change to a field the user left alone survives.
+ */
 function changedFields(
 	fields: ExtensionField[],
 	primaryKey: string,
@@ -248,14 +316,16 @@ function changedFields(
 	record: ExtensionRecord,
 ): ExtensionRecord {
 	return Object.fromEntries([
-		[primaryKey, record[primaryKey]],
+		[primaryKey, attributeValue(record, primaryKey)],
 		...fields.filter((field) =>
-			field.attribute !== primaryKey && !Object.is(values[field.attribute], record[field.attribute])
+			field.attribute !== primaryKey
+			&& !Object.is(attributeValue(values, field.attribute), attributeValue(record, field.attribute))
 		)
-			.map((field) => [field.attribute, values[field.attribute]]),
+			.map((field) => [field.attribute, attributeValue(values, field.attribute)]),
 	]);
 }
 
+/** A new record of the form's fields and its key, so an insert writes nothing the form didn't show. */
 function pickFields(fields: ExtensionField[], primaryKey: string, values: ExtensionRecord): ExtensionRecord {
 	return Object.fromEntries(
 		[primaryKey, ...fields.map((field) => field.attribute)].filter((attribute) => attribute in values).map((
@@ -496,26 +566,47 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: tableQueryKey(dataSource, section.database, section.table) });
 
+	const showing = useShowing(open);
+	const reportFailure = (failure: unknown, failed: string, unconfirmed: string) =>
+		reportWriteFailure(failure, {
+			inline: showing.current ? setError : undefined,
+			failed,
+			unconfirmed:
+				`Studio couldn't confirm whether the ${itemName} was ${unconfirmed}. Check the table before you try again.`,
+			refresh: invalidate,
+		});
 	const save = useMutation({
-		// Add inserts, so a taken key fails instead of overwriting that row; Edit updates only the form's
-		// fields the user changed, so an attribute the record lacks (which a projected read returns as null)
-		// isn't written as null, and a concurrent edit to another field survives. Each then needs just the
-		// permission its button was offered on.
+		meta: { skipGlobalErrorToast: true },
+		// Add inserts, so a taken key fails instead of overwriting that row; Edit updates only the fields the
+		// user changed. Each then needs just the permission its button was offered on.
 		mutationFn: () =>
 			record
-				? dataSource.update(section.database, section.table, changedFields(fields, primaryKey, values, record))
-				: dataSource.insert(section.database, section.table, values),
+				? dataSource.update(
+					section.database,
+					section.table,
+					changedFields(fields, primaryKey, values, record),
+					primaryKey,
+				)
+				: dataSource.insert(section.database, section.table, values, primaryKey),
 		onSuccess: async () => {
 			await invalidate();
 			toast.success(record ? `Saved the ${itemName}` : `Added the ${itemName}`);
 		},
-		onError: (failure) => setError(failure.message),
+		onError: (failure) =>
+			record
+				? reportFailure(failure, `The ${itemName} wasn't saved`, 'saved')
+				: reportFailure(failure, `The ${itemName} wasn't added`, 'added'),
 	});
 	const remove = useMutation({
-		mutationFn: () => dataSource.remove(section.database, section.table, record?.[primaryKey]),
+		meta: { skipGlobalErrorToast: true },
+		mutationFn: () => dataSource.remove(section.database, section.table, attributeValue(record, primaryKey)),
 		onSuccess: async () => {
 			await invalidate();
 			toast.success(`Deleted the ${itemName}`);
+		},
+		onError: (failure) => {
+			setConfirmingDelete(false);
+			reportFailure(failure, `The ${itemName} wasn't deleted`, 'deleted');
 		},
 	});
 
@@ -540,6 +631,7 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 						fields={fields}
 						values={values}
 						disabled={!canSave}
+						lockedAttribute={record ? primaryKey : undefined}
 						idPrefix={`${section.table}-record`}
 						onChange={(attribute, value) => {
 							setError(undefined);
@@ -582,14 +674,20 @@ function FormView(props: SectionProps & { section: FormSection }) {
 		: <UndeclaredReadCard title={section.title} database={section.database} table={section.table} />;
 }
 
+interface FormRecord {
+	record: ExtensionRecord;
+	stored: boolean;
+}
+
 function DeclaredFormView({ section, dataSource, permission, access }: SectionProps & { section: FormSection }) {
 	const queryClient = useQueryClient();
 	const primaryKey = section.primaryKey ?? 'id';
 	const tableKey = tableQueryKey(dataSource, section.database, section.table);
+	const attributes = useMemo(() => section.fields.map((field) => field.attribute), [section.fields]);
 	const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
-		queryKey: [...tableKey, 'record', section.recordId],
-		queryFn: async () => {
-			const stored = await dataSource.get(section.database, section.table, primaryKey, section.recordId);
+		queryKey: [...tableKey, 'record', section.recordId, primaryKey, attributes],
+		queryFn: async (): Promise<FormRecord> => {
+			const stored = await dataSource.get(section.database, section.table, primaryKey, section.recordId, attributes);
 			return stored
 				? { record: stored, stored: true }
 				: { record: { ...defaultValues(section.fields), [primaryKey]: section.recordId }, stored: false };
@@ -598,27 +696,60 @@ function DeclaredFormView({ section, dataSource, permission, access }: SectionPr
 	const capabilities = getTableCapabilities(permission, access, section.database, section.table);
 	const canSave = data?.stored === false ? capabilities.insert : capabilities.update;
 	const [values, setValues] = useState<ExtensionRecord>({});
+	// The read the user's edits started from, which they are judged and saved against, and a later read
+	// that would have replaced unsaved edits, held until the user asks for it.
+	const [opened, setOpened] = useState<FormRecord>();
+	const [newer, setNewer] = useState<FormRecord>();
 	const [saveError, setSaveError] = useState<string>();
-	useEffect(() => {
-		if (data) {
-			setValues(data.record);
+	const showing = useShowing(true);
+	const open = (next: FormRecord) => {
+		setOpened(next);
+		setValues(next.record);
+		setNewer(undefined);
+	};
+	if (data && data !== opened && data !== newer) {
+		if (!opened || !fieldsDiffer(section.fields, values, opened.record)) {
+			open(data);
+		} else if (data.stored && holdsEdits(section.fields, values, opened.record, data.record)) {
+			// As the user's own save reads back: loading it loses none of their edits, and settles a save Studio
+			// couldn't confirm. A record that isn't stored holds no edits, however its defaults compare.
+			open(data);
+			setSaveError(undefined);
+		} else if (data.stored === opened.stored && !fieldsDiffer(section.fields, data.record, opened.record)) {
+			// Nothing the form shows changed, so the edits stay without a note.
+			setOpened(data);
+			setNewer(undefined);
+		} else {
+			setNewer(data);
 		}
-	}, [data]);
-	const dirty = data !== undefined
-		&& (!data.stored || section.fields.some((field) => values[field.attribute] !== data.record[field.attribute]));
+	}
+	const dirty = opened !== undefined && (!opened.stored || fieldsDiffer(section.fields, values, opened.record));
 
 	const save = useMutation({
-		mutationFn: () => {
-			const record = pickFields(section.fields, primaryKey, { ...values, [primaryKey]: section.recordId });
-			return data?.stored
-				? dataSource.update(section.database, section.table, record)
-				: dataSource.insert(section.database, section.table, record);
-		},
+		meta: { skipGlobalErrorToast: true },
+		mutationFn: () =>
+			data?.stored && opened
+				? dataSource.update(section.database, section.table, {
+					...changedFields(section.fields, primaryKey, values, opened.record),
+					[primaryKey]: section.recordId,
+				}, primaryKey)
+				: dataSource.insert(
+					section.database,
+					section.table,
+					pickFields(section.fields, primaryKey, { ...values, [primaryKey]: section.recordId }),
+					primaryKey,
+				),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: tableKey });
 			toast.success(`Saved ${section.title?.toLowerCase() ?? 'settings'}`);
 		},
-		onError: (failure) => setSaveError(failure.message),
+		onError: (failure) =>
+			reportWriteFailure(failure, {
+				inline: showing.current ? setSaveError : undefined,
+				failed: `Your changes to ${section.title?.toLowerCase() ?? 'the settings'} weren't saved`,
+				unconfirmed: "Studio couldn't confirm whether your changes were saved. Check the record before you save again.",
+				refresh: () => queryClient.invalidateQueries({ queryKey: tableKey }),
+			}),
 	});
 
 	return (
@@ -654,10 +785,29 @@ function DeclaredFormView({ section, dataSource, permission, access }: SectionPr
 							save.mutate();
 						}}
 					>
+						{newer && (
+							<Alert variant="warning" role="status">
+								<AlertDescription>
+									<p>
+										{newer.stored
+											? 'This record changed since you opened it.'
+											: 'This record was removed since you opened it.'}
+										{/* The newer record may need a write this viewer isn't offered, such as the insert that recreates it. */}
+										{canSave && (newer.stored
+											? ' Saving writes only the fields you changed.'
+											: ' Saving creates it again from these values.')}
+									</p>
+									<Button type="button" variant="defaultOutline" size="sm" onClick={() => open(newer)}>
+										Discard my changes and load it
+									</Button>
+								</AlertDescription>
+							</Alert>
+						)}
 						<ExtensionFields
 							fields={section.fields}
 							values={values}
 							disabled={!canSave || isLoading}
+							lockedAttribute={primaryKey}
 							idPrefix={`${section.table}-form`}
 							onChange={(attribute, value) => {
 								setSaveError(undefined);
@@ -668,7 +818,7 @@ function DeclaredFormView({ section, dataSource, permission, access }: SectionPr
 						{canSave && (
 							<div className="flex gap-2">
 								<Button type="submit" variant="submit" disabled={!dirty || isError || save.isPending}>Save</Button>
-								<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && setValues(data.record)}>
+								<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && open(data)}>
 									Discard
 								</Button>
 							</div>
@@ -694,15 +844,25 @@ function ActionsView({ section, ...props }: SectionProps & { section: ActionsSec
 function ActionButton({ action, dataSource }: SectionProps & { action: ExtensionAction }) {
 	const queryClient = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
+	// An action usually changes what the page's tables show.
+	const refresh = () => queryClient.invalidateQueries({ queryKey: [dataSource.id] });
 	const run = useMutation({
+		// One toast that names the action, not the global one beside it.
+		meta: { skipGlobalErrorToast: true },
 		// The declared data source refuses anything checkPageRequest does.
 		mutationFn: () => dataSource.send(action.request),
 		onSuccess: async () => {
-			// An action usually changes what the page's tables show.
-			await queryClient.invalidateQueries({ queryKey: [dataSource.id] });
+			await refresh();
 			toast.success(action.successMessage ?? `${action.label}: done`);
 		},
-		onError: (failure) => toast.error(`${action.label} failed`, { description: failure.message }),
+		onError: (failure) =>
+			reportWriteFailure(failure, {
+				inline: undefined,
+				failed: `${action.label} failed`,
+				unconfirmed: `Studio couldn't confirm whether ${action.label} ran. Check whether it took effect before `
+					+ 'you run it again, or it may run twice.',
+				refresh,
+			}),
 	});
 	const destructive = action.variant === 'destructive';
 	// A write's author may not have thought to ask, and the request is all the viewer can judge it by.
