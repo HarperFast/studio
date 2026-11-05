@@ -14,7 +14,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
-import { checkPageRequest, getTableCapabilities } from '@/features/instance/extensions/access';
+import {
+	declaredDataSource,
+	describePageRequest,
+	describeUndeclared,
+	getTableCapabilities,
+	isDeclared,
+	isTableWrite,
+} from '@/features/instance/extensions/access';
+import { attributeValue, displayText, primitiveValue } from '@/features/instance/extensions/content/displayText';
 import { defaultValues, ExtensionFields, findMissingField } from '@/features/instance/extensions/content/fields';
 import {
 	EXTENSION_ROW_LIMIT,
@@ -33,18 +41,32 @@ import type {
 	FormSection,
 	StatsSection,
 	TableSection,
+	UnsupportedNotice,
 } from '@/features/instance/extensions/manifest';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import type { ColumnDef } from '@/lib/table';
+import { describeError } from '@/react-query/queryClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckIcon, EyeIcon, MinusIcon, PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+	CheckIcon,
+	CircleAlertIcon,
+	CircleArrowUpIcon,
+	EyeIcon,
+	FileWarningIcon,
+	MinusIcon,
+	PencilOffIcon,
+	PlusIcon,
+	RefreshCwIcon,
+	ShieldOffIcon,
+	TriangleAlertIcon,
+} from 'lucide-react';
+import { Component, type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 interface SectionProps {
 	dataSource: ExtensionDataSource;
 	permission: LocalRolePermission | undefined;
-	/** The page's declared access, which bounds what its actions may send. */
+	/** The page's declared access, which bounds every request its sections send. */
 	access: ExtensionAccess | undefined;
 }
 
@@ -52,12 +74,73 @@ interface SectionProps {
  * Draws a page from its description with Studio's own components, so a component gets a consistent,
  * accessible, themed UI without shipping any code to the browser.
  */
-export function SectionsContent({ sections, ...props }: SectionProps & { sections: ExtensionSection[] }) {
+export function SectionsContent(
+	{ sections, dataSource, permission, access }: SectionProps & { sections: ExtensionSection[] },
+) {
+	const declared = useMemo(() => declaredDataSource(dataSource, permission, access), [
+		dataSource,
+		permission,
+		access,
+	]);
 	return (
 		<div className="flex flex-col gap-6">
-			{sections.map((section, index) => <SectionView key={index} section={section} {...props} />)}
+			{sections.map((section, index) => (
+				<SectionErrorBoundary key={index} section={section}>
+					<SectionView section={section} dataSource={declared} permission={permission} access={access} />
+				</SectionErrorBoundary>
+			))}
 		</div>
 	);
+}
+
+interface SectionErrorBoundaryState {
+	failed: boolean;
+	message?: string;
+	section?: ExtensionSection;
+}
+
+/** One section that fails to render takes only itself down, and a new configuration gets a fresh try. */
+class SectionErrorBoundary
+	extends Component<{ section: ExtensionSection; children: ReactNode }, SectionErrorBoundaryState>
+{
+	state: SectionErrorBoundaryState = { failed: false };
+
+	static getDerivedStateFromError(error: unknown): Partial<SectionErrorBoundaryState> {
+		return { failed: true, message: error instanceof Error ? error.message : undefined };
+	}
+
+	static getDerivedStateFromProps(
+		props: { section: ExtensionSection },
+		state: SectionErrorBoundaryState,
+	): Partial<SectionErrorBoundaryState> | null {
+		return state.section === props.section ? null : { failed: false, message: undefined, section: props.section };
+	}
+
+	componentDidCatch(error: Error) {
+		// Not `console.error`: the root `onCaughtError` already reports this to RUM, which would count it twice.
+		console.warn('[extension section] render failed', error);
+	}
+
+	render() {
+		if (!this.state.failed) {
+			return this.props.children;
+		}
+		const { section } = this.props;
+		return (
+			<Card role="note" className="py-4 border border-dashed bg-muted/40 shadow-none ring-0">
+				<CardContent className="flex items-start gap-3 px-4 text-muted-foreground">
+					<TriangleAlertIcon className="size-5 shrink-0 mt-0.5" aria-hidden />
+					<div className="grid gap-0.5 min-w-0">
+						{'title' in section && section.title && (
+							<h2 className="text-sm font-semibold text-foreground">{section.title}</h2>
+						)}
+						<p className="text-sm font-medium">This section couldn't be shown</p>
+						{this.state.message && <p className="text-xs break-words">{this.state.message}</p>}
+					</div>
+				</CardContent>
+			</Card>
+		);
+	}
 }
 
 function SectionView({ section, ...props }: SectionProps & { section: ExtensionSection }) {
@@ -79,7 +162,49 @@ function SectionView({ section, ...props }: SectionProps & { section: ExtensionS
 			return <FormView section={section} {...props} />;
 		case 'actions':
 			return <ActionsView section={section} {...props} />;
+		case 'unsupported':
+			return <UnsupportedNoticeCard notice={section} subject="section" title={section.title} />;
 	}
+}
+
+/** The parser's stand-in for a page or section this Studio can't draw, saying why. */
+export function UnsupportedNoticeCard({ notice, subject, title }: {
+	notice: UnsupportedNotice;
+	subject: 'page' | 'section';
+	title?: string;
+}) {
+	const newer = notice.cause === 'newer-studio';
+	const Icon = newer ? CircleArrowUpIcon : FileWarningIcon;
+	return (
+		<Card role="note" className="py-4 border border-dashed bg-muted/40 shadow-none ring-0">
+			<CardContent className="flex items-start gap-3 px-4 text-muted-foreground">
+				<Icon className="size-5 shrink-0 mt-0.5" aria-hidden />
+				<div className="grid gap-0.5">
+					{title && <h2 className="text-sm font-semibold text-foreground">{title}</h2>}
+					<p className="text-sm font-medium">
+						{newer ? `This ${subject} needs a newer version of Studio` : `Studio couldn't read this ${subject}`}
+					</p>
+					<p className="text-xs">{notice.reason}</p>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+/** In place of a section that reads a table its page doesn't declare, which Studio won't send. */
+function UndeclaredReadCard({ title, database, table }: { title?: string; database: string; table: string }) {
+	return (
+		<Card role="note" className="py-4 border border-dashed bg-muted/40 shadow-none ring-0">
+			<CardContent className="flex items-start gap-3 px-4 text-muted-foreground">
+				<ShieldOffIcon className="size-5 shrink-0 mt-0.5" aria-hidden />
+				<div className="grid gap-0.5 min-w-0">
+					{title && <h2 className="text-sm font-semibold text-foreground">{title}</h2>}
+					<p className="text-sm font-medium break-words">{describeUndeclared(database, table, 'read')}</p>
+					<p className="text-xs">Studio loads only the tables a page lists in its access.</p>
+				</div>
+			</CardContent>
+		</Card>
+	);
 }
 
 /** Everything read from one table, so a write refreshes its rows, its counts and its records together. */
@@ -87,14 +212,50 @@ function tableQueryKey(dataSource: ExtensionDataSource, database: string, table:
 	return [dataSource.id, 'extension-table', database, table] as const;
 }
 
-function useTableRows(dataSource: ExtensionDataSource, database: string, table: string, primaryKey: string) {
+function useTableRows(
+	dataSource: ExtensionDataSource,
+	database: string,
+	table: string,
+	primaryKey: string,
+	attributes: readonly string[],
+) {
 	return useQuery({
-		queryKey: [...tableQueryKey(dataSource, database, table), 'rows', primaryKey],
-		queryFn: () => dataSource.list(database, table, primaryKey),
+		queryKey: [...tableQueryKey(dataSource, database, table), 'rows', primaryKey, attributes],
+		queryFn: () => dataSource.list(database, table, primaryKey, attributes),
+		// As long as Browse's reads: up to 1,001 rows shouldn't be read again on every refocus. The page's own
+		// writes invalidate it, and Refresh refetches regardless.
+		staleTime: 60_000,
 	});
 }
 
+/** What a table section shows or edits, so a row carries nothing else (a page cache's rendered HTML, say). */
+function tableAttributes(primaryKey: string, section: TableSection): string[] {
+	return [
+		...new Set([
+			primaryKey,
+			...section.columns.map((column) => column.attribute),
+			...(section.fields ?? []).map((field) => field.attribute),
+		]),
+	];
+}
+
 /** Only the form's fields and the primary key, so an edit never writes back attributes it didn't show. */
+/** The record's key plus every field whose value differs from what was read. */
+function changedFields(
+	fields: ExtensionField[],
+	primaryKey: string,
+	values: ExtensionRecord,
+	record: ExtensionRecord,
+): ExtensionRecord {
+	return Object.fromEntries([
+		[primaryKey, record[primaryKey]],
+		...fields.filter((field) =>
+			field.attribute !== primaryKey && !Object.is(values[field.attribute], record[field.attribute])
+		)
+			.map((field) => [field.attribute, values[field.attribute]]),
+	]);
+}
+
 function pickFields(fields: ExtensionField[], primaryKey: string, values: ExtensionRecord): ExtensionRecord {
 	return Object.fromEntries(
 		[primaryKey, ...fields.map((field) => field.attribute)].filter((attribute) => attribute in values).map((
@@ -103,12 +264,40 @@ function pickFields(fields: ExtensionField[], primaryKey: string, values: Extens
 	);
 }
 
+/** In place of what a read would have drawn, so a failed read never looks like an empty table or record. */
+function ReadError({ error, database, table, retrying, onRetry }: {
+	error: unknown;
+	database: string;
+	table: string;
+	retrying: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<div
+			role="alert"
+			className="flex items-start justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+		>
+			<div className="flex items-start gap-2 min-w-0">
+				<CircleAlertIcon className="size-4 shrink-0 mt-0.5 text-destructive" aria-hidden />
+				<div className="grid gap-0.5 min-w-0">
+					<p className="text-sm font-medium text-destructive">Studio couldn't load {database}.{table}</p>
+					<p className="text-xs text-muted-foreground break-words">{describeError(error).message}</p>
+				</div>
+			</div>
+			<Button variant="defaultOutline" size="sm" onClick={onRetry} disabled={retrying}>
+				<RefreshCwIcon />
+				Retry
+			</Button>
+		</div>
+	);
+}
+
 function formatCount({ count, bound }: ExtensionCount): string {
 	const text = count.toLocaleString();
 	return bound === 'at-least' ? `${text}+` : bound === 'estimate' ? `~${text}` : text;
 }
 
-function StatsView({ section, dataSource }: SectionProps & { section: StatsSection }) {
+function StatsView({ section, dataSource, access }: SectionProps & { section: StatsSection }) {
 	return (
 		<div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
 			{section.items.map((item) => (
@@ -120,13 +309,25 @@ function StatsView({ section, dataSource }: SectionProps & { section: StatsSecti
 							<div className="text-2xl font-semibold">
 								{item.value.kind === 'static'
 									? item.value.value
-									: <CountValue value={item.value} dataSource={dataSource} />}
+									: item.value.kind === 'unsupported'
+									? <StatDash reason={item.value.reason} />
+									: isDeclared(access, item.value.database, item.value.table, 'read')
+									? <CountValue value={item.value} dataSource={dataSource} />
+									: <StatDash reason={describeUndeclared(item.value.database, item.value.table, 'read')} />}
 							</div>
 						</div>
 					</CardContent>
 				</Card>
 			))}
 		</div>
+	);
+}
+
+function StatDash({ reason }: { reason: string }) {
+	return (
+		<span className="text-muted-foreground" title={reason}>
+			—<span className="sr-only">{reason}</span>
+		</span>
 	);
 }
 
@@ -144,17 +345,39 @@ function CountValue({ value, dataSource }: {
 	return formatCount(data);
 }
 
-function TableView({ section, dataSource, permission }: SectionProps & { section: TableSection }) {
+/** A section's table is loaded only when its page declares reading it. */
+function TableView(props: SectionProps & { section: TableSection }) {
+	const { section, access } = props;
+	return isDeclared(access, section.database, section.table, 'read')
+		? <DeclaredTableView {...props} />
+		: <UndeclaredReadCard title={section.title} database={section.database} table={section.table} />;
+}
+
+const WRITE_ACTIONS = ['insert', 'update', 'delete'] as const;
+
+function DeclaredTableView({ section, dataSource, permission, access }: SectionProps & { section: TableSection }) {
 	const primaryKey = section.primaryKey ?? 'id';
-	const capabilities = getTableCapabilities(permission, section.database, section.table);
+	const capabilities = getTableCapabilities(permission, access, section.database, section.table);
 	const editable = section.fields !== undefined;
 	const canAdd = editable && capabilities.insert;
 	const canEdit = editable && capabilities.update;
 	const canDelete = editable && capabilities.delete;
-	const readOnlyForRole = editable && !canAdd && !canEdit && !canDelete;
+	const readOnly = editable && !canAdd && !canEdit && !canDelete;
+	// Read-only because the page declares no writes, not because of the viewer's role.
+	const writesUndeclared = readOnly
+		&& !WRITE_ACTIONS.some((action) => isDeclared(access, section.database, section.table, action));
+	const undeclaredWrites =
+		`This page doesn't declare insert, update or delete on ${section.database}.${section.table}.`;
 	const itemName = section.itemName ?? 'record';
 
-	const { data, isFetching, refetch } = useTableRows(dataSource, section.database, section.table, primaryKey);
+	const attributes = useMemo(() => tableAttributes(primaryKey, section), [primaryKey, section]);
+	const { data, isFetching, isError, error, refetch } = useTableRows(
+		dataSource,
+		section.database,
+		section.table,
+		primaryKey,
+		attributes,
+	);
 	// Kept after close so the dialog keeps its content while it animates out; `opened` gives each opening
 	// fresh form state, even for the same record.
 	const [editing, setEditing] = useState<ExtensionRecord | 'new' | null>(null);
@@ -170,43 +393,73 @@ function TableView({ section, dataSource, permission }: SectionProps & { section
 		section.columns.map((column) => ({
 			id: column.attribute,
 			header: column.label,
-			accessorFn: (record: ExtensionRecord) => record[column.attribute] as string | number | undefined,
-			cell: ({ row }) => <FormattedCell column={column} value={row.original[column.attribute]} />,
+			accessorFn: (record: ExtensionRecord) => primitiveValue(attributeValue(record, column.attribute)),
+			cell: ({ row }) => <FormattedCell column={column} value={attributeValue(row.original, column.attribute)} />,
 		})), [section.columns]);
 
 	return (
 		<section>
 			<SectionHeading title={section.title} description={section.description}>
-				{readOnlyForRole && (
-					<Badge variant="outline" className="gap-1">
-						<EyeIcon className="size-3" /> Read-only for your role
+				{section.editingUnsupported && (
+					<Badge variant="outline" className="gap-1" title={section.editingUnsupported.reason}>
+						<PencilOffIcon className="size-3" />
+						{section.editingUnsupported.cause === 'newer-studio'
+							? 'Editing needs a newer Studio'
+							: 'Editing unavailable'}
+						<span className="sr-only">{section.editingUnsupported.reason}</span>
 					</Badge>
 				)}
+				{readOnly && (writesUndeclared
+					? (
+						<Badge variant="outline" className="gap-1" title={undeclaredWrites}>
+							<EyeIcon className="size-3" /> Read-only on this page
+							<span className="sr-only">{undeclaredWrites}</span>
+						</Badge>
+					)
+					: (
+						<Badge variant="outline" className="gap-1">
+							<EyeIcon className="size-3" /> Read-only for your role
+						</Badge>
+					))}
 				{data?.truncated && (
 					<Badge variant="outline" title="Search and paging cover only the rows loaded">
 						First {EXTENSION_ROW_LIMIT.toLocaleString()} rows
 					</Badge>
 				)}
 			</SectionHeading>
-			<SimpleBrowseDataTable
-				columns={columns}
-				data={data?.records ?? []}
-				isFetching={isFetching}
-				filter={{ label: `Search ${section.title?.toLowerCase() ?? 'records'}` }}
-				paginated
-				onRowClick={canEdit || canDelete ? (row) => openEditor(row.original) : undefined}
-			>
-				<Button variant="defaultOutline" onClick={() => refetch()} disabled={isFetching}>
-					<RefreshCwIcon />
-					<span className="hidden lg:inline-block">Refresh</span>
-				</Button>
-				{canAdd && (
-					<Button variant="positiveOutline" onClick={() => openEditor('new')}>
-						<PlusIcon />
-						<span className="capitalize">Add {itemName}</span>
+			{isError && (
+				<div className={data ? 'mb-2' : undefined}>
+					<ReadError
+						error={error}
+						database={section.database}
+						table={section.table}
+						retrying={isFetching}
+						onRetry={() => refetch()}
+					/>
+				</div>
+			)}
+			{/* A later refetch that fails keeps the rows already shown, beneath the error. */}
+			{(!isError || data) && (
+				<SimpleBrowseDataTable
+					columns={columns}
+					data={data?.records ?? []}
+					isFetching={isFetching}
+					filter={{ label: `Search ${section.title?.toLowerCase() ?? 'records'}` }}
+					paginated
+					onRowClick={canEdit || canDelete ? (row) => openEditor(row.original) : undefined}
+				>
+					<Button variant="defaultOutline" onClick={() => refetch()} disabled={isFetching}>
+						<RefreshCwIcon />
+						<span className="hidden lg:inline-block">Refresh</span>
 					</Button>
-				)}
-			</SimpleBrowseDataTable>
+					{canAdd && (
+						<Button variant="positiveOutline" onClick={() => openEditor('new')}>
+							<PlusIcon />
+							<span className="capitalize">Add {itemName}</span>
+						</Button>
+					)}
+				</SimpleBrowseDataTable>
+			)}
 			{editing && section.fields && (
 				<RecordDialog
 					key={opened}
@@ -245,17 +498,12 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 
 	const save = useMutation({
 		// Add inserts, so a taken key fails instead of overwriting that row; Edit updates only the form's
-		// fields. Each then needs just the permission its button was offered on.
+		// fields the user changed, so an attribute the record lacks (which a projected read returns as null)
+		// isn't written as null, and a concurrent edit to another field survives. Each then needs just the
+		// permission its button was offered on.
 		mutationFn: () =>
 			record
-				? dataSource.update(
-					section.database,
-					section.table,
-					pickFields(fields, primaryKey, {
-						...values,
-						[primaryKey]: record[primaryKey],
-					}),
-				)
+				? dataSource.update(section.database, section.table, changedFields(fields, primaryKey, values, record))
 				: dataSource.insert(section.database, section.table, values),
 		onSuccess: async () => {
 			await invalidate();
@@ -316,7 +564,7 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 			</DialogContent>
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={itemName}
-				nameOfThingBeingDeleted={String(record?.[section.columns[0]?.attribute ?? primaryKey] ?? '')}
+				nameOfThingBeingDeleted={displayText(attributeValue(record, section.columns[0]?.attribute ?? primaryKey))}
 				isModalOpen={confirmingDelete}
 				setIsModalOpen={setConfirmingDelete}
 				deletionConfirmed={() => remove.mutate(undefined, { onSuccess: onClose })}
@@ -326,11 +574,19 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 	);
 }
 
-function FormView({ section, dataSource, permission }: SectionProps & { section: FormSection }) {
+/** A form's record is loaded only when its page declares reading the table. */
+function FormView(props: SectionProps & { section: FormSection }) {
+	const { section, access } = props;
+	return isDeclared(access, section.database, section.table, 'read')
+		? <DeclaredFormView {...props} />
+		: <UndeclaredReadCard title={section.title} database={section.database} table={section.table} />;
+}
+
+function DeclaredFormView({ section, dataSource, permission, access }: SectionProps & { section: FormSection }) {
 	const queryClient = useQueryClient();
 	const primaryKey = section.primaryKey ?? 'id';
 	const tableKey = tableQueryKey(dataSource, section.database, section.table);
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
 		queryKey: [...tableKey, 'record', section.recordId],
 		queryFn: async () => {
 			const stored = await dataSource.get(section.database, section.table, primaryKey, section.recordId);
@@ -339,10 +595,10 @@ function FormView({ section, dataSource, permission }: SectionProps & { section:
 				: { record: { ...defaultValues(section.fields), [primaryKey]: section.recordId }, stored: false };
 		},
 	});
-	const capabilities = getTableCapabilities(permission, section.database, section.table);
+	const capabilities = getTableCapabilities(permission, access, section.database, section.table);
 	const canSave = data?.stored === false ? capabilities.insert : capabilities.update;
 	const [values, setValues] = useState<ExtensionRecord>({});
-	const [error, setError] = useState<string>();
+	const [saveError, setSaveError] = useState<string>();
 	useEffect(() => {
 		if (data) {
 			setValues(data.record);
@@ -362,7 +618,7 @@ function FormView({ section, dataSource, permission }: SectionProps & { section:
 			await queryClient.invalidateQueries({ queryKey: tableKey });
 			toast.success(`Saved ${section.title?.toLowerCase() ?? 'settings'}`);
 		},
-		onError: (failure) => setError(failure.message),
+		onError: (failure) => setSaveError(failure.message),
 	});
 
 	return (
@@ -371,39 +627,54 @@ function FormView({ section, dataSource, permission }: SectionProps & { section:
 				{section.title && <CardTitle>{section.title}</CardTitle>}
 				{section.description && <CardDescription>{section.description}</CardDescription>}
 			</CardHeader>
-			<CardContent>
-				<form
-					className="grid gap-4 max-w-xl"
-					onSubmit={(event) => {
-						event.preventDefault();
-						const missing = findMissingField(section.fields, values);
-						if (missing) {
-							setError(`${missing.label} is required.`);
-							return;
-						}
-						save.mutate();
-					}}
-				>
-					<ExtensionFields
-						fields={section.fields}
-						values={values}
-						disabled={!canSave || isLoading}
-						idPrefix={`${section.table}-form`}
-						onChange={(attribute, value) => {
-							setError(undefined);
-							setValues((current) => ({ ...current, [attribute]: value }));
-						}}
+			<CardContent className="grid gap-4">
+				{isError && (
+					<ReadError
+						error={error}
+						database={section.database}
+						table={section.table}
+						retrying={isFetching}
+						onRetry={() => refetch()}
 					/>
-					{error && <p className="text-sm text-destructive">{error}</p>}
-					{canSave && (
-						<div className="flex gap-2">
-							<Button type="submit" variant="submit" disabled={!dirty || save.isPending}>Save</Button>
-							<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && setValues(data.record)}>
-								Discard
-							</Button>
-						</div>
-					)}
-				</form>
+				)}
+				{/* Nothing read is nothing to edit. A failed refetch keeps the record on show, but not Save. */}
+				{(!isError || data) && (
+					<form
+						className="grid gap-4 max-w-xl"
+						onSubmit={(event) => {
+							event.preventDefault();
+							if (isError) {
+								return;
+							}
+							const missing = findMissingField(section.fields, values);
+							if (missing) {
+								setSaveError(`${missing.label} is required.`);
+								return;
+							}
+							save.mutate();
+						}}
+					>
+						<ExtensionFields
+							fields={section.fields}
+							values={values}
+							disabled={!canSave || isLoading}
+							idPrefix={`${section.table}-form`}
+							onChange={(attribute, value) => {
+								setSaveError(undefined);
+								setValues((current) => ({ ...current, [attribute]: value }));
+							}}
+						/>
+						{saveError && <p className="text-sm text-destructive">{saveError}</p>}
+						{canSave && (
+							<div className="flex gap-2">
+								<Button type="submit" variant="submit" disabled={!dirty || isError || save.isPending}>Save</Button>
+								<Button type="button" variant="ghost" disabled={!dirty} onClick={() => data && setValues(data.record)}>
+									Discard
+								</Button>
+							</div>
+						)}
+					</form>
+				)}
 			</CardContent>
 		</Card>
 	);
@@ -420,17 +691,12 @@ function ActionsView({ section, ...props }: SectionProps & { section: ActionsSec
 	);
 }
 
-function ActionButton({ action, dataSource, permission, access }: SectionProps & { action: ExtensionAction }) {
+function ActionButton({ action, dataSource }: SectionProps & { action: ExtensionAction }) {
 	const queryClient = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
 	const run = useMutation({
-		mutationFn: () => {
-			const verdict = checkPageRequest(permission, access, action.request);
-			if (!verdict.allowed) {
-				throw new Error(verdict.reason);
-			}
-			return dataSource.send(action.request);
-		},
+		// The declared data source refuses anything checkPageRequest does.
+		mutationFn: () => dataSource.send(action.request),
 		onSuccess: async () => {
 			// An action usually changes what the page's tables show.
 			await queryClient.invalidateQueries({ queryKey: [dataSource.id] });
@@ -439,23 +705,45 @@ function ActionButton({ action, dataSource, permission, access }: SectionProps &
 		onError: (failure) => toast.error(`${action.label} failed`, { description: failure.message }),
 	});
 	const destructive = action.variant === 'destructive';
+	// A write's author may not have thought to ask, and the request is all the viewer can judge it by.
+	const needsConfirm = action.confirm !== undefined || destructive || isTableWrite(action.request.operation);
+	const noteId = useId();
 
 	return (
 		<>
-			<Button
-				variant={destructive ? 'destructiveOutline' : 'defaultOutline'}
-				disabled={run.isPending}
-				onClick={() => action.confirm ? setConfirming(true) : run.mutate()}
-			>
-				{action.icon && <ExtensionIcon name={action.icon} />}
-				{action.label}
-			</Button>
-			{action.confirm && (
+			<div className="grid gap-1">
+				<Button
+					variant={destructive ? 'destructiveOutline' : 'defaultOutline'}
+					disabled={run.isPending || action.unsupported !== undefined}
+					aria-describedby={action.unsupported && noteId}
+					onClick={() => needsConfirm ? setConfirming(true) : run.mutate()}
+				>
+					{action.icon && <ExtensionIcon name={action.icon} />}
+					{action.label}
+				</Button>
+				{/* A disabled button shows no tooltip, so the reason is written out. */}
+				{action.unsupported && (
+					<p id={noteId} className="text-xs text-muted-foreground max-w-60">{action.unsupported.reason}</p>
+				)}
+			</div>
+			{needsConfirm && (
 				<AlertDialog open={confirming} onOpenChange={setConfirming}>
 					<AlertDialogContent>
-						<AlertDialogHeader>
+						<AlertDialogHeader className="min-w-0">
 							<AlertDialogTitle>{action.label}?</AlertDialogTitle>
-							<AlertDialogDescription>{action.confirm}</AlertDialogDescription>
+							{/* Drawn from the request itself, so the author's text can't misdescribe what is sent. */}
+							<AlertDialogDescription asChild>
+								<div className="grid gap-2">
+									{action.confirm && <p>{action.confirm}</p>}
+									<p className="font-medium text-foreground break-words">{describePageRequest(action.request)}</p>
+								</div>
+							</AlertDialogDescription>
+							<pre
+								aria-label="Request"
+								className="max-h-64 overflow-auto rounded-md border bg-muted p-3 text-left text-xs font-mono"
+							>
+								{JSON.stringify(action.request, null, 2)}
+							</pre>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
 							<AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -503,22 +791,32 @@ function FormattedCell({ column, value }: { column: ExtensionColumn; value: unkn
 	if (value === undefined || value === null || value === '') {
 		return <span className="text-muted-foreground">—</span>;
 	}
+	const text = displayText(value);
 	switch (column.format) {
 		case 'code':
-			return <code className="text-xs">{String(value)}</code>;
+			return <code className="text-xs">{text}</code>;
 		case 'badge':
-			return <Badge variant={BADGE_VARIANTS[String(value)] ?? 'secondary'}>{String(value)}</Badge>;
+			// Own keys of strings only: `constructor` would otherwise find Object's.
+			return (
+				<Badge
+					variant={typeof value === 'string' && Object.hasOwn(BADGE_VARIANTS, value)
+						? BADGE_VARIANTS[value]
+						: 'secondary'}
+				>
+					{text}
+				</Badge>
+			);
 		case 'boolean':
 			return value === true
 				? <CheckIcon className="size-4 text-green-600" aria-label="Yes" />
 				: <MinusIcon className="size-4 text-muted-foreground" aria-label="No" />;
 		case 'number':
-			return typeof value === 'number' ? value.toLocaleString() : String(value);
-		case 'datetime':
-			return typeof value === 'number' || typeof value === 'string'
-				? new Date(value).toLocaleString()
-				: String(value);
+			return typeof value === 'number' ? value.toLocaleString() : text;
+		case 'datetime': {
+			const date = typeof value === 'number' || typeof value === 'string' ? new Date(value) : undefined;
+			return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : text;
+		}
 		default:
-			return String(value);
+			return text;
 	}
 }

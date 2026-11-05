@@ -16,8 +16,11 @@ export interface ClusterPreset {
 	icon: IconName;
 	/** Deployed in order, each with `deploy_component`. */
 	components: { project: string; package: string }[];
-	/** Written to the cluster's root config as its `studio` block. */
-	studio: { navigation: Record<string, TabVisibility>; landing?: string };
+	/**
+	 * Merged into the cluster's root config as its `studio` block. `landing` is one of the preset's own
+	 * component pages, whose presence is how setup is later known to have run.
+	 */
+	studio: { navigation: Record<string, TabVisibility>; landing: string };
 }
 
 /**

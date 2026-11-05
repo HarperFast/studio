@@ -1,7 +1,8 @@
 import { Loading } from '@/components/Loading';
-import { useStudioConfiguration } from '@/features/instance/extensions/useStudioExtensions';
+import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Navigate, useParams } from '@tanstack/react-router';
 
 /**
@@ -10,16 +11,25 @@ import { Navigate, useParams } from '@tanstack/react-router';
  * focused cluster never flashes Applications first.
  */
 export function InstanceStart() {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	const { user } = useInstanceAuth(instanceId ?? clusterId);
+	const params: { organizationId?: string; instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(params.instanceId ?? params.clusterId);
 	const { configuration, isPending } = useStudioConfiguration();
 	const { links, tucked } = useInstanceNavLinks();
+	const configPages = useVisibleExtensionPages('config');
 
 	if (!user || isPending) {
 		return <Loading className="flex flex-col items-center justify-center py-24" text="Opening…" />;
 	}
 	// Only a tab the nav offers: a hidden landing would loop back here through the index it hides.
 	const reachable = [...links, ...tucked];
-	const target = reachable.find((link) => link.key === configuration.landing) ?? reachable[0];
-	return target ? <Navigate to={target.to} replace /> : null;
+	const tab = reachable.find((link) => link.key === configuration.landing);
+	if (tab) {
+		return <Navigate to={tab.to} replace />;
+	}
+	// A page inside Config has a route of its own, so it never passes back through the index.
+	const configPage = configPages.find((page) => page.key === configuration.landing);
+	if (configPage) {
+		return <Navigate to={buildAbsoluteLinkToPage(params, `config/ext/${configPage.key}`)} replace />;
+	}
+	return reachable[0] ? <Navigate to={reachable[0].to} replace /> : null;
 }

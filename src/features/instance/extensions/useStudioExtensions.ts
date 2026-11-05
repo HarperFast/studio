@@ -19,7 +19,11 @@ import {
 } from '@/features/instance/extensions/prototype/prototypeState';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
-import { getStudioConfigurationQueryOptions } from '@/integrations/api/instance/studio/getStudioConfiguration';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import {
+	getStudioConfigurationQueryOptions,
+	mayAnswerStudioConfiguration,
+} from '@/integrations/api/instance/studio/getStudioConfiguration';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
@@ -28,21 +32,33 @@ export interface PlacedExtensionPage extends ResolvedExtensionPage {
 	verdict: AccessVerdict;
 }
 
+const UNAVAILABLE_STUDIO_CONFIGURATION: StudioConfiguration = { ...EMPTY_STUDIO_CONFIGURATION, unavailable: true };
+
 /**
  * The cluster's Studio configuration: its tab visibility, landing page and component pages. Empty
- * until the viewer is signed in to the entity, and on a Harper that predates the operation.
+ * until the viewer is signed in to the entity, and on a Harper that predates the operation, which isn't
+ * asked at all when its version says so (local Studio too: a Harper package bundles whatever Studio is
+ * on `prod` when it is built, so a 5.3 patch can carry this one).
  */
 export function useStudioConfiguration(): { configuration: StudioConfiguration; isPending: boolean } {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(instanceId ?? clusterId);
+	const signedIn = !!user;
 	const instanceParams = useInstanceClientIdParams();
-	const query = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: !!user }));
+	// The instance layout's loader has usually read it already. A failed read leaves the version unknown.
+	const registration = useQuery({ ...getRegistrationInfoQueryOptions(instanceParams), enabled: signedIn });
+	const asks = !registration.isPending && mayAnswerStudioConfiguration(registration.data?.version);
+	const query = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: signedIn && asks }));
 	const prototype = usePrototypeState();
+	// Another view may still have cached a real answer, which wins over the version's.
+	const data = query.data ?? (registration.isPending || asks ? undefined : UNAVAILABLE_STUDIO_CONFIGURATION);
 	const configuration = useMemo(
-		() => withPrototype(query.data ?? EMPTY_STUDIO_CONFIGURATION, prototype),
-		[query.data, prototype],
+		() => withPrototype(data ?? EMPTY_STUDIO_CONFIGURATION, prototype),
+		[data, prototype],
 	);
-	return { configuration, isPending: !!user && query.isPending };
+	// A query that is never sent stays pending in React Query, so only one that is sent counts.
+	const isPending = signedIn && query.data === undefined && (registration.isPending || (asks && query.isPending));
+	return { configuration, isPending };
 }
 
 /** Where a built-in tab or component page sits in the nav. */

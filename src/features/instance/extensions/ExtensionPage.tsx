@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { SectionsContent } from '@/features/instance/extensions/content/SectionsContent';
+import { SectionsContent, UnsupportedNoticeCard } from '@/features/instance/extensions/content/SectionsContent';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import type { ResolvedExtensionPage } from '@/features/instance/extensions/manifest';
 import {
@@ -32,8 +32,10 @@ export function ExtensionPage({ placement }: { placement: ResolvedExtensionPage[
 				? (
 					<Unavailable
 						icon={<LockIcon />}
-						title={`${page.name} isn't available to your role`}
-						body={`It needs ${page.verdict.missing.join(', ')}.`}
+						title={page.verdict.problem
+							? `Studio can't show ${page.name}`
+							: `${page.name} isn't available to your role`}
+						body={page.verdict.problem ?? `It needs ${page.verdict.missing.join(', ')}.`}
 					/>
 				)
 				: <AllowedExtensionPage page={page} />}
@@ -55,12 +57,16 @@ function AllowedExtensionPage({ page }: { page: PlacedExtensionPage }) {
 				</div>
 				<Badge variant="outline" title="The component that added this page">{page.component}</Badge>
 			</header>
-			<SectionsContent
-				sections={page.content.sections}
-				dataSource={dataSource}
-				permission={permission}
-				access={page.access}
-			/>
+			{page.content.kind === 'unsupported'
+				? <UnsupportedNoticeCard notice={page.content} subject="page" />
+				: (
+					<SectionsContent
+						sections={page.content.sections}
+						dataSource={dataSource}
+						permission={permission}
+						access={page.access}
+					/>
+				)}
 		</>
 	);
 }

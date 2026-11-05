@@ -6,17 +6,75 @@ import {
 	rememberPendingPresetSetup,
 	resetPendingPresetSetupsForTests,
 } from '@/features/clusters/presets/pendingPresetSetup';
-import { owedPreset } from '@/features/clusters/presets/usePresetSetup';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { isPresetApplied, owedPreset, useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
+import type { ResolvedExtensionPage } from '@/features/instance/extensions/manifest';
+import type { StudioConfiguration } from '@/features/instance/extensions/parseStudioConfiguration';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { answer } = vi.hoisted(() => ({
+	answer: { configuration: undefined as StudioConfiguration | undefined, fetches: 0 },
+}));
+
+vi.mock('@/config/constants', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/config/constants')>()),
+	clusterPresetsEnabled: true,
+}));
+vi.mock('@/config/useInstanceClient', () => ({
+	getInstanceClientIdFromParams: ({ clusterId }: { clusterId: string }) => ({
+		instanceClient: {},
+		entityId: clusterId,
+		entityType: 'cluster',
+	}),
+}));
+vi.mock('@/integrations/api/instance/studio/getStudioConfiguration', () => ({
+	getStudioConfigurationQueryOptions: ({ entityId, enabled }: { entityId: string; enabled?: boolean }) => ({
+		queryKey: [entityId, 'get_studio_configuration'],
+		queryFn: async () => {
+			answer.fetches++;
+			return answer.configuration;
+		},
+		retry: false,
+		enabled: enabled !== false,
+	}),
+}));
 
 const [redirects] = CLUSTER_PRESETS;
-const configured = { navigation: redirects.studio.navigation, landing: redirects.studio.landing, pages: [] };
-const blank = { navigation: {}, pages: [] };
+const page = (key: string) => ({ key, placement: 'tab' }) as ResolvedExtensionPage;
+const configured: StudioConfiguration = {
+	navigation: redirects.studio.navigation,
+	landing: redirects.studio.landing,
+	pages: [page(redirects.studio.landing)],
+};
+const blank: StudioConfiguration = { navigation: {}, pages: [] };
+const unavailable: StudioConfiguration = { ...blank, unavailable: true };
+
+describe('isPresetApplied', () => {
+	it("needs a landing and the preset's own page, not just a landing that matches", () => {
+		expect(isPresetApplied(redirects, configured)).toBe(true);
+		// Set by hand with nothing installed.
+		expect(isPresetApplied(redirects, { ...blank, landing: redirects.studio.landing })).toBe(false);
+		// Installed, but the configure step never ran.
+		expect(isPresetApplied(redirects, { ...configured, landing: undefined })).toBe(false);
+	});
+
+	it('still reads as applied after an admin moves the landing elsewhere', () => {
+		expect(isPresetApplied(redirects, { ...configured, landing: 'databases' })).toBe(true);
+	});
+});
 
 describe('owedPreset', () => {
-	it("owes the setup this browser started until it finishes, whatever the cluster's config says", () => {
+	it("lets the cluster's config decide once it has loaded, over this browser's record", () => {
+		expect(owedPreset({ remembered: redirects, recorded: undefined, configuration: configured })).toBeUndefined();
+		expect(owedPreset({ remembered: redirects, recorded: redirects, configuration: configured })).toBeUndefined();
+		expect(owedPreset({ remembered: redirects, recorded: undefined, configuration: blank })).toBe(redirects);
+	});
+
+	it("owes this browser's record while the config is unknown or unavailable", () => {
 		expect(owedPreset({ remembered: redirects, recorded: undefined, configuration: undefined })).toBe(redirects);
-		expect(owedPreset({ remembered: redirects, recorded: redirects, configuration: configured })).toBe(redirects);
+		expect(owedPreset({ remembered: redirects, recorded: undefined, configuration: unavailable })).toBe(redirects);
 	});
 
 	it("owes a recorded preset only once the cluster's config shows it was never applied", () => {
@@ -29,12 +87,74 @@ describe('owedPreset', () => {
 	});
 
 	it('owes nothing on a cluster that cannot report its configuration, such as Harper before 5.4', () => {
-		const unavailable = { ...blank, unavailable: true as const };
 		expect(owedPreset({ remembered: undefined, recorded: redirects, configuration: unavailable })).toBeUndefined();
 	});
 
 	it('owes nothing for a blank cluster', () => {
 		expect(owedPreset({ remembered: undefined, recorded: undefined, configuration: blank })).toBeUndefined();
+	});
+});
+
+describe('useOwedPresetSetup', () => {
+	beforeEach(() => {
+		localStorage.clear();
+		resetPendingPresetSetupsForTests();
+		answer.configuration = undefined;
+		answer.fetches = 0;
+	});
+	afterEach(cleanup);
+
+	function renderOwed(connected: boolean, preset?: string) {
+		const client = new QueryClient();
+		const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+		return renderHook(() => useOwedPresetSetup({ id: 'clu-1', preset }, connected), { wrapper });
+	}
+
+	it('reads the config although this browser remembers the setup, and forgets it once the config shows it done', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		answer.configuration = configured;
+		const { result } = renderOwed(true);
+
+		await waitFor(() => expect(getPendingPresetSetup('clu-1')).toBeUndefined());
+		expect(result.current).toBeUndefined();
+		expect(answer.fetches).toBe(1);
+	});
+
+	it('keeps the record, and the offer, while the config shows the setup unfinished', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		answer.configuration = blank;
+		const { result } = renderOwed(true);
+
+		await waitFor(() => expect(answer.fetches).toBe(1));
+		expect(result.current?.id).toBe('redirects');
+		expect(getPendingPresetSetup('clu-1')).toBe('redirects');
+	});
+
+	it('keeps the record on a cluster that cannot report its configuration', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		answer.configuration = unavailable;
+		const { result } = renderOwed(true);
+
+		await waitFor(() => expect(answer.fetches).toBe(1));
+		expect(result.current?.id).toBe('redirects');
+		expect(getPendingPresetSetup('clu-1')).toBe('redirects');
+	});
+
+	it('offers the remembered setup to a signed-out viewer without reading the config', async () => {
+		rememberPendingPresetSetup('clu-1', 'redirects');
+		answer.configuration = configured;
+		const { result } = renderOwed(false);
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(answer.fetches).toBe(0);
+		expect(result.current?.id).toBe('redirects');
+	});
+
+	it("lets a recorded preset's config decide without any record in this browser", async () => {
+		answer.configuration = blank;
+		const { result } = renderOwed(true, 'redirects');
+
+		await waitFor(() => expect(result.current?.id).toBe('redirects'));
 	});
 });
 

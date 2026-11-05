@@ -12,18 +12,21 @@ import {
 import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
+import type { StudioConfiguration } from '@/features/instance/extensions/parseStudioConfiguration';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import type { Cluster } from '@/integrations/api/api.patch';
+import { getStudioConfigurationQueryOptions } from '@/integrations/api/instance/studio/getStudioConfiguration';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouteContext } from '@tanstack/react-router';
 import { CircleCheckIcon, CircleIcon, CircleXIcon, LoaderCircleIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * `/<org>/<cluster>/setup`: finishes a preset cluster once its admin is signed in — installs the
- * preset's components, focuses Studio on the job, then lands on the preset's page. Starts by itself;
- * a failure stops it with Retry, which is safe because every step is idempotent.
+ * preset's components, focuses Studio on the job, then lands on the preset's page. Starts by itself on
+ * a cluster with no Studio settings of its own; one that has some waits for a click, since setup merges
+ * into them. A failure stops it with Retry, which is safe because every step is idempotent.
  */
 export function PresetSetup() {
 	const params: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
@@ -34,12 +37,15 @@ export function PresetSetup() {
 	const useSSE = useSupportsDeploymentSSE();
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
+	const configuration = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: !!preset }));
+	const startsByItself = !!configuration.data && !configuration.data.unavailable && !hasSettings(configuration.data);
 
 	const [steps, setSteps] = useState<SetupStep[]>(() => preset ? presetSetupSteps(preset) : []);
 	const [running, setRunning] = useState(false);
 	const [failed, setFailed] = useState(false);
 	// The project whose install may have started; only an explicit "Install again" sends it once more.
 	const [unconfirmed, setUnconfirmed] = useState<string>();
+	const [attempted, setAttempted] = useState(false);
 	const started = useRef(false);
 	const mounted = useRef(false);
 	const controller = useRef<AbortController>(undefined);
@@ -66,6 +72,7 @@ export function PresetSetup() {
 		controller.current = new AbortController();
 		const { signal } = controller.current;
 		setRunning(true);
+		setAttempted(true);
 		setFailed(false);
 		setUnconfirmed(undefined);
 		setSteps(presetSetupSteps(preset));
@@ -99,11 +106,12 @@ export function PresetSetup() {
 
 	// Once per visit; StrictMode's double effect must not deploy twice.
 	useEffect(() => {
-		if (canManage && preset && !started.current) {
+		if (canManage && preset && startsByItself && !started.current) {
 			started.current = true;
 			void run();
 		}
-	}, [canManage, preset, run]);
+	}, [canManage, preset, startsByItself, run]);
+	const awaitingClick = canManage && !attempted && !configuration.isPending && !startsByItself;
 
 	if (!preset) {
 		return <Navigate to={start} replace />;
@@ -127,25 +135,34 @@ export function PresetSetup() {
 							</p>
 						)
 						: (
-							<ol className="grid gap-3">
-								{steps.map((step) => (
-									<li key={step.id} className="flex items-start gap-3 text-sm">
-										<StepIcon state={step.state} />
-										<div>
-											<div className={step.state === 'pending' ? 'text-muted-foreground' : undefined}>{step.label}</div>
-											{step.detail && (
-												<div
-													className={step.state === 'failed'
-														? 'text-destructive text-xs'
-														: 'text-muted-foreground text-xs'}
-												>
-													{step.detail}
+							<>
+								{awaitingClick && (
+									<p className="text-sm text-muted-foreground">
+										{describeMerge(preset.name, configuration.data)}
+									</p>
+								)}
+								<ol className="grid gap-3">
+									{steps.map((step) => (
+										<li key={step.id} className="flex items-start gap-3 text-sm">
+											<StepIcon state={step.state} />
+											<div>
+												<div className={step.state === 'pending' ? 'text-muted-foreground' : undefined}>
+													{step.label}
 												</div>
-											)}
-										</div>
-									</li>
-								))}
-							</ol>
+												{step.detail && (
+													<div
+														className={step.state === 'failed'
+															? 'text-destructive text-xs'
+															: 'text-muted-foreground text-xs'}
+													>
+														{step.detail}
+													</div>
+												)}
+											</div>
+										</li>
+									))}
+								</ol>
+							</>
 						)}
 					<div className="flex justify-end gap-2">
 						{/* Skipping keeps the record, so the cluster's home can offer to finish later. */}
@@ -165,11 +182,39 @@ export function PresetSetup() {
 							</Button>
 						)}
 						{failed && <Button variant="submit" onClick={() => void run()}>Retry</Button>}
+						{awaitingClick && (
+							<Button
+								variant="submit"
+								onClick={() => {
+									started.current = true;
+									void run();
+								}}
+							>
+								Set up {preset.name}
+							</Button>
+						)}
 					</div>
 				</CardContent>
 			</Card>
 		</div>
 	);
+}
+
+/** A landing or any tab placement: what setup would otherwise write over. */
+function hasSettings(configuration: StudioConfiguration): boolean {
+	return !!configuration.landing || Object.keys(configuration.navigation).length > 0;
+}
+
+function describeMerge(name: string, configuration: StudioConfiguration | undefined): string {
+	if (!configuration || configuration.unavailable) {
+		return `Studio could not read this cluster's settings, so setup waits for you. `
+			+ `It installs ${name}'s components, then adds its Studio settings.`;
+	}
+	const landing = configuration.landing
+		? `keeps the cluster's landing page (${configuration.landing})`
+		: `opens the cluster on ${name}`;
+	return `This cluster already has Studio settings, so setup waits for you. It installs ${name}'s components, `
+		+ `places only the tabs the cluster has not placed itself, and ${landing}.`;
 }
 
 function StepIcon({ state }: { state: SetupStep['state'] }) {

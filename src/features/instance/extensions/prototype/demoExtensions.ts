@@ -14,7 +14,10 @@ const redirects: StudioExtensionManifest = {
 		placement: 'tab',
 		description: 'HTTP redirects served by every node before your application runs.',
 		// Visible to anyone who can read the rules; add/edit/delete appear only for roles that can write.
-		access: { tables: [{ database: 'redirects', table: 'Rule', actions: ['read'] }] },
+		access: {
+			tables: [{ database: 'redirects', table: 'Rule', actions: ['read'] }],
+			optional: { tables: [{ database: 'redirects', table: 'Rule', actions: ['insert', 'update', 'delete'] }] },
+		},
 		content: {
 			kind: 'sections',
 			sections: [
@@ -83,7 +86,14 @@ const prerender: StudioExtensionManifest = {
 		placement: 'config',
 		description: 'Serve crawlers fully rendered HTML, refreshed on a schedule.',
 		// Settings and cache purges are cluster-wide, so the component asks for super users only.
-		access: { role: 'super_user', operations: ['prerender_refresh', 'prerender_purge'] },
+		access: {
+			role: 'super_user',
+			tables: [
+				{ database: 'prerender', table: 'Settings', actions: ['read', 'insert', 'update'] },
+				{ database: 'prerender', table: 'Page', actions: ['read'] },
+			],
+			operations: ['prerender_refresh', 'prerender_purge'],
+		},
 		content: {
 			kind: 'sections',
 			sections: [

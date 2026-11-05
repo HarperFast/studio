@@ -1,11 +1,21 @@
 import type { ExtensionRequest } from '@/features/instance/extensions/manifest';
 import type { InstanceTable } from '@/integrations/api/api.patch';
-import type { AxiosInstance } from 'axios';
+import { type AxiosInstance, isAxiosError } from 'axios';
 
 export type ExtensionRecord = Record<string, unknown>;
 
 /** The most rows a table section loads, and the most matches a filtered count reads. */
 export const EXTENSION_ROW_LIMIT = 1_000;
+
+/**
+ * How Harper refuses a whole read over one named attribute: 400 when the table has no such attribute
+ * (validation/searchValidator.ts:236-297), 403 when the viewer's role scopes attributes and doesn't grant
+ * it (utility/operation_authorization.ts:1349-1427, sent as a 403 by serverUtilities.ts:427-438). `'*'`
+ * instead narrows to what exists and what the role may read (operation_authorization.ts:996-1024,
+ * dataLayer/harperBridge/ResourceBridge.ts:743-756), so a refused projection is read again as `'*'`.
+ * Line numbers are at harper 79aec74f9.
+ */
+const REFUSED_PROJECTION_STATUSES = new Set([400, 403]);
 
 export interface ExtensionRows {
 	records: ExtensionRecord[];
@@ -26,7 +36,8 @@ export interface ExtensionCount {
 export interface ExtensionDataSource {
 	/** Distinguishes cache entries for the same table across data sources. */
 	id: string;
-	list(database: string, table: string, primaryKey: string): Promise<ExtensionRows>;
+	/** Reads only `attributes` where the server can, so a row never carries an attribute nothing shows. */
+	list(database: string, table: string, primaryKey: string, attributes: readonly string[]): Promise<ExtensionRows>;
 	count(database: string, table: string, where?: Record<string, unknown>): Promise<ExtensionCount>;
 	get(database: string, table: string, primaryKey: string, id: unknown): Promise<ExtensionRecord | undefined>;
 	insert(database: string, table: string, record: ExtensionRecord): Promise<void>;
@@ -48,16 +59,28 @@ export function createHarperDataSource(entityId: string, instanceClient: AxiosIn
 		});
 	return {
 		id: entityId,
-		list: async (database, table, primaryKey) => {
-			const records: ExtensionRecord[] = await operation({
-				operation: 'search_by_value',
-				database,
-				table,
-				search_attribute: primaryKey,
-				search_value: '*',
-				get_attributes: ['*'],
-				limit: EXTENSION_ROW_LIMIT + 1,
-			});
+		list: async (database, table, primaryKey, attributes) => {
+			const search = (getAttributes: readonly string[]): Promise<ExtensionRecord[]> =>
+				operation({
+					operation: 'search_by_value',
+					database,
+					table,
+					search_attribute: primaryKey,
+					search_value: '*',
+					get_attributes: getAttributes,
+					limit: EXTENSION_ROW_LIMIT + 1,
+				});
+			const projection = attributes.length ? attributes : ['*'];
+			let records: ExtensionRecord[];
+			try {
+				records = await search(projection);
+			} catch (error) {
+				const status = isAxiosError(error) ? error.response?.status : undefined;
+				if (projection.includes('*') || status === undefined || !REFUSED_PROJECTION_STATUSES.has(status)) {
+					throw error;
+				}
+				records = await search(['*']);
+			}
 			return { records: records.slice(0, EXTENSION_ROW_LIMIT), truncated: records.length > EXTENSION_ROW_LIMIT };
 		},
 		count: async (database, table, where) => {

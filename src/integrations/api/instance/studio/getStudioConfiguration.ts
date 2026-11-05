@@ -4,8 +4,26 @@ import {
 	parseStudioConfiguration,
 	StudioConfiguration,
 } from '@/features/instance/extensions/parseStudioConfiguration';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { queryOptions } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
+
+/**
+ * The first Harper that answers `get_studio_configuration` (HarperFast/harper#3656). `-0` sorts below every
+ * other prerelease, so 5.4's alphas and betas count: the operation ships in them.
+ */
+export const STUDIO_CONFIGURATION_MIN_HARPER_VERSION = '5.4.0-0';
+
+/**
+ * Whether a Harper of this version may answer `get_studio_configuration`. Only a version known to be older
+ * says no; one Studio can't read (absent, or not semver) says yes, so it is asked as before.
+ */
+export function mayAnswerStudioConfiguration(version: string | undefined): boolean {
+	const known = version ?? '';
+	// Both comparisons are false only when the version doesn't parse.
+	return wasAReleasedBeforeB(STUDIO_CONFIGURATION_MIN_HARPER_VERSION, known)
+		|| !wasAReleasedBeforeB(known, STUDIO_CONFIGURATION_MIN_HARPER_VERSION);
+}
 
 /**
  * The cluster's Studio settings and its components' pages. Open to every signed-in role, which is what

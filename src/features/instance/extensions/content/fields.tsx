@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { attributeValue, displayText } from '@/features/instance/extensions/content/displayText';
 import type { ExtensionRecord } from '@/features/instance/extensions/dataSource';
 import type { ExtensionField } from '@/features/instance/extensions/manifest';
 
@@ -25,7 +26,7 @@ export function ExtensionFields({ fields, values, onChange, disabled, idPrefix }
 								<>
 									<Switch
 										id={id}
-										checked={values[field.attribute] === true}
+										checked={attributeValue(values, field.attribute) === true}
 										onCheckedChange={(checked) => onChange(field.attribute, checked)}
 										disabled={disabled}
 									/>
@@ -41,7 +42,7 @@ export function ExtensionFields({ fields, values, onChange, disabled, idPrefix }
 									<FieldControl
 										id={id}
 										field={field}
-										value={values[field.attribute]}
+										value={attributeValue(values, field.attribute)}
 										onChange={onChange}
 										disabled={disabled}
 									/>
@@ -67,7 +68,7 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 			return (
 				<Textarea
 					id={id}
-					value={stringValue(value)}
+					value={displayText(value)}
 					placeholder={field.placeholder}
 					disabled={disabled}
 					onChange={(event) => onChange(field.attribute, event.target.value)}
@@ -77,7 +78,7 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 			const options = field.options ?? [];
 			return (
 				<Select
-					value={value === undefined ? undefined : String(value)}
+					value={value === undefined ? undefined : displayText(value)}
 					disabled={disabled}
 					// Option values keep their declared type: a numeric status code stays a number in the record.
 					onValueChange={(next) =>
@@ -99,7 +100,7 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 				<Input
 					id={id}
 					type={field.input === 'number' ? 'number' : field.input === 'url' ? 'url' : 'text'}
-					value={stringValue(value)}
+					value={displayText(value)}
 					placeholder={field.placeholder}
 					required={field.required}
 					disabled={disabled}
@@ -118,16 +119,12 @@ function FieldControl({ id, field, value, onChange, disabled }: {
 	}
 }
 
-function stringValue(value: unknown): string {
-	return value === undefined || value === null ? '' : String(value);
-}
-
 /** The first required field left empty, for the inline error. */
 export function findMissingField(fields: ExtensionField[], values: ExtensionRecord): ExtensionField | undefined {
-	return fields.find((field) =>
-		field.required && (values[field.attribute] === undefined || values[field.attribute] === null
-			|| values[field.attribute] === '')
-	);
+	return fields.find((field) => {
+		const value = attributeValue(values, field.attribute);
+		return field.required && (value === undefined || value === null || value === '');
+	});
 }
 
 export function defaultValues(fields: ExtensionField[]): ExtensionRecord {

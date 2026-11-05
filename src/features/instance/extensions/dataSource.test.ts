@@ -1,5 +1,5 @@
 import { createHarperDataSource, EXTENSION_ROW_LIMIT } from '@/features/instance/extensions/dataSource';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 
 function harper(respond: (body: Record<string, unknown>) => unknown) {
@@ -9,13 +9,72 @@ function harper(respond: (body: Record<string, unknown>) => unknown) {
 
 const rows = (count: number) => Array.from({ length: count }, (_, index) => ({ id: index }));
 
+function harperError(status: number, error: string) {
+	const config = { headers: new AxiosHeaders() };
+	return new AxiosError(error, AxiosError.ERR_BAD_REQUEST, config, undefined, {
+		status,
+		statusText: '',
+		headers: {},
+		config,
+		data: { error },
+	});
+}
+
+/** Refuses any read that names an attribute, as Harper does when one is missing or the role can't read it. */
+function refusingNamedAttributes(status: number) {
+	return harper((body) => {
+		const attributes = body.get_attributes as string[];
+		if (attributes[0] !== '*') {
+			throw harperError(status, "unknown attribute 'colour'");
+		}
+		return rows(2);
+	});
+}
+
 describe('createHarperDataSource', () => {
 	it('loads at most the row limit, and says when the table holds more', async () => {
 		const { post, dataSource } = harper(() => rows(EXTENSION_ROW_LIMIT + 1));
-		const { records, truncated } = await dataSource.list('redirects', 'Rule', 'id');
+		const { records, truncated } = await dataSource.list('redirects', 'Rule', 'id', ['id']);
 		expect(records).toHaveLength(EXTENSION_ROW_LIMIT);
 		expect(truncated).toBe(true);
 		expect(post.mock.calls[0][1]).toMatchObject({ operation: 'search_by_value', limit: EXTENSION_ROW_LIMIT + 1 });
+	});
+
+	it('reads only the attributes it is asked for', async () => {
+		const { post, dataSource } = harper(() => rows(1));
+		await dataSource.list('prerender', 'Page', 'path', ['path', 'status', 'renderedAt']);
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(post.mock.calls[0][1]).toMatchObject({
+			operation: 'search_by_value',
+			search_attribute: 'path',
+			search_value: '*',
+			get_attributes: ['path', 'status', 'renderedAt'],
+		});
+	});
+
+	it.each([
+		[400, 'the table has no such attribute'],
+		[403, "the role can't read one"],
+	])('reads every attribute instead when Harper refuses one by name with a %i (%s)', async (status) => {
+		const { post, dataSource } = refusingNamedAttributes(status);
+		await expect(dataSource.list('prerender', 'Page', 'id', ['id', 'colour'])).resolves.toEqual({
+			records: rows(2),
+			truncated: false,
+		});
+		expect(post.mock.calls.map(([, body]) => body.get_attributes)).toEqual([['id', 'colour'], ['*']]);
+	});
+
+	it('fails any other way it fails, and never repeats a read of every attribute', async () => {
+		const failing = harper(() => {
+			throw harperError(500, 'Internal error');
+		});
+		await expect(failing.dataSource.list('prerender', 'Page', 'id', ['id'])).rejects.toThrow('Internal error');
+		expect(failing.post).toHaveBeenCalledTimes(1);
+
+		const refused = refusingNamedAttributes(400);
+		refused.post.mockRejectedValue(harperError(400, 'bad'));
+		await expect(refused.dataSource.list('prerender', 'Page', 'id', [])).rejects.toThrow('bad');
+		expect(refused.post.mock.calls.map(([, body]) => body.get_attributes)).toEqual([['*']]);
 	});
 
 	it("counts a whole table from describe_table, marking Harper's estimate", async () => {

@@ -151,7 +151,9 @@ export function PrototypePanel() {
 													{resolved.name}
 													<span className="block text-xs text-muted-foreground font-normal">
 														{resolved.placement === 'tab' ? 'Top tab' : 'Config menu'}
-														{allowed ? '' : ` · hidden: needs ${page?.verdict.missing.join(', ')}`}
+														{allowed
+															? ''
+															: ` · hidden: ${page?.verdict.problem ?? `needs ${page?.verdict.missing.join(', ')}`}`}
 													</span>
 												</span>
 											</Link>
