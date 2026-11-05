@@ -1,4 +1,6 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { useQueryClient } from '@tanstack/react-query';
 import { MissingReason, missingReason } from '../functions/releaseCoverage';
 import type { ReleaseCheck } from '../hooks/useComponentReleases';
 
@@ -23,11 +25,11 @@ export function ReleaseCheckNote({
 }: {
 	check: ReleaseCheck;
 	record?: Deployment;
-	/** Whether, unasked, the records decide: then an unanswered check only says so. */
 	trustRecords: boolean;
-	/** Whether to say it is live everywhere, which a caller can already be saying. */
 	showLive?: boolean;
 }) {
+	const queryClient = useQueryClient();
+	const { entityId } = useInstanceClientIdParams();
 	switch (check.kind) {
 		case 'unsupported':
 			return null;
@@ -38,6 +40,14 @@ export function ReleaseCheckNote({
 				<p className="text-sm text-muted-foreground">
 					Couldn&apos;t ask the nodes which releases they hold: {check.message}
 					{trustRecords ? ' This goes by the deployment records instead.' : ' Going back needs every node to hold it.'}
+					{' '}
+					<button
+						type="button"
+						className="underline"
+						onClick={() => void queryClient.invalidateQueries({ queryKey: [entityId, 'list_releases'] })}
+					>
+						Try again
+					</button>
 				</p>
 			);
 		case 'live-everywhere':

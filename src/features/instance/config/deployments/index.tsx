@@ -120,12 +120,14 @@ export function ConfigDeploymentsIndex() {
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
 	const queryClient = useQueryClient();
 	const onRefreshClick = useRefreshClick(
-		useCallback(async () => {
-			if (releaseTracking) {
-				void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'] });
-			}
-			return refetch();
-		}, [releaseTracking, queryClient, instanceParams.entityId, refetch]),
+		useCallback(
+			() =>
+				Promise.all([
+					refetch(),
+					releaseTracking && queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'] }),
+				]),
+			[releaseTracking, queryClient, instanceParams.entityId, refetch],
+		),
 	);
 	const projectInput = useRef<HTMLInputElement>(null);
 	useEffect(() => {

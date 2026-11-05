@@ -3,7 +3,7 @@
  */
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeploymentDetail } from './DeploymentDetail';
 
@@ -307,7 +307,6 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
 	});
 
-	// The record may be the live release's own, which has nothing to go back to.
 	it('offers no going back while it asks the nodes, or when they cannot be asked', async () => {
 		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, new Error('timed out'));
 		expect(screen.getByText(/Checking which nodes hold this release/)).toBeTruthy();
@@ -315,6 +314,20 @@ describe('DeploymentDetail on Harper 5.4', () => {
 
 		expect(await screen.findByText(/Going back needs every node to hold it\./)).toBeTruthy();
 		expect(rollBack()).toBeNull();
+	});
+
+	it('asks the nodes again from the detail once they could not be asked', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, new Error('timed out'));
+		const retry = await screen.findByRole('button', { name: 'Try again' });
+		const failing = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases'
+				? Promise.resolve({ data: { nodes: [holds('a', 'v3', ['v2'])] } })
+				: failing(url, body)
+		);
+		fireEvent.click(retry);
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		expect(rollBack()!.disabled).toBe(false);
 	});
 
 	it('offers no going back before Harper 5.4, which cannot say what each node keeps', () => {

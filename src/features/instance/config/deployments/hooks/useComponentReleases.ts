@@ -26,8 +26,10 @@ type ComponentReleasesState =
  * and each node a rolling one reaches, which its job records on the row as it goes.
  */
 function recordsGeneration({ total, deployments: [newest] }: ListDeploymentsResponse): string {
-	const activated = newest?.peer_results?.filter((peer) => peer.activation).length ?? 0;
-	return `${total}|${newest?.deployment_id}|${newest?.status}|${activated}`;
+	const activations = (newest?.peer_results ?? [])
+		.map((peer) => (peer.activation ? (peer.activation.activated ? '+' : '-') : '.'))
+		.join('');
+	return `${total}|${newest?.deployment_id}|${newest?.status}|${activations}`;
 }
 
 /**
@@ -41,7 +43,7 @@ export function useComponentReleases(project: string | undefined) {
 		getDeploymentsQueryOptions({ ...instanceParams, project, limit: 1, enabled: supported, pollWhileOpen: true }),
 	);
 	const generation = newest && recordsGeneration(newest);
-	const { data, error, status, isFetching } = useQuery(
+	const { data, error, status, isPlaceholderData, fetchStatus } = useQuery(
 		getReleasesQueryOptions({
 			...instanceParams,
 			project: project ?? '',
@@ -57,11 +59,10 @@ export function useComponentReleases(project: string | undefined) {
 			return { kind: 'unreadable', message: describeError(error).message };
 		}
 		const summary = data && summarizeReleases(data, project!);
-		// Fetching covers a new generation, whose data is the last one's, and a refresh after an activation.
-		return summary && !isFetching
+		return summary && status === 'success' && !isPlaceholderData && fetchStatus === 'idle'
 			? { kind: 'ready', summary }
 			: { kind: 'checking', previous: summary };
-	}, [supported, data, error, status, isFetching, project]);
+	}, [supported, data, error, status, isPlaceholderData, fetchStatus, project]);
 	return { state };
 }
 

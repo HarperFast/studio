@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,11 +7,11 @@ const state = vi.hoisted(() => ({
 	post: vi.fn(),
 	newest: { deployments: [{ deployment_id: 'v3', project: 'web', status: 'success' }], total: 3 } as object,
 	releases: [] as Array<() => Promise<unknown>>,
+	params: {} as { entityId: string; entityType: string; instanceClient: object },
 }));
-vi.mock('@/config/useInstanceClient', () => {
-	const params = { entityId: 'clu-a', entityType: 'cluster', instanceClient: { post: state.post } };
-	return { useInstanceClientIdParams: () => params };
-});
+vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => state.params }));
+const clusterA = { entityId: 'clu-a', entityType: 'cluster', instanceClient: { post: state.post } };
+state.params = clusterA;
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useReleaseTrackingAvailable: () => true,
 }));
@@ -42,6 +42,7 @@ afterEach(() => {
 	cleanup();
 	state.post.mockClear();
 	state.releases = [];
+	state.params = clusterA;
 	state.newest = { deployments: [{ deployment_id: 'v3', project: 'web', status: 'success' }], total: 3 };
 });
 
@@ -57,11 +58,9 @@ async function renderBoth() {
 	return queryClient;
 }
 
-async function newestChanges(queryClient: QueryClient, status: string, activated = 0) {
-	const peer_results = Array.from(
-		{ length: activated },
-		(_, i) => ({ node: `n${i}`, activation: { activated: true } }),
-	);
+async function newestChanges(queryClient: QueryClient, status: string, activated: number | boolean[] = 0) {
+	const outcomes = typeof activated === 'number' ? Array.from({ length: activated }, () => true) : activated;
+	const peer_results = outcomes.map((taken, i) => ({ node: `n${i}`, activation: { activated: taken } }));
 	state.newest = { deployments: [{ deployment_id: 'v4', project: 'web', status, peer_results }], total: 4 };
 	await act(() => queryClient.refetchQueries({ queryKey: ['clu-a', 'list_deployments'] }));
 }
@@ -123,6 +122,43 @@ describe('useComponentReleases', () => {
 		);
 		expect(screen.getByTestId('detail').textContent).toBe('live-everywhere');
 		expect(releaseCalls()).toBe(1);
+	});
+
+	it('is not current for a change it cannot ask about yet, such as while offline', async () => {
+		const queryClient = await renderBoth();
+		await newestChanges(queryClient, 'rolling_out');
+		onlineManager.setOnline(false);
+		try {
+			await newestChanges(queryClient, 'rolling_out', 1);
+			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+			expect(screen.getByTestId('detail').textContent).toBe('checking');
+		} finally {
+			onlineManager.setOnline(true);
+		}
+	});
+
+	it('asks again when a node that had not taken a rolling deploy takes it', async () => {
+		const queryClient = await renderBoth();
+		await newestChanges(queryClient, 'rolling_out', [false]);
+		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+		await newestChanges(queryClient, 'rolling_out', [true]);
+		await vi.waitFor(() => expect(releaseCalls()).toBe(3));
+	});
+
+	it('shows nothing of one cluster as current for another', async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const view = () => (
+			<QueryClientProvider client={queryClient}>
+				<Panel />
+				<Detail />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view());
+		await screen.findByText('live-everywhere');
+		state.params = { entityId: 'clu-b', entityType: 'cluster', instanceClient: { post: () => new Promise(() => {}) } };
+		rerender(view());
+		expect(screen.getByTestId('detail').textContent).toBe('checking');
+		expect(screen.getByTestId('panel').textContent).toBe('checking');
 	});
 
 	it('does not ask again when the window regains focus', async () => {

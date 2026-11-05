@@ -36,7 +36,6 @@ vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 }));
 vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
 	getDeploymentsQueryOptions: (params: { enabled?: boolean; limit?: number }) => {
-		// The releases panel watches the component's newest record to know when to ask the nodes again.
 		if (params.limit === 1) {
 			return {
 				queryKey: ['newest', params],
@@ -319,7 +318,6 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		};
 		renderPage('5.4.0-beta.2');
 		const panel = screen.getByRole('region', { name: 'Releases of web' });
-		// c did not answer, so nothing is said to be on "every node".
 		expect(panel.textContent).toContain('Live on a, b');
 		expect(panel.textContent).toContain('Kept on a · not on b');
 		expect(panel.textContent).toContain("c couldn't say what it holds: timed out");

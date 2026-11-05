@@ -15,7 +15,7 @@ interface KeptRelease {
 	size: number;
 }
 
-export interface ComponentReleases {
+interface ComponentReleases {
 	project: string;
 	/** The release live on that node; absent when its tree names none, as one made live before 5.3.0 does. */
 	deployment_id?: string;
@@ -73,9 +73,9 @@ export function getReleasesQueryOptions(params: ListReleasesParams) {
 		staleTime: Infinity,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
-		// The last generation's answer, of the same component only, to show while this one is asked.
 		placeholderData: (previous, previousQuery) =>
-			(previousQuery?.queryKey[2] as { project?: string } | undefined)?.project === params.project
+			previousQuery?.queryKey[0] === params.entityId
+				&& (previousQuery.queryKey[2] as { project?: string } | undefined)?.project === params.project
 				? previous
 				: undefined,
 		enabled: params.enabled !== false,

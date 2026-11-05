@@ -41,7 +41,12 @@ export function ComponentReleasesPanel({ project }: { project: string }) {
 	}
 	return (
 		<section aria-label={`Releases of ${project}`} className="mb-4 rounded-md border border-border p-3 text-sm">
-			<h2 className="mb-2 font-medium">Releases of {project} on each node</h2>
+			<h2 className="mb-2 font-medium">
+				Releases of {project} on each node
+				{state.kind === 'checking' && state.previous && (
+					<span className="ml-2 text-xs font-normal text-muted-foreground">Updating…</span>
+				)}
+			</h2>
 			{state.kind === 'checking' && !state.previous && (
 				<p className="text-muted-foreground">Asking each node what it holds…</p>
 			)}
