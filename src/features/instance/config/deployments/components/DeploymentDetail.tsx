@@ -10,6 +10,7 @@ import { getDeploymentQueryOptions, getDeploymentStream } from '@/integrations/a
 import {
 	Deployment,
 	DeploymentPeerResult,
+	DeploymentStatus,
 	isTerminalDeploymentStatus,
 } from '@/integrations/api/instance/deployments/types';
 import { cn } from '@/lib/cn';
@@ -35,16 +36,32 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 	);
 }
 
-// On a rolling deploy (5.4.0+) the node's activation, not how it staged the release, says whether it runs it.
-function peerOutcome(peer: DeploymentPeerResult): { label: string; failed: boolean } {
+const OUTCOME_TONE = { success: 'text-success', destructive: 'text-destructive', muted: 'text-muted-foreground' };
+
+// On a rolling deploy (5.4.0+) a node's staging status reads `success` before it takes the release, and even when it
+// never does: only its `activation` says whether it runs it. A record Harper ended `partial` without reaching a node
+// (an activation job that failed or was cut short) names it in `error.nodes` and records no activation for it.
+function peerOutcome(
+	peer: DeploymentPeerResult,
+	status: DeploymentStatus,
+): { label: string; tone: keyof typeof OUTCOME_TONE } {
 	const { activation } = peer;
 	if (activation) {
 		return activation.activated
-			? { label: 'activated', failed: false }
-			: { label: `not activated${activation.error ? `: ${activation.error}` : ''}`, failed: true };
+			? { label: 'activated', tone: 'success' }
+			: { label: `not activated${activation.error ? `: ${activation.error}` : ''}`, tone: 'destructive' };
+	}
+	if (peer.status !== 'failed' && status === 'rolling_out') {
+		return { label: 'waiting to activate', tone: 'muted' };
+	}
+	if (peer.status !== 'failed' && status === 'partial') {
+		return { label: 'activation not confirmed', tone: 'destructive' };
 	}
 	const peerError = errorText(peer.error);
-	return { label: `${peer.status ?? 'ok'}${peerError ? `: ${peerError}` : ''}`, failed: peer.status === 'failed' };
+	return {
+		label: `${peer.status ?? 'ok'}${peerError ? `: ${peerError}` : ''}`,
+		tone: peer.status === 'failed' ? 'destructive' : 'success',
+	};
 }
 
 function timestamp(ms?: number) {
@@ -191,13 +208,13 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 						<div className="mb-1 text-xs font-medium text-muted-foreground">Other nodes</div>
 						<ul className="flex flex-col gap-2 text-sm">
 							{deployment.peer_results.map((peer, i) => {
-								const outcome = peerOutcome(peer);
+								const outcome = peerOutcome(peer, deployment.status);
 								const install = describePeerInstall(peer);
 								return (
 									<li key={peer.node ?? i} className="flex flex-col gap-0.5">
 										<span className="flex items-center justify-between gap-2">
 											<span className="truncate">{peer.node}</span>
-											<span className={outcome.failed ? 'text-destructive' : 'text-success'}>{outcome.label}</span>
+											<span className={OUTCOME_TONE[outcome.tone]}>{outcome.label}</span>
 										</span>
 										{install && (
 											<span

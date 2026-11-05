@@ -37,21 +37,19 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 		.filter((record) => record.project === staged.project && record.deployment_id !== staged.deployment_id)
 		.sort((a, b) => startedAt(b) - startedAt(a));
 	const succeeded = newestFirst.filter((record) => record.status === 'success');
+	const released = newestFirst.filter((record) => record.status === 'success' || record.status === 'partial');
 	const failedSomewhere = (record: Deployment) => record.status === 'failed' || record.status === 'partial';
 	const failedAfter = (after: Deployment | undefined, which: (record: Deployment) => boolean = () => true) =>
 		newestFirst.find((record) => failedSomewhere(record) && startedAt(record) > startedAt(after) && which(record));
 
 	const running = newestFirst.find((record) =>
 		!isTerminalDeploymentStatus(record.status) && record.activated_from === staged.deployment_id
-		&& startedAt(record) > startedAt(succeeded[0])
+		&& startedAt(record) > startedAt(released[0])
 	);
 	if (running) {
 		return { kind: 'activating', activation: running };
 	}
-	// A `partial` activation went live too, if not on every node.
-	const activation = newestFirst.find((record) =>
-		(record.status === 'success' || record.status === 'partial') && record.activated_from === staged.deployment_id
-	);
+	const activation = released.find((record) => record.activated_from === staged.deployment_id);
 	if (!activation) {
 		// Once anything has succeeded since, a failed attempt at this one no longer decides what runs.
 		const failed = failedAfter(succeeded[0], (record) => record.activated_from === staged.deployment_id);

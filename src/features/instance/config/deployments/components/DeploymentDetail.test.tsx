@@ -77,7 +77,6 @@ describe('DeploymentDetail of a rolling deploy', () => {
 		);
 	}
 
-	// Harper 5.4 records each node's activation beside how it staged the release, and ends the record `partial`.
 	it('shows which nodes did not take a partial deploy, rather than how they staged it', () => {
 		renderDeployment({
 			deployment_id: 'd1',
@@ -93,6 +92,41 @@ describe('DeploymentDetail of a rolling deploy', () => {
 		expect(screen.getByText('Partial')).toBeTruthy();
 		expect(screen.getByText('activated')).toBeTruthy();
 		expect(screen.getByText('not activated: certification rejected')).toBeTruthy();
+		expect(screen.queryByText('success')).toBeNull();
+	});
+
+	// Harper's `partialRollout`: an activation job that failed or was cut short records no activation for a node.
+	it('does not show a node a partial deploy never reached as a success', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			error: { message: 'The activation job failed: boom; not confirmed on: b', nodes: ['b', 'c'] },
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success' },
+				{ node: 'c', status: 'failed', error: 'disk full' },
+			],
+		});
+
+		expect(screen.getByText('activation not confirmed').className).toContain('text-destructive');
+		expect(screen.getByText('failed: disk full')).toBeTruthy();
+		expect(screen.queryByText('success')).toBeNull();
+	});
+
+	it('shows a node a rolling deploy has not reached yet as waiting, not as a success', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'rolling_out',
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success' },
+			],
+		});
+
+		expect(screen.getByText('Rolling out')).toBeTruthy();
+		expect(screen.getByText('waiting to activate').className).toContain('text-muted-foreground');
 		expect(screen.queryByText('success')).toBeNull();
 	});
 });

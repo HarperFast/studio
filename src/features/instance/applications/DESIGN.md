@@ -83,7 +83,9 @@ dialog and the toolbar's Rename and Restart are disabled while a save is in flig
 
 Studio deploys with `restart: 'rolling'`. The node that receives the deploy answers once its own part is done and hands
 the other nodes to a `restart_service` job, named in the response's `restartJobId` (Harper 4.6+). The deployment record
-does not help: only the receiving node writes it, so it reads `success` while that job runs and after it fails.
+does not help: only the receiving node writes it, so before Harper 5.4 it reads `success` while that job runs and after
+it fails. From 5.4 a rolling deploy whose release Harper certifies reads `rolling_out` until the job ends it `success` or
+`partial` (harper `v5.4.0-beta.2:components/operations.ts:1247`); one it does not certify still reads `success`.
 
 So [`deployAndFollowComponent`](../../../integrations/api/instance/applications/deployComponent.ts) follows the job with
 `get_job` before the mutation settles ([`restartJob.ts`](../../../integrations/api/instance/applications/restartJob.ts)):

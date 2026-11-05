@@ -45,7 +45,6 @@ describe('stagedReleaseState', () => {
 		});
 	});
 
-	// Harper 5.4: a rolling activation ends `partial` when some node did not take it, live where it was taken.
 	it('cannot claim it is live everywhere, or still waiting, when its rolling activation ended partial', () => {
 		const partial = { ...activation, status: 'partial' } as Deployment;
 		expect(stagedReleaseState(staged, [staged, partial])).toEqual({
@@ -62,6 +61,16 @@ describe('stagedReleaseState', () => {
 			kind: 'replaced',
 			activation: partial,
 			replacedBy: later,
+		});
+	});
+
+	it('reports a partial activation over an older activation that never finished', () => {
+		const stranded = { ...activation, deployment_id: 'stranded', status: 'rolling_out', started_at: 150 } as Deployment;
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, stranded, partial])).toEqual({
+			kind: 'uncertain',
+			activation: partial,
+			failed: partial,
 		});
 	});
 
