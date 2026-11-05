@@ -10,8 +10,9 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  *   the first stopped without recording an end, which nothing here can tell apart.
  * - `live`: its newest activation is the component's newest successful deploy, every node it reached took it, and
  *   no deploy after it failed. A deploy still running does not count. Activating it again swaps nothing and only
- *   restarts every worker (harper `components/Application.ts:4812-4821`, `operations.js:956`). The record cannot say
- *   whether the rolling restart that followed finished (`src/features/instance/applications/DESIGN.md`).
+ *   restarts every worker (harper `components/Application.ts:4812-4821`, `operations.js:956`). Before Harper 5.4 the
+ *   record cannot say whether the rolling restart that followed finished; from 5.4 a certified activation reads
+ *   `rolling_out` until it has (`src/features/instance/applications/DESIGN.md`).
  * - `replaced`: a later deploy succeeded. Each node keeps the release it displaced, so activating this one again is a
  *   rollback, for as long as retention keeps it.
  * - `uncertain`: a deploy that touched it failed somewhere: its activation (`activation` absent, or `failed` is the
@@ -36,7 +37,6 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 	const newestFirst = records
 		.filter((record) => record.project === staged.project && record.deployment_id !== staged.deployment_id)
 		.sort((a, b) => startedAt(b) - startedAt(a));
-	const succeeded = newestFirst.filter((record) => record.status === 'success');
 	const released = newestFirst.filter((record) => record.status === 'success' || record.status === 'partial');
 	const failedSomewhere = (record: Deployment) => record.status === 'failed' || record.status === 'partial';
 	const failedAfter = (after: Deployment | undefined, which: (record: Deployment) => boolean = () => true) =>
@@ -51,8 +51,8 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 	}
 	const activation = released.find((record) => record.activated_from === staged.deployment_id);
 	if (!activation) {
-		// Once anything has succeeded since, a failed attempt at this one no longer decides what runs.
-		const failed = failedAfter(succeeded[0], (record) => record.activated_from === staged.deployment_id);
+		// Once anything has gone live since, a failed attempt at this one no longer decides what runs.
+		const failed = failedAfter(released[0], (record) => record.activated_from === staged.deployment_id);
 		return failed ? { kind: 'uncertain', failed } : { kind: 'waiting' };
 	}
 	const replacedBy = newestFirst.slice(0, newestFirst.indexOf(activation)).find((record) =>

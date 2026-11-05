@@ -47,9 +47,10 @@ function peerOutcome(
 ): { label: string; tone: keyof typeof OUTCOME_TONE } {
 	const { activation } = peer;
 	if (activation) {
+		const reason = activation.error || activation.message;
 		return activation.activated
 			? { label: 'activated', tone: 'success' }
-			: { label: `not activated${activation.error ? `: ${activation.error}` : ''}`, tone: 'destructive' };
+			: { label: `not activated${reason ? `: ${reason}` : ''}`, tone: 'destructive' };
 	}
 	if (peer.status !== 'failed' && status === 'rolling_out') {
 		return { label: 'waiting to activate', tone: 'muted' };

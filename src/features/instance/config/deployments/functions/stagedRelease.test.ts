@@ -27,6 +27,12 @@ describe('stagedReleaseState', () => {
 		expect(stagedReleaseState(staged, [staged, failed])).toEqual({ kind: 'uncertain', failed });
 	});
 
+	it('is waiting again once a deploy went live, even partly, after its failed activation', () => {
+		const failed = { ...activation, status: 'failed' } as Deployment;
+		const partial = record('9f00aa11-0000-4000-8000-000000000002', 300, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, failed, partial])).toEqual({ kind: 'waiting' });
+	});
+
 	it('is waiting again once a deploy succeeded after its failed activation', () => {
 		const failed = { ...activation, status: 'failed' } as Deployment;
 		expect(stagedReleaseState(staged, [staged, failed, record('9f00aa11-0000-4000-8000-000000000002', 300)]))

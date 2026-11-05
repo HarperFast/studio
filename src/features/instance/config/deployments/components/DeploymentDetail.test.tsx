@@ -95,7 +95,17 @@ describe('DeploymentDetail of a rolling deploy', () => {
 		expect(screen.queryByText('success')).toBeNull();
 	});
 
-	// Harper's `partialRollout`: an activation job that failed or was cut short records no activation for a node.
+	it('falls back to the activation message when a node that did not take it recorded no error', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			peer_results: [{ node: 'b', status: 'success', activation: { activated: false, message: 'timed out' } }],
+		});
+
+		expect(screen.getByText('not activated: timed out')).toBeTruthy();
+	});
+
 	it('does not show a node a partial deploy never reached as a success', () => {
 		renderDeployment({
 			deployment_id: 'd1',

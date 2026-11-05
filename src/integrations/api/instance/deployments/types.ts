@@ -19,8 +19,7 @@ export type DeploymentStatus =
 	/** A rolling deploy that some node did not take (5.4.0+). It is live where it was taken; `error.nodes` names the rest. */
 	| 'partial';
 
-// Harper's own set (harper `v5.4.0-beta.2:components/deploymentOperations.ts:23`): a staged record never changes again, and
-// a `rolling_out` one is still waiting on its activation job.
+// Harper's own set (harper `v5.4.0-beta.2:components/deploymentOperations.ts:23`): a staged record never changes again.
 export const TERMINAL_DEPLOYMENT_STATUSES: ReadonlySet<DeploymentStatus> = new Set([
 	'success',
 	'failed',
@@ -52,10 +51,8 @@ export interface InstallFingerprint {
 /** One node's outcome of a rolling deploy's activation job (5.4.0+). */
 export interface DeploymentPeerActivation {
 	activated: boolean;
-	certification?: unknown;
 	message?: string | null;
 	error?: string | null;
-	completed_at?: number;
 }
 
 export interface DeploymentPeerResult {
@@ -84,7 +81,7 @@ export interface DeploymentError {
 	message: string;
 	code?: string | number;
 	phase?: string;
-	/** On a `partial` record (5.4.0+), the nodes that did not take the release. */
+	/** On a `partial` record. */
 	nodes?: string[];
 }
 

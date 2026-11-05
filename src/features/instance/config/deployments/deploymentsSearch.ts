@@ -27,7 +27,7 @@ export const FILTERABLE_STATUSES: readonly DeploymentStatus[] = [
  * Harper writes `rolling_out` and `partial` from 5.4.0-alpha.1 (harper
  * `v5.4.0-alpha.1:components/deploymentOperations.ts:22`).
  */
-export const MIN_ROLLING_STATUS_VERSION = '5.4.0-alpha.1';
+const MIN_ROLLING_STATUS_VERSION = '5.4.0-alpha.1';
 
 const ROLLING_STATUSES: readonly DeploymentStatus[] = ['rolling_out', 'partial'];
 
