@@ -167,17 +167,14 @@ export function listWafRulesQueryOptions(params: InstanceClientIdConfig & { enab
 	});
 }
 
-/**
- * Settles only once no list read is in flight, so nothing it leaves predates the call. A refetch cancelled
- * by a newer one joins that one, but one cancelled twice settles early, so keep joining.
- */
+/** A refetch cancelled twice settles before the read that replaced it, and a paused read isn't "fetching". */
 export async function refetchWafRulesToRest(
 	queryClient: QueryClient,
 	queryKey: QueryKey,
 	refetch: (options?: RefetchOptions) => Promise<unknown>,
 ) {
 	await refetch();
-	while (queryClient.isFetching({ queryKey, exact: true })) {
+	while ((queryClient.getQueryState(queryKey)?.fetchStatus ?? 'idle') !== 'idle') {
 		await refetch({ cancelRefetch: false });
 	}
 }
