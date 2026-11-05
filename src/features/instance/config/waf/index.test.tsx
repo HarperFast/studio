@@ -111,7 +111,6 @@ function renderPage() {
 	});
 }
 
-/** Holds the next list read open until `settle` is called. */
 function heldRefetch(result: { data: WafRuleList | undefined; isError?: boolean } = { data: state.list }) {
 	let settle: () => void = () => undefined;
 	refetch.mockImplementationOnce(() => new Promise((resolve) => (settle = () => resolve(result))));
@@ -236,6 +235,19 @@ describe('ConfigWafIndex', () => {
 
 		await act(async () => reread.settle());
 		expect(cardButtonsDisabled('a')).not.toContain(true);
+	});
+
+	it('locks and unlocks a rule whose id is also an Object property name', async () => {
+		state.list = { available: true, rules: [starterRule({ id: 'constructor' })] };
+		const reread = heldRefetch();
+		renderPage();
+		expect(cardButtonsDisabled('constructor')).not.toContain(true);
+		fireEvent.click(card('constructor').getByRole('button', { name: 'Start blocking' }));
+		await waitFor(() => expect(refetch).toHaveBeenCalled());
+		expect(cardButtonsDisabled('constructor')).not.toContain(false);
+
+		await act(async () => reread.settle());
+		expect(cardButtonsDisabled('constructor')).not.toContain(true);
 	});
 
 	it('unlocks once the read settles even when it fails, since the next write re-reads anyway', async () => {

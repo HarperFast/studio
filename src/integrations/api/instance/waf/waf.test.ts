@@ -7,6 +7,7 @@ import {
 	editWafRule,
 	isFabricStarterRule,
 	listWafRulesQueryOptions,
+	refetchWafRulesToRest,
 	setWafMode,
 	supportsWaf,
 	WafOperationError,
@@ -94,30 +95,62 @@ describe('listWafRulesQueryOptions', () => {
 		await expect(failure).rejects.toBeInstanceOf(WafOperationError);
 		await expect(failure).rejects.toThrow("Operation 'listWafRules' not found");
 	});
+});
 
-	// The page's per-rule lock (`onWritten`) relies on this: it releases when its refetch settles.
-	it('settles a refetch cancelled by a newer one only with the newer read', async () => {
+describe('refetchWafRulesToRest', () => {
+	/** A mounted list query, already loaded, whose every later read waits to be answered by hand. */
+	async function loadedList() {
 		const answers: Array<(rows: unknown) => void> = [];
 		const { instanceClient } = client(() => new Promise((resolve) => answers.push(resolve)));
-		const observer = new QueryObserver(
-			new QueryClient(),
-			listWafRulesQueryOptions({ instanceClient, entityId: 'clu-1' }),
-		);
+		const queryClient = new QueryClient();
+		const options = listWafRulesQueryOptions({ instanceClient, entityId: 'clu-1' });
+		const observer = new QueryObserver(queryClient, options);
 		const unsubscribe = observer.subscribe(() => undefined);
 		await vi.waitFor(() => expect(answers).toHaveLength(1));
 		answers[0]([]);
 		await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [] }));
-
 		let settled = false;
-		const older = observer.refetch().then((result) => ((settled = true), result));
+		const reread = refetchWafRulesToRest(
+			queryClient,
+			options.queryKey,
+			(refetchOptions) => observer.refetch(refetchOptions),
+		).then(() => (settled = true));
+		return { answers, observer, unsubscribe, reread, settled: () => settled };
+	}
+
+	async function idle() {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+
+	it('waits for the read that cancelled it', async () => {
+		const { answers, observer, unsubscribe, reread, settled } = await loadedList();
 		void observer.refetch();
 		await vi.waitFor(() => expect(answers).toHaveLength(3));
 		answers[1]([]);
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(settled).toBe(false);
+		await idle();
+		expect(settled()).toBe(false);
 
 		answers[2]([starterRule()]);
-		expect((await older).data).toEqual({ available: true, rules: [starterRule()] });
+		await reread;
+		expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [starterRule()] });
+		unsubscribe();
+	});
+
+	it('keeps waiting when the read that cancelled it is cancelled in turn', async () => {
+		const { answers, observer, unsubscribe, reread, settled } = await loadedList();
+		void observer.refetch();
+		await vi.waitFor(() => expect(answers).toHaveLength(3));
+		await idle();
+		void observer.refetch();
+		await vi.waitFor(() => expect(answers).toHaveLength(4));
+		answers[1]([]);
+		answers[2]([]);
+		await idle();
+		expect(settled()).toBe(false);
+
+		answers[3]([starterRule()]);
+		await reread;
+		expect(observer.getCurrentResult().data).toEqual({ available: true, rules: [starterRule()] });
 		unsubscribe();
 	});
 });
