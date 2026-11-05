@@ -117,6 +117,7 @@ beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	vi.spyOn(authStore, 'isDirectConnection').mockReturnValue(true);
 	mocks.editor.isSavingAnyFile = false;
+	mocks.editor.openedEntry = { name: 'web', path: 'web', project: 'web', entries: [] };
 	mocks.unsavedEdits = false;
 	mocks.current = { readable: true, setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
 	mocks.hasPackage = false;
@@ -273,6 +274,24 @@ describe('ApplicationPrivateCopyModal', () => {
 
 		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalled());
 		expect(fetchComponentArchive).toHaveBeenCalledOnce();
+	});
+
+	it("doesn't hold another application's save behind one still running", async () => {
+		vi.mocked(fetchComponentArchive).mockReturnValueOnce(new Promise(() => {}));
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+		await act(async () => {
+			fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+		});
+
+		mocks.editor.openedEntry = { name: 'api', path: 'api', project: 'api', entries: [] };
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalledTimes(2));
+		expect(vi.mocked(fetchComponentArchive).mock.calls[1][0].project).toBe('api');
 	});
 
 	it('reopens on the setting the save made, not the one before it', async () => {

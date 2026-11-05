@@ -119,10 +119,10 @@ export async function streamOperation({
 		if (!response.ok || !contentType.includes('text/event-stream') || !response.body) {
 			// Read or drain the body so the connection can be reused, then fall back.
 			const refusal = response.ok ? undefined : await readResponseRefusal(response);
+			await response.body?.cancel().catch(() => {});
 			if (signal?.aborted) {
 				throw signal.reason;
 			}
-			await response.body?.cancel().catch(() => {});
 			throw new SSEUnsupportedError(
 				`Server did not return an event stream (status ${response.status}, content-type "${contentType}").`,
 				{ status: response.status, refusal },

@@ -23,16 +23,10 @@ function isRefusal(error: unknown): boolean {
 }
 
 /**
- * The role check and Harper's gate can disagree. Once Harper refuses the read it stays off, so reopening a dialog
- * neither asks again nor reads as loading meanwhile.
+ * The role check and Harper's gate can disagree. A refusal is the answer until a read succeeds: it isn't retried or
+ * toasted, and it holds while a dialog asks again, so the setting doesn't read as loading meanwhile.
  */
-function useConfigurationRead(enabled: boolean) {
-	const params = useInstanceClientIdParams();
-	const queryClient = useQueryClient();
-	const options = getConfigurationQueryOptions(params);
-	const refused = isRefusal(queryClient.getQueryState(options.queryKey)?.error);
-	return { options, refused, enabled: enabled && !refused };
-}
+const CONFIGURATION_READ = { retry: retryUnlessRejected(), meta: { refusalIsAnAnswer: true } };
 
 /**
  * Whether to offer the private database copy setting on a package deploy: to a super user, on Harper 5.3.2 or later.
@@ -102,28 +96,31 @@ const NO_SETTINGS: ApplicationPrivateCopy[] = [];
  * allowlist grants it.
  */
 export function useApplicationsBranchedDatabases(projects: readonly string[]): ApplicationsBranchedDatabases {
+	const params = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const canRead = useInstanceConfigurationReadPermission();
-	const { options, refused, enabled } = useConfigurationRead(canRead && projects.length > 0);
+	const enabled = canRead && projects.length > 0;
+	const options = getConfigurationQueryOptions(params);
 	// Through `select`, so the settings keep their identity until they change and can sit in a dependency list.
-	const { data, isSuccess, isError, fetchStatus, refetch } = useQuery({
+	const { data, isSuccess, isError, error, fetchStatus, refetch } = useQuery({
 		...options,
+		...CONFIGURATION_READ,
 		enabled,
-		retry: retryUnlessRejected(),
 		select: configuration =>
 			projects.flatMap(project => {
 				const setting = readBranchedDatabases(configuration, project);
 				return setting ? [{ project, setting }] : [];
 			}),
 	});
+	const refused = enabled && isRefusal(error);
 	// A failed read marks the query invalidated too, so only a successful read clears it.
 	const known = enabled && isSuccess && !queryClient.getQueryState(options.queryKey)?.isInvalidated;
-	const failed = enabled && !known && isError && fetchStatus === 'idle';
+	const failed = enabled && !known && !refused && isError && fetchStatus === 'idle';
 	return {
 		settings: (enabled && data) || NO_SETTINGS,
 		readable: canRead && !refused,
 		known,
-		loading: enabled && !failed && (!known || fetchStatus !== 'idle'),
+		loading: enabled && !failed && !refused && (!known || fetchStatus !== 'idle'),
 		failed,
 		retry: () => void refetch(),
 	};
@@ -138,12 +135,12 @@ const NO_PROJECTS: string[] = [];
 
 /** False until the read lands. */
 export function useApplicationEntryHasPackage(project: string | undefined): boolean {
+	const params = useInstanceClientIdParams();
 	const canRead = useInstanceConfigurationReadPermission();
-	const { options, enabled } = useConfigurationRead(canRead && !!project);
 	const { data } = useQuery({
-		...options,
-		enabled,
-		retry: retryUnlessRejected(),
+		...getConfigurationQueryOptions(params),
+		...CONFIGURATION_READ,
+		enabled: canRead && !!project,
 		select: configuration => !!project && entryHasPackage(configuration, project),
 	});
 	return data === true;

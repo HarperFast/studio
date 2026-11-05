@@ -183,16 +183,25 @@ describe('a role that is not a super user', () => {
 		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 
-	it('asks no more once Harper has refused, so reopening a dialog neither asks again nor reads as loading', async () => {
+	it('holds a refusal while a dialog asks again, and lets a later read that succeeds clear it', async () => {
 		mocks.canManage.value = false;
-		mocks.post.mockRejectedValue(forbidden());
+		mocks.post.mockRejectedValueOnce(forbidden());
 		const { result, queryClient } = renderCurrent();
 		await waitFor(() => expect(result.current.readable).toBe(false));
 
-		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
-
+		let answer!: (value: unknown) => void;
+		mocks.post.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		await act(async () => {
+			void invalidateApplicationConfiguration(queryClient, 'ins-1');
+		});
 		expect(result.current).toMatchObject({ readable: false, loading: false, failed: false });
-		expect(mocks.post).toHaveBeenCalledOnce();
+
+		await act(async () => answer({ data: CONFIGURATION }));
+		await waitFor(() => expect(result.current).toMatchObject({ readable: true, known: true, setting: ['data'] }));
 	});
 });
 

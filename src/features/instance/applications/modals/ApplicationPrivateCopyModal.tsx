@@ -100,7 +100,7 @@ export function ApplicationPrivateCopyModal() {
 	const choice = watch('privateCopy');
 	const choiceTouched = useRef(false);
 	// `running` arrives a render after the mutation starts, too late for a second submit in the same tick.
-	const submitting = useRef(false);
+	const submitting = useRef(new Set<string>());
 	const [includeNodeModules, setIncludeNodeModules] = useState(false);
 	const [phase, setPhase] = useState<Phase>('form');
 	const [packagingFailure, setPackagingFailure] = useState<string>();
@@ -170,10 +170,10 @@ export function ApplicationPrivateCopyModal() {
 	}, [queryClient, instanceParams.entityId]);
 
 	const save = async ({ privateCopy: choice }: { privateCopy: PrivateCopyValue }) => {
-		if (!canSave || !project || submitting.current || hasUnsavedEdits()) {
+		if (!canSave || !project || submitting.current.has(project) || hasUnsavedEdits()) {
 			return;
 		}
-		submitting.current = true;
+		submitting.current.add(project);
 		const sent = privateCopyToPayloadSetting(choice);
 		const wanted = asRead(sent);
 		const attempt = Symbol(project);
@@ -266,7 +266,7 @@ export function ApplicationPrivateCopyModal() {
 				action: recordAction(deployFailureDetails(error).deploymentId),
 			});
 		} finally {
-			submitting.current = false;
+			submitting.current.delete(project);
 		}
 	};
 

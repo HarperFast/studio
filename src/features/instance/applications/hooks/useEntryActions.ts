@@ -20,7 +20,7 @@ export interface EntryActions {
 	canDownload: boolean;
 	/** Imported read-only package that can be redeployed. */
 	canRedeploy: boolean;
-	/** Application root that isn't package-deployed, whose private database copy a payload deploy can change. */
+	/** Only a payload deploy writes an application's private copy setting when it has no package. */
 	canChangePrivateCopy: boolean;
 }
 

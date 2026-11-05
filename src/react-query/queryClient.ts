@@ -165,10 +165,15 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  *
  * A failure a route load is awaiting is the route's: its error page is the message and its error
  * boundary the RUM report (`ensureRouteQueryData`).
+ *
+ * A query with `meta: { refusalIsAnAnswer: true }` shows a 403 itself, as "Studio can't read this", so it isn't toasted.
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
 	if (isRestartNoise(error, query.queryKey)) {
 		console.debug('Suppressed a failure from a restarting entity', error);
+		return;
+	}
+	if (query.meta?.refusalIsAnAnswer && error instanceof AxiosError && error.response?.status === 403) {
 		return;
 	}
 	if (isClaimedByRoute(query)) {
