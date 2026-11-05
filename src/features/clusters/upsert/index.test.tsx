@@ -60,7 +60,6 @@ vi.mock('@/features/clusters/queries/getRegionLocationsQuery', () => ({
 vi.mock('@/features/clusters/queries/getHarperVersionsQuery', () => ({
 	getHarperVersionsOptions: () => answer('versions', { value: [{ name: 'current', version: '5.3.2' }] }),
 }));
-// The cached record the cluster notice keeps polling; undefined leaves the route's snapshot in charge.
 const live = vi.hoisted(() => ({ cluster: undefined as unknown }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: () => ({

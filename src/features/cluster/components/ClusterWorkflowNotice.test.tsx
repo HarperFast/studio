@@ -94,6 +94,19 @@ describe('ClusterWorkflowNotice', () => {
 		expect(await screen.findByText(/1 of 3 batches finished/)).toBeTruthy();
 	});
 
+	it('still names the step of a workflow without batches', async () => {
+		auth.canRead = true;
+		mockedGet.mockImplementation(async (url: string) =>
+			isWorkflowRead(url)
+				? {
+					data: [{ ...upgrade, type: 'UPDATE_RECORD_LOCKS', step: 'restartInstances', state: { recordLocks: true } }],
+				}
+				: { data: {} }
+		);
+		renderNotice();
+		expect(await screen.findByText(/running · restartInstances/)).toBeTruthy();
+	});
+
 	it('falls back to the plain state for staff when the workflow cannot be read', async () => {
 		auth.canRead = true;
 		mockedGet.mockImplementation(async (url: string) => {

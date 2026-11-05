@@ -25,7 +25,6 @@ export type IntakeMode = (typeof INTAKE_MODES)[number];
 export type PauseReason = 'command' | 'failed' | 'unknown' | 'finalize-failed' | 'missing-step';
 export type WorkflowPhase = 'run' | 'undo' | 'finalize';
 
-/** The workflow types central manager registers today, offered by the type filter. */
 export const KNOWN_WORKFLOW_TYPES = ['UPDATE_HARPER_VERSION', 'UPDATE_RECORD_LOCKS'] as const;
 
 export interface WorkflowRow {
@@ -65,7 +64,7 @@ export interface WorkflowRow {
 
 export type PlanStepKind = 'step' | 'forEach' | 'forEach-steps' | 'workflow';
 
-/** One step of the definition. `status` is central manager's, read by definition path; see `itemDefinitionPath`. */
+/** One step of the definition. `status` is central manager's, read by definition path. */
 export interface WorkflowPlanStep {
 	path: string;
 	kind: PlanStepKind;

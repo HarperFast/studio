@@ -73,79 +73,73 @@ describe('WorkflowCommands', () => {
 			['a child row: nothing', [], []],
 		] as const,
 	)('%s', (_case, accepted, buttons) => {
-		renderWithClient(<WorkflowCommands detail={detail({ acceptedCommands: [...accepted] })} />);
+		renderWithClient(<WorkflowCommands detail={detail({ acceptedCommands: [...accepted] })} readAt={0} />);
 		expect(buttonNames()).toEqual(buttons);
 	});
 
 	it('renders no commands for an account without workflow:manage', () => {
 		auth.canManage = false;
-		renderWithClient(<WorkflowCommands detail={detail()} />);
+		renderWithClient(<WorkflowCommands detail={detail()} readAt={0} />);
 		expect(buttonNames()).toEqual([]);
 	});
 
 	it('sends a command to the workflow’s path', async () => {
-		renderWithClient(<WorkflowCommands detail={detail()} />);
+		renderWithClient(<WorkflowCommands detail={detail()} readAt={0} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
 		await waitFor(() => expect(mockedPost).toHaveBeenCalledWith('/Admin/Workflow/wf-1/pause', {}));
 	});
 
 	it('holds every command while one is already pending', () => {
 		renderWithClient(
-			<WorkflowCommands detail={detail({ command: { action: 'pause', by: 'ops@example.com' } })} />,
+			<WorkflowCommands detail={detail({ command: { action: 'pause', by: 'ops@example.com' } })} readAt={0} />,
 		);
 		for (const button of screen.getAllByRole('button')) { expect(button).toHaveProperty('disabled', true); }
 	});
 
-	it('stays held after a command is accepted until a read moves past the row it was sent from', async () => {
-		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-		const view = (row: WorkflowDetail) => (
-			<QueryClientProvider client={client}>
-				<WorkflowCommands detail={row} />
-			</QueryClientProvider>
-		);
-		const before = detail({ updatedAt: '2026-11-04T20:00:00.000Z' });
-		const { rerender } = render(view(before));
-		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true));
-		// The refetch failed or hasn't landed: the same row must not unlock the controls.
-		rerender(view({ ...before }));
-		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true);
-		rerender(view({ ...before, updatedAt: '2026-11-04T20:00:05.000Z' }));
-		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
-	});
+	describe('after a command is acknowledged', () => {
+		const ackAt = 5_000;
+		let now: ReturnType<typeof vi.spyOn>;
+		beforeEach(() => {
+			now = vi.spyOn(Date, 'now').mockReturnValue(ackAt);
+		});
+		afterEach(() => now.mockRestore());
 
-	it('holds from the row on screen when the command is acknowledged, not the one it was clicked on', async () => {
-		let acknowledge: (value: { data: object }) => void = () => undefined;
-		mockedPost.mockReturnValue(new Promise((resolve) => (acknowledge = resolve)) as never);
-		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-		const view = (row: WorkflowDetail) => (
-			<QueryClientProvider client={client}>
-				<WorkflowCommands detail={row} />
-			</QueryClientProvider>
-		);
-		const clicked = detail({ updatedAt: '2026-11-04T20:00:00.000Z' });
-		const { rerender } = render(view(clicked));
-		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
-		// A poll lands before the acknowledgement, still without the command.
-		const polled = { ...clicked, updatedAt: '2026-11-04T20:00:02.000Z' };
-		rerender(view(polled));
-		acknowledge({ data: {} });
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true));
-		rerender(view({ ...polled, updatedAt: '2026-11-04T20:00:05.000Z' }));
-		expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
-	});
+		async function sendPause(row: WorkflowDetail, readAt: number) {
+			const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+			const view = (next: WorkflowDetail, at: number) => (
+				<QueryClientProvider client={client}>
+					<WorkflowCommands detail={next} readAt={at} />
+				</QueryClientProvider>
+			);
+			const { rerender } = render(view(row, readAt));
+			fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+			await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+			return (next: WorkflowDetail, at: number) => rerender(view(next, at));
+		}
 
-	it('does not lock for good when the row carries no updatedAt', async () => {
-		renderWithClient(<WorkflowCommands detail={detail()} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-		await waitFor(() => expect(mockedPost).toHaveBeenCalled());
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false));
+		it('holds until data received after the acknowledgement, whatever the row shows', async () => {
+			const row = detail({ updatedAt: '2026-11-04T20:00:00.000Z' });
+			const show = await sendPause(row, 1_000);
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true));
+			// A poll that left before the command and rendered late carries a newer row but an older read.
+			show({ ...row, updatedAt: '2026-11-04T20:00:02.000Z' }, 4_000);
+			expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', true);
+			show({ ...row, updatedAt: '2026-11-04T20:00:02.000Z' }, 6_000);
+			expect(screen.getByRole('button', { name: 'Pause' })).toHaveProperty('disabled', false);
+		});
+
+		it('releases for a row the command already changed before it was acknowledged', async () => {
+			const show = await sendPause(detail(), 1_000);
+			const paused = detail({ status: 'PAUSED', acceptedCommands: ['resume', 'undo', 'abandon'] });
+			show(paused, 4_000);
+			expect(screen.getByRole('button', { name: 'Resume' })).toHaveProperty('disabled', true);
+			show(paused, 6_000);
+			expect(screen.getByRole('button', { name: 'Resume' })).toHaveProperty('disabled', false);
+		});
 	});
 
 	it('asks for a reason before abandoning instead of sending at once', () => {
-		renderWithClient(<WorkflowCommands detail={detail()} />);
+		renderWithClient(<WorkflowCommands detail={detail()} readAt={0} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Abandon' }));
 		expect(screen.getByRole('dialog')).toBeTruthy();
 		expect(mockedPost).not.toHaveBeenCalled();

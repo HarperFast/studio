@@ -29,14 +29,6 @@ function resolve(stepPath: string, kinds: Map<string, PlanStepKind>): Resolved |
 	return { path: parts.join('/'), endsOnItem: false };
 }
 
-/**
- * The definition path of a runtime path: `batch/b1/members/ins-1/requestUpdate` → `batch/members/requestUpdate`.
- * Every forEach step is followed by its item id, which is dropped. Null when the path leaves the plan.
- */
-export function itemDefinitionPath(stepPath: string, plan: WorkflowPlanStep[]): string | null {
-	return resolve(stepPath, kindsByPath(plan))?.path ?? null;
-}
-
 const kindsByPath = (plan: WorkflowPlanStep[]) => new Map(plan.map((step) => [step.path, step.kind]));
 
 export type StatusCounts = Partial<Record<string, number>>;

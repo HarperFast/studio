@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 // As central manager's executor reads WORKFLOW_INTAKE: one switch for both nodes, never a reason to refuse a request.
-export const INTAKE_COPY: Record<IntakeMode, { label: string; now: string; onSwitch: string }> = {
+const INTAKE_COPY: Record<IntakeMode, { label: string; now: string; onSwitch: string }> = {
 	open: {
 		label: 'Open',
 		now: 'Workflows start and run as normal.',

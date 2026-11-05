@@ -337,7 +337,7 @@ function EventsTable({ detail }: { detail: WorkflowDetail }) {
 	);
 }
 
-function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
+function WorkflowDetailView({ detail, readAt }: { detail: WorkflowDetail; readAt: number }) {
 	const progress = batchProgress(detail);
 	const clusters = heldClusterIds(detail);
 	return (
@@ -350,7 +350,7 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 						<WorkflowStatusBadge row={detail} />
 					</div>
 				</div>
-				<WorkflowCommands detail={detail} />
+				<WorkflowCommands detail={detail} readAt={readAt} />
 			</div>
 
 			{!detail.definitionRegistered && (
@@ -497,7 +497,7 @@ function WorkflowDetailView({ detail }: { detail: WorkflowDetail }) {
 
 export function WorkflowDetailPage() {
 	const { workflowId } = useParams({ strict: false }) as { workflowId: string };
-	const { data, isLoading, error } = useQuery(workflowDetailQueryOptions(workflowId));
+	const { data, isLoading, error, dataUpdatedAt } = useQuery(workflowDetailQueryOptions(workflowId));
 	const notFound = error instanceof AxiosError && error.response?.status === 404;
 	return (
 		<div>
@@ -511,7 +511,7 @@ export function WorkflowDetailPage() {
 				? (
 					<>
 						{!!error && <RefreshFailed error={error} />}
-						<WorkflowDetailView key={workflowId} detail={data} />
+						<WorkflowDetailView key={workflowId} detail={data} readAt={dataUpdatedAt} />
 					</>
 				)
 				: isLoading

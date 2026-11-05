@@ -4,7 +4,6 @@ import {
 	batchProgress,
 	describeStep,
 	heldClusterIds,
-	itemDefinitionPath,
 	itemTree,
 	statusCountsByStep,
 	stepRuns,
@@ -39,7 +38,6 @@ const item = (stepPath: string, status: string, receipt?: unknown): WorkflowItem
 	receipt,
 });
 
-// Batch b1 finished; b2 is draining; b3 hasn't started.
 const items = [
 	item('batch', 'running', { items: ['b1', 'b2', 'b3'] }),
 	item('batch/b1', 'done'),
@@ -56,19 +54,14 @@ const items = [
 	item('batch/b3', 'pending'),
 ];
 
-describe('itemDefinitionPath', () => {
+describe('itemTree definition paths', () => {
 	it.each([
-		['batch', 'batch'],
 		['batch/b1', 'batch'],
 		['batch/b1/drainBatch', 'batch/drainBatch'],
 		['batch/b1/members/ins-1', 'batch/members'],
 		['batch/b1/members/ins-1/requestUpdate', 'batch/members/requestUpdate'],
 	])('maps %s to %s', (runtime, definition) => {
-		expect(itemDefinitionPath(runtime, plan)).toBe(definition);
-	});
-
-	it('is null for a path the plan no longer has', () => {
-		expect(itemDefinitionPath('batch/b1/gone', plan)).toBeNull();
+		expect(itemTree({ plan, items }).find((row) => row.path === runtime)?.definitionPath).toBe(definition);
 	});
 });
 

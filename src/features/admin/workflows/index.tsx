@@ -26,7 +26,6 @@ const ACTIVE = 'active';
 const ALL = 'all';
 type StatusChoice = WorkflowStatus | typeof ACTIVE | typeof ALL;
 
-/** `active` and `all` are the endpoint's `?active=true` and no status; anything else is one status. */
 function filtersFor(status: StatusChoice, type: string, clusterId: string): WorkflowFilters {
 	return {
 		status: status === ACTIVE || status === ALL ? undefined : status,
@@ -108,7 +107,6 @@ function SummaryPanel({ summary }: { summary: WorkflowSummary }) {
 
 const LISTED_CLUSTERS = 2;
 
-/** A host-scoped workflow holds several clusters; the cell names the first few and the scope. */
 function ClusterCell({ row }: { row: WorkflowRow }) {
 	const ids = heldClusterIds(row);
 	if (!ids.length) { return <span className="font-mono">{row.scope ?? '—'}</span>; }
@@ -117,7 +115,9 @@ function ClusterCell({ row }: { row: WorkflowRow }) {
 		<span className="flex flex-col gap-0.5" title={ids.join('\n')}>
 			{ids.slice(0, LISTED_CLUSTERS).map((id) => <span key={id} className="font-mono">{id}</span>)}
 			{more > 0 && <span className="text-muted-foreground">{`+${more} more`}</span>}
-			{ids.length > 1 && row.scope && <span className="font-mono text-muted-foreground">{row.scope}</span>}
+			{row.scope && !row.scope.startsWith('cluster:') && (
+				<span className="font-mono text-muted-foreground">{row.scope}</span>
+			)}
 		</span>
 	);
 }

@@ -17,7 +17,7 @@ import {
 } from '@/features/admin/workflows/workflowAdminApi';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { Loader2Icon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 const COMMAND_COPY: Record<
 	WorkflowCommand,
@@ -46,20 +46,18 @@ export function offeredCommands(
 	return WORKFLOW_COMMANDS.filter((command) => detail.acceptedCommands.includes(command));
 }
 
-export function WorkflowCommands({ detail }: { detail: WorkflowDetail }) {
+/** `readAt`: when the detail query last received data (React Query's `dataUpdatedAt`). */
+export function WorkflowCommands({ detail, readAt }: { detail: WorkflowDetail; readAt: number }) {
 	const canManage = useStaffPermission('workflow:manage');
 	const mutation = useWorkflowCommandMutation();
 	const [abandoning, setAbandoning] = useState(false);
-	// The row as it was when a command was accepted. Until a read moves past it, the cached row can't show that command
-	// yet, and central manager would refuse a second one.
-	const [sentAt, setSentAt] = useState<string | null>(null);
+	// When central manager acknowledged a command. The mutation's invalidation has already cancelled any read in flight
+	// and started a new one, so only data received after this moment is known to include the command or its effect.
+	const [ackedAt, setAckedAt] = useState<number | null>(null);
 	const commands = offeredCommands(detail, canManage);
-	// Read at acknowledgement, not at click: a refresh that lands in between must not release the hold early.
-	const stamp = useRef(detail.updatedAt);
-	stamp.current = detail.updatedAt;
 	// Central manager refuses any command while one is still waiting for the executor; acceptedCommands doesn't say so.
-	const pending = !!detail.command?.action || (!!detail.updatedAt && sentAt === detail.updatedAt);
-	const sent = () => setSentAt(stamp.current ?? null);
+	const pending = !!detail.command?.action || (ackedAt !== null && readAt <= ackedAt);
+	const sent = () => setAckedAt(Date.now());
 
 	if (!commands.length) { return null; }
 
