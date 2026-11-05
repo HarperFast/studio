@@ -45,6 +45,31 @@ describe('stagedReleaseState', () => {
 		});
 	});
 
+	// Harper 5.4: a rolling activation ends `partial` when some node did not take it, live where it was taken.
+	it('cannot claim it is live everywhere, or still waiting, when its rolling activation ended partial', () => {
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, partial])).toEqual({
+			kind: 'uncertain',
+			activation: partial,
+			failed: partial,
+		});
+	});
+
+	it('is replaced once a deploy succeeded after its partial activation', () => {
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		const later = record('9f00aa11-0000-4000-8000-000000000002', 300);
+		expect(stagedReleaseState(staged, [staged, partial, later])).toEqual({
+			kind: 'replaced',
+			activation: partial,
+			replacedBy: later,
+		});
+	});
+
+	it('is being activated while its rolling activation is still rolling out', () => {
+		const rolling = { ...activation, status: 'rolling_out' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, rolling])).toEqual({ kind: 'activating', activation: rolling });
+	});
+
 	it('is being activated while an activation of it has not finished', () => {
 		const running = {
 			...activation,
@@ -87,6 +112,15 @@ describe('stagedReleaseState', () => {
 			kind: 'uncertain',
 			activation,
 			failed,
+		});
+	});
+
+	it('cannot claim it is live everywhere when a later deploy ended partial', () => {
+		const partial = record('fa11ed00-0000-4000-8000-000000000004', 300, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, activation, partial])).toEqual({
+			kind: 'uncertain',
+			activation,
+			failed: partial,
 		});
 	});
 

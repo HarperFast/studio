@@ -39,6 +39,12 @@ describe('get_deployment polling', () => {
 		expect(poll({ state: { error: null, data: deployment('staged') } })).toBe(false);
 	});
 
+	it('keeps polling a rolling deploy until its activation job ends it, including as partial', () => {
+		const poll = detailInterval();
+		expect(poll({ state: { error: null, data: deployment('rolling_out') } })).toBe(2_000);
+		expect(poll({ state: { error: null, data: deployment('partial') } })).toBe(false);
+	});
+
 	it('does not poll a detail view that never asked to', () => {
 		expect(detailInterval(false)({ state: { error: null, data: deployment('installing') } })).toBe(false);
 	});
@@ -64,6 +70,8 @@ describe('list_deployments polling', () => {
 		expect(poll({ state: { error: null, data: list('success', 'installing') } })).toBe(2_000);
 		expect(poll({ state: { error: null, data: list('success', 'failed') } })).toBe(10_000);
 		expect(poll({ state: { error: null, data: list('success', 'staged') } })).toBe(10_000);
+		expect(poll({ state: { error: null, data: list('success', 'rolling_out') } })).toBe(2_000);
+		expect(poll({ state: { error: null, data: list('success', 'partial') } })).toBe(10_000);
 		expect(poll({ state: { error: null } })).toBe(10_000);
 	});
 

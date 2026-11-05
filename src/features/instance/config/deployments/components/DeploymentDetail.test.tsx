@@ -66,6 +66,37 @@ describe('DeploymentDetail', () => {
 	});
 });
 
+describe('DeploymentDetail of a rolling deploy', () => {
+	function renderDeployment(deployment: Deployment) {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		queryClient.setQueryData(['entity-1', 'get_deployment', deployment.deployment_id], deployment);
+		return render(
+			<QueryClientProvider client={queryClient}>
+				<DeploymentDetail deploymentId={deployment.deployment_id} />
+			</QueryClientProvider>,
+		);
+	}
+
+	// Harper 5.4 records each node's activation beside how it staged the release, and ends the record `partial`.
+	it('shows which nodes did not take a partial deploy, rather than how they staged it', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			error: { message: 'Not activated on 1 of 2 peer node(s): b (certification rejected)', nodes: ['b'] },
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success', activation: { activated: false, error: 'certification rejected' } },
+			],
+		});
+
+		expect(screen.getByText('Partial')).toBeTruthy();
+		expect(screen.getByText('activated')).toBeTruthy();
+		expect(screen.getByText('not activated: certification rejected')).toBeTruthy();
+		expect(screen.queryByText('success')).toBeNull();
+	});
+});
+
 describe('DeploymentDetail of a staged release', () => {
 	const staged: Deployment = { deployment_id: 'd1', project: 'widgets', status: 'staged', started_at: 100 };
 

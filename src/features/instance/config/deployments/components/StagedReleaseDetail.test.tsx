@@ -157,6 +157,19 @@ describe('StagedReleaseDetail', () => {
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
 
+	it('says a later rolling deploy that ended partial went live on only some nodes', async () => {
+		renderDetail([{ ...later, status: 'partial' }, activation, staged]);
+		expect(await screen.findByText(/went live on only some nodes, so it may not be live everywhere/)).toBeTruthy();
+		expect(screen.queryByText(/failed and may have gone live/)).toBeNull();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
+	it('offers to activate it again when its own rolling activation ended partial', async () => {
+		renderDetail([{ ...activation, status: 'partial' }, staged]);
+		expect(await screen.findByText(/but some nodes did not take it, so it may not be live everywhere/)).toBeTruthy();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
 	it('says when someone else is activating it, and what another activation would do', async () => {
 		renderDetail([{ ...activation, status: 'restarting' }, staged]);
 		const note = await screen.findByText(/Being activated by/);
