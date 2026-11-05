@@ -58,18 +58,18 @@ export function useComponentReleases(project: string | undefined) {
 		if (status === 'error') {
 			return { kind: 'unreadable', message: describeError(error).message };
 		}
-		if (!newest && newestError) {
+		// A record that can no longer be read may have changed: what was asked for it is no longer known to be current.
+		if (newestError) {
 			return { kind: 'unreadable', message: describeError(newestError).message };
 		}
 		const summary = data && summarizeReleases(data, project!);
 		return summary && status === 'success' && !isPlaceholderData && fetchStatus === 'idle'
 			? { kind: 'ready', summary }
 			: { kind: 'checking', previous: summary };
-	}, [supported, data, error, status, isPlaceholderData, fetchStatus, newest, newestError, project]);
+	}, [supported, data, error, status, isPlaceholderData, fetchStatus, newestError, project]);
 	return { state };
 }
 
-/** Asks again after a failure: the component's newest record, and what each node holds. */
 export function useRetryReleases(): () => Promise<unknown> {
 	const queryClient = useQueryClient();
 	const { entityId } = useInstanceClientIdParams();

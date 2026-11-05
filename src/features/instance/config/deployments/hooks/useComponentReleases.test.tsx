@@ -174,6 +174,20 @@ describe('useComponentReleases', () => {
 		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
 	});
 
+	it('stops being current once a later read of the records fails', async () => {
+		const queryClient = await renderBoth();
+		const answer = state.post.getMockImplementation()!;
+		state.post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_deployments' ? Promise.reject(new Error('bad gateway')) : answer(url, body)
+		);
+		try {
+			await act(() => queryClient.refetchQueries({ queryKey: ['clu-a', 'list_deployments'] }));
+			await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+		} finally {
+			state.post.mockImplementation(answer);
+		}
+	});
+
 	it('does not ask again when the window regains focus', async () => {
 		await renderBoth();
 		await act(async () => {
