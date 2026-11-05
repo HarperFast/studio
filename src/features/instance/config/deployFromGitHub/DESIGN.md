@@ -69,6 +69,7 @@ The user's password is 32 random bytes that are never shown; nothing signs in wi
 
 GitHub's hosted runners can't reach a loopback, private or `.local` address, so the form warns about such an audience. It
 doesn't refuse it, since a self-hosted runner on that network can. New Application → CLI shows create-harper's
-`deploy:setup-ci` outro only on a cluster at the floor and outside Local Studio. Anywhere else, including a cluster whose
-version can't be read, it keeps `npm run deploy` from the laptop. That outro also needs a 5.4 CLI: harper 5.3.5's
+`deploy:setup-ci` outro only on a cluster at the floor, at an address hosted runners can reach, outside Local Studio.
+Anywhere else, including a cluster whose version can't be read, it keeps `npm run deploy` from the laptop, and while
+the version is loading it shows neither. That outro also needs a 5.4 CLI: harper 5.3.5's
 `deploy setup` refuses `provider=github-actions`, so the step says to install `harper@next` until 5.4 ships.

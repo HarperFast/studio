@@ -1,5 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { isPrivateAudience } from '@/features/instance/config/githubActions/actionsAudience';
 import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -25,12 +26,18 @@ const LOGIN_STEP: CLIStep = {
 /**
  * The steps follow create-harper's own outro (`lib/steps/installAndOptionallyStart.js`): it takes the cluster URL and
  * scaffolds a workflow that deploys on each merge to `main`, once `deploy:setup-ci` has created the trust policy the
- * workflow signs in with. A cluster too old for that (`ciDeploy` false), or one whose version Studio couldn't read,
- * deploys from the laptop instead, with the same login.
+ * workflow signs in with. A cluster too old for that, or one GitHub's runners can't reach (`ciDeploy` false), deploys
+ * from the laptop instead, with the same login. Until Studio knows which (`undefined`), it shows neither.
  */
-export function buildCLISteps(appName: string, target: string | null | undefined, ciDeploy: boolean): CLIStep[] {
+export function buildCLISteps(
+	appName: string,
+	target: string | null | undefined,
+	ciDeploy: boolean | undefined,
+): CLIStep[] {
 	const directoryName = toKebabCase(appName);
-	const deploySteps: CLIStep[] = ciDeploy
+	const deploySteps: CLIStep[] = ciDeploy === undefined
+		? []
+		: ciDeploy
 		? [
 			LOGIN_STEP,
 			{
@@ -82,14 +89,16 @@ export function buildCLISteps(appName: string, target: string | null | undefined
 export function useCLISteps(appName: string) {
 	const instanceParams = useInstanceClientIdParams();
 	const { instance, cluster }: { instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
-	// GitHub's runners can't reach the Harper behind a Local Studio, so it deploys from the laptop.
-	const ciDeploy = !isLocalStudio && supportsCiDeploy(registrationInfo?.version);
+	const { data: registrationInfo, isPending } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	const target = isLocalStudio
 		? instanceParams.instanceClient.defaults.baseURL
 		: instance
 		? getOperationsUrlForInstance(instance)
 		: getOperationsUrlForCluster(cluster);
+	// An unreadable version deploys from the laptop; a private address, Local Studio's included, too.
+	const ciDeploy = isPending
+		? undefined
+		: !isLocalStudio && !(target && isPrivateAudience(target)) && supportsCiDeploy(registrationInfo?.version);
 
 	return useMemo(() => buildCLISteps(appName, target, ciDeploy), [appName, target, ciDeploy]);
 }

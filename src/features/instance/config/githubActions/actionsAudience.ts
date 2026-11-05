@@ -1,6 +1,3 @@
-/**
- * The pieces every panel that sets GitHub Actions up on a cluster shares: Previews and Deploy from GitHub today.
- */
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 
 /**
@@ -37,8 +34,15 @@ export function isPrivateAudience(audience: string): boolean {
 	} catch {
 		return false;
 	}
-	return /^(localhost|\[::1\]|\[f[cd][0-9a-f]{2}:.*\]|.*\.local|.*\.localhost)$/.test(hostname)
-		|| /^(127|10)\.\d+\.\d+\.\d+$|^192\.168\.\d+\.\d+$|^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$|^169\.254\.\d+\.\d+$/.test(
-			hostname,
-		);
+	const ipv4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(hostname);
+	if (ipv4) {
+		const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+		// Unspecified, private, loopback, link-local and CGNAT, where Tailscale addresses live.
+		return a === 0 || a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)
+			|| (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+	}
+	// IPv6 loopback, unspecified, unique-local and link-local.
+	return /^(localhost|.*\.local|.*\.localhost|\[::1?\]|\[f[cd][0-9a-f]{2}:.*\]|\[fe[89ab][0-9a-f]:.*\])$/.test(
+		hostname,
+	);
 }

@@ -12,7 +12,6 @@ export type SetupOutcomeState = { result: CiDeploySetupResult } | { error: unkno
 
 const sentence = (created: string[]) => `Created ${created.join(', ')}.`;
 
-/** A failure says what had been created; one that broke off says that setting up again finishes it. */
 export function SetupOutcome({ outcome }: { outcome: SetupOutcomeState }) {
 	if ('result' in outcome) {
 		const { created, warning } = outcome.result;

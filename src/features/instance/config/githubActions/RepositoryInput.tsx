@@ -6,7 +6,6 @@ import {
 	parseGitHubRepositoryIdentity,
 } from '@/integrations/github/lookUpGitHubRepository';
 
-/** What the lookup found for the repository field, or why the id has to be pasted instead. */
 export function RepositoryLookupMessage(
 	{ fullName, lookup }: { fullName: string | undefined; lookup: GitHubRepositoryLookup | undefined },
 ) {

@@ -91,7 +91,6 @@ function buildWorkflowRef(repository: string, workflow: string, branch: string):
 	return `${repository}/${workflow}@refs/heads/${branch}`;
 }
 
-/** What a run must be to deploy: the repository's id, and the workflow file, branch and environment it runs from. */
 export interface CiDeploySource {
 	repositoryId: string;
 	/** GitHub's spelling, which `workflow_ref` carries byte for byte. */
@@ -216,7 +215,6 @@ export class CiDeploySetupError extends Error {
 
 export interface CiDeploySetupResult {
 	created: string[];
-	/** add_oidc_trust's warning, such as for a user who is a super user. */
 	warning?: string;
 	policy: OidcTrustPolicy;
 }

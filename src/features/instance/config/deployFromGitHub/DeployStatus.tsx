@@ -84,7 +84,9 @@ export function DeployStatus({
 			{missing.length > 0 && (
 				<div>
 					<p className="mb-2 text-sm text-muted-foreground">
-						{missing.join(' ')} Setting up again creates only what is missing.
+						{missing.join(' ')} {onFinish
+							? 'Setting up again creates only what is missing.'
+							: 'Setting up again refuses until the problems above are fixed.'}
 					</p>
 					{onFinish && (
 						<Button size="sm" variant="defaultOutline" disabled={finishing} onClick={onFinish}>

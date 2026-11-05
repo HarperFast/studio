@@ -24,6 +24,9 @@ const SPLAT = '_splat';
  * `/$organizationId/$clusterId/config/deployments/$deploymentId`). An optional `{-$name}` segment takes a URL
  * segment only when its parameter is present.
  */
+/** Segments whose capitalized form misspells a name. */
+const SEGMENT_LABELS: Record<string, string> = { 'Apis': 'APIs', 'Deploy From Github': 'Deploy from GitHub' };
+
 export function paramSegments(
 	routePath: string | undefined,
 	segmentCount: number,
@@ -112,7 +115,7 @@ export function breadcrumbTrail(
 			index += 2;
 		} else {
 			const label = capitalizeWords(segment);
-			trail.push({ path, label: label === 'Apis' ? 'APIs' : label });
+			trail.push({ path, label: SEGMENT_LABELS[label] ?? label });
 		}
 	}
 	return trail;

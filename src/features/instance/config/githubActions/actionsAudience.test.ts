@@ -38,11 +38,20 @@ describe('isPrivateAudience', () => {
 		'http://172.20.1.1:9925/',
 		'http://192.168.1.10:9925/',
 		'http://harper.local:9925/',
+		'http://0.0.0.0:9925/',
+		'http://[::]:9925/',
+		'http://[fe80::1]:9925/',
+		'http://100.101.102.103:9925/',
 	])('is private for %s, which a hosted runner cannot reach', (audience) => {
 		expect(isPrivateAudience(audience)).toBe(true);
 	});
 
-	it.each(['https://cluster.example.com:9925/', 'http://172.32.0.1:9925/', 'https://8.8.8.8:443/'])(
+	it.each([
+		'https://cluster.example.com:9925/',
+		'http://172.32.0.1:9925/',
+		'https://8.8.8.8:443/',
+		'http://100.128.0.1:9925/',
+	])(
 		'is public for %s',
 		(audience) => {
 			expect(isPrivateAudience(audience)).toBe(false);

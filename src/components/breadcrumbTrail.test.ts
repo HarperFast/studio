@@ -100,6 +100,10 @@ describe('breadcrumbTrail', () => {
 	it('Title Cases segments no route declares, as before', () => {
 		expect(labels('/profile/api-token', undefined, {}, NAMES)).toEqual(['Profile', 'Api Token']);
 	});
+
+	it('spells GitHub as GitHub', () => {
+		expect(labels('/config/deploy-from-github', undefined, {}, NAMES)).toEqual(['Config', 'Deploy from GitHub']);
+	});
 });
 
 describe('paramSegments', () => {

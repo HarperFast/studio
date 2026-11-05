@@ -254,6 +254,17 @@ describe('ApplicationDeploys', () => {
 		expect(screen.queryByRole('region', { name: 'What to commit' })).toBeNull();
 	});
 
+	it('offers no rerun for a missing user while another problem would make it refuse', async () => {
+		Object.assign(cluster, {
+			roles: [role()],
+			users: [],
+			policies: [storedPolicy({ audience: 'https://old.example.com:9925/' })],
+		});
+		renderPanel();
+		expect(await screen.findByText(/Setting up again refuses until the problems above are fixed/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Finish setup' })).toBeNull();
+	});
+
 	it("flags a policy for another cluster URL, or one Harper says can't match", async () => {
 		Object.assign(cluster, {
 			roles: [role()],

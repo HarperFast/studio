@@ -42,6 +42,12 @@ describe('buildCLISteps', () => {
 		expect(steps.map((step) => step.code)).not.toContain('npm run deploy:setup-ci');
 	});
 
+	it("holds the deploy steps back until the cluster's version is known", () => {
+		const steps = buildCLISteps('my-app', undefined, undefined);
+		expect(steps.map((step) => step.code)).not.toContain('harper login');
+		expect(steps.at(-1)?.code).toBe('cat AGENTS.md');
+	});
+
 	it('leaves the URL out when the cluster has none yet', () => {
 		const create = buildCLISteps('my-app', undefined, true).find((step) => step.title === 'Create your awesome app');
 		expect(create?.code).toBe('npm create harper my-app');
