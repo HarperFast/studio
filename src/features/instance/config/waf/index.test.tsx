@@ -15,7 +15,6 @@ const { state, toggleRule, dropRule, editRule, setMode, refetch, queryOptionsSee
 		signedIn: true,
 		version: '5.3.4' as string | undefined,
 		list: undefined as WafRuleList | undefined,
-		dataUpdatedAt: 0,
 		isFetching: false,
 		isListError: false,
 		dropPending: false,
@@ -43,7 +42,6 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 		}
 		return {
 			data: state.list,
-			dataUpdatedAt: state.dataUpdatedAt,
 			isFetching: state.isFetching,
 			isError: state.isListError,
 			refetch,
@@ -113,6 +111,13 @@ function renderPage() {
 	});
 }
 
+/** Holds the next list read open until `settle` is called. */
+function heldRefetch(result: { data: WafRuleList | undefined; isError?: boolean } = { data: state.list }) {
+	let settle: () => void = () => undefined;
+	refetch.mockImplementationOnce(() => new Promise((resolve) => (settle = () => resolve(result))));
+	return { settle: () => settle() };
+}
+
 function cardButtonsDisabled(id: string) {
 	return card(id).getAllByRole('button').map((button) => (button as HTMLButtonElement).disabled);
 }
@@ -126,7 +131,6 @@ beforeEach(() => {
 	state.signedIn = true;
 	state.version = '5.3.4';
 	state.list = { available: true, rules: [] };
-	state.dataUpdatedAt = 0;
 	state.isFetching = false;
 	state.isListError = false;
 	state.dropPending = false;
@@ -215,30 +219,34 @@ describe('ConfigWafIndex', () => {
 		expect((screen.getByRole('button', { name: /Refresh/ }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('locks only the card being written, until a list read newer than the write lands', async () => {
+	it('locks only the card being written, until the list read the write started settles', async () => {
 		state.list = { available: true, rules: [starterRule({ id: 'a' }), starterRule({ id: 'b' })] };
 		let finish: () => void = () => undefined;
 		toggleRule.mockImplementationOnce(() => new Promise((resolve) => (finish = () => resolve({ message: 'ok' }))));
-		const { rerender } = renderPage();
+		const reread = heldRefetch();
+		renderPage();
 		fireEvent.click(card('a').getByRole('button', { name: 'Start blocking' }));
 		await waitFor(() => expect(cardButtonsDisabled('a')).not.toContain(false));
 		expect(cardButtonsDisabled('b')).not.toContain(true);
 
-		const settledAt = 1_000_000;
-		const now = vi.spyOn(Date, 'now').mockReturnValue(settledAt);
 		await act(async () => finish());
-		now.mockRestore();
 		expect(refetch).toHaveBeenCalled();
 		expect(cardButtonsDisabled('a')).not.toContain(false);
 		expect(cardButtonsDisabled('b')).not.toContain(true);
 
-		// A read that landed in the same millisecond may predate the write.
-		state.dataUpdatedAt = settledAt;
-		rerender(<ConfigWafIndex />);
+		await act(async () => reread.settle());
+		expect(cardButtonsDisabled('a')).not.toContain(true);
+	});
+
+	it('unlocks once the read settles even when it fails, since the next write re-reads anyway', async () => {
+		state.list = { available: true, rules: [starterRule({ id: 'a' })] };
+		const reread = heldRefetch({ data: state.list, isError: true });
+		renderPage();
+		fireEvent.click(card('a').getByRole('button', { name: 'Start blocking' }));
+		await waitFor(() => expect(refetch).toHaveBeenCalled());
 		expect(cardButtonsDisabled('a')).not.toContain(false);
 
-		state.dataUpdatedAt = settledAt + 1;
-		rerender(<ConfigWafIndex />);
+		await act(async () => reread.settle());
 		expect(cardButtonsDisabled('a')).not.toContain(true);
 	});
 
@@ -260,7 +268,8 @@ describe('ConfigWafIndex', () => {
 	it('locks a rule the editor saved until the list shows it as saved', async () => {
 		state.list = { available: true, rules: [starterRule({ id: 'a' }), starterRule({ id: 'b' })] };
 		editRule.mockImplementationOnce((_args, options: { onSuccess: () => void }) => options.onSuccess());
-		const { rerender } = renderPage();
+		const reread = heldRefetch();
+		renderPage();
 		fireEvent.click(card('a').getByRole('button', { name: 'Edit' }));
 		fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Renamed' } });
 		await act(async () => {
@@ -270,8 +279,7 @@ describe('ConfigWafIndex', () => {
 		expect(cardButtonsDisabled('a')).not.toContain(false);
 		expect(cardButtonsDisabled('b')).not.toContain(true);
 
-		state.dataUpdatedAt = Date.now() + 1;
-		rerender(<ConfigWafIndex />);
+		await act(async () => reread.settle());
 		expect(cardButtonsDisabled('a')).not.toContain(true);
 	});
 

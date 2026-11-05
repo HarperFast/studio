@@ -45,11 +45,13 @@ the form over and one that returns late is dropped. Comparison fills in the engi
 first (`enabled !== false`, `shadow === true`, priority 0, block status 403, `null` as absent), so
 only a real change refuses. An edit that changes nothing writes nothing, but still re-reads, so a
 rule changed meanwhile is refused with the reload offer rather than the dialog closing over it. A
-card is locked only from a write to its own rule until a list read newer than that write lands
+card is locked only from a write to its own rule until the list read that write started settles
 (`isLocked` in [`index.tsx`](index.tsx)), not through every refetch: the re-read already refuses a
-stale write, and the lock only keeps the card from offering one. So nothing may release it early:
-the delete dialog can't be dismissed while its delete runs, and a failed reload keeps the last list
-mounted, since unmounting a card drops its toggle's callbacks. Rule
+stale write, and the lock only keeps the card from offering one. No clock is compared: a refetch
+cancelled by a newer one waits for that one (`Query.fetch` in query-core), so the read never
+predates the write. Nothing else may release the lock early: the delete dialog can't be dismissed
+while its delete runs, and a failed reload keeps the last list mounted, since unmounting a card
+drops its toggle's callbacks. Rule
 ids are normalized to `String(id)`, which is how Harper keys them, so a numeric id from another
 client is listed and editable rather than hidden.
 
