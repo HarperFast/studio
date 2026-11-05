@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
 	return {
 		post,
 		sse: { enabled: true },
+		stage: { enabled: false },
 		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } },
 		editorView: { openedEntry: { name: 'my-app', path: 'my-app', project: 'my-app', package: 'npm:my-app' } },
 		runHealthCheck: vi.fn(),
@@ -17,8 +18,10 @@ const mocks = vi.hoisted(() => {
 		// One object per test, so the setting keeps its identity across renders as the real hook's does.
 		branches: {
 			available: false,
+			possible: false,
 			current: {
 				setting: undefined as string[] | true | undefined,
+				readable: true,
 				known: false,
 				loading: false,
 				failed: false,
@@ -45,11 +48,12 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useSupportsDeploymentSSE: () => mocks.sse.enabled,
-	useStagedDeploymentsAvailable: () => false,
+	useStagedDeploymentsAvailable: () => mocks.stage.enabled,
 }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useBranchedDatabasesAvailable: () => mocks.branches.available,
 	useApplicationBranchedDatabases: () => mocks.branches.current,
+	useBranchedDatabasesPossible: () => mocks.branches.possible,
 	invalidateApplicationConfiguration: vi.fn(),
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
@@ -130,8 +134,17 @@ beforeAll(() => {
 beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	mocks.sse.enabled = true;
+	mocks.stage.enabled = false;
 	mocks.branches.available = false;
-	mocks.branches.current = { setting: undefined, known: false, loading: false, failed: false, retry: vi.fn() };
+	mocks.branches.possible = false;
+	mocks.branches.current = {
+		readable: true,
+		setting: undefined,
+		known: false,
+		loading: false,
+		failed: false,
+		retry: vi.fn(),
+	};
 });
 
 afterEach(async () => {
@@ -399,8 +412,66 @@ describe('RedeployApplicationModal', () => {
 			vi.mocked(deployComponentStream).mockResolvedValue({ message: 'Successfully deployed' });
 		});
 
+		describe("when Studio can't read the setting", () => {
+			const unreadable = { readable: false, setting: undefined, known: false, loading: false, failed: false };
+
+			it('warns that a redeploy turns any private copy off, and still lets the person redeploy', async () => {
+				mocks.branches.possible = true;
+				mocks.branches.current = { ...unreadable, retry: vi.fn() };
+				await renderOpenModal();
+
+				expect(screen.getByRole('alert').textContent).toMatch(
+					/can't read whether my-app runs on a private database copy\. If it does, redeploying turns the copy off/,
+				);
+				await submit();
+
+				await waitFor(() => expect(sentBody()).toBeDefined());
+				expect(sentBody()?.branchedDatabases).toBeUndefined();
+			});
+
+			it('says activating the staged release is what turns it off, when staging', async () => {
+				mocks.branches.possible = true;
+				mocks.stage.enabled = true;
+				mocks.branches.current = { ...unreadable, retry: vi.fn() };
+				await renderOpenModal();
+
+				await act(async () => {
+					fireEvent.click(screen.getByRole('switch'));
+				});
+
+				expect(screen.getByRole('alert').textContent).toMatch(/If it does, activating this staged release turns/);
+			});
+
+			it('says nothing on a version known to predate private copies, or once the setting is readable', async () => {
+				mocks.branches.current = { ...unreadable, retry: vi.fn() };
+				await renderOpenModal();
+				expect(screen.queryByRole('alert')).toBeNull();
+
+				await act(async () => setWatchedValue('ShowRedeployApplicationModal', false));
+				cleanup();
+				mocks.branches.possible = true;
+				mocks.branches.current = {
+					readable: true,
+					setting: undefined,
+					known: true,
+					loading: false,
+					failed: false,
+					retry: vi.fn(),
+				};
+				await renderOpenModal();
+				expect(screen.queryByRole('alert')).toBeNull();
+			});
+		});
+
 		it('resends the current setting when the form does not offer it, since a redeploy replaces the entry', async () => {
-			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: ['data'],
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 
 			expect(screen.queryByText('Private database copy')).toBeNull();
@@ -411,7 +482,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('starts the offered setting from the current one, so an unchanged redeploy keeps it', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 
 			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
@@ -422,7 +500,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('leaves the setting out when it is turned off, which puts the application back on the shared data', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 
 			await act(async () => {
@@ -458,7 +543,14 @@ describe('RedeployApplicationModal', () => {
 		});
 
 		it("refuses to redeploy while a super user's read of the setting has failed, even with the field hidden", async () => {
-			mocks.branches.current = { setting: undefined, known: false, loading: false, failed: true, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: false,
+				loading: false,
+				failed: true,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 
 			expect(screen.getByRole('alert').textContent).toContain('a redeploy without that would turn one off');
@@ -469,14 +561,28 @@ describe('RedeployApplicationModal', () => {
 
 		it('keeps what was typed when the current setting arrives after the form opened', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: false,
+				loading: true,
+				failed: false,
+				retry: vi.fn(),
+			};
 			const { rerender } = await renderOpenModalWithRerender();
 			const install = screen.getByPlaceholderText(/Leave blank to install dependencies/);
 			await act(async () => {
 				fireEvent.change(install, { target: { value: 'npm ci' } });
 			});
 
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await act(async () => rerender());
 
 			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
@@ -487,7 +593,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('starts from a setting that arrived before the modal was first opened', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: false,
+				loading: true,
+				failed: false,
+				retry: vi.fn(),
+			};
 			const queryClient = new QueryClient();
 			const ui = () => (
 				<QueryClientProvider client={queryClient}>
@@ -497,7 +610,14 @@ describe('RedeployApplicationModal', () => {
 			const rendered = render(ui());
 			unmount = rendered.unmount;
 
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			rendered.rerender(ui());
 			await act(async () => setWatchedValue('ShowRedeployApplicationModal', true));
 
@@ -508,15 +628,36 @@ describe('RedeployApplicationModal', () => {
 
 		it('keeps an option picked before the current setting arrived', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: false,
+				loading: true,
+				failed: false,
+				retry: vi.fn(),
+			};
 			const { rerender } = await renderOpenModalWithRerender();
 			await act(async () => {
 				fireEvent.click(screen.getByRole('radio', { name: /All databases/ }));
 			});
 
-			mocks.branches.current = { setting: undefined, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await act(async () => rerender());
-			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: ['data'],
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await act(async () => rerender());
 
 			expect(screen.getByRole('radio', { name: /All databases/ }).getAttribute('aria-checked')).toBe('true');
@@ -524,7 +665,14 @@ describe('RedeployApplicationModal', () => {
 
 		it("says the database list couldn't be read, even beside a database already chosen", async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: ['data'],
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			mocks.post.mockRejectedValue(new Error('network down'));
 			await renderOpenModal();
 
@@ -534,7 +682,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('reopens on the setting a live redeploy just made, not the one from before it', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			let healthy!: () => void;
 			mocks.runHealthCheck.mockReturnValue(
 				new Promise((resolve) => {
@@ -549,7 +704,14 @@ describe('RedeployApplicationModal', () => {
 			await waitFor(() => expect(mocks.runHealthCheck).toHaveBeenCalled());
 
 			// The redeploy's own refetch lands while the health check is still running.
-			mocks.branches.current = { setting: undefined, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await act(async () => rerender());
 			await act(async () => healthy());
 			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -563,7 +725,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('drops an unsent pick when the package changes under the open form, and shows the current setting', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			const opened = mocks.editorView.openedEntry;
 			try {
 				const { rerender } = await renderOpenModalWithRerender();
@@ -581,7 +750,14 @@ describe('RedeployApplicationModal', () => {
 		});
 
 		it('re-reads the setting each time it opens, since something outside this tab may have changed it', async () => {
-			mocks.branches.current = { setting: true, known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: true,
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 			expect(invalidateApplicationConfiguration).toHaveBeenCalledOnce();
 
@@ -594,7 +770,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('says the list is still loading, even beside a database already chosen', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: ['data'],
+				known: true,
+				loading: false,
+				failed: false,
+				retry: vi.fn(),
+			};
 			mocks.post.mockReturnValue(new Promise(() => {}));
 			await renderOpenModal();
 
@@ -616,7 +799,14 @@ describe('RedeployApplicationModal', () => {
 
 		it('waits for the current setting before it can be sent', async () => {
 			mocks.branches.available = true;
-			mocks.branches.current = { setting: undefined, known: false, loading: true, failed: false, retry: vi.fn() };
+			mocks.branches.current = {
+				readable: true,
+				setting: undefined,
+				known: false,
+				loading: true,
+				failed: false,
+				retry: vi.fn(),
+			};
 			await renderOpenModal();
 
 			expect(screen.getByRole('button', { name: /Redeploy Application/ }).hasAttribute('disabled')).toBe(true);

@@ -1,0 +1,263 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => {
+	const post = vi.fn();
+	return {
+		post,
+		instanceParams: { entityId: 'clu-1', entityType: 'cluster', instanceClient: { post } },
+		editor: {
+			openedEntry: { name: 'web', path: 'web', project: 'web', entries: [] },
+			openedEntryContents: undefined as string | undefined,
+			isSavingAnyFile: false,
+		},
+		unsavedEdits: false,
+		current: {
+			readable: true,
+			setting: undefined as string[] | true | undefined,
+			known: true,
+			loading: false,
+			failed: false,
+			retry: vi.fn(),
+		},
+		hasPackage: false,
+		configurationAfter: {} as unknown,
+		runHealthCheck: vi.fn(),
+		invalidateConfiguration: vi.fn(),
+	};
+});
+
+vi.mock('sonner', () => ({
+	toast: { loading: vi.fn(), dismiss: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+}));
+vi.mock('@tanstack/react-router', () => ({
+	Link: ({ children }: { children?: ReactNode }) => <a>{children}</a>,
+	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
+	useNavigate: () => vi.fn(),
+}));
+vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
+vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({ useEditorView: () => mocks.editor }));
+vi.mock('@/features/instance/applications/context/editorFileContent', () => ({
+	useEditorFileContentId: () => 'clu-1',
+	hasEditorFileContentAtOrUnder: (_id: string, project: string) => project === 'web' && mocks.unsavedEdits,
+}));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	useApplicationBranchedDatabases: () => mocks.current,
+	useApplicationEntryHasPackage: () => mocks.hasPackage,
+	invalidateApplicationConfiguration: mocks.invalidateConfiguration,
+}));
+vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
+	useComponentHealthCheck: () => mocks.runHealthCheck,
+}));
+vi.mock('@/integrations/api/instance/applications/packageComponent', () => ({ fetchComponentArchive: vi.fn() }));
+vi.mock('@/integrations/api/instance/applications/deployComponentStream', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/integrations/api/instance/applications/deployComponentStream')>()),
+	deployComponentStream: vi.fn(),
+}));
+vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
+
+import { authStore } from '@/features/auth/store/authStore';
+import { deployComponentStream } from '@/integrations/api/instance/applications/deployComponentStream';
+import { fetchComponentArchive } from '@/integrations/api/instance/applications/packageComponent';
+import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { setWatchedValue } from '@/lib/events/watcher';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactNode } from 'react';
+import { toast } from 'sonner';
+import { ApplicationPrivateCopyModal } from './ApplicationPrivateCopyModal';
+
+const ARCHIVE = new Blob(['tarball'], { type: 'application/gzip' });
+
+async function renderOpenModal() {
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ApplicationPrivateCopyModal />
+		</QueryClientProvider>,
+	);
+	await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+}
+
+function saveButton() {
+	return screen.getByRole('button', { name: /Save and Redeploy/ }) as HTMLButtonElement;
+}
+
+async function choose(mode: RegExp) {
+	await act(async () => {
+		fireEvent.click(screen.getByRole('radio', { name: mode }));
+	});
+}
+
+async function save() {
+	await act(async () => {
+		fireEvent.click(saveButton());
+	});
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
+beforeAll(() => {
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+});
+
+beforeEach(() => {
+	vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	vi.spyOn(authStore, 'isDirectConnection').mockReturnValue(true);
+	mocks.editor.isSavingAnyFile = false;
+	mocks.unsavedEdits = false;
+	mocks.current = { readable: true, setting: ['data'], known: true, loading: false, failed: false, retry: vi.fn() };
+	mocks.hasPackage = false;
+	mocks.configurationAfter = { web: { branchedDatabases: [] } };
+	mocks.post.mockImplementation(async (_url: string, { operation }: { operation: string }) => ({
+		data: operation === 'get_configuration' ? mocks.configurationAfter : { data: {} },
+	}));
+	mocks.runHealthCheck.mockResolvedValue({ level: 'healthy' });
+	vi.mocked(fetchComponentArchive).mockResolvedValue(ARCHIVE);
+	vi.mocked(deployComponentStream).mockResolvedValue({ message: 'deployed', deployment_id: 'dep-1' });
+});
+
+afterEach(async () => {
+	await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', false));
+	cleanup();
+	vi.restoreAllMocks();
+	vi.clearAllMocks();
+});
+
+describe('ApplicationPrivateCopyModal', () => {
+	it("turns the copy off with an empty list, from the application's files, and confirms it by reading the entry", async () => {
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(toast.success).toHaveBeenCalled());
+		expect(fetchComponentArchive).toHaveBeenCalledWith(expect.objectContaining({
+			connection: { id: 'clu-1' },
+			project: 'web',
+			skipNodeModules: true,
+		}));
+		const { body, file } = vi.mocked(deployComponentStream).mock.calls[0][0];
+		expect(body).toMatchObject({ project: 'web', branchedDatabases: [], replicated: true });
+		expect(body).not.toHaveProperty('package');
+		expect(file).toMatchObject({ name: 'payload', blob: ARCHIVE });
+		expect(mocks.post).toHaveBeenCalledWith('/', { operation: 'get_configuration' });
+		expect(mocks.invalidateConfiguration).toHaveBeenCalled();
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('sends the installed dependencies when asked to', async () => {
+		mocks.configurationAfter = { web: { branchedDatabases: true } };
+		await renderOpenModal();
+		await choose(/All databases/);
+		await act(async () => {
+			fireEvent.click(screen.getByRole('switch'));
+		});
+		await save();
+
+		await waitFor(() => expect(fetchComponentArchive).toHaveBeenCalled());
+		expect(vi.mocked(fetchComponentArchive).mock.calls[0][0].skipNodeModules).toBe(false);
+	});
+
+	it('offers Save only once the choice differs from a current reading of the setting', async () => {
+		await renderOpenModal();
+		expect(saveButton().disabled).toBe(true);
+
+		await choose(/All databases/);
+		expect(saveButton().disabled).toBe(false);
+	});
+
+	it('waits for a current reading of the setting', async () => {
+		mocks.current = { ...mocks.current, known: false, loading: true };
+		await renderOpenModal();
+		await choose(/All databases/);
+
+		expect(saveButton().disabled).toBe(true);
+	});
+
+	it.each([
+		[
+			'over Fabric Connect',
+			() => vi.spyOn(authStore, 'isDirectConnection').mockReturnValue(false),
+			/direct connection/,
+		],
+		['for an application deployed from a package', () => (mocks.hasPackage = true), /deployed from a package/],
+		['while one of its files has unsaved changes', () => (mocks.unsavedEdits = true), /Save or revert/],
+		['while a file is saving', () => (mocks.editor.isSavingAnyFile = true), /Save or revert/],
+	])('refuses %s, and says why', async (_, arrange, why) => {
+		arrange();
+		await renderOpenModal();
+		await choose(/All databases/);
+
+		expect(saveButton().disabled).toBe(true);
+		expect(screen.getByRole('alert').textContent).toMatch(why);
+	});
+
+	it('shows a packaging failure in the dialog, and deploys nothing', async () => {
+		vi.mocked(fetchComponentArchive).mockRejectedValue(new Error('Project not found'));
+		await renderOpenModal();
+		await choose(/^Off/);
+		const readsOnOpen = mocks.invalidateConfiguration.mock.calls.length;
+		await save();
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert').textContent).toMatch(
+				/couldn't package web, so nothing was deployed: Project not found/,
+			)
+		);
+		expect(deployComponentStream).not.toHaveBeenCalled();
+		expect(mocks.invalidateConfiguration).toHaveBeenCalledTimes(readsOnOpen);
+		expect(mocks.post).not.toHaveBeenCalledWith('/', { operation: 'get_configuration' });
+	});
+
+	it('never calls a deploy that lost its stream a success', async () => {
+		vi.mocked(deployComponentStream).mockRejectedValue(new SSEInconclusiveError('idle'));
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(toast.warning).toHaveBeenCalled());
+		expect(vi.mocked(toast.warning).mock.calls[0][0]).toMatch(/setting changed, but its deploy didn't report back/);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(mocks.invalidateConfiguration).toHaveBeenCalled();
+	});
+
+	it('says so when the entry reads differently after the deploy, instead of reporting success', async () => {
+		mocks.configurationAfter = { web: { branchedDatabases: ['data'] } };
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+
+		await waitFor(() => expect(toast.warning).toHaveBeenCalled());
+		expect(vi.mocked(toast.warning).mock.calls[0][0]).toMatch(/didn't change/);
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('runs one save at a time', async () => {
+		const packaging = deferred<Blob>();
+		vi.mocked(fetchComponentArchive).mockReturnValue(packaging.promise);
+		await renderOpenModal();
+		await choose(/^Off/);
+		await save();
+		await act(async () => {
+			fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+		});
+		await act(async () => setWatchedValue('ShowApplicationPrivateCopyModal', true));
+		await choose(/^Off/);
+
+		expect(saveButton().disabled).toBe(true);
+		expect(screen.getByRole('status').textContent).toMatch(/still running/);
+		await act(async () => packaging.resolve(ARCHIVE));
+		expect(fetchComponentArchive).toHaveBeenCalledOnce();
+	});
+});

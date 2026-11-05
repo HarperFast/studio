@@ -1,27 +1,64 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceConfigurationReadPermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import {
 	BranchedDatabases,
+	entryHasPackage,
 	readBranchedDatabases,
 	supportsBranchedDatabases,
+	supportsPayloadBranchedDatabases,
 } from '@/integrations/api/instance/applications/branchedDatabases';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
+
+function useHarperVersion(enabled: boolean): string | undefined {
+	const params = useInstanceClientIdParams();
+	return useQuery({ ...getRegistrationInfoQueryOptions(params), enabled }).data?.version;
+}
 
 /**
- * Whether to offer the private database copy setting: to a super user, on Harper 5.3.2 or later. An unreadable
- * version offers nothing, since an older 5.3 accepts the setting and runs the application on the shared data.
+ * Whether to offer the private database copy setting on a package deploy: to a super user, on Harper 5.3.2 or later.
+ * An unreadable version offers nothing, since an older 5.3 accepts the setting and runs the application on the shared
+ * data.
  */
 export function useBranchedDatabasesAvailable(): boolean {
-	const params = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
-	const { data } = useQuery({ ...getRegistrationInfoQueryOptions(params), enabled: canManage });
-	return canManage && supportsBranchedDatabases(data?.version);
+	return canManage && supportsBranchedDatabases(useHarperVersion(canManage));
+}
+
+/** Whether to offer the setting for an application that isn't package-deployed: to a super user, on 5.4.0-alpha.1+. */
+export function usePayloadBranchedDatabasesAvailable(): boolean {
+	const canManage = useInstanceManagePermission();
+	return canManage && supportsPayloadBranchedDatabases(useHarperVersion(canManage));
+}
+
+/** Whether Studio can say what an application's setting is: to anyone who may read `get_configuration`, on 5.3.2+. */
+export function useBranchedDatabasesReadable(): boolean {
+	const canRead = useInstanceConfigurationReadPermission();
+	return canRead && supportsBranchedDatabases(useHarperVersion(canRead));
+}
+
+/**
+ * Whether an application may run on a private copy that Studio can't read. Only a version known to predate them rules
+ * one out: a role without `get_configuration` often can't read `registration_info` either.
+ */
+export function useBranchedDatabasesPossible(): boolean {
+	const params = useInstanceClientIdParams();
+	const { data, isPending, isError } = useQuery(getRegistrationInfoQueryOptions(params));
+	if (isError) {
+		return true;
+	}
+	return !isPending && (!data?.version || supportsBranchedDatabases(data.version));
 }
 
 interface ConfigurationRead {
-	/** `settings` is current: read since Studio last changed the entry. Never true for a non super user. */
+	/**
+	 * Studio may read the setting: the role can call `get_configuration`, and Harper hasn't refused it. When false the
+	 * setting is unknown, never Off.
+	 */
+	readable: boolean;
+	/** `settings` is current: read since Studio last changed the entry. Never true unless `readable`. */
 	known: boolean;
 	/** A read is outstanding, so `settings` may be about to change, even when `known`. */
 	loading: boolean;
@@ -45,15 +82,18 @@ interface ApplicationBranchedDatabases extends ConfigurationRead {
 }
 
 const NO_SETTINGS: ApplicationPrivateCopy[] = [];
-/** Read from the applications' entries in `get_configuration`, which only a super user can call. */
+/**
+ * Read from the applications' entries in `get_configuration`, which a super user can call, and any role whose
+ * allowlist grants it.
+ */
 export function useApplicationsBranchedDatabases(projects: readonly string[]): ApplicationsBranchedDatabases {
 	const params = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
-	const canManage = useInstanceManagePermission();
-	const enabled = canManage && projects.length > 0;
+	const canRead = useInstanceConfigurationReadPermission();
+	const enabled = canRead && projects.length > 0;
 	const options = getConfigurationQueryOptions(params);
 	// Through `select`, so the settings keep their identity until they change and can sit in a dependency list.
-	const { data, isSuccess, isError, fetchStatus, refetch } = useQuery({
+	const { data, isSuccess, isError, error, fetchStatus, refetch } = useQuery({
 		...options,
 		enabled,
 		select: configuration =>
@@ -62,13 +102,16 @@ export function useApplicationsBranchedDatabases(projects: readonly string[]): A
 				return setting ? [{ project, setting }] : [];
 			}),
 	});
+	// The role check above and Harper's gate can disagree; a refusal is an answer, not a failure to retry.
+	const refused = isError && fetchStatus === 'idle' && isAxiosError(error) && error.response?.status === 403;
 	// A failed read marks the query invalidated too, so only a successful read clears it.
 	const known = enabled && isSuccess && !queryClient.getQueryState(options.queryKey)?.isInvalidated;
-	const failed = enabled && !known && isError && fetchStatus === 'idle';
+	const failed = enabled && !known && !refused && isError && fetchStatus === 'idle';
 	return {
 		settings: (enabled && data) || NO_SETTINGS,
+		readable: canRead && !refused,
 		known,
-		loading: enabled && !failed && (!known || fetchStatus !== 'idle'),
+		loading: enabled && !failed && !refused && (!known || fetchStatus !== 'idle'),
 		failed,
 		retry: () => void refetch(),
 	};
@@ -80,6 +123,18 @@ export function useApplicationBranchedDatabases(project: string | undefined): Ap
 }
 
 const NO_PROJECTS: string[] = [];
+
+/** Whether `project`'s entry names a package, from the same read as its setting. False until that read lands. */
+export function useApplicationEntryHasPackage(project: string | undefined): boolean {
+	const params = useInstanceClientIdParams();
+	const canRead = useInstanceConfigurationReadPermission();
+	const { data } = useQuery({
+		...getConfigurationQueryOptions(params),
+		enabled: canRead && !!project,
+		select: configuration => !!project && entryHasPackage(configuration, project),
+	});
+	return data === true;
+}
 
 /** Call after Studio writes an application's entry, answered or not. */
 export async function invalidateApplicationConfiguration(queryClient: QueryClient, entityId: string | undefined) {

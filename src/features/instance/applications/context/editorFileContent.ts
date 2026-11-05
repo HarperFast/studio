@@ -64,6 +64,11 @@ function editorFileContentKeysAtOrUnder(entityId: string, path: string): EditorF
 	return [...keys] as EditorFileContentKey[];
 }
 
+/** Whether a file at or under `path` holds an edit that hasn't been saved or reverted. */
+export function hasEditorFileContentAtOrUnder(entityId: string, path: string): boolean {
+	return editorFileContentKeysAtOrUnder(entityId, path).some(key => readEditorFileContent(key) !== undefined);
+}
+
 export function discardEditorFileContent(entityId: string, path: string) {
 	for (const key of editorFileContentKeysAtOrUnder(entityId, path)) {
 		writeEditorFileContent(key, undefined);

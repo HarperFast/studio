@@ -4,6 +4,7 @@ import {
 	checkImportDataOperationsAllowed,
 	checkImportMethodAllowed,
 	checkImportSourceAllowed,
+	checkSuperUserOperationAllowed,
 	checkTableActionAllowed,
 	IMPORT_METHODS,
 	TABLE_ACTION_OPERATIONS,
@@ -211,5 +212,27 @@ describe('per-method and per-source import capability', () => {
 		const denied = perm({ operations: ['read_only'] });
 		expect(IMPORT_METHODS.every((method) => !checkImportMethodAllowed(denied, method))).toBe(true);
 		expect(checkImportDataOperationsAllowed(denied)).toBe(false);
+	});
+});
+
+describe('checkSuperUserOperationAllowed', () => {
+	it('grants a super user', () => {
+		expect(checkSuperUserOperationAllowed(perm({ super_user: true }), 'get_configuration')).toBe(true);
+	});
+
+	it('grants a role whose allowlist names the operation, or a group holding it', () => {
+		expect(checkSuperUserOperationAllowed(perm({ operations: ['get_configuration'] }), 'get_configuration')).toBe(true);
+		expect(checkSuperUserOperationAllowed(perm({ operations: ['admin_read'] }), 'get_configuration')).toBe(true);
+	});
+
+	it('refuses a role without an allowlist, since only one admits a super-user operation', () => {
+		expect(checkSuperUserOperationAllowed(undefined, 'get_configuration')).toBe(false);
+		expect(checkSuperUserOperationAllowed(perm({ structure_user: true }), 'get_configuration')).toBe(false);
+		expect(checkSuperUserOperationAllowed(perm({ operations: 'admin_read' }), 'get_configuration')).toBe(false);
+	});
+
+	it('refuses an allowlist that leaves the operation out', () => {
+		expect(checkSuperUserOperationAllowed(perm({ operations: ['deploy_component'] }), 'get_configuration')).toBe(false);
+		expect(checkSuperUserOperationAllowed(perm({ operations: [] }), 'get_configuration')).toBe(false);
 	});
 });

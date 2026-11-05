@@ -14,6 +14,7 @@ import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { setWatchedValue } from '@/lib/events/watcher';
 import {
 	CopyIcon,
+	DatabaseIcon,
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
@@ -65,7 +66,9 @@ export function FileTreeContextMenu({
 	// Bumped to the cursor position on every right-click so the content remounts and re-anchors there
 	// (see onContextMenu) -- without it Radix leaves an already-open menu at its first position.
 	const [anchorKey, setAnchorKey] = useState('');
-	const { canRename, canAddEntries, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(target?.entry);
+	const { canRename, canAddEntries, canDeleteEntry, canDownload, canRedeploy, canChangePrivateCopy } = useEntryActions(
+		target?.entry,
+	);
 
 	const focusTarget = useCallback((next: ContextTarget) => {
 		setOpenedEntry(next.entry);
@@ -201,7 +204,16 @@ export function FileTreeContextMenu({
 						</ContextMenuItem>
 					)}
 
-					{(canAddEntries || canRename || canDownload || canRedeploy) && canDeleteEntry && <ContextMenuSeparator />}
+					{canChangePrivateCopy && (
+						<ContextMenuItem onSelect={() => act(() => setWatchedValue('ShowApplicationPrivateCopyModal', true))}>
+							<DatabaseIcon />
+							Private Database Copy…
+						</ContextMenuItem>
+					)}
+
+					{(canAddEntries || canRename || canDownload || canRedeploy || canChangePrivateCopy) && canDeleteEntry && (
+						<ContextMenuSeparator />
+					)}
 
 					{canDeleteEntry && (
 						<ContextMenuItem

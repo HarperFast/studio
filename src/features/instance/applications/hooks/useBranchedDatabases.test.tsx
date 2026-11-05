@@ -11,28 +11,54 @@ const mocks = vi.hoisted(() => {
 	return {
 		post,
 		canManage: { value: true },
+		canRead: { value: true },
 		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } },
 	};
 });
 
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => mocks.canManage.value }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceManagePermission: () => mocks.canManage.value,
+	useInstanceConfigurationReadPermission: () => mocks.canRead.value,
+}));
 
-import { invalidateApplicationConfiguration, useApplicationBranchedDatabases } from './useBranchedDatabases';
+import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import {
+	invalidateApplicationConfiguration,
+	useApplicationBranchedDatabases,
+	useApplicationEntryHasPackage,
+	useBranchedDatabasesPossible,
+} from './useBranchedDatabases';
 
 const CONFIGURATION = { http: { port: 9926 }, web: { package: 'npm:web', branchedDatabases: ['data'] } };
 
-function renderCurrent(project: string | undefined = 'web') {
+function renderWithQueries<T>(hook: () => T) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	const rendered = renderHook(() => useApplicationBranchedDatabases(project), {
+	const rendered = renderHook(hook, {
 		wrapper: ({ children }: { children: ReactNode }) =>
 			createElement(QueryClientProvider, { client: queryClient }, children),
 	});
 	return { ...rendered, queryClient };
 }
 
+function renderCurrent(project: string | undefined = 'web') {
+	return renderWithQueries(() => useApplicationBranchedDatabases(project));
+}
+
+function forbidden() {
+	const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+	return new AxiosError('Request failed with status code 403', 'ERR_BAD_REQUEST', config, undefined, {
+		status: 403,
+		statusText: 'Forbidden',
+		headers: {},
+		config,
+		data: { error: 'not authorized' },
+	});
+}
+
 afterEach(() => {
 	mocks.canManage.value = true;
+	mocks.canRead.value = true;
 	vi.clearAllMocks();
 });
 
@@ -127,9 +153,71 @@ describe('useApplicationBranchedDatabases', () => {
 
 	it('asks nothing for someone who cannot read get_configuration', () => {
 		mocks.canManage.value = false;
+		mocks.canRead.value = false;
 		const { result } = renderCurrent();
 
 		expect(mocks.post).not.toHaveBeenCalled();
-		expect(result.current).toMatchObject({ known: false, loading: false, failed: false });
+		expect(result.current).toMatchObject({ readable: false, known: false, loading: false, failed: false });
+	});
+});
+
+describe('a role that is not a super user', () => {
+	it('reads the setting when its allowlist grants get_configuration, so a redeploy can resend it', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockResolvedValue({ data: CONFIGURATION });
+		const { result } = renderCurrent();
+
+		await waitFor(() => expect(result.current.known).toBe(true));
+		expect(result.current).toMatchObject({ readable: true, setting: ['data'] });
+	});
+
+	it("reads Harper's refusal as unreadable rather than failed, so nothing waits on a retry that can't succeed", async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValue(forbidden());
+		const { result } = renderCurrent();
+
+		await waitFor(() => expect(result.current.readable).toBe(false));
+		expect(result.current).toMatchObject({ known: false, loading: false, failed: false, setting: undefined });
+	});
+});
+
+describe('useBranchedDatabasesPossible', () => {
+	it.each([
+		['5.2.4', false],
+		['5.3.2', true],
+		['5.4.0-beta.2', true],
+	])('on %s → %s', async (version, expected) => {
+		mocks.post.mockResolvedValue({ data: { version } });
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+		await waitFor(() => expect(result.current).toBe(expected));
+	});
+
+	it("counts an unreadable version as possible, since the roles that can't read the setting often can't read it either", async () => {
+		mocks.post.mockRejectedValue(forbidden());
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		await waitFor(() => expect(result.current).toBe(true));
+	});
+
+	it('says nothing while the version is still on its way', () => {
+		mocks.post.mockReturnValue(new Promise(() => {}));
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		expect(result.current).toBe(false);
+	});
+});
+
+describe('useApplicationEntryHasPackage', () => {
+	it("reads whether the application's entry names a package", async () => {
+		mocks.post.mockResolvedValue({ data: { web: { package: 'npm:web' }, app: { branchedDatabases: ['data'] } } });
+		const { result } = renderWithQueries(() => [
+			useApplicationEntryHasPackage('web'),
+			useApplicationEntryHasPackage('app'),
+		]);
+
+		await waitFor(() => expect(result.current[0]).toBe(true));
+		expect(result.current[1]).toBe(false);
 	});
 });

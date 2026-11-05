@@ -3,6 +3,7 @@ import {
 	checkImportDataOperationsAllowed,
 	checkImportMethodAllowed,
 	checkImportSourceAllowed,
+	checkSuperUserOperationAllowed,
 	checkTableActionAllowed,
 	IMPORT_METHODS,
 	type ImportMethod,
@@ -249,6 +250,12 @@ export function useInstanceManagePermission(entityId?: EntityIds): boolean {
 	// Not gated on `operations`: before 5.3 verifyPerms clears a super_user ahead of the allowlist, and
 	// from 5.3.0-alpha.1, where the list runs first, validateNoSUPerms refuses to store one on a super_user.
 	return permission.super_user === true;
+}
+
+export function useInstanceConfigurationReadPermission(entityId?: EntityIds): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	return checkSuperUserOperationAllowed(user?.role?.permission, 'get_configuration');
 }
 
 export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean {

@@ -23,6 +23,7 @@ import {
 	invalidateApplicationConfiguration,
 	useApplicationBranchedDatabases,
 	useBranchedDatabasesAvailable,
+	useBranchedDatabasesPossible,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
@@ -69,6 +70,7 @@ export function RedeployApplicationModal() {
 	const packageUrl = openedEntry?.package;
 	const canBranch = useBranchedDatabasesAvailable();
 	const currentBranches = useApplicationBranchedDatabases(openedEntry?.project);
+	const settingUnreadable = useBranchedDatabasesPossible() && !currentBranches.readable;
 	const currentPrivateCopy = useMemo(() => privateCopyFromSetting(currentBranches.setting), [
 		currentBranches.setting,
 	]);
@@ -438,6 +440,14 @@ export function RedeployApplicationModal() {
 											<Button type="button" variant="link" className="h-auto p-0" onClick={currentBranches.retry}>
 												Try again
 											</Button>
+										</p>
+									)}
+									{settingUnreadable && (
+										<p role="alert" className="text-sm text-warning">
+											Studio can&apos;t read whether {openedEntry?.project} runs on a private database copy. If it does,
+											{' '}
+											{stageOnlyChecked ? 'activating this staged release' : 'redeploying'}{' '}
+											turns the copy off, and the application goes back to the shared databases.
 										</p>
 									)}
 									<Button

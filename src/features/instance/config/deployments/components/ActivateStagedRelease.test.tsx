@@ -26,7 +26,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 	useSupportsDeploymentSSE: () => false,
 }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
-	useBranchedDatabasesAvailable: () => state.canBranch,
+	useBranchedDatabasesReadable: () => state.canBranch,
 	useApplicationBranchedDatabases: () => state.currentBranches,
 	invalidateApplicationConfiguration: state.invalidateConfiguration,
 }));

@@ -18,6 +18,25 @@ export function supportsBranchedDatabases(harperVersion: string | undefined): bo
 }
 
 /**
+ * An application that isn't package-deployed gets the setting only from a payload deploy, which carries it from
+ * HarperFast/harper#3505, first tagged 5.4.0-alpha.1. Before that a payload deploy ignores it.
+ */
+const MIN_PAYLOAD_BRANCHED_DATABASES_VERSION = '5.4.0-alpha.1';
+
+export function supportsPayloadBranchedDatabases(harperVersion: string | undefined): boolean {
+	return !!harperVersion && wasAReleasedBeforeB(MIN_PAYLOAD_BRANCHED_DATABASES_VERSION, harperVersion);
+}
+
+/** Whether `project`'s entry names a package, so only a package deploy may write it. */
+export function entryHasPackage(configuration: unknown, project: string): boolean {
+	if (!isRecord(configuration) || !Object.hasOwn(configuration, project)) {
+		return false;
+	}
+	const entry = configuration[project];
+	return isRecord(entry) && entry.package !== undefined;
+}
+
+/**
  * The setting on `project`'s entry in a `get_configuration` answer, or `undefined` when it has none. An empty list
  * branches nothing (harper `resources/branchDatabase.ts` `prepareBranches`), so it reads as none.
  */

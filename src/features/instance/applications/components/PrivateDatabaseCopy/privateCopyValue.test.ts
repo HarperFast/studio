@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PRIVATE_COPY_OFF, privateCopyError, privateCopyFromSetting, privateCopyToSetting } from './privateCopyValue';
+import {
+	PRIVATE_COPY_OFF,
+	privateCopyError,
+	privateCopyFromSetting,
+	privateCopyToPayloadSetting,
+	privateCopyToSetting,
+} from './privateCopyValue';
 
 describe('privateCopyValue', () => {
 	it('round-trips every setting', () => {
@@ -12,6 +18,12 @@ describe('privateCopyValue', () => {
 	it('leaves the setting out when off, whatever databases were picked before', () => {
 		expect(privateCopyToSetting({ mode: 'off', databases: ['data'] })).toBeUndefined();
 		expect(privateCopyToSetting({ mode: 'all', databases: ['data'] })).toBe(true);
+	});
+
+	it('sends off as an empty list on a payload deploy, which keeps a value it is not sent', () => {
+		expect(privateCopyToPayloadSetting({ mode: 'off', databases: ['data'] })).toEqual([]);
+		expect(privateCopyToPayloadSetting({ mode: 'all', databases: [] })).toBe(true);
+		expect(privateCopyToPayloadSetting({ mode: 'chosen', databases: ['data'] })).toEqual(['data']);
 	});
 
 	it('refuses chosen databases with none picked, which would deploy with the copy off', () => {

@@ -1,3 +1,4 @@
+import { readResponseRefusal } from '@/integrations/api/readResponseRefusal';
 import { errorText } from '@/lib/errorText';
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from './errors';
 import { parseSSEData, parseSSEStream, SSEMessage } from './parseSSEStream';
@@ -8,6 +9,8 @@ export interface StreamOperationOptions {
 	connection: ResolveInstanceConnectionParams;
 	/** Operation body, e.g. `{ operation: 'deploy_component', package, project, ... }`. */
 	body: Record<string, unknown>;
+	/** Sent after `body` as one `multipart/form-data` request, which Harper streams in rather than buffering. */
+	file?: StreamOperationFile;
 	/** Caller-owned abort (modal cancel, component unmount). */
 	signal?: AbortSignal;
 	/**
@@ -18,6 +21,30 @@ export interface StreamOperationOptions {
 	idleTimeoutMs?: number;
 	/** Called for every SSE record as it arrives, to drive live UI. */
 	onMessage?: (message: SSEMessage) => void;
+}
+
+export interface StreamOperationFile {
+	/** The form field Harper reads the file from, e.g. `payload` for a deploy. */
+	name: string;
+	filename: string;
+	blob: Blob;
+}
+
+/**
+ * Harper's multipart parser (harper `server/serverHelpers/multipartParser.ts`) needs every field before the file, and
+ * reads a field that parses as JSON as that value, so non-strings go as JSON. The browser sets the boundary.
+ */
+function multipartRequest(body: Record<string, unknown>, file: StreamOperationFile, headers: Record<string, string>) {
+	const form = new FormData();
+	for (const [name, value] of Object.entries(body)) {
+		if (value !== undefined) {
+			form.append(name, typeof value === 'string' ? value : JSON.stringify(value));
+		}
+	}
+	form.append(file.name, file.blob, file.filename);
+	const multipartHeaders = { ...headers };
+	delete multipartHeaders['Content-Type'];
+	return { headers: multipartHeaders, body: form };
 }
 
 /**
@@ -34,11 +61,17 @@ export interface StreamOperationOptions {
 export async function streamOperation({
 	connection,
 	body,
+	file,
 	signal,
 	idleTimeoutMs = 120_000,
 	onMessage,
 }: StreamOperationOptions): Promise<unknown> {
-	const { url, headers, credentials } = resolveInstanceConnection(connection);
+	const { url, headers, credentials, mode } = resolveInstanceConnection(connection);
+	if (file && mode === 'proxy') {
+		// Fabric Connect relays JSON bodies of up to 2 MB, and logs each one it relays.
+		throw new Error('Sending a file to Harper needs a direct connection, not Fabric Connect.');
+	}
+	const request = file ? multipartRequest(body, file, headers) : { headers, body: JSON.stringify(body) };
 
 	// Idle watchdog: its own controller aborts the fetch when no event arrives in time. We
 	// combine it with the caller's signal so either source can stop the stream, and we can
@@ -60,9 +93,9 @@ export async function streamOperation({
 			resetIdleTimer();
 			response = await fetch(url, {
 				method: 'POST',
-				headers,
+				headers: request.headers,
 				credentials,
-				body: JSON.stringify(body),
+				body: request.body,
 				signal: combinedSignal,
 			});
 		} catch (error) {
@@ -77,11 +110,12 @@ export async function streamOperation({
 
 		const contentType = response.headers.get('content-type') ?? '';
 		if (!response.ok || !contentType.includes('text/event-stream') || !response.body) {
-			// Drain the body so the connection can be reused, then fall back.
+			// Read or drain the body so the connection can be reused, then fall back.
+			const refusal = response.ok ? undefined : await readResponseRefusal(response);
 			await response.body?.cancel().catch(() => {});
 			throw new SSEUnsupportedError(
 				`Server did not return an event stream (status ${response.status}, content-type "${contentType}").`,
-				{ status: response.status },
+				{ status: response.status, refusal },
 			);
 		}
 
