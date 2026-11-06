@@ -36,6 +36,8 @@ function recordsGeneration({ total, deployments: [newestDeployment] }: ListDeplo
 	return `${total}|${newestDeployment?.deployment_id}|${phase}|${activations}`;
 }
 
+type ReleasesQueryKey = ReturnType<typeof getReleasesQueryOptions>['queryKey'];
+
 const newestRecordQuery = (instanceParams: InstanceClientIdConfig, project: string | undefined, enabled = true) =>
 	getDeploymentsQueryOptions({ ...instanceParams, project, limit: 1, enabled, pollWhileOpen: true });
 
@@ -76,29 +78,27 @@ export function useComponentReleases(project: string | undefined) {
 }
 
 /**
- * Reads the records again, then asks the nodes about `project` again only if its generation held: a new generation
- * asks by itself, so asking under the old one as well would walk every node twice. Every other answer is marked stale,
- * for the next view that reads it.
+ * Reads the records again, then asks the nodes again for each open view whose records read back with the same
+ * generation. A view whose generation moved asks by itself, and asking under the old one as well would walk every node
+ * twice; one whose records failed to read stays unreadable whatever it is told. Every other answer is marked stale, for
+ * the next view that reads it.
  */
-export function useRetryReleases(project: string | undefined): () => Promise<unknown> {
+export function useRetryReleases(): () => Promise<unknown> {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	return useCallback(async () => {
-		const generationNow = () => {
-			const records = queryClient.getQueryData(newestRecordQuery(instanceParams, project).queryKey);
-			return records && recordsGeneration(records);
-		};
-		const before = generationNow();
-		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'], refetchType: 'none' });
+		const releasesKey = [instanceParams.entityId, 'list_releases'];
+		await queryClient.invalidateQueries({ queryKey: releasesKey, refetchType: 'none' });
 		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments'] });
-		const after = generationNow();
-		if (project && after !== undefined && after === before) {
-			await queryClient.refetchQueries({
-				queryKey: getReleasesQueryOptions({ ...instanceParams, project, generation: after }).queryKey,
-				exact: true,
-			});
-		}
-	}, [queryClient, instanceParams, project]);
+		const held = queryClient.getQueryCache().findAll({ queryKey: releasesKey, type: 'active' }).filter((query) => {
+			const [, , { project }, generation] = query.queryKey as ReleasesQueryKey;
+			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
+			return records?.status === 'success' && !!records.data && recordsGeneration(records.data) === generation;
+		});
+		await Promise.all(
+			held.map(({ queryKey }) => queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false })),
+		);
+	}, [queryClient, instanceParams]);
 }
 
 export type ReleaseCheck =

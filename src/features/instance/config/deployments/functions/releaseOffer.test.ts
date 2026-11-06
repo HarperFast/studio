@@ -4,11 +4,15 @@ import { releaseOffer } from './releaseOffer';
 const fromRecords = { intent: 'rollback' as const, offer: true };
 
 describe('releaseOffer', () => {
-	it('goes by the records alone where Harper cannot be asked, and otherwise offers nothing', () => {
-		for (const check of [{ kind: 'unsupported' as const }, { kind: 'unreadable' as const, message: 'x' }]) {
-			expect(releaseOffer(check, fromRecords, true)).toEqual({ ...fromRecords, disabled: false });
-			expect(releaseOffer(check, fromRecords, false)).toMatchObject({ offer: false });
-		}
+	it('goes by the records alone before Harper can be asked, and otherwise offers nothing', () => {
+		expect(releaseOffer({ kind: 'unsupported' }, fromRecords, true)).toEqual({ ...fromRecords, disabled: false });
+		expect(releaseOffer({ kind: 'unsupported' }, fromRecords, false)).toMatchObject({ offer: false });
+	});
+
+	it('enables nothing once asking the nodes failed, records or not', () => {
+		const unreadable = { kind: 'unreadable' as const, message: 'x' };
+		expect(releaseOffer(unreadable, fromRecords, true)).toEqual({ ...fromRecords, disabled: true });
+		expect(releaseOffer(unreadable, fromRecords, false)).toMatchObject({ offer: false, disabled: true });
 	});
 
 	it('holds the action back while it asks, and shows none it may not offer', () => {

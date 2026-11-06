@@ -30,7 +30,7 @@ const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
 
 export function ComponentReleasesPanel({ project }: { project: string }) {
 	const { state } = useComponentReleases(project);
-	const retry = useRetryReleases(project);
+	const retry = useRetryReleases();
 
 	if (state.kind === 'unsupported') {
 		return null;

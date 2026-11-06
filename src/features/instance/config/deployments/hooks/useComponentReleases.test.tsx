@@ -39,7 +39,7 @@ function Detail() {
 }
 
 function Retry() {
-	const retry = useRetryReleases('web');
+	const retry = useRetryReleases();
 	return <button type="button" onClick={() => void retry()}>retry</button>;
 }
 
@@ -104,6 +104,22 @@ describe('useComponentReleases', () => {
 		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
 		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 		expect(releaseCalls()).toBe(2);
+	});
+
+	it('does not ask the nodes on a retry whose read of the records failed', async () => {
+		await renderBoth();
+		const answer = state.post.getMockImplementation()!;
+		state.post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_deployments' ? Promise.reject(new Error('bad gateway')) : answer(url, body)
+		);
+		try {
+			await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+			await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+			expect(releaseCalls()).toBe(1);
+		} finally {
+			state.post.mockImplementation(answer);
+		}
 	});
 
 	it('asks again once, for every view, when the component gets a new record', async () => {

@@ -23,7 +23,6 @@ interface ComponentReleases {
 	releases: KeptRelease[];
 }
 
-/** One node's answer: its components, or why it could not give them. */
 interface NodeReleases {
 	node: string;
 	components?: ComponentReleases[];

@@ -12,8 +12,8 @@ interface ReleaseOffer {
  * where it is known (Harper 5.4.0-alpha.1+): a release live on every node has nothing to activate, one live on some
  * nodes is activated again, and one some node holds no copy of is refused there with a 404, so it is not offered.
  *
- * `trustRecords`: whether the records alone were enough before Harper could be asked, as they are for a staged
- * release. Going back to any other release needs `list_releases` to say every node keeps it.
+ * `trustRecords`: whether the records alone decide before Harper 5.4.0-alpha.1, as they do for a staged release. From
+ * then on nothing is enabled until `list_releases` answers: retention prunes a stage without a record.
  */
 export function releaseOffer(
 	check: ReleaseCheck,
@@ -22,8 +22,8 @@ export function releaseOffer(
 ): ReleaseOffer {
 	switch (check.kind) {
 		case 'unsupported':
-		case 'unreadable':
 			return trustRecords ? { ...fromRecords, disabled: false } : { ...fromRecords, offer: false, disabled: true };
+		case 'unreadable':
 		case 'checking':
 			return { ...fromRecords, offer: fromRecords.offer && trustRecords, disabled: true };
 		case 'live-everywhere':

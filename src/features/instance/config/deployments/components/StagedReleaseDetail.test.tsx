@@ -264,6 +264,7 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		};
 		renderDetail([activation, staged]);
 		expect(await screen.findByText(/^Live on a\. The other nodes hold it/)).toBeTruthy();
+		expect(screen.queryByText(/nothing to activate/)).toBeNull();
 		const button = activationButton() as HTMLButtonElement;
 		expect(button.textContent).toContain('Activate again');
 		expect(button.disabled).toBe(false);
@@ -273,13 +274,14 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		state.releases = { nodes: [holding('a', STAGED_ID, []), holding('b', STAGED_ID, [])] };
 		renderDetail([{ ...later, status: 'failed' }, activation, staged]);
 		expect(await screen.findByText('Live on every node.')).toBeTruthy();
+		expect(screen.queryByText(/may not be live everywhere/)).toBeNull();
 		expect(activationButton()).toBeNull();
 	});
 
-	it("goes by the records, and says so, when the nodes can't be asked", async () => {
+	it("shows, but refuses, the activation when the nodes can't be asked", async () => {
 		state.releases = new Error('list_releases timed out');
 		renderDetail([staged]);
-		expect(await screen.findByText(/This goes by the deployment records instead\./)).toBeTruthy();
-		expect((activationButton() as HTMLButtonElement).disabled).toBe(false);
+		expect(await screen.findByText(/Activating it needs every node to say it holds it\./)).toBeTruthy();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 	});
 });

@@ -25,10 +25,8 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	return (
 		<>
 			<ReleaseCheckNote
-				project={deployment.project}
 				check={check}
 				record={builtByOther ? builtBy : deployment}
-				trustRecords={false}
 			/>
 			<ActivateRelease
 				project={deployment.project}

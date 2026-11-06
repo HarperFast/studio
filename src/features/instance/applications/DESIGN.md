@@ -134,9 +134,9 @@ before 5.3.0 is never kept, and `origin_node` is the receiving node's host name 
 (`releaseOffer`): live on every node offers nothing, live on some offers Activate again, and a node with no copy, or
 one that could not answer, disables it and is named with the reason the record can give.
 
-A staged release keeps today's records-based offer when `list_releases` is unavailable or fails, because staging
-succeeds only once every node confirmed it. Going back to any other release is offered only where `list_releases`
-answered: before 5.4 nothing says a node still holds a release it once ran. `list_releases` is never polled or refetched on focus,
+Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
+and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,
+when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. `list_releases` is never polled or refetched on focus,
 since every node walks each kept release's tree to size it. `useComponentReleases` asks again when the component's
 newest record starts, ends, or reaches another node, not at each step of a build (`recordsGeneration`), and an answer
 being refetched, or whose refetch failed, does not enable an activation.

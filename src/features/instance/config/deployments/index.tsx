@@ -119,7 +119,7 @@ export function ConfigDeploymentsIndex() {
 	);
 	const onRowClick = useCallback((row: Row<DeploymentRow>) => onSelect(row.original.deployment_id), [onSelect]);
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
-	const retryReleases = useRetryReleases(project);
+	const retryReleases = useRetryReleases();
 	const onRefreshClick = useRefreshClick(
 		useCallback(() => (releaseTracking ? retryReleases() : refetch()), [releaseTracking, retryReleases, refetch]),
 	);

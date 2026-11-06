@@ -13,19 +13,15 @@ const list = (nodes: readonly string[]) => nodes.join(', ');
 
 /** `record`: the deployment that built the release, the only thing that can say why a node has none. */
 export function ReleaseCheckNote({
-	project,
 	check,
 	record,
-	trustRecords,
 	showLive = true,
 }: {
-	project: string;
 	check: ReleaseCheck;
 	record?: Deployment;
-	trustRecords: boolean;
 	showLive?: boolean;
 }) {
-	const retry = useRetryReleases(project);
+	const retry = useRetryReleases();
 	switch (check.kind) {
 		case 'unsupported':
 			return null;
@@ -34,9 +30,8 @@ export function ReleaseCheckNote({
 		case 'unreadable':
 			return (
 				<p className="text-sm text-muted-foreground">
-					Couldn&apos;t ask the nodes which releases they hold: {check.message}
-					{trustRecords ? ' This goes by the deployment records instead.' : ' Going back needs every node to hold it.'}
-					{' '}
+					Couldn&apos;t ask the nodes which releases they hold: {check.message}{' '}
+					Activating it needs every node to say it holds it.{' '}
 					<button
 						type="button"
 						className="underline"
