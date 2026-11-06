@@ -11,22 +11,21 @@ const MISSING_REASON: Record<MissingReason, string> = {
 
 const list = (nodes: readonly string[]) => nodes.join(', ');
 
-/**
- * What each node holds of a release, for the action that activates it. `record`: the deployment that built it, which
- * is the only thing that can say why a node has none.
- */
+/** `record`: the deployment that built the release, the only thing that can say why a node has none. */
 export function ReleaseCheckNote({
+	project,
 	check,
 	record,
 	trustRecords,
 	showLive = true,
 }: {
+	project: string;
 	check: ReleaseCheck;
 	record?: Deployment;
 	trustRecords: boolean;
 	showLive?: boolean;
 }) {
-	const retry = useRetryReleases();
+	const retry = useRetryReleases(project);
 	switch (check.kind) {
 		case 'unsupported':
 			return null;

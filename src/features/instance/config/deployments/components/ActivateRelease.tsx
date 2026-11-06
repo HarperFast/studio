@@ -54,11 +54,7 @@ const BUTTON_LABEL: Record<ActivationIntent, string> = {
 	again: 'Activate again',
 };
 
-/**
- * Makes a release live by its id: a staged one (HarperFast/studio#1787) or one a node kept when a later deploy replaced
- * it (HarperFast/studio#1232). Both are the same `deploy_component { deployment_id }`, certified and followed like any
- * rolling deploy.
- */
+/** A staged release and a kept one are activated alike: `deploy_component { deployment_id }`, certified and followed. */
 export function ActivateRelease({
 	project,
 	releaseId: deploymentId,

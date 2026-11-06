@@ -138,7 +138,8 @@ A staged release keeps today's records-based offer when `list_releases` is unava
 succeeds only once every node confirmed it. Going back to any other release is offered only where `list_releases`
 answered: before 5.4 nothing says a node still holds a release it once ran. `list_releases` is never polled or refetched on focus,
 since every node walks each kept release's tree to size it. `useComponentReleases` asks again when the component's
-newest record changes, and an answer being refetched, or whose refetch failed, does not enable an activation.
+newest record starts, ends, or reaches another node, not at each step of a build (`recordsGeneration`), and an answer
+being refetched, or whose refetch failed, does not enable an activation.
 
 ## Private database copies
 

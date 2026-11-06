@@ -60,7 +60,6 @@ export interface DeploymentPeerActivation {
 	certification?: DeployCertification | null;
 	message?: string | null;
 	error?: string | null;
-	completed_at?: number;
 }
 
 /**

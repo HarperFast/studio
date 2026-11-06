@@ -1,8 +1,9 @@
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useReleaseTrackingAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { getReleasesQueryOptions } from '@/integrations/api/instance/deployments/listReleases';
-import { ListDeploymentsResponse } from '@/integrations/api/instance/deployments/types';
+import { isTerminalDeploymentStatus, ListDeploymentsResponse } from '@/integrations/api/instance/deployments/types';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
@@ -23,14 +24,20 @@ type ComponentReleasesState =
 
 /**
  * What changes when what a node holds of the component may have: a deploy or an activation of it starting or ending,
- * and each node a rolling one reaches, which its job records on the row as it goes.
+ * and each node a rolling one reaches, which its job records on the row as it goes. The steps of a build before it
+ * goes live share one value: each would otherwise make every node walk its releases again while it installs.
  */
 function recordsGeneration({ total, deployments: [newestDeployment] }: ListDeploymentsResponse): string {
+	const status = newestDeployment?.status;
+	const phase = isTerminalDeploymentStatus(status) || status === 'rolling_out' ? status : 'building';
 	const activations = (newestDeployment?.peer_results ?? [])
 		.map((peer) => (peer.activation ? (peer.activation.activated ? '+' : '-') : '.'))
 		.join('');
-	return `${total}|${newestDeployment?.deployment_id}|${newestDeployment?.status}|${activations}`;
+	return `${total}|${newestDeployment?.deployment_id}|${phase}|${activations}`;
 }
+
+const newestRecordQuery = (instanceParams: InstanceClientIdConfig, project: string | undefined, enabled = true) =>
+	getDeploymentsQueryOptions({ ...instanceParams, project, limit: 1, enabled, pollWhileOpen: true });
 
 /**
  * What is live and kept for `project` on each node, from `list_releases`, asked again for each new generation of the
@@ -39,9 +46,7 @@ function recordsGeneration({ total, deployments: [newestDeployment] }: ListDeplo
 export function useComponentReleases(project: string | undefined) {
 	const instanceParams = useInstanceClientIdParams();
 	const supported = useReleaseTrackingAvailable() && !!project;
-	const { data: newest, error: newestError } = useQuery(
-		getDeploymentsQueryOptions({ ...instanceParams, project, limit: 1, enabled: supported, pollWhileOpen: true }),
-	);
+	const { data: newest, error: newestError } = useQuery(newestRecordQuery(instanceParams, project, supported));
 	const generation = newest && recordsGeneration(newest);
 	const { data, error, status, isPlaceholderData, fetchStatus } = useQuery(
 		getReleasesQueryOptions({
@@ -70,17 +75,30 @@ export function useComponentReleases(project: string | undefined) {
 	return { state };
 }
 
-export function useRetryReleases(): () => Promise<unknown> {
+/**
+ * Reads the records again, then asks the nodes about `project` again only if its generation held: a new generation
+ * asks by itself, so asking under the old one as well would walk every node twice. Every other answer is marked stale,
+ * for the next view that reads it.
+ */
+export function useRetryReleases(project: string | undefined): () => Promise<unknown> {
 	const queryClient = useQueryClient();
-	const { entityId } = useInstanceClientIdParams();
-	return useCallback(
-		() =>
-			Promise.all([
-				queryClient.invalidateQueries({ queryKey: [entityId, 'list_deployments'] }),
-				queryClient.invalidateQueries({ queryKey: [entityId, 'list_releases'] }),
-			]),
-		[queryClient, entityId],
-	);
+	const instanceParams = useInstanceClientIdParams();
+	return useCallback(async () => {
+		const generationNow = () => {
+			const records = queryClient.getQueryData(newestRecordQuery(instanceParams, project).queryKey);
+			return records && recordsGeneration(records);
+		};
+		const before = generationNow();
+		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'], refetchType: 'none' });
+		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments'] });
+		const after = generationNow();
+		if (project && after !== undefined && after === before) {
+			await queryClient.refetchQueries({
+				queryKey: getReleasesQueryOptions({ ...instanceParams, project, generation: after }).queryKey,
+				exact: true,
+			});
+		}
+	}, [queryClient, instanceParams, project]);
 }
 
 export type ReleaseCheck =
@@ -89,7 +107,6 @@ export type ReleaseCheck =
 	| { kind: 'unreadable'; message: string }
 	| ReleaseAvailability;
 
-/** Whether activating `releaseId` of `project` can reach every node, or why that is not known. */
 export function useReleaseCheck(project: string, releaseId: string): ReleaseCheck {
 	const { state } = useComponentReleases(project);
 	return useMemo(

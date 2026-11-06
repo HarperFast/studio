@@ -66,7 +66,7 @@ export function DeploymentSourceCell(
 			{built && <span className="break-all" title={built.title}>{built.label}</span>}
 			{source?.sha && (
 				<span className="flex flex-wrap items-center gap-1 text-muted-foreground">
-					<CommitFilter sha={source.sha} label={source.shortSha!} filterable={commitFilterable} />
+					<CommitFilter sha={source.sha} label={source.shortSha ?? source.sha} filterable={commitFilterable} />
 					{source.repository && <span className="break-all">{source.repository}</span>}
 					<SourceViaBadge source={deployment.source!} />
 				</span>

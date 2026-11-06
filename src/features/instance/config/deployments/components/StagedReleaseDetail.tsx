@@ -81,7 +81,13 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				)}
 				{release?.kind === 'uncertain' && <UncertainRelease release={release} />}
 			</div>
-			<ReleaseCheckNote check={check} record={deployment} trustRecords showLive={release?.kind !== 'live'} />
+			<ReleaseCheckNote
+				project={deployment.project}
+				check={check}
+				record={deployment}
+				trustRecords
+				showLive={release?.kind !== 'live'}
+			/>
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
 			<ActivateRelease
 				project={deployment.project}

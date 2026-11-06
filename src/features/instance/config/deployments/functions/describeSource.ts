@@ -1,7 +1,6 @@
 import { DeploymentSource } from '@/integrations/api/instance/deployments/types';
 
 interface DescribedSource {
-	/** Whether the OIDC exchange attested it, or the client only declared it. */
 	attested: boolean;
 	via: string;
 	viaDetail: string;

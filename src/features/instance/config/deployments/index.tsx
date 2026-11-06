@@ -14,7 +14,7 @@ import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployme
 import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { Row } from '@/lib/table';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -22,6 +22,7 @@ import { ComponentReleasesPanel } from './components/ComponentReleases';
 import { DEPLOYMENT_STATUS_LABEL } from './components/deploymentStatusBadge';
 import { deploymentColumns, DeploymentRow } from './constants/tableDefinition';
 import { DEPLOYMENTS_PAGE_SIZE, DeploymentsSearch, filterableStatuses } from './deploymentsSearch';
+import { useRetryReleases } from './hooks/useComponentReleases';
 import { useStagedReleases } from './hooks/useStagedReleases';
 import { DeploymentDetailModal } from './modals/DeploymentDetailModal';
 
@@ -118,16 +119,9 @@ export function ConfigDeploymentsIndex() {
 	);
 	const onRowClick = useCallback((row: Row<DeploymentRow>) => onSelect(row.original.deployment_id), [onSelect]);
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
-	const queryClient = useQueryClient();
+	const retryReleases = useRetryReleases(project);
 	const onRefreshClick = useRefreshClick(
-		useCallback(
-			() =>
-				Promise.all([
-					refetch(),
-					releaseTracking && queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_releases'] }),
-				]),
-			[releaseTracking, queryClient, instanceParams.entityId, refetch],
-		),
+		useCallback(() => (releaseTracking ? retryReleases() : refetch()), [releaseTracking, retryReleases, refetch]),
 	);
 	const projectInput = useRef<HTMLInputElement>(null);
 	useEffect(() => {

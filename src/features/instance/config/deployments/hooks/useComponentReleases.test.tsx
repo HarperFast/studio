@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
@@ -16,7 +16,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 	useReleaseTrackingAvailable: () => true,
 }));
 
-import { useComponentReleases, useReleaseCheck } from './useComponentReleases';
+import { useComponentReleases, useReleaseCheck, useRetryReleases } from './useComponentReleases';
 
 const answer = { nodes: [{ node: 'a', components: [{ project: 'web', deployment_id: 'v3', releases: [] }] }] };
 
@@ -38,6 +38,11 @@ function Detail() {
 	return <div data-testid="detail">{useReleaseCheck('web', 'v3').kind}</div>;
 }
 
+function Retry() {
+	const retry = useRetryReleases('web');
+	return <button type="button" onClick={() => void retry()}>retry</button>;
+}
+
 afterEach(() => {
 	cleanup();
 	state.post.mockClear();
@@ -52,6 +57,7 @@ async function renderBoth() {
 		<QueryClientProvider client={queryClient}>
 			<Panel />
 			<Detail />
+			<Retry />
 		</QueryClientProvider>,
 	);
 	await screen.findByText('live-everywhere');
@@ -69,6 +75,35 @@ describe('useComponentReleases', () => {
 	it('asks the nodes once when it mounts, however many views read it and however the list loads', async () => {
 		await renderBoth();
 		expect(releaseCalls()).toBe(1);
+	});
+
+	it('asks once for a build, not again at each step it takes before going live', async () => {
+		const queryClient = await renderBoth();
+		for (const status of ['pending', 'extracting', 'installing', 'loading', 'replicating', 'restarting']) {
+			await newestChanges(queryClient, status);
+			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		}
+		expect(releaseCalls()).toBe(2);
+	});
+
+	it('reads the records again on a retry, then asks the nodes once when they held', async () => {
+		await renderBoth();
+		const recordReads = () => state.post.mock.calls.filter(([, body]) => body.operation === 'list_deployments').length;
+		const readsBefore = recordReads();
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+		expect(recordReads()).toBeGreaterThan(readsBefore);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(releaseCalls()).toBe(2);
+	});
+
+	it('asks the nodes once on a retry that finds a new record, under that record only', async () => {
+		await renderBoth();
+		state.newest = { deployments: [{ deployment_id: 'v4', project: 'web', status: 'success' }], total: 4 };
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(releaseCalls()).toBe(2);
 	});
 
 	it('asks again once, for every view, when the component gets a new record', async () => {

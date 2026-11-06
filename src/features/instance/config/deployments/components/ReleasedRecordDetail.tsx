@@ -8,11 +8,7 @@ import { useReleaseCheck } from '../hooks/useComponentReleases';
 import { ActivateRelease } from './ActivateRelease';
 import { ReleaseCheckNote } from './ReleaseCheckNote';
 
-/**
- * Going back to the release a deploy or an activation made live (HarperFast/studio#1232). Offered only where Harper
- * can say each node keeps it (5.4.0-alpha.1+): unlike a staged release, nothing in the records says a node still holds
- * a release it once ran, and one that does not refuses the activation.
- */
+/** Needs `list_releases`: unlike a stage, nothing in the records says a node still keeps a release it once ran. */
 export function ReleasedRecordDetail({ deployment }: { deployment: Deployment }) {
 	const instanceParams = useInstanceClientIdParams();
 	const releaseId = releasedId(deployment);
@@ -28,7 +24,12 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	const { intent, offer, disabled } = releaseOffer(check, { intent: 'rollback', offer: true }, false);
 	return (
 		<>
-			<ReleaseCheckNote check={check} record={builtByOther ? builtBy : deployment} trustRecords={false} />
+			<ReleaseCheckNote
+				project={deployment.project}
+				check={check}
+				record={builtByOther ? builtBy : deployment}
+				trustRecords={false}
+			/>
 			<ActivateRelease
 				project={deployment.project}
 				releaseId={releaseId}

@@ -28,13 +28,9 @@ function describeCoverage(release: ReleaseCoverage, summary: ReleasesSummary): s
 
 const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
 
-/**
- * What each node holds of one component (HarperFast/studio#1786, item 4): the live release and each release it keeps,
- * which are what activating by id can make live. Harper 5.4.0-alpha.1+, from `list_releases`.
- */
 export function ComponentReleasesPanel({ project }: { project: string }) {
 	const { state } = useComponentReleases(project);
-	const retry = useRetryReleases();
+	const retry = useRetryReleases(project);
 
 	if (state.kind === 'unsupported') {
 		return null;
