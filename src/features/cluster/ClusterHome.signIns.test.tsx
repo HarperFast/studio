@@ -24,6 +24,7 @@ vi.mock('@/features/cluster/components/ClusterUsageCard', () => ({ ClusterUsageC
 vi.mock('@/features/clusters/components/ClusterStateMenu', () => ({ ClusterStateMenu: () => null }));
 vi.mock('@/hooks/usePermissions', () => ({
 	useOrganizationClusterPermissions: () => ({ view: true, update: true }),
+	useInstanceManagePermission: () => false,
 }));
 
 let cluster: Cluster;
