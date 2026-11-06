@@ -11,7 +11,7 @@ import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
-import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR, zodRequirePassword } from '@/lib/zod/password';
+import { zodNewAccountPassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -24,6 +24,7 @@ import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useSignUpMutation } from './hooks/useSignUp';
+import { usePrefillEmail } from './prefillEmail';
 
 // The account may already exist: sending them to the inbox beats a resubmit that 409s (#1668).
 const SIGN_UP_OUTCOME_UNKNOWN_RECOVERY = 'Check your email for a verification link before signing up again.';
@@ -52,9 +53,7 @@ const SignUpSchema = z.object({
 			{ error: 'Last name can only contain letters, spaces, and hyphens.' },
 		)
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
-	password: zodRequirePassword
-		.min(8, { error: 'Password must be at least 8 characters long.' })
-		.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR }),
+	password: zodNewAccountPassword,
 	confirmPassword: z.string(),
 	acceptTerms: z.boolean().refine(val => val === true, {
 		message: 'You must accept the Privacy Policy and Terms of Service.',
@@ -68,6 +67,7 @@ const SignUpSchema = z.object({
 export function SignUp() {
 	const navigate = useNavigate();
 	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 	const [flashTerms, setFlashTerms] = useState(false);
 
 	const methods = useForm({
@@ -75,7 +75,7 @@ export function SignUp() {
 		defaultValues: {
 			firstname: '',
 			lastname: '',
-			email: formPersistenceEmail || searchEmail || '',
+			email: formPersistenceEmail || searchEmail || prefillEmail || '',
 			password: '',
 			confirmPassword: '',
 			acceptTerms: false,
@@ -112,7 +112,7 @@ export function SignUp() {
 					...(company ? { company } : {}),
 				});
 				clearUtmParamsFromUrl();
-				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
+				void navigate({ to: '/verifying', state: { prefillEmail: userData.email } });
 			},
 			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
 			// and renders the failure in the form instead. RUM showed people resubmitting the
@@ -313,7 +313,7 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
+				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
 					Already have an account? Sign in instead.
 				</Link>
 			</div>

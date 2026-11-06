@@ -10,11 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, historyState } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	historyState: {} as { prefillEmail?: string },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useSearch: () => ({}),
-	Link: ({ children }: PropsWithChildren) => <a>{children}</a>,
+	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
+		select({ state: historyState }),
+	Link: ({ children, to, state }: PropsWithChildren<{ to?: string; state?: { prefillEmail?: string } }>) => (
+		<a href={to} data-prefill-email={state?.prefillEmail}>{children}</a>
+	),
 }));
 
 vi.mock('sonner', () => ({
@@ -85,6 +92,41 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.clearAllMocks());
+
+describe('ForgotPassword — prefill', () => {
+	it('fills in the address it was handed in history state', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		try {
+			const { container } = renderForm();
+			expect((container.querySelector('input[type="email"]') as HTMLInputElement).value).toBe('ada@example.com');
+		} finally {
+			delete historyState.prefillEmail;
+		}
+	});
+
+	it('hands the typed address to the sign-in and sign-up links in history state, not the URL', () => {
+		const { container, getByRole } = renderForm();
+		fireEvent.change(container.querySelector('input[type="email"]')!, { target: { value: 'ada@example.com' } });
+
+		for (const name of ['Sign in to your account', 'Sign up for free']) {
+			const link = getByRole('link', { name });
+			expect(link.getAttribute('data-prefill-email')).toBe('ada@example.com');
+			expect(link.getAttribute('href')).not.toContain('ada');
+		}
+	});
+
+	it('hands the address to sign-in in history state once the link is sent', async () => {
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: 'ada@example.com' } })
+		);
+	});
+});
 
 describe('ForgotPassword — reCAPTCHA', () => {
 	it('mints a forgot_password token at submit and sends it as captchaToken', async () => {
