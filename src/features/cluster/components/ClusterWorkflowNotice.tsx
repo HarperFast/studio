@@ -36,7 +36,7 @@ export function ClusterWorkflowNotice(
 	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const lagging = !held && !!cluster && !!detectPartialUpgrade(cluster.instances ?? []);
 	// Versions pinned to the organization decide whether the lagging instances have a known target, as on the Version
-	// page. Without them the target is unknown too.
+	// page. Never read, the target is unknown too; a failed refresh keeps the list the Version page also still uses.
 	const versions = useQuery({
 		...getHarperVersionsOptions(organizationId ?? ''),
 		enabled: lagging && !!organizationId,
@@ -47,8 +47,8 @@ export function ClusterWorkflowNotice(
 			cluster.instances ?? [],
 			(versions.data?.value ?? []).filter((v) => v.scoped).map((v) => v.version),
 		);
-		return found && versions.isError ? { ...found, ambiguous: true } : found;
-	}, [lagging, cluster, versions.isPending, versions.isError, versions.data]);
+		return found && !versions.data ? { ...found, ambiguous: true } : found;
+	}, [lagging, cluster, versions.isPending, versions.data]);
 	const canReadWorkflows = useStaffPermission('workflow:read');
 	const { data: row } = useQuery({
 		...heldClusterWorkflowQueryOptions(clusterId, workflowId),

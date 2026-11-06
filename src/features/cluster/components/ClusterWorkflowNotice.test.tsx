@@ -5,7 +5,7 @@ import { apiClient } from '@/config/apiClient';
 import type { WorkflowRow } from '@/features/admin/workflows/workflowAdminApi';
 import type { ClusterWorkflow } from '@/features/cluster/queries/clusterWorkflow';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClusterWorkflowNotice } from './ClusterWorkflowNotice';
@@ -281,6 +281,23 @@ describe('ClusterWorkflowNotice', () => {
 			customerSees(ended, { heldBy: null, pinned: null });
 			renderNotice(null);
 			expect(await screen.findByText(/1 of 2 instances run a different version from the rest/)).toBeTruthy();
+		});
+
+		it('keeps the pinned versions it read when a refresh of them fails', async () => {
+			customerSees(ended, { heldBy: null });
+			renderNotice(null);
+			expect(await screen.findByText(/1 of 2 instances is still behind 5.3.2./)).toBeTruthy();
+
+			customerSees(ended, { heldBy: null, pinned: null });
+			await act(async () => {
+				await client.refetchQueries({ queryKey: ['org-1', 'HarperVersions'] });
+				// React Query notifies observers on a timer.
+				await new Promise((resolve) => setTimeout(resolve, 0));
+			});
+			expect(client.getQueryState(['org-1', 'HarperVersions'])?.status).toBe('error');
+
+			expect(screen.getByText(/1 of 2 instances is still behind 5.3.2./)).toBeTruthy();
+			expect(screen.getByRole('link', { name: 'Run the upgrade again from Version' })).toBeTruthy();
 		});
 
 		it('shows staff the same, since nothing holds the cluster', async () => {

@@ -171,13 +171,14 @@ function StepsTable({ detail }: { detail: WorkflowDetail }) {
 			else { next.add(path); }
 			return next;
 		});
+	const visibleRows: (typeof rows[number] & { hasChildren: boolean })[] = [];
 	let hiddenDepth: number | undefined;
-	const visibleRows = rows.map((row, index) => ({ ...row, hasChildren: (rows[index + 1]?.depth ?? -1) > row.depth }))
-		.filter((row) => {
-			if (hiddenDepth !== undefined && row.depth > hiddenDepth) { return false; }
-			hiddenDepth = row.hasChildren && collapsed.has(row.rowKey) ? row.depth : undefined;
-			return true;
-		});
+	for (const [index, row] of rows.entries()) {
+		if (hiddenDepth !== undefined && row.depth > hiddenDepth) { continue; }
+		const hasChildren = (rows[index + 1]?.depth ?? -1) > row.depth;
+		hiddenDepth = hasChildren && collapsed.has(row.rowKey) ? row.depth : undefined;
+		visibleRows.push({ ...row, hasChildren });
+	}
 	if (!rows.length) { return <p className="text-sm text-muted-foreground">No steps are planned or recorded yet.</p>; }
 	return (
 		<div>

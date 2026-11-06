@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -51,7 +51,12 @@ const plan = {
 	priceUsd: 0,
 } as SchemaPlan;
 
-function versionForm(version = '5.0.2', queryClient = newQueryClient()) {
+const partial = { latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false };
+function versionForm(
+	version = '5.0.2',
+	queryClient = newQueryClient(),
+	partialUpgrade: typeof partial | null = partial,
+) {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ClusterForm
@@ -76,7 +81,7 @@ function versionForm(version = '5.0.2', queryClient = newQueryClient()) {
 				canUseCustomRegions={false}
 				canDefineCustomRegions={false}
 				lockedOrganizationRegionIds={[]}
-				partialUpgrade={{ latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false }}
+				partialUpgrade={partialUpgrade}
 				planTypes={[plan]}
 				regionLocationsColocated={[]}
 				regionLocationsDedicated={[]}
@@ -148,6 +153,21 @@ describe('ClusterForm — the version picker', () => {
 				timeout: 0,
 			})
 		);
+	});
+
+	it('keeps another field the user changed when the version moves', async () => {
+		const queryClient = newQueryClient();
+		const { findByRole, getByLabelText, rerender } = render(versionForm('5.0.2', queryClient, null));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		expect(submit.disabled).toBe(true);
+		fireEvent.click(getByLabelText('Immediate upgrade and restart'));
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		rerender(versionForm('5.0.3', queryClient, null));
+		await act(async () => {});
+
+		expect((getByLabelText('Immediate upgrade and restart') as HTMLInputElement).checked).toBe(true);
+		expect(submit.disabled).toBe(false);
 	});
 });
 

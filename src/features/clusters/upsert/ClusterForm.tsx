@@ -278,8 +278,12 @@ export function ClusterForm({
 	useEffect(() => {
 		if (mode !== 'version' || followedVersion.current === defaultVersion) { return; }
 		followedVersion.current = defaultVersion;
-		// `reset` rather than `resetField`, which ignores an undefined default (an ambiguous target).
-		if (!form.getFieldState('version').isDirty) { form.reset({ ...form.getValues(), version: defaultVersion }); }
+		if (form.getFieldState('version').isDirty) { return; }
+		// Only the version's default moves, so another field the user changed stays changed. `reset` rather than
+		// `resetField`, which ignores an undefined default (an ambiguous target); `keepDirtyValues` skips an undefined
+		// value, so `setValue` clears the picker.
+		form.reset({ ...form.formState.defaultValues, version: defaultVersion }, { keepDirtyValues: true });
+		if (defaultVersion === undefined) { form.setValue('version', defaultVersion); }
 	}, [defaultVersion, form, mode]);
 
 	const [firstTime, setFirstTime] = useState(true);
