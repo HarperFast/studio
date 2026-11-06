@@ -72,11 +72,11 @@ export function ActivateRelease({
 	/** Offered but refused: some node holds no copy. The caller says which. */
 	disabled?: boolean;
 	/**
-	 * Asks the nodes again before confirming: what they hold changes without a newer record, as a rollout behind the
-	 * newest one finishes or a node joins. The confirmation opens only once it resolves, and only if the fresh answer
-	 * still allows it.
+	 * Asks the nodes again before confirming, resolving to whether their answer still allows it: what they hold changes
+	 * without a newer record, as a rollout behind the newest one finishes or a node joins. The confirmation opens on that
+	 * answer alone, since `disabled` reflects it only a render later.
 	 */
-	revalidate?: () => Promise<unknown>;
+	revalidate?: () => Promise<boolean>;
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -97,21 +97,21 @@ export function ActivateRelease({
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
 	const [revalidating, setRevalidating] = useState(false);
-	const [revalidated, setRevalidated] = useState(false);
 	const askToConfirm = useCallback(async () => {
 		if (!revalidate) {
 			setConfirming(true);
 			return;
 		}
 		setRevalidating(true);
+		let allowed = false;
 		try {
-			await revalidate();
-			setRevalidated(true);
+			allowed = await revalidate();
 		} catch {
-			// The check it failed on says why, and nothing is confirmed over the answer before it.
+			// The check it failed on says why.
 		} finally {
 			setRevalidating(false);
 		}
+		setConfirming(allowed);
 	}, [revalidate]);
 
 	const activate = useCallback(async () => {
@@ -179,18 +179,11 @@ export function ActivateRelease({
 	const shownIntent = retry && !offer ? 'again' : intent;
 	const confirmable = showButton && !disabled && !isPending;
 	useEffect(() => {
-		// Dropped, not hidden, so a confirmation never comes back on its own over a release that changed under it.
+		// Only a change closes it: a confirmation `revalidate` allowed opens while `disabled` still shows the ask.
 		if (!confirmable) {
 			setConfirming(false);
 		}
 	}, [confirmable]);
-	useEffect(() => {
-		// Decided on the first render with the fresh answer, not by the click, which saw the one before.
-		if (revalidated && !revalidating) {
-			setRevalidated(false);
-			setConfirming(confirmable);
-		}
-	}, [revalidated, revalidating, confirmable]);
 
 	if (!canActivate) {
 		return null;
@@ -214,7 +207,7 @@ export function ActivateRelease({
 					<DeployProgress state={stream.state} />
 				</>
 			)}
-			<AlertDialog open={confirming && confirmable} onOpenChange={setConfirming}>
+			<AlertDialog open={confirming && !isPending} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>

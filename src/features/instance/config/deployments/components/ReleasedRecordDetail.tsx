@@ -4,7 +4,7 @@ import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { useQuery } from '@tanstack/react-query';
 import { releasedId } from '../functions/releaseCoverage';
 import { releaseOffer } from '../functions/releaseOffer';
-import { useReleaseCheck, useRetryReleases } from '../hooks/useComponentReleases';
+import { useRecheckRelease, useReleaseCheck } from '../hooks/useComponentReleases';
 import { ActivateRelease } from './ActivateRelease';
 import { ReleaseCheckNote } from './ReleaseCheckNote';
 
@@ -16,7 +16,7 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	const instanceParams = useInstanceClientIdParams();
 	const releaseId = releasedId(deployment);
 	const check = useReleaseCheck(deployment.project, releaseId);
-	const retry = useRetryReleases(deployment.project);
+	const recheck = useRecheckRelease(deployment.project, releaseId);
 	const builtByOther = releaseId !== deployment.deployment_id;
 	const { data: builtBy } = useQuery({
 		...getDeploymentQueryOptions({ ...instanceParams, deploymentId: releaseId }),
@@ -25,7 +25,8 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	const failed = deployment.status === 'failed';
 	// Its error already says why it failed; with every node saying it holds none there is nothing to offer.
 	if (
-		check.kind === 'unsupported' || (failed && check.kind === 'missing' && !check.held && check.unreadable.length === 0)
+		check.kind === 'unsupported'
+		|| (failed && check.kind === 'missing' && !check.held && check.missing.length > 0 && check.unreadable.length === 0)
 	) {
 		return null;
 	}
@@ -46,7 +47,7 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 				intent={intent}
 				offer={offer}
 				disabled={disabled}
-				revalidate={retry}
+				revalidate={recheck}
 			/>
 		</>
 	);

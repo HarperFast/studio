@@ -141,8 +141,9 @@ failed deploy is offered wherever some node holds it, since it may be live on th
 `list_releases` is never polled or refetched on focus, since every node walks each kept release's tree to size it.
 `useComponentReleases` asks again when the component's newest record starts, ends, or reaches another node, not at each
 step of a build (`recordsGeneration`). What the nodes hold also changes without a newer record, as a rollout behind the
-newest one finishes or a node joins, so `ActivateRelease` asks once more before it confirms, and confirms nothing if that
-fails (`useRetryReleases` rejects). An answer being refetched, or whose refetch failed, does not enable an activation.
+newest one finishes or a node joins, so `ActivateRelease` asks once more before it confirms (`useRecheckRelease`). It
+decides on the answer that ask read from the cache, since the props reflect it only a render later, and confirms nothing
+if the ask fails. An answer being refetched, or whose refetch failed, does not enable an activation.
 
 ## Private database copies
 

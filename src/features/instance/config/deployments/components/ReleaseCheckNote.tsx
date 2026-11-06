@@ -14,7 +14,10 @@ const MISSING_REASON: Record<MissingReason, string> = {
 
 const list = (nodes: readonly string[]) => nodes.join(', ');
 
-/** `record`: the deployment that built the release, the only thing that can say why a node has none. */
+/**
+ * `record`: the deployment that built the release, the only thing that can say why a node has none. Offers to ask the
+ * nodes again wherever their answer blocks the activation: it is not asked again on its own.
+ */
 export function ReleaseCheckNote({
 	check,
 	record,
@@ -46,7 +49,14 @@ export function ReleaseCheckNote({
 				</p>
 			);
 		case 'live-everywhere':
-			return showLive ? <p className="text-sm text-muted-foreground">Live on every node.</p> : null;
+			return (
+				<p className="text-sm text-muted-foreground">
+					{showLive && 'Live on every node. '}
+					<button type="button" className="underline" onClick={retry}>
+						Ask the nodes again
+					</button>
+				</p>
+			);
 		case 'available':
 			return (
 				<p className="text-sm text-muted-foreground">
@@ -83,7 +93,6 @@ export function ReleaseCheckNote({
 						))}
 					</ul>
 					<p>
-						{/* What a node holds can change with no new record, and this answer is not asked again on its own. */}
 						<button type="button" className="underline" onClick={retry}>
 							Ask the nodes again
 						</button>

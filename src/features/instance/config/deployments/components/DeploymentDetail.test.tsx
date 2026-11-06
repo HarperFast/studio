@@ -401,10 +401,53 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		);
 
 		fireEvent.click(rollBack()!);
-		expect(await screen.findByText('Live on every node.')).toBeTruthy();
+		expect(await screen.findByText(/^Live on every node\./)).toBeTruthy();
+		await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Checking/ })).toBeNull());
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 		expect(asked()).toBe(before + 1);
 		expect(rollBack()).toBeNull();
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms once the nodes, asked again, still hold it, though the detail shows the ask until a render later', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', ['v2'])],
+		});
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases'
+				? new Promise((resolve) => setTimeout(() => resolve(answer(url, body)), 30))
+				: answer(url, body)
+		);
+
+		fireEvent.click(rollBack()!);
+		expect(await screen.findByText(/Checking which nodes hold this release/)).toBeTruthy();
+		expect(await screen.findByText('Roll web back to this release?')).toBeTruthy();
+	});
+
+	it('asks the nodes again from a release live on every node, and refuses it once a node that joined lacks it', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v2', []), holds('b', 'v2', [])],
+		});
+		const ask = await screen.findByRole('button', { name: 'Ask the nodes again' });
+		expect(rollBack()).toBeNull();
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases'
+				? Promise.resolve({ data: { nodes: [holds('a', 'v2', []), holds('b', 'v2', []), holds('c', 'v3', [])] } })
+				: answer(url, body)
+		);
+
+		fireEvent.click(ask);
+		expect(await screen.findByText(/^c: it isn't kept there/)).toBeTruthy();
+		expect((screen.getByRole('button', { name: /Activate again/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('keeps a failed deploy when no node said what it holds', async () => {
+		renderRecord({ deployment_id: 'v4', project: 'web', status: 'failed' }, { nodes: [] });
+
+		expect(await screen.findByText('No node said which releases it holds.')).toBeTruthy();
 	});
 
 	it('confirms once the nodes, asked again, still hold the release everywhere', async () => {
@@ -422,7 +465,7 @@ describe('DeploymentDetail on Harper 5.4', () => {
 			nodes: [holds('a', 'v3', []), holds('b', 'v3', [])],
 		});
 
-		expect(await screen.findByText('Live on every node.')).toBeTruthy();
+		expect(await screen.findByText(/^Live on every node\./)).toBeTruthy();
 		expect(rollBack()).toBeNull();
 		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
 	});

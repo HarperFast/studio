@@ -143,8 +143,8 @@ describe('ActivateRelease', () => {
 	});
 
 	it('asks again before confirming, and confirms only once the answer is in', async () => {
-		let answer: () => void = () => {};
-		const revalidate = vi.fn(() => new Promise<void>((resolve) => (answer = resolve)));
+		let answer: (allowed: boolean) => void = () => {};
+		const revalidate = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)));
 		render(
 			<QueryClientProvider client={new QueryClient()}>
 				<ActivateRelease project="web" releaseId="d0" intent="rollback" revalidate={revalidate} />
@@ -155,19 +155,22 @@ describe('ActivateRelease', () => {
 		expect(checking.disabled).toBe(true);
 		expect(revalidate).toHaveBeenCalledTimes(1);
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
-		await act(async () => answer());
+		await act(async () => answer(true));
 		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
 	});
 
-	it('confirms nothing when asking again fails, then or once the release is allowed again', async () => {
+	const revalidating = (revalidate: () => Promise<boolean>) => {
 		const queryClient = new QueryClient();
-		const revalidate = vi.fn(() => Promise.reject(new Error('timed out')));
 		const view = (disabled: boolean) => (
 			<QueryClientProvider client={queryClient}>
 				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} revalidate={revalidate} />
 			</QueryClientProvider>
 		);
-		const { rerender } = render(view(false));
+		return { view, ...render(view(false)) };
+	};
+
+	it('confirms nothing when asking again fails, then or once the release is allowed again', async () => {
+		const { view, rerender } = revalidating(() => Promise.reject(new Error('timed out')));
 		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' })));
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
 		rerender(view(true));
@@ -175,21 +178,25 @@ describe('ActivateRelease', () => {
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
 	});
 
-	it('confirms nothing the fresh answer refuses, then or once it is allowed again', async () => {
-		const queryClient = new QueryClient();
-		let answer: () => void = () => {};
-		const revalidate = vi.fn(() => new Promise<void>((resolve) => (answer = resolve)));
-		const view = (disabled: boolean) => (
-			<QueryClientProvider client={queryClient}>
-				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} revalidate={revalidate} />
-			</QueryClientProvider>
-		);
-		const { rerender } = render(view(false));
+	it('confirms nothing the fresh answer refuses, though the release still shows as allowed', async () => {
+		const { view, rerender } = revalidating(() => Promise.resolve(false));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' })));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(true));
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms what the fresh answer allows, though the release still shows as being checked', async () => {
+		let answer: (allowed: boolean) => void = () => {};
+		const { view, rerender } = revalidating(() => new Promise<boolean>((resolve) => (answer = resolve)));
 		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
 		rerender(view(true));
-		await act(async () => answer());
-		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		await act(async () => answer(true));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
 		rerender(view(false));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		rerender(view(true));
 		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
 	});
 

@@ -300,7 +300,7 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 	it('offers nothing for a release live on every node, though the records say a later deploy failed', async () => {
 		state.releases = { nodes: [holding('a', STAGED_ID, []), holding('b', STAGED_ID, [])] };
 		renderDetail([{ ...later, status: 'failed' }, activation, staged]);
-		expect(await screen.findByText('Live on every node.')).toBeTruthy();
+		expect(await screen.findByText(/^Live on every node\./)).toBeTruthy();
 		expect(screen.queryByText(/may not be live everywhere/)).toBeNull();
 		expect(activationButton()).toBeNull();
 	});
@@ -314,6 +314,8 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 
 		fireEvent.click(activationButton()!);
 		expect(await screen.findByText(/^c: it isn't kept there/)).toBeTruthy();
+		await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Checking/ })).toBeNull());
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 		expect(screen.queryByText('Activate this release of hello?')).toBeNull();
 		expect(state.mutateAsync).not.toHaveBeenCalled();

@@ -90,8 +90,15 @@ export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 		const scope = onlyProject === undefined ? [] : [{ project: onlyProject }];
 		const releasesKey = [instanceParams.entityId, 'list_releases'];
 		await queryClient.invalidateQueries({ queryKey: [...releasesKey, ...scope], refetchType: 'none' });
-		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments', ...scope] });
-		const views = queryClient.getQueryCache().findAll({ queryKey: [...releasesKey, ...scope], type: 'active' });
+		const recordsKey = [instanceParams.entityId, 'list_deployments', ...scope];
+		await queryClient.invalidateQueries({ queryKey: recordsKey });
+		const unread = queryClient.getQueryCache().findAll({ queryKey: recordsKey, type: 'active' })
+			.find((query) => query.state.status === 'error');
+		// A view whose records never read is disabled, not gone, and is asked under the generation they now give.
+		const views = queryClient.getQueryCache().findAll({
+			queryKey: [...releasesKey, ...scope],
+			predicate: (query) => query.getObserversCount() > 0,
+		});
 		const asked = await Promise.allSettled(views.map(async (view) => {
 			const [, , { project }, generation] = view.queryKey as ReleasesQueryKey;
 			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
@@ -110,7 +117,31 @@ export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 		if (failed) {
 			throw failed.reason;
 		}
+		if (unread) {
+			throw unread.state.error;
+		}
 	}, [queryClient, instanceParams, onlyProject]);
+}
+
+/**
+ * Asks again as `useRetryReleases` does, then resolves to whether that answer lets every node take `releaseId`. Read
+ * from the cache it just filled, not from a render, which reaches the views a tick later.
+ */
+export function useRecheckRelease(project: string, releaseId: string): () => Promise<boolean> {
+	const queryClient = useQueryClient();
+	const instanceParams = useInstanceClientIdParams();
+	const retry = useRetryReleases(project);
+	return useCallback(async () => {
+		await retry();
+		const records = queryClient.getQueryData(newestRecordQuery(instanceParams, project).queryKey);
+		if (!records) {
+			throw new Error(`The deployments of ${project} could not be read.`);
+		}
+		const answer = await queryClient.fetchQuery(
+			getReleasesQueryOptions({ ...instanceParams, project, generation: recordsGeneration(records) }),
+		);
+		return releaseAvailability(summarizeReleases(answer, project), releaseId).kind === 'available';
+	}, [queryClient, instanceParams, retry, project, releaseId]);
 }
 
 export type ReleaseCheck =

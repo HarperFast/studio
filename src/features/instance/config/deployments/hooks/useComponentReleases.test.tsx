@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
-import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
+import { focusManager, onlineManager, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +18,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 	useReleaseTrackingAvailable: () => true,
 }));
 
-import { useComponentReleases, useReleaseCheck, useRetryReleases } from './useComponentReleases';
+import { useComponentReleases, useRecheckRelease, useReleaseCheck, useRetryReleases } from './useComponentReleases';
 
 const answer = { nodes: [{ node: 'a', components: [{ project: 'web', deployment_id: 'v3', releases: [] }] }] };
 
@@ -141,6 +142,86 @@ describe('useComponentReleases', () => {
 		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
 		await expect(state.retried).rejects.toThrow('timed out');
 		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+	});
+
+	it('fails a retry whose read of the deployments failed, though no view asks the nodes', async () => {
+		function Table() {
+			const { status } = useQuery(getDeploymentsQueryOptions({ ...clusterA, limit: 25 } as never));
+			return <div data-testid="table">{status}</div>;
+		}
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<Table />
+				<Retry />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() => expect(screen.getByTestId('table').textContent).toBe('success'));
+		const answer = state.post.getMockImplementation()!;
+		state.post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_deployments' ? Promise.reject(new Error('bad gateway')) : answer(url, body)
+		);
+		try {
+			await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+			await expect(state.retried).rejects.toThrow('bad gateway');
+		} finally {
+			state.post.mockImplementation(answer);
+		}
+	});
+
+	it('asks, and waits on, a view whose records had never read, once a retry reads them', async () => {
+		const answer = state.post.getMockImplementation()!;
+		state.post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_deployments' ? Promise.reject(new Error('bad gateway')) : answer(url, body)
+		);
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<Detail />
+				<Retry />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+		state.post.mockImplementation(answer);
+		let asked = -1;
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		await state.retried!.then(() => (asked = releaseCalls()));
+		expect(asked).toBe(1);
+	});
+
+	it.each([
+		['refuses a release live on every node', answer, false],
+		['refuses a release some node lacks', {
+			nodes: [
+				{ node: 'a', components: [{ project: 'web', deployment_id: 'v4', releases: [] }] },
+			],
+		}, false],
+		['allows a release every node holds', {
+			nodes: [
+				{
+					node: 'a',
+					components: [{
+						project: 'web',
+						deployment_id: 'v4',
+						releases: [{ deployment_id: 'v3', state: 'kept', at: 1, size: 1 }],
+					}],
+				},
+			],
+		}, true],
+	])('rechecks from what the nodes answer now: %s', async (_name, now, allowed) => {
+		let verdict: Promise<boolean> | undefined;
+		function Recheck() {
+			const recheck = useRecheckRelease('web', 'v3');
+			return <button type="button" onClick={() => (verdict = recheck())}>recheck</button>;
+		}
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<Detail />
+				<Recheck />
+			</QueryClientProvider>,
+		);
+		await screen.findByText('live-everywhere');
+		state.releases.push(() => Promise.resolve({ data: now }));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'recheck' })));
+		await expect(verdict).resolves.toBe(allowed);
 	});
 
 	it('succeeds once the nodes answered every view again', async () => {
