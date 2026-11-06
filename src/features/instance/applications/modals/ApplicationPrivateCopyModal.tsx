@@ -354,6 +354,12 @@ export function ApplicationPrivateCopyModal() {
 										{project}&apos;s files first, so the files Studio packages are the ones you mean.
 									</p>
 								)}
+								{!current.readable && (
+									<p role="alert" className="text-sm text-warning">
+										Your role can&apos;t read the configuration, so Studio can&apos;t see{' '}
+										{project}&apos;s current setting or confirm a change to it.
+									</p>
+								)}
 								{current.failed && (
 									<p role="alert" className="text-sm text-warning">
 										Studio couldn&apos;t read this application&apos;s current setting.{' '}

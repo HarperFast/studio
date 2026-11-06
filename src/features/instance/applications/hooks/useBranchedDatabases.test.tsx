@@ -326,10 +326,12 @@ describe('invalidateApplicationConfiguration', () => {
 		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
 		const { result, queryClient } = renderCurrent();
 		await waitFor(() => expect(result.current.known).toBe(true));
+		// The read's last render lands after `known` turns true, and would hide an invalidation nothing re-renders for.
+		await act(() => new Promise(resolve => setTimeout(resolve, 50)));
 
 		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1', { refetch: false }));
 
-		expect(queryClient.getQueryState(['get_configuration', 'ins-1'])?.isInvalidated).toBe(true);
+		expect(result.current.known).toBe(false);
 		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 });

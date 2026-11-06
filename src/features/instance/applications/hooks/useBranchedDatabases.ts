@@ -13,6 +13,7 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import { retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { Query, QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
+import { useCallback, useSyncExternalStore } from 'react';
 
 function useHarperVersion(enabled: boolean): string | undefined {
 	const params = useInstanceClientIdParams();
@@ -135,8 +136,13 @@ export function useApplicationsBranchedDatabases(projects: readonly string[]): A
 	});
 	const refused = enabled
 		&& isRefusedNow(queryClient.getQueryCache().find({ queryKey: options.queryKey, exact: true }));
-	// A failed read marks the query invalidated too, so only a successful read clears it.
-	const known = enabled && isSuccess && !queryClient.getQueryState(options.queryKey)?.isInvalidated;
+	// Subscribed, since an invalidation that doesn't refetch changes nothing `useQuery` re-renders for. A failed read
+	// marks the query invalidated too, so only a successful read clears it.
+	const isInvalidated = useSyncExternalStore(
+		useCallback(onChange => queryClient.getQueryCache().subscribe(onChange), [queryClient]),
+		() => !!queryClient.getQueryState(options.queryKey)?.isInvalidated,
+	);
+	const known = enabled && isSuccess && !isInvalidated;
 	const failed = enabled && !known && !refused && isError && fetchStatus === 'idle';
 	return {
 		settings: (enabled && data) || NO_SETTINGS,

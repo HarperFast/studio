@@ -225,6 +225,11 @@ describe('ApplicationPrivateCopyModal', () => {
 		['for an application deployed from a package', () => (mocks.hasPackage = true), /deployed from a package/],
 		['while one of its files has unsaved changes', () => (mocks.unsavedEdits = true), /Save or revert/],
 		['while a file is saving', () => (mocks.editor.isSavingAnyFile = true), /Save or revert/],
+		[
+			"when the role can't read the setting",
+			() => (mocks.current = { ...mocks.current, readable: false, known: false, loading: false }),
+			/can't read the configuration/,
+		],
 	])('refuses %s, and says why', async (_, arrange, why) => {
 		arrange();
 		await renderOpenModal();

@@ -4,6 +4,7 @@ import {
 	resolveInstanceConnection,
 	ResolveInstanceConnectionParams,
 } from '@/integrations/api/sse/resolveInstanceConnection';
+import { anySignal, timeoutSignal } from '@/lib/abortSignals';
 import { useMutation } from '@tanstack/react-query';
 
 interface PackageComponentParams {
@@ -63,29 +64,34 @@ export async function fetchComponentArchive({
 	if (mode === 'proxy') {
 		throw new Error('Packaging an application for a deploy needs a direct connection, not Fabric Connect.');
 	}
-	const response = await fetch(url, {
-		method: 'POST',
-		headers: { ...headers, Accept: 'application/octet-stream' },
-		credentials,
-		body: JSON.stringify({
-			operation: 'package_component',
-			project,
-			skip_node_modules: skipNodeModules,
-			stream: true,
-		}),
-		signal: signal
-			? AbortSignal.any([signal, AbortSignal.timeout(ARCHIVE_TIMEOUT_MS)])
-			: AbortSignal.timeout(ARCHIVE_TIMEOUT_MS),
-	});
-	if (!response.ok) {
-		const refusal = await readResponseRefusal(response);
-		throw new HarperRefusalError(refusal ?? `Harper couldn't package ${project} (status ${response.status}).`);
+	const deadline = timeoutSignal(ARCHIVE_TIMEOUT_MS);
+	const combined = anySignal([signal, deadline.signal]);
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: { ...headers, Accept: 'application/octet-stream' },
+			credentials,
+			body: JSON.stringify({
+				operation: 'package_component',
+				project,
+				skip_node_modules: skipNodeModules,
+				stream: true,
+			}),
+			signal: combined.signal,
+		});
+		if (!response.ok) {
+			const refusal = await readResponseRefusal(response);
+			throw new HarperRefusalError(refusal ?? `Harper couldn't package ${project} (status ${response.status}).`);
+		}
+		if ((response.headers.get('content-type') ?? '').includes('application/json')) {
+			await response.body?.cancel().catch(() => {});
+			throw new Error(`Harper answered with JSON rather than an archive of ${project}.`);
+		}
+		return await response.blob();
+	} finally {
+		deadline.cleanup();
+		combined.cleanup();
 	}
-	if ((response.headers.get('content-type') ?? '').includes('application/json')) {
-		await response.body?.cancel().catch(() => {});
-		throw new Error(`Harper answered with JSON rather than an archive of ${project}.`);
-	}
-	return response.blob();
 }
 
 export function usePackageComponentMutation() {

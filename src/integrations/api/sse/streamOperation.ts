@@ -1,4 +1,5 @@
 import { readResponseRefusal } from '@/integrations/api/readResponseRefusal';
+import { anySignal } from '@/lib/abortSignals';
 import { errorText } from '@/lib/errorText';
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from './errors';
 import { parseSSEData, parseSSEStream, SSEMessage } from './parseSSEStream';
@@ -189,41 +190,4 @@ export async function streamOperation({
 		// signal, so short-lived stream calls don't accumulate listeners on it.
 		cleanupSignal();
 	}
-}
-
-/**
- * Combine multiple `AbortSignal`s into one that aborts when any input does, plus a `cleanup`
- * to detach any listeners it attached. Uses the native `AbortSignal.any` when available
- * (modern browsers / Node 20+) — which manages its own listeners — and falls back to manual
- * wiring (with real cleanup) otherwise.
- */
-function anySignal(signals: Array<AbortSignal | undefined>): { signal: AbortSignal; cleanup: () => void } {
-	const noop = () => {};
-	const real = signals.filter((s): s is AbortSignal => !!s);
-	if (real.length === 1) {
-		return { signal: real[0], cleanup: noop };
-	}
-	if (typeof AbortSignal.any === 'function') {
-		return { signal: AbortSignal.any(real), cleanup: noop };
-	}
-	const controller = new AbortController();
-	// Function declarations (hoisted) so onAbort and cleanup can reference each other.
-	function cleanup() {
-		for (const s of real) {
-			s.removeEventListener('abort', onAbort);
-		}
-	}
-	function onAbort(event: Event) {
-		controller.abort((event.target as AbortSignal).reason);
-		cleanup();
-	}
-	for (const s of real) {
-		if (s.aborted) {
-			controller.abort(s.reason);
-			cleanup();
-			break;
-		}
-		s.addEventListener('abort', onAbort);
-	}
-	return { signal: controller.signal, cleanup };
 }

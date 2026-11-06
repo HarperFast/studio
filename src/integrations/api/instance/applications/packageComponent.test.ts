@@ -57,6 +57,35 @@ describe('fetchComponentArchive', () => {
 		expect(await pending).toMatchObject({ message: 'closed' });
 	});
 
+	it("keeps its deadline and the caller's abort in a browser without AbortSignal.any or AbortSignal.timeout", async () => {
+		const { any, timeout } = AbortSignal;
+		Object.assign(AbortSignal, { any: undefined, timeout: undefined });
+		vi.useFakeTimers();
+		try {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init: RequestInit) =>
+					new Promise((_resolve, reject) => {
+						init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+					})
+				),
+			);
+			const timedOut = fetchComponentArchive({ ...args, signal: new AbortController().signal }).catch((
+				caught: unknown,
+			) => caught);
+			await vi.advanceTimersByTimeAsync(300_000);
+			expect(await timedOut).toMatchObject({ name: 'TimeoutError' });
+
+			const caller = new AbortController();
+			const closed = fetchComponentArchive({ ...args, signal: caller.signal }).catch((caught: unknown) => caught);
+			caller.abort(new Error('closed'));
+			expect(await closed).toMatchObject({ message: 'closed' });
+		} finally {
+			vi.useRealTimers();
+			Object.assign(AbortSignal, { any, timeout });
+		}
+	});
+
 	it('refuses Fabric Connect before any request', async () => {
 		connection.mode = 'proxy';
 		const fetchMock = vi.fn();
