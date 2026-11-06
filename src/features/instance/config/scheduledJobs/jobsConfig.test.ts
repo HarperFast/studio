@@ -96,6 +96,8 @@ describe('readAppJobs', () => {
 		['- name: a\n      handler: ./a.js', /exactly one of cron or interval/],
 		['- name: a\n      cron: "@daily"\n      interval: 5m\n      handler: ./a.js', /exactly one of cron or interval/],
 		['- name: a\n      cron: "@daily"', /needs a handler/],
+		['- name: a\n      cron: "@daily"\n      handler: ./a.js#', /an export name after #/],
+		['- name: a\n      cron: "@daily"\n      handler: "#run"', /needs a file/],
 		['- name: a\n      cron:\n      handler: ./a.js', /cron must be text, not empty/],
 		['- name: a\n      cron: "0 0 30 2 *"\n      handler: ./a.js', /can never fire/],
 		['- name: a\n      cron: "@daily"\n      timezone: Mars/Olympus\n      handler: ./a.js', /Unknown timezone/],

@@ -177,6 +177,12 @@ describe('JobDialog', () => {
 		await waitFor(() => expect(submit().disabled).toBe(false));
 	});
 
+	it('opens a job Harper would refuse with its error showing', async () => {
+		renderDialog(true, CONFIG.replace('interval: 10s', "cron: '0 0 30 2 *'"));
+		expect(await screen.findByText('Cron expression "0 0 30 2 *" can never fire')).toBeTruthy();
+		expect(submit().disabled).toBe(true);
+	});
+
 	it('lets a job Harper would refuse be saved as the form already fixes it', async () => {
 		renderDialog(true, CONFIG.replace('      handler:', '      timeZone: UTC\n      handler:'));
 		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());

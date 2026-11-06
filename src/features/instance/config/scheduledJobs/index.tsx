@@ -95,16 +95,20 @@ function Leader({ sources }: { sources: RunSources }) {
 		if (!leader?.leaderNode) {
 			return <p className="text-sm text-muted-foreground">No node has started running jobs yet.</p>;
 		}
-		const stale = !leader.lastHeartbeat || Date.now() - Date.parse(leader.lastHeartbeat) > STALE_HEARTBEAT_MS;
+		const checkedIn = leader.lastHeartbeat ? Date.parse(leader.lastHeartbeat) : NaN;
+		// Harper treats a missing or unreadable heartbeat as stale too (`isHeartbeatStale`).
+		const stale = Number.isNaN(checkedIn) || Date.now() - checkedIn > STALE_HEARTBEAT_MS;
 		return (
 			<p className={stale ? 'text-sm text-red' : 'text-sm text-muted-foreground'}>
 				Jobs run on <span className="font-medium text-foreground">{leader.leaderNode}</span>
-				{leader.lastHeartbeat && (
-					<>
-						, which last checked in <SentenceTime value={leader.lastHeartbeat} />
-					</>
-				)}
-				.{stale && ' That’s longer than Harper waits before another node takes over.'}
+				{Number.isNaN(checkedIn)
+					? ', which hasn’t recorded a check-in, so another node may take over.'
+					: (
+						<>
+							, which last checked in <SentenceTime value={leader.lastHeartbeat!} />
+							.{stale && ' That’s longer than Harper waits before another node takes over.'}
+						</>
+					)}
 			</p>
 		);
 	}

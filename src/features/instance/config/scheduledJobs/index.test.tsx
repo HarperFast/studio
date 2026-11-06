@@ -29,6 +29,7 @@ const { state, post, restart } = vi.hoisted(() => {
 		writeAnswerLost: false,
 		logFails: false,
 		restartRequired: false,
+		garbledTimes: false,
 		entityId: 'instance-1',
 	};
 	const post = vi.fn();
@@ -115,11 +116,15 @@ function answer(body: Record<string, unknown>) {
 				{
 					id: 'job:metrics-app:sync-rates',
 					firstSeenAt: '2026-11-05T22:19:29.746Z',
-					lastRunAt: '2026-11-05T22:20:29.753Z',
+					lastRunAt: state.garbledTimes ? 'not a time' : '2026-11-05T22:20:29.753Z',
 					lastStatus: 'success',
 					lastDurationMs: 26,
 				},
-				{ id: 'leader', leaderNode: 'node-c', lastHeartbeat: new Date().toISOString() },
+				{
+					id: 'leader',
+					leaderNode: 'node-c',
+					lastHeartbeat: state.garbledTimes ? 'garbled' : new Date().toISOString(),
+				},
 			];
 		case 'get_status':
 			return { restartRequired: state.restartRequired };
@@ -172,6 +177,7 @@ beforeEach(() => {
 		writeAnswerLost: false,
 		logFails: false,
 		restartRequired: false,
+		garbledTimes: false,
 		entityId: 'instance-1',
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
@@ -263,6 +269,14 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(await screen.findByText(/Studio couldn’t read each job’s last run/)).toBeTruthy();
 		expect(within(card).queryByText('Succeeded')).toBeNull();
 		expect(within(card).getAllByRole('row')[0].textContent).toContain('Last failure');
+	});
+
+	it('survives timestamps it cannot read', async () => {
+		state.version = '5.4.0-beta.2';
+		state.garbledTimes = true;
+		renderPage();
+		expect(await screen.findByText('at an unreadable time')).toBeTruthy();
+		expect(screen.getByText(/hasn’t recorded a check-in/)).toBeTruthy();
 	});
 
 	it('falls back to the log when the state read fails', async () => {

@@ -63,6 +63,9 @@ function entryProblem(entry: unknown): string | undefined {
 	if (typeof job.handler !== 'string' || job.handler.length === 0) {
 		return 'A job needs a handler, like ./jobs.ts#myExport.';
 	}
+	if (job.handler.startsWith('#') || job.handler.endsWith('#')) {
+		return 'A handler needs a file, and an export name after # if it has one, like ./jobs.ts#myExport.';
+	}
 	if (job.cron !== undefined) {
 		if (typeof job.cron !== 'string') {
 			return `cron must be text, not ${describeValue(job.cron)}.`;

@@ -26,6 +26,13 @@ export interface RunSources {
 	logFailed: boolean;
 }
 
+/** The shared Timestamp throws on an invalid date, and a bad value from Harper must not take the page down. */
+function RunTime({ value }: { value: string }) {
+	return Number.isNaN(Date.parse(value))
+		? <span className="text-xs text-muted-foreground">at an unreadable time</span>
+		: <Timestamp value={value} format="relative" />;
+}
+
 function JobSchedule({ job }: { job: ScheduledJobConfig }) {
 	if (job.cron !== undefined) {
 		return (
@@ -55,7 +62,7 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 			<span className="space-y-1">
 				<span className="flex flex-wrap items-center gap-2">
 					<Badge variant={failed ? 'destructive' : 'success'}>{failed ? 'Failed' : 'Succeeded'}</Badge>
-					<Timestamp value={run.lastRunAt} format="relative" />
+					<RunTime value={run.lastRunAt} />
 					{typeof run.lastDurationMs === 'number' && (
 						<span className="text-xs text-muted-foreground">took {formatDuration(run.lastDurationMs)}</span>
 					)}
@@ -83,7 +90,7 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 		<span className="space-y-1">
 			<span className="flex flex-wrap items-center gap-2">
 				<Badge variant="destructive">Failed</Badge>
-				<Timestamp value={failure.at} format="relative" />
+				<RunTime value={failure.at} />
 				<span className="text-xs text-muted-foreground">
 					took {formatDuration(failure.durationMs)}
 					{failure.node ? ` on ${failure.node}` : ''}
