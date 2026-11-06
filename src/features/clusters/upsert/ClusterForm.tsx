@@ -25,7 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { CreditCard, Server } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -272,14 +272,15 @@ export function ClusterForm({
 	// (an upgrade ending part way), an untouched picker follows it, so a re-run targets that version; a choice the user
 	// made stays.
 	const defaultVersion = defaultValues?.version;
-	const versionTouched = !!form.formState.dirtyFields.version;
+	const followedVersion = useRef(defaultVersion);
+	// Read during render so the form tracks the field's dirty state for the effect below.
+	void form.formState.dirtyFields;
 	useEffect(() => {
-		if (mode === 'version' && !versionTouched && form.getValues('version') !== defaultVersion) {
-			// resetField moves the default the form compares against; it leaves the value alone while no picker is rendered.
-			form.resetField('version', { defaultValue: defaultVersion });
-			form.setValue('version', defaultVersion);
-		}
-	}, [defaultVersion, form, mode, versionTouched]);
+		if (mode !== 'version' || followedVersion.current === defaultVersion) { return; }
+		followedVersion.current = defaultVersion;
+		// `reset` rather than `resetField`, which ignores an undefined default (an ambiguous target).
+		if (!form.getFieldState('version').isDirty) { form.reset({ ...form.getValues(), version: defaultVersion }); }
+	}, [defaultVersion, form, mode]);
 
 	const [firstTime, setFirstTime] = useState(true);
 	useEffect(() => {

@@ -55,21 +55,20 @@ export function ClusterWorkflowNotice(
 	});
 	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const lagging = !held && !!cluster && !!detectPartialUpgrade(cluster.instances ?? []);
-	// Versions pinned to the organization decide whether the lagging instances have a known target, as on the Version page.
+	// Versions pinned to the organization decide whether the lagging instances have a known target, as on the Version
+	// page. Without them the target is unknown too.
 	const versions = useQuery({
 		...getHarperVersionsOptions(organizationId ?? ''),
 		enabled: lagging && !!organizationId,
 	});
-	const partial = useMemo(
-		() =>
-			lagging && cluster && !versions.isPending
-				? detectPartialUpgrade(
-					cluster.instances ?? [],
-					(versions.data?.value ?? []).filter((v) => v.scoped).map((v) => v.version),
-				)
-				: null,
-		[lagging, cluster, versions.isPending, versions.data],
-	);
+	const partial = useMemo(() => {
+		if (!lagging || !cluster || versions.isPending) { return null; }
+		const found = detectPartialUpgrade(
+			cluster.instances ?? [],
+			(versions.data?.value ?? []).filter((v) => v.scoped).map((v) => v.version),
+		);
+		return found && versions.isError ? { ...found, ambiguous: true } : found;
+	}, [lagging, cluster, versions.isPending, versions.isError, versions.data]);
 	const canReadWorkflows = useStaffPermission('workflow:read');
 	const { data: row } = useQuery({
 		...heldClusterWorkflowQueryOptions(clusterId, workflowId),
@@ -162,7 +161,6 @@ export function ClusterWorkflowNotice(
 	);
 }
 
-/** The failed instances by name, else central manager's own words; null when it gave neither. */
 function failureFacts(workflow: ClusterWorkflow, instanceName: (id: string) => string): string | null {
 	const failed = workflow.failedInstanceIds;
 	if (failed.length === 1) { return `Instance ${instanceName(failed[0])} didn’t finish updating.`; }

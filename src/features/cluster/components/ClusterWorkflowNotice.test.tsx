@@ -66,11 +66,16 @@ const instances = [
 /** Customer reads answer `row` (a function of the call count, if it changes); the cluster is held by `heldBy`. */
 const customerSees = (
 	row: Partial<ClusterWorkflow> | null | ((call: number) => Partial<ClusterWorkflow>),
-	{ heldBy = 'wf-1' as string | null, clusterInstances = instances as unknown[], pinned = [] as string[] } = {},
+	{
+		heldBy = 'wf-1' as string | null,
+		clusterInstances = instances as unknown[],
+		pinned = [] as string[] | null,
+	} = {},
 ) => {
 	let calls = 0;
 	mockedGet.mockImplementation(async (url: string) => {
 		if (String(url) === '/HarperVersions/') {
+			if (!pinned) { throw new AxiosError('Request failed with status code 503'); }
 			return { data: { value: pinned.map((version) => ({ name: `org-${version}`, version, scoped: true })) } };
 		}
 		if (isCustomerRead(url)) {
@@ -349,6 +354,12 @@ describe('ClusterWorkflowNotice', () => {
 			renderNotice(null);
 			expect(await screen.findByText(/1 of 2 instances run a different version from the rest/)).toBeTruthy();
 			expect(screen.getByRole('link', { name: 'Choose a version on the Version page' })).toBeTruthy();
+		});
+
+		it('names no target when the pinned versions can’t be read', async () => {
+			customerSees(ended, { heldBy: null, pinned: null });
+			renderNotice(null);
+			expect(await screen.findByText(/1 of 2 instances run a different version from the rest/)).toBeTruthy();
 		});
 
 		it('shows staff the same, since nothing holds the cluster', async () => {

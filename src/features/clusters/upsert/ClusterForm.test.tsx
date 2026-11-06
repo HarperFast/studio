@@ -151,6 +151,27 @@ describe('ClusterForm — the version picker', () => {
 	});
 });
 
+describe('ClusterForm — the version picker, through an ambiguous target', () => {
+	it('clears for an unknown target, then follows the next known one', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const queryClient = newQueryClient();
+		const { findByRole, rerender } = render(versionForm('5.0.2', queryClient));
+		await findByRole('button', { name: /Edit Cluster/ });
+
+		rerender(versionForm(undefined as unknown as string, queryClient));
+		rerender(versionForm('5.0.3', queryClient));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+		fireEvent.click(submit);
+
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/Cluster/clu-1', expect.objectContaining({ version: '5.0.3' }), {
+				timeout: 0,
+			})
+		);
+	});
+});
+
 describe('ClusterForm — payment review', () => {
 	it('sends a draft that is no longer valid back to the details instead of submitting it', async () => {
 		const queryClient = newQueryClient();
