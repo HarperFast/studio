@@ -15,6 +15,7 @@ export interface WatchedValuesTypeMap {
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowDownloadApplicationModal: boolean;
 	ShowRedeployApplicationModal: boolean;
+	ShowApplicationPrivateCopyModal: boolean;
 	ShowRenameFileModal: boolean;
 	// Database/table action triggers carry their target in the payload so the (single, always-mounted)
 	// modal hub can act on any tree item -- not just the currently-open table. `false` means "closed".

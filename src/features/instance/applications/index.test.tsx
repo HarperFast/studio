@@ -13,6 +13,7 @@ vi.mock('./context/EditorViewProvider', () => ({
 	EditorViewProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock('./modals/AddDirectoryOrFileModal', () => ({ AddDirectoryOrFileModal: () => null }));
+vi.mock('./modals/ApplicationPrivateCopyModal', () => ({ ApplicationPrivateCopyModal: () => null }));
 vi.mock('./modals/DeleteDirectoryOrFileModal', () => ({ DeleteDirectoryOrFileModal: () => null }));
 vi.mock('./modals/DownloadApplicationModal', () => ({ DownloadApplicationModal: () => null }));
 vi.mock('./modals/OverwriteConfirmModal', () => ({ OverwriteConfirmModal: () => null }));

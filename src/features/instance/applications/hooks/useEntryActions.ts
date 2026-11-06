@@ -2,6 +2,7 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { isProtectedEntry } from '@/features/instance/applications/context/isProtectedComponentPackage';
+import { usePayloadBranchedDatabasesAvailable } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 
 export interface EntryActions {
@@ -19,6 +20,7 @@ export interface EntryActions {
 	canDownload: boolean;
 	/** Imported read-only package that can be redeployed. */
 	canRedeploy: boolean;
+	canChangePrivateCopy: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export interface EntryActions {
  */
 export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): EntryActions {
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	const payloadBranchesAvailable = usePayloadBranchedDatabasesAvailable();
 
 	const isReadOnlyPackage = !!entry?.package;
 	const isProtected = isProtectedEntry(entry);
@@ -41,6 +44,16 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	const canDeleteEntry = !!entry && !isProtected && canManageBrowseInstance;
 	const canDownload = isApplicationRoot;
 	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !isProtected;
+	const canChangePrivateCopy = isApplicationRoot && !isReadOnlyPackage && !isProtected && payloadBranchesAvailable;
 
-	return { canEditFile, canRename, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy };
+	return {
+		canEditFile,
+		canRename,
+		canAddEntries,
+		canAddTable,
+		canDeleteEntry,
+		canDownload,
+		canRedeploy,
+		canChangePrivateCopy,
+	};
 }
