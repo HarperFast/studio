@@ -83,6 +83,8 @@ describe('readAppJobs', () => {
 		expect(readAppJobs(aliasedList)).toMatchObject({ editable: false });
 		expect(readAppJobs('empty: &e\nscheduler: *e\n')).toMatchObject({ editable: false, jobs: [] });
 		expect(readAppJobs('none: &n\nscheduler:\n  jobs: *n\n')).toMatchObject({ editable: false, jobs: [] });
+		const sharedEntry = 'scheduler:\n  jobs:\n    - &one { name: a, interval: 5m, handler: ./a.js }\n    - *one\n';
+		expect(readAppJobs(sharedEntry)).toMatchObject({ editable: false });
 		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
 			jobs: [],
 			editable: false,

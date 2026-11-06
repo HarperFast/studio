@@ -218,12 +218,12 @@ export function JobDialog({
 	const resolver = useMemo(() => zodResolver(jobFormSchema(config, job, app.files)), [app.files, config, job]);
 	const form = useForm<JobFormValues>({ resolver, mode: 'onTouched', defaultValues: initialValues(job, app.files) });
 	const { isDirty, isValid } = form.formState;
-	// A job Harper would refuse opens with its errors showing, rather than a disabled Save and no reason.
+	// An edited job opens with any errors showing, rather than a disabled Save and no reason.
 	useEffect(() => {
-		if (job?.problem) {
+		if (job) {
 			void form.trigger();
 		}
-	}, [form, job?.problem]);
+	}, [form, job]);
 	const kind = useWatch({ control: form.control, name: 'kind' });
 	const file = useWatch({ control: form.control, name: 'file' });
 	const exportName = useWatch({ control: form.control, name: 'exportName' });

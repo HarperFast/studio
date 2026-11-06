@@ -130,7 +130,9 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 	const read = readSchedulerValue(config?.scheduler);
 	// The data reads through an alias, empty or not, but an edit works on the nodes, which would be the alias itself.
 	const schedulerNode = doc.get('scheduler', true);
-	const aliased = isAlias(schedulerNode) || (isMap(schedulerNode) && isAlias(schedulerNode.get('jobs', true)));
+	const jobsNode = isMap(schedulerNode) ? schedulerNode.get('jobs', true) : undefined;
+	const aliased = isAlias(schedulerNode) || isAlias(jobsNode)
+		|| (isSeq(jobsNode) && jobsNode.items.some((item) => isAlias(item) || (isMap(item) && !!item.anchor)));
 	return aliased
 		? {
 			...read,

@@ -177,6 +177,11 @@ describe('JobDialog', () => {
 		await waitFor(() => expect(submit().disabled).toBe(false));
 	});
 
+	it('opens a job whose handler file is gone with that error showing', async () => {
+		renderDialog(true, CONFIG.replace('./jobs.js#syncRates', './gone.js#syncRates'));
+		expect(await screen.findByText('This app has no such file.')).toBeTruthy();
+	});
+
 	it('opens a job Harper would refuse with its error showing', async () => {
 		renderDialog(true, CONFIG.replace('interval: 10s', "cron: '0 0 30 2 *'"));
 		expect(await screen.findByText('Cron expression "0 0 30 2 *" can never fire')).toBeTruthy();
