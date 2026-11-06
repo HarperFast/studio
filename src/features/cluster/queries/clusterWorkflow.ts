@@ -17,12 +17,9 @@ export interface ClusterWorkflow {
 	status: string;
 	phase?: string | null;
 	pause?: { reason?: string | null; at?: string | null } | null;
-	/** Instances whose update didn't finish. */
 	failedInstanceIds: string[];
-	/** Central manager's explanation of a failure. */
 	message?: string | null;
 	acceptedCommands: ClusterWorkflowCommand[];
-	/** A command sent but not yet picked up. */
 	command?: { action?: string | null; at?: string | null } | null;
 }
 
