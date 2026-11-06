@@ -16,7 +16,7 @@ import { useDeploymentStream } from '@/features/instance/applications/components
 import {
 	invalidateApplicationConfiguration,
 	useApplicationBranchedDatabases,
-	useBranchedDatabasesAvailable,
+	useBranchedDatabasesReadable,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useDeploymentRecordAction } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
@@ -69,8 +69,8 @@ export function ActivateStagedRelease({
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
 	const { project, deployment_id: deploymentId } = deployment;
-	const canBranch = useBranchedDatabasesAvailable();
-	const currentBranches = useApplicationBranchedDatabases(canBranch ? project : undefined);
+	const canReadBranches = useBranchedDatabasesReadable();
+	const currentBranches = useApplicationBranchedDatabases(canReadBranches ? project : undefined);
 	// Keyed so a detail closed and reopened mid-rollout still knows this release is being activated.
 	const mutationKey = useMemo(() => activationMutationKey(instanceParams.entityId, deploymentId), [
 		instanceParams.entityId,

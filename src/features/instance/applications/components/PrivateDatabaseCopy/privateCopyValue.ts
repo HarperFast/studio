@@ -28,6 +28,14 @@ export function privateCopyToSetting(value: PrivateCopyValue): BranchedDatabases
 	return undefined;
 }
 
+/**
+ * What a payload deploy sends: Off is `[]`, because a payload deploy keeps the entry's current value when the key is
+ * left out, and Harper refuses `null` and `false`.
+ */
+export function privateCopyToPayloadSetting(value: PrivateCopyValue): BranchedDatabases {
+	return privateCopyToSetting(value) ?? [];
+}
+
 /** Choosing no databases would deploy with the copy off, the opposite of what was asked, so it can't be submitted. */
 export function privateCopyError(value: PrivateCopyValue): string | undefined {
 	return value.mode === 'chosen' && !value.databases.length ? 'Choose at least one database.' : undefined;

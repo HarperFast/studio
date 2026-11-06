@@ -32,6 +32,7 @@ import {
 	ArrowRightIcon,
 	CaseSensitiveIcon,
 	ChevronDownIcon,
+	DatabaseIcon,
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
@@ -104,6 +105,7 @@ export function ContentActions({
 	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
 	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
+	const onPrivateCopyClick = useSetWatchedValue('ShowApplicationPrivateCopyModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
 	const onNewTableClick = useEmitToListeners('AddSchemaTable', true);
@@ -149,8 +151,16 @@ export function ContentActions({
 
 	// Which actions apply to what is open — drives both the menu items and
 	// whether each parent menu appears at all. Shared with the sidebar context menu.
-	const { canEditFile, canRename, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy } =
-		useEntryActions(openedEntry);
+	const {
+		canEditFile,
+		canRename,
+		canAddEntries,
+		canAddTable,
+		canDeleteEntry,
+		canDownload,
+		canRedeploy,
+		canChangePrivateCopy,
+	} = useEntryActions(openedEntry);
 
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
@@ -407,11 +417,19 @@ export function ContentActions({
 										Restart
 									</DropdownMenuItem>
 								)}
-								{(canDownload || canManageBrowseInstance) && canRedeploy && <DropdownMenuSeparator />}
+								{(canDownload || canManageBrowseInstance) && (canRedeploy || canChangePrivateCopy) && (
+									<DropdownMenuSeparator />
+								)}
 								{canRedeploy && (
 									<DropdownMenuItem onSelect={onRedeployClick}>
 										<PackageIcon />
 										Redeploy Package
+									</DropdownMenuItem>
+								)}
+								{canChangePrivateCopy && (
+									<DropdownMenuItem onSelect={onPrivateCopyClick}>
+										<DatabaseIcon />
+										Private Database Copy…
 									</DropdownMenuItem>
 								)}
 								{deploymentsProject && (
