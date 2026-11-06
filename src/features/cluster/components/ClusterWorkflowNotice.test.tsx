@@ -5,7 +5,7 @@ import { apiClient } from '@/config/apiClient';
 import type { WorkflowRow } from '@/features/admin/workflows/workflowAdminApi';
 import type { ClusterWorkflow } from '@/features/cluster/queries/clusterWorkflow';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClusterWorkflowNotice } from './ClusterWorkflowNotice';
@@ -13,7 +13,6 @@ import { ClusterWorkflowNotice } from './ClusterWorkflowNotice';
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }));
 const mockedGet = vi.mocked(apiClient.get);
 const mockedPost = vi.mocked(apiClient.post);
-vi.mock('sonner', () => ({ toast: { success: vi.fn() } }));
 const perms = vi.hoisted(() => ({ update: true }));
 vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterPermissions: () => perms }));
 
@@ -57,7 +56,6 @@ const stopped: ClusterWorkflow = {
 	phase: 'run',
 	pause: { reason: 'unknown' },
 	failedInstanceIds: ['ins-2'],
-	acceptedCommands: ['retry', 'abandon'],
 };
 const instances = [
 	{ id: 'ins-1', name: 'us-1.dc.example.dev', status: 'RUNNING', version: '5.3.2' },
@@ -65,14 +63,13 @@ const instances = [
 ];
 /** Customer reads answer `row` (a function of the call count, if it changes); the cluster is held by `heldBy`. */
 const customerSees = (
-	row: Partial<ClusterWorkflow> | null | ((call: number) => Partial<ClusterWorkflow>),
+	row: Partial<ClusterWorkflow> | null,
 	{
 		heldBy = 'wf-1' as string | null,
 		clusterInstances = instances as unknown[],
 		pinned = [] as string[] | null,
 	} = {},
 ) => {
-	let calls = 0;
 	mockedGet.mockImplementation(async (url: string) => {
 		if (String(url) === '/HarperVersions/') {
 			if (!pinned) { throw new AxiosError('Request failed with status code 503'); }
@@ -80,7 +77,7 @@ const customerSees = (
 		}
 		if (isCustomerRead(url)) {
 			if (!row) { throw notFound(); }
-			return { data: { ...stopped, ...(typeof row === 'function' ? row(++calls) : row) } };
+			return { data: { ...stopped, ...row } };
 		}
 		return { data: { id: 'clu-1', workflowId: heldBy, instances: clusterInstances } };
 	});
@@ -106,7 +103,7 @@ describe('ClusterWorkflowNotice', () => {
 		mockedGet.mockImplementation(async (url: string) => {
 			if (isWorkflowRead(url)) { return { data: [{ ...upgrade, id: 'wf-other' }, upgrade] }; }
 			if (isCustomerRead(url)) {
-				return { data: { ...stopped, status: 'RUNNING', pause: null, acceptedCommands: [] } };
+				return { data: { ...stopped, status: 'RUNNING', pause: null } };
 			}
 			return { data: { id: 'clu-1', workflowId: 'wf-1' } };
 		});
@@ -194,13 +191,14 @@ describe('ClusterWorkflowNotice', () => {
 			auth.canRead = false;
 		});
 
-		it('says what stopped, by instance name, and offers retry and stop', async () => {
+		it('says what stopped, by instance name, with nothing to send', async () => {
 			customerSees({});
 			renderNotice();
 			expect(await screen.findByText('Harper version upgrade stopped')).toBeTruthy();
 			expect(await screen.findByText('Instance eu-1.dc.example.dev didn’t finish updating.')).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Retry update' })).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Stop update' })).toBeTruthy();
+			expect(screen.getByText('Other changes to this cluster wait until it continues.')).toBeTruthy();
+			expect(screen.queryByRole('button')).toBeNull();
+			expect(mockedPost).not.toHaveBeenCalled();
 		});
 
 		it('names an instance the cluster record doesn’t list by its id, and counts several', async () => {
@@ -220,91 +218,16 @@ describe('ClusterWorkflowNotice', () => {
 		});
 
 		it('explains a failed cleanup with nothing else to go on', async () => {
-			customerSees({ failedInstanceIds: [], pause: { reason: 'finalize-failed' }, acceptedCommands: ['retry'] });
+			customerSees({ failedInstanceIds: [], pause: { reason: 'finalize-failed' } });
 			renderNotice();
 			expect(await screen.findByText(/last step didn’t finish/)).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Stop update' })).toBeNull();
 		});
 
-		it('retries, then holds the buttons until the workflow is read again', async () => {
-			customerSees((call) => (call > 1 ? { command: { action: 'retry' }, acceptedCommands: [] } : {}));
-			renderNotice();
-			fireEvent.click(await screen.findByRole('button', { name: 'Retry update' }));
-			await waitFor(() => expect(mockedPost).toHaveBeenCalledWith('/Cluster/clu-1/workflow/retry', {}));
-			expect(await screen.findByText(/Your request was sent/)).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Retry update' })).toBeNull();
-		});
-
-		it('asks before stopping, and sends nothing on cancel', async () => {
-			customerSees({});
-			renderNotice();
-			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
-			expect(screen.getByRole('dialog', { name: 'Stop the update?' })).toBeTruthy();
-			fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-			expect(screen.queryByRole('dialog')).toBeNull();
-			expect(mockedPost).not.toHaveBeenCalled();
-		});
-
-		it('stops once confirmed', async () => {
-			customerSees({});
-			renderNotice();
-			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
-			const dialog = screen.getByRole('dialog');
-			fireEvent.click(Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent === 'Stop update')!);
-			await waitFor(() => expect(mockedPost).toHaveBeenCalledWith('/Cluster/clu-1/workflow/abandon', {}));
-			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		});
-
-		it('closes the confirmation when central manager stops accepting abandon', async () => {
-			customerSees({});
-			const { rerender } = renderNotice();
-			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
-			expect(screen.getByRole('dialog')).toBeTruthy();
-			customerSees({ acceptedCommands: ['retry'] });
-			await client.refetchQueries();
-			rerender(noticeTree());
-			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-			expect(mockedPost).not.toHaveBeenCalled();
-		});
-
-		it('does not carry an open confirmation over to another workflow', async () => {
-			customerSees({});
-			const { rerender } = renderNotice();
-			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
-			customerSees({ id: 'wf-2' }, { heldBy: 'wf-2' });
-			rerender(noticeTree('wf-2'));
-			await waitFor(() => expect(screen.getByRole('button', { name: 'Stop update' })).toBeTruthy());
-			expect(screen.queryByRole('dialog')).toBeNull();
-		});
-
-		it('offers only what central manager accepts, and ignores commands it doesn’t know', async () => {
-			customerSees({ acceptedCommands: ['retry', 'undo' as never] });
-			renderNotice();
-			expect(await screen.findByRole('button', { name: 'Retry update' })).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Stop update' })).toBeNull();
-		});
-
-		it('explains without buttons to a user who can’t change the cluster', async () => {
-			perms.update = false;
-			customerSees({});
-			renderNotice();
-			expect(await screen.findByText(/Someone with permission to change this cluster can retry it/)).toBeTruthy();
-			expect(screen.queryByRole('button')).toBeNull();
-		});
-
-		it('holds the buttons while an earlier command waits to be picked up', async () => {
-			customerSees({ command: { action: 'retry', at: '2026-11-06T00:00:00Z' } });
-			renderNotice();
-			expect(await screen.findByText(/Your request was sent/)).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Retry update' })).toHaveProperty('disabled', true);
-		});
-
-		it('says an operator pause is ours, with nothing to send', async () => {
-			customerSees({ pause: { reason: 'command' }, acceptedCommands: [] });
+		it('says an operator pause is ours', async () => {
+			customerSees({ pause: { reason: 'command' } });
 			renderNotice();
 			expect(await screen.findByText('Harper version upgrade paused')).toBeTruthy();
 			expect(screen.getByText('Our team paused it.')).toBeTruthy();
-			expect(screen.queryByRole('button')).toBeNull();
 		});
 
 		it('shows the plain state for another workflow’s row', async () => {
@@ -327,8 +250,7 @@ describe('ClusterWorkflowNotice', () => {
 			id: 'wf-1',
 			status: 'UNDONE',
 			pause: null,
-			acceptedCommands: [],
-			message: 'instance ins-2 is ERROR',
+			message: 'Instance ins-2 did not come back after the update.',
 		};
 		beforeEach(() => {
 			auth.canRead = false;

@@ -1,13 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
 import { heldClusterWorkflowQueryOptions } from '@/features/admin/workflows/workflowAdminApi';
 import {
 	batchProgress,
@@ -15,12 +6,7 @@ import {
 	pauseLabel,
 	workflowTypeLabel,
 } from '@/features/admin/workflows/workflowProgress';
-import {
-	ClusterWorkflow,
-	ClusterWorkflowCommand,
-	latestClusterWorkflowQueryOptions,
-	useClusterWorkflowCommand,
-} from '@/features/cluster/queries/clusterWorkflow';
+import { ClusterWorkflow, latestClusterWorkflowQueryOptions } from '@/features/cluster/queries/clusterWorkflow';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getHarperVersionsOptions } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { detectPartialUpgrade, PartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
@@ -28,8 +14,8 @@ import { useStaffPermission } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
-import { Loader2Icon, LoaderCircleIcon, PauseCircleIcon, TriangleAlertIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { LoaderCircleIcon, PauseCircleIcon, TriangleAlertIcon } from 'lucide-react';
+import { useMemo } from 'react';
 
 const CLUSTER_POLL_MS = 10_000;
 /** Ended upgrades worth offering again: central manager rolled back what hadn't finished. */
@@ -38,7 +24,7 @@ const ENDED_UNFINISHED = ['UNDONE', 'ABANDONED'];
 /**
  * Says a durable workflow (an upgrade, say) holds the cluster, which is why central manager refuses changes to it
  * meanwhile. Staff who can read workflows see where it is. Everyone else sees the plain state, or, once the workflow
- * has paused, why and the retry or stop central manager lets them send.
+ * has paused, why.
  *
  * Once nothing holds the cluster, a cluster left on mixed versions by an upgrade that didn't finish says so and points
  * at the Version page, where it can be run again.
@@ -74,7 +60,7 @@ export function ClusterWorkflowNotice(
 		...heldClusterWorkflowQueryOptions(clusterId, workflowId),
 		enabled: !!clusterId && held && canReadWorkflows,
 	});
-	const { data: latest, dataUpdatedAt } = useQuery({
+	const { data: latest } = useQuery({
 		...latestClusterWorkflowQueryOptions(clusterId, workflowId),
 		// Staff read a held workflow from Admin; nobody reads it for a uniform cluster with nothing holding it.
 		enabled: !!clusterId && (held ? !canReadWorkflows : !!partial),
@@ -137,14 +123,7 @@ export function ClusterWorkflowNotice(
 	if (!canReadWorkflows && latest?.id === workflowId && latest.status === 'PAUSED') {
 		return (
 			<div className={className}>
-				<StoppedWorkflowNotice
-					// A dialog or hold opened for one workflow must not carry over to another.
-					key={`${clusterId}:${latest.id}`}
-					clusterId={clusterId}
-					workflow={latest}
-					readAt={dataUpdatedAt}
-					instanceName={instanceName}
-				/>
+				<PausedWorkflowNotice workflow={latest} instanceName={instanceName} />
 			</div>
 		);
 	}
@@ -225,115 +204,20 @@ function EndedUpgradeNotice({ clusterId, organizationId, workflow, partial, inst
 	);
 }
 
-/**
- * A workflow paused on the cluster, as its own users see it. Retry and stop appear only when central manager lists
- * them and the user may change the cluster. After a command they stay held until the page has the workflow as read
- * after central manager acknowledged it, so a poll already in flight can't offer them again. The Stop confirmation
- * closes once central manager stops accepting abandon.
- */
-function StoppedWorkflowNotice(
-	{ clusterId, workflow, readAt, instanceName }: {
-		clusterId: string;
-		workflow: ClusterWorkflow;
-		readAt: number;
-		instanceName: (id: string) => string;
-	},
-) {
-	const { update: canUpdate } = useOrganizationClusterPermissions(undefined, clusterId);
-	const mutation = useClusterWorkflowCommand();
-	const [ackedAt, setAckedAt] = useState<number | null>(null);
-	const [stopping, setStopping] = useState(false);
-	const waiting = !!workflow.command?.action || (ackedAt !== null && readAt <= ackedAt);
-	const pending = mutation.isPending || waiting;
-	const canStop = canUpdate && workflow.acceptedCommands.includes('abandon') && !waiting;
-	// The confirmation closes for good once stopping is off the table, rather than reopening if it comes back.
-	if (stopping && !canStop && !mutation.isPending) { setStopping(false); }
+/** A workflow paused on the cluster, as its own users see it: what stopped, with nothing for them to send. */
+function PausedWorkflowNotice({ workflow, instanceName }: {
+	workflow: ClusterWorkflow;
+	instanceName: (id: string) => string;
+}) {
 	const failed = workflow.pause?.reason !== 'command';
-	const label = workflowTypeLabel(workflow.type);
-	const offered = workflow.acceptedCommands;
-
-	const send = (command: ClusterWorkflowCommand) =>
-		mutation.mutate({ clusterId, command }, {
-			onSuccess: () => {
-				setAckedAt(Date.now());
-				setStopping(false);
-			},
-		});
-
 	return (
 		<Alert variant={failed ? 'destructive' : 'warning'} role="status" aria-live="polite">
 			{failed ? <TriangleAlertIcon /> : <PauseCircleIcon />}
-			<AlertTitle>{label} {failed ? 'stopped' : 'paused'}</AlertTitle>
+			<AlertTitle>{workflowTypeLabel(workflow.type)} {failed ? 'stopped' : 'paused'}</AlertTitle>
 			<AlertDescription>
 				<p>{pausedReason(workflow, instanceName)}</p>
-				{pending
-					? <p>Your request was sent. This updates once it’s picked up.</p>
-					: offered.length > 0 && (
-						<p>
-							{canUpdate
-								? `Other changes to this cluster wait until the update is ${
-									offered.includes('abandon') ? 'retried or stopped' : 'retried'
-								}.`
-								: 'Someone with permission to change this cluster can retry it.'}
-						</p>
-					)}
-				{canUpdate && offered.length > 0 && (
-					<div className="mt-2 flex flex-wrap gap-2">
-						{offered.includes('retry') && (
-							<Button
-								type="button"
-								size="sm"
-								variant="defaultOutline"
-								disabled={pending}
-								onClick={() => send('retry')}
-							>
-								{mutation.isPending && mutation.variables?.command === 'retry' && (
-									<Loader2Icon className="animate-spin" />
-								)}
-								Retry update
-							</Button>
-						)}
-						{offered.includes('abandon') && (
-							<Button
-								type="button"
-								size="sm"
-								variant="destructiveOutline"
-								disabled={pending}
-								onClick={() => setStopping(true)}
-							>
-								Stop update
-							</Button>
-						)}
-					</div>
-				)}
+				<p>Other changes to this cluster wait until it continues.</p>
 			</AlertDescription>
-			{stopping && canStop && (
-				<Dialog open onOpenChange={(open) => !open && !mutation.isPending && setStopping(false)}>
-					<DialogContent className="sm:max-w-lg">
-						<DialogHeader>
-							<DialogTitle>Stop the update?</DialogTitle>
-							<DialogDescription>
-								Instances already updated keep the change, and the rest stay as they are now. The cluster accepts
-								changes again, so you can start the update again later.
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								disabled={mutation.isPending}
-								onClick={() => setStopping(false)}
-							>
-								Cancel
-							</Button>
-							<Button type="button" variant="destructive" disabled={mutation.isPending} onClick={() => send('abandon')}>
-								{mutation.isPending && <Loader2Icon className="animate-spin" />}
-								Stop update
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			)}
 		</Alert>
 	);
 }
