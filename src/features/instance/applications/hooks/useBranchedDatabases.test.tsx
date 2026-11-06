@@ -288,6 +288,7 @@ describe('readApplicationSetting', () => {
 
 		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBeUndefined();
 		expect(mocks.post).toHaveBeenCalledTimes(2);
+		expect(mocks.post).toHaveBeenLastCalledWith('/', { operation: 'get_configuration' }, { skipGatewayRetry: true });
 	});
 
 	it('stops counting the cached answer as current until it lands, then stores what it read', async () => {

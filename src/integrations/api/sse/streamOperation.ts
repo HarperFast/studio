@@ -105,6 +105,7 @@ export async function streamOperation({
 				body: request.body,
 				signal: combinedSignal,
 			});
+			resetIdleTimer();
 		} catch (error) {
 			// The caller aborted deliberately — surface that, don't mask it as "unsupported".
 			if (signal?.aborted) {

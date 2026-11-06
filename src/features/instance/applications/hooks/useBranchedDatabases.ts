@@ -24,10 +24,14 @@ function isRefusal(error: unknown): boolean {
 }
 
 /**
- * The role check and Harper's gate can disagree. A refusal is the answer until a read succeeds: it isn't retried or
- * toasted, and it holds while a dialog asks again, so the setting doesn't read as loading meanwhile.
+ * The role check and Harper's gate can disagree. A refusal is the answer until a read succeeds: it isn't retried, and
+ * it holds while a dialog asks again, so the setting doesn't read as loading meanwhile. Every surface that reads this
+ * shows a failure itself or hides the setting, so none is toasted.
  */
-const CONFIGURATION_READ = { retry: retryUnlessRejected(), meta: { refusalIsAnAnswer: true } };
+const CONFIGURATION_READ = {
+	retry: retryUnlessRejected(),
+	meta: { refusalIsAnAnswer: true, reportsOwnFailure: true },
+};
 
 // When each read was refused. A refetch with no data clears the query's `error` before it answers, and the refusal has
 // to outlive that, and any failure of another kind, until a read succeeds.
@@ -179,8 +183,14 @@ export async function readApplicationSetting(
 	try {
 		const configuration = await queryClient.fetchQuery({
 			...options,
+			...CONFIGURATION_READ,
 			retry: false,
-			meta: { refusalIsAnAnswer: true, reportsOwnFailure: true },
+			queryFn: async () => {
+				const { data } = await params.instanceClient.post('/', { operation: 'get_configuration' }, {
+					skipGatewayRetry: true,
+				});
+				return data;
+			},
 		});
 		return readBranchedDatabases(configuration, project);
 	} catch {

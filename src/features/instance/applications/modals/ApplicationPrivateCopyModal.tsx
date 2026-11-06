@@ -122,16 +122,19 @@ export function ApplicationPrivateCopyModal() {
 			void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 		}
 	}, [isModalOpen, queryClient, instanceParams.entityId]);
+	// A new target: an attempt still running for the last one reports through toasts.
 	useEffect(() => {
 		choiceTouched.current = false;
+		attemptOnScreen.current = undefined;
 		setIncludeNodeModules(false);
 		setPackagingFailure(undefined);
-	}, [project]);
+		setPhase('form');
+	}, [instanceParams.entityId, project]);
 	useEffect(() => {
 		if (isModalOpen && !choiceTouched.current) {
 			setValue('privateCopy', privateCopyFromSetting(current.setting));
 		}
-	}, [isModalOpen, project, setValue, current.setting]);
+	}, [isModalOpen, instanceParams.entityId, project, setValue, current.setting]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowApplicationPrivateCopyModal', false);
@@ -249,6 +252,8 @@ export function ApplicationPrivateCopyModal() {
 					stream.markSettled('inconclusive');
 				}
 				const readBack = await readSettingBack();
+				// The deploy may still be running, so the entry this read saw may be about to change.
+				void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
 				toast.warning(
 					readBack !== 'unknown' && sameSetting(readBack, wanted)
 						? `${project}'s private database copy setting changed, but its deploy didn't report back`

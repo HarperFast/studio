@@ -10,10 +10,7 @@ export class HarperRefusalError extends Error {
 	}
 }
 
-/**
- * Harper's own words from a refused `fetch` response, if it gave any: `{ error }`, `{ message }`, or a problem
- * document's `detail`/`title`, else the text.
- */
+/** Harper's own words from a refused `fetch` response, if it gave any. */
 export async function readResponseRefusal(response: Response): Promise<string | undefined> {
 	const text = (await response.text().catch(() => '')).trim();
 	if (!text) {
