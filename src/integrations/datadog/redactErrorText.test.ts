@@ -37,8 +37,9 @@ describe('redactErrorText', () => {
 			.toBe('https://code.acme.io/<redacted> failed');
 	});
 
-	// Studio looks the repo up itself while the deploy form is filled in (`getGitHubRepo`), so
-	// the same owner/name reaches Datadog through a plain API URL, not a git remote.
+	// Studio looks a repository up itself while a GitHub Actions form is filled in
+	// (`lookUpGitHubRepository`), so the same owner/name reaches Datadog through a plain API URL,
+	// not a git remote.
 	it('redacts the repository lookups Studio makes on the customer’s behalf', () => {
 		expect(redactErrorText('Request failed with status code 404 https://api.github.com/repos/acme-corp/billing'))
 			.toBe('Request failed with status code 404 https://api.github.com/<redacted>');

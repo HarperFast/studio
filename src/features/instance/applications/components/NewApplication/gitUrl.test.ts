@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { extractGitUrlHost, replaceGitUrlHost, toSSHGitUrl, usesNonSSHTransport } from './gitUrl';
+import {
+	extractGitUrlHost,
+	importedGitHubRepository,
+	replaceGitUrlHost,
+	toSSHGitUrl,
+	usesNonSSHTransport,
+} from './gitUrl';
 
 describe('extractGitUrlHost', () => {
 	it('parses scp-like git URLs', () => {
@@ -137,5 +143,45 @@ describe('toSSHGitUrl', () => {
 		expect(toSSHGitUrl('https://github.com', 'w.github.com')).toBeNull();
 		expect(toSSHGitUrl('https://github.com/', 'w.github.com')).toBeNull();
 		expect(toSSHGitUrl('', 'w.github.com')).toBeNull();
+	});
+});
+
+describe('importedGitHubRepository', () => {
+	it('names the repository of a github.com URL or remote, without the ref the import installs', () => {
+		for (
+			const ref of [
+				'https://github.com/Acme/shop.git',
+				'https://github.com/Acme/shop#main',
+				'git+https://github.com/Acme/shop.git#semver:^1.2.0',
+				'git@github.com:Acme/shop.git',
+				'ssh://git@github.com/Acme/shop',
+				' https://github.com/Acme/shop/ ',
+			]
+		) {
+			expect(importedGitHubRepository(ref), ref).toBe('Acme/shop');
+		}
+	});
+
+	it('names none for another host, or a URL that is not a repository', () => {
+		for (
+			const ref of [
+				'https://gitlab.com/Acme/shop.git',
+				'git@bitbucket.org:Acme/shop.git',
+				'https://github.com/Acme',
+				'',
+			]
+		) {
+			expect(importedGitHubRepository(ref), ref).toBeUndefined();
+		}
+	});
+
+	it("follows an SSH key's host alias only to github.com, and only for the key's own alias", () => {
+		const key = { host: 'shop-key.github.com', hostname: 'github.com' };
+		expect(importedGitHubRepository('git@shop-key.github.com:Acme/shop.git', key)).toBe('Acme/shop');
+		expect(importedGitHubRepository('git@SHOP-KEY.github.com:Acme/shop.git#v2', key)).toBe('Acme/shop');
+		expect(importedGitHubRepository('git@shop-key.github.com:Acme/shop.git')).toBeUndefined();
+		expect(importedGitHubRepository('git@other.github.com:Acme/shop.git', key)).toBeUndefined();
+		expect(importedGitHubRepository('git@gl-key:Acme/shop.git', { host: 'gl-key', hostname: 'gitlab.com' }))
+			.toBeUndefined();
 	});
 });

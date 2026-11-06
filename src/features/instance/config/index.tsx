@@ -3,6 +3,7 @@ import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
@@ -25,6 +26,7 @@ import {
 	RocketIcon,
 	ShieldCheckIcon,
 	UsersIcon,
+	WorkflowIcon,
 } from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
 
@@ -48,6 +50,7 @@ export function ConfigIndex() {
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
+	const deployFromGitHubSupported = supportsCiDeploy(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
@@ -69,6 +72,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<ShieldCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Certificates</span>
+					</Link>
+				</li>
+			)}
+			{deployFromGitHubSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/deploy-from-github')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<WorkflowIcon className="hidden md:inline-block" /> <span className="ms-3">Deploy from GitHub</span>
 					</Link>
 				</li>
 			)}

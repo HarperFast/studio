@@ -1,7 +1,7 @@
 /**
  * Resolves a GitHub repository to the numeric id an OIDC trust policy pins as `repository_id`. A name can be taken over
  * after a rename or a delete; the id cannot. Every panel that sets up GitHub Actions on a cluster shares this lookup:
- * the Previews panel today, and Deploy from GitHub (studio#1788) once it is built.
+ * Previews and Deploy from GitHub.
  *
  * The request is anonymous and comes from the browser, so a private repository answers 404 exactly as a mistyped name
  * does, and the caller has to ask for the id instead. GitHub allows 60 of these an hour per address, hence the
