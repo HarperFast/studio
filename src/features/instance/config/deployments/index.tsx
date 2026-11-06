@@ -38,7 +38,7 @@ export function ConfigDeploymentsIndex() {
 	const versionKnown = registrationInfo !== undefined;
 	const versionUnavailable = !versionKnown && registrationFailed;
 	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
-	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version));
+	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version), registrationInfo?.version);
 	const status = requestedStatus && statuses.includes(requestedStatus) ? requestedStatus : undefined;
 	const unsupportedStatus = versionKnown && !!requestedStatus && !status;
 	useEffect(() => {
