@@ -78,10 +78,9 @@ export function useComponentReleases(project: string | undefined) {
 }
 
 /**
- * Reads the records again, then asks the nodes again for each open view whose records read back with the same
- * generation. A view whose generation moved asks by itself, and asking under the old one as well would walk every node
- * twice; one whose records failed to read stays unreadable whatever it is told. Every other answer is marked stale, for
- * the next view that reads it.
+ * Reads the records again, then asks the nodes again once for each open view: under its generation if the records held,
+ * or under the new one, which the view joins when it renders, if they moved. One whose records failed to read stays
+ * unreadable whatever it is told. Every other answer is marked stale, for the next view that reads it.
  */
 export function useRetryReleases(): () => Promise<unknown> {
 	const queryClient = useQueryClient();
@@ -90,14 +89,18 @@ export function useRetryReleases(): () => Promise<unknown> {
 		const releasesKey = [instanceParams.entityId, 'list_releases'];
 		await queryClient.invalidateQueries({ queryKey: releasesKey, refetchType: 'none' });
 		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments'] });
-		const held = queryClient.getQueryCache().findAll({ queryKey: releasesKey, type: 'active' }).filter((query) => {
-			const [, , { project }, generation] = query.queryKey as ReleasesQueryKey;
+		const views = queryClient.getQueryCache().findAll({ queryKey: releasesKey, type: 'active' });
+		await Promise.allSettled(views.map((view) => {
+			const [, , { project }, generation] = view.queryKey as ReleasesQueryKey;
 			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
-			return records?.status === 'success' && !!records.data && recordsGeneration(records.data) === generation;
-		});
-		await Promise.all(
-			held.map(({ queryKey }) => queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false })),
-		);
+			if (records?.status !== 'success' || !records.data) {
+				return undefined;
+			}
+			const current = recordsGeneration(records.data);
+			return current === generation
+				? queryClient.refetchQueries({ queryKey: view.queryKey, exact: true }, { cancelRefetch: false })
+				: queryClient.fetchQuery(getReleasesQueryOptions({ ...instanceParams, project, generation: current }));
+		}));
 	}, [queryClient, instanceParams]);
 }
 

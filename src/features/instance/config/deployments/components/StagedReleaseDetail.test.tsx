@@ -255,7 +255,21 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect(screen.getByText(/^b: it isn't kept there: it was made live before Harper 5\.3, retention pruned it/))
 			.toBeTruthy();
 		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.queryByText(/just switches each node/)).toBeNull();
 		expect(state.post).toHaveBeenCalledWith('/', { operation: 'list_releases', project: 'hello', replicated: true });
+	});
+
+	it('says once, from the nodes, what activating a release every node holds does', async () => {
+		state.releases = {
+			nodes: [
+				holding('a', later.deployment_id, [[STAGED_ID, 'staged']]),
+				holding('b', later.deployment_id, [[STAGED_ID, 'staged']]),
+			],
+		};
+		renderDetail([staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		expect(screen.getByText(/^Staged: built and installed, but not live\.$/)).toBeTruthy();
+		expect(screen.getAllByText(/switches each/)).toHaveLength(1);
 	});
 
 	it('offers to activate it again where it is live on only some nodes, though the records say it is live', async () => {

@@ -5,8 +5,7 @@ import { type DeploymentsSearch, isCommitSha } from '../deploymentsSearch';
 import { deploymentSource } from '../functions/deploymentSource';
 import { describeSource } from '../functions/describeSource';
 
-function SourceViaBadge({ source }: { source: DeploymentSource }) {
-	const { attested, via, viaDetail } = describeSource(source);
+function SourceViaBadge({ source: { attested, via, viaDetail } }: { source: ReturnType<typeof describeSource> }) {
 	return (
 		<Badge variant={attested ? 'success' : 'outline'} title={viaDetail}>
 			{via}
@@ -31,10 +30,13 @@ function ExternalLink({ href, children }: { href?: string; children: React.React
 }
 
 function CommitFilter({ sha, label, filterable }: { sha: string; label: string; filterable: boolean }) {
+	return filterable && isCommitSha(sha)
+		? <CommitFilterButton sha={sha} label={label} />
+		: <span className="font-mono" title={sha}>{label}</span>;
+}
+
+function CommitFilterButton({ sha, label }: { sha: string; label: string }) {
 	const navigate = useNavigate();
-	if (!filterable || !isCommitSha(sha)) {
-		return <span className="font-mono" title={sha}>{label}</span>;
-	}
 	return (
 		<button
 			type="button"
@@ -68,10 +70,10 @@ export function DeploymentSourceCell(
 				<span className="flex flex-wrap items-center gap-1 text-muted-foreground">
 					<CommitFilter sha={source.sha} label={source.shortSha ?? source.sha} filterable={commitFilterable} />
 					{source.repository && <span className="break-all">{source.repository}</span>}
-					<SourceViaBadge source={deployment.source!} />
+					<SourceViaBadge source={source} />
 				</span>
 			)}
-			{!source?.sha && deployment.source && <SourceViaBadge source={deployment.source} />}
+			{!source?.sha && source && <SourceViaBadge source={source} />}
 		</span>
 	);
 }
@@ -91,7 +93,7 @@ export function DeploymentSourceFields({ source }: { source: DeploymentSource })
 		<div className="flex flex-col gap-2">
 			<div className="flex flex-wrap items-center gap-2 text-sm">
 				<span className="font-medium">Deployed from {source.via === 'oidc' ? 'CI' : 'a declared source'}</span>
-				<SourceViaBadge source={source} />
+				<SourceViaBadge source={described} />
 				<span className="text-xs text-muted-foreground">{described.viaDetail}</span>
 			</div>
 			<div className="grid grid-cols-2 gap-3 md:grid-cols-3">

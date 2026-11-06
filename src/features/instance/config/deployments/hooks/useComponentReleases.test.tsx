@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
 	newest: { deployments: [{ deployment_id: 'v3', project: 'web', status: 'success' }], total: 3 } as object,
 	releases: [] as Array<() => Promise<unknown>>,
 	params: {} as { entityId: string; entityType: string; instanceClient: object },
+	retried: undefined as Promise<unknown> | undefined,
 }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => state.params }));
 const clusterA = { entityId: 'clu-a', entityType: 'cluster', instanceClient: { post: state.post } };
@@ -40,7 +41,7 @@ function Detail() {
 
 function Retry() {
 	const retry = useRetryReleases();
-	return <button type="button" onClick={() => void retry()}>retry</button>;
+	return <button type="button" onClick={() => (state.retried = retry())}>retry</button>;
 }
 
 afterEach(() => {
@@ -103,6 +104,22 @@ describe('useComponentReleases', () => {
 		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
 		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
 		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(releaseCalls()).toBe(2);
+	});
+
+	it('settles a retry that finds a new record only once the nodes answered for it', async () => {
+		await renderBoth();
+		let answerNow: (value: object) => void = () => {};
+		state.releases.push(() => new Promise((resolve) => (answerNow = resolve)));
+		state.newest = { deployments: [{ deployment_id: 'v4', project: 'web', status: 'success' }], total: 4 };
+		let settled = false;
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		void state.retried!.then(() => (settled = true));
+		await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(settled).toBe(false);
+		await act(async () => answerNow({ data: answer }));
+		await vi.waitFor(() => expect(settled).toBe(true));
 		expect(releaseCalls()).toBe(2);
 	});
 

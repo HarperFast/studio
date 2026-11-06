@@ -11,14 +11,16 @@ import { DeploymentLink } from './StagedReleaseNote';
 
 const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
 
-function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { kind: 'uncertain' }> }) {
+function UncertainRelease(
+	{ release, advise }: { release: Extract<StagedReleaseState, { kind: 'uncertain' }>; advise: boolean },
+) {
 	const { activation, failed } = release;
 	if (!activation) {
 		return (
 			<>
 				Its activation,{' '}
 				<DeploymentLink deployment={failed} />, failed. Depending on where it failed, it may be live on some nodes.
-				Activating it again retries it.
+				{advise && ' Activating it again retries it.'}
 			</>
 		);
 	}
@@ -32,7 +34,7 @@ function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { 
 							? 'went live on only some nodes'
 							: 'failed and may have gone live on some nodes'}
 					</>
-				)}, so it may not be live everywhere. Activating it again puts it back wherever it is missing.
+				)}, so it may not be live everywhere.{advise && ' Activating it again puts it back wherever it is missing.'}
 		</>
 	);
 }
@@ -49,6 +51,8 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			: 'activate',
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
+	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
+	const advise = check.kind === 'unsupported';
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
 	const recordsContradicted = check.kind === 'live-everywhere'
 		? release?.kind !== 'live'
@@ -61,32 +65,41 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			{!recordsContradicted && (
 				<div className="text-sm text-muted-foreground">
 					{!release && 'Staged. Checking whether it has been activated…'}
-					{release?.kind === 'waiting'
-						&& 'Staged: built and installed, but not live. Activating it just switches each node to it.'}
-					{release?.kind === 'unknown'
-						&& "Staged. Couldn't read the deployments since, so it may already be live: activating a live release restarts every node without changing anything."}
+					{release?.kind === 'waiting' && (
+						<>
+							Staged: built and installed, but not live.
+							{advise && ' Activating it just switches each node to it.'}
+						</>
+					)}
+					{release?.kind === 'unknown' && (
+						<>
+							Staged. Couldn&apos;t read the deployments since{advise
+								? ', so it may already be live: activating a live release restarts every node without changing anything.'
+								: '.'}
+						</>
+					)}
 					{release?.kind === 'activating' && (
 						<>
 							Being activated by <DeploymentLink deployment={release.activation} />, which{' '}
 							{release.activation.started_at ? `started ${ago(release.activation.started_at)} and ` : ''}has not
-							finished. While it runs, activating it again starts a second rolling restart. If it stopped without
-							finishing, activate it again.
+							finished. While it runs, activating it again starts a second rolling restart.
+							{advise && ' If it stopped without finishing, activate it again.'}
 						</>
 					)}
 					{release?.kind === 'live' && (
 						<>
 							Live: activated by <DeploymentLink deployment={release.activation} />, and no other deploy of{' '}
-							{deployment.project} has finished since, so there is nothing to activate.
+							{deployment.project} has finished since{advise ? ', so there is nothing to activate.' : '.'}
 						</>
 					)}
 					{release?.kind === 'replaced' && (
 						<>
 							Activated by <DeploymentLink deployment={release.activation} />, then replaced by{' '}
-							<DeploymentLink deployment={release.replacedBy} />. Activating it again rolls {deployment.project}{' '}
-							back to this release.
+							<DeploymentLink deployment={release.replacedBy} />.
+							{advise && ` Activating it again rolls ${deployment.project} back to this release.`}
 						</>
 					)}
-					{release?.kind === 'uncertain' && <UncertainRelease release={release} />}
+					{release?.kind === 'uncertain' && <UncertainRelease release={release} advise={advise} />}
 				</div>
 			)}
 			<ReleaseCheckNote
