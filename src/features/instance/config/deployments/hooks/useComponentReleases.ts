@@ -25,11 +25,11 @@ type ComponentReleasesState =
  * What changes when what a node holds of the component may have: a deploy or an activation of it starting or ending,
  * and each node a rolling one reaches, which its job records on the row as it goes.
  */
-function recordsGeneration({ total, deployments: [newest] }: ListDeploymentsResponse): string {
-	const activations = (newest?.peer_results ?? [])
+function recordsGeneration({ total, deployments: [newestDeployment] }: ListDeploymentsResponse): string {
+	const activations = (newestDeployment?.peer_results ?? [])
 		.map((peer) => (peer.activation ? (peer.activation.activated ? '+' : '-') : '.'))
 		.join('');
-	return `${total}|${newest?.deployment_id}|${newest?.status}|${activations}`;
+	return `${total}|${newestDeployment?.deployment_id}|${newestDeployment?.status}|${activations}`;
 }
 
 /**

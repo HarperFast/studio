@@ -75,7 +75,7 @@ export function getReleasesQueryOptions(params: ListReleasesParams) {
 		refetchOnReconnect: false,
 		placeholderData: (previous, previousQuery) =>
 			previousQuery?.queryKey[0] === params.entityId
-				&& (previousQuery.queryKey[2] as { project?: string } | undefined)?.project === params.project
+				&& (previousQuery?.queryKey[2] as { project?: string } | undefined)?.project === params.project
 				? previous
 				: undefined,
 		enabled: params.enabled !== false,
