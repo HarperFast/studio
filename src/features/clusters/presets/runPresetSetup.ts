@@ -9,7 +9,7 @@ import { deployAndFollowComponent } from '@/integrations/api/instance/applicatio
 import { getComponents } from '@/integrations/api/instance/applications/getComponents';
 import { followRestartJob } from '@/integrations/api/instance/applications/restartJob';
 import { listDeployments } from '@/integrations/api/instance/deployments/listDeployments';
-import type { Deployment } from '@/integrations/api/instance/deployments/types';
+import { type Deployment, TERMINAL_DEPLOYMENT_STATUSES } from '@/integrations/api/instance/deployments/types';
 import { setConfiguration } from '@/integrations/api/instance/status/setConfiguration';
 import { getStudioConfiguration } from '@/integrations/api/instance/studio/getStudioConfiguration';
 import { rejectReplicationFailures } from '@/integrations/api/replication';
@@ -60,10 +60,10 @@ export class PresetInstallUnconfirmedError extends Error {
 }
 
 /**
- * The `hdb_deployment` fields setup reads. Harper 5.4 adds the `rolling_out` and `partial` statuses and
- * `restart_job_id` (harper `components/deploymentRecorder.ts`), which `Deployment` predates.
+ * The `hdb_deployment` fields setup reads, with any status string: one a newer Harper adds is a deploy setup
+ * can't follow, which stops it rather than counting as an outcome.
  */
-type DeploymentRecord = Omit<Deployment, 'status'> & { status: string; restart_job_id?: string | null };
+type DeploymentRecord = Omit<Deployment, 'status'> & { status: string };
 
 /**
  * A deploy of the component that has not ended. Not a `PresetInstallUnconfirmedError`, so nothing offers
@@ -86,8 +86,7 @@ export class PresetDeployInFlightError extends Error {
 	}
 }
 
-// Harper's own terminal set (harper `components/deploymentOperations.ts:22`, `TERMINAL_STATUSES`).
-const ENDED_DEPLOYMENT_STATUSES = new Set(['success', 'failed', 'partial', 'rolled_back', 'staged']);
+const ENDED_DEPLOYMENT_STATUSES: ReadonlySet<string> = TERMINAL_DEPLOYMENT_STATUSES;
 
 /** Setup refuses to run in a browser that can't hold runs in different tabs apart (`setupHoldsAcrossTabs`). */
 export class PresetSetupUnsupportedError extends Error {

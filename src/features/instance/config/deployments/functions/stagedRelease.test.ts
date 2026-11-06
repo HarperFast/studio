@@ -27,6 +27,12 @@ describe('stagedReleaseState', () => {
 		expect(stagedReleaseState(staged, [staged, failed])).toEqual({ kind: 'uncertain', failed });
 	});
 
+	it('stays uncertain after its failed activation when a later deploy went live on only some nodes', () => {
+		const failed = { ...activation, status: 'failed' } as Deployment;
+		const partial = record('9f00aa11-0000-4000-8000-000000000002', 300, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, failed, partial])).toEqual({ kind: 'uncertain', failed });
+	});
+
 	it('is waiting again once a deploy succeeded after its failed activation', () => {
 		const failed = { ...activation, status: 'failed' } as Deployment;
 		expect(stagedReleaseState(staged, [staged, failed, record('9f00aa11-0000-4000-8000-000000000002', 300)]))
@@ -43,6 +49,40 @@ describe('stagedReleaseState', () => {
 			activation: partial,
 			failed: partial,
 		});
+	});
+
+	it('cannot claim it is live everywhere, or still waiting, when its rolling activation ended partial', () => {
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, partial])).toEqual({
+			kind: 'uncertain',
+			activation: partial,
+			failed: partial,
+		});
+	});
+
+	it('is replaced once a deploy succeeded after its partial activation', () => {
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		const later = record('9f00aa11-0000-4000-8000-000000000002', 300);
+		expect(stagedReleaseState(staged, [staged, partial, later])).toEqual({
+			kind: 'replaced',
+			activation: partial,
+			replacedBy: later,
+		});
+	});
+
+	it('reports a partial activation over an older activation that never finished', () => {
+		const stranded = { ...activation, deployment_id: 'stranded', status: 'rolling_out', started_at: 150 } as Deployment;
+		const partial = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, stranded, partial])).toEqual({
+			kind: 'uncertain',
+			activation: partial,
+			failed: partial,
+		});
+	});
+
+	it('is being activated while its rolling activation is still rolling out', () => {
+		const rolling = { ...activation, status: 'rolling_out' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, rolling])).toEqual({ kind: 'activating', activation: rolling });
 	});
 
 	it('is being activated while an activation of it has not finished', () => {
@@ -87,6 +127,15 @@ describe('stagedReleaseState', () => {
 			kind: 'uncertain',
 			activation,
 			failed,
+		});
+	});
+
+	it('cannot claim it is live everywhere when a later deploy ended partial', () => {
+		const partial = record('fa11ed00-0000-4000-8000-000000000004', 300, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, activation, partial])).toEqual({
+			kind: 'uncertain',
+			activation,
+			failed: partial,
 		});
 	});
 

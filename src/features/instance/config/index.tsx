@@ -8,6 +8,7 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
+import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -18,6 +19,7 @@ import { Link, Navigate, Outlet, useLoaderData, useLocation, useParams } from '@
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
+	CalendarClockIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -57,6 +59,7 @@ export function ConfigIndex() {
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
+	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -79,6 +82,8 @@ export function ConfigIndex() {
 				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
 				previewsSupported && { name: 'Previews', page: 'config/previews', icon: <GitPullRequestIcon /> },
 				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
+				scheduledJobsSupported
+				&& { name: 'Scheduled Jobs', page: 'config/scheduled-jobs', icon: <CalendarClockIcon /> },
 				// Secrets (the replicated hdb_secret store): any instance or cluster on a supported version — key
 				// custody may be file-based (self-hosted) or injected (Fabric). Manage-gated like every built-in
 				// entry; the secret operations are additionally super_user-only server-side, so a deep-link by a
