@@ -251,7 +251,7 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 			nodes: [holding('a', later.deployment_id, [[STAGED_ID, 'staged']]), holding('b', undefined, [])],
 		};
 		renderDetail([staged]);
-		expect(await screen.findByText(/Activating it needs every node to hold it, and some do not/)).toBeTruthy();
+		expect(await screen.findByText(/This needs every node to hold the release, and some do not/)).toBeTruthy();
 		expect(screen.getByText(/^b: it isn't kept there: it was made live before Harper 5\.3, retention pruned it/))
 			.toBeTruthy();
 		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
@@ -270,6 +270,19 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect(button.disabled).toBe(false);
 	});
 
+	it("drops the records' claim that it is live where the nodes report it live on none", async () => {
+		state.releases = {
+			nodes: [
+				holding('a', later.deployment_id, [[STAGED_ID, 'kept']]),
+				holding('b', later.deployment_id, [[STAGED_ID, 'kept']]),
+			],
+		};
+		renderDetail([activation, staged]);
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		expect(screen.queryByText(/nothing to activate/)).toBeNull();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(false);
+	});
+
 	it('offers nothing for a release live on every node, though the records say a later deploy failed', async () => {
 		state.releases = { nodes: [holding('a', STAGED_ID, []), holding('b', STAGED_ID, [])] };
 		renderDetail([{ ...later, status: 'failed' }, activation, staged]);
@@ -281,7 +294,8 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 	it("shows, but refuses, the activation when the nodes can't be asked", async () => {
 		state.releases = new Error('list_releases timed out');
 		renderDetail([staged]);
-		expect(await screen.findByText(/Activating it needs every node to say it holds it\./)).toBeTruthy();
+		expect(await screen.findByText(/Nothing here is enabled until every node says it holds the release\./))
+			.toBeTruthy();
 		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 	});
 });

@@ -312,7 +312,8 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(screen.getByText(/Checking which nodes hold this release/)).toBeTruthy();
 		expect(rollBack()).toBeNull();
 
-		expect(await screen.findByText(/Activating it needs every node to say it holds it\./)).toBeTruthy();
+		expect(await screen.findByText(/Nothing here is enabled until every node says it holds the release\./))
+			.toBeTruthy();
 		expect(rollBack()).toBeNull();
 	});
 

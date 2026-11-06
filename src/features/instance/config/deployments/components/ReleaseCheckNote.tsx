@@ -31,7 +31,7 @@ export function ReleaseCheckNote({
 			return (
 				<p className="text-sm text-muted-foreground">
 					Couldn&apos;t ask the nodes which releases they hold: {check.message}{' '}
-					Activating it needs every node to say it holds it.{' '}
+					Nothing here is enabled until every node says it holds the release.{' '}
 					<button
 						type="button"
 						className="underline"
@@ -63,7 +63,7 @@ export function ReleaseCheckNote({
 			return (
 				<div className="flex flex-col gap-1 text-sm text-muted-foreground">
 					<p>
-						{check.liveOn.length > 0 && `Live on ${list(check.liveOn)}. `}Activating it needs every node to hold it, and
+						{check.liveOn.length > 0 && `Live on ${list(check.liveOn)}. `}This needs every node to hold the release, and
 						{check.missing.length > 0 ? ' some do not:' : " some couldn't say:"}
 					</p>
 					<ul className="list-disc pl-5">

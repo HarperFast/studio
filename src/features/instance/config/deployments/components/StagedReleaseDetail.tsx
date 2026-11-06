@@ -50,10 +50,11 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
-	const liveSomewhere = (check.kind === 'available' || check.kind === 'missing') && check.liveOn.length > 0;
 	const recordsContradicted = check.kind === 'live-everywhere'
 		? release?.kind !== 'live'
-		: liveSomewhere && (release?.kind === 'waiting' || release?.kind === 'live' || release?.kind === 'replaced');
+		: (check.kind === 'available' || check.kind === 'missing')
+			&& (release?.kind === 'live'
+				|| (check.liveOn.length > 0 && (release?.kind === 'waiting' || release?.kind === 'replaced')));
 
 	return (
 		<>
