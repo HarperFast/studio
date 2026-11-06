@@ -127,6 +127,18 @@ export function checkTableOperationsAllowed(
 		|| checkAnyOperationAllowed(permission, operations);
 }
 
+/**
+ * Whether a role can run an operation Harper keeps for super users. Gate 2 admits one for a role whose allowlist names
+ * it, directly or through a group; with no allowlist, only a super_user can.
+ */
+export function checkSuperUserOperationAllowed(
+	permission: LocalRolePermission | undefined,
+	operation: string,
+): boolean {
+	return permission?.super_user === true
+		|| (getOperationsAllowlist(permission) !== undefined && checkAnyOperationAllowed(permission, [operation]));
+}
+
 export function checkTableActionAllowed(
 	permission: LocalRolePermission | undefined,
 	action: LocalRolePermissionAction | LocalRoleAttributePermissionAction,

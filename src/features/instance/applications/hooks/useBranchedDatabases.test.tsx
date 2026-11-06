@@ -11,28 +11,58 @@ const mocks = vi.hoisted(() => {
 	return {
 		post,
 		canManage: { value: true },
+		canRead: { value: true },
 		instanceParams: { entityId: 'ins-1', entityType: 'instance', instanceClient: { post } },
 	};
 });
 
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => mocks.instanceParams }));
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => mocks.canManage.value }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceManagePermission: () => mocks.canManage.value,
+	useInstanceConfigurationReadPermission: () => mocks.canRead.value,
+}));
 
-import { invalidateApplicationConfiguration, useApplicationBranchedDatabases } from './useBranchedDatabases';
+import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import {
+	invalidateApplicationConfiguration,
+	readApplicationSetting,
+	useApplicationBranchedDatabases,
+	useApplicationEntryHasPackage,
+	useBranchedDatabasesAvailable,
+	useBranchedDatabasesPossible,
+} from './useBranchedDatabases';
 
 const CONFIGURATION = { http: { port: 9926 }, web: { package: 'npm:web', branchedDatabases: ['data'] } };
 
-function renderCurrent(project: string | undefined = 'web') {
-	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	const rendered = renderHook(() => useApplicationBranchedDatabases(project), {
+function renderWithQueries<T>(hook: () => T) {
+	// `retryDelay: 0` because the hooks set their own `retry`, which this default can't turn off.
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+	const rendered = renderHook(hook, {
 		wrapper: ({ children }: { children: ReactNode }) =>
 			createElement(QueryClientProvider, { client: queryClient }, children),
 	});
 	return { ...rendered, queryClient };
 }
 
+function renderCurrent(project: string | undefined = 'web') {
+	return renderWithQueries(() => useApplicationBranchedDatabases(project));
+}
+
+function forbidden() {
+	const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+	return new AxiosError('Request failed with status code 403', 'ERR_BAD_REQUEST', config, undefined, {
+		status: 403,
+		statusText: 'Forbidden',
+		headers: {},
+		config,
+		data: { error: 'not authorized' },
+	});
+}
+
 afterEach(() => {
 	mocks.canManage.value = true;
+	mocks.canRead.value = true;
+	mocks.post.mockReset();
 	vi.clearAllMocks();
 });
 
@@ -99,7 +129,7 @@ describe('useApplicationBranchedDatabases', () => {
 		const { result, queryClient } = renderCurrent();
 		await waitFor(() => expect(result.current.known).toBe(true));
 
-		mocks.post.mockRejectedValueOnce(new Error('network down'));
+		mocks.post.mockRejectedValue(new Error('network down'));
 		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
 
 		await waitFor(() => expect(result.current).toMatchObject({ known: false, loading: false, failed: true }));
@@ -127,9 +157,181 @@ describe('useApplicationBranchedDatabases', () => {
 
 	it('asks nothing for someone who cannot read get_configuration', () => {
 		mocks.canManage.value = false;
+		mocks.canRead.value = false;
 		const { result } = renderCurrent();
 
 		expect(mocks.post).not.toHaveBeenCalled();
-		expect(result.current).toMatchObject({ known: false, loading: false, failed: false });
+		expect(result.current).toMatchObject({ readable: false, known: false, loading: false, failed: false });
+	});
+});
+
+describe('a role that is not a super user', () => {
+	it('reads the setting when its allowlist grants get_configuration, so a redeploy can resend it', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockResolvedValue({ data: CONFIGURATION });
+		const { result } = renderCurrent();
+
+		await waitFor(() => expect(result.current.known).toBe(true));
+		expect(result.current).toMatchObject({ readable: true, setting: ['data'] });
+	});
+
+	it("reads Harper's refusal as unreadable rather than failed, so nothing waits on a retry that can't succeed", async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValue(forbidden());
+		const { result } = renderCurrent();
+
+		await waitFor(() => expect(result.current.readable).toBe(false));
+		expect(result.current).toMatchObject({ known: false, loading: false, failed: false, setting: undefined });
+		expect(mocks.post).toHaveBeenCalledOnce();
+	});
+
+	it('keeps a refusal through a later failure of another kind, which says nothing new about the grant', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValueOnce(forbidden());
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.readable).toBe(false));
+
+		mocks.post.mockRejectedValue(new Error('network down'));
+		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
+
+		await waitFor(() => expect(mocks.post.mock.calls.length).toBeGreaterThan(1));
+		expect(result.current).toMatchObject({ readable: false, failed: false, loading: false });
+	});
+
+	it('holds a refusal while a dialog asks again, and lets a later read that succeeds clear it', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockRejectedValueOnce(forbidden());
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.readable).toBe(false));
+
+		let answer!: (value: unknown) => void;
+		mocks.post.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		await act(async () => {
+			void invalidateApplicationConfiguration(queryClient, 'ins-1');
+		});
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(2));
+		expect(result.current).toMatchObject({ readable: false, loading: false, failed: false });
+
+		await act(async () => answer({ data: CONFIGURATION }));
+		await waitFor(() => expect(result.current).toMatchObject({ readable: true, known: true, setting: ['data'] }));
+	});
+});
+
+describe('useBranchedDatabasesPossible', () => {
+	it.each([
+		['5.2.4', false],
+		['5.3.2', true],
+		['5.4.0-beta.2', true],
+	])('on %s → %s', async (version, expected) => {
+		mocks.post.mockResolvedValue({ data: { version } });
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+		await waitFor(() => expect(result.current).toBe(expected));
+	});
+
+	it("counts an unreadable version as possible, since the roles that can't read the setting often can't read it either", async () => {
+		mocks.post.mockRejectedValue(forbidden());
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		await waitFor(() => expect(result.current).toBe(true));
+	});
+
+	it('counts a version still on its way as possible, so a redeploy sent meanwhile is warned about', () => {
+		mocks.post.mockReturnValue(new Promise(() => {}));
+		const { result } = renderWithQueries(() => useBranchedDatabasesPossible());
+
+		expect(result.current).toBe(true);
+	});
+});
+
+describe('useApplicationEntryHasPackage', () => {
+	it("reads whether the application's entry names a package", async () => {
+		mocks.post.mockResolvedValue({ data: { web: { package: 'npm:web' }, app: { branchedDatabases: ['data'] } } });
+		const { result } = renderWithQueries(() => [
+			useApplicationEntryHasPackage('web'),
+			useApplicationEntryHasPackage('app'),
+		]);
+
+		await waitFor(() => expect(result.current[0]).toBe(true));
+		expect(result.current[1]).toBe(false);
+	});
+});
+
+describe('useBranchedDatabasesAvailable', () => {
+	it('survives the permission resolving after the first render', async () => {
+		mocks.canManage.value = false;
+		mocks.post.mockResolvedValue({ data: { version: '5.4.0-beta.2' } });
+		const { result, rerender } = renderWithQueries(() => useBranchedDatabasesAvailable());
+		expect(result.current).toBe(false);
+
+		mocks.canManage.value = true;
+		rerender();
+
+		await waitFor(() => expect(result.current).toBe(true));
+	});
+});
+
+describe('readApplicationSetting', () => {
+	it('reads once, after dropping a read already in flight', async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+		mocks.post.mockReturnValueOnce(new Promise(() => {}));
+		void queryClient.prefetchQuery({
+			queryKey: ['get_configuration', 'ins-1'],
+			queryFn: () => mocks.instanceParams.instanceClient.post('/', { operation: 'get_configuration' }),
+		});
+		mocks.post.mockResolvedValueOnce({ data: { web: { branchedDatabases: [] } } });
+
+		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBeUndefined();
+		expect(mocks.post).toHaveBeenCalledTimes(2);
+		expect(mocks.post).toHaveBeenLastCalledWith('/', { operation: 'get_configuration' }, { skipGatewayRetry: true });
+	});
+
+	it('stops counting the cached answer as current until it lands, then stores what it read', async () => {
+		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.known).toBe(true));
+
+		let answer!: (value: unknown) => void;
+		mocks.post.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		let read!: Promise<unknown>;
+		await act(async () => {
+			read = readApplicationSetting(queryClient, mocks.instanceParams as never, 'web');
+		});
+		await waitFor(() => expect(result.current.known).toBe(false));
+
+		await act(async () => answer({ data: { web: { branchedDatabases: true } } }));
+		expect(await read).toBe(true);
+		await waitFor(() => expect(result.current).toMatchObject({ known: true, setting: true }));
+	});
+
+	it("is unknown when the read fails, Harper's refusal included", async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+		mocks.post.mockRejectedValue(forbidden());
+
+		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBe('unknown');
+	});
+});
+
+describe('invalidateApplicationConfiguration', () => {
+	it('can leave the setting unknown without reading it again, for a write that may still be running', async () => {
+		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.known).toBe(true));
+		// The read's last render lands after `known` turns true, and would hide an invalidation nothing re-renders for.
+		await act(() => new Promise(resolve => setTimeout(resolve, 50)));
+
+		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1', { refetch: false }));
+
+		expect(result.current.known).toBe(false);
+		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 });
