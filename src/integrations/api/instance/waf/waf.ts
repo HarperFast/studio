@@ -6,7 +6,7 @@ import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceC
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { stableJson } from '@/lib/stableJson';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import { queryOptions, useMutation } from '@tanstack/react-query';
+import { QueryClient, QueryKey, queryOptions, RefetchOptions, useMutation } from '@tanstack/react-query';
 
 /** The first tagged harper-pro build with the WAF operations. */
 const WAF_MIN_VERSION = '5.2.0-beta.3';
@@ -167,6 +167,18 @@ export function listWafRulesQueryOptions(params: InstanceClientIdConfig & { enab
 	});
 }
 
+/** A refetch cancelled twice settles before the read that replaced it, and a paused read isn't "fetching". */
+export async function refetchWafRulesToRest(
+	queryClient: QueryClient,
+	queryKey: QueryKey,
+	refetch: (options?: RefetchOptions) => Promise<unknown>,
+) {
+	await refetch();
+	while ((queryClient.getQueryState(queryKey)?.fetchStatus ?? 'idle') !== 'idle') {
+		await refetch({ cancelRefetch: false });
+	}
+}
+
 export function isFabricStarterRule(rule: WafRule): boolean {
 	return rule.provenance?.origin === 'managed-feed' && rule.id.startsWith('fabric-baseline-');
 }
@@ -303,6 +315,9 @@ function comparable(rule: WafRule): unknown {
 
 export async function editWafRule({ instanceClient, loaded, patch }: WafRuleWriteArgs & { patch: WafRulePatch }) {
 	await rereadUnchanged(instanceClient, loaded);
+	if (!Object.keys(patch).length) {
+		return undefined;
+	}
 	return alterWafRule({ instanceClient, id: loaded.id, patch });
 }
 
