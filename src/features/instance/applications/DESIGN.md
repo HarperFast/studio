@@ -125,6 +125,26 @@ because Harper's validator refuses the wrong mix outright: a stage with `restart
 install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
 nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.
 
+## Going back needs each node to say it keeps the release
+
+Activating an id a node does not hold answers 404 there, and the activation ends `partial`. The records cannot say which
+nodes hold what: retention prunes without writing a record, a release deployed from a `file:` directory or made live
+before 5.3.0 is never kept, and `origin_node` is the receiving node's host name rather than its node name. So from
+5.4.0-alpha.1 the Deployments page asks `list_releases` (`useComponentReleases`), and what is on disk decides the offer
+(`releaseOffer`): live on every node offers nothing, live on some offers Activate again, and a node with no copy, or
+one that could not answer, disables it and is named with the reason the record can give.
+
+Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
+and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,
+when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. A
+failed deploy is offered wherever some node holds it, since it may be live on the node that received it.
+`list_releases` is never polled or refetched on focus, since every node walks each kept release's tree to size it.
+`useComponentReleases` asks again when the component's newest record starts, ends, or reaches another node, not at each
+step of a build (`recordsGeneration`). What the nodes hold also changes without a newer record, as a rollout behind the
+newest one finishes or a node joins, so `ActivateRelease` asks once more before it confirms (`useRecheckRelease`). It
+decides on the answer that ask read from the cache, since the props reflect it only a render later, and confirms nothing
+if the ask fails. An answer being refetched, or whose refetch failed, does not enable an activation.
+
 ## Private database copies
 
 Harper 5.3 can run an application on its own copy of some databases (`branchedDatabases`: a list of names, or `true` for
