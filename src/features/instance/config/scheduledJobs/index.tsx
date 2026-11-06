@@ -195,10 +195,16 @@ function ScheduledJobsPage() {
 	);
 	const addable = views.filter(canEditView);
 
-	const [dialog, setDialog] = useState<JobDialogTarget | undefined>();
+	// A closing dialog keeps its target, so its exit animation still shows the job it was about.
+	const [dialog, setDialog] = useState<{ target: JobDialogTarget; open: boolean; key: number } | undefined>();
+	// Each open gets its own key, so it starts from the file rather than the last open's unsaved edits.
+	const dialogOpens = useRef(0);
 	const [removing, setRemoving] = useState<
-		{ app: SchedulerApp; job: ScheduledJobConfig; baseText: string | undefined } | undefined
+		| { target: { app: SchedulerApp; job: ScheduledJobConfig; baseText: string | undefined }; open: boolean }
+		| undefined
 	>();
+	const closeDialog = () => setDialog((current) => current && { ...current, open: false });
+	const closeRemoving = () => setRemoving((current) => current && { ...current, open: false });
 	const [addApp, setAddApp] = useState<string | undefined>();
 	const [restartPending, setRestartPending] = useState(false);
 	// A write that lands while a restart is already running isn't covered by it, so it keeps the prompt.
@@ -246,17 +252,22 @@ function ScheduledJobsPage() {
 
 	const openDialog = (view: AppView, job?: ScheduledJobConfig) => {
 		save.reset();
-		setDialog({ app: view.app, job, baseText: view.text, config: view.config });
+		dialogOpens.current += 1;
+		setDialog({
+			target: { app: view.app, job, baseText: view.text, config: view.config },
+			open: true,
+			key: dialogOpens.current,
+		});
 	};
 	const onSave = (draft: JobDraft) => {
-		if (!dialog) {
+		if (!dialog?.open) {
 			return;
 		}
-		const { app, job, baseText } = dialog;
+		const { app, job, baseText } = dialog.target;
 		const handlerFile = handlerModulePath(draft.handler);
 		save.mutate({ app, baseText, handlerFile, change: (text) => writeJob(text, job?.index, draft) }, {
 			onSuccess: ({ file }) => {
-				setDialog(undefined);
+				closeDialog();
 				wrote();
 				toast.success(`${job ? 'Saved' : 'Added'} ${draft.name}`, {
 					description: `${app.name}/${file} is saved. Restart for Harper to run the change.`,
@@ -266,13 +277,13 @@ function ScheduledJobsPage() {
 		});
 	};
 	const onRemove = () => {
-		if (!removing) {
+		if (!removing?.open) {
 			return;
 		}
-		const { app, job, baseText } = removing;
+		const { app, job, baseText } = removing.target;
 		save.mutate({ app, baseText, change: (text) => removeJob(text ?? '', job.index) }, {
 			onSuccess: () => {
-				setRemoving(undefined);
+				closeRemoving();
 				wrote();
 				toast.success(`Removed ${job.name ?? 'the job'}`, {
 					description: `It keeps running until ${app.name} restarts.`,
@@ -406,7 +417,7 @@ function ScheduledJobsPage() {
 								onEdit={(job) => openDialog(view, job)}
 								onRemove={(job) => {
 									save.reset();
-									setRemoving({ app: view.app, job, baseText: view.text });
+									setRemoving({ target: { app: view.app, job, baseText: view.text }, open: true });
 								}}
 							/>
 						)
@@ -414,23 +425,24 @@ function ScheduledJobsPage() {
 
 			{dialog && (
 				<JobDialog
-					key={`${dialog.app.name}:${dialog.job?.index ?? 'new'}`}
-					target={dialog}
+					key={dialog.key}
+					open={dialog.open}
+					target={dialog.target}
 					instanceParams={instanceParams}
 					isSaving={save.isPending}
 					saveError={save.error}
 					onSave={onSave}
-					onClose={() => setDialog(undefined)}
+					onClose={closeDialog}
 				/>
 			)}
 
-			<AlertDialog open={!!removing} onOpenChange={(open) => !open && !save.isPending && setRemoving(undefined)}>
+			<AlertDialog open={!!removing?.open} onOpenChange={(open) => !open && !save.isPending && closeRemoving()}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Remove {removing?.job.name ?? 'this job'}?</AlertDialogTitle>
+						<AlertDialogTitle>Remove {removing?.target.job.name ?? 'this job'}?</AlertDialogTitle>
 						<AlertDialogDescription>
 							Studio removes it from{' '}
-							{removing?.app.name}/{removing?.app.configFile}. It keeps running until the app restarts.
+							{removing?.target.app.name}/{removing?.target.app.configFile}. It keeps running until the app restarts.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					{save.error != null && removing && (

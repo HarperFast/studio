@@ -200,6 +200,7 @@ function PickOrType({
 }
 
 export function JobDialog({
+	open,
 	target,
 	instanceParams,
 	isSaving,
@@ -207,6 +208,7 @@ export function JobDialog({
 	onSave,
 	onClose,
 }: {
+	open: boolean;
 	target: JobDialogTarget;
 	instanceParams: InstanceClientIdConfig;
 	isSaving: boolean;
@@ -252,7 +254,7 @@ export function JobDialog({
 		&& exportName.trim() !== '' && !moduleExports.names.includes(exportName.trim());
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !isSaving && onClose()}>
+		<Dialog open={open} onOpenChange={(next) => !next && !isSaving && onClose()}>
 			<DialogContent className="max-h-[90vh] overflow-y-auto">
 				<Form {...form}>
 					<form

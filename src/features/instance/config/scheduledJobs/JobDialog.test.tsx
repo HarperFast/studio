@@ -74,6 +74,7 @@ function renderDialog(withJob = false, configText = CONFIG) {
 	render(
 		<QueryClientProvider client={client}>
 			<JobDialog
+				open
 				target={target(withJob, configText)}
 				instanceParams={{ instanceClient: { post } as never, entityId: 'instance-1' }}
 				isSaving={false}

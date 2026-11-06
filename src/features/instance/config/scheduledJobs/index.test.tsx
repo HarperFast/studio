@@ -389,6 +389,18 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(screen.queryByText('Remove sync-rates?')).toBeNull();
 	});
 
+	it('reopens a job from the file, not from the edits a cancelled dialog left', async () => {
+		renderPage();
+		fireEvent.click(await screen.findByRole('button', { name: 'Change sync-rates' }));
+		const interval = async () => (await screen.findByRole('textbox', { name: 'Interval' })) as HTMLInputElement;
+		fireEvent.change(await interval(), { target: { value: '15m' } });
+		expect((await interval()).value).toBe('15m');
+		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Interval' })).toBeNull());
+		fireEvent.click(screen.getByRole('button', { name: 'Change sync-rates' }));
+		expect((await interval()).value).toBe('10s');
+	});
+
 	it('keeps an app with no config file in the Add list after a refresh', async () => {
 		renderPage();
 		await screen.findByText('metrics-app', { selector: '[data-slot="card-title"]' });
