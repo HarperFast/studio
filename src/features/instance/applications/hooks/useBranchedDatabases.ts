@@ -198,11 +198,18 @@ export async function readApplicationSetting(
 	}
 }
 
-/** Call after Studio writes an application's entry, answered or not. */
-export async function invalidateApplicationConfiguration(queryClient: QueryClient, entityId: string | undefined) {
+/**
+ * Call after Studio writes an application's entry, answered or not. `refetch: false` for a write that may still be
+ * running, which a read now would only see the start of: the setting stays unknown until something reads it again.
+ */
+export async function invalidateApplicationConfiguration(
+	queryClient: QueryClient,
+	entityId: string | undefined,
+	{ refetch = true }: { refetch?: boolean } = {},
+) {
 	const queryKey = ['get_configuration', entityId];
 	// A read already in flight was sent before the write. Invalidating can reuse it, or let it land afterwards, and
 	// either way its answer would count as current.
 	await queryClient.cancelQueries({ queryKey });
-	return queryClient.invalidateQueries({ queryKey });
+	return queryClient.invalidateQueries(refetch ? { queryKey } : { queryKey, refetchType: 'none' });
 }

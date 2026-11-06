@@ -320,3 +320,16 @@ describe('readApplicationSetting', () => {
 		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBe('unknown');
 	});
 });
+
+describe('invalidateApplicationConfiguration', () => {
+	it('can leave the setting unknown without reading it again, for a write that may still be running', async () => {
+		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.known).toBe(true));
+
+		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1', { refetch: false }));
+
+		expect(queryClient.getQueryState(['get_configuration', 'ins-1'])?.isInvalidated).toBe(true);
+		expect(mocks.post).toHaveBeenCalledOnce();
+	});
+});

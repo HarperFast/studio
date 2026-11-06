@@ -252,8 +252,7 @@ export function ApplicationPrivateCopyModal() {
 					stream.markSettled('inconclusive');
 				}
 				const readBack = await readSettingBack();
-				// The deploy may still be running, so the entry this read saw may be about to change.
-				void invalidateApplicationConfiguration(queryClient, instanceParams.entityId);
+				void invalidateApplicationConfiguration(queryClient, instanceParams.entityId, { refetch: false });
 				toast.warning(
 					readBack !== 'unknown' && sameSetting(readBack, wanted)
 						? `${project}'s private database copy setting changed, but its deploy didn't report back`

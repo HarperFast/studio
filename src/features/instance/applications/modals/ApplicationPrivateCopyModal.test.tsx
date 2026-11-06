@@ -260,7 +260,7 @@ describe('ApplicationPrivateCopyModal', () => {
 		await waitFor(() => expect(toast.warning).toHaveBeenCalled());
 		expect(vi.mocked(toast.warning).mock.calls[0][0]).toMatch(/setting changed, but its deploy didn't report back/);
 		expect(toast.success).not.toHaveBeenCalled();
-		expect(mocks.invalidateConfiguration).toHaveBeenCalled();
+		expect(mocks.invalidateConfiguration).toHaveBeenLastCalledWith(expect.anything(), 'clu-1', { refetch: false });
 	});
 
 	it('says so when the entry reads differently after the deploy, in the panel too, instead of reporting success', async () => {
