@@ -168,6 +168,42 @@ describe('useComponentReleases', () => {
 		}
 	});
 
+	it('does not fail a retry over a read of the deployments that recovered while the nodes were asked', async () => {
+		function Table() {
+			const { status } = useQuery(getDeploymentsQueryOptions({ ...clusterA, limit: 25 } as never));
+			return <div data-testid="table">{status}</div>;
+		}
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		render(
+			<QueryClientProvider client={queryClient}>
+				<Table />
+				<Detail />
+				<Retry />
+			</QueryClientProvider>,
+		);
+		await screen.findByText('live-everywhere');
+		await vi.waitFor(() => expect(screen.getByTestId('table').textContent).toBe('success'));
+		const answer = state.post.getMockImplementation()!;
+		let walked: () => void = () => {};
+		state.post.mockImplementation((url: string, body: { operation: string; limit?: number }) =>
+			body.operation === 'list_deployments' && body.limit === 25
+				? Promise.reject(new Error('bad gateway'))
+				: body.operation === 'list_releases'
+				? new Promise((resolve) => (walked = () => resolve(answer(url, body))))
+				: answer(url, body)
+		);
+		try {
+			await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+			await vi.waitFor(() => expect(releaseCalls()).toBe(2));
+			state.post.mockImplementation(answer);
+			await act(() => queryClient.refetchQueries({ queryKey: ['clu-a', 'list_deployments', { limit: 25 }] }));
+			await act(async () => walked());
+			await expect(state.retried).resolves.toBeUndefined();
+		} finally {
+			state.post.mockImplementation(answer);
+		}
+	});
+
 	it('asks, and waits on, a view whose records had never read, once a retry reads them', async () => {
 		const answer = state.post.getMockImplementation()!;
 		state.post.mockImplementation((url: string, body: { operation: string }) =>

@@ -100,24 +100,20 @@ export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 			predicate: (query) => query.getObserversCount() > 0,
 		});
 		const asked = await Promise.allSettled(views.map(async (view) => {
-			const [, , { project }, generation] = view.queryKey as ReleasesQueryKey;
+			const [, , { project }] = view.queryKey as ReleasesQueryKey;
 			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
 			if (records?.status !== 'success' || !records.data) {
 				throw records?.error ?? new Error(`The deployments of ${project} could not be read.`);
 			}
-			const current = recordsGeneration(records.data);
-			return current === generation
-				? queryClient.refetchQueries({ queryKey: view.queryKey, exact: true }, {
-					cancelRefetch: false,
-					throwOnError: true,
-				})
-				: queryClient.fetchQuery(getReleasesQueryOptions({ ...instanceParams, project, generation: current }));
+			return queryClient.fetchQuery(
+				getReleasesQueryOptions({ ...instanceParams, project, generation: recordsGeneration(records.data) }),
+			);
 		}));
 		const failed = asked.find((result) => result.status === 'rejected');
 		if (failed) {
 			throw failed.reason;
 		}
-		if (unread) {
+		if (unread?.state.status === 'error') {
 			throw unread.state.error;
 		}
 	}, [queryClient, instanceParams, onlyProject]);

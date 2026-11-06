@@ -447,7 +447,11 @@ describe('DeploymentDetail on Harper 5.4', () => {
 	it('keeps a failed deploy when no node said what it holds', async () => {
 		renderRecord({ deployment_id: 'v4', project: 'web', status: 'failed' }, { nodes: [] });
 
-		expect(await screen.findByText('No node said which releases it holds.')).toBeTruthy();
+		expect(await screen.findByText(/^No node said which releases it holds\./)).toBeTruthy();
+		const asked = () => post.mock.calls.filter(([, body]) => body.operation === 'list_releases').length;
+		const before = asked();
+		fireEvent.click(screen.getByRole('button', { name: 'Ask the nodes again' }));
+		await vi.waitFor(() => expect(asked()).toBe(before + 1));
 	});
 
 	it('confirms once the nodes, asked again, still hold the release everywhere', async () => {

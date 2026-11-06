@@ -67,7 +67,14 @@ export function ReleaseCheckNote({
 			);
 		case 'missing': {
 			if (check.missing.length === 0 && check.unreadable.length === 0) {
-				return <p className="text-sm text-muted-foreground">No node said which releases it holds.</p>;
+				return (
+					<p className="text-sm text-muted-foreground">
+						No node said which releases it holds.{' '}
+						<button type="button" className="underline" onClick={retry}>
+							Ask the nodes again
+						</button>
+					</p>
+				);
 			}
 			const byReason = new Map<MissingReason, string[]>();
 			for (const node of check.missing) {
