@@ -20,10 +20,8 @@ const POLL_MS = 10_000;
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
 
 /**
- * The workflow holding the cluster, else the last one that did. Keyed by the workflow holding the cluster (or none), so
- * the read starts over when a workflow claims or releases it. Polls only while one holds it, backing off on failures and
- * stopping on a 403 or 404. A 404 is a cluster that never had one or that the user can't see, or a central manager
- * without the endpoint; the notice then shows its plain state. `quietErrors`: the notice copes without this read.
+ * Keyed by the workflow holding the cluster, so the read starts over when one claims or releases it. A 404 is a cluster
+ * that never had one or that the user can't see, or a central manager without the endpoint.
  */
 export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy: string | null | undefined) {
 	const poll = pollUnlessForbidden(heldBy ? POLL_MS : false);

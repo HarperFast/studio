@@ -61,7 +61,6 @@ const instances = [
 	{ id: 'ins-1', name: 'us-1.dc.example.dev', status: 'RUNNING', version: '5.3.2' },
 	{ id: 'ins-2', name: 'eu-1.dc.example.dev', status: 'FAILED', version: '5.3.0' },
 ];
-/** Customer reads answer `row` (a function of the call count, if it changes); the cluster is held by `heldBy`. */
 const customerSees = (
 	row: Partial<ClusterWorkflow> | null,
 	{

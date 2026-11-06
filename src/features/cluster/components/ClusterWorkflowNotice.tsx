@@ -22,14 +22,8 @@ const CLUSTER_POLL_MS = 10_000;
 const ENDED_UNFINISHED = ['UNDONE', 'ABANDONED'];
 
 /**
- * Says a durable workflow (an upgrade, say) holds the cluster, which is why central manager refuses changes to it
- * meanwhile. Staff who can read workflows see where it is. Everyone else sees the plain state, or, once the workflow
- * has paused, why.
- *
- * Once nothing holds the cluster, a cluster left on mixed versions by an upgrade that didn't finish says so and points
- * at the Version page, where it can be run again.
- *
- * While a workflow holds the cluster it polls the cluster, because central manager clearing `workflowId` is what ends it.
+ * Why central manager refuses changes to a held cluster, and, once an upgrade has left it on mixed versions, how to
+ * run it again. While held it polls the cluster, because central manager clearing `workflowId` is what ends the hold.
  */
 export function ClusterWorkflowNotice(
 	{ clusterId, workflowId, className }: { clusterId?: string; workflowId?: string | null; className?: string },
@@ -164,8 +158,8 @@ function pausedReason(workflow: ClusterWorkflow, instanceName: (id: string) => s
 }
 
 /**
- * An upgrade that ended without reaching every instance, shown while the cluster is still on mixed versions. Central
- * manager re-targets the instances it left behind when the upgrade is run again, which the Version page offers.
+ * Central manager re-targets the instances an unfinished upgrade left behind when it runs again, so that is the
+ * recovery.
  */
 function EndedUpgradeNotice({ clusterId, organizationId, workflow, partial, instanceName }: {
 	clusterId: string;
@@ -204,7 +198,6 @@ function EndedUpgradeNotice({ clusterId, organizationId, workflow, partial, inst
 	);
 }
 
-/** A workflow paused on the cluster, as its own users see it: what stopped, with nothing for them to send. */
 function PausedWorkflowNotice({ workflow, instanceName }: {
 	workflow: ClusterWorkflow;
 	instanceName: (id: string) => string;
