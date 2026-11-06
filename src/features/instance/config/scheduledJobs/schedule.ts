@@ -146,7 +146,9 @@ function canFire(fields: boolean[][], dayOfMonthRestricted: boolean, dayOfWeekRe
 }
 
 export function cronProblem(expression: string): string | undefined {
-	const normalized = (MACROS[expression.trim().toLowerCase()] ?? expression).trim();
+	const shortcut = expression.trim().toLowerCase();
+	// `hasOwn`, so `constructor` or `__proto__` is a bad expression rather than a prototype member.
+	const normalized = (Object.hasOwn(MACROS, shortcut) ? MACROS[shortcut] : expression).trim();
 	const fields = normalized.split(/\s+/);
 	if (fields.length !== 5) {
 		return `Cron expression "${expression}" has ${fields.length} fields; expected 5 (minute hour day-of-month month day-of-week)`;

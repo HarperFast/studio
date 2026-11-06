@@ -57,6 +57,12 @@ const HARPER_CRON_VERDICTS: [string, string | undefined][] = [
 	['*/7 */5 */3 */2 */4', undefined],
 	['0 0 30 2 MON', undefined],
 	['00 02 * * *', undefined],
+	// Not Harper's corpus: object-prototype names must read as bad expressions, not reach Object.prototype.
+	[
+		'constructor',
+		'Cron expression "constructor" has 1 fields; expected 5 (minute hour day-of-month month day-of-week)',
+	],
+	['__proto__', 'Cron expression "__proto__" has 1 fields; expected 5 (minute hour day-of-month month day-of-week)'],
 ];
 
 const HARPER_INTERVAL_VERDICTS: [unknown, 'ok' | 'unsupported' | 'range'][] = [

@@ -85,6 +85,9 @@ describe('readAppJobs', () => {
 		expect(readAppJobs('none: &n\nscheduler:\n  jobs: *n\n')).toMatchObject({ editable: false, jobs: [] });
 		const sharedEntry = 'scheduler:\n  jobs:\n    - &one { name: a, interval: 5m, handler: ./a.js }\n    - *one\n';
 		expect(readAppJobs(sharedEntry)).toMatchObject({ editable: false });
+		const sharedValue =
+			'scheduler:\n  jobs:\n    - { name: a, interval: 5m, handler: &h ./a.js }\n    - { name: b, interval: 6m, handler: *h }\n';
+		expect(readAppJobs(sharedValue)).toMatchObject({ editable: false });
 		expect(readAppJobs('base: 1\nm:\n  <<: *missing\n')).toEqual({
 			jobs: [],
 			editable: false,
@@ -250,6 +253,15 @@ describe('removeJob', () => {
 		const next = removeJob('rest: true\nscheduler:\n  jobs:\n    - { name: a, interval: 5m, handler: ./a.js }\n', 0);
 		expect(parse(next)).toEqual({ rest: true });
 	});
+
+	it('writes block style into an emptied file', () => {
+		const emptied = removeJob('scheduler:\n  jobs:\n    - { name: a, interval: 5m, handler: ./a.js }\n', 0);
+		const next = writeJob(emptied, undefined, { name: 'b', schedule: { interval: '5m' }, handler: './b.js' });
+		expect(next).toBe('scheduler:\n  jobs:\n    - name: b\n      interval: 5m\n      handler: ./b.js\n');
+		expect(
+			writeJob('scheduler:\n  jobs: []\n', undefined, { name: 'c', schedule: { interval: '5m' }, handler: './c.js' }),
+		).toContain('    - name: c\n');
+	});
 });
 
 describe('handlers', () => {
@@ -275,5 +287,8 @@ describe('handlers', () => {
 		expect(handlerFileProblem('./lib/util.js', files)).toBeUndefined();
 		expect(handlerFileProblem('./job.js#a', files)).toMatch(/no file at \.\/job\.js/);
 		expect(handlerFileProblem('/srv/jobs.js', files)).toBeUndefined();
+		expect(handlerFileProblem('../shared/jobs.js', files)).toBeUndefined();
+		expect(handlerFileProblem('./#run', files)).toMatch(/is the app’s folder, not a file/);
+		expect(handlerFileProblem('./lib/..#run', files)).toMatch(/is the app’s folder, not a file/);
 	});
 });

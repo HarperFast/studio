@@ -1,4 +1,4 @@
-import { Document, isAlias, isMap, isScalar, isSeq, Pair, parseDocument, Scalar, YAMLMap, YAMLSeq } from 'yaml';
+import { Document, isAlias, isMap, isScalar, isSeq, Pair, parseDocument, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { cronProblem, intervalProblem, timezoneProblem } from './schedule';
 
 /** The files Harper reads an app's config from, in the order it looks (harper `components/componentLoader.ts`). */
@@ -128,11 +128,21 @@ export function readAppJobs(text: string | undefined): AppJobsConfig {
 		};
 	}
 	const read = readSchedulerValue(config?.scheduler);
-	// The data reads through an alias, empty or not, but an edit works on the nodes, which would be the alias itself.
-	const schedulerNode = doc.get('scheduler', true);
-	const jobsNode = isMap(schedulerNode) ? schedulerNode.get('jobs', true) : undefined;
-	const aliased = isAlias(schedulerNode) || isAlias(jobsNode)
-		|| (isSeq(jobsNode) && jobsNode.items.some((item) => isAlias(item) || (isMap(item) && !!item.anchor)));
+	// The data reads through an alias or anchor anywhere under `scheduler`, but an edit works on the nodes: it would
+	// rewrite the alias itself, or change whatever else shares the anchor.
+	const schedulerNode: unknown = doc.get('scheduler', true);
+	let aliased = isAlias(schedulerNode);
+	if (!aliased && (isMap(schedulerNode) || isSeq(schedulerNode) || isScalar(schedulerNode))) {
+		visit(schedulerNode, {
+			Node(_key, node) {
+				if (isAlias(node) || (node as { anchor?: string }).anchor) {
+					aliased = true;
+					return visit.BREAK;
+				}
+				return undefined;
+			},
+		});
+	}
 	return aliased
 		? {
 			...read,
@@ -262,6 +272,10 @@ function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq;
 	} else if (doc.contents !== null && !isMap(doc.contents)) {
 		throw new Error('The config file isn’t a set of keys, so Studio can’t add jobs to it.');
 	}
+	// An empty `{}` or `[]` is flow style, which would put everything added to it on one line.
+	if (isMap(doc.contents) && doc.contents.items.length === 0) {
+		doc.contents.flow = false;
+	}
 	let scheduler = doc.get('scheduler', true);
 	if (!isMap(scheduler)) {
 		if (scheduler !== undefined && !(isScalar(scheduler) && scheduler.value === null)) {
@@ -271,8 +285,14 @@ function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq;
 		doc.set('scheduler', scheduler);
 	}
 	const schedulerMap = scheduler as YAMLMap;
+	if (schedulerMap.items.length === 0) {
+		schedulerMap.flow = false;
+	}
 	const existing: unknown = schedulerMap.get('jobs', true);
 	if (isSeq(existing)) {
+		if (existing.items.length === 0) {
+			existing.flow = false;
+		}
 		return { doc, jobs: existing, scheduler: schedulerMap };
 	}
 	if (existing !== undefined && !(isScalar(existing) && existing.value === null)) {
@@ -343,6 +363,21 @@ export function handlerModulePath(handler: string): string | undefined {
 	return parts.length > 0 ? parts.join('/') : undefined;
 }
 
+function escapesApp(modulePath: string): boolean {
+	let depth = 0;
+	for (const part of modulePath.split('/')) {
+		if (part === '..') {
+			depth -= 1;
+			if (depth < 0) {
+				return true;
+			}
+		} else if (part !== '' && part !== '.') {
+			depth += 1;
+		}
+	}
+	return false;
+}
+
 export function handlerExportName(handler: string): string {
 	const hashIndex = handler.indexOf('#');
 	return hashIndex >= 0 ? handler.slice(hashIndex + 1) : 'default';
@@ -354,6 +389,10 @@ export function buildHandler(file: string, exportName: string): string {
 
 export function handlerFileProblem(handler: string, appFiles: ReadonlySet<string>): string | undefined {
 	const path = handlerModulePath(handler);
+	const modulePath = handler.split('#')[0];
+	if (path === undefined && !modulePath.startsWith('/') && !escapesApp(modulePath)) {
+		return `${modulePath || 'The handler'} is the app’s folder, not a file, so Harper can’t load the handler.`;
+	}
 	if (path === undefined || appFiles.has(path)) {
 		return undefined;
 	}
