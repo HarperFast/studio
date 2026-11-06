@@ -78,33 +78,38 @@ export function useComponentReleases(project: string | undefined) {
 }
 
 /**
- * Reads the records again, then asks the nodes again once for each open view, of `onlyProject` if given: under its
- * generation if the records held, or under the new one, which the view joins when it renders, if they moved. One whose
- * records failed to read stays unreadable whatever it is told. Every other answer is marked stale, for the next view
- * that reads it.
+ * Reads the records of `onlyProject`, or of every component, again, then asks the nodes again once for each open view
+ * of them: under its generation if the records held, or under the new one, which the view joins when it renders, if they
+ * moved. Every other answer is marked stale, for the next view that reads it. Rejects, once every view has its answer,
+ * if any view's records or nodes could not be read: an activation must not be confirmed over the answer before.
  */
 export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	return useCallback(async () => {
+		const scope = onlyProject === undefined ? [] : [{ project: onlyProject }];
 		const releasesKey = [instanceParams.entityId, 'list_releases'];
-		await queryClient.invalidateQueries({ queryKey: releasesKey, refetchType: 'none' });
-		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments'] });
-		const views = queryClient.getQueryCache().findAll({ queryKey: releasesKey, type: 'active' });
-		await Promise.allSettled(views.map((view) => {
+		await queryClient.invalidateQueries({ queryKey: [...releasesKey, ...scope], refetchType: 'none' });
+		await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'list_deployments', ...scope] });
+		const views = queryClient.getQueryCache().findAll({ queryKey: [...releasesKey, ...scope], type: 'active' });
+		const asked = await Promise.allSettled(views.map(async (view) => {
 			const [, , { project }, generation] = view.queryKey as ReleasesQueryKey;
-			if (onlyProject !== undefined && project !== onlyProject) {
-				return undefined;
-			}
 			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
 			if (records?.status !== 'success' || !records.data) {
-				return undefined;
+				throw records?.error ?? new Error(`The deployments of ${project} could not be read.`);
 			}
 			const current = recordsGeneration(records.data);
 			return current === generation
-				? queryClient.refetchQueries({ queryKey: view.queryKey, exact: true }, { cancelRefetch: false })
+				? queryClient.refetchQueries({ queryKey: view.queryKey, exact: true }, {
+					cancelRefetch: false,
+					throwOnError: true,
+				})
 				: queryClient.fetchQuery(getReleasesQueryOptions({ ...instanceParams, project, generation: current }));
 		}));
+		const failed = asked.find((result) => result.status === 'rejected');
+		if (failed) {
+			throw failed.reason;
+		}
 	}, [queryClient, instanceParams, onlyProject]);
 }
 

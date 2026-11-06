@@ -24,7 +24,8 @@ export function ReleaseCheckNote({
 	record?: Deployment;
 	showLive?: boolean;
 }) {
-	const retry = useRetryReleases();
+	const retryReleases = useRetryReleases();
+	const retry = () => void retryReleases().catch(() => undefined);
 	switch (check.kind) {
 		case 'unsupported':
 			return null;
@@ -38,7 +39,7 @@ export function ReleaseCheckNote({
 					<button
 						type="button"
 						className="underline"
-						onClick={() => void retry()}
+						onClick={retry}
 					>
 						Try again
 					</button>
@@ -81,6 +82,12 @@ export function ReleaseCheckNote({
 							</li>
 						))}
 					</ul>
+					<p>
+						{/* What a node holds can change with no new record, and this answer is not asked again on its own. */}
+						<button type="button" className="underline" onClick={retry}>
+							Ask the nodes again
+						</button>
+					</p>
 				</div>
 			);
 		}

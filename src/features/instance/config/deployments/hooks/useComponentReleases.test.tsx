@@ -41,7 +41,11 @@ function Detail() {
 
 function Retry({ project }: { project?: string }) {
 	const retry = useRetryReleases(project);
-	return <button type="button" onClick={() => (state.retried = retry())}>retry {project}</button>;
+	const onClick = () => {
+		state.retried = retry();
+		state.retried.catch(() => undefined);
+	};
+	return <button type="button" onClick={onClick}>retry {project}</button>;
 }
 
 afterEach(() => {
@@ -131,7 +135,21 @@ describe('useComponentReleases', () => {
 		expect(releaseCalls()).toBe(2);
 	});
 
-	it('does not ask the nodes on a retry whose read of the records failed', async () => {
+	it('fails a retry that could not read the nodes, once every view has its answer', async () => {
+		await renderBoth();
+		state.releases.push(() => Promise.reject(new Error('timed out')));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		await expect(state.retried).rejects.toThrow('timed out');
+		await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+	});
+
+	it('succeeds once the nodes answered every view again', async () => {
+		await renderBoth();
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
+		await expect(state.retried).resolves.toBeUndefined();
+	});
+
+	it('does not ask the nodes on a retry whose read of the records failed, and fails it', async () => {
 		await renderBoth();
 		const answer = state.post.getMockImplementation()!;
 		state.post.mockImplementation((url: string, body: { operation: string }) =>
@@ -140,6 +158,7 @@ describe('useComponentReleases', () => {
 		try {
 			await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry' })));
 			await vi.waitFor(() => expect(screen.getByTestId('detail').textContent).toBe('unreadable'));
+			await expect(state.retried).rejects.toThrow('bad gateway');
 			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 			expect(releaseCalls()).toBe(1);
 		} finally {

@@ -159,6 +159,40 @@ describe('ActivateRelease', () => {
 		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
 	});
 
+	it('confirms nothing when asking again fails, then or once the release is allowed again', async () => {
+		const queryClient = new QueryClient();
+		const revalidate = vi.fn(() => Promise.reject(new Error('timed out')));
+		const view = (disabled: boolean) => (
+			<QueryClientProvider client={queryClient}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} revalidate={revalidate} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view(false));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' })));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(true));
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms nothing the fresh answer refuses, then or once it is allowed again', async () => {
+		const queryClient = new QueryClient();
+		let answer: () => void = () => {};
+		const revalidate = vi.fn(() => new Promise<void>((resolve) => (answer = resolve)));
+		const view = (disabled: boolean) => (
+			<QueryClientProvider client={queryClient}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} revalidate={revalidate} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view(false));
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		rerender(view(true));
+		await act(async () => answer());
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
 	it('goes back to a release by the id that built it, with the same activation call', () => {
 		state.mutateAsync.mockReturnValue(new Promise(() => {}));
 		render(

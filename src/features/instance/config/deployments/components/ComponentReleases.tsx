@@ -54,7 +54,7 @@ export function ComponentReleasesPanel({ project }: { project: string }) {
 			{state.kind === 'unreadable' && (
 				<p className="text-muted-foreground">
 					Couldn&apos;t ask the nodes which releases they hold: {state.message}{' '}
-					<button type="button" className="underline" onClick={() => void retry()}>
+					<button type="button" className="underline" onClick={() => void retry().catch(() => undefined)}>
 						Try again
 					</button>
 				</p>

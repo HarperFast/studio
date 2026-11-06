@@ -3,7 +3,7 @@
  */
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeploymentDetail } from './DeploymentDetail';
 
@@ -330,6 +330,48 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(screen.queryByText(/This needs every node/)).toBeNull();
 	});
 
+	it('keeps a failed deploy no answering node holds while another node could not say', async () => {
+		renderRecord({ deployment_id: 'v4', project: 'web', status: 'failed' }, {
+			nodes: [holds('a', 'v3', []), { node: 'b', error: 'timed out' }],
+		});
+
+		expect(await screen.findByText(/^b couldn't say which releases it holds: timed out/)).toBeTruthy();
+		expect((screen.getByRole('button', { name: /Activate again/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('asks the nodes again from a refused release, and offers it once they all hold it', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', [])],
+		});
+		const ask = await screen.findByRole('button', { name: 'Ask the nodes again' });
+		expect(rollBack()!.disabled).toBe(true);
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases'
+				? Promise.resolve({ data: { nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', ['v2'])] } })
+				: answer(url, body)
+		);
+
+		fireEvent.click(ask);
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		expect(rollBack()!.disabled).toBe(false);
+	});
+
+	it('confirms nothing when asking the nodes again before confirming fails', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', ['v2'])],
+		});
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases' ? Promise.reject(new Error('timed out')) : answer(url, body)
+		);
+
+		fireEvent.click(rollBack()!);
+		expect(await screen.findByText(/Couldn't ask the nodes which releases they hold/)).toBeTruthy();
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
 	it("says why a node lacks an activation's release is unknown while the deploy that built it is unread", async () => {
 		renderRecord({ deployment_id: 'a1', project: 'web', status: 'success', activated_from: 'v2' }, {
 			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', [])],
@@ -409,7 +451,7 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(rollBack()!.disabled).toBe(false);
 	});
 
-	it('offers no going back before Harper 5.4, which cannot say what each node keeps', () => {
+	it('offers no going back before Harper 5.4, which cannot say what each node keeps', async () => {
 		const queryClient = new QueryClient();
 		queryClient.setQueryData(['entity-1', 'get_deployment', 'v2'], {
 			deployment_id: 'v2',
@@ -423,5 +465,8 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		);
 		expect(rollBack()).toBeNull();
 		expect(post).not.toHaveBeenCalledWith('/', expect.objectContaining({ operation: 'list_releases' }));
+		// Lets the other reads settle while the page exists, rather than notify after the file tears it down.
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(rollBack()).toBeNull();
 	});
 });

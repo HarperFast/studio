@@ -73,7 +73,8 @@ export function ActivateRelease({
 	disabled?: boolean;
 	/**
 	 * Asks the nodes again before confirming: what they hold changes without a newer record, as a rollout behind the
-	 * newest one finishes or a node joins. The confirmation opens only if the fresh answer still allows it.
+	 * newest one finishes or a node joins. The confirmation opens only once it resolves, and only if the fresh answer
+	 * still allows it.
 	 */
 	revalidate?: () => Promise<unknown>;
 }) {
@@ -96,13 +97,21 @@ export function ActivateRelease({
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
 	const [revalidating, setRevalidating] = useState(false);
+	const [revalidated, setRevalidated] = useState(false);
 	const askToConfirm = useCallback(async () => {
-		if (revalidate) {
-			setRevalidating(true);
-			await revalidate().catch(() => undefined);
+		if (!revalidate) {
+			setConfirming(true);
+			return;
+		}
+		setRevalidating(true);
+		try {
+			await revalidate();
+			setRevalidated(true);
+		} catch {
+			// The check it failed on says why, and nothing is confirmed over the answer before it.
+		} finally {
 			setRevalidating(false);
 		}
-		setConfirming(true);
 	}, [revalidate]);
 
 	const activate = useCallback(async () => {
@@ -175,6 +184,13 @@ export function ActivateRelease({
 			setConfirming(false);
 		}
 	}, [confirmable]);
+	useEffect(() => {
+		// Decided on the first render with the fresh answer, not by the click, which saw the one before.
+		if (revalidated && !revalidating) {
+			setRevalidated(false);
+			setConfirming(confirmable);
+		}
+	}, [revalidated, revalidating, confirmable]);
 
 	if (!canActivate) {
 		return null;

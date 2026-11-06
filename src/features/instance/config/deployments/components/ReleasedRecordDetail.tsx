@@ -23,8 +23,10 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 		enabled: builtByOther && check.kind === 'missing',
 	});
 	const failed = deployment.status === 'failed';
-	// Its error already says why it failed; with no node holding it there is nothing to offer.
-	if (check.kind === 'unsupported' || (failed && check.kind === 'missing' && !check.held)) {
+	// Its error already says why it failed; with every node saying it holds none there is nothing to offer.
+	if (
+		check.kind === 'unsupported' || (failed && check.kind === 'missing' && !check.held && check.unreadable.length === 0)
+	) {
 		return null;
 	}
 	const { intent, offer, disabled } = releaseOffer(
