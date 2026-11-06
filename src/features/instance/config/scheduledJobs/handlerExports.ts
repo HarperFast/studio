@@ -1,8 +1,9 @@
 const MODULE_FILE = /\.(?:[cm]?js|[cm]?ts)$/;
 const DECLARATION_FILE = /\.d\.[cm]?ts$/;
 
+/** A `#` can't be in a handler's file: Harper splits the handler on its first `#`, so the rest reads as the export. */
 export function isHandlerModule(path: string): boolean {
-	return MODULE_FILE.test(path) && !DECLARATION_FILE.test(path);
+	return MODULE_FILE.test(path) && !DECLARATION_FILE.test(path) && !path.includes('#');
 }
 
 interface ModuleExports {

@@ -81,6 +81,8 @@ describe('isHandlerModule', () => {
 		['lib/jobs.cjs', true],
 		['jobs.mts', true],
 		['types.d.ts', false],
+		['jobs#nightly.js', false],
+		['#nightly.js', false],
 		['config.yaml', false],
 		['schema.graphql', false],
 	])('%j is %j', (path, expected) => {

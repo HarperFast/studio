@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Children, isValidElement, ReactElement, ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -187,6 +187,71 @@ describe('JobDialog', () => {
 		renderDialog(true, CONFIG.replace('interval: 10s', "cron: '0 0 30 2 *'"));
 		expect(await screen.findByText('Cron expression "0 0 30 2 *" can never fire')).toBeTruthy();
 		expect(submit().disabled).toBe(true);
+	});
+
+	it('stops reading the handler file once it closes', async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const shown = target(true);
+		const dialog = (open: boolean) => (
+			<QueryClientProvider client={client}>
+				<JobDialog
+					open={open}
+					target={shown}
+					instanceParams={{ instanceClient: { post } as never, entityId: 'instance-1' }}
+					isSaving={false}
+					saveError={null}
+					onSave={() => {}}
+					onClose={() => {}}
+				/>
+			</QueryClientProvider>
+		);
+		const reads = () => post.mock.calls.filter(([, body]) => body.operation === 'get_component_file').length;
+		const { rerender } = render(dialog(true));
+		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());
+		const focusAgain = async () => {
+			await act(async () => {
+				focusManager.setFocused(false);
+				focusManager.setFocused(true);
+			});
+		};
+		try {
+			const whileOpen = reads();
+			await focusAgain();
+			await waitFor(() => expect(reads()).toBe(whileOpen + 1));
+			rerender(dialog(false));
+			const afterClose = reads();
+			await focusAgain();
+			expect(reads()).toBe(afterClose);
+		} finally {
+			focusManager.setFocused(undefined);
+		}
+	});
+
+	it('never offers a file with a # in its name, which Harper would read as file and export', async () => {
+		const [app] = schedulerApps({
+			name: 'components',
+			entries: [{
+				name: 'metrics-app',
+				entries: [{ name: 'config.yaml' }, { name: '#nightly.js' }, { name: 'jobs.js' }],
+			}],
+		});
+		const config = readAppJobs(CONFIG);
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		render(
+			<QueryClientProvider client={client}>
+				<JobDialog
+					open
+					target={{ app, job: undefined, baseText: CONFIG, config }}
+					instanceParams={{ instanceClient: { post } as never, entityId: 'instance-1' }}
+					isSaving={false}
+					saveError={null}
+					onSave={() => {}}
+					onClose={() => {}}
+				/>
+			</QueryClientProvider>,
+		);
+		expect((field('Handler file') as HTMLSelectElement).value).toBe('jobs.js');
+		expect(screen.queryByRole('option', { name: '#nightly.js' })).toBeNull();
 	});
 
 	it('lets a job Harper would refuse be saved as the form already fixes it', async () => {

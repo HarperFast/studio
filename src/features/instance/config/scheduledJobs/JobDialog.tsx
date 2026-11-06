@@ -237,14 +237,17 @@ export function JobDialog({
 		return [SERVER_TIMEZONE, ...(known.includes('UTC') ? [] : ['UTC']), ...known];
 	}, []);
 
-	const { data: moduleText, isLoading: moduleLoading, isError: moduleUnreadable } = useQuery(
-		getComponentFileQueryOptions({
-			...instanceParams,
-			project: app.name,
-			file: app.files.has(file) ? file : undefined,
-			encoding: 'utf8',
-		}),
-	);
+	const moduleQuery = getComponentFileQueryOptions({
+		...instanceParams,
+		project: app.name,
+		file: app.files.has(file) ? file : undefined,
+		encoding: 'utf8',
+	});
+	// A closed dialog stays mounted for its exit animation; it keeps the text it read but reads no more.
+	const { data: moduleText, isLoading: moduleLoading, isError: moduleUnreadable } = useQuery({
+		...moduleQuery,
+		enabled: open && moduleQuery.enabled,
+	});
 	const moduleSource = moduleText?.message;
 	const moduleExports = useMemo(
 		() => (moduleSource === undefined ? undefined : readModuleExports(moduleSource)),
