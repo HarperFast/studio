@@ -97,14 +97,14 @@ function stubGitHub(status: number, body: unknown = {}) {
 	vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status })));
 }
 
-function renderPanel() {
+function renderPanel(repository?: string) {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
 	render(
 		<QueryClientProvider client={queryClient}>
-			<ApplicationDeploys app="web" names={NAMES} />
+			<ApplicationDeploys app="web" names={NAMES} repository={repository} />
 		</QueryClientProvider>,
 	);
 }
@@ -164,6 +164,13 @@ describe('ApplicationDeploys', () => {
 		expect(workflowText()).toContain('app: "web"');
 		expect(screen.getByRole('button', { name: 'Copy HARPER_CLI_TARGET' })).toBeTruthy();
 		expect(within(screen.getByRole('region', { name: 'What to commit' })).getByText(AUDIENCE)).toBeTruthy();
+	});
+
+	it('starts with the repository it was linked with, and looks it up', async () => {
+		stubGitHub(200, { id: 42, full_name: 'Acme/web', private: false, default_branch: 'main' });
+		renderPanel('Acme/web');
+		expect(((await screen.findByLabelText('GitHub repository')) as HTMLInputElement).value).toBe('Acme/web');
+		expect(await screen.findByText('Acme/web, id 42.')).toBeTruthy();
 	});
 
 	it("takes a private repository's id and spelling from the gh line, and the branch, environment and file typed", async () => {

@@ -46,8 +46,9 @@ const schema = z.object({
 
 type SetUpDeploysValues = z.infer<typeof schema>;
 
-export function SetUpDeploysForm({ audience, pending, onSubmit }: {
+export function SetUpDeploysForm({ audience, defaultRepository, pending, onSubmit }: {
 	audience: string;
+	defaultRepository?: string;
 	pending: boolean;
 	onSubmit: (source: CiDeploySource) => void;
 }) {
@@ -55,7 +56,7 @@ export function SetUpDeploysForm({ audience, pending, onSubmit }: {
 		resolver: zodResolver(schema),
 		mode: 'onTouched',
 		defaultValues: {
-			repository: '',
+			repository: defaultRepository ?? '',
 			repositoryIdentity: '',
 			branch: DEFAULT_CI_DEPLOY_BRANCH,
 			environment: DEFAULT_CI_DEPLOY_ENVIRONMENT,

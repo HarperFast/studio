@@ -9,6 +9,8 @@ const importState = vi.hoisted(() => ({
 	importFailure: undefined as { title: string; message: string; deploymentId?: string } | undefined,
 	importApplication: vi.fn(),
 	canBranch: false,
+	ciDeploy: undefined as boolean | undefined,
+	cliTemplate: undefined as { id: string } | undefined,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -33,7 +35,20 @@ vi.mock('./useImportApplication', () => ({
 vi.mock('./useCheckCLI', () => ({ useCheckCLI: () => ({ checkCLI: vi.fn() }) }));
 // These read the instance's SSH keys and auth, which aren't what these tests exercise.
 vi.mock('./ImportAuthorization', () => ({ ImportAuthorization: () => null }));
-vi.mock('./useCLISteps', () => ({ useCLISteps: () => [] }));
+vi.mock('./useCLISteps', () => ({
+	useCLISteps: (_name: string, template?: { id: string }) => {
+		importState.cliTemplate = template;
+		return [];
+	},
+}));
+vi.mock(
+	'./useCiDeployOutro',
+	() => ({ useCiDeployOutro: () => ({ target: undefined, ciDeploy: importState.ciDeploy }) }),
+);
+// Its availability reads the instance's version and SSH keys; DeployFromGitHubHint.test.tsx covers it.
+vi.mock('./DeployFromGitHubHint', () => ({
+	DeployFromGitHubHint: ({ project }: { project: string }) => <p>Hint for {project}</p>,
+}));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useBranchedDatabasesAvailable: () => importState.canBranch,
 }));
@@ -64,6 +79,8 @@ afterEach(() => {
 	cleanup();
 	importState.importFailure = undefined;
 	importState.canBranch = false;
+	importState.ciDeploy = undefined;
+	importState.cliTemplate = undefined;
 	vi.clearAllMocks();
 });
 
@@ -232,5 +249,62 @@ describe('NewApplication', () => {
 		expect((await screen.findByRole('alert')).textContent).toContain('Failed to stage acme');
 		expect(screen.getByRole('link', { name: "View this deployment's record" }).getAttribute('href'))
 			.toBe('/org-1/instance/ins-1/config/deployments/d1');
+	});
+
+	it('sends the chosen template to the CLI tab, and keeps following the choice there', async () => {
+		importState.ciDeploy = true;
+		render(<NewApplication />);
+		await act(async () => {
+			fireEvent.click(document.getElementById('vue')!);
+		});
+		expect(screen.getByText('Want it in a GitHub repository, with every merge deploying here?')).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Create it with the Harper CLI' }));
+		});
+
+		expect(screen.getByRole('tab', { name: /CLI/ }).getAttribute('aria-selected')).toBe('true');
+		expect(importState.cliTemplate?.id).toBe('vue');
+
+		await switchTo(/Templates/);
+		await act(async () => {
+			fireEvent.click(document.getElementById('react')!);
+		});
+		await switchTo(/CLI/);
+		expect(importState.cliTemplate?.id).toBe('react');
+	});
+
+	it('passes no template to a CLI tab opened directly', async () => {
+		render(<NewApplication />);
+		await act(async () => {
+			fireEvent.click(document.getElementById('vue')!);
+		});
+		await switchTo(/CLI/);
+		expect(screen.getByRole('tab', { name: /CLI/ }).getAttribute('aria-selected')).toBe('true');
+		expect(importState.cliTemplate).toBeUndefined();
+	});
+
+	it('mentions GitHub only on a cluster that takes deploys from it, and nothing until that is known', () => {
+		const rendered = render(<NewApplication />);
+		expect(screen.queryByRole('button', { name: 'Create it with the Harper CLI' })).toBeNull();
+		expect(screen.getByText(/or deploy with Harper CLI/)).toBeTruthy();
+
+		importState.ciDeploy = false;
+		rendered.rerender(<NewApplication />);
+		expect(screen.getByText('Want it in a repository of your own?')).toBeTruthy();
+		expect(screen.queryByText(/deploys from GitHub/)).toBeNull();
+
+		importState.ciDeploy = true;
+		rendered.rerender(<NewApplication />);
+		expect(screen.getByText(/create a project with the Harper CLI that deploys from GitHub/)).toBeTruthy();
+	});
+
+	it('offers Deploy from GitHub for the name the import will use', async () => {
+		render(<NewApplication />);
+		await switchTo(/Import/);
+		expect(screen.getByText('Hint for acme')).toBeTruthy();
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' shop ' } });
+		});
+		expect(screen.getByText('Hint for shop')).toBeTruthy();
 	});
 });

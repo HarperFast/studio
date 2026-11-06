@@ -16,6 +16,21 @@ describe('buildCLISteps', () => {
 		}
 	});
 
+	it('passes the template the Templates tab sent, and names it', () => {
+		const steps = buildCLISteps('my-app', 'https://my-cluster.example.com:9925/', true, {
+			id: 'react-ts',
+			name: 'React (TS)',
+		});
+		const create = steps.find((step) => step.title === 'Create your awesome app');
+		expect(create?.code).toBe(
+			'npm create harper my-app -- --template react-ts --deploymentURL="https://my-cluster.example.com:9925/"',
+		);
+		expect(create?.note).toBe('It starts from the React (TS) template, then asks a few easy questions.');
+		expect(buildCLISteps('my-app', undefined, true, { id: 'vue', name: 'Vue' })[1].code)
+			.toBe('npm create harper my-app -- --template vue');
+		expect(buildCLISteps('my-app', undefined, true)[1].code).toBe('npm create harper my-app');
+	});
+
 	it("ends with create-harper's outro: harper login, deploy:setup-ci, then each merge to main deploys", () => {
 		const steps = buildCLISteps('my-app', 'https://my-cluster.example.com:9925/', true);
 		expect(steps.slice(-3).map((step) => step.code)).toEqual([

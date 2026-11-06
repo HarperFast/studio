@@ -6,7 +6,7 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import { useQuery } from '@tanstack/react-query';
 
 /** Whether to offer it: to a super user, on a Harper whose allowlist can grant a deploy. An unreadable version offers none. */
-function useDeployFromGitHubAvailable(): boolean {
+export function useDeployFromGitHubAvailable(): boolean {
 	const params = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
 	const { data } = useQuery({ ...getRegistrationInfoQueryOptions(params), enabled: canManage });

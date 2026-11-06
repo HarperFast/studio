@@ -73,3 +73,16 @@ doesn't refuse it, since a self-hosted runner on that network can. New Applicati
 Anywhere else, including a cluster whose version can't be read, it keeps `npm run deploy` from the laptop, and while
 the version is loading it shows neither. That outro also needs a 5.4 CLI: harper 5.3.5's
 `deploy setup` refuses `provider=github-actions`, so the step says to install `harper@next` until 5.4 ships.
+
+## New Application leads here from all three tabs
+
+- **Import → Git** installs a repository once. When the URL names a GitHub repository (on github.com, or on the host
+  alias of an SSH key whose hostname is github.com), a line under it links here with `project` and `repository` in the
+  search, and the form starts with that repository. It shows wherever the Application menu offers this page.
+- **Templates** makes an application that lives only on the cluster, so there is no repository to deploy from. Its
+  link opens the CLI tab instead, whose `npm create harper` then passes `--template` for whichever template is chosen.
+  Opening the CLI tab directly passes none, and create-harper asks.
+- **Harper CLI** ends with the outro above.
+
+The Templates link and the page's subtitle mention GitHub only where the CLI tab ends with that outro, and say nothing
+of it while the version loads.

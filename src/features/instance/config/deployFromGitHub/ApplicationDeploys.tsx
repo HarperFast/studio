@@ -24,7 +24,12 @@ import { SetupOutcome, SetupOutcomeState } from './SetupOutcome';
 const NO_AUDIENCE = "Studio doesn't know this cluster's operations URL, which GitHub Actions has to request its token"
 	+ ' for.';
 
-export function ApplicationDeploys({ app, names }: { app: string; names: CiDeployNames }) {
+export function ApplicationDeploys({ app, names, repository }: {
+	app: string;
+	names: CiDeployNames;
+	/** `owner/name` to start the form with. */
+	repository?: string;
+}) {
 	const instanceParams = useInstanceClientIdParams();
 	const { entityId, instanceClient } = instanceParams;
 	const queryClient = useQueryClient();
@@ -73,7 +78,12 @@ export function ApplicationDeploys({ app, names }: { app: string; names: CiDeplo
 		return (
 			<div className="flex flex-col gap-4">
 				{outcomeAlert}
-				<SetUpDeploysForm audience={audience} pending={isPending} onSubmit={(source) => void run(source, audience)} />
+				<SetUpDeploysForm
+					audience={audience}
+					defaultRepository={repository}
+					pending={isPending}
+					onSubmit={(source) => void run(source, audience)}
+				/>
 			</div>
 		);
 	}

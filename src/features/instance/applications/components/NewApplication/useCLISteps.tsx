@@ -1,20 +1,17 @@
-import { isLocalStudio } from '@/config/constants';
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { isPrivateAudience } from '@/features/instance/config/githubActions/actionsAudience';
-import { Cluster, Instance } from '@/integrations/api/api.patch';
-import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
-import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
-import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
-import { useQuery } from '@tanstack/react-query';
-import { useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
+import { useCiDeployOutro } from './useCiDeployOutro';
 
 export interface CLIStep {
 	title: string;
 	code: string;
 	note?: string;
+}
+
+/** The template chosen on the Templates tab, for create-harper's `--template`. */
+export interface CLITemplate {
+	id: string;
+	name: string;
 }
 
 const LOGIN_STEP: CLIStep = {
@@ -33,8 +30,12 @@ export function buildCLISteps(
 	appName: string,
 	target: string | null | undefined,
 	ciDeploy: boolean | undefined,
+	template?: CLITemplate,
 ): CLIStep[] {
 	const directoryName = toKebabCase(appName);
+	const createFlags = [template && `--template ${template.id}`, target && `--deploymentURL="${target}"`].filter(
+		Boolean,
+	);
 	const deploySteps: CLIStep[] = ciDeploy === undefined
 		? []
 		: ciDeploy
@@ -70,8 +71,10 @@ export function buildCLISteps(
 		},
 		{
 			title: 'Create your awesome app',
-			code: `npm create harper ${directoryName}${target ? ` -- --deploymentURL="${target}"` : ''}`,
-			note: 'You will be asked some easy questions to get you started.',
+			code: `npm create harper ${directoryName}${createFlags.length ? ` -- ${createFlags.join(' ')}` : ''}`,
+			note: template
+				? `It starts from the ${template.name} template, then asks a few easy questions.`
+				: 'You will be asked some easy questions to get you started.',
 		},
 		{
 			title: 'Start local Harper instance',
@@ -86,19 +89,7 @@ export function buildCLISteps(
 	];
 }
 
-export function useCLISteps(appName: string) {
-	const instanceParams = useInstanceClientIdParams();
-	const { instance, cluster }: { instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
-	const { data: registrationInfo, isPending } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
-	const target = isLocalStudio
-		? instanceParams.instanceClient.defaults.baseURL
-		: instance
-		? getOperationsUrlForInstance(instance)
-		: getOperationsUrlForCluster(cluster);
-	// An unreadable version deploys from the laptop; a private address, Local Studio's included, too.
-	const ciDeploy = isPending
-		? undefined
-		: !isLocalStudio && !(target && isPrivateAudience(target)) && supportsCiDeploy(registrationInfo?.version);
-
-	return useMemo(() => buildCLISteps(appName, target, ciDeploy), [appName, target, ciDeploy]);
+export function useCLISteps(appName: string, template?: CLITemplate) {
+	const { target, ciDeploy } = useCiDeployOutro();
+	return useMemo(() => buildCLISteps(appName, target, ciDeploy, template), [appName, target, ciDeploy, template]);
 }

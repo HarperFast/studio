@@ -23,7 +23,7 @@ export function ConfigDeployFromGitHubIndex() {
 	const instanceParams = useInstanceClientIdParams();
 	const { entityId } = instanceParams;
 	const canManage = useInstanceManagePermission();
-	const { project }: DeployFromGitHubSearch = useSearch({ strict: false });
+	const { project, repository }: DeployFromGitHubSearch = useSearch({ strict: false });
 	// The nav and the Application menu hide this page below the floor, but a bookmark still lands here.
 	const { data: registrationInfo, isError: isVersionError } = useQuery(
 		getRegistrationInfoQueryOptions(instanceParams),
@@ -135,7 +135,7 @@ export function ConfigDeployFromGitHubIndex() {
 						policy id of 128 characters.
 					</PageNotice>
 				)
-				: <ApplicationDeploys key={project} app={project} names={names} />}
+				: <ApplicationDeploys key={project} app={project} names={names} repository={repository} />}
 		</div>
 	);
 }

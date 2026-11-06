@@ -11,6 +11,7 @@ const { state, navigate } = vi.hoisted(() => ({
 		canManage: true,
 		version: '5.3.4' as string | undefined,
 		project: undefined as string | undefined,
+		repository: undefined as string | undefined,
 		tree: { entries: [] as unknown[] } as { entries: unknown[] } | undefined,
 		treeFailed: false,
 	},
@@ -27,15 +28,15 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
-	useSearch: () => ({ project: state.project }),
+	useSearch: () => ({ project: state.project, repository: state.repository }),
 }));
 vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ instanceClient: {}, entityId: 'clu-1' }),
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
 vi.mock('./ApplicationDeploys', () => ({
-	ApplicationDeploys: ({ app, names }: { app: string; names: { policy: string } }) => (
-		<div>Panel for {app}, policy {names.policy}</div>
+	ApplicationDeploys: ({ app, names, repository }: { app: string; names: { policy: string }; repository?: string }) => (
+		<div>Panel for {app}, policy {names.policy}{repository && `, repository ${repository}`}</div>
 	),
 }));
 
@@ -44,6 +45,7 @@ beforeEach(() => {
 		canManage: true,
 		version: '5.3.4',
 		project: undefined,
+		repository: undefined,
 		treeFailed: false,
 		tree: {
 			entries: [
@@ -115,5 +117,19 @@ describe('ConfigDeployFromGitHubIndex', () => {
 	it('reads the application from the search, trimmed', () => {
 		expect(validateDeployFromGitHubSearch({ project: ' shop ' })).toEqual({ project: 'shop' });
 		expect(validateDeployFromGitHubSearch({ project: 3 })).toEqual({ project: undefined });
+	});
+
+	it('reads a repository from the search only as owner/name, and hands it to the panel', () => {
+		expect(validateDeployFromGitHubSearch({ project: 'shop', repository: 'Acme/shop' }))
+			.toEqual({ project: 'shop', repository: 'Acme/shop' });
+		expect(validateDeployFromGitHubSearch({ repository: 'https://github.com/Acme/shop.git' }).repository).toBe(
+			'Acme/shop',
+		);
+		for (const repository of ['Acme', 'Acme/shop/extra', '../shop', 7]) {
+			expect(validateDeployFromGitHubSearch({ repository }).repository, String(repository)).toBeUndefined();
+		}
+		Object.assign(state, { project: 'shop', repository: 'Acme/shop' });
+		render(<ConfigDeployFromGitHubIndex />);
+		expect(screen.getByText('Panel for shop, policy github-actions-shop, repository Acme/shop')).toBeTruthy();
 	});
 });
