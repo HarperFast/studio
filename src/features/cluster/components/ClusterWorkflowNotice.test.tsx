@@ -20,10 +20,13 @@ vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterPermissions: ()
 const auth = vi.hoisted(() => ({ canRead: false }));
 vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => auth.canRead }));
 
+const location = vi.hoisted(() => ({ pathname: '/org-1/clu-1/instances' }));
 vi.mock('@tanstack/react-router', () => ({
-	Link: ({ to, params, children }: { to: string; params: { workflowId: string }; children: React.ReactNode }) => (
-		<a href={to.replace('$workflowId', params.workflowId)}>{children}</a>
+	Link: ({ to, params, children }: { to: string; params: Record<string, string>; children: React.ReactNode }) => (
+		<a href={to.replace(/\$(\w+)/g, (_match, name: string) => params[name])}>{children}</a>
 	),
+	useParams: () => ({ organizationId: 'org-1' }),
+	useLocation: ({ select }: { select: (value: { pathname: string }) => unknown }) => select(location),
 }));
 
 vi.mock('@/lib/restart/restartTracker', () => ({ nextObservationStamp: () => 0, syncRestartsFromCluster: () => {} }));
@@ -52,27 +55,38 @@ const stopped: ClusterWorkflow = {
 	type: 'UPDATE_HARPER_VERSION',
 	status: 'PAUSED',
 	phase: 'run',
-	pause: { reason: 'failed' },
+	pause: { reason: 'unknown' },
 	failedInstanceIds: ['ins-2'],
 	acceptedCommands: ['retry', 'abandon'],
 };
-/** Customer reads answer `row`; the cluster still names wf-1. */
-const customerSees = (row: Partial<ClusterWorkflow> | null) =>
+const instances = [
+	{ id: 'ins-1', name: 'us-1.dc.example.dev', status: 'RUNNING', version: '5.3.2' },
+	{ id: 'ins-2', name: 'eu-1.dc.example.dev', status: 'FAILED', version: '5.3.0' },
+];
+/** Customer reads answer `row` (a function of the call count, if it changes); the cluster is held by `heldBy`. */
+const customerSees = (
+	row: Partial<ClusterWorkflow> | null | ((call: number) => Partial<ClusterWorkflow>),
+	{ heldBy = 'wf-1' as string | null, clusterInstances = instances as unknown[] } = {},
+) => {
+	let calls = 0;
 	mockedGet.mockImplementation(async (url: string) => {
 		if (isCustomerRead(url)) {
 			if (!row) { throw notFound(); }
-			return { data: { ...stopped, ...row } };
+			return { data: { ...stopped, ...(typeof row === 'function' ? row(++calls) : row) } };
 		}
-		return { data: { id: 'clu-1', workflowId: 'wf-1', instances: [{ id: 'ins-2', name: 'eu-1.dc.example.dev' }] } };
+		return { data: { id: 'clu-1', workflowId: heldBy, instances: clusterInstances } };
 	});
+};
 
+let client = new QueryClient();
+const noticeTree = (workflowId: string | null = 'wf-1') => (
+	<QueryClientProvider client={client}>
+		<ClusterWorkflowNotice clusterId="clu-1" workflowId={workflowId} />
+	</QueryClientProvider>
+);
 function renderNotice(workflowId: string | null = 'wf-1') {
-	const client = new QueryClient();
-	return render(
-		<QueryClientProvider client={client}>
-			<ClusterWorkflowNotice clusterId="clu-1" workflowId={workflowId} />
-		</QueryClientProvider>,
-	);
+	client = new QueryClient();
+	return render(noticeTree(workflowId));
 }
 
 describe('ClusterWorkflowNotice', () => {
@@ -167,44 +181,50 @@ describe('ClusterWorkflowNotice', () => {
 		expect(screen.getByText('Update in progress')).toBeTruthy();
 	});
 
-	describe('a customer’s stopped workflow', () => {
+	describe('a customer’s paused workflow', () => {
 		beforeEach(() => {
 			auth.canRead = false;
 		});
 
-		it('says what stopped and offers retry and stop', async () => {
+		it('says what stopped, by instance name, and offers retry and stop', async () => {
 			customerSees({});
 			renderNotice();
 			expect(await screen.findByText('Harper version upgrade stopped')).toBeTruthy();
-			expect(await screen.findByText(/Instance eu-1.dc.example.dev didn’t finish updating/)).toBeTruthy();
+			expect(await screen.findByText('Instance eu-1.dc.example.dev didn’t finish updating.')).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Retry update' })).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Stop update' })).toBeTruthy();
 		});
 
-		it('prefers central manager’s own explanation', async () => {
-			customerSees({ message: 'Instance ins-2 reported an error while starting.' });
-			renderNotice();
-			expect(await screen.findByText('Instance ins-2 reported an error while starting.')).toBeTruthy();
-		});
-
-		it('names an instance the cluster record doesn’t list by its id', async () => {
+		it('names an instance the cluster record doesn’t list by its id, and counts several', async () => {
 			customerSees({ failedInstanceIds: ['ins-9'] });
-			renderNotice();
+			const { unmount } = renderNotice();
 			expect(await screen.findByText(/Instance ins-9 didn’t finish updating/)).toBeTruthy();
-		});
-
-		it('counts several failed instances', async () => {
+			unmount();
 			customerSees({ failedInstanceIds: ['ins-2', 'ins-3'] });
 			renderNotice();
 			expect(await screen.findByText(/2 instances didn’t finish updating/)).toBeTruthy();
 		});
 
+		it('uses central manager’s message when it names no instance', async () => {
+			customerSees({ failedInstanceIds: [], message: 'Putting the cluster back in service failed.' });
+			renderNotice();
+			expect(await screen.findByText('Putting the cluster back in service failed.')).toBeTruthy();
+		});
+
+		it('explains a failed cleanup with nothing else to go on', async () => {
+			customerSees({ failedInstanceIds: [], pause: { reason: 'finalize-failed' }, acceptedCommands: ['retry'] });
+			renderNotice();
+			expect(await screen.findByText(/last step didn’t finish/)).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Stop update' })).toBeNull();
+		});
+
 		it('retries, then holds the buttons until the workflow is read again', async () => {
-			customerSees({});
+			customerSees((call) => (call > 1 ? { command: { action: 'retry' }, acceptedCommands: [] } : {}));
 			renderNotice();
 			fireEvent.click(await screen.findByRole('button', { name: 'Retry update' }));
 			await waitFor(() => expect(mockedPost).toHaveBeenCalledWith('/Cluster/clu-1/workflow/retry', {}));
 			expect(await screen.findByText(/Your request was sent/)).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Retry update' })).toBeNull();
 		});
 
 		it('asks before stopping, and sends nothing on cancel', async () => {
@@ -227,18 +247,33 @@ describe('ClusterWorkflowNotice', () => {
 			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		});
 
-		it('offers only what central manager accepts', async () => {
+		it('closes the confirmation when central manager stops accepting abandon', async () => {
+			customerSees({});
+			const { rerender } = renderNotice();
+			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
+			expect(screen.getByRole('dialog')).toBeTruthy();
 			customerSees({ acceptedCommands: ['retry'] });
+			await client.refetchQueries();
+			rerender(noticeTree());
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(mockedPost).not.toHaveBeenCalled();
+		});
+
+		it('does not carry an open confirmation over to another workflow', async () => {
+			customerSees({});
+			const { rerender } = renderNotice();
+			fireEvent.click(await screen.findByRole('button', { name: 'Stop update' }));
+			customerSees({ id: 'wf-2' }, { heldBy: 'wf-2' });
+			rerender(noticeTree('wf-2'));
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Stop update' })).toBeTruthy());
+			expect(screen.queryByRole('dialog')).toBeNull();
+		});
+
+		it('offers only what central manager accepts, and ignores commands it doesn’t know', async () => {
+			customerSees({ acceptedCommands: ['retry', 'undo' as never] });
 			renderNotice();
 			expect(await screen.findByRole('button', { name: 'Retry update' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: 'Stop update' })).toBeNull();
-		});
-
-		it('ignores commands it doesn’t know', async () => {
-			customerSees({ acceptedCommands: ['undo' as never] });
-			renderNotice();
-			expect(await screen.findByText('Harper version upgrade stopped')).toBeTruthy();
-			expect(screen.queryByRole('button')).toBeNull();
 		});
 
 		it('explains without buttons to a user who can’t change the cluster', async () => {
@@ -264,11 +299,84 @@ describe('ClusterWorkflowNotice', () => {
 			expect(screen.queryByRole('button')).toBeNull();
 		});
 
+		it('shows the plain state for another workflow’s row', async () => {
+			customerSees({ id: 'wf-old', status: 'UNDONE' });
+			renderNotice();
+			await waitFor(() => expect(mockedGet.mock.calls.some(([url]) => isCustomerRead(url))).toBe(true));
+			expect(screen.getByText('Update in progress')).toBeTruthy();
+		});
+
 		it('falls back to the plain state on a central manager without the endpoint', async () => {
 			customerSees(null);
 			renderNotice();
 			await waitFor(() => expect(mockedGet.mock.calls.some(([url]) => isCustomerRead(url))).toBe(true));
 			expect(screen.getByText('Update in progress')).toBeTruthy();
+		});
+	});
+
+	describe('an upgrade that ended part way', () => {
+		const ended = {
+			id: 'wf-1',
+			status: 'UNDONE',
+			pause: null,
+			acceptedCommands: [],
+			message: 'instance ins-2 is ERROR',
+		};
+		beforeEach(() => {
+			auth.canRead = false;
+			location.pathname = '/org-1/clu-1/instances';
+		});
+
+		it('says what didn’t finish and points at the Version page', async () => {
+			customerSees(ended, { heldBy: null });
+			renderNotice(null);
+			expect(await screen.findByText('The last Harper version upgrade didn’t finish')).toBeTruthy();
+			expect(
+				screen.getByText(
+					/Instance eu-1.dc.example.dev didn’t finish updating. 1 of 2 instances is still behind 5.3.2./,
+				),
+			)
+				.toBeTruthy();
+			expect(screen.getByRole('link', { name: 'Run the upgrade again from Version' }).getAttribute('href'))
+				.toBe('/org-1/clu-1/edit/version');
+		});
+
+		it('shows staff the same, since nothing holds the cluster', async () => {
+			auth.canRead = true;
+			customerSees(ended, { heldBy: null });
+			renderNotice(null);
+			expect(await screen.findByText('The last Harper version upgrade didn’t finish')).toBeTruthy();
+		});
+
+		it('leaves the link off on the Version page itself', async () => {
+			location.pathname = '/org-1/clu-1/edit/version';
+			customerSees(ended, { heldBy: null });
+			renderNotice(null);
+			expect(await screen.findByText('The last Harper version upgrade didn’t finish')).toBeTruthy();
+			expect(screen.queryByRole('link')).toBeNull();
+		});
+
+		it('tells a user who can’t change the cluster who can', async () => {
+			perms.update = false;
+			customerSees(ended, { heldBy: null });
+			renderNotice(null);
+			expect(await screen.findByText(/Someone with permission to change this cluster can run it again/)).toBeTruthy();
+			expect(screen.queryByRole('link')).toBeNull();
+		});
+
+		it('says nothing once the last upgrade succeeded', async () => {
+			customerSees({ ...ended, status: 'SUCCEEDED' }, { heldBy: null });
+			const { container } = renderNotice(null);
+			await waitFor(() => expect(mockedGet.mock.calls.some(([url]) => isCustomerRead(url))).toBe(true));
+			expect(container.textContent).toBe('');
+		});
+
+		it('doesn’t ask about a cluster whose instances all run one version', async () => {
+			customerSees(ended, { heldBy: null, clusterInstances: [instances[0], { ...instances[1], version: '5.3.2' }] });
+			const { container } = renderNotice(null);
+			await waitFor(() => expect(mockedGet).toHaveBeenCalled());
+			expect(mockedGet.mock.calls.some(([url]) => isCustomerRead(url))).toBe(false);
+			expect(container.textContent).toBe('');
 		});
 	});
 });

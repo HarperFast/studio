@@ -1,23 +1,25 @@
-// Central manager's customer view of the workflow holding a cluster: `GET /Cluster/<id>/workflow` and
+// Central manager's customer view of a cluster's newest workflow: `GET /Cluster/<id>/workflow` and
 // `POST /Cluster/<id>/workflow/<command>`. Not in the OpenAPI document yet, so the shapes are written here.
 import { apiClient } from '@/config/apiClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 /** The commands central manager lets a cluster's own users send, and only when `acceptedCommands` lists them. */
-export const CLUSTER_WORKFLOW_COMMANDS = ['retry', 'abandon'] as const;
+const CLUSTER_WORKFLOW_COMMANDS = ['retry', 'abandon'] as const;
 export type ClusterWorkflowCommand = (typeof CLUSTER_WORKFLOW_COMMANDS)[number];
 
 export interface ClusterWorkflow {
 	id: string;
 	type: string;
+	/** Active (`PAUSED`, `RUNNING`, …) while it holds the cluster, else how it ended (`SUCCEEDED`, `UNDONE`, `ABANDONED`). */
 	status: string;
 	phase?: string | null;
 	pause?: { reason?: string | null; at?: string | null } | null;
 	/** Instances whose update didn't finish. */
 	failedInstanceIds: string[];
-	/** Central manager's explanation, worded for customers. */
+	/** Central manager's explanation of a failure. */
 	message?: string | null;
 	acceptedCommands: ClusterWorkflowCommand[];
 	/** A command sent but not yet picked up. */
@@ -28,16 +30,19 @@ const POLL_MS = 10_000;
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
 
 /**
- * Polls while a workflow holds the cluster. A 403 or 404 (an older central manager, or the workflow just ended) stops
- * polling; the notice then shows its plain state. `quietErrors`: the notice already copes without this read.
+ * The cluster's newest workflow, active or ended. Keyed by the workflow holding the cluster (or none), so the read
+ * starts over when a workflow claims or releases it. Polls only while one holds it, backing off on failures and
+ * stopping on a 403 or 404: a 404 is a cluster that never had one, or a central manager without the endpoint, and the
+ * notice then shows its plain state. `quietErrors`: the notice copes without this read.
  */
-export function clusterWorkflowQueryOptions(clusterId: string | undefined, workflowId: string | null | undefined) {
+export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy: string | null | undefined) {
+	const poll = pollUnlessForbidden(heldBy ? POLL_MS : false);
 	return queryOptions({
-		queryKey: ['cluster-workflow', clusterId ?? '', workflowId ?? ''],
+		queryKey: ['cluster-workflow', clusterId ?? '', heldBy ?? ''],
 		queryFn: async (): Promise<ClusterWorkflow | null> => {
 			const { data } = await apiClient.get(`/Cluster/${clusterId}/workflow` as '/Cluster/{id}');
 			const row = data as unknown as Partial<ClusterWorkflow> | undefined;
-			if (!row?.id || row.id !== workflowId) { return null; }
+			if (!row?.id || typeof row.status !== 'string') { return null; }
 			return {
 				...row,
 				failedInstanceIds: Array.isArray(row.failedInstanceIds)
@@ -48,10 +53,10 @@ export function clusterWorkflowQueryOptions(clusterId: string | undefined, workf
 					: [],
 			} as ClusterWorkflow;
 		},
-		enabled: !!clusterId && !!workflowId,
+		enabled: !!clusterId,
 		retry: false,
 		meta: { quietErrors: true },
-		refetchInterval: (query) => ([403, 404].includes(statusOf(query.state.error) ?? 0) ? false : POLL_MS),
+		refetchInterval: (query) => (statusOf(query.state.error) === 404 ? false : poll(query)),
 	});
 }
 

@@ -31,17 +31,28 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 }));
 vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
-vi.mock('./ClusterForm', () => ({
-	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade }: {
-		defaultValues: { regionPlans: unknown };
-		startOffOnBilling: boolean;
-		partialUpgrade: unknown;
-	}) => (
-		<output data-billing={startOffOnBilling} data-partial={JSON.stringify(partialUpgrade ?? null)}>
-			{JSON.stringify(defaultValues.regionPlans)}
-		</output>
-	),
-}));
+const formMounts = vi.hoisted(() => ({ count: 0 }));
+vi.mock('./ClusterForm', async () => {
+	const { useState } = await import('react');
+	return {
+		ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade }: {
+			defaultValues: { regionPlans: unknown };
+			startOffOnBilling: boolean;
+			partialUpgrade: unknown;
+		}) => {
+			const [mount] = useState(() => ++formMounts.count);
+			return (
+				<output
+					data-billing={startOffOnBilling}
+					data-partial={JSON.stringify(partialUpgrade ?? null)}
+					data-mount={mount}
+				>
+					{JSON.stringify(defaultValues.regionPlans)}
+				</output>
+			);
+		},
+	};
+});
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
 const colocatedPlan = { id: 'plan-colo', deploymentType: 'colocated', deploymentDescription: 'Shared' } as SchemaPlan;
@@ -166,14 +177,18 @@ describe('UpsertCluster', () => {
 					instances: [{ status: 'RUNNING', version: '5.3.0' }, { status: 'RUNNING', version: '5.3.0' }],
 				} as unknown as Cluster,
 			};
-			live.cluster = { ...mixed, workflowId: null };
+			let release: (cluster: unknown) => void = () => {};
+			live.cluster = new Promise((resolve) => (release = resolve));
 			renderUpsert();
 
-			await screen.findByRole('status');
+			const first = (await screen.findByRole('status')).getAttribute('data-mount');
+			release({ ...mixed, workflowId: null });
 			await vi.waitFor(() => {
 				const partial = JSON.parse(screen.getByRole('status').getAttribute('data-partial')!);
 				expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
 			});
+			// The version picker starts over, so it offers the version the cluster now runs.
+			expect(screen.getByRole('status').getAttribute('data-mount')).not.toBe(first);
 		});
 
 		it('does not while a workflow is still upgrading it', async () => {
