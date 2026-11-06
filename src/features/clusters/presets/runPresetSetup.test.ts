@@ -583,6 +583,18 @@ describe("runPresetSetup with the cluster's own Studio settings", () => {
 		}));
 	});
 
+	it("writes nothing when it can't read the root config's own placements", async () => {
+		getStudioConfiguration.mockResolvedValue({
+			navigation: { logs: 'hidden' },
+			rootNavigationUnreadable: true,
+			pages: [],
+		});
+		const { promise, log } = run();
+		await expect(promise).rejects.toThrow("couldn't read this cluster's own tab placements");
+		expect(setConfiguration).not.toHaveBeenCalled();
+		expect(log).toContain('configure:failed');
+	});
+
 	it("lands on the preset's page when the cluster has no landing, never writing null", async () => {
 		getStudioConfiguration.mockResolvedValue({ navigation: { logs: 'tucked' }, pages: [] });
 		await run().promise;

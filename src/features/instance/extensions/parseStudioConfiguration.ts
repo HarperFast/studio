@@ -40,6 +40,8 @@ export interface StudioConfiguration {
 	 * Harper whose navigation comes only from the root config, where it equals `navigation`.
 	 */
 	rootNavigation?: Record<string, TabVisibility>;
+	/** Sent but not a map, so the root config's own placements are unknown and setup must not write them. */
+	rootNavigationUnreadable?: true;
 	/** The tab or page key Studio opens the cluster on. */
 	landing?: string;
 	pages: ResolvedExtensionPage[];
@@ -80,6 +82,7 @@ export function parseStudioConfiguration(
 	}
 	const navigation = parseNavigation(raw.navigation) ?? {};
 	const rootNavigation = parseNavigation(raw.rootNavigation);
+	const rootNavigationUnreadable = raw.rootNavigation !== undefined && !rootNavigation;
 	const pages: ResolvedExtensionPage[] = [];
 	const seen = new Set<string>();
 	for (const candidate of Array.isArray(raw.pages) ? raw.pages : []) {
@@ -93,6 +96,7 @@ export function parseStudioConfiguration(
 	return {
 		navigation,
 		...(rootNavigation ? { rootNavigation } : {}),
+		...(rootNavigationUnreadable ? { rootNavigationUnreadable: true as const } : {}),
 		landing: typeof raw.landing === 'string' && NAVIGATION_KEY.test(raw.landing) ? raw.landing : undefined,
 		pages: withDistinctNames(pages),
 	};
@@ -127,11 +131,16 @@ export function withDistinctNames<T extends ResolvedExtensionPage>(pages: T[]): 
 	const byName = clashes((page) => page.name);
 	const withApp = (page: T) => `${page.name} (${page.application ?? page.component})`;
 	const byApp = clashes(withApp);
+	const label = (page: T) =>
+		!byName(page) ? page.name : byApp(page) ? `${page.name} (${page.component})` : withApp(page);
+	// A page may itself be named like another's generated label ("Redirects (shop)"), and the generated
+	// one then falls back to its component.
+	const byLabel = clashes(label);
 	return pages.map((page) => {
 		if (!byName(page)) {
 			return page;
 		}
-		return { ...page, name: byApp(page) ? `${page.name} (${page.component})` : withApp(page) };
+		return { ...page, name: byLabel(page) ? `${page.name} (${page.component})` : label(page) };
 	});
 }
 
@@ -151,17 +160,12 @@ function parsePage(raw: unknown, capabilities: ReadonlySet<string>): ResolvedExt
 	if (!name || (raw.placement !== 'tab' && raw.placement !== 'config')) {
 		return undefined;
 	}
-	const plugins = Array.isArray(raw.plugins) && raw.plugins.length > 0
-			&& raw.plugins.every((plugin) => typeof plugin === 'string' && NAVIGATION_KEY.test(plugin))
-		? raw.plugins as string[]
-		: undefined;
 	return {
 		key: `${component}.${id}`,
 		component,
 		...(typeof raw.application === 'string' && NAVIGATION_KEY.test(raw.application)
 			? { application: raw.application }
 			: {}),
-		...(plugins ? { plugins } : {}),
 		id,
 		name,
 		icon: text(raw.icon, 64) ?? 'puzzle',

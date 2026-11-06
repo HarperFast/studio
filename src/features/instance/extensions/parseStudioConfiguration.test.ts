@@ -103,21 +103,17 @@ describe('parseStudioConfiguration', () => {
 		const parsed = parsePage({
 			component: 'shop.@harperfast/redirector',
 			application: 'shop',
-			plugins: ['@harperfast/redirector'],
 		});
 		expect(parsed).toMatchObject({
 			key: 'shop.@harperfast/redirector.redirects',
 			component: 'shop.@harperfast/redirector',
 			application: 'shop',
-			plugins: ['@harperfast/redirector'],
 			name: 'Redirects',
 		});
 	});
 
-	it('ignores an application or plugin chain it cannot read, keeping the page', () => {
-		const parsed = parsePage({ application: 'a b', plugins: ['ok', 7] });
-		expect(parsed.application).toBeUndefined();
-		expect(parsed.plugins).toBeUndefined();
+	it('ignores an application it cannot read, keeping the page', () => {
+		expect(parsePage({ application: 'a b' }).application).toBeUndefined();
 	});
 
 	it('drops a page whose key is longer than a navigation key may be', () => {
@@ -137,6 +133,19 @@ describe('parseStudioConfiguration', () => {
 		expect(parseStudioConfiguration({ navigation: {}, pages: [] })).not.toHaveProperty('rootNavigation');
 	});
 
+	it.each([['a list', ['logs']], ['null', null], ['a string', 'hidden']])(
+		'marks root placements it was sent as %s unreadable, rather than as never sent',
+		(_case, rootNavigation) => {
+			const parsed = parseStudioConfiguration({ navigation: { logs: 'hidden' }, rootNavigation, pages: [] });
+			expect(parsed.rootNavigationUnreadable).toBe(true);
+			expect(parsed).not.toHaveProperty('rootNavigation');
+		},
+	);
+
+	it('marks nothing unreadable when root placements are not sent', () => {
+		expect(parseStudioConfiguration({ navigation: {}, pages: [] })).not.toHaveProperty('rootNavigationUnreadable');
+	});
+
 	it('names each use of one plugin by its app, and leaves names that do not clash alone', () => {
 		const names = parseStudioConfiguration({
 			pages: [
@@ -147,6 +156,17 @@ describe('parseStudioConfiguration', () => {
 			],
 		}).pages.map((parsed) => parsed.name);
 		expect(names).toEqual(['Redirects (shop)', 'Redirects (blog)', 'Redirects', 'Search']);
+	});
+
+	it("moves a generated name off one a page was given itself, leaving the page's own name alone", () => {
+		const names = parseStudioConfiguration({
+			pages: [
+				page({ component: 'shop.@harperfast/redirector', application: 'shop' }),
+				page({ component: 'blog.@harperfast/redirector', application: 'blog' }),
+				page({ component: 'tools', application: 'tools', id: 'other', name: 'Redirects (shop)' }),
+			],
+		}).pages.map((parsed) => parsed.name);
+		expect(names).toEqual(['Redirects (shop.@harperfast/redirector)', 'Redirects (blog)', 'Redirects (shop)']);
 	});
 
 	it('names pages by component when one app holds both, and by component when Harper sends no application', () => {

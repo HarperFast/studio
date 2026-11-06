@@ -257,6 +257,11 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 		if (current.unavailable) {
 			throw new Error('This cluster did not report its Studio settings, so setup left them as they are.');
 		}
+		if (current.rootNavigationUnreadable) {
+			throw new Error(
+				"Studio couldn't read this cluster's own tab placements, so setup left its settings as they are.",
+			);
+		}
 		// Flattened keys, not a nested `studio` object: harper refuses the nested form, which would overwrite
 		// the root entry of an app deployed under the name `studio` (HarperFast/harper#3656). It takes effect
 		// without a restart, so harper's generic "You must restart" reply text is ignored. Replicated so every

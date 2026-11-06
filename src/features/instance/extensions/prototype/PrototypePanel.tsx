@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
+import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { resolveExtensionPages } from '@/features/instance/extensions/manifest';
 import { DEMO_COMPONENT_LABELS, DEMO_EXTENSIONS } from '@/features/instance/extensions/prototype/demoExtensions';
 import {
@@ -137,10 +138,7 @@ export function PrototypePanel() {
 								.map((resolved) => {
 									const page = pages.find((candidate) => candidate.key === resolved.key);
 									const allowed = page?.verdict.allowed === true;
-									const to = buildAbsoluteLinkToPage(
-										params,
-										resolved.placement === 'tab' ? `ext/${resolved.key}` : `config/ext/${resolved.key}`,
-									);
+									const to = buildAbsoluteLinkToPage(params, extensionPagePath(resolved));
 									return (
 										<Button key={resolved.key} asChild variant="ghost" size="sm" className="justify-start h-auto py-1">
 											<Link to={to}>

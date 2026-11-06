@@ -279,8 +279,6 @@ export interface ResolvedExtensionPage extends ExtensionPageManifest {
 	component: string;
 	/** The top-level app the page belongs to, whether it declared the page or loads the plugin that did. */
 	application?: string;
-	/** For a plugin's page, the plugin keys from the app inward. Read instead of splitting `component`. */
-	plugins?: string[];
 	/** PROTOTYPE: served by the in-memory demo data source rather than the cluster. */
 	demo?: boolean;
 }

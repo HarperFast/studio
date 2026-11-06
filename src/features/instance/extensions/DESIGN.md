@@ -106,8 +106,11 @@ job as `Cluster.preset` (HarperFast/central-manager#1047), so any browser can of
 to a super user, whom every step needs. It outranks this browser's record (`pendingPresetSetup`, one key
 per cluster and one `storage` listener per page), which is forgotten when they disagree.
 
-- **Done** (`isPresetApplied`): a landing is set and the components declare the preset's landing page,
-  so a landing set by hand isn't enough, and moving it later doesn't offer setup again.
+- **Done** (`isPresetApplied`): a landing is set, the root config places every tab the preset places,
+  and the components declare the preset's landing page. So neither a landing set by hand nor one kept
+  from before a setup that stopped short of its last step is enough, and moving the landing or changing
+  a placement later doesn't offer setup again. A `rootNavigation` that isn't a map stops setup before it
+  writes anything, and `/setup` then waits for a click.
 - **Owed** (`owedPreset`): the cluster's loaded config decides. This browser's record counts only while
   the config is unknown or `unavailable`, and is forgotten once the config shows the setup done.
 - **Merged, never overwritten**: the configure step reads the settings first, keeps the cluster's own
@@ -117,7 +120,7 @@ per cluster and one `storage` listener per page), which is forgotten when they d
   Locks it doesn't run at all (`PresetSetupUnsupportedError`), since nothing would keep two tabs from
   both deploying.
 - **`/start`** lands on the landing when it is a visible or tucked tab, or a Config page the viewer's
-  role may open (`config/ext/<key>`, a route of its own); otherwise on the nav's first tab. Never on a
+  role may open (`config/ext/<key>`, the key encoded as one segment, a route of its own); otherwise on the nav's first tab. Never on a
   hidden tab, which would loop back through the index it hides. With nothing to open it says so: a super
   user gets links to Config and Operations, anyone else is told to ask an admin.
 

@@ -84,6 +84,13 @@ describe('PresetSetup', () => {
 		await waitFor(() => expect(runPresetSetup).toHaveBeenCalledTimes(1));
 	});
 
+	it("waits for a click, saying it can't read the settings, when the root config's placements are unreadable", async () => {
+		renderSetup(async () => ({ navigation: {}, rootNavigationUnreadable: true, pages: [] }));
+		await screen.findByRole('button', { name: 'Set up HTTP redirects' });
+		expect(screen.getByText(/could not read this cluster's settings/)).toBeTruthy();
+		expect(runPresetSetup).not.toHaveBeenCalled();
+	});
+
 	it("forgets this browser's record only once the new settings are in, then opens /start", async () => {
 		let refetched: (configuration: StudioConfiguration) => void = () => undefined;
 		let reads = 0;

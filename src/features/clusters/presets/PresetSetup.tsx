@@ -43,7 +43,7 @@ export function PresetSetup() {
 	const configuration = useQuery(getStudioConfigurationQueryOptions({ ...instanceParams, enabled: !!preset }));
 	const acrossTabs = setupHoldsAcrossTabs();
 	const startsByItself = acrossTabs && !!configuration.data && !configuration.data.unavailable
-		&& !hasSettings(configuration.data);
+		&& !configuration.data.rootNavigationUnreadable && !hasSettings(configuration.data);
 
 	const [steps, setSteps] = useState<SetupStep[]>(() => preset ? presetSetupSteps(preset) : []);
 	const [running, setRunning] = useState(false);
@@ -218,7 +218,7 @@ function hasSettings(configuration: StudioConfiguration): boolean {
 }
 
 function describeMerge(name: string, configuration: StudioConfiguration | undefined): string {
-	if (!configuration || configuration.unavailable) {
+	if (!configuration || configuration.unavailable || configuration.rootNavigationUnreadable) {
 		return `Studio could not read this cluster's settings, so setup waits for you. `
 			+ `It installs ${name}'s components, then adds its Studio settings.`;
 	}

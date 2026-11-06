@@ -65,6 +65,24 @@ describe('isPresetApplied', () => {
 		expect(isPresetApplied(redirects, { ...configured, landing: undefined })).toBe(false);
 	});
 
+	it('needs the placements setup writes, so a landing kept from before a setup that stopped short is not enough', () => {
+		const installedOnly = { ...configured, navigation: {}, landing: 'databases' };
+		expect(isPresetApplied(redirects, installedOnly)).toBe(false);
+		// Placed by an app rather than the root config, which setup writes.
+		expect(
+			isPresetApplied(redirects, { ...installedOnly, navigation: redirects.studio.navigation, rootNavigation: {} }),
+		)
+			.toBe(false);
+		expect(isPresetApplied(redirects, { ...installedOnly, rootNavigation: redirects.studio.navigation })).toBe(true);
+	});
+
+	it('still reads as applied after an admin changes a placement the preset made', () => {
+		expect(
+			isPresetApplied(redirects, { ...configured, navigation: { ...configured.navigation, applications: 'visible' } }),
+		)
+			.toBe(true);
+	});
+
 	it('still reads as applied after an admin moves the landing elsewhere', () => {
 		expect(isPresetApplied(redirects, { ...configured, landing: 'databases' })).toBe(true);
 	});

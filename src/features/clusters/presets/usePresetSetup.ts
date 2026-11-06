@@ -35,12 +35,17 @@ function useRememberedPreset(cluster: Pick<Cluster, 'id' | 'preset'> | undefined
 }
 
 /**
- * Whether a cluster's own config shows its preset was set up: a landing page is set (setup writes it
- * last) and the preset's landing page is among the pages the answering node's components declare. A
- * landing alone could have been set by hand with nothing installed, and an admin may move it later.
+ * Whether a cluster's own config shows its preset was set up: a landing page is set, the root config
+ * places every tab the preset places (setup writes both in its last step), and the preset's landing page
+ * is among the pages the answering node's components declare. A landing alone could have been set by
+ * hand, or kept from before a setup that stopped short of that step; an admin may move it, or change a
+ * placement, later.
  */
 export function isPresetApplied(preset: ClusterPreset, configuration: StudioConfiguration): boolean {
-	return !!configuration.landing && configuration.pages.some((page) => page.key === preset.studio.landing);
+	const placed = configuration.rootNavigation ?? configuration.navigation;
+	return !!configuration.landing
+		&& Object.keys(preset.studio.navigation).every((key) => key in placed)
+		&& configuration.pages.some((page) => page.key === preset.studio.landing);
 }
 
 /**
