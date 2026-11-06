@@ -442,6 +442,19 @@ describe('RedeployApplicationModal', () => {
 				expect(screen.getByRole('alert').textContent).toMatch(/If it does, activating this staged release turns/);
 			});
 
+			it('says nothing while no application is open', async () => {
+				mocks.branches.possible = true;
+				mocks.branches.current = { ...unreadable, retry: vi.fn() };
+				const opened = mocks.editorView.openedEntry;
+				Object.assign(mocks.editorView, { openedEntry: undefined });
+				try {
+					await renderOpenModal();
+					expect(screen.queryByRole('alert')).toBeNull();
+				} finally {
+					mocks.editorView.openedEntry = opened;
+				}
+			});
+
 			it('says nothing on a version known to predate private copies, or once the setting is readable', async () => {
 				mocks.branches.current = { ...unreadable, retry: vi.fn() };
 				await renderOpenModal();

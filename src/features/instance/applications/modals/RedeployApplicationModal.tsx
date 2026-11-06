@@ -70,7 +70,8 @@ export function RedeployApplicationModal() {
 	const packageUrl = openedEntry?.package;
 	const canBranch = useBranchedDatabasesAvailable();
 	const currentBranches = useApplicationBranchedDatabases(openedEntry?.project);
-	const settingUnreadable = useBranchedDatabasesPossible() && !currentBranches.readable;
+	const branchesPossible = useBranchedDatabasesPossible();
+	const settingUnreadable = !!openedEntry?.project && branchesPossible && !currentBranches.readable;
 	const currentPrivateCopy = useMemo(() => privateCopyFromSetting(currentBranches.setting), [
 		currentBranches.setting,
 	]);
