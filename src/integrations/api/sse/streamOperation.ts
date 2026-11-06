@@ -1,3 +1,5 @@
+import { readResponseRefusal } from '@/integrations/api/readResponseRefusal';
+import { anySignal } from '@/lib/abortSignals';
 import { errorText } from '@/lib/errorText';
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from './errors';
 import { parseSSEData, parseSSEStream, SSEMessage } from './parseSSEStream';
@@ -8,6 +10,8 @@ export interface StreamOperationOptions {
 	connection: ResolveInstanceConnectionParams;
 	/** Operation body, e.g. `{ operation: 'deploy_component', package, project, ... }`. */
 	body: Record<string, unknown>;
+	/** Sent after `body` as one `multipart/form-data` request, which Harper streams in rather than buffering. */
+	file?: StreamOperationFile;
 	/** Caller-owned abort (modal cancel, component unmount). */
 	signal?: AbortSignal;
 	/**
@@ -18,6 +22,35 @@ export interface StreamOperationOptions {
 	idleTimeoutMs?: number;
 	/** Called for every SSE record as it arrives, to drive live UI. */
 	onMessage?: (message: SSEMessage) => void;
+}
+
+/** 64 KiB/s, a slow uplink: an upload slower than this counts as stalled. */
+const UPLOAD_FLOOR_BYTES_PER_MS = 64 * 1024 / 1000;
+
+export interface StreamOperationFile {
+	name: string;
+	filename: string;
+	blob: Blob;
+}
+
+/** The start of a value Harper's multipart parser decodes as JSON (harper `multipartParser.ts` `decodeFieldValue`). */
+const DECODED_AS_JSON = /^(?:[{["\-0-9]|true$|false$|null$)/;
+
+/**
+ * Harper's multipart parser needs every field before the file, and decodes a field that looks like JSON as JSON. So a
+ * string that would be misread, such as a project named `123`, goes JSON-encoded too. The browser sets the boundary.
+ */
+function multipartRequest(body: Record<string, unknown>, file: StreamOperationFile, headers: Record<string, string>) {
+	const form = new FormData();
+	for (const [name, value] of Object.entries(body)) {
+		if (value !== undefined) {
+			form.append(name, typeof value === 'string' && !DECODED_AS_JSON.test(value) ? value : JSON.stringify(value));
+		}
+	}
+	form.append(file.name, file.blob, file.filename);
+	const multipartHeaders = { ...headers };
+	delete multipartHeaders['Content-Type'];
+	return { headers: multipartHeaders, body: form };
 }
 
 /**
@@ -34,11 +67,19 @@ export interface StreamOperationOptions {
 export async function streamOperation({
 	connection,
 	body,
+	file,
 	signal,
 	idleTimeoutMs = 120_000,
 	onMessage,
 }: StreamOperationOptions): Promise<unknown> {
-	const { url, headers, credentials } = resolveInstanceConnection(connection);
+	const { url, headers, credentials, mode } = resolveInstanceConnection(connection);
+	if (file && mode === 'proxy') {
+		// Fabric Connect relays JSON bodies of up to 2 MB, and logs each one it relays.
+		throw new Error('Sending a file to Harper needs a direct connection, not Fabric Connect.');
+	}
+	const request = file ? multipartRequest(body, file, headers) : { headers, body: JSON.stringify(body) };
+	// `fetch` resolves only once a file has been uploaded, so the wait for the first answer allows for the upload.
+	const firstAnswerTimeoutMs = idleTimeoutMs + (file ? Math.ceil(file.blob.size / UPLOAD_FLOOR_BYTES_PER_MS) : 0);
 
 	// Idle watchdog: its own controller aborts the fetch when no event arrives in time. We
 	// combine it with the caller's signal so either source can stop the stream, and we can
@@ -47,24 +88,25 @@ export async function streamOperation({
 	const { signal: combinedSignal, cleanup: cleanupSignal } = anySignal([signal, idleController.signal]);
 
 	let idleTimer: ReturnType<typeof setTimeout> | undefined;
-	const resetIdleTimer = () => {
+	const resetIdleTimer = (timeoutMs = idleTimeoutMs) => {
 		if (idleTimer) {
 			clearTimeout(idleTimer);
 		}
-		idleTimer = setTimeout(() => idleController.abort(), idleTimeoutMs);
+		idleTimer = setTimeout(() => idleController.abort(), timeoutMs);
 	};
 
 	try {
 		let response: Response;
 		try {
-			resetIdleTimer();
+			resetIdleTimer(firstAnswerTimeoutMs);
 			response = await fetch(url, {
 				method: 'POST',
-				headers,
+				headers: request.headers,
 				credentials,
-				body: JSON.stringify(body),
+				body: request.body,
 				signal: combinedSignal,
 			});
+			resetIdleTimer();
 		} catch (error) {
 			// The caller aborted deliberately — surface that, don't mask it as "unsupported".
 			if (signal?.aborted) {
@@ -77,11 +119,15 @@ export async function streamOperation({
 
 		const contentType = response.headers.get('content-type') ?? '';
 		if (!response.ok || !contentType.includes('text/event-stream') || !response.body) {
-			// Drain the body so the connection can be reused, then fall back.
+			// Read or drain the body so the connection can be reused, then fall back.
+			const refusal = response.ok ? undefined : await readResponseRefusal(response);
 			await response.body?.cancel().catch(() => {});
+			if (signal?.aborted) {
+				throw signal.reason;
+			}
 			throw new SSEUnsupportedError(
 				`Server did not return an event stream (status ${response.status}, content-type "${contentType}").`,
-				{ status: response.status },
+				{ status: response.status, refusal },
 			);
 		}
 
@@ -144,41 +190,4 @@ export async function streamOperation({
 		// signal, so short-lived stream calls don't accumulate listeners on it.
 		cleanupSignal();
 	}
-}
-
-/**
- * Combine multiple `AbortSignal`s into one that aborts when any input does, plus a `cleanup`
- * to detach any listeners it attached. Uses the native `AbortSignal.any` when available
- * (modern browsers / Node 20+) — which manages its own listeners — and falls back to manual
- * wiring (with real cleanup) otherwise.
- */
-function anySignal(signals: Array<AbortSignal | undefined>): { signal: AbortSignal; cleanup: () => void } {
-	const noop = () => {};
-	const real = signals.filter((s): s is AbortSignal => !!s);
-	if (real.length === 1) {
-		return { signal: real[0], cleanup: noop };
-	}
-	if (typeof AbortSignal.any === 'function') {
-		return { signal: AbortSignal.any(real), cleanup: noop };
-	}
-	const controller = new AbortController();
-	// Function declarations (hoisted) so onAbort and cleanup can reference each other.
-	function cleanup() {
-		for (const s of real) {
-			s.removeEventListener('abort', onAbort);
-		}
-	}
-	function onAbort(event: Event) {
-		controller.abort((event.target as AbortSignal).reason);
-		cleanup();
-	}
-	for (const s of real) {
-		if (s.aborted) {
-			controller.abort(s.reason);
-			cleanup();
-			break;
-		}
-		s.addEventListener('abort', onAbort);
-	}
-	return { signal: controller.signal, cleanup };
 }

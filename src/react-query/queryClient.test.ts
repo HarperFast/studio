@@ -7,7 +7,7 @@ import {
 import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { MutationObserver, QueryObserver } from '@tanstack/react-query';
-import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { describeError, errorHandler, queryClient, queryErrorHandler, shouldToastOwnFailure } from './queryClient';
@@ -308,6 +308,42 @@ describe('queryErrorHandler', () => {
 	afterEach(() => {
 		resetRestartTracker();
 		vi.restoreAllMocks();
+	});
+
+	it("leaves a 403 to a query that reads Harper's refusal as an answer, and toasts its other failures", () => {
+		const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+		const forbidden = new AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, {
+			status: 403,
+			statusText: 'Forbidden',
+			headers: {},
+			config,
+			data: {},
+		});
+		const refusalAware = {
+			queryKey: ['get_configuration', 'ins-1'],
+			meta: { refusalIsAnAnswer: true },
+		} as unknown as Parameters<
+			typeof queryErrorHandler
+		>[1];
+
+		queryErrorHandler(forbidden, refusalAware);
+		expect(toast.error).not.toHaveBeenCalled();
+		queryErrorHandler(networkError, refusalAware);
+		expect(toast.error).toHaveBeenCalledOnce();
+	});
+
+	it('reports a failure a query shows itself to RUM, without a toast', () => {
+		const ownsFailure = {
+			queryKey: ['get_configuration', 'ins-1'],
+			meta: { reportsOwnFailure: true },
+		} as unknown as Parameters<
+			typeof queryErrorHandler
+		>[1];
+
+		queryErrorHandler(networkError, ownsFailure);
+
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(console.error).toHaveBeenCalledWith(networkError);
 	});
 
 	it('toasts a connectivity failure from an entity that is not restarting', () => {

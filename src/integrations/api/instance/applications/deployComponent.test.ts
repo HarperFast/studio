@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 vi.mock('./deployComponentStream', () => ({
 	deployComponentStream: vi.fn(),
 }));
+vi.mock('./packageComponent', () => ({ fetchComponentArchive: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from '@/integrations/api/sse/errors';
@@ -17,11 +18,14 @@ import { createElement } from 'react';
 import { toast } from 'sonner';
 import {
 	deployAndFollowComponent,
+	deployApplicationFiles,
 	deployRequestBody,
 	onDeployComponentSubmit,
+	PackagingError,
 	useDeployComponentMutation,
 } from './deployComponent';
 import { deployComponentStream } from './deployComponentStream';
+import { fetchComponentArchive } from './packageComponent';
 import { DeployRolloutError } from './restartJob';
 
 const mockStream = vi.mocked(deployComponentStream);
@@ -77,6 +81,20 @@ describe('deployRequestBody', () => {
 		// A package deploy replaces the entry whole, so an absent key is what turns the copy off.
 		expect(JSON.parse(JSON.stringify(deployRequestBody({ kind: 'deploy', project: 'web', package: 'npm:web' }, false))))
 			.not.toHaveProperty('branchedDatabases');
+	});
+
+	it('sends a payload deploy no package and an explicit setting, since leaving it out keeps the current one', () => {
+		const archive = new Blob(['tarball']);
+		const body = deployRequestBody({ kind: 'payload', project: 'web', archive, branchedDatabases: [] }, true);
+		expect(body).toEqual({
+			operation: 'deploy_component',
+			project: 'web',
+			replicated: true,
+			restart: 'rolling',
+			branchedDatabases: [],
+		});
+		expect(body).not.toHaveProperty('package');
+		expect(body).not.toHaveProperty('payload');
 	});
 
 	it('activates by id alone, with a rolling restart and nothing to install', () => {
@@ -401,5 +419,100 @@ describe('deployAndFollowComponent', () => {
 		const result = await pending;
 		expect(result).toMatchObject({ certification: 'certified', rollout: { state: 'complete' } });
 		expect(post.mock.calls.map(([, body]) => body.operation)).toEqual(['get_job']);
+	});
+});
+
+describe('a payload deploy', () => {
+	const archive = new Blob(['tarball'], { type: 'application/gzip' });
+	const payloadArgs = {
+		request: { kind: 'payload' as const, project: 'web', archive, branchedDatabases: ['data'] },
+		entityId: 'clu-1' as const,
+		entityType: 'cluster' as const,
+	};
+
+	it('streams the archive after the fields, whatever useSSE says', async () => {
+		const client = fakeClient({});
+		mockStream.mockResolvedValue({ message: 'ok' });
+
+		await onDeployComponentSubmit({ ...payloadArgs, instanceClient: client as any, useSSE: false });
+
+		expect(mockStream).toHaveBeenCalledWith(expect.objectContaining({
+			connection: { id: 'clu-1' },
+			body: expect.objectContaining({ branchedDatabases: ['data'], replicated: true }),
+			file: { name: 'payload', filename: 'package.tar.gz', blob: archive },
+		}));
+		expect(client.post).not.toHaveBeenCalled();
+	});
+
+	it("shows Harper's refusal and never resends the archive buffered", async () => {
+		const client = fakeClient({});
+		mockStream.mockRejectedValue(
+			new SSEUnsupportedError('not a stream', { status: 400, refusal: "database 'nope' does not exist" }),
+		);
+
+		const error = await onDeployComponentSubmit({ ...payloadArgs, instanceClient: client as any })
+			.catch((caught: unknown) => caught);
+
+		expect(error).toMatchObject({ name: 'HarperRefusalError', message: "database 'nope' does not exist" });
+		expect(error).not.toBeInstanceOf(SSEInconclusiveError);
+		expect(client.post).not.toHaveBeenCalled();
+	});
+
+	it('calls a stream that never opened inconclusive, since the deploy may be running', async () => {
+		const client = fakeClient({});
+		mockStream.mockRejectedValue(new SSEUnsupportedError('gateway', { status: 502 }));
+
+		await expect(onDeployComponentSubmit({ ...payloadArgs, instanceClient: client as any }))
+			.rejects.toBeInstanceOf(SSEInconclusiveError);
+		expect(client.post).not.toHaveBeenCalled();
+	});
+});
+
+describe('deployApplicationFiles', () => {
+	const fetchArchive = vi.mocked(fetchComponentArchive);
+
+	it('sends no deploy when packaging fails', async () => {
+		fetchArchive.mockRejectedValue(new Error("Harper couldn't package web (status 500)."));
+
+		const error = await deployApplicationFiles({
+			project: 'web',
+			branchedDatabases: [],
+			skipNodeModules: true,
+			entityId: 'clu-1',
+			entityType: 'cluster',
+			instanceClient: fakeClient({}) as any,
+		}).catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(PackagingError);
+		expect((error as Error).message).toBe("Harper couldn't package web (status 500).");
+		expect(mockStream).not.toHaveBeenCalled();
+	});
+
+	it('deploys the archive it packaged, with the setting, once it is in hand', async () => {
+		const archive = new Blob(['tarball']);
+		fetchArchive.mockResolvedValue(archive);
+		mockStream.mockResolvedValue({ message: 'ok' });
+		const onPackaged = vi.fn();
+
+		await deployApplicationFiles({
+			project: 'web',
+			branchedDatabases: true,
+			skipNodeModules: false,
+			onPackaged,
+			entityId: 'clu-1',
+			entityType: 'cluster',
+			instanceClient: fakeClient({}) as any,
+		});
+
+		expect(fetchArchive).toHaveBeenCalledWith(expect.objectContaining({
+			connection: { id: 'clu-1' },
+			project: 'web',
+			skipNodeModules: false,
+		}));
+		expect(onPackaged).toHaveBeenCalledOnce();
+		expect(mockStream).toHaveBeenCalledWith(expect.objectContaining({
+			body: expect.objectContaining({ project: 'web', branchedDatabases: true }),
+			file: expect.objectContaining({ blob: archive }),
+		}));
 	});
 });

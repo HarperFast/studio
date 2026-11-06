@@ -7,11 +7,20 @@
  */
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ payloadBranches: { value: false } }));
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	usePayloadBranchedDatabasesAvailable: () => mocks.payloadBranches.value,
+}));
 
 import { useEntryActions } from './useEntryActions';
+
+afterEach(() => {
+	mocks.payloadBranches.value = false;
+});
 
 function packageRoot(packageSpec: string | undefined): DirectoryEntry {
 	return { name: 'status-check', path: 'status-check', project: 'status-check', package: packageSpec, entries: [] };
@@ -46,5 +55,26 @@ describe('useEntryActions', () => {
 		const { result } = renderHook(() => useEntryActions(undefined));
 
 		expect(result.current.canDeleteEntry).toBe(false);
+	});
+});
+
+describe('canChangePrivateCopy', () => {
+	const appRoot: DirectoryEntry = { name: 'anvils', path: 'anvils', project: 'anvils', entries: [] };
+
+	it('is offered on the root of an application that is not package-deployed, where a payload deploy carries it', () => {
+		mocks.payloadBranches.value = true;
+		expect(renderHook(() => useEntryActions(appRoot)).result.current.canChangePrivateCopy).toBe(true);
+	});
+
+	it('is not offered on a package, a directory inside an application, or before Harper supports it', () => {
+		mocks.payloadBranches.value = true;
+		expect(renderHook(() => useEntryActions(packageRoot('npm:status-check'))).result.current.canChangePrivateCopy)
+			.toBe(false);
+		expect(
+			renderHook(() => useEntryActions({ ...appRoot, name: 'resources', path: 'anvils/resources' })).result.current
+				.canChangePrivateCopy,
+		).toBe(false);
+		mocks.payloadBranches.value = false;
+		expect(renderHook(() => useEntryActions(appRoot)).result.current.canChangePrivateCopy).toBe(false);
 	});
 });

@@ -2,9 +2,38 @@ import { describe, expect, it } from 'vitest';
 import {
 	branchStorageMessage,
 	describeBranchedDatabases,
+	entryHasPackage,
 	readBranchedDatabases,
 	supportsBranchedDatabases,
+	supportsPayloadBranchedDatabases,
 } from './branchedDatabases';
+
+describe('supportsPayloadBranchedDatabases', () => {
+	it.each([
+		['5.3.5', false],
+		['5.4.0-alpha.0', false],
+		['5.4.0-alpha.1', true],
+		['5.4.0-beta.2', true],
+		['5.4.0', true],
+		[undefined, false],
+	])('%s → %s', (version, expected) => {
+		expect(supportsPayloadBranchedDatabases(version)).toBe(expected);
+	});
+});
+
+describe('entryHasPackage', () => {
+	it('is true only for an entry that names a package', () => {
+		expect(entryHasPackage({ web: { package: 'npm:web' } }, 'web')).toBe(true);
+		expect(entryHasPackage({ web: { branchedDatabases: ['data'] } }, 'web')).toBe(false);
+		expect(entryHasPackage({ other: { package: 'npm:other' } }, 'web')).toBe(false);
+		expect(entryHasPackage({ web: 'npm:web' }, 'web')).toBe(false);
+		expect(entryHasPackage(undefined, 'web')).toBe(false);
+	});
+
+	it('ignores an inherited key', () => {
+		expect(entryHasPackage({}, 'constructor')).toBe(false);
+	});
+});
 
 describe('supportsBranchedDatabases', () => {
 	it.each([
