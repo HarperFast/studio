@@ -101,6 +101,135 @@ describe('workflow privilege boundary', () => {
 	});
 });
 
+/**
+ * The cluster's trust policy pins `preview.yaml`'s path, not its content, and `harper preview setup`
+ * checks the content only once. A `run:` step that executes the downloaded artifact is not caught.
+ */
+const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repository';
+
+function isMapping(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Whether the guard is a term of the top-level `&&` chain, outside every parenthesis, so nothing
+ * negates, quotes, wraps or bypasses it. A top-level `||`, an index expression or a second `${{ }}`
+ * is refused outright.
+ */
+function hasForkGuard(condition: unknown): boolean {
+	if (typeof condition !== 'string') { return false; }
+	const expression = condition.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1')
+		// String literals can hold `&&`, parentheses and the guard's own text.
+		.replace(/'(?:[^']|'')*'/g, "''");
+	if (/[{}[\]]/.test(expression)) { return false; }
+	const terms: string[] = [];
+	let depth = 0;
+	let start = 0;
+	for (let index = 0; index < expression.length; index++) {
+		const char = expression[index];
+		if (char === '(') {
+			depth++;
+		} else if (char === ')') {
+			if (--depth < 0) { return false; }
+		} else if (depth === 0 && expression.startsWith('||', index)) {
+			return false;
+		} else if (depth === 0 && expression.startsWith('&&', index)) {
+			terms.push(expression.slice(start, index));
+			start = index + 2;
+			index++;
+		}
+	}
+	terms.push(expression.slice(start));
+	return depth === 0 && terms.some((term) => term.replace(/\s+/g, ' ').trim() === FORK_GUARD);
+}
+
+// A shape this can't read is reported, not skipped, so it fails the test instead of passing it.
+function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
+	const problems: string[] = [];
+	if (doc.jobs !== undefined && !isMapping(doc.jobs)) { return ['jobs: not a mapping']; }
+	for (const [name, job] of Object.entries(doc.jobs ?? {})) {
+		if (!isMapping(job)) {
+			problems.push(`${name}: not a mapping`);
+			continue;
+		}
+		if (!hasForkGuard(job.if)) { problems.push(`${name}: no fork guard`); }
+		if (job.uses !== undefined) { problems.push(`${name}: calls a reusable workflow`); }
+		const steps = job.steps ?? [];
+		if (!Array.isArray(steps)) {
+			problems.push(`${name}: steps is not a list`);
+			continue;
+		}
+		for (const step of steps) {
+			if (!isMapping(step)) {
+				problems.push(`${name}: a step is not a mapping`);
+				continue;
+			}
+			const uses = typeof step.uses === 'string' ? step.uses : '';
+			if (uses.startsWith('actions/checkout@') || uses.startsWith('./')) {
+				problems.push(`${name}: uses ${uses}`);
+			}
+		}
+	}
+	return problems;
+}
+
+describe('pull_request_target workflows run no PR code', () => {
+	const targetWorkflows = workflowFiles().filter((name) =>
+		triggers(parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8'))).includes('pull_request_target')
+	);
+
+	it('finds preview.yaml, so the scan cannot pass by finding nothing', () => {
+		expect(targetWorkflows).toContain('preview.yaml');
+	});
+
+	it.each(targetWorkflows)('%s guards every job and checks out nothing', (name) => {
+		expect(pullRequestTargetProblems(parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8')))).toEqual([]);
+	});
+
+	const job = (body: string) => `on: [pull_request_target]\njobs:\n  j:\n${body}`;
+	const guarded = `    if: \${{ ${FORK_GUARD} }}\n`;
+
+	it.each([
+		['a job with no fork guard', job('    steps:\n      - run: echo hi\n')],
+		// `&&` binds tighter, so this is `true || (… && guard)`, and its last term is the guard itself.
+		['a guard that `||` can bypass', job(`    if: \${{ true || github.event.action != 'closed' && ${FORK_GUARD} }}\n`)],
+		['a negated guard', job(`    if: \${{ !(${FORK_GUARD}) }}\n`)],
+		['a guard inside a negated group', job(`    if: \${{ !(true && ${FORK_GUARD} && true) }}\n`)],
+		['a guard inside a call', job(`    if: \${{ format('{0}', true && ${FORK_GUARD}) }}\n`)],
+		['a guard inside an index', job(`    if: \${{ github.event[true && ${FORK_GUARD} && true] }}\n`)],
+		['unbalanced parentheses', job(`    if: \${{ ${FORK_GUARD} && (true }}\n`)],
+		['a parenthesis closed before it opens', job(`    if: \${{ true) && (true && ${FORK_GUARD} }}\n`)],
+		['a guard between two interpolations', job(`    if: \${{ false }} && ${FORK_GUARD} && \${{ false }}\n`)],
+		['a guard inside a string', job(`    if: contains('x && ${FORK_GUARD} && y', 'z')\n`)],
+		['a guard compared again', job(`    if: \${{ ${FORK_GUARD} == false }}\n`)],
+		['a checkout', job(`${guarded}    steps:\n      - uses: actions/checkout@v7\n`)],
+		['a local action', job(`${guarded}    steps:\n      - uses: ./.github/actions/studio-verify\n`)],
+		['a reusable workflow', job(`${guarded}    uses: ./.github/workflows/x.yaml\n`)],
+		['jobs that are not a mapping', 'on: [pull_request_target]\njobs: 1\n'],
+		['a job that is not a mapping', job('')],
+		['steps that are not a list', job(`${guarded}    steps:\n      uses: actions/checkout@v7\n`)],
+		['a step that is not a mapping', job(`${guarded}    steps:\n      - actions/checkout@v7\n`)],
+	])('flags %s', (_label, raw) => {
+		expect(pullRequestTargetProblems(parse(raw))).not.toEqual([]);
+	});
+
+	it.each([
+		['a bare guard', guarded],
+		['a guard after `!=`', `    if: github.event.action != 'closed' && ${FORK_GUARD}\n`],
+		[
+			'a guard beside an `||` inside a call',
+			`    if: ${FORK_GUARD} && contains(fromJSON(vars.LIST || '[]'), github.actor)\n`,
+		],
+		[
+			'a guard split across lines',
+			`    if: |-\n      true &&\n      ${FORK_GUARD.replace(' == ', '\n        ==  ')}\n`,
+		],
+	])('passes %s on a job that only calls a pinned action', (_label, condition) => {
+		const raw = job(`${condition}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
+		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);
+	});
+});
+
 describe('isPrivileged recognises every privileged form', () => {
 	const job = (body: string) => `on: [merge_group]\njobs:\n  j:\n${body}`;
 
