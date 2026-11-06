@@ -9,10 +9,15 @@ with their components, the focus with the cluster's config.
 `get_studio_configuration` (HarperFast/harper#3656, Harper 5.4: any signed-in role, and in the `read_only`,
 `standard_user` and `admin_read` groups) returns:
 
-- `navigation` and `landing` from the root config's `studio` block. Each built-in tab key
-  (`applications`, `databases`, `apis`, `operations`, `status`, `logs`, `config`) or page key
-  (`<component>.<id>`) is `visible`, `tucked` (into the nav's More menu) or `hidden`.
-- `pages` from the `studio.pages` of each component's own `config.yaml` (shape: `manifest.ts`).
+- `navigation`: each built-in tab key (`applications`, `databases`, `apis`, `operations`, `status`,
+  `logs`, `config`) or page key (`<component>.<id>`) is `visible`, `tucked` (into the nav's More menu)
+  or `hidden`. With HarperFast/harper#4079, apps and the plugins they load set it too: the root config's
+  `studio` block beats an app, an app beats its plugins, and between peers the more visible state wins.
+  `rootNavigation` is the root config's alone, and `landing` comes only from the root config.
+- `pages` from the `studio.pages` of each app's own `config.yaml` and, with harper#4079, of each plugin
+  an app loads (shape: `manifest.ts`). A plugin is loaded once per app that uses it, so its page is
+  `component: <app>.<plugin>` (nested plugins chain), with `application` and `plugins` naming the parts.
+  Two apps using one plugin give two pages.
 
 Harper checks a page's id, name and placement, strips page keys it doesn't know, and never validates or
 strips `access` or `content` (harper `config/studioConfiguration.ts`). So every check is Studio's, and a
@@ -36,6 +41,10 @@ unchanged.
 
 - **Placement**: `tab` (after the built-in tabs, before Config) or `config` (the Config menu, sorted with
   the built-in entries). A lesser role with a Config entry gets Config with just those entries.
+- **Identity**: a key may hold `@` and `/` (a plugin's scoped npm name) and is at most 128 characters,
+  so a navigation entry can always name it. A link encodes it as one route segment
+  (`extensionPagePath`). Pages that would share a name in one placement get their app's name after it,
+  or their component's when one app holds both.
 - **Access**: `role`, `tables`, `operations`, checked like the built-in pages check. The viewer's role
   must meet all of it to see the page, and it bounds everything the page's sections send. Grants under
   `optional` (`tables`, `operations`) are declared but not required, so readers can see a table that
@@ -90,7 +99,9 @@ with `VITE_CLUSTER_PRESETS=true` and from Harper 5.4 (`PRESET_MIN_HARPER_VERSION
 record of one. Once the new cluster's admin signs in, FinishSetup sends them to `/setup`, which deploys
 the preset's components, merges its `studio_navigation` and `studio_landing` into the cluster's with
 `set_configuration` (replicated; flattened because harper refuses a nested `studio` object, which would
-clobber an app deployed under that name; no restart), and lands on `/start`. Central-manager records the
+clobber an app deployed under that name; no restart), and lands on `/start`. It merges into
+`rootNavigation`, never the merged `navigation`, so it doesn't copy an app's or a plugin's placements into
+the root config, where they would outrank that app from then on. Central-manager records the
 job as `Cluster.preset` (HarperFast/central-manager#1047), so any browser can offer "Finish setting up"
 to a super user, whom every step needs. It outranks this browser's record (`pendingPresetSetup`, one key
 per cluster and one `storage` listener per page), which is forgotten when they disagree.
@@ -134,9 +145,10 @@ sees neither the lock nor the marks; the deploy record catches its partial and r
 
 ## Open
 
-1. **Both server sides are unmerged PRs.** Until central-manager#1047 is deployed, the job lives only in the
+1. **The server sides are unmerged.** Until central-manager#1047 is deployed, the job lives only in the
    creating browser's localStorage (`pendingPresetSetup.ts`); until harper#3656 ships, every cluster reads
-   as plain Studio.
+   as plain Studio; until harper#4079 does, only apps declare pages and only the root config sets
+   navigation. Studio already reads the answer #4079 adds.
 2. **The preset packages are placeholders** (`@harperfast/redirects`, `@harperfast/prerender`), which
    is why `VITE_CLUSTER_PRESETS` is off by default.
 3. **Content's shape lives only in `manifest.ts`.** Harper's app schema (`config-app.schema.json`) leaves

@@ -99,6 +99,73 @@ describe('parseStudioConfiguration', () => {
 		expect(landing).toBe('harper-redirects.redirects');
 	});
 
+	it("keeps a plugin's page under its app, with the scoped npm name in its key", () => {
+		const parsed = parsePage({
+			component: 'shop.@harperfast/redirector',
+			application: 'shop',
+			plugins: ['@harperfast/redirector'],
+		});
+		expect(parsed).toMatchObject({
+			key: 'shop.@harperfast/redirector.redirects',
+			component: 'shop.@harperfast/redirector',
+			application: 'shop',
+			plugins: ['@harperfast/redirector'],
+			name: 'Redirects',
+		});
+	});
+
+	it('ignores an application or plugin chain it cannot read, keeping the page', () => {
+		const parsed = parsePage({ application: 'a b', plugins: ['ok', 7] });
+		expect(parsed.application).toBeUndefined();
+		expect(parsed.plugins).toBeUndefined();
+	});
+
+	it('drops a page whose key is longer than a navigation key may be', () => {
+		const component = `app.${'p'.repeat(121)}`; // 125 characters, so 'ab' makes a 128-character key
+		expect(parseStudioConfiguration({ pages: [page({ component, id: 'ab' })] }).pages).toHaveLength(1);
+		expect(parseStudioConfiguration({ pages: [page({ component, id: 'abc' })] }).pages).toEqual([]);
+	});
+
+	it("reads the root config's placements apart from the merged ones, and only when sent", () => {
+		const parsed = parseStudioConfiguration({
+			navigation: { logs: 'hidden', 'shop.@harperfast/redirector.redirects': 'tucked' },
+			rootNavigation: { logs: 'hidden', bad: 'gone' },
+			pages: [],
+		});
+		expect(parsed.navigation).toEqual({ logs: 'hidden', 'shop.@harperfast/redirector.redirects': 'tucked' });
+		expect(parsed.rootNavigation).toEqual({ logs: 'hidden' });
+		expect(parseStudioConfiguration({ navigation: {}, pages: [] })).not.toHaveProperty('rootNavigation');
+	});
+
+	it('names each use of one plugin by its app, and leaves names that do not clash alone', () => {
+		const names = parseStudioConfiguration({
+			pages: [
+				page({ component: 'shop.@harperfast/redirector', application: 'shop' }),
+				page({ component: 'blog.@harperfast/redirector', application: 'blog' }),
+				page({ component: 'blog.@harperfast/redirector', application: 'blog', id: 'rules', placement: 'config' }),
+				page({ component: 'docs', application: 'docs', id: 'search', name: 'Search' }),
+			],
+		}).pages.map((parsed) => parsed.name);
+		expect(names).toEqual(['Redirects (shop)', 'Redirects (blog)', 'Redirects', 'Search']);
+	});
+
+	it('names pages by component when one app holds both, and by component when Harper sends no application', () => {
+		const names = parseStudioConfiguration({
+			pages: [
+				page({ component: 'shop.@harperfast/redirector', application: 'shop', name: 'Settings' }),
+				page({ component: 'shop.@harperfast/prerender', application: 'shop', name: 'Settings' }),
+				page({ component: 'harper-a', id: 'x' }),
+				page({ component: 'harper-b', id: 'x' }),
+			],
+		}).pages.map((parsed) => parsed.name);
+		expect(names).toEqual([
+			'Settings (shop.@harperfast/redirector)',
+			'Settings (shop.@harperfast/prerender)',
+			'Redirects (harper-a)',
+			'Redirects (harper-b)',
+		]);
+	});
+
 	it('answers an unusable response with an empty configuration', () => {
 		expect(parseStudioConfiguration('nope')).toEqual({ navigation: {}, pages: [] });
 		expect(parseStudioConfiguration({ pages: 'nope' })).toEqual({ navigation: {}, landing: undefined, pages: [] });

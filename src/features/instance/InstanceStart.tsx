@@ -1,4 +1,5 @@
 import { Loading } from '@/components/Loading';
+import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -31,7 +32,7 @@ export function InstanceStart() {
 	// A page inside Config has a route of its own, so it never passes back through the index.
 	const configPage = configPages.find((page) => page.key === configuration.landing);
 	if (configPage) {
-		return <Navigate to={buildAbsoluteLinkToPage(params, `config/ext/${configPage.key}`)} replace />;
+		return <Navigate to={buildAbsoluteLinkToPage(params, extensionPagePath(configPage))} replace />;
 	}
 	return reachable[0] ? <Navigate to={reachable[0].to} replace /> : <NothingToOpen params={params} />;
 }

@@ -571,6 +571,18 @@ describe("runPresetSetup with the cluster's own Studio settings", () => {
 		});
 	});
 
+	it("merges into the root config's placements alone, never copying an app's or a plugin's into it", async () => {
+		getStudioConfiguration.mockResolvedValue({
+			navigation: { logs: 'hidden', applications: 'tucked', 'shop.@harperfast/redirector.redirects': 'tucked' },
+			rootNavigation: { logs: 'hidden' },
+			pages: [],
+		});
+		await run().promise;
+		expect(setConfiguration).toHaveBeenCalledWith(expect.objectContaining({
+			studio_navigation: { applications: 'hidden', logs: 'hidden' },
+		}));
+	});
+
 	it("lands on the preset's page when the cluster has no landing, never writing null", async () => {
 		getStudioConfiguration.mockResolvedValue({ navigation: { logs: 'tucked' }, pages: [] });
 		await run().promise;

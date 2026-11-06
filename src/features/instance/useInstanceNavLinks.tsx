@@ -1,4 +1,5 @@
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
+import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useNavigationVisibility, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -90,7 +91,7 @@ export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: Insta
 			// Tabs added by the cluster's components, after the built-in ones and ahead of Config.
 			...extensionTabs.map((page) => ({
 				key: page.key,
-				to: buildAbsoluteLinkToPage(params, `ext/${page.key}`),
+				to: buildAbsoluteLinkToPage(params, extensionPagePath(page)),
 				icon: <ExtensionIcon name={page.icon} className="inline-block" />,
 				name: page.name,
 			})),

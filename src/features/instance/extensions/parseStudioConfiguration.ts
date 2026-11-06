@@ -30,8 +30,16 @@ export type TabVisibility = 'visible' | 'tucked' | 'hidden';
  * block, plus the pages its components declare in their own `config.yaml`.
  */
 export interface StudioConfiguration {
-	/** Keyed by a built-in tab, or by a component page's `<component>.<id>`. */
+	/**
+	 * Keyed by a built-in tab, or by a component page's `<component>.<id>`. What the nav shows: Harper
+	 * merges the root config's placements over each app's, and each app's over its plugins'.
+	 */
 	navigation: Record<string, TabVisibility>;
+	/**
+	 * The root config's placements alone, which preset setup merges into and writes back. Absent from a
+	 * Harper whose navigation comes only from the root config, where it equals `navigation`.
+	 */
+	rootNavigation?: Record<string, TabVisibility>;
 	/** The tab or page key Studio opens the cluster on. */
 	landing?: string;
 	pages: ResolvedExtensionPage[];
@@ -42,7 +50,9 @@ export interface StudioConfiguration {
 export const EMPTY_STUDIO_CONFIGURATION: StudioConfiguration = Object.freeze({ navigation: {}, pages: [] });
 
 const VISIBILITIES = new Set<string>(['visible', 'tucked', 'hidden']);
-const NAVIGATION_KEY = /^[\w@.-]{1,128}$/;
+// A key or a component: `@` and `/` for a plugin's scoped npm name, `.` between an app and its plugins.
+const NAVIGATION_KEY = /^[\w@./-]{1,128}$/;
+const MAX_KEY = 128;
 const PAGE_ID = /^[a-z0-9-]{1,64}$/;
 const TABLE_ACTIONS = new Set<string>(['read', 'insert', 'update', 'delete']);
 const FIELD_INPUTS = new Set<string>(['text', 'url', 'number', 'textarea', 'select', 'switch']);
@@ -68,14 +78,8 @@ export function parseStudioConfiguration(
 	if (!isRecord(raw)) {
 		return EMPTY_STUDIO_CONFIGURATION;
 	}
-	const navigation: Record<string, TabVisibility> = {};
-	if (isRecord(raw.navigation)) {
-		for (const [key, value] of Object.entries(raw.navigation)) {
-			if (NAVIGATION_KEY.test(key) && typeof value === 'string' && VISIBILITIES.has(value)) {
-				navigation[key] = value as TabVisibility;
-			}
-		}
-	}
+	const navigation = parseNavigation(raw.navigation) ?? {};
+	const rootNavigation = parseNavigation(raw.rootNavigation);
 	const pages: ResolvedExtensionPage[] = [];
 	const seen = new Set<string>();
 	for (const candidate of Array.isArray(raw.pages) ? raw.pages : []) {
@@ -88,9 +92,47 @@ export function parseStudioConfiguration(
 	}
 	return {
 		navigation,
+		...(rootNavigation ? { rootNavigation } : {}),
 		landing: typeof raw.landing === 'string' && NAVIGATION_KEY.test(raw.landing) ? raw.landing : undefined,
-		pages,
+		pages: withDistinctNames(pages),
 	};
+}
+
+function parseNavigation(raw: unknown): Record<string, TabVisibility> | undefined {
+	if (!isRecord(raw)) {
+		return undefined;
+	}
+	const navigation: Record<string, TabVisibility> = {};
+	for (const [key, value] of Object.entries(raw)) {
+		if (NAVIGATION_KEY.test(key) && typeof value === 'string' && VISIBILITIES.has(value)) {
+			navigation[key] = value as TabVisibility;
+		}
+	}
+	return navigation;
+}
+
+/**
+ * One plugin used by two apps declares the same page twice, so pages that would share a name in one
+ * placement get their app's name after it, or their component's when one app holds both.
+ */
+export function withDistinctNames<T extends ResolvedExtensionPage>(pages: T[]): T[] {
+	const clashes = (label: (page: T) => string) => {
+		const counts = new Map<string, number>();
+		for (const page of pages) {
+			const key = `${page.placement}\n${label(page)}`;
+			counts.set(key, (counts.get(key) ?? 0) + 1);
+		}
+		return (page: T) => (counts.get(`${page.placement}\n${label(page)}`) ?? 0) > 1;
+	};
+	const byName = clashes((page) => page.name);
+	const withApp = (page: T) => `${page.name} (${page.application ?? page.component})`;
+	const byApp = clashes(withApp);
+	return pages.map((page) => {
+		if (!byName(page)) {
+			return page;
+		}
+		return { ...page, name: byApp(page) ? `${page.name} (${page.component})` : withApp(page) };
+	});
 }
 
 function parsePage(raw: unknown, capabilities: ReadonlySet<string>): ResolvedExtensionPage | undefined {
@@ -101,16 +143,25 @@ function parsePage(raw: unknown, capabilities: ReadonlySet<string>): ResolvedExt
 	if (typeof component !== 'string' || !NAVIGATION_KEY.test(component)) {
 		return undefined;
 	}
-	if (typeof id !== 'string' || !PAGE_ID.test(id)) {
+	// A key a navigation entry can't name would be a page nothing could place or land on.
+	if (typeof id !== 'string' || !PAGE_ID.test(id) || component.length + 1 + id.length > MAX_KEY) {
 		return undefined;
 	}
 	const name = text(raw.name, 40);
 	if (!name || (raw.placement !== 'tab' && raw.placement !== 'config')) {
 		return undefined;
 	}
+	const plugins = Array.isArray(raw.plugins) && raw.plugins.length > 0
+			&& raw.plugins.every((plugin) => typeof plugin === 'string' && NAVIGATION_KEY.test(plugin))
+		? raw.plugins as string[]
+		: undefined;
 	return {
 		key: `${component}.${id}`,
 		component,
+		...(typeof raw.application === 'string' && NAVIGATION_KEY.test(raw.application)
+			? { application: raw.application }
+			: {}),
+		...(plugins ? { plugins } : {}),
 		id,
 		name,
 		icon: text(raw.icon, 64) ?? 'puzzle',

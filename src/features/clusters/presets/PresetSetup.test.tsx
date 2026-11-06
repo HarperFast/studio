@@ -79,6 +79,11 @@ describe('PresetSetup', () => {
 		expect(screen.queryByRole('button', { name: /^Set up/ })).toBeNull();
 	});
 
+	it("starts by itself when only apps or plugins place tabs, since setup writes just the root config's", async () => {
+		renderSetup(async () => ({ navigation: { logs: 'tucked' }, rootNavigation: {}, pages: [] }));
+		await waitFor(() => expect(runPresetSetup).toHaveBeenCalledTimes(1));
+	});
+
 	it("forgets this browser's record only once the new settings are in, then opens /start", async () => {
 		let refetched: (configuration: StudioConfiguration) => void = () => undefined;
 		let reads = 0;

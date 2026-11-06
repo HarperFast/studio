@@ -80,6 +80,18 @@ describe('InstanceStart', () => {
 		expect(landsOn()).toBe('/org-1/clu-1/config/ext/harper-prerender.prerendering');
 	});
 
+	it.each(
+		[
+			['tab', '/org-1/clu-1/ext/shop.%40harperfast%2Fredirector.redirects'],
+			['config', '/org-1/clu-1/config/ext/shop.%40harperfast%2Fredirector.redirects'],
+		] as const,
+	)("lands on a plugin's %s page by its whole key, the npm scope's slash encoded", (placement, path) => {
+		route.params = cluster;
+		studio.pages = [{ ...prerendering, key: 'shop.@harperfast/redirector.redirects', placement }];
+		studio.landing = 'shop.@harperfast/redirector.redirects';
+		expect(landsOn()).toBe(path);
+	});
+
 	it('lands a lesser role on a Config page its role may open', () => {
 		permission.canManage = false;
 		route.params = cluster;

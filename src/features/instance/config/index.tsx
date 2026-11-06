@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
+import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -90,7 +91,7 @@ export function ConfigIndex() {
 			: []),
 		...extensionEntries.map((extension) => ({
 			name: extension.name,
-			page: `config/ext/${extension.key}`,
+			page: extensionPagePath(extension),
 			icon: <ExtensionIcon name={extension.icon} />,
 		})),
 	].sort((a, b) => a.name.localeCompare(b.name));

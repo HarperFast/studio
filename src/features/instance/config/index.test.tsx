@@ -2,17 +2,20 @@
 import { ConfigIndex } from '@/features/instance/config/index';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { viewer, route } = vi.hoisted(() => ({
+const PRERENDER = { key: 'harper-prerender.prerendering', name: 'Pre-rendering', icon: 'layers', placement: 'config' };
+
+const { viewer, route, entries } = vi.hoisted(() => ({
 	viewer: { canManage: false },
 	route: { pathname: '/org-1/clu-1/config' },
+	entries: { pages: [] as Record<string, string>[] },
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => viewer.canManage }));
 vi.mock('@/features/instance/extensions/ExtensionIcon', () => ({ ExtensionIcon: () => null }));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
-	useVisibleExtensionPages: () => [{ key: 'harper-prerender.prerendering', name: 'Pre-rendering', icon: 'layers' }],
+	useVisibleExtensionPages: () => entries.pages,
 }));
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	...await importOriginal<typeof import('@tanstack/react-query')>(),
@@ -26,6 +29,10 @@ vi.mock('@tanstack/react-router', () => ({
 	useLocation: () => ({ pathname: route.pathname }),
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 }));
+
+beforeEach(() => {
+	entries.pages = [PRERENDER];
+});
 
 afterEach(() => {
 	cleanup();
@@ -42,6 +49,14 @@ describe('ConfigIndex', () => {
 			expect(screen.getByTestId('navigate').textContent).toBe('/org-1/clu-1/config/ext/harper-prerender.prerendering');
 		},
 	);
+
+	it("opens a plugin's entry by its whole key, the npm scope's slash encoded", () => {
+		entries.pages = [{ ...PRERENDER, key: 'shop.@harperfast/prerender.prerendering' }];
+		render(<ConfigIndex />);
+		expect(screen.getByTestId('navigate').textContent).toBe(
+			'/org-1/clu-1/config/ext/shop.%40harperfast%2Fprerender.prerendering',
+		);
+	});
 
 	it('leaves a lesser role on the component entry it opened', () => {
 		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';

@@ -262,10 +262,11 @@ async function runOnce({ preset, onStep, signal, ...args }: RunArgs): Promise<vo
 		// the root entry of an app deployed under the name `studio` (HarperFast/harper#3656). It takes effect
 		// without a restart, so harper's generic "You must restart" reply text is ignored. Replicated so every
 		// node of a cluster answers the same, whichever one Studio's next request reaches, and a node that
-		// refused fails the step.
+		// refused fails the step. Only the root config's own placements are merged: apps and plugins keep
+		// theirs in their own config, and copying them here would let them outrank those apps from now on.
 		const result = await setConfiguration({
 			instanceClient: args.instanceClient,
-			studio_navigation: { ...preset.studio.navigation, ...current.navigation },
+			studio_navigation: { ...preset.studio.navigation, ...(current.rootNavigation ?? current.navigation) },
 			studio_landing: current.landing ?? preset.studio.landing,
 			...(args.entityType === 'cluster' ? { replicated: true } : {}),
 		});

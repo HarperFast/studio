@@ -8,6 +8,7 @@ import {
 	EMPTY_STUDIO_CONFIGURATION,
 	StudioConfiguration,
 	TabVisibility,
+	withDistinctNames,
 } from '@/features/instance/extensions/parseStudioConfiguration';
 import type { PrototypeState } from '@/features/instance/extensions/prototype/prototypeState';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -160,7 +161,10 @@ function withPrototype(configuration: StudioConfiguration, prototype: PrototypeS
 		.filter((page) => !real.has(page.key));
 	return {
 		navigation: { ...configuration.navigation, ...preset.navigation },
+		...(configuration.rootNavigation
+			? { rootNavigation: { ...configuration.rootNavigation, ...preset.navigation } }
+			: {}),
 		landing: preset.landing ?? configuration.landing,
-		pages: [...configuration.pages, ...demo],
+		pages: withDistinctNames([...configuration.pages, ...demo]),
 	};
 }

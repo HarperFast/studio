@@ -211,9 +211,10 @@ export function PresetSetup() {
 	);
 }
 
-/** A landing or any tab placement: what setup would otherwise write over. */
+/** A landing or any placement in the root config: what setup would otherwise write over. */
 function hasSettings(configuration: StudioConfiguration): boolean {
-	return !!configuration.landing || Object.keys(configuration.navigation).length > 0;
+	return !!configuration.landing
+		|| Object.keys(configuration.rootNavigation ?? configuration.navigation).length > 0;
 }
 
 function describeMerge(name: string, configuration: StudioConfiguration | undefined): string {

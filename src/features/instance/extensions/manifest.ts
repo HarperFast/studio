@@ -270,9 +270,17 @@ export interface ExtensionField {
 
 /** A page placed in Studio, carrying which component it came from. */
 export interface ResolvedExtensionPage extends ExtensionPageManifest {
-	/** `<component>.<id>` — the route segment. */
+	/** `<component>.<id>`, the route segment (encoded, since a plugin's npm scope holds a `/`). */
 	key: string;
+	/**
+	 * The app that declared the page, or for a plugin's page `<app>.<plugin>` (nested plugins chain), so
+	 * one plugin used by two apps gives two pages.
+	 */
 	component: string;
+	/** The top-level app the page belongs to, whether it declared the page or loads the plugin that did. */
+	application?: string;
+	/** For a plugin's page, the plugin keys from the app inward. Read instead of splitting `component`. */
+	plugins?: string[];
 	/** PROTOTYPE: served by the in-memory demo data source rather than the cluster. */
 	demo?: boolean;
 }
