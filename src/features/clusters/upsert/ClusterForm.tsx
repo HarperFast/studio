@@ -268,6 +268,19 @@ export function ClusterForm({
 		defaultValues,
 	});
 
+	// useForm keeps the defaults it mounted with. When the version the cluster runs moves under an open Version page
+	// (an upgrade ending part way), an untouched picker follows it, so a re-run targets that version; a choice the user
+	// made stays.
+	const defaultVersion = defaultValues?.version;
+	const versionTouched = !!form.formState.dirtyFields.version;
+	useEffect(() => {
+		if (mode === 'version' && !versionTouched && form.getValues('version') !== defaultVersion) {
+			// resetField moves the default the form compares against; it leaves the value alone while no picker is rendered.
+			form.resetField('version', { defaultValue: defaultVersion });
+			form.setValue('version', defaultVersion);
+		}
+	}, [defaultVersion, form, mode, versionTouched]);
+
 	const [firstTime, setFirstTime] = useState(true);
 	useEffect(() => {
 		if (firstTime && defaultValues) {

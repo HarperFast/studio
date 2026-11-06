@@ -22,6 +22,7 @@ import {
 	useClusterWorkflowCommand,
 } from '@/features/cluster/queries/clusterWorkflow';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { getHarperVersionsOptions } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { detectPartialUpgrade, PartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -52,9 +53,22 @@ export function ClusterWorkflowNotice(
 		...getClusterInfoQueryOptions(clusterId, held ? CLUSTER_POLL_MS : false),
 		enabled: !!clusterId,
 	});
+	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
+	const lagging = !held && !!cluster && !!detectPartialUpgrade(cluster.instances ?? []);
+	// Versions pinned to the organization decide whether the lagging instances have a known target, as on the Version page.
+	const versions = useQuery({
+		...getHarperVersionsOptions(organizationId ?? ''),
+		enabled: lagging && !!organizationId,
+	});
 	const partial = useMemo(
-		() => (!held && cluster ? detectPartialUpgrade(cluster.instances ?? []) : null),
-		[held, cluster],
+		() =>
+			lagging && cluster && !versions.isPending
+				? detectPartialUpgrade(
+					cluster.instances ?? [],
+					(versions.data?.value ?? []).filter((v) => v.scoped).map((v) => v.version),
+				)
+				: null,
+		[lagging, cluster, versions.isPending, versions.data],
 	);
 	const canReadWorkflows = useStaffPermission('workflow:read');
 	const { data: row } = useQuery({
@@ -77,7 +91,13 @@ export function ClusterWorkflowNotice(
 		}
 		return (
 			<div className={className}>
-				<EndedUpgradeNotice clusterId={clusterId} workflow={latest} partial={partial} instanceName={instanceName} />
+				<EndedUpgradeNotice
+					clusterId={clusterId}
+					organizationId={organizationId}
+					workflow={latest}
+					partial={partial}
+					instanceName={instanceName}
+				/>
 			</div>
 		);
 	}
@@ -170,13 +190,13 @@ function pausedReason(workflow: ClusterWorkflow, instanceName: (id: string) => s
  * An upgrade that ended without reaching every instance, shown while the cluster is still on mixed versions. Central
  * manager re-targets the instances it left behind when the upgrade is run again, which the Version page offers.
  */
-function EndedUpgradeNotice({ clusterId, workflow, partial, instanceName }: {
+function EndedUpgradeNotice({ clusterId, organizationId, workflow, partial, instanceName }: {
 	clusterId: string;
+	organizationId?: string;
 	workflow: ClusterWorkflow;
 	partial: PartialUpgrade;
 	instanceName: (id: string) => string;
 }) {
-	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const { update: canUpdate } = useOrganizationClusterPermissions(organizationId, clusterId);
 	const onVersionPage = useLocation({ select: (location) => location.pathname.endsWith('/edit/version') });
 	return (
@@ -185,10 +205,11 @@ function EndedUpgradeNotice({ clusterId, workflow, partial, instanceName }: {
 			<AlertTitle>The last {workflowTypeLabel(workflow.type)} didn’t finish</AlertTitle>
 			<AlertDescription>
 				<p>
-					{failureFacts(workflow, instanceName) ?? 'It stopped before every instance was updated.'}{' '}
-					{partial.behindCount} of {partial.total} instances {partial.behindCount === 1 ? 'is' : 'are'} still behind
-					{' '}
-					{partial.latest}.
+					{failureFacts(workflow, instanceName) ?? 'It stopped before every instance was updated.'} {partial.ambiguous
+						? `${partial.behindCount} of ${partial.total} instances run a different version from the rest.`
+						: `${partial.behindCount} of ${partial.total} instances ${
+							partial.behindCount === 1 ? 'is' : 'are'
+						} still behind ${partial.latest}.`}
 				</p>
 				{!onVersionPage && (canUpdate && organizationId
 					? (
@@ -197,7 +218,7 @@ function EndedUpgradeNotice({ clusterId, workflow, partial, instanceName }: {
 							params={{ organizationId, clusterId }}
 							className="underline underline-offset-2 hover:text-foreground"
 						>
-							Run the upgrade again from Version
+							{partial.ambiguous ? 'Choose a version on the Version page' : 'Run the upgrade again from Version'}
 						</Link>
 					)
 					: <p>Someone with permission to change this cluster can run it again from Version.</p>)}

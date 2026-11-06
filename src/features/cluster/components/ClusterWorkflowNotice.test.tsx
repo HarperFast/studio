@@ -66,10 +66,13 @@ const instances = [
 /** Customer reads answer `row` (a function of the call count, if it changes); the cluster is held by `heldBy`. */
 const customerSees = (
 	row: Partial<ClusterWorkflow> | null | ((call: number) => Partial<ClusterWorkflow>),
-	{ heldBy = 'wf-1' as string | null, clusterInstances = instances as unknown[] } = {},
+	{ heldBy = 'wf-1' as string | null, clusterInstances = instances as unknown[], pinned = [] as string[] } = {},
 ) => {
 	let calls = 0;
 	mockedGet.mockImplementation(async (url: string) => {
+		if (String(url) === '/HarperVersions/') {
+			return { data: { value: pinned.map((version) => ({ name: `org-${version}`, version, scoped: true })) } };
+		}
 		if (isCustomerRead(url)) {
 			if (!row) { throw notFound(); }
 			return { data: { ...stopped, ...(typeof row === 'function' ? row(++calls) : row) } };
@@ -339,6 +342,13 @@ describe('ClusterWorkflowNotice', () => {
 				.toBeTruthy();
 			expect(screen.getByRole('link', { name: 'Run the upgrade again from Version' }).getAttribute('href'))
 				.toBe('/org-1/clu-1/edit/version');
+		});
+
+		it('names no target when the lagging version is pinned to the organization', async () => {
+			customerSees(ended, { heldBy: null, pinned: ['5.3.0'] });
+			renderNotice(null);
+			expect(await screen.findByText(/1 of 2 instances run a different version from the rest/)).toBeTruthy();
+			expect(screen.getByRole('link', { name: 'Choose a version on the Version page' })).toBeTruthy();
 		});
 
 		it('shows staff the same, since nothing holds the cluster', async () => {

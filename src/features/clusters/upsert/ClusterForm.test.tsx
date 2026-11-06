@@ -51,9 +51,9 @@ const plan = {
 	priceUsd: 0,
 } as SchemaPlan;
 
-function renderVersionForm() {
-	return render(
-		<QueryClientProvider client={newQueryClient()}>
+function versionForm(version = '5.0.2', queryClient = newQueryClient()) {
+	return (
+		<QueryClientProvider client={queryClient}>
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId="clu-1"
@@ -61,7 +61,7 @@ function renderVersionForm() {
 				defaultValues={{
 					clusterName: 'my-cluster',
 					abbreviatedName: '',
-					version: '5.0.2',
+					version,
 					deploymentDescription: 'Shared',
 					performanceDescription: 'Basic',
 					regionPlans: [],
@@ -83,9 +83,10 @@ function renderVersionForm() {
 				setSavedClusterState={vi.fn()}
 				startOffOnBilling={false}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
 }
+const renderVersionForm = () => render(versionForm());
 
 let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -127,6 +128,26 @@ describe('ClusterForm — a refused edit', () => {
 
 		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
 		expect(queryByText(refusal)).toBeNull();
+	});
+});
+
+describe('ClusterForm — the version picker', () => {
+	it('follows the version the cluster runs when it moves under an untouched form', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const queryClient = newQueryClient();
+		const { findByRole, rerender } = render(versionForm('5.0.2', queryClient));
+		await findByRole('button', { name: /Edit Cluster/ });
+
+		rerender(versionForm('5.0.3', queryClient));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+		fireEvent.click(submit);
+
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/Cluster/clu-1', expect.objectContaining({ version: '5.0.3' }), {
+				timeout: 0,
+			})
+		);
 	});
 });
 

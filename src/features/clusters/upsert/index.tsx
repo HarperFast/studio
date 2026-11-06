@@ -395,10 +395,6 @@ export function UpsertCluster() {
 	return (
 		<UpsertClusterLayout isEdit={!!clusterId} className="w-full max-w-6xl mx-auto">
 			<ClusterForm
-				// The version picker keeps its first value, so a Version page left open while an upgrade ends part way would
-				// re-run toward the old version; starting the form over when the hold or the lagging state changes picks the
-				// version the cluster now runs.
-				key={mode === 'version' ? `${heldByWorkflow}:${partialUpgrade?.latest ?? ''}` : undefined}
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
 				currentRegions={currentRegions}
