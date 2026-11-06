@@ -42,7 +42,8 @@ replicated, because the leader can be any node. The log is read on every version
 `read_log` with `order: 'desc'` reads about the last 1,000 lines (Harper sizes its tail at 200 bytes a line) and keeps
 the oldest 1,000 matches in it. Failure lines are shorter, so a job failing every minute fills that with the oldest and
 hides the newest. When a node's read comes back full, the page reads on with `from` set to its newest line, up to four
-reads in all. A read with `from` scans the whole file, which is why it isn't the first read.
+reads in all. A read with `from` scans the whole file on every node, which is why it isn't the first read, and why the log
+is read again on Refresh or a return to the page, not each time the tab regains focus.
 
 ## Harper's own load error, and where it goes missing
 

@@ -385,8 +385,15 @@ export function handlerExportName(handler: string): string {
 	return hashIndex >= 0 ? handler.slice(hashIndex + 1) : 'default';
 }
 
+/** A handler's file as written when it is absolute or outside the app's folder, which Studio can't list or read. */
+export function outsideModulePath(handler: string): string | undefined {
+	const modulePath = handler.split('#')[0];
+	return modulePath.startsWith('/') || escapesApp(modulePath) ? modulePath : undefined;
+}
+
 export function buildHandler(file: string, exportName: string): string {
-	return exportName === 'default' ? `./${file}` : `./${file}#${exportName}`;
+	const modulePath = outsideModulePath(file) ?? `./${file}`;
+	return exportName === 'default' ? modulePath : `${modulePath}#${exportName}`;
 }
 
 export function handlerFileProblem(handler: string, appFiles: ReadonlySet<string>): string | undefined {

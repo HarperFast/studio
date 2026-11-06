@@ -254,6 +254,20 @@ describe('JobDialog', () => {
 		expect(screen.queryByRole('option', { name: '#nightly.js' })).toBeNull();
 	});
 
+	it.each([
+		['../shared/jobs.js#syncRates', '../shared/jobs.js#syncRates'],
+		['/srv/jobs.js', '/srv/jobs.js'],
+	])('keeps a handler outside the app, %j, as written while the schedule changes', async (handler, saved) => {
+		const onSave = renderDialog(true, CONFIG.replace('./jobs.js#syncRates', handler));
+		expect((field('Handler file') as HTMLSelectElement).value).toBe(handler.split('#')[0]);
+		await change('Interval', '15m');
+		await waitFor(() => expect(submit().disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(submit());
+		});
+		expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ schedule: { interval: '15m' }, handler: saved }));
+	});
+
 	it('lets a job Harper would refuse be saved as the form already fixes it', async () => {
 		renderDialog(true, CONFIG.replace('      handler:', '      timeZone: UTC\n      handler:'));
 		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());

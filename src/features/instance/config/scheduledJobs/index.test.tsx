@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -294,6 +294,27 @@ describe('ConfigScheduledJobsIndex', () => {
 		state.heartbeatAgoMs = 10 * 60_000;
 		renderPage();
 		expect(await screen.findByText(/longer than Harper waits before another node takes over/)).toBeTruthy();
+	});
+
+	it('doesn’t read the log again on a return to the tab, which can cost Harper a whole-file scan', async () => {
+		renderPage();
+		await screen.findByText('metrics-app');
+		const sent = (operation: string) => operationsSent().filter((sentOperation) => sentOperation === operation).length;
+		await waitFor(() => expect(sent('read_log')).toBe(1));
+		const components = sent('get_components');
+		const later = Date.now() + 60_000;
+		const now = vi.spyOn(Date, 'now').mockImplementation(() => later);
+		try {
+			await act(async () => {
+				focusManager.setFocused(false);
+				focusManager.setFocused(true);
+			});
+			await waitFor(() => expect(sent('get_components')).toBeGreaterThan(components));
+			expect(sent('read_log')).toBe(1);
+		} finally {
+			now.mockRestore();
+			focusManager.setFocused(undefined);
+		}
 	});
 
 	it('survives timestamps it cannot read', async () => {

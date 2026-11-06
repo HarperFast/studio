@@ -36,6 +36,7 @@ import {
 	handlerExportName,
 	handlerModulePath,
 	JobDraft,
+	outsideModulePath,
 	ScheduledJobConfig,
 } from './jobsConfig';
 import { CRON_SHORTCUTS, cronProblem, intervalProblem, knownTimezones, timezoneProblem } from './schedule';
@@ -61,6 +62,8 @@ function jobFormSchema(
 	editing: ScheduledJobConfig | undefined,
 	files: ReadonlySet<string>,
 ) {
+	// A file outside the app stays as written: Studio can't list it, but the job's own path is still a valid choice.
+	const outside = editing?.handler ? outsideModulePath(editing.handler) : undefined;
 	const otherNames = new Set(
 		(config?.jobs ?? []).filter((job) => job.index !== editing?.index).map((job) => job.name),
 	);
@@ -74,7 +77,7 @@ function jobFormSchema(
 		timezone: z.string(),
 		interval: z.string(),
 		file: z.string().min(1, 'Choose the file that exports the handler.').refine(
-			(file) => files.has(file),
+			(file) => files.has(file) || file === outside,
 			'This app has no such file.',
 		),
 		exportName: z.string().trim().min(1, 'Name the export to call, or choose the default export.'),
@@ -120,7 +123,7 @@ function initialValues(job: ScheduledJobConfig | undefined, files: ReadonlySet<s
 		cron: job?.cron ?? '',
 		timezone: job?.timezone ?? SERVER_TIMEZONE,
 		interval: job?.interval !== undefined ? String(job.interval) : '',
-		file: modulePath ?? (job ? '' : firstModule ?? ''),
+		file: modulePath ?? (job?.handler ? outsideModulePath(job.handler) : undefined) ?? (job ? '' : firstModule ?? ''),
 		exportName: job?.handler ? handlerExportName(job.handler) : '',
 	};
 }
@@ -231,7 +234,8 @@ export function JobDialog({
 	const exportName = useWatch({ control: form.control, name: 'exportName' });
 
 	const modules = useMemo(() => [...app.files].filter(isHandlerModule).sort(), [app.files]);
-	const fileOptions = file && !modules.includes(file) ? [file, ...modules] : modules;
+	const outside = job?.handler ? outsideModulePath(job.handler) : undefined;
+	const fileOptions = [...new Set([outside, file, ...modules])].filter((path): path is string => !!path);
 	const timezones = useMemo(() => {
 		const known = knownTimezones();
 		return [SERVER_TIMEZONE, ...(known.includes('UTC') ? [] : ['UTC']), ...known];
@@ -439,7 +443,9 @@ export function JobDialog({
 										optionLabel={(name) => (name === 'default' ? 'The default export' : name)}
 									/>
 									<FormDescription>
-										{moduleUnreadable
+										{file !== '' && file === outside
+											? 'This file is outside the app, so Studio can’t list its exports: type the name of the one to call.'
+											: moduleUnreadable
 											? 'Studio couldn’t read this file to list its exports: type the name of the one to call.'
 											: moduleExports?.incomplete
 											? 'This file re-exports another, so the list may be short.'

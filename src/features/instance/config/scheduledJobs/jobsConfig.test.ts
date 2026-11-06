@@ -298,6 +298,8 @@ describe('handlers', () => {
 	it('builds the reference Harper expects', () => {
 		expect(buildHandler('jobs.ts', 'syncRates')).toBe('./jobs.ts#syncRates');
 		expect(buildHandler('jobs.ts', 'default')).toBe('./jobs.ts');
+		expect(buildHandler('../shared/jobs.js', 'go')).toBe('../shared/jobs.js#go');
+		expect(buildHandler('/srv/jobs.js', 'default')).toBe('/srv/jobs.js');
 	});
 
 	it('flags a handler whose file is not in the app, and leaves paths it cannot judge alone', () => {

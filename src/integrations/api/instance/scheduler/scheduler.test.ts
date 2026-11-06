@@ -53,6 +53,30 @@ describe('the scheduler log read', () => {
 	});
 });
 
+describe('the scheduler log query', () => {
+	const params = { entityId: 'instance-1', entityType: 'instance' as const, enabled: true };
+
+	it('hands its signal to every read, so a cancelled refresh doesn’t go on scanning the log', async () => {
+		let finishFirst!: (data: ReadLogItem[]) => void;
+		const post = vi.fn((_url: string, body: { from?: string }, _config?: { signal?: AbortSignal }) =>
+			body.from === undefined
+				? new Promise((resolve) => {
+					finishFirst = (data) => resolve({ data });
+				})
+				: Promise.resolve({ data: [] })
+		);
+		const client = new QueryClient();
+		const options = getSchedulerLogQueryOptions({ ...params, instanceClient: { post } as never });
+		const fetching = client.fetchQuery(options).catch(() => undefined);
+		await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		await client.cancelQueries({ queryKey: options.queryKey });
+		finishFirst(lines(SCHEDULER_LOG_LIMIT, 0));
+		await fetching;
+		await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		expect(post.mock.calls[1][2]?.signal?.aborted).toBe(true);
+	});
+});
+
 describe('readOnFrom', () => {
 	it('reads on from the node furthest behind among those that filled the limit', () => {
 		const ahead = lines(SCHEDULER_LOG_LIMIT, 500, 'node-a');

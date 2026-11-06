@@ -152,11 +152,12 @@ export function readOnFrom(lines: readonly ReadLogItem[]): string | undefined {
 /**
  * The newest log lines that mention the scheduler: Harper tags its own lines `scheduler`, and an app that fails to load
  * because of a job names the `scheduler` component. `read_log`'s filter matches the tags as well as the message. A
- * cluster reads every node's log, since the leader may be any of them. A read with `from` scans the whole file, so Studio
- * makes one only after a node fills its limit. A line can come back twice, which the index ignores: the newest wins.
+ * cluster reads every node's log, since the leader may be any of them. A read with `from` scans the whole file on every
+ * node, so Studio makes one only after a node fills its limit, and stops once the query is cancelled. A line can come back
+ * twice, which the index ignores: the newest wins.
  */
 async function getSchedulerLog(
-	{ instanceClient, entityType }: InstanceClientConfig & InstanceTypeConfig,
+	{ instanceClient, entityType, signal }: InstanceClientConfig & InstanceTypeConfig & { signal?: AbortSignal },
 ): Promise<ReadLogItem[]> {
 	const read = async (from: string | undefined) => {
 		const { data } = await instanceClient.post<ReadLogItem[]>('/', {
@@ -167,7 +168,7 @@ async function getSchedulerLog(
 			order: 'desc',
 			replicated: entityType === 'cluster',
 			...(from !== undefined && { from }),
-		});
+		}, { signal });
 		return Array.isArray(data) ? data : [];
 	};
 	let latest = await read(undefined);
@@ -191,9 +192,11 @@ export function getSchedulerLogQueryOptions(
 ) {
 	return queryOptions({
 		queryKey: [params.entityId, 'scheduler', 'read_log'] as const,
-		queryFn: () => getSchedulerLog(params),
+		queryFn: ({ signal }) => getSchedulerLog({ ...params, signal }),
 		enabled: params.enabled,
 		retry: false,
 		staleTime: 30_000,
+		// A full log costs a whole-file scan per node, too much to repeat on every return to the tab. Refresh still reads it.
+		refetchOnWindowFocus: false,
 	});
 }
