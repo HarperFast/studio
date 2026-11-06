@@ -278,6 +278,16 @@ describe('JobDialog', () => {
 		expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: ' sync-rates' }));
 	});
 
+	it('saves a job whose name is only spaces, which Harper accepts, when another field changes', async () => {
+		const onSave = renderDialog(true, CONFIG.replace('name: sync-rates', "name: '   '"));
+		await change('Interval', '15m');
+		await waitFor(() => expect(submit().disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(submit());
+		});
+		expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: '   ' }));
+	});
+
 	it('lets a job Harper would refuse be saved as the form already fixes it', async () => {
 		renderDialog(true, CONFIG.replace('      handler:', '      timeZone: UTC\n      handler:'));
 		await waitFor(() => expect(screen.getByRole('option', { name: 'syncRates' })).toBeTruthy());

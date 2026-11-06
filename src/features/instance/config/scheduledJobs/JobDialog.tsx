@@ -73,7 +73,7 @@ function jobFormSchema(
 		(config?.jobs ?? []).filter((job) => job.index !== editing?.index).map((job) => job.name),
 	);
 	return z.object({
-		name: z.string().refine((name) => name.trim() !== '', 'Every job needs a name.').refine(
+		name: z.string().refine((name) => name.trim() !== '' || name === editing?.name, 'Every job needs a name.').refine(
 			(name) => !otherNames.has(keptName(name, editing)),
 			'Another job in this app already has this name.',
 		),

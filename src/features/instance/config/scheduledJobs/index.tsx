@@ -184,13 +184,12 @@ function ScheduledJobsPage() {
 	// page's own log read then picks up. So the page reads it only once a config file declares a job.
 	const configsPending = views.some((view) => view.isLoading);
 	const hasJobs = views.some((view) => (view.config?.jobs.length ?? 0) > 0);
-	const stateQuery = useQuery(
-		getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState && hasJobs }),
-	);
+	const readsStateNow = readsState && hasJobs;
+	const stateQuery = useQuery(getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsStateNow }));
 	const logIndex = useMemo(() => (logQuery.data ? indexSchedulerLog(logQuery.data) : undefined), [logQuery.data]);
 	const sources: RunSources = {
 		// React Query keeps the last answer after a refetch fails; the page then says the read failed and uses the log.
-		state: readsState && hasJobs && !stateQuery.isError ? stateQuery.data : undefined,
+		state: readsStateNow && !stateQuery.isError ? stateQuery.data : undefined,
 		statePending: readsState && (configsPending || (hasJobs && stateQuery.isPending)),
 		log: logQuery.isError ? undefined : logIndex,
 		logFailed: logQuery.isError,
@@ -231,7 +230,8 @@ function ScheduledJobsPage() {
 		Promise.all([
 			refetchTree(),
 			refetchLog(),
-			readsState ? refetchState() : undefined,
+			// `refetch` ignores `enabled`, so it is gated the same way.
+			readsStateNow ? refetchState() : undefined,
 			...refetchConfigs.map((refetch) => refetch()),
 		]);
 	const onRefreshClick = useRefreshClick(refresh);
@@ -381,7 +381,7 @@ function ScheduledJobsPage() {
 						{SCHEDULER_STATE_READABLE_FROM} and later show every run.
 					</p>
 				)}
-				{readsState && stateQuery.isError && (
+				{readsStateNow && stateQuery.isError && (
 					<p className="text-sm text-red">
 						Studio couldn’t read each job’s last run ({describeError(stateQuery.error).message}), so it shows the last
 						failure in Harper’s log.

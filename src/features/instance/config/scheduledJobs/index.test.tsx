@@ -239,6 +239,13 @@ describe('ConfigScheduledJobsIndex', () => {
 		await waitFor(() =>
 			expect(operationsSent().filter((operation) => operation === 'get_component_file')).toHaveLength(2)
 		);
+		const components = operationsSent().filter((operation) => operation === 'get_components').length;
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+		});
+		await waitFor(() =>
+			expect(operationsSent().filter((operation) => operation === 'get_components').length).toBeGreaterThan(components)
+		);
 		expect(post.mock.calls.some(([, body]) => (body as { table?: string }).table === 'hdb_scheduler_state')).toBe(
 			false,
 		);
