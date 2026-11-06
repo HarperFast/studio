@@ -121,6 +121,14 @@ describe('readAppJobs', () => {
 		expect(jobs[0].problem).toBeUndefined();
 		expect(jobs[1].problem).toMatch(/already named "a"/);
 	});
+
+	it('flags a later job that shares a broken one’s name, which Harper refuses once that one is fixed', () => {
+		const { jobs } = readAppJobs(
+			"scheduler:\n  jobs:\n    - { name: a, cron: '0 0 30 2 *', handler: ./a.js }\n    - { name: a, interval: 6m, handler: ./a.js }\n",
+		);
+		expect(jobs[0].problem).toMatch(/can never fire/);
+		expect(jobs[1].problem).toMatch(/already named "a"/);
+	});
 });
 
 describe('writeJob', () => {
@@ -175,6 +183,17 @@ describe('writeJob', () => {
 		});
 		expect(readAppJobs(next).jobs.map((job) => job.name)).toEqual(['sync-rates', 'flaky-report', 'nightly']);
 		expect(next).toContain("      cron: '0 2 * * *'\n");
+	});
+
+	it('writes back an unrelated integer too big for a number exactly as it was', () => {
+		const text = `snowflake: 12345678901234567890\n${METRICS_APP.slice(METRICS_APP.indexOf('scheduler:'))}`;
+		const next = writeJob(text, 0, {
+			name: 'sync-rates',
+			schedule: { interval: '15m' },
+			handler: './jobs.js#syncRates',
+		});
+		expect(next).toContain('snowflake: 12345678901234567890\n');
+		expect(removeJob(text, 0)).toContain('snowflake: 12345678901234567890\n');
 	});
 
 	it('writes a bare number of seconds as a number', () => {

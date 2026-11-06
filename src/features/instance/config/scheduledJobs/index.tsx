@@ -89,7 +89,8 @@ function HowJobsRun() {
 	);
 }
 
-function Leader({ sources }: { sources: RunSources }) {
+/** `stateReadAt` is when Studio read the state: a cached read is older than the page, and its heartbeat was fresh then. */
+function Leader({ sources, stateReadAt }: { sources: RunSources; stateReadAt: number }) {
 	if (sources.state) {
 		const leader = sources.state.leader;
 		if (!leader?.leaderNode) {
@@ -97,7 +98,7 @@ function Leader({ sources }: { sources: RunSources }) {
 		}
 		const checkedIn = leader.lastHeartbeat ? Date.parse(leader.lastHeartbeat) : NaN;
 		// Harper treats a missing or unreadable heartbeat as stale too (`isHeartbeatStale`).
-		const stale = Number.isNaN(checkedIn) || Date.now() - checkedIn > STALE_HEARTBEAT_MS;
+		const stale = Number.isNaN(checkedIn) || stateReadAt - checkedIn > STALE_HEARTBEAT_MS;
 		return (
 			<p className={stale ? 'text-sm text-red' : 'text-sm text-muted-foreground'}>
 				Jobs run on <span className="font-medium text-foreground">{leader.leaderNode}</span>
@@ -365,14 +366,13 @@ function ScheduledJobsPage() {
 			<HowJobsRun />
 
 			<div className="space-y-1">
-				<Leader sources={sources} />
+				<Leader sources={sources} stateReadAt={stateQuery.dataUpdatedAt} />
 				{!readsState && (
 					<p className="text-sm text-muted-foreground">
 						Harper {version}{' '}
-						doesn’t let Studio read each job’s last run, so Studio shows the last failure among the newest{' '}
-						{SCHEDULER_LOG_LIMIT.toLocaleString()}{' '}
-						scheduler lines in Harper’s log. A successful run isn’t logged. Harper {SCHEDULER_STATE_READABLE_FROM}{' '}
-						and later show every run.
+						doesn’t let Studio read each job’s last run, so Studio shows the last failure in about the newest{' '}
+						{SCHEDULER_LOG_LIMIT.toLocaleString()} lines of Harper’s log. A successful run isn’t logged. Harper{' '}
+						{SCHEDULER_STATE_READABLE_FROM} and later show every run.
 					</p>
 				)}
 				{readsState && stateQuery.isError && (

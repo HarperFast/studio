@@ -30,6 +30,7 @@ const { state, post, restart } = vi.hoisted(() => {
 		logFails: false,
 		restartRequired: false,
 		garbledTimes: false,
+		heartbeatAgoMs: 0,
 		entityId: 'instance-1',
 	};
 	const post = vi.fn();
@@ -123,7 +124,7 @@ function answer(body: Record<string, unknown>) {
 				{
 					id: 'leader',
 					leaderNode: 'node-c',
-					lastHeartbeat: state.garbledTimes ? 'garbled' : new Date().toISOString(),
+					lastHeartbeat: state.garbledTimes ? 'garbled' : new Date(Date.now() - state.heartbeatAgoMs).toISOString(),
 				},
 			];
 		case 'get_status':
@@ -178,6 +179,7 @@ beforeEach(() => {
 		logFails: false,
 		restartRequired: false,
 		garbledTimes: false,
+		heartbeatAgoMs: 0,
 		entityId: 'instance-1',
 		files: {
 			'metrics-app/config.yaml': METRICS_CONFIG,
@@ -215,7 +217,7 @@ describe('ConfigScheduledJobsIndex', () => {
 		const rows = await within(card).findAllByRole('row');
 		expect(rows[1].textContent).toContain('sync-rates');
 		expect(rows[1].textContent).toContain('every 10 seconds');
-		expect(rows[1].textContent).toContain('None in the last 1,000 log lines');
+		expect(rows[1].textContent).toContain('None in about the last 1,000 log lines');
 		expect(rows[2].textContent).toContain('* * * * *');
 		expect(rows[2].textContent).toContain('America/New_York');
 		expect(rows[2].textContent).toContain('report service returned 503');
@@ -269,6 +271,29 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(await screen.findByText(/Studio couldn’t read each job’s last run/)).toBeTruthy();
 		expect(within(card).queryByText('Succeeded')).toBeNull();
 		expect(within(card).getAllByRole('row')[0].textContent).toContain('Last failure');
+	});
+
+	it('judges the leader’s check-in by when Studio read it, so a cached read shows no false warning', async () => {
+		state.version = '5.4.0-beta.2';
+		renderPage();
+		await screen.findByText('node-c');
+		const later = Date.now() + 10 * 60_000;
+		const now = vi.spyOn(Date, 'now').mockImplementation(() => later);
+		try {
+			// Any re-render, without a refetch of the state.
+			fireEvent.click(await screen.findByRole('button', { name: 'Change sync-rates' }));
+			await screen.findByRole('textbox', { name: 'Interval' });
+			expect(screen.queryByText(/longer than Harper waits/)).toBeNull();
+		} finally {
+			now.mockRestore();
+		}
+	});
+
+	it('warns when the leader’s check-in was already old when Studio read it', async () => {
+		state.version = '5.4.0-beta.2';
+		state.heartbeatAgoMs = 10 * 60_000;
+		renderPage();
+		expect(await screen.findByText(/longer than Harper waits before another node takes over/)).toBeTruthy();
 	});
 
 	it('survives timestamps it cannot read', async () => {

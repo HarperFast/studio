@@ -175,8 +175,9 @@ function readSchedulerValue(scheduler: unknown): AppJobsConfig {
 		editable: true,
 		jobs: jobs.map((entry, index) => {
 			const job = asJob(entry, index);
-			if (!job.problem && job.name !== undefined) {
-				if (seen.has(job.name)) {
+			// A broken job's name still counts: once it's fixed, Harper refuses the later one.
+			if (job.name) {
+				if (!job.problem && seen.has(job.name)) {
 					job.problem = `Another job in this app is already named "${job.name}".`;
 				}
 				seen.add(job.name);
@@ -262,7 +263,8 @@ function indentsSequences(text: string): boolean {
 }
 
 function openJobsList(text: string | undefined): { doc: Document; jobs: YAMLSeq; scheduler: YAMLMap } {
-	const doc = text === undefined ? new Document(DEFAULT_APP_CONFIG) : parseDocument(text);
+	// As a number, an integer past 2^53 would be written back rounded, wherever it is in the file.
+	const doc = text === undefined ? new Document(DEFAULT_APP_CONFIG) : parseDocument(text, { intAsBigInt: true });
 	if (doc.errors.length > 0) {
 		throw new Error(`The config file isn't valid YAML: ${doc.errors[0].message}`);
 	}

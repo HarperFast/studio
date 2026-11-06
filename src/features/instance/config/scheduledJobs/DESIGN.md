@@ -39,6 +39,11 @@ A successful run is logged only at `trace`, so the column is then "Last failure"
 keeps leading logs nothing, so the leader line is the last takeover, which can be old. On a cluster the read is
 replicated, because the leader can be any node. The log is read on every version, since load errors are only there.
 
+`read_log` with `order: 'desc'` reads about the last 1,000 lines (Harper sizes its tail at 200 bytes a line) and keeps
+the oldest 1,000 matches in it. Failure lines are shorter, so a job failing every minute fills that with the oldest and
+hides the newest. When a node's read comes back full, the page reads on with `from` set to its newest line, up to four
+reads in all. A read with `from` scans the whole file, which is why it isn't the first read.
+
 ## Harper's own load error, and where it goes missing
 
 When a job stops an app loading, `get_components` only says `<app>.scheduler` failed, with the message

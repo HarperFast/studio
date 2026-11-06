@@ -108,26 +108,82 @@ export function getSchedulerStateQueryOptions(params: InstanceClientIdConfig & {
 	});
 }
 
-/** How many of the newest scheduler lines to read. A failing every-minute job writes 1,440 a day. */
+/** How many scheduler lines one `read_log` returns from each node. A failing every-minute job writes 1,440 a day. */
 export const SCHEDULER_LOG_LIMIT = 1000;
+
+/**
+ * Harper reads a `desc` read forward from a tail it sizes at 200 bytes a line, and stops at `limit` matches (harper
+ * `utility/logging/readLog.ts:84`, `:284`). Failure lines are shorter than that, so a tail full of them fills the limit
+ * with its oldest and leaves out the newest. Each further read starts at the newest line the last one returned.
+ */
+const MAX_SCHEDULER_LOG_READS = 4;
+
+/**
+ * Where to read on from: the newest line of whichever node filled its limit and is furthest behind. `undefined` when
+ * every node ran out of lines first, so Studio already has each one's newest.
+ */
+export function readOnFrom(lines: readonly ReadLogItem[]): string | undefined {
+	const byNode = new Map<string, { count: number; newest: number; at: string }>();
+	for (const line of lines) {
+		const at = Date.parse(line.timestamp);
+		if (Number.isNaN(at)) {
+			continue;
+		}
+		const node = byNode.get(line.node ?? '');
+		if (!node) {
+			byNode.set(line.node ?? '', { count: 1, newest: at, at: line.timestamp });
+			continue;
+		}
+		node.count += 1;
+		if (at > node.newest) {
+			node.newest = at;
+			node.at = line.timestamp;
+		}
+	}
+	let behind: { newest: number; at: string } | undefined;
+	for (const node of byNode.values()) {
+		if (node.count >= SCHEDULER_LOG_LIMIT && (!behind || node.newest < behind.newest)) {
+			behind = node;
+		}
+	}
+	return behind?.at;
+}
 
 /**
  * The newest log lines that mention the scheduler: Harper tags its own lines `scheduler`, and an app that fails to load
  * because of a job names the `scheduler` component. `read_log`'s filter matches the tags as well as the message. A
- * cluster reads every node's log, since the leader may be any of them.
+ * cluster reads every node's log, since the leader may be any of them. A read with `from` scans the whole file, so Studio
+ * makes one only after a node fills its limit. A line can come back twice, which the index ignores: the newest wins.
  */
 async function getSchedulerLog(
 	{ instanceClient, entityType }: InstanceClientConfig & InstanceTypeConfig,
 ): Promise<ReadLogItem[]> {
-	const { data } = await instanceClient.post<ReadLogItem[]>('/', {
-		operation: 'read_log',
-		start: 0,
-		limit: SCHEDULER_LOG_LIMIT,
-		filter: 'scheduler',
-		order: 'desc',
-		replicated: entityType === 'cluster',
-	});
-	return Array.isArray(data) ? data : [];
+	const read = async (from: string | undefined) => {
+		const { data } = await instanceClient.post<ReadLogItem[]>('/', {
+			operation: 'read_log',
+			start: 0,
+			limit: SCHEDULER_LOG_LIMIT,
+			filter: 'scheduler',
+			order: 'desc',
+			replicated: entityType === 'cluster',
+			...(from !== undefined && { from }),
+		});
+		return Array.isArray(data) ? data : [];
+	};
+	let latest = await read(undefined);
+	const lines = [...latest];
+	let from: string | undefined;
+	for (let reads = 1; reads < MAX_SCHEDULER_LOG_READS; reads++) {
+		const next = readOnFrom(latest);
+		// The same `from` again returns the same lines: a limit's worth of them share one timestamp.
+		if (next === undefined || next === from) {
+			break;
+		}
+		from = next;
+		latest = await read(from);
+		lines.push(...latest);
+	}
+	return lines;
 }
 
 export function getSchedulerLogQueryOptions(

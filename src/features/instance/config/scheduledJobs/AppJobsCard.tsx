@@ -83,7 +83,9 @@ function LastRun({ app, job, sources }: { app: string; job: ScheduledJobConfig; 
 	const failure = sources.log.failures.get(schedulerJobRowId(app, job.name));
 	if (!failure) {
 		return (
-			<span className="text-muted-foreground">None in the last {SCHEDULER_LOG_LIMIT.toLocaleString()} log lines</span>
+			<span className="text-muted-foreground">
+				None in about the last {SCHEDULER_LOG_LIMIT.toLocaleString()} log lines
+			</span>
 		);
 	}
 	return (
