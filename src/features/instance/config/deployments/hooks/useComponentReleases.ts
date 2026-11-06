@@ -93,7 +93,7 @@ export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 		const recordsKey = [instanceParams.entityId, 'list_deployments', ...scope];
 		await queryClient.invalidateQueries({ queryKey: recordsKey });
 		const unread = queryClient.getQueryCache().findAll({ queryKey: recordsKey, type: 'active' })
-			.find((query) => query.state.status === 'error');
+			.filter((query) => query.state.status === 'error');
 		// A view whose records never read is disabled, not gone, and is asked under the generation they now give.
 		const views = queryClient.getQueryCache().findAll({
 			queryKey: [...releasesKey, ...scope],
@@ -113,8 +113,9 @@ export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 		if (failed) {
 			throw failed.reason;
 		}
-		if (unread?.state.status === 'error') {
-			throw unread.state.error;
+		const stillUnread = unread.find((query) => query.state.status === 'error');
+		if (stillUnread) {
+			throw stillUnread.state.error;
 		}
 	}, [queryClient, instanceParams, onlyProject]);
 }
