@@ -25,8 +25,9 @@ customer's log. On 5.4.0-beta.2 the same `search_by_value` returns the rows.
 
 So Studio reads the table only from `SCHEDULER_STATE_READABLE_FROM` (`5.4.0-beta.1`). A job's row is `job:<app>:<name>`,
 and a row with only `firstSeenAt` hasn't run yet. A table that doesn't exist yet, because no app with jobs has loaded,
-still answers that same 403, and the page reads it as no runs. If the read fails any other way, the page says so and
-falls back to the log.
+still answers that same 403, and the page reads it as no runs. On 5.4.0-beta.2 that refusal still logs two errors that
+name the table, which the page's own `scheduler` log read then picks up, so the page reads the table only once a config
+file declares a job. If the read fails any other way, the page says so and falls back to the log.
 
 Below that version, and on that fallback, the page shows what Harper logs. These lines are worded the same from
 5.2.0-beta.2 through 5.3.5:

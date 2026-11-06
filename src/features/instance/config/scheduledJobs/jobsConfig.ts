@@ -332,7 +332,7 @@ export function writeJob(text: string | undefined, index: number | undefined, dr
 	return serialize(doc, text);
 }
 
-/** The file without the job at `index`. The last job's removal takes a `scheduler` block that held only it, too. */
+/** Removing the last job takes a `scheduler` block that held only it, too. */
 export function removeJob(text: string, index: number): string {
 	const { doc, jobs, scheduler } = openJobsList(text);
 	jobs.items.splice(index, 1);

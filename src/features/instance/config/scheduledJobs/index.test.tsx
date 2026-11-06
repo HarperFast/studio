@@ -231,6 +231,19 @@ describe('ConfigScheduledJobsIndex', () => {
 		expect(screen.getByText(/has no function export named "missingExport"/)).toBeTruthy();
 	});
 
+	it('doesn’t read the state table until an app declares a job, since Harper logs each read before then as an error', async () => {
+		state.version = '5.4.0-beta.2';
+		state.files = { 'metrics-app/config.yaml': 'rest: true\n', 'broken-app/config.yaml': 'rest: true\n' };
+		renderPage();
+		await waitFor(() => expect(operationsSent()).toContain('read_log'));
+		await waitFor(() =>
+			expect(operationsSent().filter((operation) => operation === 'get_component_file')).toHaveLength(2)
+		);
+		expect(post.mock.calls.some(([, body]) => (body as { table?: string }).table === 'hdb_scheduler_state')).toBe(
+			false,
+		);
+	});
+
 	it('never reads the scheduler state table below 5.4.0-beta.1, which refuses it and logs an error', async () => {
 		renderPage();
 		await screen.findByText('metrics-app');

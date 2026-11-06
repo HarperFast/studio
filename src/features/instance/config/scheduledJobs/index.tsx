@@ -155,7 +155,6 @@ function ScheduledJobsPage() {
 		})),
 	});
 	const logQuery = useQuery(getSchedulerLogQueryOptions({ ...instanceParams, enabled }));
-	const stateQuery = useQuery(getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState }));
 	// Harper's own flag, which the nav polls too: it outlives this page, so a save made before leaving it still shows.
 	const { data: status } = useQuery(getStatusQueryOptions(instanceParams, enabled && supportsGetStatus(version)));
 
@@ -181,11 +180,18 @@ function ScheduledJobsPage() {
 			error: app.configFile ? query?.error : undefined,
 		};
 	});
+	// Harper creates the state table once an app with jobs loads, and logs each read before that as an error, which the
+	// page's own log read then picks up. So the page reads it only once a config file declares a job.
+	const configsPending = views.some((view) => view.isLoading);
+	const hasJobs = views.some((view) => (view.config?.jobs.length ?? 0) > 0);
+	const stateQuery = useQuery(
+		getSchedulerStateQueryOptions({ ...instanceParams, enabled: enabled && readsState && hasJobs }),
+	);
 	const logIndex = useMemo(() => (logQuery.data ? indexSchedulerLog(logQuery.data) : undefined), [logQuery.data]);
 	const sources: RunSources = {
 		// React Query keeps the last answer after a refetch fails; the page then says the read failed and uses the log.
-		state: readsState && !stateQuery.isError ? stateQuery.data : undefined,
-		statePending: readsState && stateQuery.isPending,
+		state: readsState && hasJobs && !stateQuery.isError ? stateQuery.data : undefined,
+		statePending: readsState && (configsPending || (hasJobs && stateQuery.isPending)),
 		log: logQuery.isError ? undefined : logIndex,
 		logFailed: logQuery.isError,
 	};

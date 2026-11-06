@@ -57,6 +57,11 @@ export interface JobDialogTarget {
 	config: AppJobsConfig | undefined;
 }
 
+/** A name left as it was stays exactly so: trimming a quoted `' nightly'` would make it a new job to Harper. */
+function keptName(name: string, editing: ScheduledJobConfig | undefined): string {
+	return name === editing?.name ? name : name.trim();
+}
+
 function jobFormSchema(
 	config: AppJobsConfig | undefined,
 	editing: ScheduledJobConfig | undefined,
@@ -68,8 +73,8 @@ function jobFormSchema(
 		(config?.jobs ?? []).filter((job) => job.index !== editing?.index).map((job) => job.name),
 	);
 	return z.object({
-		name: z.string().trim().min(1, 'Every job needs a name.').refine(
-			(name) => !otherNames.has(name),
+		name: z.string().refine((name) => name.trim() !== '', 'Every job needs a name.').refine(
+			(name) => !otherNames.has(keptName(name, editing)),
 			'Another job in this app already has this name.',
 		),
 		kind: z.enum(['cron', 'interval']),
@@ -128,9 +133,9 @@ function initialValues(job: ScheduledJobConfig | undefined, files: ReadonlySet<s
 	};
 }
 
-function toDraft(values: JobFormValues): JobDraft {
+function toDraft(values: JobFormValues, editing: ScheduledJobConfig | undefined): JobDraft {
 	return {
-		name: values.name.trim(),
+		name: keptName(values.name, editing),
 		schedule: values.kind === 'cron'
 			? {
 				cron: values.cron.trim(),
@@ -266,7 +271,7 @@ export function JobDialog({
 				<Form {...form}>
 					<form
 						id="scheduled-job-form"
-						onSubmit={form.handleSubmit((values) => onSave(toDraft(values)))}
+						onSubmit={form.handleSubmit((values) => onSave(toDraft(values, job)))}
 						onKeyDown={revealFieldErrorOnEnter(form)}
 						className="grid gap-4"
 					>
