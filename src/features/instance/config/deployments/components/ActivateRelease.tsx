@@ -61,6 +61,7 @@ export function ActivateRelease({
 	intent = 'activate',
 	offer = true,
 	disabled = false,
+	revalidate,
 }: {
 	project: string;
 	/** The id of the deployment that built it: an activation's `activated_from`, or a deploy's own id. */
@@ -70,6 +71,11 @@ export function ActivateRelease({
 	offer?: boolean;
 	/** Offered but refused: some node holds no copy. The caller says which. */
 	disabled?: boolean;
+	/**
+	 * Asks the nodes again before confirming: what they hold changes without a newer record, as a rollout behind the
+	 * newest one finishes or a node joins. The confirmation opens only if the fresh answer still allows it.
+	 */
+	revalidate?: () => Promise<unknown>;
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -89,6 +95,15 @@ export function ActivateRelease({
 	const isPending = useIsMutating({ mutationKey }) > 0;
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
+	const [revalidating, setRevalidating] = useState(false);
+	const askToConfirm = useCallback(async () => {
+		if (revalidate) {
+			setRevalidating(true);
+			await revalidate().catch(() => undefined);
+			setRevalidating(false);
+		}
+		setConfirming(true);
+	}, [revalidate]);
 
 	const activate = useCallback(async () => {
 		setConfirming(false);
@@ -151,7 +166,7 @@ export function ActivateRelease({
 	// reads `success` before the rolling restart reaches the other nodes, and after it fails there.
 	const lifecycle = started ? stream.state.lifecycle : 'idle';
 	const retry = lifecycle === 'error' || lifecycle === 'inconclusive';
-	const showButton = isPending || retry || (offer && lifecycle !== 'success');
+	const showButton = revalidating || isPending || retry || (offer && lifecycle !== 'success');
 	const shownIntent = retry && !offer ? 'again' : intent;
 	const confirmable = showButton && !disabled && !isPending;
 	useEffect(() => {
@@ -171,10 +186,10 @@ export function ActivateRelease({
 				<Button
 					variant="positiveOutline"
 					className="self-start"
-					onClick={() => setConfirming(true)}
-					disabled={isPending || disabled}
+					onClick={() => void askToConfirm()}
+					disabled={isPending || disabled || revalidating}
 				>
-					<RocketIcon /> {isPending ? 'Activating…' : BUTTON_LABEL[shownIntent]}
+					<RocketIcon /> {isPending ? 'Activating…' : revalidating ? 'Checking…' : BUTTON_LABEL[shownIntent]}
 				</Button>
 			)}
 			{started && (

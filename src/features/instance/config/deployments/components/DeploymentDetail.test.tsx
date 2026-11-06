@@ -297,6 +297,84 @@ describe('DeploymentDetail on Harper 5.4', () => {
 		expect(rollBack()!.disabled).toBe(true);
 	});
 
+	it('offers to activate a failed deploy again where it went live on one node and another holds it', async () => {
+		renderRecord({ deployment_id: 'v4', project: 'web', status: 'failed', error: { message: 'replication failed' } }, {
+			nodes: [holds('a', 'v4', ['v3']), holds('b', 'v3', ['v4'])],
+		});
+
+		expect(await screen.findByText(/^Live on a\. The other nodes hold it/)).toBeTruthy();
+		const again = screen.getByRole('button', { name: /Activate again/ }) as HTMLButtonElement;
+		expect(again.disabled).toBe(false);
+	});
+
+	it('names the nodes a failed deploy is missing from, and why, without letting it be activated', async () => {
+		renderRecord({
+			deployment_id: 'v4',
+			project: 'web',
+			status: 'failed',
+			peer_results: [{ node: 'b', status: 'failed' }],
+		}, { nodes: [holds('a', 'v4', []), holds('b', 'v3', []), holds('c', 'v3', [])] });
+
+		expect(await screen.findByText(/^b: the deploy that built it failed there\.$/)).toBeTruthy();
+		expect(screen.getByText(/^c: the deploy that built it failed before recording that node/)).toBeTruthy();
+		expect((screen.getByRole('button', { name: /Activate again/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('offers nothing for a failed deploy no node holds', async () => {
+		renderRecord({ deployment_id: 'v4', project: 'web', status: 'failed' }, {
+			nodes: [holds('a', 'v3', []), holds('b', 'v3', [])],
+		});
+
+		await vi.waitFor(() => expect(screen.queryByText(/Checking which nodes hold this release/)).toBeNull());
+		expect(screen.queryByRole('button', { name: /Activate/ })).toBeNull();
+		expect(screen.queryByText(/This needs every node/)).toBeNull();
+	});
+
+	it("says why a node lacks an activation's release is unknown while the deploy that built it is unread", async () => {
+		renderRecord({ deployment_id: 'a1', project: 'web', status: 'success', activated_from: 'v2' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', [])],
+		});
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'get_deployment' ? new Promise(() => {}) : answer(url, body)
+		);
+
+		expect(await screen.findByText(/^b: why isn't known: the deployment that built it hasn't been read\.$/))
+			.toBeTruthy();
+		expect(rollBack()!.disabled).toBe(true);
+	});
+
+	it('asks the nodes again before confirming, and confirms nothing a rollout behind the newest record made live', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', ['v2'])],
+		});
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		const asked = () => post.mock.calls.filter(([, body]) => body.operation === 'list_releases').length;
+		const before = asked();
+		const answer = post.getMockImplementation()!;
+		post.mockImplementation((url: string, body: { operation: string }) =>
+			body.operation === 'list_releases'
+				? Promise.resolve({ data: { nodes: [holds('a', 'v2', ['v3']), holds('b', 'v2', ['v3'])] } })
+				: answer(url, body)
+		);
+
+		fireEvent.click(rollBack()!);
+		expect(await screen.findByText('Live on every node.')).toBeTruthy();
+		expect(asked()).toBe(before + 1);
+		expect(rollBack()).toBeNull();
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms once the nodes, asked again, still hold the release everywhere', async () => {
+		renderRecord({ deployment_id: 'v2', project: 'web', status: 'success' }, {
+			nodes: [holds('a', 'v3', ['v2']), holds('b', 'v3', ['v2'])],
+		});
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+
+		fireEvent.click(rollBack()!);
+		expect(await screen.findByText('Roll web back to this release?')).toBeTruthy();
+	});
+
 	it('offers nothing for the release live on every node', async () => {
 		renderRecord({ deployment_id: 'v3', project: 'web', status: 'success' }, {
 			nodes: [holds('a', 'v3', []), holds('b', 'v3', [])],

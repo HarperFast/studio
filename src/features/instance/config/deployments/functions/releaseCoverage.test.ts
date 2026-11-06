@@ -87,7 +87,13 @@ describe('releaseAvailability', () => {
 	});
 
 	it('names the nodes that hold no copy, which would refuse the activation', () => {
-		expect(releaseAvailability(summary, 'v2')).toEqual({ kind: 'missing', liveOn: [], missing: ['c'], unreadable: [] });
+		expect(releaseAvailability(summary, 'v2')).toEqual({
+			kind: 'missing',
+			liveOn: [],
+			missing: ['c'],
+			unreadable: [],
+			held: true,
+		});
 	});
 
 	it('is available where every node holds it, and says where it is already live', () => {
@@ -113,11 +119,16 @@ describe('releaseAvailability', () => {
 			liveOn: [],
 			missing: [],
 			unreadable: [{ node: 'b', error: 'timed out' }],
+			held: true,
 		});
 	});
 
 	it('is missing everywhere for an id no node holds, and when no node answered', () => {
-		expect(releaseAvailability(summary, 'v0')).toMatchObject({ kind: 'missing', missing: ['a', 'b', 'c'] });
+		expect(releaseAvailability(summary, 'v0')).toMatchObject({
+			kind: 'missing',
+			missing: ['a', 'b', 'c'],
+			held: false,
+		});
 		expect(releaseAvailability(summarizeReleases({ nodes: [] }, 'web'), 'v3').kind).toBe('missing');
 	});
 });
@@ -140,9 +151,21 @@ describe('missingReason', () => {
 		expect(missingReason('c', record({ package_identifier: 'file:/srv/web' }))).toBe('local-directory');
 	});
 
-	it('cannot tell the rest apart, or anything without the record', () => {
+	it('says a failed deploy may never have reached a node it recorded nothing for', () => {
+		const failed = record({ status: 'failed', peer_results: [{ node: 'b', status: 'success' }] });
+		expect(missingReason('c', failed)).toBe('not-reached');
+		expect(missingReason('b', failed)).toBe('not-kept');
+		expect(missingReason('c', record({ status: 'failed', package_identifier: 'file:/srv/web' }))).toBe(
+			'local-directory',
+		);
+	});
+
+	it('cannot tell the rest apart', () => {
 		expect(missingReason('c', record({ package_identifier: 'npm:web@1.0.0' }))).toBe('not-kept');
-		expect(missingReason('c', undefined)).toBe('not-kept');
+	});
+
+	it('knows nothing of why without the record that built it', () => {
+		expect(missingReason('c', undefined)).toBe('unknown');
 	});
 });
 

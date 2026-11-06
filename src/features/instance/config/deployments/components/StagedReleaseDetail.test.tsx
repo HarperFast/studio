@@ -305,6 +305,20 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect(activationButton()).toBeNull();
 	});
 
+	it('asks the nodes again before confirming, and refuses once a node that joined since has no copy', async () => {
+		const holdsIt = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'staged']]);
+		state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+		renderDetail([staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		state.releases = { nodes: [holdsIt('a'), holdsIt('b'), holding('c', later.deployment_id, [])] };
+
+		fireEvent.click(activationButton()!);
+		expect(await screen.findByText(/^c: it isn't kept there/)).toBeTruthy();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.queryByText('Activate this release of hello?')).toBeNull();
+		expect(state.mutateAsync).not.toHaveBeenCalled();
+	});
+
 	it("shows, but refuses, the activation when the nodes can't be asked", async () => {
 		state.releases = new Error('list_releases timed out');
 		renderDetail([staged]);

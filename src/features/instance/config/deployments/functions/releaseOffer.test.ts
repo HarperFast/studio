@@ -37,9 +37,10 @@ describe('releaseOffer', () => {
 	});
 
 	it('shows, but refuses, a release some node holds no copy of', () => {
-		expect(releaseOffer({ kind: 'missing', liveOn: [], missing: ['c'], unreadable: [] }, fromRecords, true)).toEqual({
-			...fromRecords,
-			disabled: true,
-		});
+		expect(releaseOffer({ kind: 'missing', liveOn: [], missing: ['c'], unreadable: [], held: true }, fromRecords, true))
+			.toEqual({
+				...fromRecords,
+				disabled: true,
+			});
 	});
 });

@@ -78,11 +78,12 @@ export function useComponentReleases(project: string | undefined) {
 }
 
 /**
- * Reads the records again, then asks the nodes again once for each open view: under its generation if the records held,
- * or under the new one, which the view joins when it renders, if they moved. One whose records failed to read stays
- * unreadable whatever it is told. Every other answer is marked stale, for the next view that reads it.
+ * Reads the records again, then asks the nodes again once for each open view, of `onlyProject` if given: under its
+ * generation if the records held, or under the new one, which the view joins when it renders, if they moved. One whose
+ * records failed to read stays unreadable whatever it is told. Every other answer is marked stale, for the next view
+ * that reads it.
  */
-export function useRetryReleases(): () => Promise<unknown> {
+export function useRetryReleases(onlyProject?: string): () => Promise<unknown> {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	return useCallback(async () => {
@@ -92,6 +93,9 @@ export function useRetryReleases(): () => Promise<unknown> {
 		const views = queryClient.getQueryCache().findAll({ queryKey: releasesKey, type: 'active' });
 		await Promise.allSettled(views.map((view) => {
 			const [, , { project }, generation] = view.queryKey as ReleasesQueryKey;
+			if (onlyProject !== undefined && project !== onlyProject) {
+				return undefined;
+			}
 			const records = queryClient.getQueryState(newestRecordQuery(instanceParams, project).queryKey);
 			if (records?.status !== 'success' || !records.data) {
 				return undefined;
@@ -101,7 +105,7 @@ export function useRetryReleases(): () => Promise<unknown> {
 				? queryClient.refetchQueries({ queryKey: view.queryKey, exact: true }, { cancelRefetch: false })
 				: queryClient.fetchQuery(getReleasesQueryOptions({ ...instanceParams, project, generation: current }));
 		}));
-	}, [queryClient, instanceParams]);
+	}, [queryClient, instanceParams, onlyProject]);
 }
 
 export type ReleaseCheck =

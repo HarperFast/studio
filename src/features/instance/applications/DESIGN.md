@@ -136,10 +136,13 @@ one that could not answer, disables it and is named with the reason the record c
 
 Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
 and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,
-when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. `list_releases` is never polled or refetched on focus,
-since every node walks each kept release's tree to size it. `useComponentReleases` asks again when the component's
-newest record starts, ends, or reaches another node, not at each step of a build (`recordsGeneration`), and an answer
-being refetched, or whose refetch failed, does not enable an activation.
+when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. A
+failed deploy is offered wherever some node holds it, since it may be live on the node that received it.
+`list_releases` is never polled or refetched on focus, since every node walks each kept release's tree to size it.
+`useComponentReleases` asks again when the component's newest record starts, ends, or reaches another node, not at each
+step of a build (`recordsGeneration`). What the nodes hold also changes without a newer record, as a rollout behind the
+newest one finishes or a node joins, so `ActivateRelease` asks once more before it confirms. An answer being refetched,
+or whose refetch failed, does not enable an activation.
 
 ## Private database copies
 

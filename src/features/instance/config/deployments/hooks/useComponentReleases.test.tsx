@@ -39,9 +39,9 @@ function Detail() {
 	return <div data-testid="detail">{useReleaseCheck('web', 'v3').kind}</div>;
 }
 
-function Retry() {
-	const retry = useRetryReleases();
-	return <button type="button" onClick={() => (state.retried = retry())}>retry</button>;
+function Retry({ project }: { project?: string }) {
+	const retry = useRetryReleases(project);
+	return <button type="button" onClick={() => (state.retried = retry())}>retry {project}</button>;
 }
 
 afterEach(() => {
@@ -59,6 +59,7 @@ async function renderBoth() {
 			<Panel />
 			<Detail />
 			<Retry />
+			<Retry project="api" />
 		</QueryClientProvider>,
 	);
 	await screen.findByText('live-everywhere');
@@ -96,6 +97,13 @@ describe('useComponentReleases', () => {
 		expect(recordReads()).toBeGreaterThan(readsBefore);
 		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 		expect(releaseCalls()).toBe(2);
+	});
+
+	it('asks only the views of the component a retry names', async () => {
+		await renderBoth();
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'retry api' })));
+		await act(() => state.retried);
+		expect(releaseCalls()).toBe(1);
 	});
 
 	it('asks the nodes once on a retry that finds a new record, under that record only', async () => {

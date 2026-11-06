@@ -269,11 +269,16 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		expect(update.search({ sha: SHA, project: 'web' })).toEqual({ project: 'web' });
 	});
 
-	it('says an abbreviated commit matches nothing', () => {
-		state.search = { sha: '0123456' };
+	it.each([
+		['abbreviated', '0123456'],
+		['uppercase', SHA.toUpperCase()],
+		['SHA-256 prefix', '0123456789abcdef0123456789abcdef0123456789abcdef'],
+	])('says a commit filter matching nothing must be the full SHA, exactly as recorded: %s', (_name, filter) => {
+		state.search = { sha: filter };
 		state.listData = { deployments: [], total: 0 };
 		renderPage('5.4.0-beta.2');
-		expect(screen.getByText(/A commit filter matches only the full SHA\./)).toBeTruthy();
+		expect(state.listParams.at(-1)?.sha).toBe(filter);
+		expect(screen.getByText(/A commit filter matches only a full commit SHA, exactly as recorded\./)).toBeTruthy();
 	});
 
 	it('shows the commit a CI deploy was built from, and filters by it on click', () => {

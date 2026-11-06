@@ -3,8 +3,11 @@ import { MissingReason, missingReason } from '../functions/releaseCoverage';
 import { type ReleaseCheck, useRetryReleases } from '../hooks/useComponentReleases';
 
 const MISSING_REASON: Record<MissingReason, string> = {
-	'failed-there': 'this deploy failed there',
+	'failed-there': 'the deploy that built it failed there',
 	'local-directory': 'it was deployed from a local directory, which no node keeps',
+	'not-reached':
+		'the deploy that built it failed before recording that node, so it may never have got there, or retention has pruned it since',
+	unknown: "why isn't known: the deployment that built it hasn't been read",
 	'not-kept':
 		"it isn't kept there: it was made live before Harper 5.3, retention pruned it (deployment.stagingRetention.maxCount keeps 5 releases by default, staged and kept together), or the node joined the cluster later",
 };

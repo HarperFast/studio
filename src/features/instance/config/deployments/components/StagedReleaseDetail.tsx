@@ -3,7 +3,7 @@ import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { useMemo } from 'react';
 import { releaseOffer } from '../functions/releaseOffer';
 import { StagedReleaseState } from '../functions/stagedRelease';
-import { useReleaseCheck } from '../hooks/useComponentReleases';
+import { useReleaseCheck, useRetryReleases } from '../hooks/useComponentReleases';
 import { useStagedReleases } from '../hooks/useStagedReleases';
 import { ActivateRelease } from './ActivateRelease';
 import { ReleaseCheckNote } from './ReleaseCheckNote';
@@ -43,6 +43,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const records = useMemo(() => [deployment], [deployment]);
 	const release = useStagedReleases(records).get(deployment.deployment_id);
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
+	const retry = useRetryReleases(deployment.project);
 	const { intent, offer, disabled } = releaseOffer(check, {
 		intent: release?.kind === 'replaced'
 			? 'rollback'
@@ -114,6 +115,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				intent={intent}
 				offer={offer}
 				disabled={disabled}
+				revalidate={advise ? undefined : retry}
 			/>
 		</>
 	);

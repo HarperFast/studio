@@ -198,7 +198,7 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 			)}
 
 			{deployment.status === 'staged' && <StagedReleaseDetail deployment={deployment} />}
-			{(deployment.status === 'success' || deployment.status === 'partial') && (
+			{(deployment.status === 'success' || deployment.status === 'partial' || deployment.status === 'failed') && (
 				<ReleasedRecordDetail deployment={deployment} />
 			)}
 

@@ -73,32 +73,48 @@ export function summarizeReleases(response: ListReleasesResponse, project: strin
 export type ReleaseAvailability =
 	| { kind: 'live-everywhere' }
 	| { kind: 'available'; liveOn: string[] }
-	| { kind: 'missing'; liveOn: string[]; missing: string[]; unreadable: ReleasesSummary['unreadable'] };
+	| {
+		kind: 'missing';
+		liveOn: string[];
+		missing: string[];
+		unreadable: ReleasesSummary['unreadable'];
+		/** Some node that answered holds it, live, kept or staged. */
+		held: boolean;
+	};
 
 export function releaseAvailability(summary: ReleasesSummary, deploymentId: string): ReleaseAvailability {
 	const found = summary.releases.find((release) => release.deploymentId === deploymentId);
 	const missing = found ? found.missing : summary.nodes;
 	const liveOn = found?.live ?? [];
 	if (missing.length > 0 || summary.unreadable.length > 0 || summary.nodes.length === 0) {
-		return { kind: 'missing', liveOn, missing, unreadable: summary.unreadable };
+		return { kind: 'missing', liveOn, missing, unreadable: summary.unreadable, held: found !== undefined };
 	}
 	return liveOn.length === summary.nodes.length ? { kind: 'live-everywhere' } : { kind: 'available', liveOn };
 }
 
 /**
- * Why a node holds no copy of a release, as far as the release's own record can tell: the deploy failed there, or
- * it came from a local directory, which no node keeps. Otherwise it is one of the causes the record cannot tell apart:
- * made live before Harper 5.3.0, which kept nothing; pruned beyond `deployment.stagingRetention.maxCount` (harper
- * docs, "Going back to a previous release"); or a node that was not in the cluster then. The record cannot name the
- * nodes it reached: `origin_node` is the receiving node's host name, not its node name.
+ * Why a node holds no copy of a release, as far as the record that built it can tell: the deploy failed there; it
+ * came from a local directory, which no node keeps; or it failed before recording that node, which starts with no
+ * `peer_results` (harper `v5.4.0-beta.2:components/deploymentRecorder.ts:162`), so it may never have got there.
+ * Otherwise it is one of the causes the record cannot tell apart: made live before Harper 5.3.0, which kept nothing;
+ * pruned beyond `deployment.stagingRetention.maxCount` (harper docs, "Going back to a previous release"); or a node
+ * that was not in the cluster then. The record cannot name the nodes it reached: `origin_node` is the receiving node's
+ * host name, not its node name. Without the record, nothing is known of why.
  */
-export type MissingReason = 'failed-there' | 'local-directory' | 'not-kept';
+export type MissingReason = 'failed-there' | 'local-directory' | 'not-reached' | 'not-kept' | 'unknown';
 
 export function missingReason(node: string, record: Deployment | undefined): MissingReason {
-	if (record?.peer_results?.some((peer) => peer.node === node && peer.status === 'failed')) {
+	if (!record) {
+		return 'unknown';
+	}
+	const recorded = record.peer_results?.filter((peer) => peer.node === node) ?? [];
+	if (recorded.some((peer) => peer.status === 'failed')) {
 		return 'failed-there';
 	}
-	return record?.package_identifier?.startsWith('file:') ? 'local-directory' : 'not-kept';
+	if (record.package_identifier?.startsWith('file:')) {
+		return 'local-directory';
+	}
+	return record.status === 'failed' && recorded.length === 0 ? 'not-reached' : 'not-kept';
 }
 
 export function releasedId(record: Deployment): string {

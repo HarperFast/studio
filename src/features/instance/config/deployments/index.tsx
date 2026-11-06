@@ -231,8 +231,8 @@ export function ConfigDeploymentsIndex() {
 								</button>
 							</>
 						)
-						: sha && sha.length < 40
-						? 'No deployments match these filters. A commit filter matches only the full SHA.'
+						: sha
+						? 'No deployments match these filters. A commit filter matches only a full commit SHA, exactly as recorded.'
 						: filtered
 						? 'No deployments match these filters.'
 						: 'No deployments yet.'}

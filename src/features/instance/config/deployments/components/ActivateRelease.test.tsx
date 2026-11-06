@@ -142,6 +142,23 @@ describe('ActivateRelease', () => {
 		expect(state.mutateAsync).not.toHaveBeenCalled();
 	});
 
+	it('asks again before confirming, and confirms only once the answer is in', async () => {
+		let answer: () => void = () => {};
+		const revalidate = vi.fn(() => new Promise<void>((resolve) => (answer = resolve)));
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" revalidate={revalidate} />
+			</QueryClientProvider>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		const checking = screen.getByRole('button', { name: 'Checking…' }) as HTMLButtonElement;
+		expect(checking.disabled).toBe(true);
+		expect(revalidate).toHaveBeenCalledTimes(1);
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		await act(async () => answer());
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+	});
+
 	it('goes back to a release by the id that built it, with the same activation call', () => {
 		state.mutateAsync.mockReturnValue(new Promise(() => {}));
 		render(
