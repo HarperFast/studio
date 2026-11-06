@@ -39,11 +39,11 @@ function useRememberedPreset(cluster: Pick<Cluster, 'id' | 'preset'> | undefined
  * places every tab the preset places (setup writes both in its last step), and the preset's landing page
  * is among the pages the answering node's components declare. A landing alone could have been set by
  * hand, or kept from before a setup that stopped short of that step; an admin may move it, or change a
- * placement, later.
+ * placement, later. Placements Studio can't fully read prove nothing.
  */
 export function isPresetApplied(preset: ClusterPreset, configuration: StudioConfiguration): boolean {
 	const placed = configuration.rootNavigation ?? configuration.navigation;
-	return !!configuration.landing
+	return !configuration.rootNavigationUnreadable && !!configuration.landing
 		&& Object.keys(preset.studio.navigation).every((key) => key in placed)
 		&& configuration.pages.some((page) => page.key === preset.studio.landing);
 }

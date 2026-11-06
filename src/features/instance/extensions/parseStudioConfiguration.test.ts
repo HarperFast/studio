@@ -146,6 +146,32 @@ describe('parseStudioConfiguration', () => {
 		expect(parseStudioConfiguration({ navigation: {}, pages: [] })).not.toHaveProperty('rootNavigationUnreadable');
 	});
 
+	it('marks root placements unreadable when one entry is a state Studio does not know, keeping the rest', () => {
+		const parsed = parseStudioConfiguration({
+			navigation: { logs: 'pinned', status: 'tucked' },
+			rootNavigation: { logs: 'pinned', status: 'tucked' },
+			pages: [],
+		});
+		expect(parsed.rootNavigationUnreadable).toBe(true);
+		expect(parsed.rootNavigation).toEqual({ status: 'tucked' });
+		expect(parsed.navigation).toEqual({ status: 'tucked' });
+	});
+
+	it("reads Harper's navigation as the root config's when it sends nothing else, unreadable entry and all", () => {
+		expect(parseStudioConfiguration({ navigation: { logs: 'pinned' }, pages: [] }).rootNavigationUnreadable)
+			.toBe(true);
+		expect(parseStudioConfiguration({ navigation: 'hidden', pages: [] }).rootNavigationUnreadable).toBe(true);
+	});
+
+	it("ignores an unreadable merged entry once the root config's own placements are readable", () => {
+		const parsed = parseStudioConfiguration({
+			navigation: { 'shop.@harperfast/redirector.redirects': 'pinned' },
+			rootNavigation: { logs: 'hidden' },
+			pages: [],
+		});
+		expect(parsed).not.toHaveProperty('rootNavigationUnreadable');
+	});
+
 	it('names each use of one plugin by its app, and leaves names that do not clash alone', () => {
 		const names = parseStudioConfiguration({
 			pages: [
@@ -167,6 +193,25 @@ describe('parseStudioConfiguration', () => {
 			],
 		}).pages.map((parsed) => parsed.name);
 		expect(names).toEqual(['Redirects (shop.@harperfast/redirector)', 'Redirects (blog)', 'Redirects (shop)']);
+	});
+
+	it('keeps naming until each label is unused, ending at the key', () => {
+		const names = parseStudioConfiguration({
+			pages: [
+				page({ component: 'shop.plugin', application: 'shop', name: 'Settings', id: 'settings' }),
+				page({ component: 'shop.other', application: 'shop', name: 'Settings', id: 'settings' }),
+				page({ component: 'tools', application: 'tools', name: 'Settings (shop.plugin)', id: 'x' }),
+				page({ component: 'docs', application: 'docs', name: 'Search', id: 'a' }),
+				page({ component: 'docs', application: 'docs', name: 'Search', id: 'b' }),
+			],
+		}).pages.map((parsed) => parsed.name);
+		expect(names).toEqual([
+			'Settings (shop.plugin.settings)',
+			'Settings (shop.other)',
+			'Settings (shop.plugin)',
+			'Search (docs.a)',
+			'Search (docs.b)',
+		]);
 	});
 
 	it('names pages by component when one app holds both, and by component when Harper sends no application', () => {

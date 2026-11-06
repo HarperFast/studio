@@ -40,7 +40,11 @@ export interface StudioConfiguration {
 	 * Harper whose navigation comes only from the root config, where it equals `navigation`.
 	 */
 	rootNavigation?: Record<string, TabVisibility>;
-	/** Sent but not a map, so the root config's own placements are unknown and setup must not write them. */
+	/**
+	 * The root config's placements aren't fully known: `rootNavigation` (or, without it, `navigation`) isn't
+	 * a map, or holds an entry Studio can't read, such as a newer state. Setup writes the whole map back, so
+	 * it must not write one with that entry missing.
+	 */
 	rootNavigationUnreadable?: true;
 	/** The tab or page key Studio opens the cluster on. */
 	landing?: string;
@@ -80,9 +84,12 @@ export function parseStudioConfiguration(
 	if (!isRecord(raw)) {
 		return EMPTY_STUDIO_CONFIGURATION;
 	}
-	const navigation = parseNavigation(raw.navigation) ?? {};
-	const rootNavigation = parseNavigation(raw.rootNavigation);
-	const rootNavigationUnreadable = raw.rootNavigation !== undefined && !rootNavigation;
+	const merged = parseNavigation(raw.navigation);
+	const root = raw.rootNavigation === undefined ? undefined : parseNavigation(raw.rootNavigation);
+	const navigation = merged.navigation ?? {};
+	const rootNavigation = root?.navigation;
+	// Without `rootNavigation`, Harper's `navigation` is the root config's alone.
+	const rootNavigationUnreadable = root ? !root.readable : raw.navigation !== undefined && !merged.readable;
 	const pages: ResolvedExtensionPage[] = [];
 	const seen = new Set<string>();
 	for (const candidate of Array.isArray(raw.pages) ? raw.pages : []) {
@@ -102,46 +109,61 @@ export function parseStudioConfiguration(
 	};
 }
 
-function parseNavigation(raw: unknown): Record<string, TabVisibility> | undefined {
+/** The entries Studio can read; `readable` is false when the value isn't a map or any entry was left out. */
+function parseNavigation(raw: unknown): { navigation?: Record<string, TabVisibility>; readable: boolean } {
 	if (!isRecord(raw)) {
-		return undefined;
+		return { readable: false };
 	}
 	const navigation: Record<string, TabVisibility> = {};
+	let readable = true;
 	for (const [key, value] of Object.entries(raw)) {
 		if (NAVIGATION_KEY.test(key) && typeof value === 'string' && VISIBILITIES.has(value)) {
 			navigation[key] = value as TabVisibility;
+		} else {
+			readable = false;
 		}
 	}
-	return navigation;
+	return { navigation, readable };
 }
+
+const SUFFIXES: ((page: ResolvedExtensionPage) => string)[] = [
+	(page) => page.application ?? page.component,
+	(page) => page.component,
+];
 
 /**
  * One plugin used by two apps declares the same page twice, so pages that would share a name in one
- * placement get their app's name after it, or their component's when one app holds both.
+ * placement are told apart by the first of their app or their component that leaves the label unused
+ * there, or else by their key. A page's own name stays as it was, even when it looks like another's
+ * generated label.
  */
 export function withDistinctNames<T extends ResolvedExtensionPage>(pages: T[]): T[] {
-	const clashes = (label: (page: T) => string) => {
+	const slot = (page: T, label: string) => `${page.placement}\n${label}`;
+	const named = new Map<string, number>();
+	for (const page of pages) {
+		named.set(slot(page, page.name), (named.get(slot(page, page.name)) ?? 0) + 1);
+	}
+	const clashing = pages.filter((page) => (named.get(slot(page, page.name)) ?? 0) > 1);
+	const taken = new Set(pages.filter((page) => !clashing.includes(page)).map((page) => slot(page, page.name)));
+	const labels = new Map<T, string>();
+	for (const suffix of SUFFIXES) {
+		const pending = clashing.filter((page) => !labels.has(page));
+		const label = (page: T) => `${page.name} (${suffix(page)})`;
 		const counts = new Map<string, number>();
-		for (const page of pages) {
-			const key = `${page.placement}\n${label(page)}`;
-			counts.set(key, (counts.get(key) ?? 0) + 1);
+		for (const page of pending) {
+			counts.set(slot(page, label(page)), (counts.get(slot(page, label(page))) ?? 0) + 1);
 		}
-		return (page: T) => (counts.get(`${page.placement}\n${label(page)}`) ?? 0) > 1;
-	};
-	const byName = clashes((page) => page.name);
-	const withApp = (page: T) => `${page.name} (${page.application ?? page.component})`;
-	const byApp = clashes(withApp);
-	const label = (page: T) =>
-		!byName(page) ? page.name : byApp(page) ? `${page.name} (${page.component})` : withApp(page);
-	// A page may itself be named like another's generated label ("Redirects (shop)"), and the generated
-	// one then falls back to its component.
-	const byLabel = clashes(label);
-	return pages.map((page) => {
-		if (!byName(page)) {
-			return page;
+		for (const page of pending) {
+			if (counts.get(slot(page, label(page))) === 1 && !taken.has(slot(page, label(page)))) {
+				labels.set(page, label(page));
+				taken.add(slot(page, label(page)));
+			}
 		}
-		return { ...page, name: byLabel(page) ? `${page.name} (${page.component})` : label(page) };
-	});
+	}
+	// Keys are unique, so only a page given that exact name itself could still match a page named by its key.
+	return pages.map((page) =>
+		clashing.includes(page) ? { ...page, name: labels.get(page) ?? `${page.name} (${page.key})` } : page
+	);
 }
 
 function parsePage(raw: unknown, capabilities: ReadonlySet<string>): ResolvedExtensionPage | undefined {

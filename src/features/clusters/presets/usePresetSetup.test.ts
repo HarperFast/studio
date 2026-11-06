@@ -76,6 +76,10 @@ describe('isPresetApplied', () => {
 		expect(isPresetApplied(redirects, { ...installedOnly, rootNavigation: redirects.studio.navigation })).toBe(true);
 	});
 
+	it("doesn't read as applied while the root config's placements are unreadable", () => {
+		expect(isPresetApplied(redirects, { ...configured, rootNavigationUnreadable: true })).toBe(false);
+	});
+
 	it('still reads as applied after an admin changes a placement the preset made', () => {
 		expect(
 			isPresetApplied(redirects, { ...configured, navigation: { ...configured.navigation, applications: 'visible' } }),
