@@ -145,8 +145,8 @@ activated, so a stage leaves the cached setting current. What follows:
   only while it is current, so neither claims a copy that was just turned off.
 - **Unreadable is unknown, never Off.** A super user can read `get_configuration`, and so can a role whose allowlist
   grants it, which Harper's gate 2 admits ([`checkSuperUserOperationAllowed`](../../../hooks/checkOperationPermission.ts)).
-  Harper refusing the read (a 403) makes the setting unreadable rather than failed, until a read succeeds: it isn't
-  retried or toasted, and asking again doesn't make it read as loading. For anyone who can't read it, the redeploy and
+  Harper refusing the read (a 403) makes the setting unreadable rather than failed until a read succeeds: it isn't
+  retried or toasted, and neither asking again nor a failure of another kind meanwhile undoes it. For anyone who can't read it, the redeploy and
   stage dialogs warn that the copy may turn off, unless a version already read and known to predate copies rules one
   out ([`useBranchedDatabasesPossible`](hooks/useBranchedDatabases.ts)): a role that can't read the setting often
   can't read `registration_info` either.

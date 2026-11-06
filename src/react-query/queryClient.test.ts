@@ -332,6 +332,20 @@ describe('queryErrorHandler', () => {
 		expect(toast.error).toHaveBeenCalledOnce();
 	});
 
+	it('reports a failure a query shows itself to RUM, without a toast', () => {
+		const ownsFailure = {
+			queryKey: ['get_configuration', 'ins-1'],
+			meta: { reportsOwnFailure: true },
+		} as unknown as Parameters<
+			typeof queryErrorHandler
+		>[1];
+
+		queryErrorHandler(networkError, ownsFailure);
+
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(console.error).toHaveBeenCalledWith(networkError);
+	});
+
 	it('toasts a connectivity failure from an entity that is not restarting', () => {
 		queryErrorHandler(networkError, queryFor(['ins-1', 'databases']));
 		expect(toast.error).toHaveBeenCalled();

@@ -62,6 +62,7 @@ function forbidden() {
 afterEach(() => {
 	mocks.canManage.value = true;
 	mocks.canRead.value = true;
+	mocks.post.mockReset();
 	vi.clearAllMocks();
 });
 
@@ -184,7 +185,7 @@ describe('a role that is not a super user', () => {
 		expect(mocks.post).toHaveBeenCalledOnce();
 	});
 
-	it('lets a later failure of another kind replace a refusal', async () => {
+	it('keeps a refusal through a later failure of another kind, which says nothing new about the grant', async () => {
 		mocks.canManage.value = false;
 		mocks.post.mockRejectedValueOnce(forbidden());
 		const { result, queryClient } = renderCurrent();
@@ -193,7 +194,8 @@ describe('a role that is not a super user', () => {
 		mocks.post.mockRejectedValue(new Error('network down'));
 		await act(() => invalidateApplicationConfiguration(queryClient, 'ins-1'));
 
-		await waitFor(() => expect(result.current).toMatchObject({ readable: true, failed: true }));
+		await waitFor(() => expect(mocks.post.mock.calls.length).toBeGreaterThan(1));
+		expect(result.current).toMatchObject({ readable: false, failed: false, loading: false });
 	});
 
 	it('holds a refusal while a dialog asks again, and lets a later read that succeeds clear it', async () => {
@@ -286,6 +288,28 @@ describe('readApplicationSetting', () => {
 
 		expect(await readApplicationSetting(queryClient, mocks.instanceParams as never, 'web')).toBeUndefined();
 		expect(mocks.post).toHaveBeenCalledTimes(2);
+	});
+
+	it('stops counting the cached answer as current until it lands, then stores what it read', async () => {
+		mocks.post.mockResolvedValueOnce({ data: CONFIGURATION });
+		const { result, queryClient } = renderCurrent();
+		await waitFor(() => expect(result.current.known).toBe(true));
+
+		let answer!: (value: unknown) => void;
+		mocks.post.mockReturnValueOnce(
+			new Promise((resolve) => {
+				answer = resolve;
+			}),
+		);
+		let read!: Promise<unknown>;
+		await act(async () => {
+			read = readApplicationSetting(queryClient, mocks.instanceParams as never, 'web');
+		});
+		await waitFor(() => expect(result.current.known).toBe(false));
+
+		await act(async () => answer({ data: { web: { branchedDatabases: true } } }));
+		expect(await read).toBe(true);
+		await waitFor(() => expect(result.current).toMatchObject({ known: true, setting: true }));
 	});
 
 	it("is unknown when the read fails, Harper's refusal included", async () => {

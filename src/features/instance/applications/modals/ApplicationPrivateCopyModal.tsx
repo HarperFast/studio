@@ -108,7 +108,7 @@ export function ApplicationPrivateCopyModal() {
 		rootEntries,
 		project,
 	]);
-	const largeArchive = packageCaution(measured, includeNodeModules) === 'large';
+	const sizeCaution = isModalOpen ? packageCaution(measured, includeNodeModules) : undefined;
 	const [phase, setPhase] = useState<Phase>('form');
 	const [packagingFailure, setPackagingFailure] = useState<string>();
 	const attemptOnScreen = useRef<symbol>(undefined);
@@ -124,12 +124,14 @@ export function ApplicationPrivateCopyModal() {
 	}, [isModalOpen, queryClient, instanceParams.entityId]);
 	useEffect(() => {
 		choiceTouched.current = false;
+		setIncludeNodeModules(false);
+		setPackagingFailure(undefined);
 	}, [project]);
 	useEffect(() => {
 		if (isModalOpen && !choiceTouched.current) {
 			setValue('privateCopy', privateCopyFromSetting(current.setting));
 		}
-	}, [isModalOpen, setValue, current.setting]);
+	}, [isModalOpen, project, setValue, current.setting]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowApplicationPrivateCopyModal', false);
@@ -321,9 +323,11 @@ export function ApplicationPrivateCopyModal() {
 										? 'Every node then restarts the application.'
 										: 'Every node then installs its dependencies and restarts the application.'}
 								</p>
-								{largeArchive && (
+								{sizeCaution && (
 									<p className="text-sm text-warning">
-										{includeNodeModules || !measured
+										{sizeCaution === 'unmeasured'
+											? `Studio can't tell how large ${project}'s archive is.`
+											: includeNodeModules || !measured
 											? `With node_modules, ${project}'s archive can be large.`
 											: `${project} is about ${humanFileSize(measured.bytes)}.`}{' '}
 										The browser holds the whole archive while it uploads, which can take several minutes.

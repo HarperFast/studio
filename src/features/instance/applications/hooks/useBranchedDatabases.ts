@@ -30,7 +30,7 @@ function isRefusal(error: unknown): boolean {
 const CONFIGURATION_READ = { retry: retryUnlessRejected(), meta: { refusalIsAnAnswer: true } };
 
 // When each read was refused. A refetch with no data clears the query's `error` before it answers, and the refusal has
-// to outlive that until a read succeeds or fails some other way.
+// to outlive that, and any failure of another kind, until a read succeeds.
 const refusedAt = new WeakMap<Query, number>();
 
 function isRefusedNow(query: Query | undefined): boolean {
@@ -42,7 +42,7 @@ function isRefusedNow(query: Query | undefined): boolean {
 		refusedAt.set(query, errorUpdatedAt);
 	}
 	const at = refusedAt.get(query);
-	return at !== undefined && at >= errorUpdatedAt && at >= dataUpdatedAt;
+	return at !== undefined && at > dataUpdatedAt;
 }
 
 /**
@@ -164,8 +164,9 @@ export function useApplicationEntryHasPackage(project: string | undefined): bool
 }
 
 /**
- * `project`'s setting as Harper reports it now, or `unknown` when it can't be read. One fresh read, after any already in
- * flight is cancelled, since that read was sent before whatever is being confirmed.
+ * `project`'s setting as Harper reports it now, or `unknown` when it can't be read, after a write Studio is confirming.
+ * A read already in flight was sent before the write, so it is dropped, and the cached answer stops counting as current
+ * until this one lands. One try, and a failure is the caller's to show.
  */
 export async function readApplicationSetting(
 	queryClient: QueryClient,
@@ -174,8 +175,13 @@ export async function readApplicationSetting(
 ): Promise<BranchedDatabases | undefined | 'unknown'> {
 	const options = getConfigurationQueryOptions(params);
 	await queryClient.cancelQueries({ queryKey: options.queryKey });
+	await queryClient.invalidateQueries({ queryKey: options.queryKey, refetchType: 'none' });
 	try {
-		const configuration = await queryClient.fetchQuery({ ...options, ...CONFIGURATION_READ, staleTime: 0 });
+		const configuration = await queryClient.fetchQuery({
+			...options,
+			retry: false,
+			meta: { refusalIsAnAnswer: true, reportsOwnFailure: true },
+		});
 		return readBranchedDatabases(configuration, project);
 	} catch {
 		return 'unknown';

@@ -19,17 +19,21 @@ export async function readResponseRefusal(response: Response): Promise<string | 
 	if (!text) {
 		return undefined;
 	}
-	try {
-		const parsed: unknown = JSON.parse(text);
-		if (parsed && typeof parsed === 'object') {
-			const { error, message, detail, title } = parsed as Record<string, unknown>;
-			const said = errorText(error) ?? errorText(message) ?? errorText(detail) ?? errorText(title);
-			if (said) {
-				return said.slice(0, MAX_REFUSAL_LENGTH);
-			}
+	const parsed = parseJson(text);
+	if (parsed && typeof parsed === 'object') {
+		const { error, message, detail, title } = parsed as Record<string, unknown>;
+		const said = errorText(error) ?? errorText(message) ?? errorText(detail) ?? errorText(title);
+		if (said) {
+			return said.slice(0, MAX_REFUSAL_LENGTH);
 		}
-	} catch {
-		// Not JSON.
 	}
 	return text.slice(0, MAX_REFUSAL_LENGTH);
+}
+
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
+	}
 }
