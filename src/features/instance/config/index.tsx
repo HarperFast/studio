@@ -6,6 +6,7 @@ import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
+import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
@@ -15,6 +16,7 @@ import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
+	CalendarClockIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -49,6 +51,7 @@ export function ConfigIndex() {
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
 	const deployFromGitHubSupported = supportsCiDeploy(version);
+	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -142,6 +145,18 @@ export function ConfigIndex() {
 					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
 				</Link>
 			</li>
+			{scheduledJobsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/scheduled-jobs')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<CalendarClockIcon className="hidden md:inline-block" /> <span className="ms-3">Scheduled Jobs</span>
+					</Link>
+				</li>
+			)}
 			{
 				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
 			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated

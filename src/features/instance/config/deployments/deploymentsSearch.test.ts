@@ -5,6 +5,8 @@ describe('validateDeploymentsSearch', () => {
 	it('keeps a component, a known status and a later page', () => {
 		expect(validateDeploymentsSearch({ project: ' web ', status: 'staged', page: '3' }))
 			.toEqual({ project: 'web', status: 'staged', page: 3 });
+		expect(validateDeploymentsSearch({ status: 'partial' }).status).toBe('partial');
+		expect(validateDeploymentsSearch({ status: 'rolling_out' }).status).toBe('rolling_out');
 	});
 
 	it.each([
@@ -24,5 +26,18 @@ describe('filterableStatuses', () => {
 		expect(filterableStatuses(true)).toContain('staged');
 		expect(filterableStatuses(false)).not.toContain('staged');
 		expect(filterableStatuses(false)).toContain('success');
+	});
+
+	it.each([
+		['5.4.0-alpha.1', true],
+		['5.4.0-beta.2', true],
+		['5.4.0', true],
+		['5.3.5', false],
+		[undefined, false],
+	])('offers rolling_out and partial on Harper %s: %s', (version, offered) => {
+		const statuses = filterableStatuses(true, version);
+		expect(statuses.includes('rolling_out')).toBe(offered);
+		expect(statuses.includes('partial')).toBe(offered);
+		expect(statuses).toContain('staged');
 	});
 });

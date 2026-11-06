@@ -25,7 +25,9 @@ function UncertainRelease({ release }: { release: Extract<StagedReleaseState, { 
 				? 'but some nodes did not take it'
 				: (
 					<>
-						but a later deploy, <DeploymentLink deployment={failed} />, failed and may have gone live on some nodes
+						but a later deploy, <DeploymentLink deployment={failed} />, {failed.status === 'partial'
+							? 'went live on only some nodes'
+							: 'failed and may have gone live on some nodes'}
 					</>
 				)}, so it may not be live everywhere. Activating it again puts it back wherever it is missing.
 		</>

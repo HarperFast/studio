@@ -1,4 +1,5 @@
 import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 
 export interface DeploymentsSearch {
 	project?: string;
@@ -18,10 +19,23 @@ export const FILTERABLE_STATUSES: readonly DeploymentStatus[] = [
 	'success',
 	'failed',
 	'staged',
+	'rolling_out',
+	'partial',
 ];
 
-export function filterableStatuses(stagingSupported: boolean): readonly DeploymentStatus[] {
-	return stagingSupported ? FILTERABLE_STATUSES : FILTERABLE_STATUSES.filter((status) => status !== 'staged');
+/**
+ * Harper writes `rolling_out` and `partial` from 5.4.0-alpha.1 (harper
+ * `v5.4.0-alpha.1:components/deploymentOperations.ts:22`).
+ */
+const MIN_ROLLING_STATUS_VERSION = '5.4.0-alpha.1';
+
+const ROLLING_STATUSES: readonly DeploymentStatus[] = ['rolling_out', 'partial'];
+
+export function filterableStatuses(stagingSupported: boolean, harperVersion?: string): readonly DeploymentStatus[] {
+	const rollingSupported = !!harperVersion && wasAReleasedBeforeB(MIN_ROLLING_STATUS_VERSION, harperVersion);
+	return FILTERABLE_STATUSES.filter((status) =>
+		(stagingSupported || status !== 'staged') && (rollingSupported || !ROLLING_STATUSES.includes(status))
+	);
 }
 
 export const DEPLOYMENTS_PAGE_SIZE = 25;

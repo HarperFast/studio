@@ -66,6 +66,81 @@ describe('DeploymentDetail', () => {
 	});
 });
 
+describe('DeploymentDetail of a rolling deploy', () => {
+	function renderDeployment(deployment: Deployment) {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		queryClient.setQueryData(['entity-1', 'get_deployment', deployment.deployment_id], deployment);
+		return render(
+			<QueryClientProvider client={queryClient}>
+				<DeploymentDetail deploymentId={deployment.deployment_id} />
+			</QueryClientProvider>,
+		);
+	}
+
+	it('shows which nodes did not take a partial deploy, rather than how they staged it', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			error: { message: 'Not activated on 1 of 2 peer node(s): b (certification rejected)', nodes: ['b'] },
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success', activation: { activated: false, error: 'certification rejected' } },
+			],
+		});
+
+		expect(screen.getByText('Partial')).toBeTruthy();
+		expect(screen.getByText('activated')).toBeTruthy();
+		expect(screen.getByText('not activated: certification rejected')).toBeTruthy();
+		expect(screen.queryByText('success')).toBeNull();
+	});
+
+	it('falls back to the activation message when a node that did not take it recorded no error', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			peer_results: [{ node: 'b', status: 'success', activation: { activated: false, message: 'timed out' } }],
+		});
+
+		expect(screen.getByText('not activated: timed out')).toBeTruthy();
+	});
+
+	it('does not show a node a partial deploy never reached as a success', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'partial',
+			error: { message: 'The activation job failed: boom; not confirmed on: b', nodes: ['b', 'c'] },
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success' },
+				{ node: 'c', status: 'failed', error: 'disk full' },
+			],
+		});
+
+		expect(screen.getByText('activation not confirmed').className).toContain('text-destructive');
+		expect(screen.getByText('failed: disk full')).toBeTruthy();
+		expect(screen.queryByText('success')).toBeNull();
+	});
+
+	it('shows a node a rolling deploy has not reached yet as waiting, not as a success', () => {
+		renderDeployment({
+			deployment_id: 'd1',
+			project: 'widgets',
+			status: 'rolling_out',
+			peer_results: [
+				{ node: 'a', status: 'success', activation: { activated: true } },
+				{ node: 'b', status: 'success' },
+			],
+		});
+
+		expect(screen.getByText('Rolling out')).toBeTruthy();
+		expect(screen.getByText('waiting to activate').className).toContain('text-muted-foreground');
+		expect(screen.queryByText('success')).toBeNull();
+	});
+});
+
 describe('DeploymentDetail of a staged release', () => {
 	const staged: Deployment = { deployment_id: 'd1', project: 'widgets', status: 'staged', started_at: 100 };
 
