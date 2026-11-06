@@ -1,3 +1,9 @@
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import {
+	CLUSTER_BUSY_MESSAGE,
+	CLUSTER_BUSY_TITLE,
+	clusterHeldByWorkflow,
+} from '@/integrations/api/cluster/clusterHeldByWorkflow';
 import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -47,6 +53,10 @@ export function describeError(rawErr: unknown): DescribedError {
 	const unknownOutcome = describeUnknownOutcome(rawErr);
 	if (unknownOutcome) {
 		return unknownOutcome;
+	}
+	// The raw refusal names an internal workflow id; customers see it too, so it gets our own copy.
+	if (clusterHeldByWorkflow(rawErr)) {
+		return { title: CLUSTER_BUSY_TITLE, description: CLUSTER_BUSY_MESSAGE, message: CLUSTER_BUSY_MESSAGE };
 	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
@@ -150,7 +160,17 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
 	_variables,
 	_onMutateResult,
 	mutation,
+	context,
 ) => {
+	// Before the opt-out: forms that render their own failure still need the cluster record refetched, which is what
+	// puts its workflow notice on the page that was refused. Only the record: the refused write changed nothing else.
+	const held = clusterHeldByWorkflow(error);
+	if (held?.clusterId) {
+		void context.client.invalidateQueries({
+			queryKey: getClusterInfoQueryOptions(held.clusterId).queryKey,
+			exact: true,
+		});
+	}
 	if (mutation.meta?.skipGlobalErrorToast) {
 		return;
 	}
@@ -182,6 +202,10 @@ export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (
 		return;
 	}
 	if (isClaimedByRoute(query)) {
+		return;
+	}
+	if (query.meta?.quietErrors) {
+		console.debug('Suppressed a failure from an optional read', error);
 		return;
 	}
 	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {
