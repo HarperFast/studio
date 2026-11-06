@@ -180,9 +180,7 @@ export function SetUpDeploysForm({ audience, pending, onSubmit }: {
 						</AlertDescription>
 					</Alert>
 				)}
-				<div>
-					<Button type="submit" disabled={pending}>Set up deploys</Button>
-				</div>
+				<Button type="submit" className="w-fit" disabled={pending}>Set up deploys</Button>
 			</form>
 		</Form>
 	);

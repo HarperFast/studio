@@ -291,9 +291,7 @@ export function EnablePreviewsForm(
 						<AlertDescription className="whitespace-pre-wrap">{failure}</AlertDescription>
 					</Alert>
 				)}
-				<div>
-					<Button type="submit" disabled={isPending}>Enable previews</Button>
-				</div>
+				<Button type="submit" className="w-fit" disabled={isPending}>Enable previews</Button>
 			</form>
 		</Form>
 	);
