@@ -16,7 +16,6 @@ export function CLIInstructions({
 }: {
 	defaultApplicationName: string;
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
-	/** The template the Templates tab sent here with. */
 	template?: CLITemplate;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
 }) {

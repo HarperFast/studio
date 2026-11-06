@@ -30,7 +30,8 @@ export function actionsAudience(operationsUrl: string | null | undefined): strin
 export function isPrivateAudience(audience: string): boolean {
 	let hostname: string;
 	try {
-		hostname = new URL(audience).hostname.toLowerCase();
+		// A fully qualified name may end in a dot, which `URL` keeps.
+		hostname = new URL(audience).hostname.toLowerCase().replace(/\.$/, '');
 	} catch {
 		return false;
 	}

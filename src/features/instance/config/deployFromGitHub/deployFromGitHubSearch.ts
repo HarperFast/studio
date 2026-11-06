@@ -2,7 +2,6 @@ import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubReposit
 
 export interface DeployFromGitHubSearch {
 	project?: string;
-	/** `owner/name` to start the form with, as New Application's Import tab links it. */
 	repository?: string;
 }
 

@@ -27,7 +27,6 @@ const NO_AUDIENCE = "Studio doesn't know this cluster's operations URL, which Gi
 export function ApplicationDeploys({ app, names, repository }: {
 	app: string;
 	names: CiDeployNames;
-	/** `owner/name` to start the form with. */
 	repository?: string;
 }) {
 	const instanceParams = useInstanceClientIdParams();
@@ -108,7 +107,8 @@ export function ApplicationDeploys({ app, names, repository }: {
 		...(plan?.role === 'create' ? [`Role "${names.role}" is missing.`] : []),
 		...(plan?.user === 'create' ? [`User "${names.user}" is missing.`] : []),
 	];
-	const finishable = plan && plan.conflicts.length === 0 && missing.length > 0 ? source : undefined;
+	// An audience Studio could not check is listed as a problem, so it offers no rerun until it can.
+	const finishable = audience && plan && plan.conflicts.length === 0 && missing.length > 0 ? source : undefined;
 
 	return (
 		<div className="flex flex-col gap-4">

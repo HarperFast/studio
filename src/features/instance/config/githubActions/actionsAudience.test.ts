@@ -38,6 +38,8 @@ describe('isPrivateAudience', () => {
 		'http://172.20.1.1:9925/',
 		'http://192.168.1.10:9925/',
 		'http://harper.local:9925/',
+		'http://localhost.:9925/',
+		'http://harper.local.:9925/',
 		'http://0.0.0.0:9925/',
 		'http://[::]:9925/',
 		'http://[fe80::1]:9925/',

@@ -1,5 +1,6 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useDeployFromGitHubAvailable } from '@/features/instance/config/deployFromGitHub/useDeployFromGitHubAvailable';
+import { getSSHKeyQueryOptions } from '@/integrations/api/instance/ssh/getSSHKey';
 import { listSSHKeysQueryOptions } from '@/integrations/api/instance/ssh/listSSHKeys';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
@@ -22,12 +23,20 @@ export function DeployFromGitHubHint({ project, watch }: {
 	const available = useDeployFromGitHubAvailable();
 	const requiresAuth = watch('contents.requiresAuth');
 	const sshKeyName = watch('contents.sshKeyName');
-	// The list ImportAuthorization reads, for a URL on an SSH key's host alias.
+	// A URL on an SSH key's host alias, read as ImportAuthorization reads it: a listed row may carry only a name.
 	const { data: sshKeys } = useQuery({
 		...listSSHKeysQueryOptions(instanceParams),
 		enabled: available && requiresAuth,
 	});
-	const sshKey = requiresAuth ? sshKeys?.find((key) => key.name === sshKeyName) : undefined;
+	const { data: selectedKey } = useQuery({
+		...getSSHKeyQueryOptions({ ...instanceParams, name: sshKeyName }),
+		refetchInterval: false,
+		enabled: available && requiresAuth && !!sshKeyName,
+	});
+	const listedKey = sshKeys?.find((key) => key.name === sshKeyName);
+	const sshKey = requiresAuth
+		? { host: selectedKey?.host ?? listedKey?.host, hostname: selectedKey?.hostname ?? listedKey?.hostname }
+		: undefined;
 	const repository = importedGitHubRepository(watch('contents.ref'), sshKey);
 
 	if (!available || !project || !repository) {

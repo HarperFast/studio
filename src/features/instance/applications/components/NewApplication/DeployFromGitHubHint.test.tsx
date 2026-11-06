@@ -11,6 +11,7 @@ const { state } = vi.hoisted(() => ({
 		available: true,
 		values: {} as Record<string, unknown>,
 		keys: undefined as { name: string; host?: string; hostname?: string }[] | undefined,
+		key: undefined as { name: string; host?: string; hostname?: string } | undefined,
 		keysEnabled: undefined as boolean | undefined,
 	},
 }));
@@ -23,7 +24,10 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-query')>()),
-	useQuery: ({ enabled }: { enabled?: boolean }) => {
+	useQuery: ({ queryKey, enabled }: { queryKey: readonly unknown[]; enabled?: boolean }) => {
+		if (queryKey[1] === 'get_ssh_key') {
+			return { data: enabled ? state.key : undefined };
+		}
 		state.keysEnabled = enabled;
 		return { data: enabled ? state.keys : undefined };
 	},
@@ -40,6 +44,7 @@ beforeEach(() => {
 	Object.assign(state, {
 		available: true,
 		keys: undefined,
+		key: undefined,
 		keysEnabled: undefined,
 		values: {
 			'contents.ref': 'https://github.com/Acme/shop.git',
@@ -85,7 +90,12 @@ describe('DeployFromGitHubHint', () => {
 		const rendered = render(<DeployFromGitHubHint project="shop" watch={watch} />);
 		expect(link()).toBeNull();
 
-		state.keys = [...state.keys, { name: 'shop-key', host: 'shop-key.github.com', hostname: 'github.com' }];
+		// A listed row may carry only the name; the key's own record has its host.
+		state.keys = [...state.keys, { name: 'shop-key' }];
+		rendered.rerender(<DeployFromGitHubHint project="shop" watch={watch} />);
+		expect(link()).toBeNull();
+
+		state.key = { name: 'shop-key', host: 'shop-key.github.com', hostname: 'github.com' };
 		rendered.rerender(<DeployFromGitHubHint project="shop" watch={watch} />);
 		expect(link()?.getAttribute('href')).toContain('repository=Acme%2Fshop');
 	});

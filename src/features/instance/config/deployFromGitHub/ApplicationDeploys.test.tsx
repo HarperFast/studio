@@ -313,6 +313,14 @@ describe('ApplicationDeploys', () => {
 		expect(screen.getByRole('button', { name: 'Set up deploys' })).toBeTruthy();
 	});
 
+	it("offers no rerun for a missing user when the cluster's URL, and so the policy's audience, can't be checked", async () => {
+		Object.assign(cluster, { operationsUrl: undefined, roles: [role()], users: [], policies: [storedPolicy()] });
+		renderPanel();
+		expect(await screen.findByText(/Its audience could not be checked/)).toBeTruthy();
+		expect(screen.getByText(/Setting up again refuses until the problems above are fixed/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Finish setup' })).toBeNull();
+	});
+
 	it("can't set up without the cluster's own URL, which the token is requested for", async () => {
 		cluster.operationsUrl = undefined;
 		renderPanel();

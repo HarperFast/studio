@@ -37,7 +37,6 @@ export function ImportInstructions({
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
 	importFailure?: ImportFailure;
 	isImportingApplication: boolean;
-	/** The name it imports as, which Deploy from GitHub then sets up. */
 	project: string;
 	setValue: UseFormSetValue<z.infer<typeof NewApplicationSchema>>;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;

@@ -8,7 +8,6 @@ export interface CLIStep {
 	note?: string;
 }
 
-/** The template chosen on the Templates tab, for create-harper's `--template`. */
 export interface CLITemplate {
 	id: string;
 	name: string;

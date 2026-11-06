@@ -22,7 +22,6 @@ export function TemplateInstructions({
 	control: Control<z.infer<typeof NewApplicationSchema>>;
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
 	isCreatingFromTemplate: boolean;
-	/** Opens the Harper CLI tab with the chosen template. */
 	onCreateWithCLI: () => void;
 }) {
 	// A template made here lives only on the cluster; one made with the CLI starts as a project of its own.
