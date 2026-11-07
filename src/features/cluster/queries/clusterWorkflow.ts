@@ -1,5 +1,4 @@
-// Central manager's read-only customer view of a cluster's workflow, `GET /Cluster/<id>/workflow`: the one holding the
-// cluster, else the last one that did. Not in the OpenAPI document yet, so the shape is written here.
+// `GET /Cluster/<id>/workflow` is not in the OpenAPI document yet, so its shape is written here.
 import { apiClient } from '@/config/apiClient';
 import { errorStatus } from '@/lib/errorStatus';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
@@ -47,14 +46,15 @@ export function latestClusterWorkflowQueryOptions(clusterId: string | undefined,
 			return {
 				...row,
 				failedInstanceIds: Array.isArray(row.failedInstanceIds)
-					? row.failedInstanceIds.filter((id) => typeof id === 'string')
+					? row.failedInstanceIds.filter((id) => typeof id === 'string' && id.length > 0)
 					: [],
 			} as ClusterWorkflow;
 		},
 		enabled: !!clusterId,
 		retry: false,
-		// An optional read beside the page: a failure is logged, never toasted.
 		meta: { reportsOwnFailure: true },
+		// The interval is the only refetch: a null answer must not be asked again on focus or remount.
+		staleTime: Infinity,
 		refetchInterval: (query) => (query.state.data === null ? false : poll(query)),
 	});
 }

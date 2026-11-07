@@ -17,7 +17,6 @@ vi.mock('@tanstack/react-router', () => {
 	};
 });
 vi.mock('@/components/SubNavMenu', () => ({ SubNavMenu: () => null }));
-// The overview reads `GET /Cluster/<id>/workflow` only while the cluster is being deleted.
 const apiGet = vi.hoisted(() => vi.fn());
 vi.mock('@/config/apiClient', () => ({ apiClient: { get: apiGet } }));
 vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({

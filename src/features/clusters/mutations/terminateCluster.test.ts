@@ -16,7 +16,6 @@ const { describeTermination, terminateCluster, terminationStarted } = await impo
 type SetArgs = Parameters<typeof authStore.setUserForIdAndKey>;
 const ENTITIES = ['clu-1', 'ins-1', 'ins-2', 'clu-2'];
 const DELETED = { data: { id: 'clu-1', deleted: true } };
-// central-manager#1134: the delete is admitted as a workflow and answered before the teardown.
 const ADMITTED = { data: { id: 'clu-1', workflowId: 'wf-1', status: 'TERMINATING' } };
 // The organization's cluster list carries no instances; the cluster record does.
 const RECORD = { data: { id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1' }, { id: 'ins-2' }] } };
@@ -64,12 +63,14 @@ describe(terminateCluster, () => {
 		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 	});
 
-	it('forgets the sign-ins just the same when central manager only admitted the delete', async () => {
+	it('logs the hosts out, as well as forgetting them, when central manager only admitted the delete', async () => {
+		// They serve until each confirms its teardown, and keep serving if the delete pauses.
 		apiDelete.mockResolvedValue(ADMITTED);
 
 		await expect(terminateCluster('clu-1')).resolves.toEqual(ADMITTED.data);
 
 		await vi.waitFor(() => expect(rememberedEntities()).toEqual(['clu-2']));
+		expect(loggedOut()).toEqual(['clu-1', 'ins-1', 'ins-2']);
 	});
 
 	it('forgets sign-ins only another tab remembers', async () => {

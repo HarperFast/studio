@@ -6,12 +6,10 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-/** What `DELETE /Cluster/:id` answers; central manager has answered two ways (`terminationStarted`). */
+/** What `DELETE /Cluster/:id` answers, under either contract (`terminationStarted`). */
 export interface TerminateClusterResult {
 	id?: string;
-	/** The teardown ran inside the request and is done. */
 	deleted?: boolean;
-	/** The delete is a durable workflow, admitted but not finished (central-manager#1134). */
 	workflowId?: string;
 	status?: string;
 }
@@ -19,8 +17,9 @@ export interface TerminateClusterResult {
 export async function terminateCluster(clusterId: string): Promise<TerminateClusterResult> {
 	const before = readCluster(clusterId);
 	const { data } = await apiClient.delete(`/Cluster/${clusterId}` as '/Cluster/{id}', { timeout: 0 });
-	void forgetSignIns(clusterId, before);
-	return data as unknown as TerminateClusterResult;
+	const result = data as unknown as TerminateClusterResult;
+	void forgetSignIns(clusterId, before, terminationStarted(result));
+	return result;
 }
 
 /**
@@ -49,14 +48,16 @@ export function describeTermination(result: TerminateClusterResult | undefined, 
  * The organization's cluster list carries no instances, so they come from the cluster record: read alongside the DELETE,
  * or read back after it, since central manager keeps a terminated cluster's record and its instances. Without either
  * read nothing is forgotten, since the cluster might be self-hosted: a Fabric cluster's go on its next visit
- * (`ClusterLayout`), a self-hosted one's at the next app sign-out.
+ * (`ClusterLayout`), a self-hosted one's at the next app sign-out. A delete that was only admitted leaves the hosts
+ * serving until each confirms its teardown, and a paused one keeps them, so those get a logout like a self-hosted
+ * removal's; a torn-down cluster's are forgotten without one.
  */
-async function forgetSignIns(clusterId: string, before: Promise<Cluster | undefined>): Promise<void> {
+async function forgetSignIns(clusterId: string, before: Promise<Cluster | undefined>, hostsMayServe: boolean) {
 	const cluster = await before ?? await readCluster(clusterId);
 	if (!cluster) {
 		return;
 	}
-	if (clusterIsSelfManaged(cluster)) {
+	if (hostsMayServe || clusterIsSelfManaged(cluster)) {
 		await authStore.signOutEntities(clusterSignInIds(cluster));
 	} else {
 		authStore.signOutEntitiesLocally(clusterSignInIds(cluster));
@@ -77,7 +78,6 @@ export function useTerminateClusterMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (clusterId: string) => terminateCluster(clusterId),
-		// The cluster record now reads TERMINATING (or TERMINATED); a cached RUNNING one would still offer its actions.
 		onSuccess: (_result, clusterId) => queryClient.invalidateQueries({ queryKey: [clusterId], exact: true }),
 	});
 }

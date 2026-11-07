@@ -141,12 +141,13 @@ confirmed its teardown, then `TERMINATED`; an older central manager still answer
 teardown ran. `terminationStarted` ([`terminateCluster.ts`](../clusters/mutations/terminateCluster.ts)) is the one test
 that tells the two apart, so a success toast claims the cluster is gone only on the older answer. A `TERMINATING`
 cluster stays in the organization's list (which polls), its card opens the overview, and it leaves the free-plan count
-(`organizationUsesFreePlan`) the way a terminated one does, since central manager frees the plan at admission. A delete
+(`organizationUsesFreePlan`) the way a terminated one does, since central manager frees the plan at admission; its hosts
+serve until each confirms, so Studio's own terminate logs them out rather than only forgetting them. A delete
 that stops leaves the cluster `TERMINATING` with the workflow paused; the overview reads `GET /Cluster/:id/workflow`
 ([`clusterWorkflow.ts`](queries/clusterWorkflow.ts)) only while the cluster is `TERMINATING` and
 [`ClusterDeleteNotice`](components/ClusterDeleteNotice.tsx) names the members that did not confirm. A 404 is a
 cluster that never had a workflow, or a central manager without the read: the notice shows nothing and the read stops,
-so the older contract costs one request and no toast.
+so the older contract costs one request and no toast (the read is never stale, so neither focus nor a remount repeats it).
 
 A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
 sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a
@@ -155,16 +156,20 @@ sign-in reached through the Fabric Connect proxy), and forgets the sign-in witho
 keeps its session. Removed elsewhere, its sign-ins stay until an app sign-out logs them out.
 
 None of the hidden pages can do anything there. Central manager's `assertClusterMutable` refuses every update to a cluster
-that isn't `RUNNING`, and the instances are torn down, along with the certificates issued on them. Nor is anything left
-to unbind under Domains: once the instances are torn down, `deleteCluster` sets `clusterId` to null on each of the
-cluster's domains, so the organization can bind them to another cluster or delete them
-([`deleteCluster.js#L133-L141`](https://github.com/HarperFast/central-manager/blob/642af5eadfde95cf174d73d04cec468abaf006f2/src/resources/cluster/deleteCluster.js#L133-L141)).
-It leaves the cluster's own `domainIds` in place, so a terminated cluster's `domains` still lists them, though none is
-bound to it any more.
+that isn't `RUNNING`, which covers `TERMINATING` too, and once the cluster is `TERMINATED` the instances are torn down,
+along with the certificates issued on them. A `TERMINATING` cluster's instances may still serve, while its delete is
+paused: that is why an admitted delete sends them a logout (above) and why the guards, not the teardown, are what keep
+the pages closed. Nor is anything left to unbind under Domains once the cluster is `TERMINATED`: the delete sets
+`clusterId` to null on each of the cluster's domains, so the organization can bind them to another cluster or delete
+them. It leaves the cluster's own `domainIds` in place, so a terminated cluster's `domains` still lists them, though
+none is bound to it any more.
 
-That unbind is best-effort and runs after the teardown is committed, so a failure is only logged. A domain it missed
-stays bound to the dead cluster, and only support can release it: `DELETE /Domain` refuses a bound domain, and the
-cluster can no longer change.
+Before the workflow delete, that unbind was best-effort and ran after the teardown was committed, so a failure was only
+logged and a domain it missed stayed bound to the dead cluster, which only support could release: `DELETE /Domain`
+refuses a bound domain, and the cluster can no longer change
+([`deleteCluster.js#L133-L141`](https://github.com/HarperFast/central-manager/blob/642af5eadfde95cf174d73d04cec468abaf006f2/src/resources/cluster/deleteCluster.js#L133-L141)).
+The workflow delete's `releaseDomains` step fails on a domain that stays bound, which pauses the delete before the
+cluster reads `TERMINATED`: the overview then shows the paused delete even though every member is gone.
 
 ## Custom domains: cert intent is cluster-wide, and certificate progress is polled
 

@@ -6,7 +6,6 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { get: apiGet } }));
 
 const { latestClusterWorkflowQueryOptions } = await import('./clusterWorkflow');
 
-/** The subset of `Query` the `refetchInterval` callback reads. */
 type PolledQuery = { state: { data?: unknown; error: unknown } };
 
 function axiosErrorWithStatus(status: number): AxiosError {
@@ -69,6 +68,15 @@ describe(latestClusterWorkflowQueryOptions, () => {
 	it('treats a body without an id or status as no workflow', async () => {
 		apiGet.mockResolvedValue({ data: { id: 'wf-1' } });
 		await expect(read()).resolves.toBeNull();
+	});
+
+	it('never refetches a settled answer on focus or remount: the interval is the only refetch', () => {
+		expect(latestClusterWorkflowQueryOptions('clu-1', 'wf-1').staleTime).toBe(Infinity);
+	});
+
+	it('drops an empty instance id, which no sentence could name', async () => {
+		apiGet.mockResolvedValue({ data: { ...ROW, failedInstanceIds: ['', 'ins-1'] } });
+		await expect(read()).resolves.toMatchObject({ failedInstanceIds: ['ins-1'] });
 	});
 
 	it('is keyed by the cluster and the workflow holding it, and disabled without a cluster', () => {

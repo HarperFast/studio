@@ -156,7 +156,6 @@ describe('cluster list model', () => {
 		);
 		expect(model.items.map(item => item.cluster.id)).toEqual(['RUNNING', 'FAILED', 'STOPPED', 'TERMINATING']);
 		expect(model.counts).toEqual({ running: 1, failed: 1, attention: 1, other: 1 });
-		// A delete is admitted before the teardown (central-manager#1134): the cluster reads as deleting until it is gone.
 		expect(model.items[3]).toMatchObject({ label: 'Terminating', category: 'other', notices: [] });
 	});
 
