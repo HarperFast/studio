@@ -146,8 +146,10 @@ serve until each confirms, so Studio's own terminate logs them out rather than o
 that stops leaves the cluster `TERMINATING` with the workflow paused; the overview reads `GET /Cluster/:id/workflow`
 ([`clusterWorkflow.ts`](queries/clusterWorkflow.ts)) only while the cluster is `TERMINATING` and
 [`ClusterDeleteNotice`](components/ClusterDeleteNotice.tsx) names the members that did not confirm. A 404 is a
-cluster that never had a workflow, or a central manager without the read: the notice shows nothing and the read stops,
-so the older contract costs one request and no toast (the read is never stale, so neither focus nor a remount repeats it).
+cluster that never had a workflow, or a central manager without the read: the notice shows nothing, and the read is
+repeated only while a workflow holds the cluster (`Cluster.workflowId`), where such an answer is a passing anomaly. So
+the older contract, which never holds one, costs one request and no toast (the read is never stale, so neither focus nor
+a remount repeats it).
 
 A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
 sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a

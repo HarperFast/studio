@@ -172,7 +172,6 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	// running) opens the cluster overview like a normal cluster.
 	// A managed cluster mid-build or mid-update opens the screen tracking it, for every viewer — Starting-up
 	// explains the 403 central manager gives non-admins until a new cluster's setup is finished.
-	// A cluster being deleted stays listed until it is torn down; its overview shows the delete's state.
 	const progressHref = isTerminating
 		? `/${cluster.organizationId}/${cluster.id}`
 		: isSelfManaged

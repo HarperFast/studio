@@ -141,7 +141,8 @@ describe(ClusterDeleteNotice, () => {
 			const refused = new AxiosError(`Request failed with status code ${status}`);
 			refused.response = { status } as AxiosError['response'];
 			apiGet.mockRejectedValue(refused);
-			await renderNotice(cluster());
+			// Such a central manager holds no workflow on the cluster either.
+			await renderNotice(cluster({ workflowId: undefined }));
 			expect(screen.queryByRole('status')).toBeNull();
 			expect(apiGet).toHaveBeenCalledTimes(1);
 		},
@@ -169,7 +170,6 @@ describe(describeDeleteFailure, () => {
 				{ id: 'ins-3', name: '' },
 			],
 		} as Partial<Cluster>);
-		// ins-10's name contains ins-1; ins-2 is mentioned without failing; ins-3 has no name; ins-9 is unknown.
 		expect(
 			describeDeleteFailure(
 				paused({

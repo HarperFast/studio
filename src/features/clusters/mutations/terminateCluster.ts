@@ -6,7 +6,6 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-/** What `DELETE /Cluster/:id` answers, under either contract (`terminationStarted`). */
 export interface TerminateClusterResult {
 	id?: string;
 	deleted?: boolean;
@@ -31,7 +30,6 @@ export function terminationStarted(result: TerminateClusterResult | undefined): 
 	return result?.deleted !== true;
 }
 
-/** The success toast's text for either answer; a self-hosted cluster is removed from Fabric, not torn down. */
 export function describeTermination(result: TerminateClusterResult | undefined, selfManaged: boolean): string {
 	if (!terminationStarted(result)) {
 		return selfManaged ? 'Cluster successfully removed.' : 'Cluster successfully terminated.';
@@ -78,6 +76,9 @@ export function useTerminateClusterMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (clusterId: string) => terminateCluster(clusterId),
-		onSuccess: (_result, clusterId) => queryClient.invalidateQueries({ queryKey: [clusterId], exact: true }),
+		// Not awaited: a caller's own success callback, which may navigate, must not wait on the refetch.
+		onSuccess: (_result, clusterId) => {
+			void queryClient.invalidateQueries({ queryKey: [clusterId], exact: true });
+		},
 	});
 }

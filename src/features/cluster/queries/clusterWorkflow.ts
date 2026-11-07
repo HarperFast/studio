@@ -20,9 +20,9 @@ const POLL_MS = 10_000;
 
 /**
  * Keyed by the workflow holding the cluster, so the read starts over when one claims or releases it, and polled only
- * while one holds it. Null, which also ends the poll, is a central manager that has no workflow to show: a 404 for a
- * cluster that never had one or that the user can't see, and a 400 from one older than the endpoint, whose operations
- * proxy refuses the path.
+ * while one holds it. Null is a central manager with no workflow to show: a 404 for a cluster that never had one or that
+ * the user can't see, and a 400 from one older than the endpoint, whose operations proxy refuses the path. While a
+ * workflow holds the cluster, such an answer is a passing anomaly, so the poll goes on.
  */
 export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy?: string | null) {
 	const poll = pollUnlessForbidden(heldBy ? POLL_MS : false);
@@ -53,8 +53,8 @@ export function latestClusterWorkflowQueryOptions(clusterId: string | undefined,
 		enabled: !!clusterId,
 		retry: false,
 		meta: { reportsOwnFailure: true },
-		// The interval is the only refetch: a null answer must not be asked again on focus or remount.
+		// The interval is the only refetch: a null answer is not asked again on focus or remount.
 		staleTime: Infinity,
-		refetchInterval: (query) => (query.state.data === null ? false : poll(query)),
+		refetchInterval: poll,
 	});
 }

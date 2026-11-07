@@ -43,19 +43,20 @@ describe(latestClusterWorkflowQueryOptions, () => {
 		expect(apiGet).toHaveBeenCalledWith('/Cluster/clu-1/workflow');
 	});
 
-	it('answers null for a 404 (a cluster without a workflow) and for the 400 of a central manager older than the read, and then stops polling', async () => {
+	it('answers null for a 404 (a cluster without a workflow) and for the 400 of a central manager older than the read', async () => {
 		apiGet.mockRejectedValue(axiosErrorWithStatus(404));
 		await expect(read()).resolves.toBeNull();
 		// Before the endpoint, the path falls through to the operations proxy, which refuses its shape.
 		apiGet.mockRejectedValue(axiosErrorWithStatus(400));
 		await expect(read()).resolves.toBeNull();
-		expect(interval(null)).toBe(false);
 	});
 
-	it('polls every 10s while a workflow holds the cluster, from the first read on, and reads once otherwise', () => {
+	it('polls every 10s while a workflow holds the cluster, a null answer included, and reads once otherwise', () => {
 		expect(interval(undefined)).toBe(10_000);
 		expect(interval({ ...ROW, failedInstanceIds: [] })).toBe(10_000);
+		expect(interval(null)).toBe(10_000);
 		expect(interval(undefined, null, null)).toBe(false);
+		expect(interval(null, null, null)).toBe(false);
 	});
 
 	it('lets any other failure through, logged by the query client rather than toasted, and stops on a 403', async () => {

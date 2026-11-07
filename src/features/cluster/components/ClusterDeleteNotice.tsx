@@ -7,10 +7,7 @@ import { CloudOffIcon, PauseCircleIcon, TriangleAlertIcon } from 'lucide-react';
 
 const DELETE_WORKFLOW = 'DELETE_CLUSTER';
 
-/**
- * A delete that stopped: central manager leaves the cluster `TERMINATING` and pauses the delete when a member did not
- * confirm its teardown, and `GET /Cluster/:id/workflow` names the members. Read only while the cluster is `TERMINATING`.
- */
+/** A delete that stopped: central manager pauses it with the cluster left `TERMINATING`, and its workflow read names the members. */
 export function ClusterDeleteNotice({ cluster, className }: { cluster: Cluster; className?: string }) {
 	const terminating = cluster.status === 'TERMINATING';
 	const { data: workflow, isError } = useQuery({
@@ -56,9 +53,8 @@ export function ClusterDeleteNotice({ cluster, className }: { cluster: Cluster; 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Central manager's sentence names members by id; the cluster record, which it keeps, has their names. Every id the
- * record knows is swapped in one pass, so a swapped-in name is never scanned again, and an id inside a longer one, or
- * one the message mentions without failing, is never mistaken. Without a sentence, the failed members' names alone.
+ * Every id the cluster record knows is swapped for its name in one pass, so a swapped-in name is never scanned again,
+ * and an id inside a longer one, or one the sentence mentions without failing, is never mistaken.
  */
 export function describeDeleteFailure(workflow: ClusterWorkflow, cluster: Pick<Cluster, 'instances'>): string {
 	const names = new Map<string, string>();
