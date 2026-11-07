@@ -6,6 +6,7 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterCustomRegions } from '@/features/cluster/components/ClusterCustomRegions';
+import { ClusterDeleteNotice } from '@/features/cluster/components/ClusterDeleteNotice';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
@@ -56,6 +57,7 @@ export function ClusterHome() {
 	if (isDeletedCluster(cluster)) {
 		return (
 			<ClusterHomeShell>
+				<ClusterDeleteNotice cluster={cluster} className="mb-6" />
 				<ClusterTerminated cluster={cluster} />
 			</ClusterHomeShell>
 		);

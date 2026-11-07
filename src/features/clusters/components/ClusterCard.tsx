@@ -15,7 +15,7 @@ import { ClusterContainerOpModals } from '@/features/clusters/components/Cluster
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
-import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { describeTermination, useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -94,6 +94,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		() => !!(cluster.status && deletedClusterStatuses.includes(cluster.status)),
 		[cluster.status],
 	);
+	const isTerminating = cluster.status === 'TERMINATING';
 	const clusterHasFailed = useMemo(
 		() => !!(cluster.status && isFailed(cluster.status)),
 		[cluster.status],
@@ -129,16 +130,14 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const handleTerminatedCluster = useCallback(() => {
 		const organizationId = cluster.organizationId;
 		terminateCluster(cluster.id, {
-			onSuccess: async () => {
+			onSuccess: async (result) => {
 				await queryClient.invalidateQueries({
 					queryKey: [organizationId],
 					refetchType: 'active',
 				});
 				await router.invalidate();
 				toast.success('Success', {
-					description: isSelfManaged
-						? `Cluster successfully removed.`
-						: `Cluster successfully terminated.`,
+					description: describeTermination(result, isSelfManaged),
 					duration: 5000,
 					action: {
 						label: 'Dismiss',
@@ -173,14 +172,18 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	// running) opens the cluster overview like a normal cluster.
 	// A managed cluster mid-build or mid-update opens the screen tracking it, for every viewer — Starting-up
 	// explains the 403 central manager gives non-admins until a new cluster's setup is finished.
-	const progressHref = isSelfManaged
+	// A cluster being deleted stays listed until central manager has torn it down (central-manager#1134); its overview
+	// is where that progress, and a delete that stopped, show.
+	const progressHref = isTerminating
+		? `/${cluster.organizationId}/${cluster.id}`
+		: isSelfManaged
 		? undefined
 		: cluster.status === 'PROVISIONING'
 		? `/${cluster.organizationId}/${cluster.id}/starting-up`
 		: cluster.status === 'UPDATING'
 		? `/${cluster.organizationId}/${cluster.id}/scaling`
 		: undefined;
-	const cardHref = !view || isTerminated
+	const cardHref = !view || (isTerminated && !isTerminating)
 		? undefined
 		: progressHref
 		? progressHref

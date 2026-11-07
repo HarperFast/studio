@@ -400,10 +400,12 @@ export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceF
 
 export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// TODO: Can we return enums from the server to make this easier?
-	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
+	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
 	plans?: RegionPlan[];
+	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
+	workflowId?: string | null;
 }
 
 export interface ClusterSyncSummary {

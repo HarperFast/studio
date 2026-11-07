@@ -135,6 +135,19 @@ credentials. A sign-in left behind is not harmless. Each app sign-out posts a lo
 one reached through the Fabric Connect proxy (the root `DESIGN.md` says why), and a stored Basic Auth credential would
 stay in localStorage for good.
 
+Since central manager runs a delete as a durable workflow (central-manager#1134), `DELETE /Cluster/:id` answers at
+admission with `{ id, workflowId, status: 'TERMINATING' }` and the cluster reads `TERMINATING` until every member has
+confirmed its teardown, then `TERMINATED`; an older central manager still answers `{ id, deleted: true }` once the
+teardown ran. `terminationStarted` ([`terminateCluster.ts`](../clusters/mutations/terminateCluster.ts)) is the one test
+that tells the two apart, so a success toast claims the cluster is gone only on the older answer. A `TERMINATING`
+cluster stays in the organization's list (which polls), its card opens the overview, and it leaves the free-plan count
+(`organizationUsesFreePlan`) the way a terminated one does, since central manager frees the plan at admission. A delete
+that stops leaves the cluster `TERMINATING` with the workflow paused; the overview reads `GET /Cluster/:id/workflow`
+([`clusterWorkflow.ts`](queries/clusterWorkflow.ts)) only while the cluster is `TERMINATING` and
+[`ClusterDeleteNotice`](components/ClusterDeleteNotice.tsx) names the members that did not confirm. A 404 is a
+cluster that never had a workflow, or a central manager without the read: the notice shows nothing and the read stops,
+so the older contract costs one request and no toast.
+
 A self-hosted cluster removed from Fabric is never cleared on render. Its servers may still run, and forgetting their
 sign-ins locally would leave their cookie sessions open. Removing one from Studio sends each remembered sign-in's server a
 logout the way app sign-out does (`signOutEntities`: one attempt, a 10s timeout, not awaited by the removal, none for a
