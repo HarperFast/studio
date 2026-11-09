@@ -3,6 +3,7 @@ import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
@@ -16,6 +17,7 @@ import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
 	CalendarClockIcon,
+	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -49,6 +51,7 @@ export function ConfigIndex() {
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
+	const backupsSupported = supportsBackups(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -60,6 +63,18 @@ export function ConfigIndex() {
 	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
 	const children = canManage && (
 		<>
+			{backupsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/backups')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<DatabaseBackupIcon className="hidden md:inline-block" /> <span className="ms-3">Backups</span>
+					</Link>
+				</li>
+			)}
 			{certsAvailable && (
 				<li>
 					<Link
