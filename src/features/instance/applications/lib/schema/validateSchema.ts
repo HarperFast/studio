@@ -10,6 +10,7 @@
  * and a blank-named field is skipped by `generateTable`, so neither can reach the
  * file — flagging them would just nag about work in progress.
  */
+import { fullTextErrors } from './fullText';
 import { GRAPHQL_NAME_HINT, isValidGraphqlName } from './graphqlName';
 import { SchemaDocument, TableModel } from './types';
 
@@ -18,7 +19,9 @@ export type SchemaErrorCode =
 	| 'DUPLICATE_TABLE_NAME'
 	| 'NO_FIELDS'
 	| 'INVALID_FIELD_NAME'
-	| 'DUPLICATE_FIELD_NAME';
+	| 'DUPLICATE_FIELD_NAME'
+	/** A `FullText` field or `@fullText` declaration Harper would refuse (see `./fullText`). */
+	| 'INVALID_FULL_TEXT';
 
 export interface SchemaValidationError {
 	tableId: string;
@@ -85,6 +88,9 @@ export function validateTable(table: TableModel, duplicateTableNames: Set<string
 				code: 'DUPLICATE_FIELD_NAME',
 				message: `Another field is already named “${field.name}”.`,
 			});
+		}
+		for (const message of fullTextErrors(field, table)) {
+			errors.push({ ...anchor, code: 'INVALID_FULL_TEXT', message });
 		}
 	}
 

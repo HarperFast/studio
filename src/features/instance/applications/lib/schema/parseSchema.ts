@@ -348,6 +348,17 @@ function skipInlineWhitespace(src: string, i: number): number {
 }
 
 /**
+ * Skip spaces/tabs, and also line breaks when the next thing after them is a directive, so a field's
+ * directives may continue onto following lines. Otherwise stops at the end of the line, which keeps
+ * an inline `# …` comment attached to the field.
+ */
+function skipToContinuedDirective(src: string, i: number): number {
+	const inline = skipInlineWhitespace(src, i);
+	const ahead = skipWhitespace(src, inline);
+	return src[ahead] === '@' ? ahead : inline;
+}
+
+/**
  * Parse the fields between a type body's braces; return null if anything is
  * malformed. Comment/description lines that trail the last field (no field
  * follows them) are returned as `trailingComments` so they survive regeneration.
@@ -395,9 +406,11 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 			return null;
 		}
 		i = typeRef.end;
-		// Same-line directives.
+		// Directives, on the field's line or continuing onto the next ones — Harper's docs put a long
+		// `@fullText(...)` on the line below its field. A field name can't start with `@`, so a line
+		// that does continues this field.
 		const directiveStart = i;
-		i = skipInlineWhitespace(body, i);
+		i = skipToContinuedDirective(body, i);
 		while (body[i] === '@') {
 			i++;
 			while (i < body.length && isIdentChar(body[i])) {
@@ -411,8 +424,7 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 				}
 				j = end;
 			}
-			i = j;
-			i = skipInlineWhitespace(body, i);
+			i = skipToContinuedDirective(body, j);
 		}
 		const directives = parseDirectives(body.slice(directiveStart, i));
 		// Inline trailing comment.

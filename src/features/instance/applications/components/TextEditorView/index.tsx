@@ -13,15 +13,17 @@ import {
 	getComponentFileQueryKey,
 	type GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
-import { hashKey, useQueryClient } from '@tanstack/react-query';
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
+import { setHarperGraphqlVersion } from './harper-language/graphql';
 import './monaco-customizations.css';
 
 const extensionToLanguageMap: Record<string, string> = {
@@ -146,6 +148,12 @@ export function TextEditorView() {
 	const handleEditorWillMount: EditorProps['beforeMount'] = useCallback((monaco) => {
 		configureHarperLanguageSupport(monaco);
 	}, []);
+
+	// Schema completions offer only what this instance's Harper has (`FullText` from 5.3.0).
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	useEffect(() => {
+		setHarperGraphqlVersion(registrationInfo?.version);
+	}, [registrationInfo?.version]);
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		setMounted([editor, monaco]);

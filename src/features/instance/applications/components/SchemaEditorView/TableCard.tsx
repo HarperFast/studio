@@ -8,8 +8,10 @@
  */
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { FULL_TEXT_TYPE } from '@/features/instance/applications/lib/schema/fullText';
 import {
 	createField,
+	fieldBaseType,
 	getArgValue,
 	hasDirective,
 	setBoolArg,
@@ -35,6 +37,7 @@ const KNOWN_TABLE_DIRECTIVES = new Set(['table', 'export', 'sealed']);
 export function TableCard({
 	table,
 	typeNames,
+	harperVersion,
 	readOnly,
 	errors,
 	defaultCollapsed,
@@ -43,6 +46,8 @@ export function TableCard({
 }: {
 	table: TableModel;
 	typeNames: string[];
+	/** The instance's Harper version; `undefined` when it can't be read. */
+	harperVersion?: string;
 	readOnly: boolean;
 	/** Validation errors for this table (from `validateSchema`), used for inline highlighting. */
 	errors: SchemaValidationError[];
@@ -73,6 +78,7 @@ export function TableCard({
 	const fieldErrors = new Map(errors.filter(e => e.fieldKey).map(e => [e.fieldKey, e.message]));
 	const preserved = table.directives.filter(directive => !KNOWN_TABLE_DIRECTIVES.has(directive.name));
 	const fieldCount = table.fields.length;
+	const fullTextCount = table.fields.filter(field => fieldBaseType(field) === FULL_TEXT_TYPE).length;
 
 	return (
 		<Card>
@@ -93,6 +99,7 @@ export function TableCard({
 						<span className="text-xs text-muted-foreground">
 							{fieldCount} field{fieldCount === 1 ? '' : 's'}
 							{exported ? ' · REST' : ''}
+							{fullTextCount > 0 ? ` · ${fullTextCount} full-text index${fullTextCount === 1 ? '' : 'es'}` : ''}
 						</span>
 						{errors.length > 0 && (
 							<span className="text-xs font-medium text-destructive">
@@ -248,8 +255,11 @@ export function TableCard({
 									<FieldRow
 										key={field.key ?? index}
 										field={field}
+										table={table}
 										typeNames={typeNames}
+										harperVersion={harperVersion}
 										readOnly={readOnly}
+										onEnableAudit={() => setBool('table', 'audit', true, false)}
 										disableRemove={fieldCount === 1}
 										error={field.key ? fieldErrors.get(field.key) : undefined}
 										onChange={next =>

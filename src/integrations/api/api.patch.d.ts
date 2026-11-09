@@ -443,6 +443,34 @@ export interface InstanceTable {
 	db_audit_size: number;
 	last_updated_record?: number;
 	attributes: InstanceAttribute[];
+	/**
+	 * The table's full-text indexes (Harper 5.3+), each with its readiness on the node that answered.
+	 * An index's sources are filtered to those the caller can read, and an index with none is left out.
+	 * A `FullText` field never appears in `attributes`.
+	 */
+	full_text_indexes?: FullTextIndexDescription[];
+}
+
+/** One entry of `describe_table`'s `full_text_indexes` (harper `dataLayer/schemaDescribe.ts`, v5.3). */
+export interface FullTextIndexDescription {
+	/** The `FullText` field's name, which is what a search condition names. */
+	name: string;
+	fields: Array<{ name: string; weight: number; media_type?: string; highlight?: true }>;
+	analyzer: string;
+	stop_words: boolean;
+	positions: boolean;
+	surface_terms: boolean;
+	synonyms: Array<{ source: string; replacements: string[] }>;
+	/** `false` when the index doesn't highlight; a search that asks for highlights is then refused. */
+	highlighting: false | { maxFragments: number; fragmentLength: number };
+	/** Which modes this index answers: `any`, `all` and `fuzzy` always; `phrase` with positions; `prefix` and `fuzzy-prefix` with surface terms. */
+	query_modes: string[];
+	readiness: {
+		state: 'unknown' | 'ready' | 'rebuilding' | 'needs-rebuild' | 'unavailable' | string;
+		reason?: string;
+		owner_epoch: string;
+		rebuild_attempts: number;
+	};
 }
 
 export interface InstanceAttribute {

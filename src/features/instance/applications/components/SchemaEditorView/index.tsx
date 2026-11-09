@@ -15,13 +15,16 @@ import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { FullTextIndexChange, fullTextIndexChanges } from '@/features/instance/applications/lib/schema/fullText';
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
 import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import { useQuery } from '@tanstack/react-query';
 import { CodeIcon, PlusIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { TextEditorView } from '../TextEditorView';
@@ -62,6 +65,8 @@ function LoadedSchemaEditorView({
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
+	// Offers `FullText` only where Harper has it (5.3.0+); an unreadable version offers it.
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 
 	const buffer = updatedFileContent ?? savedContents;
 
@@ -155,6 +160,12 @@ function LoadedSchemaEditorView({
 	const tables = useMemo(() => documentTables(doc), [doc]);
 	const typeNames = useMemo(() => tables.map(table => table.typeName).filter(Boolean), [tables]);
 	const showPreservedHint = useMemo(() => hasUnmodeledContent(doc), [doc]);
+	// Said before the save rather than after: once saved, each node rebuilds its own index and
+	// full-text searches on it can fail until it's done.
+	const fullTextChanges = useMemo(
+		() => (serialized === savedContents ? [] : fullTextIndexChanges(parseDocument(savedContents), doc)),
+		[serialized, savedContents, doc],
+	);
 
 	// Invalid states (empty tables, bad/duplicate names) would serialize to SDL
 	// Harper rejects, breaking the whole schema. Surface them and block Save so the
@@ -234,6 +245,8 @@ function LoadedSchemaEditorView({
 						</Alert>
 					)}
 
+					{fullTextChanges.length > 0 && <FullTextRebuildNotice changes={fullTextChanges} />}
+
 					{tables.length === 0 && (
 						<div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
 							<p>No tables yet.</p>
@@ -246,6 +259,7 @@ function LoadedSchemaEditorView({
 							key={table.id}
 							table={table}
 							typeNames={typeNames}
+							harperVersion={registrationInfo?.version}
 							readOnly={readOnly}
 							errors={errorsByTable.get(table.id) ?? []}
 							defaultCollapsed={!table.id.startsWith('new-')}
@@ -285,5 +299,32 @@ function LoadedSchemaEditorView({
 				</Button>
 			</div>
 		</>
+	);
+}
+
+function FullTextRebuildNotice({ changes }: { changes: FullTextIndexChange[] }) {
+	const rebuilds = changes.some(change => change.kind === 'rebuild');
+	return (
+		<Alert variant="warning">
+			<TriangleAlertIcon />
+			<AlertTitle>
+				Saving {rebuilds ? 'rebuilds' : 'builds'} {changes.length === 1 ? 'a full-text index' : 'full-text indexes'}
+			</AlertTitle>
+			<AlertDescription>
+				<ul className="list-disc pl-4">
+					{changes.map(change => (
+						<li key={`${change.tableName}.${change.indexName}`}>
+							<span className="font-medium">{change.tableName} → {change.indexName}</span>: {change.kind === 'rebuild'
+								? 'rebuilt from the table’s records'
+								: 'a new index, built from the table’s records'}
+						</li>
+					))}
+				</ul>
+				<p className="mt-1">
+					Each node builds its own copy, and full-text searches on {changes.length === 1 ? 'it' : 'these indexes'}{' '}
+					can fail until that node finishes.
+				</p>
+			</AlertDescription>
+		</Alert>
 	);
 }
