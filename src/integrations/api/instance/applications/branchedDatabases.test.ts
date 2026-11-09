@@ -30,6 +30,7 @@ describe('discardsDroppedBranches', () => {
 		['5.4.0-beta.2', true],
 		['5.4.0', true],
 		[undefined, undefined],
+		['unknown', undefined],
 	])('%s → %s', (version, expected) => {
 		expect(discardsDroppedBranches(version)).toBe(expected);
 	});

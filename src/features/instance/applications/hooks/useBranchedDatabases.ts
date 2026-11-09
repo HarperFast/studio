@@ -84,10 +84,7 @@ export function useBranchedDatabasesPossible(): boolean {
 	return !isSuccess || !data?.version || supportsBranchedDatabases(data.version);
 }
 
-/**
- * Whether Harper discards a dropped application's private copies by itself, or `undefined` while the version is
- * unread. A refusal leaves it unknown, which the caller words for, so it isn't toasted.
- */
+/** A refused version read leaves the answer unknown, which the caller words for, so it isn't toasted. */
 export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefined {
 	const params = useInstanceClientIdParams();
 	const { data } = useQuery({

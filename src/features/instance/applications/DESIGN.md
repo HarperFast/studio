@@ -196,8 +196,9 @@ activated, so a stage leaves the cached setting current. What follows:
   5.4.0-alpha.2 Harper deletes the copies only on a later drop, so the copy stays and a later application of the same
   name picks it up. From 5.4.0-alpha.2 Harper records the removal it owes and discards the copy by itself once no
   worker has the application loaded, usually after the next restart; a same-name application deployed before then
-  still picks it up. The delete dialog words this by version (unread: neutral), and the toast shows Harper's
-  `drop_component` answer, which says which happened.
+  still picks it up. The delete dialog words this by the answering node's version, and neutrally when that is unread or
+  doesn't parse. Harper's `drop_component` answer names "branched database storage" whenever it leaves a copy, and the
+  toast shows it.
 
 ## A live deploy is sent once
 

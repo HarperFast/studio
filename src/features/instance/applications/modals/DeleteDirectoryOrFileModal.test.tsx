@@ -77,7 +77,7 @@ vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ del
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
-/** `harperVersion` seeds the instance's `registration_info` answer, fresh, so the modal reads it without a request. */
+// A seeded answer is fresh, so the modal reads it without a request.
 function renderWithQueryClient(ui: ReactElement, harperVersion?: string) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	if (harperVersion) {
@@ -173,7 +173,18 @@ describe('DeleteDirectoryOrFileModal', () => {
 
 			const note = screen.getByText(/runs on a private copy of data/).textContent;
 			expect(note).toContain(
-				'Harper leaves those copies on disk for now, and says after the delete whether it discards them later.',
+				'Harper may leave those copies on disk. If it does, the message after the delete says so.',
+			);
+		});
+
+		it('names every application whose copies Harper will discard', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils', 'forge'];
+			currentBranches = { settings: { anvils: ['data'], forge: true }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0');
+
+			expect(screen.getByText(/runs on a private copy of data/).textContent).toContain(
+				'Harper discards those copies by itself once no worker has those applications loaded',
 			);
 		});
 
