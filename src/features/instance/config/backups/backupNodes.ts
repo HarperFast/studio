@@ -33,10 +33,15 @@ function unavailableReason(instance: Instance, operationsUrl: string | null): st
 	return undefined;
 }
 
-export function anyMemberSupportsBackups(instances: readonly Instance[] | undefined): boolean {
-	return (instances ?? []).some((instance) =>
-		!GONE_STATUSES.has(instance.status ?? '') && supportsBackups(instance.version)
+/** The Harper versions the cluster record reports for its live members. */
+export function liveMemberVersions(instances: readonly Instance[] | undefined): string[] {
+	return (instances ?? []).flatMap((instance) =>
+		!GONE_STATUSES.has(instance.status ?? '') && instance.version ? [instance.version] : []
 	);
+}
+
+export function anyMemberSupportsBackups(instances: readonly Instance[] | undefined): boolean {
+	return liveMemberVersions(instances).some(supportsBackups);
 }
 
 /**

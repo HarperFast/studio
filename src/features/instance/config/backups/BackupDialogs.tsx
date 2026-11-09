@@ -121,8 +121,7 @@ function idList(ids: readonly number[]): string {
 	return ids.length === 1 ? String(ids[0]) : `${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}`;
 }
 
-function describePurge(backups: readonly DatabaseBackup[], keepCount: number): string {
-	const removed = backupsRemovedByPurge(backups, keepCount);
+function describePurge(backups: readonly DatabaseBackup[], removed: readonly number[]): string {
 	if (removed.length === 0) {
 		return `Nothing to delete: there ${backups.length === 1 ? 'is only 1 backup' : `are only ${backups.length}`}.`;
 	}
@@ -165,7 +164,7 @@ export function PurgeBackupsDialog({ database, node, backups, onCancel, onConfir
 					{text.trim() !== '' && keepCount === undefined && (
 						<p className="text-sm text-destructive">Use a whole number of at least 1.</p>
 					)}
-					{keepCount !== undefined && <p className="text-sm" role="status">{describePurge(backups, keepCount)}</p>}
+					{keepCount !== undefined && <p className="text-sm" role="status">{describePurge(backups, removed)}</p>}
 				</div>
 				<AlertDialogFooter>
 					<AlertDialogCancel>Cancel</AlertDialogCancel>

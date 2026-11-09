@@ -387,7 +387,6 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2', hidden: true })).toBeTruthy());
 		expect(screen.queryByRole('alertdialog')).toBeNull();
 
-		// Back on the database it was opened for, it stays closed.
 		fireEvent.change(screen.getByRole('combobox', { name: 'Database' }), { target: { value: 'analytics' } });
 		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2' })).toBeTruthy());
 		expect(screen.queryByRole('alertdialog')).toBeNull();
@@ -575,6 +574,16 @@ describe('ConfigBackupsIndex gates', () => {
 				.toBeTruthy()
 		);
 		expect(nodes.has('ins-a')).toBe(false);
+	});
+
+	it('says the version could not be read rather than naming an empty one', async () => {
+		state.params = { organizationId: 'org-1', clusterId: 'clu-1', instanceId: 'ins-b' };
+		state.version = '';
+		renderPage();
+		await waitFor(() =>
+			expect(screen.getByText("This Harper's version could not be read, so its backups are not shown.")).toBeTruthy()
+		);
+		expect(screen.queryByText(/runs/)).toBeNull();
 	});
 
 	it('shows a partly upgraded cluster, even when an old node answers for it', async () => {

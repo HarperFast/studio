@@ -5,10 +5,10 @@ import { isLocalStudio } from '@/config/constants';
 import { getInstanceClientIdFromParams, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
-	anyMemberSupportsBackups,
 	backupNodeLabel,
 	ClusterBackupNode,
 	clusterBackupNodes,
+	liveMemberVersions,
 } from '@/features/instance/config/backups/backupNodes';
 import {
 	BackupNodeCard,
@@ -60,16 +60,24 @@ function BackupsPage() {
 	const perNode = !isLocalStudio && instanceId === undefined;
 	const isSelfManaged = cluster !== undefined && clusterIsSelfManaged(cluster);
 
-	const ownVersionSupported = registrationInfo === undefined ? undefined : supportsBackups(registrationInfo.version);
+	const ownVersion = registrationInfo?.version || undefined;
+	const versionUnreadable = isVersionError || (registrationInfo !== undefined && !ownVersion);
+	const ownVersionSupported = ownVersion === undefined ? undefined : supportsBackups(ownVersion);
 	// A cluster's address answers for whichever member runs first, so mid-upgrade an old one could hide the page from
-	// every upgraded one. Any member on 5.2 is enough: each is gated on its own version below.
+	// every upgraded one. Any member on 5.2 is enough: each is gated on its own version below. Until both answers are in,
+	// the page waits rather than flash a verdict the other answer would reverse.
+	const memberVersions = perNode && cluster ? liveMemberVersions(cluster.instances) : undefined;
 	let supported = ownVersionSupported;
 	if (perNode && ownVersionSupported !== true) {
-		supported = cluster
-			? anyMemberSupportsBackups(cluster.instances)
-			: isClusterError
-			? ownVersionSupported
-			: undefined;
+		const clusterSettled = cluster !== undefined || isClusterError;
+		const ownSettled = ownVersion !== undefined || versionUnreadable;
+		if (memberVersions?.some(supportsBackups)) {
+			supported = true;
+		} else if (!clusterSettled || !ownSettled) {
+			supported = undefined;
+		} else {
+			supported = ownVersionSupported === false || !!memberVersions?.length ? false : undefined;
+		}
 	}
 	const ready = canManage && supported === true;
 
@@ -101,16 +109,16 @@ function BackupsPage() {
 			: <Loading text="Loading..." />;
 	}
 	if (supported === undefined) {
-		return isVersionError && (!perNode || isClusterError)
+		return versionUnreadable && (!perNode || cluster !== undefined || isClusterError)
 			? <PageNotice>This Harper's version could not be read, so its backups are not shown.</PageNotice>
 			: <Loading text="Loading..." />;
 	}
 	if (!supported) {
 		return (
 			<PageNotice>
-				Backups need Harper {BACKUPS_MIN_VERSION} or later. {perNode && cluster
+				Backups need Harper {BACKUPS_MIN_VERSION} or later. {memberVersions?.length
 					? "None of this cluster's nodes runs it yet."
-					: `This ${perNode ? 'cluster' : 'instance'} runs ${registrationInfo?.version}.`}
+					: `This ${perNode ? 'cluster' : 'instance'} runs ${ownVersion}.`}
 			</PageNotice>
 		);
 	}
@@ -210,7 +218,6 @@ function BackupsPage() {
 	);
 }
 
-/** One cluster member, reached through Fabric by its instance id so every request lands on that node. */
 function ClusterNodeBackups({ node, database }: { node: ClusterBackupNode; database: string }) {
 	const { instance, label, operationsUrl, unavailable } = node;
 	const nodeParams = useMemo(
