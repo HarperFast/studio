@@ -28,7 +28,6 @@ const baseCluster = {
 };
 type ClusterRecord = typeof baseCluster & { recordLocks?: boolean };
 
-/** Serves the fixture cluster, read through `current()` so a test can move it along. */
 async function serve(page: Page, current: () => ClusterRecord, onPut?: (body: unknown) => void) {
 	await page.route('**/Organization/org-fixture', route =>
 		route.fulfill({

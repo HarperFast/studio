@@ -8,15 +8,21 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 const { get, put } = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, put, post: vi.fn() } }));
+const params = vi.hoisted(() => ({ organizationId: 'org-1', clusterId: 'clu-1' }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
 		<a href={to} className={className}>{children}</a>
 	),
+	useParams: () => params,
+}));
+vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterPermissions: () => ({ update: true }) }));
+vi.mock('@/features/cluster/components/ClusterContentWithSubNavMenu', () => ({
+	ClusterContentWithSubNavMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 import { mutationErrorHandler } from '@/react-query/queryClient';
-import { forgetAllSavesForTests } from './pendingRecordLocksSaves';
-import { RecordLocksSettings, ROLL_START_GRACE_MS } from './RecordLocksPage';
+import { forgetAllSavesForTests, rememberSave } from './pendingRecordLocksSaves';
+import { RecordLocksPage, RecordLocksSettings, ROLL_START_GRACE_MS } from './RecordLocksPage';
 
 beforeAll(() => {
 	Object.assign(Element.prototype, {
@@ -71,14 +77,12 @@ function setup(initial: Cluster, { canUpdate = true }: { canUpdate?: boolean } =
 	const view = render(ui(initial));
 	return {
 		...view,
-		/** A read of the cluster lands: the page is handed it, and the shared query records when. */
 		show: (c: Cluster) => {
 			act(() => {
 				queryClient.setQueryData([c.id], c);
 			});
 			view.rerender(ui(c));
 		},
-		/** Leave the page and come back to it. */
 		remount: (c: Cluster) => {
 			view.unmount();
 			return render(ui(c));
@@ -336,6 +340,34 @@ describe('RecordLocksSettings', () => {
 			expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
 		});
 
+		it('does not let a read answered before the save end the wait', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
+			const { show } = setup(cluster());
+			await confirm('Turn on');
+			await act(async () => {
+				vi.advanceTimersByTime(ROLL_START_GRACE_MS);
+			});
+
+			// finished after the save, but still the cluster from before it
+			show(cluster());
+
+			expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		});
+
+		it('keeps reading the cluster, so a recovered instance unlocks Try again', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			const { show } = setup(cluster());
+			show(stoppedAt(instance({ id: 'ins-2', status: 'FAILED' })));
+			get.mockClear();
+
+			await act(async () => {
+				vi.advanceTimersByTime(15_000);
+			});
+
+			expect(get).toHaveBeenCalledWith('/Cluster/clu-1');
+		});
+
 		it('is reported once the roll never shows up after a save', async () => {
 			vi.useFakeTimers({ shouldAdvanceTime: true });
 			put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
@@ -350,5 +382,28 @@ describe('RecordLocksSettings', () => {
 
 			expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
 		});
+	});
+});
+
+describe('RecordLocksPage', () => {
+	it("starts fresh on another cluster's page, as the route component is reused", () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		queryClient.setQueryData(['clu-1'], cluster());
+		queryClient.setQueryData(['clu-2'], cluster({ id: 'clu-2' }));
+		rememberSave('clu-1', true);
+		const ui = () => (
+			<QueryClientProvider client={queryClient}>
+				<RecordLocksPage />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(ui());
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+
+		params.clusterId = 'clu-2';
+		rerender(ui());
+
+		expect(screen.queryByText('Turning record locks on')).toBeNull();
+		expect(recordLocksSwitch().getAttribute('aria-checked')).toBe('false');
+		params.clusterId = 'clu-1';
 	});
 });

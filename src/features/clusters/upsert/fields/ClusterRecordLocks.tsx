@@ -8,7 +8,6 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
-/** Shown, and sent, only where central manager accepts it (src/features/cluster/DESIGN.md, record locks). */
 export function ClusterRecordLocks({
 	className,
 	form,

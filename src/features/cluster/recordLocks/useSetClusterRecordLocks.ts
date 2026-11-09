@@ -7,7 +7,6 @@ interface Params {
 	clusterId: string;
 	organizationId: string;
 	recordLocks: boolean;
-	/** Restart each member without draining its traffic first, as the version update offers. */
 	skipGtmWait?: boolean;
 }
 

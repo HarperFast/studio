@@ -38,6 +38,8 @@ describe('supportsRecordLocks', () => {
 		['5.03.0', false],
 		['05.3.0', false],
 		['5.4.0-beta.01', false],
+		['99999999999999999.0.0', false],
+		['5.4.0-' + 'a'.repeat(260), false],
 		['latest', false],
 		['', false],
 		[undefined, false],
@@ -144,6 +146,11 @@ describe('recordLocksBlocker', () => {
 				'n9.example has failed. Every instance has to be running to change record locks, so it needs recovering first.',
 			needsSupport: true,
 		});
+	});
+
+	it('lets a missing status through, leaving the refusal to central manager rather than guessing', () => {
+		expect(recordLocksBlocker(cluster({ status: undefined }), true)).toBeNull();
+		expect(recordLocksBlocker(cluster({ instances: [instance({ status: undefined })] }), true)).toBeNull();
 	});
 
 	it('ignores members that are gone when checking status and version', () => {

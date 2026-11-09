@@ -17,9 +17,15 @@ const VALID_SEMVER = new RegExp(
 	`^v?(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-${IDENTIFIER}(?:\\.${IDENTIFIER})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
 );
 
+// `semver`'s MAX_LENGTH, and its refusal of a numeric part past MAX_SAFE_INTEGER.
+const MAX_VERSION_LENGTH = 256;
+
 export function supportsRecordLocks(version: string | null | undefined): boolean {
 	const trimmed = version?.trim();
-	if (!trimmed || !VALID_SEMVER.test(trimmed)) {
+	if (!trimmed || trimmed.length > MAX_VERSION_LENGTH || !VALID_SEMVER.test(trimmed)) {
+		return false;
+	}
+	if (trimmed.replace(/^v/, '').split(/[-+]/)[0].split('.').some(part => !Number.isSafeInteger(Number(part)))) {
 		return false;
 	}
 	return wasAReleasedBeforeB(RECORD_LOCKS_MIN_VERSION, trimmed.replace(/^v/, ''));

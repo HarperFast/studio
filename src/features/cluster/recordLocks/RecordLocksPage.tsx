@@ -36,6 +36,8 @@ import {
 import { useSetClusterRecordLocks } from './useSetClusterRecordLocks';
 
 const ROLL_POLL_MS = 5_000;
+// Slower: a stopped roll waits on someone recovering an instance, which Try again needs to see.
+const STOPPED_POLL_MS = 15_000;
 
 /**
  * Central manager answers the PUT before its background roll marks the cluster UPDATING, so for a
@@ -65,7 +67,11 @@ export function RecordLocksPage() {
 						<AlertDescription>{error ? describeError(error).message : 'Please try again.'}</AlertDescription>
 					</Alert>
 				)
-				: <RecordLocksSettings cluster={cluster} organizationId={organizationId} canUpdate={update} />}
+				: (
+					// Keyed: moving between clusters' pages reuses this route component, and none of this
+					// page's state belongs to another cluster.
+					<RecordLocksSettings key={cluster.id} cluster={cluster} organizationId={organizationId} canUpdate={update} />
+				)}
 		</ClusterContentWithSubNavMenu>
 	);
 }
@@ -107,8 +113,8 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	const enabled = saved ? saved.target : state.enabled;
 	// The cluster query is shared, so this joins any other poller rather than adding one.
 	const { dataUpdatedAt } = useQuery({
-		...getClusterInfoQueryOptions(cluster.id, ROLL_POLL_MS),
-		enabled: phase === 'applying',
+		...getClusterInfoQueryOptions(cluster.id, phase === 'applying' ? ROLL_POLL_MS : STOPPED_POLL_MS),
+		enabled: phase === 'applying' || phase === 'stopped',
 	});
 
 	useEffect(() => {
@@ -117,8 +123,10 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		}
 		const seen = state.enabled === saved.target && state.phase !== 'stopped';
 		// After the grace, only a read taken since the save may stand in for it: when every poll has
-		// failed, the cache still holds the cluster from before the save.
-		const outlived = graceOverFor === saved && dataUpdatedAt >= saved.at;
+		// failed, the cache still holds the cluster from before the save. A read can finish after the
+		// save yet have been answered before it, so it must also carry the save, which central manager
+		// writes to the cluster before answering.
+		const outlived = graceOverFor === saved && dataUpdatedAt >= saved.at && state.enabled === saved.target;
 		if (seen || hasMemberNotRunning(cluster) || outlived) {
 			forgetSave(cluster.id, saved);
 			setSaved(null);
