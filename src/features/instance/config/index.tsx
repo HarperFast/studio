@@ -1,6 +1,7 @@
 import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
@@ -51,7 +52,6 @@ export function ConfigIndex() {
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
-	const backupsSupported = supportsBackups(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -59,6 +59,9 @@ export function ConfigIndex() {
 		getClusterInfoQueryOptions(clusterId, false),
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
+	// On a cluster route `version` is whichever member answered first; the page gates each member on its own.
+	const backupsSupported = supportsBackups(version)
+		|| (!params.instanceId && anyMemberSupportsBackups(cluster?.instances));
 
 	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
 	const children = canManage && (

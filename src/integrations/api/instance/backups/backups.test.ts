@@ -1,7 +1,11 @@
+import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
+import { describeError } from '@/react-query/queryClient';
 import type { AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import {
+	BackupChangedError,
 	backupJobStatus,
+	BackupJobUnreportedError,
 	backupsRemovedByPurge,
 	createBackup,
 	createdBackupId,
@@ -80,17 +84,36 @@ describe('the job operations', () => {
 		});
 	});
 
-	it('refuses to report a job it was not told the id of', async () => {
+	it('reads an accepted request that names no job as an unknown outcome, not a failure', async () => {
 		const { instanceClient } = client({ message: 'ok' });
-		await expect(createBackup({ instanceClient, database: 'data' })).rejects.toThrow(/did not say which job/);
+		const error = await createBackup({ instanceClient, database: 'data' }).catch((caught: unknown) => caught);
+		expect(error).toBeInstanceOf(BackupJobUnreportedError);
+		expect(describeError(error)).toMatchObject({ title: OUTCOME_UNKNOWN_TITLE });
 	});
 });
 
 describe('deleteBackup and purgeBackups', () => {
-	it('deletes one backup by id', async () => {
-		const { instanceClient, post } = client({ ok: true });
-		await deleteBackup({ instanceClient, database: 'data', backupId: 5 });
-		expect(post).toHaveBeenCalledWith('/', { operation: 'delete_backup', database: 'data', backup_id: 5 });
+	function listingThen(rows: unknown[]) {
+		const post = vi.fn(async (_url: string, body: { operation: string }) => ({
+			data: body.operation === 'list_backups' ? rows : { ok: true },
+		}));
+		return { instanceClient: { post } as unknown as AxiosInstance, post };
+	}
+
+	it('deletes the backup the confirmation showed', async () => {
+		const { instanceClient, post } = listingThen([{ backup_id: 5, timestamp: 100 }]);
+		await deleteBackup({ instanceClient, database: 'data', backup: { backupId: 5, timestamp: 100 } });
+		expect(post).toHaveBeenLastCalledWith('/', { operation: 'delete_backup', database: 'data', backup_id: 5 });
+	});
+
+	it('deletes nothing once the id names a newer backup, or none', async () => {
+		for (const rows of [[{ backup_id: 5, timestamp: 900 }], []]) {
+			const { instanceClient, post } = listingThen(rows);
+			await expect(
+				deleteBackup({ instanceClient, database: 'data', backup: { backupId: 5, timestamp: 100 } }),
+			).rejects.toBeInstanceOf(BackupChangedError);
+			expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
+		}
 	});
 
 	it("reports the purge's own counts", async () => {

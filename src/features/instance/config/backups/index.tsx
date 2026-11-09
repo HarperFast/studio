@@ -4,7 +4,12 @@ import { Label } from '@/components/ui/label';
 import { isLocalStudio } from '@/config/constants';
 import { getInstanceClientIdFromParams, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { backupNodeLabel, ClusterBackupNode, clusterBackupNodes } from '@/features/instance/config/backups/backupNodes';
+import {
+	anyMemberSupportsBackups,
+	backupNodeLabel,
+	ClusterBackupNode,
+	clusterBackupNodes,
+} from '@/features/instance/config/backups/backupNodes';
 import {
 	BackupNodeCard,
 	BackupNodeNotice,
@@ -45,9 +50,6 @@ function BackupsPage() {
 	const { data: registrationInfo, isError: isVersionError } = useQuery(
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
-	const supported = registrationInfo === undefined ? undefined : supportsBackups(registrationInfo.version);
-	const ready = canManage && supported === true;
-
 	const {
 		data: cluster,
 		isError: isClusterError,
@@ -57,6 +59,19 @@ function BackupsPage() {
 	// the Studio a Harper serves, the page's own connection already reaches exactly one node.
 	const perNode = !isLocalStudio && instanceId === undefined;
 	const isSelfManaged = cluster !== undefined && clusterIsSelfManaged(cluster);
+
+	const ownVersionSupported = registrationInfo === undefined ? undefined : supportsBackups(registrationInfo.version);
+	// A cluster's address answers for whichever member runs first, so mid-upgrade an old one could hide the page from
+	// every upgraded one. Any member on 5.2 is enough: each is gated on its own version below.
+	let supported = ownVersionSupported;
+	if (perNode && ownVersionSupported !== true) {
+		supported = cluster
+			? anyMemberSupportsBackups(cluster.instances)
+			: isClusterError
+			? ownVersionSupported
+			: undefined;
+	}
+	const ready = canManage && supported === true;
 
 	const {
 		data: describeAll,
@@ -86,15 +101,16 @@ function BackupsPage() {
 			: <Loading text="Loading..." />;
 	}
 	if (supported === undefined) {
-		return isVersionError
+		return isVersionError && (!perNode || isClusterError)
 			? <PageNotice>This Harper's version could not be read, so its backups are not shown.</PageNotice>
 			: <Loading text="Loading..." />;
 	}
 	if (!supported) {
 		return (
 			<PageNotice>
-				Backups need Harper {BACKUPS_MIN_VERSION} or later. This {perNode ? 'cluster' : 'instance'} runs{' '}
-				{registrationInfo?.version}.
+				Backups need Harper {BACKUPS_MIN_VERSION} or later. {perNode && cluster
+					? "None of this cluster's nodes runs it yet."
+					: `This ${perNode ? 'cluster' : 'instance'} runs ${registrationInfo?.version}.`}
 			</PageNotice>
 		);
 	}

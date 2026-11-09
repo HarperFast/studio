@@ -81,6 +81,19 @@ export function listBackupsQueryOptions(
 	});
 }
 
+/**
+ * Harper accepted a create or verify but named no job, so Studio can't tell how it ends. An unknown outcome, not a
+ * failure: the job may be running, and sending it again would only meet Harper's lock.
+ */
+export class BackupJobUnreportedError extends Error {
+	constructor() {
+		super(
+			"Harper accepted the request but didn't say which job runs it, so Studio can't follow it. It may still be running: check the backups list before you try again.",
+		);
+		this.name = 'BackupJobUnreportedError';
+	}
+}
+
 interface StartedJob {
 	jobId: string;
 }
@@ -88,12 +101,12 @@ interface StartedJob {
 async function startJob(instanceClient: InstanceClientConfig['instanceClient'], body: object): Promise<StartedJob> {
 	const { data } = await instanceClient.post<{ job_id?: unknown; message?: unknown }>('/', body);
 	if (typeof data?.job_id !== 'string' || !data.job_id) {
-		throw new Error('Harper accepted the request but did not say which job is running it.');
+		throw new BackupJobUnreportedError();
 	}
 	return { jobId: data.job_id };
 }
 
-export interface CreateBackupArgs extends DatabaseArgs {
+interface CreateBackupArgs extends DatabaseArgs {
 	/** Leave the database's file attachments (blobs) out. Harper includes them unless told otherwise. */
 	excludeBlobs?: boolean;
 }
@@ -111,7 +124,7 @@ export function useCreateBackup() {
 	return useMutation({ mutationFn: createBackup });
 }
 
-export interface VerifyBackupArgs extends DatabaseArgs {
+interface VerifyBackupArgs extends DatabaseArgs {
 	backupId: number;
 	/** Read every file and compare its checksum, as a restore does, instead of checking only that each file is there. */
 	verifyChecksum: boolean;
@@ -130,29 +143,46 @@ export function useVerifyBackup() {
 	return useMutation({ mutationFn: verifyBackup });
 }
 
-export interface DeleteBackupArgs extends DatabaseArgs {
-	backupId: number;
+interface DeleteBackupArgs extends DatabaseArgs {
+	/** The backup as the confirmation showed it. */
+	backup: DatabaseBackup;
 }
 
-export async function deleteBackup({ instanceClient, database, backupId }: DeleteBackupArgs): Promise<void> {
-	await instanceClient.post('/', { operation: 'delete_backup', database, backup_id: backupId });
+export class BackupChangedError extends Error {
+	constructor(backupId: number) {
+		super(`Backup ${backupId} changed since the list was read, so nothing was deleted. Check the list and try again.`);
+		this.name = 'BackupChangedError';
+	}
+}
+
+/**
+ * `delete_backup` names a backup by id alone, and Harper reuses ids once every backup is gone, so the id a confirmation
+ * showed can name a newer backup by the time it is sent. Re-reading first refuses that; Harper takes no precondition, so
+ * the window between the read and the delete stays open.
+ */
+export async function deleteBackup({ instanceClient, database, backup }: DeleteBackupArgs): Promise<void> {
+	const current = (await listBackups({ instanceClient, database })).find(({ backupId }) =>
+		backupId === backup.backupId
+	);
+	if (!current || current.timestamp !== backup.timestamp) {
+		throw new BackupChangedError(backup.backupId);
+	}
+	await instanceClient.post('/', { operation: 'delete_backup', database, backup_id: backup.backupId });
 }
 
 export function useDeleteBackup() {
 	return useMutation({ mutationFn: deleteBackup });
 }
 
-export interface PurgeBackupsArgs extends DatabaseArgs {
+interface PurgeBackupsArgs extends DatabaseArgs {
 	keepCount: number;
 }
 
-export interface PurgeBackupsResult {
-	/** What Harper says it removed; `undefined` when its answer didn't say. */
+interface PurgeBackupsResult {
 	deleted?: number;
 	remaining?: number;
 }
 
-/** Keeps the newest `keepCount` backups by id and deletes the rest. */
 export async function purgeBackups(
 	{ instanceClient, database, keepCount }: PurgeBackupsArgs,
 ): Promise<PurgeBackupsResult> {
@@ -177,7 +207,7 @@ export function backupsRemovedByPurge(backups: readonly DatabaseBackup[], keepCo
 }
 
 /** Lifecycle of a backup job: CREATED → IN_PROGRESS → COMPLETE | ERROR. */
-export type BackupJobStatus = 'running' | 'complete' | 'failed';
+type BackupJobStatus = 'running' | 'complete' | 'failed';
 
 export function backupJobStatus(job: HarperJob | undefined): BackupJobStatus {
 	switch (job?.status?.toUpperCase()) {
@@ -209,7 +239,6 @@ export function backupJobQueryOptions({ entityId, instanceClient, jobId }: Insta
 	});
 }
 
-/** What `create_backup` finished with, read from the job's `result`. */
 export function createdBackupId(job: HarperJob | null | undefined): number | undefined {
 	const result = job?.result;
 	if (typeof result !== 'object' || result === null) {

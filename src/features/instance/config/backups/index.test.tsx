@@ -11,7 +11,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 type Handler = (body: Record<string, unknown>) => unknown;
 
-/** A fake operations client per entity: every request it gets, and how it answers. */
 interface FakeNode {
 	post: ReturnType<typeof vi.fn>;
 	bodies: () => Array<Record<string, unknown>>;
@@ -179,7 +178,6 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
 		expect(nodeCard('beta').getByText("No backups of 'analytics' on this node yet.")).toBeTruthy();
 
-		// The first database by name is chosen, and asked of each member on its own.
 		expect(nodes.get('ins-a')!.bodies()).toEqual([{ operation: 'list_backups', database: 'analytics' }]);
 		expect(nodes.get('ins-b')!.bodies()).toEqual([{ operation: 'list_backups', database: 'analytics' }]);
 		expect(nodes.get('clu-1')!.bodies().map((body) => body.operation)).not.toContain('list_backups');
@@ -264,7 +262,6 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		expect(toast.success).toHaveBeenCalledWith("Backed up 'analytics' on alpha as backup 2");
 		// The job is only in that node's hdb_job, so only that node is asked about it.
 		expect(nodes.get('ins-b')!.bodies().map((body) => body.operation)).not.toContain('get_job');
-		// The list is read again, so the new backup shows.
 		await waitFor(() =>
 			expect(nodes.get('ins-a')!.bodies().filter((body) => body.operation === 'list_backups')).toHaveLength(2)
 		);
@@ -329,6 +326,59 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Delete/ }));
 		await waitFor(() => expect(row().getByText(new Date(1_700_000_900_000).toLocaleString())).toBeTruthy());
 		expect(row().queryByText('Verified')).toBeNull();
+	});
+
+	it('deletes nothing when the confirmed id has come to name a newer backup', async () => {
+		let backups = [{ backup_id: 1, timestamp: 1_700_000_000 }];
+		state.handlers['ins-a:list_backups'] = () => backups;
+		state.handlers['ins-a:delete_backup'] = () => ({ ok: true });
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
+		fireEvent.click(
+			within(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).getByRole('button', { name: 'Delete' }),
+		);
+
+		backups = [{ backup_id: 1, timestamp: 1_700_000_900 }];
+		fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Delete/ }));
+
+		await waitFor(() =>
+			expect(
+				within(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).getByText(
+					new Date(1_700_000_900_000).toLocaleString(),
+				),
+			).toBeTruthy()
+		);
+		expect(nodes.get('ins-a')!.bodies().map((body) => body.operation)).not.toContain('delete_backup');
+	});
+
+	it('stops following a job Studio is no longer allowed to read, and frees the node', async () => {
+		state.handlers['ins-a:create_backup'] = () => ({ job_id: 'job-x' });
+		state.handlers['ins-a:get_job'] = () => {
+			throw harperRefusal('Forbidden', 403);
+		};
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
+		fireEvent.click(nodeCard('alpha').getByRole('button', { name: 'Take backup' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Take backup' }));
+
+		await waitFor(() => expect(nodeCard('alpha').getByText(/no longer allowed to read job job-x/)).toBeTruthy());
+		expect(nodeCard('alpha').queryByText(/keeps trying/)).toBeNull();
+		expect((nodeCard('alpha').getByRole('button', { name: 'Take backup' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(nodeCard('alpha').getByRole('button', { name: 'Dismiss' })).toBeTruthy();
+	});
+
+	it('holds Verify while a backup of the same database is being taken', async () => {
+		state.handlers['ins-a:create_backup'] = () => ({ job_id: 'job-c' });
+		state.handlers['ins-a:get_job'] = () => [{ id: 'job-c', status: 'IN_PROGRESS' }];
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
+		fireEvent.click(nodeCard('alpha').getByRole('button', { name: 'Take backup' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Take backup' }));
+		await waitFor(() => expect(nodeCard('alpha').getByText(/Backing up 'analytics'… started/)).toBeTruthy());
+		const verify = within(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).getByRole('button', {
+			name: 'Verify',
+		}) as HTMLButtonElement;
+		expect(verify.disabled).toBe(true);
 	});
 
 	it('reads the list again when Harper refuses to verify a backup that is gone', async () => {
@@ -454,13 +504,30 @@ describe('ConfigBackupsIndex gates', () => {
 		expect(screen.queryByText(/Only super users/)).toBeNull();
 	});
 
-	it('says which Harper version backups need on an older cluster', async () => {
+	it('says which Harper version backups need when no node of the cluster runs it', async () => {
 		state.version = '5.1.4';
+		state.cluster = {
+			id: 'clu-1',
+			instances: [member('ins-a', 'alpha', { version: '5.1.4' }), member('ins-b', 'beta', { version: '5.1.4' })],
+		};
 		renderPage();
 		await waitFor(() =>
-			expect(screen.getByText('Backups need Harper 5.2.0 or later. This cluster runs 5.1.4.')).toBeTruthy()
+			expect(screen.getByText(/Backups need Harper 5.2.0 or later.\s+None of this cluster's nodes runs it yet./))
+				.toBeTruthy()
 		);
 		expect(nodes.has('ins-a')).toBe(false);
+	});
+
+	it('shows a partly upgraded cluster, even when an old node answers for it', async () => {
+		state.version = '5.1.4';
+		state.cluster = {
+			id: 'clu-1',
+			instances: [member('ins-a', 'alpha'), member('ins-b', 'beta', { version: '5.1.4' })],
+		};
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
+		expect(nodeCard('beta').getByText('This node runs Harper 5.1.4. Backups need Harper 5.2.0 or later.')).toBeTruthy();
+		expect(nodes.get('ins-b')?.post).not.toHaveBeenCalled();
 	});
 });
 
@@ -480,7 +547,6 @@ describe('ConfigBackupsIndex on one instance', () => {
 		renderPage();
 		await waitFor(() => expect(nodeCard('This instance').getByText(/No backups/)).toBeTruthy());
 		expect(screen.getByText("They don't protect against losing that node's disk.")).toBeTruthy();
-		// Mid-sentence it is "this instance", not the heading.
 		fireEvent.click(nodeCard('This instance').getByRole('button', { name: 'Take backup' }));
 		expect(screen.getByRole('heading', { name: "Back up 'analytics' on this instance?" })).toBeTruthy();
 	});

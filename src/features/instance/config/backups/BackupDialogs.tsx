@@ -105,8 +105,7 @@ export function VerifyBackupDialog({ database, node, backupId, onCancel, onConfi
 	);
 }
 
-/** The keep count as typed, or `undefined` while it isn't a whole number of at least one. */
-export function parseKeepCount(text: string): number | undefined {
+function parseKeepCount(text: string): number | undefined {
 	const trimmed = text.trim();
 	if (!/^\d+$/.test(trimmed)) {
 		return undefined;
@@ -122,8 +121,7 @@ function idList(ids: readonly number[]): string {
 	return ids.length === 1 ? String(ids[0]) : `${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}`;
 }
 
-/** What a purge keeping `keepCount` would do to `backups`, as the confirmation says it. */
-export function describePurge(backups: readonly DatabaseBackup[], keepCount: number): string {
+function describePurge(backups: readonly DatabaseBackup[], keepCount: number): string {
 	const removed = backupsRemovedByPurge(backups, keepCount);
 	if (removed.length === 0) {
 		return `Nothing to delete: there ${backups.length === 1 ? 'is only 1 backup' : `are only ${backups.length}`}.`;
@@ -136,7 +134,6 @@ export function describePurge(backups: readonly DatabaseBackup[], keepCount: num
 export function PurgeBackupsDialog({ database, node, backups, onCancel, onConfirm }: {
 	database: string;
 	node: string;
-	/** The backups the page lists for this node and database: what the count in the confirmation is read from. */
 	backups: readonly DatabaseBackup[];
 	onCancel: () => void;
 	onConfirm: (keepCount: number, expectedDeletions: number) => void;

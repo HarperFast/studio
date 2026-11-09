@@ -32,13 +32,12 @@ type BackupDialog =
 	| { kind: 'take' }
 	| { kind: 'purge' }
 	| { kind: 'verify'; backup: DatabaseBackup }
-	| { kind: 'delete'; backupId: number };
+	| { kind: 'delete'; backup: DatabaseBackup };
 
 export function BackupNodeNotice({ children }: { children: ReactNode }) {
 	return <p className="text-sm text-muted-foreground">{children}</p>;
 }
 
-/** A node's card: its heading, and either what it holds or why it can't be read. */
 export function BackupNodeCard({ label, detail, children }: { label: string; detail?: string; children: ReactNode }) {
 	return (
 		<section className="flex flex-col gap-3 rounded-md border p-4" aria-label={`Backups on ${label}`}>
@@ -127,8 +126,11 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 	// Harper takes one write at a time per database's backups, and refuses the rest with a 409. Holding the
 	// buttons while one of this page's jobs runs says why before the request goes out.
 	const runningJobs = jobs.filter((job) => job.database === database && job.outcome === undefined);
-	const writeBusy = runningJobs.length > 0 || isCreating || isDeleting || isPurging;
-	const busyReason = runningJobs.length > 0 ? 'Wait for the running backup job on this node to finish.' : undefined;
+	const writeBusy = runningJobs.length > 0 || isCreating || isStartingVerify || isDeleting || isPurging;
+	const busyReason = runningJobs.length > 0
+		? 'Wait for the backup or verify job running on this node to finish.'
+		: undefined;
+	const creating = isCreating || runningJobs.some((job) => job.kind === 'create');
 	// Matched on the timestamp too: Harper starts the ids over once every backup is deleted, and a result for the
 	// old backup 1 must not land on the new one.
 	const latestVerify = (backup: DatabaseBackup) =>
@@ -158,9 +160,9 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 		});
 	};
 
-	const onDelete = (backupId: number) => {
-		deleteBackup({ ...nodeParams, database, backupId }, {
-			onSuccess: () => toast.success(`Deleted backup ${backupId} of '${database}' from ${name}`),
+	const onDelete = (backup: DatabaseBackup) => {
+		deleteBackup({ ...nodeParams, database, backup }, {
+			onSuccess: () => toast.success(`Deleted backup ${backup.backupId} of '${database}' from ${name}`),
 			onSettled: () => {
 				close();
 				refreshList(database);
@@ -238,9 +240,9 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 						verifyFor={latestVerify}
 						writeBusy={writeBusy}
 						busyReason={busyReason}
-						startingVerify={isStartingVerify}
+						verifyBusy={isStartingVerify || creating}
 						onVerify={(backup) => setDialog({ kind: 'verify', backup })}
-						onDelete={(backupId) => setDialog({ kind: 'delete', backupId })}
+						onDelete={(backup) => setDialog({ kind: 'delete', backup })}
 					/>
 				)}
 
@@ -273,24 +275,26 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 			)}
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted="backup"
-				nameOfThingBeingDeleted={dialog?.kind === 'delete' ? `${dialog.backupId} of '${database}' on ${name}` : ''}
+				nameOfThingBeingDeleted={dialog?.kind === 'delete'
+					? `${dialog.backup.backupId} of '${database}' on ${name}`
+					: ''}
 				isModalOpen={dialog?.kind === 'delete'}
 				setIsModalOpen={(open) => !open && !isDeleting && close()}
-				deletionConfirmed={() => dialog?.kind === 'delete' && onDelete(dialog.backupId)}
+				deletionConfirmed={() => dialog?.kind === 'delete' && onDelete(dialog.backup)}
 				deletionPending={isDeleting}
 			/>
 		</>
 	);
 }
 
-function BackupTable({ backups, verifyFor, writeBusy, busyReason, startingVerify, onVerify, onDelete }: {
+function BackupTable({ backups, verifyFor, writeBusy, busyReason, verifyBusy, onVerify, onDelete }: {
 	backups: readonly DatabaseBackup[];
 	verifyFor: (backup: DatabaseBackup) => FollowedBackupJob | undefined;
 	writeBusy: boolean;
 	busyReason?: string;
-	startingVerify: boolean;
+	verifyBusy: boolean;
 	onVerify: (backup: DatabaseBackup) => void;
-	onDelete: (backupId: number) => void;
+	onDelete: (backup: DatabaseBackup) => void;
 }) {
 	return (
 		<Table>
@@ -327,7 +331,7 @@ function BackupTable({ backups, verifyFor, writeBusy, busyReason, startingVerify
 									<Button
 										size="sm"
 										variant="defaultOutline"
-										disabled={startingVerify || verifying}
+										disabled={verifyBusy || verifying}
 										onClick={() => onVerify(backup)}
 									>
 										Verify
@@ -337,7 +341,7 @@ function BackupTable({ backups, verifyFor, writeBusy, busyReason, startingVerify
 										variant="destructiveOutline"
 										disabled={writeBusy}
 										title={busyReason}
-										onClick={() => onDelete(backup.backupId)}
+										onClick={() => onDelete(backup)}
 									>
 										Delete
 									</Button>

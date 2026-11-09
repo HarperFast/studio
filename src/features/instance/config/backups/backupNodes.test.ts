@@ -1,6 +1,6 @@
 import { Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { clusterBackupNodes } from './backupNodes';
+import { anyMemberSupportsBackups, clusterBackupNodes } from './backupNodes';
 
 function instance(overrides: Partial<Instance>): Instance {
 	return {
@@ -52,5 +52,14 @@ describe('clusterBackupNodes', () => {
 			instance({ id: 'ins-y', name: undefined, instanceFqdn: undefined }),
 		]);
 		expect(nodes.map((node) => node.label)).toEqual(['ins-y', 'node-1.example.harper.fast']);
+	});
+});
+
+describe('anyMemberSupportsBackups', () => {
+	it('is true once one live member runs 5.2, whatever the others run', () => {
+		expect(anyMemberSupportsBackups([instance({ version: '5.1.4' }), instance({ version: '5.2.0' })])).toBe(true);
+		expect(anyMemberSupportsBackups([instance({ version: '5.1.4' })])).toBe(false);
+		expect(anyMemberSupportsBackups([instance({ version: '5.3.0', status: 'TERMINATED' })])).toBe(false);
+		expect(anyMemberSupportsBackups(undefined)).toBe(false);
 	});
 });

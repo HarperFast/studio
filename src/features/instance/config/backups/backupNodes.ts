@@ -35,6 +35,12 @@ function unavailableReason(instance: Instance, operationsUrl: string | null): st
 	return undefined;
 }
 
+export function anyMemberSupportsBackups(instances: readonly Instance[] | undefined): boolean {
+	return (instances ?? []).some((instance) =>
+		!GONE_STATUSES.has(instance.status ?? '') && supportsBackups(instance.version)
+	);
+}
+
 /**
  * Every member of a cluster that still has a disk, in name order. Each is reached on its own: backups live on
  * the disk of the node that took them, and the cluster's own address reaches whichever member runs first.
