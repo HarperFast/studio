@@ -3,12 +3,10 @@ import { Instance } from '@/integrations/api/api.patch';
 import { BACKUPS_MIN_VERSION, supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
-/** A cluster member the Backups page lists, and whether Studio can reach its backups right now. */
 export interface ClusterBackupNode {
 	instance: Instance;
 	label: string;
 	operationsUrl: string | null;
-	/** Why the node's backups can't be read now. Absent when they can. */
 	unavailable?: string;
 }
 

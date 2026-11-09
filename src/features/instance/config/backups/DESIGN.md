@@ -43,14 +43,15 @@ file attachments.
 
 Harper starts the ids over at 1 once every backup of a database is deleted, so an id alone doesn't name one backup
 over time. A verify result is shown on a row only when both the id and the timestamp match the backup it verified, and
-`deleteBackup` re-reads the list and refuses (`BackupChangedError`) when the confirmed id now names another backup.
+`deleteBackup` re-reads the list and refuses (`BackupChangedError`) unless the confirmed id still names a backup with the
+same, defined timestamp.
 `delete_backup` takes no precondition, so a delete landing between that read and the request is still possible.
 
 ## Keep newest N
 
 `purge_backups` keeps the newest `keep_count` backups by id. The confirmation computes what goes from the list the
 page shows (`backupsRemovedByPurge`), and the success toast reports Harper's own `deleted` count, saying so when the
-two differ. They can: `list_backups` shows only backups whose creation finished, while a purge counts every backup in
+two differ, and never states a count Harper didn't send. They can: `list_backups` shows only backups whose creation finished, while a purge counts every backup in
 the repository, and another administrator may have changed it since the list was read. `keep_count` must be at least
 1 here, although Harper accepts 0; deleting every backup is one Delete per row, on purpose.
 
@@ -59,7 +60,7 @@ the repository, and another administrator may have changed it since the list was
 `create_backup` and `verify_backup` start a background job. Harper reports a job only as created, in progress, or
 ended, with no progress figure, so the page shows "running" with the time it started, then the result Harper recorded
 (the new backup's id from `result.backup_id`, or the failure's `message`). While one of the page's jobs runs on a node,
-that node's take, delete and purge buttons are held, and so is Verify while a backup is being taken: Harper takes one
+every write button on that node is held, Verify included: Harper takes one
 write at a time per database's backups and answers the rest with a 409. A job Studio stops reading (missing for 20 s, or
 a 403, which stops the poll for good) is reported as unknown, never as failed, and releases the hold. So is a create or
 verify Harper accepted without naming a job (`BackupJobUnreportedError`, in `describeUnknownOutcome`).

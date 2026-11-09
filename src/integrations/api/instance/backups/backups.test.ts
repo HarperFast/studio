@@ -107,13 +107,21 @@ describe('deleteBackup and purgeBackups', () => {
 	});
 
 	it('deletes nothing once the id names a newer backup, or none', async () => {
-		for (const rows of [[{ backup_id: 5, timestamp: 900 }], []]) {
+		for (const rows of [[{ backup_id: 5, timestamp: 900 }], [], [{ backup_id: 5 }]]) {
 			const { instanceClient, post } = listingThen(rows);
 			await expect(
 				deleteBackup({ instanceClient, database: 'data', backup: { backupId: 5, timestamp: 100 } }),
 			).rejects.toBeInstanceOf(BackupChangedError);
 			expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
 		}
+	});
+
+	it('deletes nothing when neither side has a timestamp to tell two backups apart', async () => {
+		const { instanceClient, post } = listingThen([{ backup_id: 5 }]);
+		await expect(deleteBackup({ instanceClient, database: 'data', backup: { backupId: 5 } })).rejects.toBeInstanceOf(
+			BackupChangedError,
+		);
+		expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
 	});
 
 	it("reports the purge's own counts", async () => {

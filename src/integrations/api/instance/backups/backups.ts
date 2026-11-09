@@ -28,7 +28,6 @@ export interface DatabaseBackup {
 	/** Bytes of every database file the backup uses, files it shares with other backups included; no file attachments. */
 	size?: number;
 	fileCount?: number;
-	/** Whether the backup holds a copy of the database's file attachments (blobs). */
 	blobs?: boolean;
 }
 
@@ -107,11 +106,9 @@ async function startJob(instanceClient: InstanceClientConfig['instanceClient'], 
 }
 
 interface CreateBackupArgs extends DatabaseArgs {
-	/** Leave the database's file attachments (blobs) out. Harper includes them unless told otherwise. */
 	excludeBlobs?: boolean;
 }
 
-/** Harper runs it as a background job: the answer names the job, and {@link backupJobQueryOptions} follows it. */
 export function createBackup({ instanceClient, database, excludeBlobs }: CreateBackupArgs) {
 	return startJob(instanceClient, {
 		operation: 'create_backup',
@@ -144,13 +141,14 @@ export function useVerifyBackup() {
 }
 
 interface DeleteBackupArgs extends DatabaseArgs {
-	/** The backup as the confirmation showed it. */
 	backup: DatabaseBackup;
 }
 
 export class BackupChangedError extends Error {
 	constructor(backupId: number) {
-		super(`Backup ${backupId} changed since the list was read, so nothing was deleted. Check the list and try again.`);
+		super(
+			`Studio couldn't confirm backup ${backupId} is still the one you chose, so nothing was deleted. Check the list and try again.`,
+		);
 		this.name = 'BackupChangedError';
 	}
 }
@@ -164,7 +162,8 @@ export async function deleteBackup({ instanceClient, database, backup }: DeleteB
 	const current = (await listBackups({ instanceClient, database })).find(({ backupId }) =>
 		backupId === backup.backupId
 	);
-	if (!current || current.timestamp !== backup.timestamp) {
+	// No timestamp on either side proves nothing, and a wrong delete can't be undone.
+	if (backup.timestamp === undefined || current?.timestamp !== backup.timestamp) {
 		throw new BackupChangedError(backup.backupId);
 	}
 	await instanceClient.post('/', { operation: 'delete_backup', database, backup_id: backup.backupId });
@@ -206,7 +205,6 @@ export function backupsRemovedByPurge(backups: readonly DatabaseBackup[], keepCo
 		.map((backup) => backup.backupId);
 }
 
-/** Lifecycle of a backup job: CREATED → IN_PROGRESS → COMPLETE | ERROR. */
 type BackupJobStatus = 'running' | 'complete' | 'failed';
 
 export function backupJobStatus(job: HarperJob | undefined): BackupJobStatus {

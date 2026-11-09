@@ -38,7 +38,7 @@ function CheckboxOption({ checked, onChange, label, detail }: {
 	);
 }
 
-/** Rendered only while open, keyed by its target, so a choice made for one backup never carries to the next. */
+/** Rendered only while open, so a choice made for one backup never carries to the next. */
 export function TakeBackupDialog({ database, node, onCancel, onConfirm }: {
 	database: string;
 	node: string;

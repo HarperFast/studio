@@ -101,6 +101,11 @@ vi.mock(
 	'@/hooks/useAuth',
 	() => ({ useInstanceAuth: () => ({ user: state.signedIn ? { username: 'admin' } : null }) }),
 );
+vi.mock('@/integrations/api/instance/database/getJob', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/integrations/api/instance/database/getJob')>()),
+	// Short enough that one poll interval (1.5 s) outlasts it.
+	JOB_NOT_FOUND_GRACE_MS: 1_000,
+}));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), loading: vi.fn() } }));
 
 beforeAll(() => {
@@ -349,6 +354,39 @@ describe('ConfigBackupsIndex on a cluster', () => {
 			).toBeTruthy()
 		);
 		expect(nodes.get('ins-a')!.bodies().map((body) => body.operation)).not.toContain('delete_backup');
+	});
+
+	it('keeps following a job that reads as missing once, then turns up', async () => {
+		let reads = 0;
+		state.handlers['ins-a:create_backup'] = () => ({ job_id: 'job-late' });
+		state.handlers['ins-a:get_job'] = () => {
+			reads += 1;
+			return reads === 1 ? [] : [{ id: 'job-late', status: 'IN_PROGRESS' }];
+		};
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 1' })).toBeTruthy());
+		fireEvent.click(nodeCard('alpha').getByRole('button', { name: 'Take backup' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Take backup' }));
+		await waitFor(() => expect(reads).toBeGreaterThanOrEqual(2), { timeout: 4_000 });
+		await act(async () => {});
+		expect(nodeCard('alpha').queryByText(/can't find job/)).toBeNull();
+		expect(nodeCard('alpha').getByText(/Backing up 'analytics'… started/)).toBeTruthy();
+	});
+
+	it('never states a purge count Harper did not send', async () => {
+		state.handlers['ins-a:list_backups'] = () => [2, 1].map((backup_id) => ({ backup_id }));
+		state.handlers['ins-a:purge_backups'] = () => ({ ok: true });
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2' })).toBeTruthy());
+		fireEvent.click(nodeCard('alpha').getByRole('button', { name: 'Keep newest…' }));
+		const dialog = within(screen.getByRole('alertdialog'));
+		fireEvent.change(dialog.getByLabelText('Backups to keep'), { target: { value: '1' } });
+		fireEvent.click(dialog.getByRole('button', { name: 'Delete 1 backup' }));
+		await waitFor(() =>
+			expect(toast.success).toHaveBeenCalledWith("Kept the newest 1 of 'analytics' on alpha", {
+				description: expect.stringMatching(/didn't say how many/),
+			})
+		);
 	});
 
 	it('stops following a job Studio is no longer allowed to read, and frees the node', async () => {

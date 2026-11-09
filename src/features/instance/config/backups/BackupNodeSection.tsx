@@ -129,14 +129,15 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 	const writeBusy = runningJobs.length > 0 || isCreating || isStartingVerify || isDeleting || isPurging;
 	const busyReason = runningJobs.length > 0
 		? 'Wait for the backup or verify job running on this node to finish.'
+		: writeBusy
+		? 'Wait for the request in progress on this node to finish.'
 		: undefined;
-	const creating = isCreating || runningJobs.some((job) => job.kind === 'create');
 	// Matched on the timestamp too: Harper starts the ids over once every backup is deleted, and a result for the
 	// old backup 1 must not land on the new one.
 	const latestVerify = (backup: DatabaseBackup) =>
 		jobs.find((job) =>
 			job.kind === 'verify' && job.database === database && job.backupId === backup.backupId
-			&& job.backupTimestamp === backup.timestamp
+			&& backup.timestamp !== undefined && job.backupTimestamp === backup.timestamp
 		);
 
 	const close = () => setDialog(undefined);
@@ -174,12 +175,17 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 		close();
 		purgeBackups({ ...nodeParams, database, keepCount }, {
 			onSuccess: ({ deleted }) => {
-				const count = deleted ?? expectedDeletions;
-				const description = deleted !== undefined && deleted !== expectedDeletions
+				if (deleted === undefined) {
+					toast.success(`Kept the newest ${keepCount} of '${database}' on ${name}`, {
+						description: "Harper didn't say how many it deleted. The list shows what's left.",
+					});
+					return;
+				}
+				const description = deleted !== expectedDeletions
 					? `Harper deleted ${deleted}, not the ${expectedDeletions} this page expected: the node's backups changed since the list was read.`
 					: undefined;
 				toast.success(
-					`Deleted ${count === 1 ? '1 backup' : `${count} backups`} of '${database}' from ${name}`,
+					`Deleted ${deleted === 1 ? '1 backup' : `${deleted} backups`} of '${database}' from ${name}`,
 					description ? { description } : undefined,
 				);
 			},
@@ -240,7 +246,6 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 						verifyFor={latestVerify}
 						writeBusy={writeBusy}
 						busyReason={busyReason}
-						verifyBusy={isStartingVerify || creating}
 						onVerify={(backup) => setDialog({ kind: 'verify', backup })}
 						onDelete={(backup) => setDialog({ kind: 'delete', backup })}
 					/>
@@ -287,12 +292,11 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 	);
 }
 
-function BackupTable({ backups, verifyFor, writeBusy, busyReason, verifyBusy, onVerify, onDelete }: {
+function BackupTable({ backups, verifyFor, writeBusy, busyReason, onVerify, onDelete }: {
 	backups: readonly DatabaseBackup[];
 	verifyFor: (backup: DatabaseBackup) => FollowedBackupJob | undefined;
 	writeBusy: boolean;
 	busyReason?: string;
-	verifyBusy: boolean;
 	onVerify: (backup: DatabaseBackup) => void;
 	onDelete: (backup: DatabaseBackup) => void;
 }) {
@@ -312,7 +316,6 @@ function BackupTable({ backups, verifyFor, writeBusy, busyReason, verifyBusy, on
 			<TableBody>
 				{backups.map((backup) => {
 					const verify = verifyFor(backup);
-					const verifying = verify !== undefined && verify.outcome === undefined;
 					return (
 						<TableRow key={backup.backupId} aria-label={`Backup ${backup.backupId}`}>
 							<TableCell className="font-mono">
@@ -331,7 +334,8 @@ function BackupTable({ backups, verifyFor, writeBusy, busyReason, verifyBusy, on
 									<Button
 										size="sm"
 										variant="defaultOutline"
-										disabled={verifyBusy || verifying}
+										disabled={writeBusy}
+										title={busyReason}
 										onClick={() => onVerify(backup)}
 									>
 										Verify

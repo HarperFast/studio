@@ -9,7 +9,6 @@ import { useQuery } from '@tanstack/react-query';
 import { CircleAlertIcon, CircleCheckIcon, LoaderCircleIcon, XIcon } from 'lucide-react';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-/** A backup job this page started and follows, on the node that runs it. */
 export interface FollowedBackupJob {
 	jobId: string;
 	database: string;
@@ -19,7 +18,6 @@ export interface FollowedBackupJob {
 	backupTimestamp?: number;
 	verifyChecksum?: boolean;
 	startedAt: number;
-	/** Set once the job has ended, or once Studio gave up finding it. */
 	outcome?: BackupJobOutcome;
 }
 
@@ -73,7 +71,9 @@ export function BackupJobLine({ job, nodeParams, onSettled, onDismiss }: {
 			setMissingSince(undefined);
 		}
 	}, [record, dataUpdatedAt]);
-	const missing = missingSince !== undefined && dataUpdatedAt - missingSince >= JOB_NOT_FOUND_GRACE_MS;
+	// `record === null` too: `missingSince` is cleared by an effect, after this render has already used it.
+	const missing = record === null && missingSince !== undefined
+		&& dataUpdatedAt - missingSince >= JOB_NOT_FOUND_GRACE_MS;
 	// A 403 stops the poll for good (pollUnlessForbidden), so it ends the follow rather than holding the node's writes.
 	const derived: BackupJobOutcome | undefined = isForbiddenError(error)
 		? 'forbidden'
