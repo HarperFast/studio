@@ -284,3 +284,10 @@ describe('validating a commented declaration', () => {
 		expect(fullTextErrors(field(table, 'catalogSearch'), table).join('\n')).toMatch(/isn’t a field of this table/);
 	});
 });
+
+describe('a comment between an argument and its value', () => {
+	it('reads the value after the comment, so its sources are still checked', () => {
+		const table = withArgs('fields: # the sources\n[{ name: "gone" }]');
+		expect(fullTextErrors(field(table, 'catalogSearch'), table).join('\n')).toMatch(/isn’t a field of this table/);
+	});
+});

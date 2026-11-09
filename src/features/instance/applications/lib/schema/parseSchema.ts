@@ -264,6 +264,10 @@ function parseArgs(inner: string): DirectiveArg[] {
 			continue;
 		}
 		i = skipWhitespace(inner, i + 1);
+		// A comment may sit between `:` and the value; the value is what follows it.
+		while (inner[i] === '#') {
+			i = skipWhitespace(inner, skipLineComment(inner, i));
+		}
 		const valueStart = i;
 		i = readValueToken(inner, i);
 		args.push({ name, value: inner.slice(valueStart, i).trim() });
