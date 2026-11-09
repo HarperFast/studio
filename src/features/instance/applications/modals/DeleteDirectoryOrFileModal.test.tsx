@@ -9,10 +9,12 @@
  */
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
+import type { DeleteSelectedItemsCallbacks } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { AxiosError, type AxiosResponse } from 'axios';
 import type { ReactElement } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const rootEntries: DirectoryEntry[] = [
 	{
@@ -27,9 +29,22 @@ const rootEntries: DirectoryEntry[] = [
 
 let openedEntry: DirectoryEntry | FileEntry | undefined;
 let selectedItems: string[] = [];
+let currentBranches: { settings: Record<string, string[] | true>; known: boolean } = { settings: {}, known: false };
 
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/features/instance/applications/hooks/useBranchedDatabases')>()),
+	useApplicationsBranchedDatabases: (projects: readonly string[]) => ({
+		settings: projects.flatMap((project) => {
+			const setting = currentBranches.settings[project];
+			return setting ? [{ project, setting }] : [];
+		}),
+		known: currentBranches.known,
+	}),
+}));
+
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ entityId: 'test-instance', entityType: 'instance' }),
+	useInstanceClientIdParams: () => ({ entityId: 'test-instance', entityType: 'instance', instanceClient: { post } }),
 }));
 
 vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
@@ -54,15 +69,25 @@ vi.mock('@/react-query/queryClient', () => ({ errorHandler: vi.fn() }));
 
 const { toast, deleteSelectedItems } = vi.hoisted(() => ({
 	toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn(), loading: vi.fn(), dismiss: vi.fn() },
-	deleteSelectedItems: vi.fn(async () => ({ lastSplit: [] as string[] })),
+	deleteSelectedItems: vi.fn(async (_items: readonly string[], _callbacks: DeleteSelectedItemsCallbacks) => ({
+		lastSplit: [] as string[],
+	})),
 }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ deleteSelectedItems }));
 
+import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
-function renderWithQueryClient(ui: ReactElement) {
-	return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
+// A seeded answer is fresh unless `stale`, which makes the modal ask again, and the instance refuses (`post`).
+function renderWithQueryClient(ui: ReactElement, harperVersion?: string, { stale = false } = {}) {
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	if (harperVersion) {
+		client.setQueryData(['registration_info', 'test-instance'], { version: harperVersion }, {
+			updatedAt: stale ? 0 : Date.now(),
+		});
+	}
+	return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
 // Radix dialogs rely on a couple of DOM APIs jsdom doesn't implement.
@@ -74,9 +99,16 @@ beforeAll(() => {
 	}
 });
 
+beforeEach(() => {
+	post.mockRejectedValue(
+		new AxiosError('Forbidden', 'ERR_BAD_REQUEST', undefined, undefined, { status: 403 } as AxiosResponse),
+	);
+});
+
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	currentBranches = { settings: {}, known: false };
 });
 
 // Cancel, the destructive action, and Radix's own "X" close button all render; target the action
@@ -106,5 +138,166 @@ describe('DeleteDirectoryOrFileModal', () => {
 
 		await waitFor(() => expect(deleteSelectedItems).toHaveBeenCalled());
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	describe('an application on a private database copy', () => {
+		const KEPT = 'Successfully dropped: anvils. Any branched database storage this application owns was left in place; '
+			+ 'drop it again with restart: true to discard that data';
+
+		it('says the copy may stay on disk while the version is unread', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.getByText(/runs on a private copy of data/).textContent).toContain(
+				'Harper may leave that copy on disk, depending on its version.',
+			);
+		});
+
+		it('stops promising either fate once a refresh of the version is refused', async () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0', { stale: true });
+
+			const note = () => screen.getByText(/runs on a private copy of data/).textContent;
+			expect(note()).toContain('Harper discards that copy by itself');
+			await waitFor(() => expect(note()).toContain('Harper may leave that copy on disk, depending on its version.'));
+			expect(post).toHaveBeenCalledWith('/', { operation: 'registration_info' });
+		});
+
+		it('says Harper discards the copy by itself from 5.4.0-alpha.2', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0-beta.2');
+
+			const note = screen.getByText(/runs on a private copy of data/).textContent;
+			expect(note).toContain('Harper discards that copy by itself once no worker has the application loaded');
+			expect(note).not.toContain('keeps');
+		});
+
+		it('says Harper keeps the copy before 5.4.0-alpha.2', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0-alpha.1');
+
+			const note = screen.getByText(/runs on a private copy of data/).textContent;
+			expect(note).toContain('Harper keeps that copy on disk when it removes an application without a restart');
+			expect(note).not.toContain('discards that copy by itself');
+		});
+
+		it('promises neither while the version is unread', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils', 'forge'];
+			currentBranches = { settings: { anvils: ['data'], forge: true }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			const note = screen.getByText(/runs on a private copy of data/).textContent;
+			expect(note).toContain('Harper may leave those copies on disk, depending on its version.');
+		});
+
+		it('names every application whose copies Harper will discard', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils', 'forge'];
+			currentBranches = { settings: { anvils: ['data'], forge: true }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0');
+
+			expect(screen.getByText(/runs on a private copy of data/).textContent).toContain(
+				'Harper discards those copies by itself once no worker has those applications loaded',
+			);
+		});
+
+		it('names the copy of every application in the selection', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils', 'forge', 'anvils/index.js'];
+			currentBranches = { settings: { anvils: ['data'], forge: true }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(
+				screen.getByText(
+					/anvils runs on a private copy of data\. forge runs on a private copy of all databases except system\./,
+				),
+			).toBeTruthy();
+		});
+
+		it('says nothing about the copy when deleting a file inside the application', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils/index.js'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.queryByText(/runs on a private copy/)).toBeNull();
+		});
+
+		it('says nothing about the copy until the setting is current', () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: false };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			expect(screen.queryByText(/runs on a private copy/)).toBeNull();
+		});
+
+		it("shows Harper's answer when it kept the copy, and forgets the dropped application's setting", async () => {
+			const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			vi.mocked(dropComponent).mockResolvedValue({ message: KEPT });
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', undefined);
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() =>
+				expect(toast.warning).toHaveBeenCalledWith(
+					'Delete completed, private database copy left on disk',
+					expect.objectContaining({ description: KEPT }),
+				)
+			);
+			expect(toast.success).not.toHaveBeenCalled();
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ['get_configuration', 'test-instance'] });
+			invalidate.mockRestore();
+		});
+
+		it("forgets the application's setting even when Harper's answer to the drop was lost", async () => {
+			const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			vi.mocked(dropComponent).mockRejectedValue(new Error('timeout of 60000ms exceeded'));
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', undefined).catch(() => undefined);
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() =>
+				expect(invalidate).toHaveBeenCalledWith({ queryKey: ['get_configuration', 'test-instance'] })
+			);
+			invalidate.mockRestore();
+		});
+
+		it("doesn't read a file's drop as the application's", async () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils/index.js'];
+			vi.mocked(dropComponent).mockResolvedValue({ message: KEPT });
+			deleteSelectedItems.mockImplementationOnce(async (_items, callbacks) => {
+				await callbacks.dropItem('anvils', 'index.js');
+				return { lastSplit: [] };
+			});
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+
+			confirmDelete(/Delete Application/i);
+
+			await waitFor(() => expect(toast.success).toHaveBeenCalled());
+			expect(toast.warning).not.toHaveBeenCalled();
+		});
 	});
 });

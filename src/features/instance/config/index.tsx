@@ -4,13 +4,19 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
+import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
+import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
+	BrickWallFireIcon,
+	CalendarClockIcon,
+	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
 	KeyIcon,
@@ -40,6 +46,9 @@ export function ConfigIndex() {
 	// plain '5.2.0' gate would exclude every prerelease (SemVer ranks prereleases below the release).
 	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 	const trustPoliciesSupported = supportsTrustPolicies(version);
+	const wafSupported = supportsWaf(version);
+	const previewsSupported = supportsPreviews(version);
+	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -87,6 +96,30 @@ export function ConfigIndex() {
 					</Link>
 				</li>
 			)}
+			{wafSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/firewall')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<BrickWallFireIcon className="hidden md:inline-block" /> <span className="ms-3">Firewall</span>
+					</Link>
+				</li>
+			)}
+			{previewsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/previews')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<GitPullRequestIcon className="hidden md:inline-block" /> <span className="ms-3">Previews</span>
+					</Link>
+				</li>
+			)}
 			<li>
 				<Link
 					to={buildAbsoluteLinkToPage(params, 'config/roles')}
@@ -97,6 +130,18 @@ export function ConfigIndex() {
 					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
 				</Link>
 			</li>
+			{scheduledJobsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/scheduled-jobs')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<CalendarClockIcon className="hidden md:inline-block" /> <span className="ms-3">Scheduled Jobs</span>
+					</Link>
+				</li>
+			)}
 			{
 				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
 			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated
@@ -153,7 +198,7 @@ export function ConfigIndex() {
 	);
 
 	return (
-		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36)))]">
+		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36))-var(--notification-banner-height))]">
 			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
 				<DesktopConfigNavBar params={params}>{children}</DesktopConfigNavBar>
 				<MobileConfigNavBar params={params}>{children}</MobileConfigNavBar>

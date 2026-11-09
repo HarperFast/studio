@@ -22,9 +22,9 @@ Four workflows own the deploy path, plus two composite actions. (`verify-pr.yaml
   component, deploy. Every credentialed step lives here. Assumes verify installed first.
 
 The three deploy workflows are deliberately thin: they own only what differs per environment —
-trigger branch, concurrency group, sourcemap URL, which secrets, whether a push releases, and
-which Harper major the CM runs. A change to _how_ Studio deploys belongs in an action; a change
-to _where_ it deploys belongs in the workflow.
+trigger branch, concurrency group, sourcemap URL, which secrets, and whether a push releases. A
+change to _how_ Studio deploys belongs in an action; a change to _where_ it deploys belongs in
+the workflow.
 
 The action split is a security boundary, not tidiness: `pnpm install` alone runs postinstall
 scripts from whatever ref is checked out, so the installing side must never hold a credential.
@@ -76,64 +76,53 @@ its own — while the two together fail type-check with
 combination; only `tsc -b` over the merged ref catches it — which is why `verify-stage.yaml`
 passes `build: 'true'`, since the `build` script is `tsc -b && vite build`.
 
-## Choosing the Harper major
+## The template's `@fastify/static` range
 
-`@fastify/static` majors track fastify majors, and Harper embeds fastify: v7 pairs with fastify 4
-(harperdb 4.x), v8 with fastify 5 (Harper 5.x).
+`@fastify/static` majors declare the fastify major they register against, and the template runs
+on the fastify embedded in the CM's Harper — so the range has to suit that, not just be the newest
+release. Every CM runs Harper 5.x (fastify 5), which `@fastify/static` v8 through v10 all accept.
+(harperdb 4.x embedded fastify 4 and needed v7; Studio no longer deploys to it.)
 
-**Each environment defaults to the major its CM runs today** — currently `v5` for dev, stage and
-prod — not to the major we intend to end up on. The rest position of a switch should be where
-the system is, so merging a change to this repo never moves a CM by itself, and shelving or
-resuming Harper 5 is an explicit act.
+Renovate keeps the range current. Minor and patch bumps group with the other non-major
+dependencies; a **major waits for approval on the Dependency Dashboard** (`renovate.json`),
+because nothing in CI loads the template. Before approving one, check which fastify major it
+targets and run `verify-static.mjs` (next to the template) against the fastify major Harper
+embeds.
 
-Each caller's `harper-version: ${{ inputs.harper_version || '<major>' }}` line **is the source of
-truth**. The dispatch input overrides a single run and does _not_ stick, so a one-off manual `v5`
-deploy is undone by the next ordinary push. **When a CM changes major in central manager, change
-that literal in the same breath**, along with the dispatch input's `default:` — changing only the
-default leaves every push on the old major.
+There is one template for every environment, so it can only target one fastify major. If CMs
+ever run Harper majors with different embedded fastify majors again, the range has to differ per
+environment again too — `git log -S FASTIFY_STATIC_V5` shows how that was last done.
 
-There is one template. It carries the 4.x pin, and a `v5` deploy rewrites that single range as it
-stages the component (`FASTIFY_STATIC_V5` in `studio-deploy`) — so the range is by construction
-the only difference between a v4 and a v5 deploy, with no second copy to drift. Renovate is
-configured not to touch `@fastify/static` (`renovate.json`), so both versions only move
-deliberately.
+### A wrong range fails silently, and late
 
-Once every CM is on one major again, drop the `harper_version` input and the override step, and
-pin the template to whatever that major needs.
-
-### Getting it wrong fails silently, and late
-
-Pairing the wrong major does **not** fail the deploy, and does not break at the next push either.
-`deploy_component` writes the range to disk while the running workers keep the major they already
-imported, so the deploy is green and Studio keeps serving.
+A range that does not match the CM's fastify does **not** fail the deploy, and does not break at
+the next push either. `deploy_component` writes the range to disk while the running workers keep
+the version they already imported, so the deploy is green and Studio keeps serving.
 
 The break lands at the **next restart** — a CM upgrade, a host reboot, a worker respawn — with no
 deploy anywhere near it in the timeline. `fastify-plugin`'s version check rejects the plugin,
 `reply.sendFile` is never decorated, and the CM answers `GET /` with
-`{"error":"reply.sendFile is not a function"}` while every static asset 404s. That silence is the
-only reason the CM's Harper major is a deploy input at all.
+`{"error":"reply.sendFile is not a function"}` while every static asset 404s.
 
 Two consequences:
 
-- **A deliberate major switch must be deployed from Run workflow with `restart` on.** Without it
-  the new range sits on disk unused and the switch has silently not happened yet. The two inputs
-  are independent because an ordinary redeploy should not bounce workers.
-- **The input assumes a homogeneous cluster.** `deploy_component … replicated=true` pushes one
-  `package.json` to every node, so mid-rolling-upgrade a cluster running both majors gets a
-  single range cluster-wide, and Studio works or 404s depending on which node the load balancer
-  picks. Flip the literal at the boundary of a major rollout, not during one.
+- **After a range change reaches an environment, redeploy it from Run workflow with `restart`
+  on.** A push deploys `restart: false`, so without it the new version sits on disk unused and a
+  bad bump surfaces at some later, unrelated restart instead of right after the deploy that
+  caused it. The two are independent because an ordinary redeploy should not bounce workers.
+- **One range serves the whole cluster.** `deploy_component … replicated=true` pushes one
+  `package.json` to every node, so during a rolling Harper upgrade that changes the embedded
+  fastify major, Studio works or 404s depending on which node the load balancer picks. Move the
+  range at the boundary of such a rollout, not during one.
 
-## The two manual knobs
+## The manual restart
 
-Exposed on every environment's **Run workflow** button, and only there:
-
-- **Restart the component after deploying** — off by default. This replaced three
-  `… with Restart` workflows, now deleted, that differed only in `restart=`.
-- **Harper major version running on the target CM** — defaults to whatever that environment's CM
-  runs (above).
+Exposed on every environment's **Run workflow** button, and only there: **Restart the component
+after deploying** — off by default. This replaced three `… with Restart` workflows, now deleted,
+that differed only in `restart=`.
 
 `inputs.*` is empty for anything but a manual run, and an empty value _overrides_ an action
 input's declared default rather than falling back to it — so the callers default it themselves
 (`inputs.restart || false`) and the action re-normalizes in shell, treating anything that is not
-exactly `true`/`v5` as the default. Two independent guards, either sufficient on its own: a
-restart or a v5 deploy only happens because someone asked for it.
+exactly `true` as the default. Two independent guards, either sufficient on its own: a restart
+only happens because someone asked for it.

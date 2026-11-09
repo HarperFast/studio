@@ -167,7 +167,7 @@ export function OrganizationsIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<section className="mt-32 px-4 pt-6 pb-10 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-32 px-4 pt-6 pb-10 md:px-12 min-h-[calc(100vh-theme(spacing.32)-var(--notification-banner-height))]">
 				<header className="flex flex-wrap items-center justify-between gap-4 pb-6">
 					<h1 className="text-2xl font-bold tracking-normal text-primary sm:text-3xl dark:text-violet-300">
 						Organizations

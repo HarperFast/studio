@@ -39,7 +39,7 @@ export function NotificationsCenter() {
 		}), [data, now]);
 
 	return (
-		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 			<div className="max-w-3xl">
 				<h1 className="text-2xl font-light">Notifications</h1>
 				<p className="mt-2 text-sm text-muted-foreground">

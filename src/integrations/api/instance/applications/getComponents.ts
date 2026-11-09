@@ -7,8 +7,24 @@ export type ComponentStatusLevel = 'healthy' | 'warning' | 'error' | 'unknown' |
 export interface ComponentStatus {
 	status: ComponentStatusLevel;
 	message?: string;
+	/**
+	 * Each part of the app that isn't healthy, keyed `<app>.<component>`, e.g. `my-app.scheduler` when a job stopped it
+	 * loading. The message only names the part; the reason is in Harper's log.
+	 */
+	details?: Record<string, { status: ComponentStatusLevel; message?: string }>;
 	/** Per-worker check timestamps; shape varies, kept loose. */
 	lastChecked?: unknown;
+}
+
+/** What a PR preview was deployed from (harper `components/deploymentProvenance.ts`), on Harper 5.4+. */
+export interface PreviewMetadata {
+	app: string;
+	pr: number;
+	repository?: string;
+	branch?: string;
+	sha?: string;
+	/** ISO 8601, or epoch milliseconds. */
+	expiresAt?: string | number;
 }
 
 export interface APIDirectoryEntry extends APIFileEntry {
@@ -16,6 +32,10 @@ export interface APIDirectoryEntry extends APIFileEntry {
 	package?: string;
 	/** Present on Harper >= 5.1.0 for top-level component entries. */
 	status?: ComponentStatus;
+	/** The host an isolated application serves on. */
+	host?: string;
+	/** Present on a top-level entry whose live release was deployed as a preview. */
+	preview?: PreviewMetadata;
 }
 
 export interface APIFileEntry {

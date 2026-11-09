@@ -1,5 +1,6 @@
 import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import {
 	calculateRootEntries,
 } from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
@@ -20,7 +21,7 @@ import {
 	getComponentFileQueryOptions,
 	GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
-import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
+import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
@@ -105,11 +106,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		return calculateRootEntries(apiComponents.entries);
 	}, [apiComponents]);
 
-	const reloadRootEntries = useCallback(async () =>
-		queryClient.fetchQuery<APIDirectoryEntry>({
-			queryKey: [instanceParams.entityId, 'get_components'],
-			networkMode: 'online',
-		}), [queryClient, instanceParams]);
+	// Callers can outlive the editor; a reload from before a sign-out refuses to fill the next session's cache.
+	const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
+	const reloadRootEntries = useCallback(async () => {
+		if (authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration) {
+			throw new Error(`Signed out before the component tree of ${instanceParams.entityId} reloaded.`);
+		}
+		return queryClient.fetchQuery({ ...getComponentsQueryOptions(instanceParams), networkMode: 'online' });
+	}, [queryClient, instanceParams, signOutGeneration]);
 
 	useListener('ReloadApplicationRootEntries', reloadRootEntries, [reloadRootEntries]);
 

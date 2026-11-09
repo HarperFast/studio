@@ -62,10 +62,45 @@ const promoCodesRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/promoCodes/index'), 'PromoCodesAdminIndex'),
 });
 
+const hostsRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'hosts',
+	head: () => ({ meta: [{ title: 'Hosts — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/hosts/index'), 'HostsIndex'),
+});
+
+const monitoringRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'monitoring',
+	head: () => ({ meta: [{ title: 'Monitoring — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/monitoring/index'), 'MonitoringPolicyAdminIndex'),
+});
+
+const usersRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'users',
+	head: () => ({ meta: [{ title: 'Users — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersAdminLayout'),
+});
+
+const usersIndexRoute = createRoute({
+	getParentRoute: () => usersRoute,
+	path: '/',
+	component: lazyRouteComponent(async () => import('@/features/admin/users/index'), 'UsersSearchPrompt'),
+});
+
+// Keyed by id, never by email: page URLs reach RUM and third-party pixels.
+const userDetailsRoute = createRoute({
+	getParentRoute: () => usersRoute,
+	path: '$userId',
+	head: () => ({ meta: [{ title: 'User — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/users/UserDetails'), 'UserDetailsPage'),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
-	head: () => ({ meta: [{ title: 'API Token — Harper Fabric' }] }),
+	head: () => ({ meta: [{ title: 'API Tokens — Harper Fabric' }] }),
 	component: lazyRouteComponent(async () => import('@/features/admin/apiToken/index'), 'ApiTokenIndex'),
 });
 
@@ -78,5 +113,8 @@ export const adminRoutes = [
 	grantsRoute,
 	promoCodesRoute,
 	billingRoute,
+	hostsRoute,
+	monitoringRoute,
+	usersRoute.addChildren([usersIndexRoute, userDetailsRoute]),
 	apiTokenRoute,
 ];

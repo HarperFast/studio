@@ -1,20 +1,21 @@
 // Harper resources are addressed by IDs that carry a distinct, lowercase prefix
 // per resource type (e.g. `org-qpz5akmyrp1d0opj`, `clu-tc9pqw20vrks2zik`,
-// `ins-…`). The lowercase casing is what lets us tell a pasted ID apart from a
+// `ins-…`, `usr-…`). The lowercase casing is what lets us tell a pasted ID apart from a
 // human-typed title — a title like "Org Chart" or "Cluster West" never matches.
 
-export type EntityIdKind = 'organization' | 'cluster' | 'instance';
+export type EntityIdKind = 'organization' | 'cluster' | 'instance' | 'user';
 
 const PREFIX_TO_KIND: Record<string, EntityIdKind> = {
 	org: 'organization',
 	clu: 'cluster',
 	ins: 'instance',
+	usr: 'user',
 };
 
 // Lowercase prefix + lowercase alphanumeric body, anchored end-to-end so
 // partial/looser matches (mixed case, spaces, trailing junk) fall through to
 // the normal name search instead of being treated as an ID.
-const ENTITY_ID_PATTERN = /^(org|clu|ins)-[a-z0-9]+$/;
+const ENTITY_ID_PATTERN = /^(org|clu|ins|usr)-[a-z0-9]+$/;
 
 /**
  * Detects whether a string is a Harper resource ID and, if so, which kind of

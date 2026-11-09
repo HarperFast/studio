@@ -55,14 +55,19 @@ export type StaffPermission =
 	| 'instance:read'
 	| 'instance:update'
 	| 'billing:write'
+	| 'host:read'
 	| 'region:read'
 	| 'region:write'
 	| 'grant:read'
 	| 'grant:write'
 	| 'plan:read'
 	| 'plan:write'
+	| 'monitoringPolicy:write'
+	| 'user:read'
+	| 'user:status'
 	| 'systemStatus:write'
-	| 'apiToken:create';
+	| 'apiToken:create'
+	| 'apiToken:self';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
@@ -114,10 +119,32 @@ export interface CreatedOrganizationApiToken extends OrganizationApiToken {
 	token: string;
 }
 
-/** Response of POST /Admin/ApiToken — a short-lived Bearer token for programmatic API access. */
-export interface ApiTokenResult {
-	operationToken: string;
+/** The staff roles a staff API token can carry (POST /Admin/ApiToken `role`). */
+export type StaffApiTokenRole = 'fabric_readonly' | 'fabric_support' | 'fabric_staff' | 'fabric_admin';
+
+/**
+ * Whether a staff API token still authenticates. `idle` is a token that outlived its 5-day idle
+ * window before its expiry; `expired` one that reached its expiry.
+ */
+export type StaffApiTokenStatus = 'active' | 'idle' | 'expired' | 'revoked';
+
+/** A staff API token as listed by GET /Admin/ApiToken — never its secret. */
+export interface StaffApiToken {
+	id: string;
+	name: string;
+	role: StaffApiTokenRole;
+	ownerUserId: string;
+	createdByUserId: string;
+	createdAt: string;
 	expiresAt: string;
+	lastUsedAt: string | null;
+	revokedAt: string | null;
+	status: StaffApiTokenStatus;
+}
+
+/** Response of POST /Admin/ApiToken — the token's one and only appearance of its secret. */
+export interface MintedStaffApiToken extends StaffApiToken {
+	operationToken: string;
 }
 
 /**
@@ -213,6 +240,50 @@ export interface AdminLocation {
 	/** Only these two providers exist today (see central-manager's loadLocations). */
 	cloudProvider: 'linode' | 'gcp';
 	regions: string[];
+}
+
+/** Host lifecycle statuses (central-manager's HOST_STATUS). */
+export type HostStatus = 'PROVISIONING' | 'RUNNING' | 'DEGRADED' | 'REMOVING' | 'REMOVED' | 'TERMINATED';
+
+/**
+ * A row of GET /Admin/Host/ — a fixed summary of a host, not the raw Host record. Location fields are
+ * null (and `regions` empty) when the host's Location no longer exists.
+ */
+export interface AdminHost {
+	id: string;
+	name: string;
+	status: HostStatus | null;
+	fqdn: string | null;
+	ipAddress: string | null;
+	cloudInstanceType: string | null;
+	cloudInstanceId: string | null;
+	locationId: string | null;
+	location: string | null;
+	locationName: string | null;
+	cloudProvider: string | null;
+	regions: string[];
+	/** Dedicated scope: the organizations this host is reserved for. Null or empty = a shared host. */
+	organizationIds: string[] | null;
+	dynamicallyAssignable: boolean | null;
+	underMaintenance: boolean | null;
+	gpu: boolean | null;
+	gpuType: string | null;
+	gpuCount: number | null;
+	embedHub: boolean | null;
+	canaryHost: boolean | null;
+	maxCPUCores: number | null;
+	maxMemoryMb: number | null;
+	maxStorageGb: number | null;
+	usedCPUCores: number | null;
+	usedMemoryMb: number | null;
+	usedStorageGb: number | null;
+	/** Non-terminal instances on the host (STOPPED and ERROR still count). */
+	instanceCount: number;
+	/** Organizations with instances on the host, most instances first. */
+	organizations: Array<{ id: string; instanceCount: number }>;
+	createdAt: string | null;
+	updated: number | null;
+	terminatedAt: string | null;
 }
 
 /**
@@ -327,7 +398,10 @@ export interface LocalLegacyRoleAttributePermissionTable {
 
 export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
 
-export interface Instance extends SchemaHdbInstance {
+export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn'> {
+	cluster: Cluster;
+	// The generated schema marks this required, but central manager can list an instance without one.
+	instanceFqdn?: string;
 	status?: BadgeStatus;
 	// Returned by the CM but not yet in the generated OpenAPI schema. True when the instance was
 	// (re)started in safe mode — Harper core is up but user apps/components are not loaded.

@@ -7,6 +7,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const importState = vi.hoisted(() => ({
 	importFailure: undefined as { title: string; message: string; deploymentId?: string } | undefined,
+	importApplication: vi.fn(),
+	canBranch: false,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -24,7 +26,7 @@ vi.mock('./useCreateFromTemplate', () => ({
 vi.mock('./useImportApplication', () => ({
 	useImportApplication: () => ({
 		isImportingApplication: false,
-		importApplication: vi.fn(),
+		importApplication: importState.importApplication,
 		importFailure: importState.importFailure,
 	}),
 }));
@@ -32,10 +34,22 @@ vi.mock('./useCheckCLI', () => ({ useCheckCLI: () => ({ checkCLI: vi.fn() }) }))
 // These read the instance's SSH keys and auth, which aren't what these tests exercise.
 vi.mock('./ImportAuthorization', () => ({ ImportAuthorization: () => null }));
 vi.mock('./useCLISteps', () => ({ useCLISteps: () => [] }));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	useBranchedDatabasesAvailable: () => importState.canBranch,
+}));
+// The private copy field lists databases through this client; the list is never what is under test.
+vi.mock('@/config/useInstanceClient', () => ({
+	useInstanceClientIdParams: () => ({
+		entityId: 'ins-1',
+		entityType: 'instance',
+		instanceClient: { post: () => new Promise(() => {}) },
+	}),
+}));
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useStagedDeploymentsAvailable: () => false,
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NewApplication } from './index';
 
 beforeAll(() => {
@@ -49,6 +63,8 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	importState.importFailure = undefined;
+	importState.canBranch = false;
+	vi.clearAllMocks();
 });
 
 function button(name: RegExp) {
@@ -135,6 +151,44 @@ describe('NewApplication', () => {
 
 		expect(await screen.findByText(message)).toBeTruthy();
 		expect((screen.getByRole('button', { name: /Create from Template/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("drops a private copy choice the form stops offering, so it can't hold the import back", async () => {
+		importState.canBranch = true;
+		const queryClient = new QueryClient();
+		const ui = () => (
+			<QueryClientProvider client={queryClient}>
+				<NewApplication />
+			</QueryClientProvider>
+		);
+		const rendered = render(ui());
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'acme' } });
+		});
+		await switchTo(/Import/);
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Git Repository URL'), {
+				target: { value: 'https://github.com/acme/app.git' },
+			});
+		});
+		await waitFor(() => expect(button(/Import Application/).disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(screen.getByRole('radio', { name: /Chosen databases/ }));
+		});
+		await waitFor(() => expect(button(/Import Application/).disabled).toBe(true));
+
+		importState.canBranch = false;
+		await act(async () => rendered.rerender(ui()));
+
+		await waitFor(() => expect(button(/Import Application/).disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(button(/Import Application/));
+		});
+		await waitFor(() =>
+			expect(importState.importApplication).toHaveBeenCalledWith(
+				expect.objectContaining({ contents: expect.objectContaining({ privateCopy: { mode: 'off', databases: [] } }) }),
+			)
+		);
 	});
 
 	it("keeps a failed import's reason beside the Import button", async () => {

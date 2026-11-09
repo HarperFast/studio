@@ -12,6 +12,8 @@ interface ConfigurationInfoResponse {
 		cors: boolean;
 		corsAccessList: string[];
 	};
+	/** harper-pro only. The mode and threshold the firewall falls back to until `set_waf_mode` stores its own. */
+	waf?: { enabled?: unknown; mode?: unknown; scoreThreshold?: unknown };
 }
 
 export function getConfigurationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

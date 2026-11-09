@@ -7,7 +7,7 @@
 	--signin-card: rgb(255 255 255 / 90%);
 	--signin-field: #f5f7fc;
 	--signin-link: #4356bb;
-	min-height: 100svh;
+	min-height: calc(100svh - var(--notification-banner-height));
 	overflow: clip;
 	color: var(--signin-ink);
 	background: radial-gradient(ellipse at 12% 20%, #eceaff 0, transparent 48%), var(--signin-bg);

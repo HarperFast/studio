@@ -47,4 +47,19 @@ describe("the assistant's dropComponentFile tool", () => {
 		expect(readSessionValue(bufferKey, undefined)).toBe('unsaved edits');
 		expect(queryClient.getQueryData(contentsKey)).toBeDefined();
 	});
+
+	it.each([
+		['answered', () => vi.mocked(dropComponent).mockResolvedValue({ message: 'Successfully dropped: app' })],
+		[
+			'failed, since it may still have removed it',
+			() => vi.mocked(dropComponent).mockRejectedValue(new Error('timeout')),
+		],
+	])('forgets the setting of an application it drops whole, %s', async (_, settle) => {
+		settle();
+		queryClient.setQueryData(['get_configuration', 'ins-1'], { app: { branchedDatabases: true } });
+
+		await drop('app');
+
+		expect(queryClient.getQueryState(['get_configuration', 'ins-1'])?.isInvalidated).toBe(true);
+	});
 });

@@ -14,6 +14,8 @@ const STATUS_VARIANT: Record<DeploymentStatus, BadgeVariant> = {
 	failed: 'destructive',
 	rolled_back: 'destructive',
 	staged: 'secondary',
+	rolling_out: 'warning',
+	partial: 'destructive',
 };
 
 export const DEPLOYMENT_STATUS_LABEL: Record<DeploymentStatus, string> = {
@@ -27,6 +29,8 @@ export const DEPLOYMENT_STATUS_LABEL: Record<DeploymentStatus, string> = {
 	failed: 'Failed',
 	rolled_back: 'Rolled back',
 	staged: 'Staged',
+	rolling_out: 'Rolling out',
+	partial: 'Partial',
 };
 
 export function DeploymentStatusBadge({ status }: { status: DeploymentStatus }) {

@@ -162,7 +162,7 @@ export function OrgSettingsIndex() {
 
 	if (!canUpdate) {
 		return (
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))] text-foreground">
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32)-var(--notification-banner-height))] text-foreground">
 				You don&apos;t have permission to manage settings for this organization.
 			</div>
 		);

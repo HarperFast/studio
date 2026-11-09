@@ -20,6 +20,7 @@ import {
 	useDeploymentsAvailable,
 	useStagedDeploymentsAvailable,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { usePreviewsProject } from '@/features/instance/config/previews/usePreviewsAvailable';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
@@ -31,9 +32,11 @@ import {
 	ArrowRightIcon,
 	CaseSensitiveIcon,
 	ChevronDownIcon,
+	DatabaseIcon,
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
+	GitPullRequestIcon,
 	HistoryIcon,
 	LockIcon,
 	PackageIcon,
@@ -56,6 +59,7 @@ import {
 	GO_MENU_SECTIONS,
 } from './editorMenuCommands';
 import { useEditorShortcutLabels } from './editorShortcutLabels';
+import { PrivateCopyIndicator } from './PrivateDatabaseCopy/PrivateCopyIndicator';
 
 import './ContentActions.css';
 
@@ -101,6 +105,7 @@ export function ContentActions({
 	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
 	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
+	const onPrivateCopyClick = useSetWatchedValue('ShowApplicationPrivateCopyModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
 	const onNewTableClick = useEmitToListeners('AddSchemaTable', true);
@@ -146,12 +151,22 @@ export function ContentActions({
 
 	// Which actions apply to what is open — drives both the menu items and
 	// whether each parent menu appears at all. Shared with the sidebar context menu.
-	const { canEditFile, canRename, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy } =
-		useEntryActions(openedEntry);
+	const {
+		canEditFile,
+		canRename,
+		canAddEntries,
+		canAddTable,
+		canDeleteEntry,
+		canDownload,
+		canRedeploy,
+		canChangePrivateCopy,
+	} = useEntryActions(openedEntry);
 
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
-	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject;
+	const previewsProject = usePreviewsProject(openedEntry?.project);
+	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject
+		|| !!previewsProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.
 	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
 
@@ -224,6 +239,8 @@ export function ContentActions({
 							</TooltipContent>
 						</Tooltip>
 					)}
+
+					{openedEntry.project && <PrivateCopyIndicator project={openedEntry.project} />}
 
 					{showFileMenu && (
 						<DropdownMenu
@@ -400,11 +417,19 @@ export function ContentActions({
 										Restart
 									</DropdownMenuItem>
 								)}
-								{(canDownload || canManageBrowseInstance) && canRedeploy && <DropdownMenuSeparator />}
+								{(canDownload || canManageBrowseInstance) && (canRedeploy || canChangePrivateCopy) && (
+									<DropdownMenuSeparator />
+								)}
 								{canRedeploy && (
 									<DropdownMenuItem onSelect={onRedeployClick}>
 										<PackageIcon />
 										Redeploy Package
+									</DropdownMenuItem>
+								)}
+								{canChangePrivateCopy && (
+									<DropdownMenuItem onSelect={onPrivateCopyClick}>
+										<DatabaseIcon />
+										Private Database Copy…
 									</DropdownMenuItem>
 								)}
 								{deploymentsProject && (
@@ -429,6 +454,18 @@ export function ContentActions({
 									>
 										<RocketIcon />
 										Staged Releases
+									</DropdownMenuItem>
+								)}
+								{previewsProject && (
+									<DropdownMenuItem
+										onSelect={() =>
+											void navigate({
+												to: buildAbsoluteLinkToPage(routeParams, 'config/previews'),
+												search: { project: previewsProject },
+											})}
+									>
+										<GitPullRequestIcon />
+										Previews
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>

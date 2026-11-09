@@ -4,11 +4,15 @@ import { validateDeploymentsSearch } from '@/features/instance/config/deployment
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
+import { ConfigPreviewsIndex } from '@/features/instance/config/previews';
+import { validatePreviewsSearch } from '@/features/instance/config/previews/previewsSearch';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigScheduledJobsIndex } from '@/features/instance/config/scheduledJobs';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
+import { ConfigWafIndex } from '@/features/instance/config/waf';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
 import { createRoute } from '@tanstack/react-router';
@@ -62,6 +66,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigDomainsIndex,
 	});
 
+	const instanceConfigWafRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'firewall',
+		head: () => ({ meta: [{ title: 'Firewall — Harper Fabric' }] }),
+		component: ConfigWafIndex,
+	});
+
 	const instanceConfigSSHKeysRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'ssh-keys',
@@ -88,6 +99,22 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		validateSearch: validateDeploymentsSearch,
 		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
 		component: ConfigDeploymentsIndex,
+	});
+
+	const instanceConfigPreviewsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'previews',
+		validateSearch: validatePreviewsSearch,
+		head: () => ({ meta: [{ title: 'Previews — Harper Fabric' }] }),
+		component: ConfigPreviewsIndex,
+	});
+
+	const instanceConfigScheduledJobsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'scheduled-jobs',
+		head: () => ({ meta: [{ title: 'Scheduled Jobs — Harper Fabric' }] }),
+		component: ConfigScheduledJobsIndex,
+		loader: registrationInfoLoader,
 	});
 
 	const instanceConfigSecretsRoute = createRoute({
@@ -134,11 +161,17 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigDomainsRoute,
 
+		instanceConfigWafRoute,
+
 		instanceConfigDeploymentsRoute,
 		instanceConfigDeploymentRoute,
 
+		instanceConfigPreviewsRoute,
+
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigScheduledJobsRoute,
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,

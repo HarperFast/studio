@@ -149,6 +149,9 @@
 	--chart-heatmap-muted-bg: #f3f4f6;
 	--chart-heatmap-muted-stroke: #9ca3af;
 	--chart-heatmap-grey-stroke: #9ca3af;
+
+	/* NotificationBanner overrides this inline on <html> with its measured height while it shows. */
+	--notification-banner-height: 0px;
 }
 
 .dark {

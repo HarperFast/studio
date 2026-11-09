@@ -24,7 +24,7 @@ export function DeploymentDetailModal({
 					<DialogTitle>Deployment</DialogTitle>
 				</DialogHeader>
 				<div className="min-h-0 flex-1 overflow-y-auto">
-					<DeploymentDetail deploymentId={deploymentId} />
+					<DeploymentDetail key={deploymentId} deploymentId={deploymentId} />
 				</div>
 			</DialogContent>
 		</Dialog>

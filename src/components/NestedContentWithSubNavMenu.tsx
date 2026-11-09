@@ -7,7 +7,10 @@ export function NestedContentWithSubNavMenu({ children, className }: { children:
 		<>
 			<SubNavMenu />
 			<div
-				className={cx('mt-32 px-4 py-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))] flex justify-center', className)}
+				className={cx(
+					'mt-32 px-4 py-4 md:px-12 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))] flex justify-center',
+					className,
+				)}
 			>
 				{children}
 			</div>

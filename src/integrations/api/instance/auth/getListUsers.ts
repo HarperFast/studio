@@ -14,7 +14,7 @@ export function getListUsersQueryOptions({ entityId, instanceClient }: InstanceC
 	});
 }
 
-async function getListUsers({ instanceClient }: InstanceClientConfig) {
+export async function getListUsers({ instanceClient }: InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'list_users',
 	});

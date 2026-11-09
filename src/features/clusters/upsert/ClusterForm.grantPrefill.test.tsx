@@ -78,6 +78,7 @@ async function mountCreate(grants: ClusterGrant[] = [COMPED, COMPED_SA], grantId
 	render(
 		<TestProvider>
 			<ClusterForm
+				currentRegions={[]}
 				alreadyUsingFree={false}
 				defaultValues={{ ...defaults, grantId }}
 				deploymentToPerformanceToPlan={CATALOGUE}
@@ -162,6 +163,7 @@ describe('ClusterForm — two vouchers on the same plan, different regions (the 
 		render(
 			<TestProvider>
 				<ClusterForm
+					currentRegions={[]}
 					alreadyUsingFree={false}
 					defaultValues={{ ...defaults, grantId: SA.id }}
 					deploymentToPerformanceToPlan={CATALOGUE}
@@ -207,6 +209,7 @@ describe('ClusterForm — from a two-region dedicated voucher to a one-region ho
 		render(
 			<TestProvider>
 				<ClusterForm
+					currentRegions={[]}
 					alreadyUsingFree={false}
 					defaultValues={{
 						...defaults,
@@ -267,6 +270,7 @@ describe('ClusterForm — the price summary when editing a cluster on a grant', 
 		render(
 			<TestProvider>
 				<ClusterForm
+					currentRegions={[]}
 					alreadyUsingFree={false}
 					clusterId="clu-1"
 					currentPlanId={plan.id}
@@ -373,6 +377,7 @@ describe('ClusterForm — editing a comped cluster', () => {
 		render(
 			<TestProvider>
 				<ClusterForm
+					currentRegions={[]}
 					alreadyUsingFree={false}
 					clusterId="clu-1"
 					currentPlanId={HOBBYIST.id}

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { PackagingError } from '../api/instance/applications/deployComponent';
 import { DeployRolloutError } from '../api/instance/applications/restartJob';
 import { ImportJobError } from '../api/instance/database/getJob';
 import { SecretsOperationError } from '../api/instance/secrets/secrets';
+import { WafOperationError } from '../api/instance/waf/waf';
+import { HarperRefusalError } from '../api/readResponseRefusal';
 import { SSEOperationError } from '../api/sse/errors';
 import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
 
@@ -57,6 +60,22 @@ describe('redactRelayedMessage', () => {
 		expect(redactRelayedMessage(new SSEOperationError('boom').name, 'boom')).toBe(WITHHELD);
 	});
 
+	it("withholds Harper's refusal of a deploy or a package, which can quote the customer's names", () => {
+		for (
+			const error of [
+				new HarperRefusalError(
+					"Application 'acme-billing' declares a branch of database 'acme_orders', which does not exist",
+				),
+				new PackagingError("Project 'acme-billing' not found"),
+			]
+		) {
+			expect(redactRelayedMessage(error.name, error.message)).toBe(WITHHELD);
+			const frames = '\n  at deployApplicationFiles @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234';
+			expect(redactRelayedStack(error.name, error.message, `${error.name}: ${error.message}${frames}`))
+				.toBe(WITHHELD + frames);
+		}
+	});
+
 	it('withholds a failed import job, whose message quotes the rows it rejected', () => {
 		const error = new ImportJobError('Value "[]" in property tags must be an Array. Value "[\\"Acme widget\\"]"');
 		expect(error.name).toBe('ImportJobError');
@@ -88,6 +107,14 @@ describe('redactRelayedMessage', () => {
 		const frames = '\n  at deleteSecret @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234';
 		expect(redactRelayedStack(error.name, error.message, `SecretsOperationError: ${error.message}${frames}`))
 			.toBe(WITHHELD + frames);
+	});
+
+	it("withholds a failed firewall operation, whose message quotes the rule's id and pattern", () => {
+		const error = new WafOperationError(
+			'Invalid WAF rule: match.path.regex: invalid or unsupported regex "^/acme-billing/(a+)+\\\\1"',
+		);
+		expect(error.name).toBe('WafOperationError');
+		expect(redactRelayedMessage(error.name, error.message)).toBe(WITHHELD);
 	});
 
 	it('removes exactly the message and keeps what follows', () => {

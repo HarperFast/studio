@@ -8,6 +8,7 @@ import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData } from '../types/analytics';
 import { ChartTooltip, useTooltipGate } from './ChartTooltip';
+import { stackedDurationAxis } from './durationAxisTicks';
 import { CEILING_KEY, mergeStackedRows } from './mergeStackedRows';
 import { sortByMagnitude } from './sortByMagnitude';
 
@@ -74,6 +75,8 @@ export function StackedAreaChart(
 	// above the early return so the hook order stays stable when data is empty.
 	const merged = useMemo(() => mergeStackedRows(data), [data]);
 
+	const durationAxis = useMemo(() => stackedDurationAxis(yAxis, data.series, merged), [yAxis, data.series, merged]);
+
 	if (data.series.length === 0) {
 		return (
 			<div role="status" aria-live="polite" className="text-(--color-text-secondary) text-sm p-4">
@@ -111,7 +114,12 @@ export function StackedAreaChart(
 							tick={{ fontSize: 11 }}
 						/>
 						<YAxis
-							tickFormatter={(v) => formatValue(v, resolvedFormatter, resolvedUnit)}
+							tickFormatter={(v) =>
+								durationAxis
+									? `${durationAxis.format(v)}${resolvedUnit ?? ''}`
+									: formatValue(v, resolvedFormatter, resolvedUnit)}
+							domain={durationAxis ? [0, durationAxis.ticks[durationAxis.ticks.length - 1]] : undefined}
+							ticks={durationAxis?.ticks}
 							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
 							width={70}

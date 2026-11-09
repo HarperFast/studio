@@ -74,7 +74,7 @@ export function useInstanceMenuItems(
 	const { data: statusResponse } = useQuery(
 		getStatusQueryOptions(
 			statusParams,
-			enabled && canManage && !isOperationsProxyRefused(instance.status) && statusSupported,
+			enabled && canManage && !!operationsUrl && !isOperationsProxyRefused(instance.status) && statusSupported,
 		),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
@@ -87,18 +87,20 @@ export function useInstanceMenuItems(
 	const [safeModeAction, setSafeModeAction] = useState<'start' | 'restart' | null>(null);
 
 	const fqdn = instance.instanceFqdn;
-	const apiUrl = calculateInstanceFQDN({
-		secure: instance.operationsApiSecure ? 'true' : 'false',
-		port: instance.operationsApiPort,
-		fqdn: instance.instanceFqdn,
-	});
+	const apiUrl = fqdn
+		? calculateInstanceFQDN({
+			secure: instance.operationsApiSecure ? 'true' : 'false',
+			port: instance.operationsApiPort,
+			fqdn,
+		})
+		: '';
 	const [onCopyFqdn, onCopyApiUrl] = useCopyToClipboard(fqdn ?? '', apiUrl);
 
 	const onSignOut = useCallback(async () => {
 		await signOutOfInstance({ instance, instanceClient });
 	}, [instance, instanceClient]);
 
-	const isReady = !!instance.status && READY_STATUSES.includes(instance.status);
+	const isReady = !!operationsUrl && !!instance.status && READY_STATUSES.includes(instance.status);
 	const isDirectlyLoggedIn = !!instanceUser && !isFabricConnect;
 	const hasAuth = isReady;
 	const hasCopy = !!fqdn;

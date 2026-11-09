@@ -4,7 +4,7 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { Bot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Second-tier lazy load: this file (the floating bubble) loads when you land on
 // an instance, but the chat pane — and its heavy dependencies (the AI SDK, the
@@ -23,6 +23,22 @@ export function FloatingChat() {
 	const [position, setPosition] = useLocalStorage(LocalStorageKeys.ApplicationChatPosition, { x: -40, y: -40 });
 	const [width, setWidth] = useLocalStorage(LocalStorageKeys.ApplicationChatWidth, 600);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const [containerHeight, setContainerHeight] = useState<number | null>(null);
+
+	useLayoutEffect(() => {
+		const container = containerRef.current;
+		if (!container) { return; }
+		const measure = () => setContainerHeight(container.clientHeight);
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(container);
+		return () => observer.disconnect();
+	}, []);
+
+	// The notification banner shrinks the container under a bubble snapped near the top. Clamp it on
+	// screen without overwriting the stored position, so it returns there once the banner goes.
+	const topmostY = containerHeight ? -(containerHeight - BUBBLE_SIZE - PADDING * 2) : null;
+	const bubbleY = topmostY !== null && position.y < topmostY ? topmostY : position.y;
 
 	useEffect(() => {
 		const checkMobile = () => {
@@ -104,12 +120,14 @@ export function FloatingChat() {
 
 		if (isMobile) { return; }
 
-		const { innerWidth, innerHeight } = window;
+		const { innerWidth } = window;
+		// The container, not the window, bounds the bubble: it stops above the notification banner.
+		const innerHeight = containerRef.current?.clientHeight ?? window.innerHeight;
 
 		// Calculate new offsets based on where we started and how far we dragged.
 		// x and y in position are offsets from the initial bottom-right (PADDING, PADDING)
 		const newX = position.x + info.offset.x;
-		const newY = position.y + info.offset.y;
+		const newY = bubbleY + info.offset.y;
 
 		// We still want snapping if it's close to the screen edge.
 		// info.point is absolute screen coordinates of the pointer.
@@ -145,7 +163,10 @@ export function FloatingChat() {
 	};
 
 	return (
-		<div className="fixed inset-0 pointer-events-none z-50" ref={containerRef}>
+		<div
+			className="fixed inset-x-0 top-0 bottom-(--notification-banner-height) pointer-events-none z-50"
+			ref={containerRef}
+		>
 			<AnimatePresence>
 				{isOpen && (
 					<motion.div
@@ -164,7 +185,7 @@ export function FloatingChat() {
 							: {}}
 						className={`
 							pointer-events-auto
-							fixed bg-background shadow-2xl border-l border-border overflow-visible
+							absolute bg-background shadow-2xl border-l border-border overflow-visible
 							${isMobile ? 'inset-0 w-full h-full rounded-none' : 'h-full'}
 						`}
 					>
@@ -193,7 +214,9 @@ export function FloatingChat() {
 					onDragStart={handleDragStart}
 					onDrag={handleDrag}
 					onDragEnd={handleDragEnd}
-					initial={{ x: position.x, y: position.y }}
+					// `initial` applies only on mount, so a change of clamp remounts the bubble at its new place.
+					key={bubbleY === position.y ? 'stored' : `clamped:${bubbleY}`}
+					initial={{ x: position.x, y: bubbleY }}
 					whileHover={{ scale: 1.1 }}
 					whileTap={{ scale: 0.9 }}
 					onClick={toggleChat}
@@ -203,7 +226,7 @@ export function FloatingChat() {
 					}}
 					className="
 						pointer-events-auto
-						fixed w-14 h-14 rounded-full bg-primary
+						absolute w-14 h-14 rounded-full bg-primary
 						text-primary-foreground shadow-lg flex items-center justify-center cursor-pointer
 						hover:bg-primary/90 transition-colors
 					"

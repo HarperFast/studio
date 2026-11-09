@@ -7,12 +7,12 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
-import { useInstanceClient } from '@/config/useInstanceClient';
+import { defaultClusterUsername } from '@/config/constants';
 import { authStore } from '@/features/auth/store/authStore';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { allClusterInstancesRunning } from './allInstancesRunning';
 import { getClusterInfoQueryOptions, markClusterPasswordSet } from './queries/getClusterInfoQuery';
+import { clusterSignInIds } from './terminatedClusterSignIns';
 
 export function FinishSetup() {
 	const { user } = useCloudAuth();
@@ -35,7 +36,6 @@ export function FinishSetup() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
-	const instanceClient = useInstanceClient({ operationsUrl });
 
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
@@ -58,7 +58,7 @@ export function FinishSetup() {
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
 	const instancesReady = allClusterInstancesRunning(cluster);
 
-	const { mutate: submitInstanceResetPassword, isPending } = useInstanceResetPasswordMutation();
+	const { mutate: submitInstanceResetPassword, isPending, isSuccess } = useInstanceResetPasswordMutation();
 
 	const submitForm = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
 		if (!operationsUrl) {
@@ -70,7 +70,8 @@ export function FinishSetup() {
 			return;
 		}
 		submitInstanceResetPassword({
-			instanceClient,
+			operationsUrl,
+			signInIds: clusterSignInIds(cluster!),
 			clusterId,
 			newPassword: formData.password,
 			tempPassword,
@@ -78,20 +79,27 @@ export function FinishSetup() {
 			desiredUsername: formData.username,
 		}, {
 			onSuccess: async ({ user }) => {
-				toast.success("Admin user created. You're now signed in to your cluster.");
+				toast.success(
+					user
+						? "Admin user created. You're now signed in to your cluster."
+						: 'Admin user created. Connect to your cluster to continue.',
+				);
 				authStore.setUserForEntity(cluster!, user);
 				// The mutation already told CM the password changed (resetPasswordUpdater); reflect
 				// that in the cached cluster before navigating so ClusterHome's resetPassword guard
 				// doesn't bounce us back here off a stale poll.
 				await markClusterPasswordSet(queryClient, clusterId);
 				void router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
+				await navigate({
+					to: redirect?.startsWith('/')
+						? redirect
+						: buildAbsoluteLinkToPage({ organizationId: cluster!.organizationId, clusterId }),
+				});
 			},
 		});
 	}, [
 		cluster,
 		clusterId,
-		instanceClient,
 		instancesReady,
 		navigate,
 		operationsUrl,
@@ -102,14 +110,17 @@ export function FinishSetup() {
 		tempPassword,
 	]);
 
-	if (cluster && !cluster.resetPassword) {
-		return <Navigate to="../sign-in" replace={true} />;
+	const clusterIds = { organizationId: cluster?.organizationId, clusterId };
+	// Setup clears resetPassword itself, in central manager while it runs and in the cache before the page's own
+	// navigation away has loaded; redirecting then cuts it short on the sign-in page, which drops a Fabric Connect fallback.
+	if (cluster && !cluster.resetPassword && !isPending && !isSuccess) {
+		return <Navigate to={buildAbsoluteLinkToPage(clusterIds, 'sign-in')} replace={true} />;
 	}
 
 	// On an initial deploy, hold the admin user creation until every instance is running — creating
 	// it while an instance is still cloning would leave that clone with the replaced credentials.
 	if (cluster && !instancesReady) {
-		return <Navigate to="../starting-up" replace={true} />;
+		return <Navigate to={buildAbsoluteLinkToPage(clusterIds, 'starting-up')} replace={true} />;
 	}
 
 	return (
@@ -120,7 +131,7 @@ export function FinishSetup() {
 			>
 				<Breadcrumbs />
 			</nav>
-			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-(--spacing(32)))]">
+			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 				<div className="text-foreground w-xs">
 					<h1 className="text-2xl font-light">Create Admin User</h1>
 					<p className="text-muted-foreground">
@@ -186,7 +197,7 @@ export function FinishSetup() {
 								)}
 							/>
 
-							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2">
+							<Button disabled={isPending || isSuccess} type="submit" variant="submit" className="w-full my-2">
 								Create Admin User
 							</Button>
 						</form>

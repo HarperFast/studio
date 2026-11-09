@@ -141,10 +141,10 @@ no-tag fallback, which would have failed every dev deploy. Audit each pipeline y
 tolerate only the status you mean — `{ grep … || true; }`, never `|| true` on the whole
 pipeline, which would also swallow a real `git` failure.
 
-Which Harper major a CM runs is a deploy **input**, not a commit: `@fastify/static` majors track
-fastify majors (v7 ↔ fastify 4 ↔ harperdb 4.x, v8 ↔ fastify 5 ↔ Harper 5.x) and pairing them
-wrong fails _silently on the CM_ — `reply.sendFile` is never decorated and every asset 404s. See
-`.github/deploying.md` for the pairing, both dispatch inputs, and how to retire the split.
+The deploy template's `@fastify/static` range must accept the fastify major embedded in the CM's
+Harper (fastify 5 for Harper 5.x), and getting it wrong fails _silently on the CM_ at its next
+restart — `reply.sendFile` is never decorated and every asset 404s. Renovate holds its majors for
+Dependency Dashboard approval for that reason; see `.github/deploying.md`.
 
 ## Builds — sourcemaps are per mode, and `localstudio` deliberately has none
 
@@ -262,10 +262,9 @@ hashed asset served `immutable`. The extra `stat` (on top of `send`'s own) is th
 of owning the fallback.
 
 `verify-static.mjs` next to the template pins all of it — 14 checks against a real build behind
-Harper's own not-found handler, including the post-boot asset. Run it on both pairings after
-touching this file; its header carries the two install lines, and a bare
-`npm i fastify @fastify/static` pairs the package.json's v7 pin with fastify 5 and fails the
-plugin's version check.
+Harper's own not-found handler, including the post-boot asset. Run it after touching this file or
+the template's `@fastify/static` range; its header carries the install line, which pins fastify
+to the major Harper embeds rather than whatever `latest` is.
 
 Scope of the catch-all: Harper mounts these routes as a global fallback _after_ its own resource
 routing, so it only ever sees paths the native chain declined — it cannot shadow `/oauth/*` or the

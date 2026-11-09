@@ -52,6 +52,11 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	params: { organizationId: string; clusterId: string; instanceId?: string };
 }) {
 	redirectAwayFromDeletedCluster({ context, params });
+	// Until setup, Fabric Connect would connect as the provisioning account, which Finish Setup drops. The overview
+	// routes on to setup.
+	if (context.cluster?.resetPassword) {
+		throw redirect({ to: `/${params.organizationId}/${params.clusterId}` });
+	}
 
 	const entityId = params.instanceId || params.clusterId;
 
@@ -127,12 +132,20 @@ async function tryEstablishFabricConnect(
 /**
  * Resolves the instance's (or cluster's) direct operations URL from the cluster loaded by the parent
  * route, so Fabric Connect can attempt a direct Bearer connection. Returns undefined when the entity
- * can't be found, in which case establishFabricConnectAuth falls back to the proxy.
+ * can't be found, in which case establishFabricConnectAuth falls back to the proxy. Throws for an
+ * instance with no address yet, so no Fabric Connect is attempted for it, matching the Instances list.
  */
 function resolveDirectOperationsUrl(cluster: Cluster | undefined, instanceId: string | undefined): string | undefined {
 	if (instanceId) {
 		const instance = cluster?.instances?.find((candidate) => candidate.id === instanceId);
-		return instance ? getOperationsUrlForInstance(instance) : undefined;
+		if (!instance) {
+			return undefined;
+		}
+		const operationsUrl = getOperationsUrlForInstance(instance);
+		if (!operationsUrl) {
+			throw new Error(`Instance ${instanceId} has no address yet`);
+		}
+		return operationsUrl;
 	}
 	return getOperationsUrlForCluster(cluster) ?? undefined;
 }

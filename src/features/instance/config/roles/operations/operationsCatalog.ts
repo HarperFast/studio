@@ -30,7 +30,7 @@ export interface GrantableOperation {
 	addedIn?: string;
 	/**
 	 * The handler self-enforces super_user, so the allowlist cannot delegate it
-	 * (secrets store, managed backups, get_deployment_payload, OIDC trust policies). Not offered in the
+	 * (secrets store, managed backups, get_deployment_payload, OIDC trust policies, PR previews). Not offered in the
 	 * picker.
 	 */
 	nonDelegable?: boolean;
@@ -135,6 +135,8 @@ export const OPERATIONS_ALLOWLIST_MIN_VERSION = '5.0.0-alpha.8';
 const V5_1 = '5.1.0-alpha.1';
 const V5_2 = '5.2.0-alpha.1';
 const V5_3 = '5.3.0-alpha.1';
+/** Not 5.4.0-alpha.1, which was cut before harper#3617: see `PREVIEWS_MIN_VERSION`. */
+const V5_4 = '5.4.0-alpha.2';
 
 const DATA = 'Data';
 const SCHEMA = 'Schema';
@@ -241,6 +243,9 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'add_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'drop_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'deploy_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
+	{ name: 'enable_previews', su: true, category: COMPONENTS, addedIn: V5_4, nonDelegable: true },
+	{ name: 'disable_previews', su: true, category: COMPONENTS, addedIn: V5_4, nonDelegable: true },
+	{ name: 'get_preview_policy', su: true, category: COMPONENTS, addedIn: V5_4, nonDelegable: true },
 	{ name: 'package_component', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'install_node_modules', su: true, category: COMPONENTS, gate: 'from-5.3' },
 	{ name: 'audit_node_modules', su: true, category: COMPONENTS },

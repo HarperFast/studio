@@ -29,6 +29,16 @@ export async function onInstanceLoginSubmit({
 		username,
 		password,
 	};
+	// A sign-out while this is in flight ends the session it would record, and a Basic credential written after it
+	// would stay in storage with nothing left to clear it.
+	const signOutGeneration = authStore.getSignOutGeneration(entityId);
+	const throwIfSignedOut = () => {
+		if (authStore.getSignOutGeneration(entityId) !== signOutGeneration) {
+			instanceClient.defaults.auth = undefined;
+			instanceClient.defaults.withCredentials = true;
+			throw new SignedOutDuringLoginError();
+		}
+	};
 	if (authStore.checkForBasicAuth(entityId)) {
 		instanceClient.defaults.auth = auth;
 		instanceClient.defaults.withCredentials = false;
@@ -42,39 +52,44 @@ export async function onInstanceLoginSubmit({
 
 	if (!forceBasicAuth && !authStore.checkForBasicAuth(entityId)) {
 		// Attempt to use the login with session storage only.
-		try {
-			const user = await getInstanceUserInfo({ instanceClient });
+		const user = await getInstanceUserInfo({ instanceClient }).catch((err: unknown) => {
+			console.error('Failed to get user after login, trying basic auth', err);
+			return undefined;
+		});
+		if (user) {
+			throwIfSignedOut();
 			authStore.setLastConnectMode(entityId, 'direct');
 			return {
 				message,
 				user,
 			};
-		} catch (err) {
-			console.error('Failed to get user after login, trying basic auth', err);
 		}
 	}
 
-	try {
-		instanceClient.defaults.auth = auth;
-		instanceClient.defaults.withCredentials = false;
-		const user = await getInstanceUserInfo({
-			instanceClient,
-			auth,
-		});
-		authStore.flagForBasicAuth(entityId, auth);
-		authStore.setLastConnectMode(entityId, 'direct');
-		return {
-			message,
-			user,
-		};
-	} catch (err) {
+	instanceClient.defaults.auth = auth;
+	instanceClient.defaults.withCredentials = false;
+	const basicUser = await getInstanceUserInfo({
+		instanceClient,
+		auth,
+	}).catch((err: unknown) => {
 		instanceClient.defaults.auth = undefined;
 		instanceClient.defaults.withCredentials = true;
 		if (isLocalStudio) {
 			throw err;
 		}
 		console.error('Failed to get user with basic auth, trying Fabric Connect', err);
+		return undefined;
+	});
+	if (basicUser) {
+		throwIfSignedOut();
+		authStore.flagForBasicAuth(entityId, auth);
+		authStore.setLastConnectMode(entityId, 'direct');
+		return {
+			message,
+			user: basicUser,
+		};
 	}
+	throwIfSignedOut();
 
 	// The user's own credentials worked for the login operation but neither session cookies nor basic
 	// auth stuck (e.g. cross-origin cookie restrictions). Fall back to Fabric Connect: grab a JWT via
@@ -92,6 +107,13 @@ export async function onInstanceLoginSubmit({
 		// Finish Setup flow — don't reuse the stale pre-fallback (cookie-mode) client.
 		instanceClient: getInstanceClient({ id: entityId, operationsUrl: instanceClient.defaults.baseURL }),
 	};
+}
+
+export class SignedOutDuringLoginError extends Error {
+	constructor() {
+		super('Signed out before signing in finished.');
+		this.name = 'SignedOutDuringLoginError';
+	}
 }
 
 export function useInstanceLoginMutation() {

@@ -64,6 +64,10 @@ function editorFileContentKeysAtOrUnder(entityId: string, path: string): EditorF
 	return [...keys] as EditorFileContentKey[];
 }
 
+export function hasEditorFileContentAtOrUnder(entityId: string, path: string): boolean {
+	return editorFileContentKeysAtOrUnder(entityId, path).some(key => readEditorFileContent(key) !== undefined);
+}
+
 export function discardEditorFileContent(entityId: string, path: string) {
 	for (const key of editorFileContentKeysAtOrUnder(entityId, path)) {
 		writeEditorFileContent(key, undefined);
