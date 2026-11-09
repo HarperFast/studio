@@ -55,6 +55,9 @@ two differ, and never states a count Harper didn't send. They can: `list_backups
 the repository, and another administrator may have changed it since the list was read. `keep_count` must be at least
 1 here, although Harper accepts 0; deleting every backup is one Delete per row, on purpose.
 
+Every dialog records the database it was opened for and closes if the page moves to another one under it (a
+`describe_all` refetch can change the default), so a confirmation never acts on a database the user didn't choose.
+
 ## Jobs
 
 `create_backup` and `verify_backup` start a background job. Harper reports a job only as created, in progress, or

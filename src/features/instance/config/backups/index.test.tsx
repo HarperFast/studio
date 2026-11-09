@@ -373,6 +373,22 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		expect(nodeCard('alpha').getByText(/Backing up 'analytics'… started/)).toBeTruthy();
 	});
 
+	it('closes a dialog when the page moves to another database under it', async () => {
+		state.handlers['ins-a:list_backups'] = () => [2, 1].map((backup_id) => ({ backup_id }));
+		renderPage();
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2' })).toBeTruthy());
+		fireEvent.click(nodeCard('alpha').getByRole('button', { name: 'Keep newest…' }));
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+
+		fireEvent.change(screen.getByRole('combobox', { name: 'Database', hidden: true }), { target: { value: 'data' } });
+		await waitFor(() =>
+			expect(nodes.get('ins-a')!.bodies()).toContainEqual({ operation: 'list_backups', database: 'data' })
+		);
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2', hidden: true })).toBeTruthy());
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(nodes.get('ins-a')!.bodies().map((body) => body.operation)).not.toContain('purge_backups');
+	});
+
 	it('never states a purge count Harper did not send', async () => {
 		state.handlers['ins-a:list_backups'] = () => [2, 1].map((backup_id) => ({ backup_id }));
 		state.handlers['ins-a:purge_backups'] = () => ({ ok: true });

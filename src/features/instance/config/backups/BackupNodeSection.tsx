@@ -29,10 +29,13 @@ import { ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 type BackupDialog =
-	| { kind: 'take' }
-	| { kind: 'purge' }
-	| { kind: 'verify'; backup: DatabaseBackup }
-	| { kind: 'delete'; backup: DatabaseBackup };
+	& { database: string }
+	& (
+		| { kind: 'take' }
+		| { kind: 'purge' }
+		| { kind: 'verify'; backup: DatabaseBackup }
+		| { kind: 'delete'; backup: DatabaseBackup }
+	);
 
 export function BackupNodeNotice({ children }: { children: ReactNode }) {
 	return <p className="text-sm text-muted-foreground">{children}</p>;
@@ -86,7 +89,10 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 	const queryClient = useQueryClient();
 	const { data: backups, error, isPending } = useQuery(listBackupsQueryOptions({ ...nodeParams, database }));
 	const [jobs, setJobs] = useState<FollowedBackupJob[]>([]);
-	const [dialog, setDialog] = useState<BackupDialog>();
+	const [openedDialog, setDialog] = useState<BackupDialog>();
+	// A dialog belongs to the database it was opened for: if a database list refetch moves the page to another one,
+	// the dialog closes rather than confirming against a database the user never chose.
+	const dialog = openedDialog?.database === database ? openedDialog : undefined;
 	const { mutate: createBackup, isPending: isCreating } = useCreateBackup();
 	const { mutate: verifyBackup, isPending: isStartingVerify } = useVerifyBackup();
 	const { mutate: deleteBackup, isPending: isDeleting } = useDeleteBackup();
@@ -201,7 +207,7 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 					variant="submit"
 					disabled={writeBusy}
 					title={busyReason}
-					onClick={() => setDialog({ kind: 'take' })}
+					onClick={() => setDialog({ kind: 'take', database })}
 				>
 					Take backup
 				</Button>
@@ -210,7 +216,7 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 					variant="destructiveOutline"
 					disabled={writeBusy || !backups?.length}
 					title={busyReason}
-					onClick={() => setDialog({ kind: 'purge' })}
+					onClick={() => setDialog({ kind: 'purge', database })}
 				>
 					Keep newest…
 				</Button>
@@ -246,8 +252,8 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 						verifyFor={latestVerify}
 						writeBusy={writeBusy}
 						busyReason={busyReason}
-						onVerify={(backup) => setDialog({ kind: 'verify', backup })}
-						onDelete={(backup) => setDialog({ kind: 'delete', backup })}
+						onVerify={(backup) => setDialog({ kind: 'verify', backup, database })}
+						onDelete={(backup) => setDialog({ kind: 'delete', backup, database })}
 					/>
 				)}
 
