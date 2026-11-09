@@ -30,11 +30,9 @@ export function supportsPayloadBranchedDatabases(harperVersion: string | undefin
 const MIN_DISCARDS_DROPPED_BRANCHES_VERSION = '5.4.0-alpha.2';
 
 /**
- * From 5.4.0-alpha.2 a drop that leaves an application's private copies on disk records that it owes their removal,
- * and Harper discards them by itself once no worker has the application loaded (harper
- * `resources/branchDatabase.ts` `recordPendingBranchRemoval`, `components/operations.ts` `retryBranchRemoval`). Until
- * then, an application deployed under the same name defers the removal and picks the copies up. Before 5.4.0-alpha.2
- * they stay until a later drop discards them. `undefined` for a version that is missing or doesn't parse, which
+ * From 5.4.0-alpha.2 Harper discards a dropped application's private copies by itself (harper
+ * `resources/branchDatabase.ts` `recordPendingBranchRemoval`, `components/operations.ts` `retryBranchRemoval`):
+ * applications/DESIGN.md, "Private database copies". `undefined` for a version that is missing or doesn't parse, which
  * `wasAReleasedBeforeB` would otherwise read as older.
  */
 export function discardsDroppedBranches(harperVersion: string | undefined): boolean | undefined {

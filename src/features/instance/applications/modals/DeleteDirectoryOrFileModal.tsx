@@ -51,11 +51,9 @@ export function DeleteDirectoryOrFileModal() {
 	]);
 	const { settings, known } = useApplicationsBranchedDatabases(droppedApplications);
 	const privateCopies = known ? settings : [];
-	const discardsDropped = useDiscardsDroppedBranches(privateCopies.length > 0);
+	const discardsDropped = useDiscardsDroppedBranches(isModalOpen && privateCopies.length > 0);
 	const plural = privateCopies.length > 1;
 	const copies = plural ? 'those copies' : 'that copy';
-	// Harper's drop answer names "branched database storage" whenever it leaves a copy (`branchStorageMessage`), and the
-	// toast shows that answer, so the unread-version line can promise it.
 	const droppedCopyFate = discardsDropped === true
 		? `Harper discards ${copies} by itself once no worker has ${
 			plural ? 'those applications' : 'the application'
@@ -64,7 +62,7 @@ export function DeleteDirectoryOrFileModal() {
 		: discardsDropped === false
 		? `Harper keeps ${copies} on disk when it removes an application without a restart, and an application deployed`
 			+ ' under the same name later with a private copy picks it up again.'
-		: `Harper may leave ${copies} on disk. If it does, the message after the delete says so.`;
+		: `Harper may leave ${copies} on disk, depending on its version.`;
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);

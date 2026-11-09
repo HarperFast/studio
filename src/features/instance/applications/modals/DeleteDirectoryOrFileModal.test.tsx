@@ -12,8 +12,9 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 import type { DeleteSelectedItemsCallbacks } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { AxiosError, type AxiosResponse } from 'axios';
 import type { ReactElement } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const rootEntries: DirectoryEntry[] = [
 	{
@@ -41,8 +42,9 @@ vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', async (im
 	}),
 }));
 
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ entityId: 'test-instance', entityType: 'instance' }),
+	useInstanceClientIdParams: () => ({ entityId: 'test-instance', entityType: 'instance', instanceClient: { post } }),
 }));
 
 vi.mock('@/features/instance/applications/hooks/useEditorView', () => ({
@@ -77,11 +79,13 @@ vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ del
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
-// A seeded answer is fresh, so the modal reads it without a request.
-function renderWithQueryClient(ui: ReactElement, harperVersion?: string) {
+// A seeded answer is fresh unless `stale`, which makes the modal ask again, and the instance refuses (`post`).
+function renderWithQueryClient(ui: ReactElement, harperVersion?: string, { stale = false } = {}) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	if (harperVersion) {
-		client.setQueryData(['registration_info', 'test-instance'], { version: harperVersion });
+		client.setQueryData(['registration_info', 'test-instance'], { version: harperVersion }, {
+			updatedAt: stale ? 0 : Date.now(),
+		});
 	}
 	return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
@@ -93,6 +97,12 @@ beforeAll(() => {
 	if (typeof window.PointerEvent === 'undefined') {
 		window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent;
 	}
+});
+
+beforeEach(() => {
+	post.mockRejectedValue(
+		new AxiosError('Forbidden', 'ERR_BAD_REQUEST', undefined, undefined, { status: 403 } as AxiosResponse),
+	);
 });
 
 afterEach(() => {
@@ -134,13 +144,27 @@ describe('DeleteDirectoryOrFileModal', () => {
 		const KEPT = 'Successfully dropped: anvils. Any branched database storage this application owns was left in place; '
 			+ 'drop it again with restart: true to discard that data';
 
-		it('says the copy stays on disk before it is removed', () => {
+		it('says the copy may stay on disk while the version is unread', () => {
 			openedEntry = rootEntries[1];
 			selectedItems = ['anvils'];
 			currentBranches = { settings: { anvils: ['data'] }, known: true };
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
-			expect(screen.getByText(/runs on a private copy of data/)).toBeTruthy();
+			expect(screen.getByText(/runs on a private copy of data/).textContent).toContain(
+				'Harper may leave that copy on disk, depending on its version.',
+			);
+		});
+
+		it('stops promising either fate once a refresh of the version is refused', async () => {
+			openedEntry = rootEntries[1];
+			selectedItems = ['anvils'];
+			currentBranches = { settings: { anvils: ['data'] }, known: true };
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />, '5.4.0', { stale: true });
+
+			const note = () => screen.getByText(/runs on a private copy of data/).textContent;
+			expect(note()).toContain('Harper discards that copy by itself');
+			await waitFor(() => expect(note()).toContain('Harper may leave that copy on disk, depending on its version.'));
+			expect(post).toHaveBeenCalledWith('/', { operation: 'registration_info' });
 		});
 
 		it('says Harper discards the copy by itself from 5.4.0-alpha.2', () => {
@@ -172,9 +196,7 @@ describe('DeleteDirectoryOrFileModal', () => {
 			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
 
 			const note = screen.getByText(/runs on a private copy of data/).textContent;
-			expect(note).toContain(
-				'Harper may leave those copies on disk. If it does, the message after the delete says so.',
-			);
+			expect(note).toContain('Harper may leave those copies on disk, depending on its version.');
 		});
 
 		it('names every application whose copies Harper will discard', () => {

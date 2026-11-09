@@ -84,16 +84,19 @@ export function useBranchedDatabasesPossible(): boolean {
 	return !isSuccess || !data?.version || supportsBranchedDatabases(data.version);
 }
 
-/** A refused version read leaves the answer unknown, which the caller words for, so it isn't toasted. */
+/**
+ * Unknown unless the latest version read succeeded: a refresh that is refused or fails keeps the earlier answer as
+ * `data`, and the caller words an unknown neutrally, so a refusal isn't toasted.
+ */
 export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefined {
 	const params = useInstanceClientIdParams();
-	const { data } = useQuery({
+	const { data, isSuccess } = useQuery({
 		...getRegistrationInfoQueryOptions(params),
 		enabled,
 		retry: retryUnlessRejected(),
 		meta: { refusalIsAnAnswer: true },
 	});
-	return discardsDroppedBranches(data?.version);
+	return isSuccess ? discardsDroppedBranches(data.version) : undefined;
 }
 
 interface ConfigurationRead {
