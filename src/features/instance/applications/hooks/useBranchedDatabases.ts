@@ -96,7 +96,7 @@ export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefine
 		retry: retryUnlessRejected(),
 		meta: { refusalIsAnAnswer: true },
 	});
-	return isSuccess ? discardsDroppedBranches(data.version) : undefined;
+	return isSuccess ? discardsDroppedBranches(data?.version) : undefined;
 }
 
 interface ConfigurationRead {
