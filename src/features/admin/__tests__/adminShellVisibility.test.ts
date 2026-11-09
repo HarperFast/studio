@@ -72,6 +72,7 @@ describe('admin section visibility', () => {
 			'Billing',
 			'Hosts',
 			'Monitoring',
+			'Users',
 		]);
 	});
 
@@ -85,18 +86,20 @@ describe('admin section visibility', () => {
 			'Billing',
 			'Hosts',
 			'Monitoring',
+			'Users',
 		]);
 	});
 
-	it('shows Workflows to holders of workflow:read', () => {
-		expect(labels(user('fabric_readonly', ['workflow:read']))).toEqual(['Workflows']);
-		expect(labels(user('fabric_support', ['cluster:read', 'workflow:read', 'workflow:manage']))).toEqual([
+	it('shows Users only to holders of user:status, not to every role that can read users', () => {
+		expect(labels(user('fabric_admin', ['user:read', 'user:status', 'cluster:read']))).toEqual([
 			'Monitoring',
-			'Workflows',
+			'Users',
 		]);
+		expect(labels(user('fabric_readonly', ['user:read', 'cluster:read']))).toEqual(['Monitoring']);
 	});
 
-	it('hides Workflows from a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).not.toContain('Workflows');
+	it('hides Users from a holder of user:status who cannot also read the users and clusters it shows', () => {
+		expect(labels(user('fabric_admin', ['user:status', 'cluster:read']))).toEqual(['Monitoring']);
+		expect(labels(user('fabric_admin', ['user:status', 'user:read']))).toEqual([]);
 	});
 });
