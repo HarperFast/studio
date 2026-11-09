@@ -197,8 +197,13 @@ const DECLARATION_LINE_RE = /^(?:extend\s+)?(?:type|input|interface|enum|scalar|
  * line above the cursor, which ran on each suggestion and hover.
  */
 export function declarationStartLine(lineAt: (lineNumber: number) => string, lineNumber: number): number {
+	// `"""` delimiters from the candidate down to the cursor: an odd count means the candidate sits
+	// inside a description that closes below it, so it is text, not a declaration.
+	let delimiters = 0;
 	for (let candidate = lineNumber; candidate > 1; candidate--) {
-		if (DECLARATION_LINE_RE.test(lineAt(candidate))) {
+		const line = lineAt(candidate);
+		delimiters += line.split('"""').length - 1;
+		if (delimiters % 2 === 0 && DECLARATION_LINE_RE.test(line)) {
 			return candidate;
 		}
 	}

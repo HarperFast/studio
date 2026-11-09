@@ -147,14 +147,14 @@ describe('FullTextSearchDialog readiness', () => {
 		renderDialog();
 		const readiness = screen.getByRole('region', { name: 'Index readiness' });
 		expect(within(readiness).getByText('Ready')).toBeTruthy();
-		expect(within(readiness).queryByText(/As reported by/)).toBeNull();
+		expect(within(readiness).queryByText(/one node’s/)).toBeNull();
 		expect(server.requests.some(request => request.operation === 'cluster_status')).toBe(false);
 	});
 
 	it('on a cluster, names the node it heard from, since each node has its own index', async () => {
 		renderDialog({ isCluster: true });
 		expect(await screen.findByText('node-a.example.com')).toBeTruthy();
-		expect(screen.getByText(/another node’s can differ/)).toBeTruthy();
+		expect(screen.getByText(/another’s can differ/)).toBeTruthy();
 	});
 
 	it('on a cluster that can’t say which node answered, says so without an error', async () => {
@@ -166,7 +166,8 @@ describe('FullTextSearchDialog readiness', () => {
 			return HITS;
 		};
 		renderDialog({ isCluster: true });
-		expect(await screen.findByText(/As reported by the node that answered/)).toBeTruthy();
+		expect(await screen.findByText(/this readiness is one node’s/)).toBeTruthy();
+		expect(screen.queryByText(/This connection reaches node/)).toBeNull();
 		expect(toastError).not.toHaveBeenCalled();
 	});
 
@@ -369,5 +370,22 @@ describe('FullTextSearchDialog when an index goes away', () => {
 		});
 		expect(screen.getByRole('region', { name: 'Index readiness' }).textContent).toContain('catalogSearch');
 		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+	});
+});
+
+describe('FullTextSearchDialog refusal from a dropped index', () => {
+	it('drops a refusal from an index a refresh no longer lists', async () => {
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const other: FullTextIndexDescription = { ...INDEX, name: 'tagSearch', fields: [{ name: 'tags', weight: 1 }] };
+		server.answer = body => {
+			throw refusal(503, "Full-text index 'tagSearch' is not ready", body);
+		};
+		const { rerender } = renderDialog({ indexes: [other, INDEX] });
+		await search('trail');
+		expect(await screen.findByText('Harper refused the search')).toBeTruthy();
+		await act(async () => {
+			rerender({ indexes: [INDEX] });
+		});
+		expect(screen.queryByText('Harper refused the search')).toBeNull();
 	});
 });

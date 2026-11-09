@@ -111,6 +111,14 @@ function skipBalanced(src: string, i: number, open: string, close: string): numb
 	return -1;
 }
 
+function skipWhitespaceAndComments(src: string, i: number): number {
+	let j = skipWhitespace(src, i);
+	while (src[j] === '#') {
+		j = skipWhitespace(src, skipLineComment(src, j));
+	}
+	return j;
+}
+
 function skipWhitespace(src: string, i: number): number {
 	let j = i;
 	while (j < src.length && /[\s,]/.test(src[j])) {
@@ -232,7 +240,7 @@ function readValueToken(src: string, i: number): number {
 		return end < 0 ? src.length : end;
 	}
 	let j = i;
-	while (j < src.length && !/[\s,)]/.test(src[j])) {
+	while (j < src.length && !/[\s,)#]/.test(src[j])) {
 		j++;
 	}
 	return j;
@@ -259,15 +267,12 @@ function parseArgs(inner: string): DirectiveArg[] {
 			i++;
 			continue;
 		}
-		i = skipWhitespace(inner, i);
+		// Comments may sit on either side of the `:`; they belong to neither the name nor the value.
+		i = skipWhitespaceAndComments(inner, i);
 		if (inner[i] !== ':') {
 			continue;
 		}
-		i = skipWhitespace(inner, i + 1);
-		// A comment may sit between `:` and the value; the value is what follows it.
-		while (inner[i] === '#') {
-			i = skipWhitespace(inner, skipLineComment(inner, i));
-		}
+		i = skipWhitespaceAndComments(inner, i + 1);
 		const valueStart = i;
 		i = readValueToken(inner, i);
 		args.push({ name, value: inner.slice(valueStart, i).trim() });

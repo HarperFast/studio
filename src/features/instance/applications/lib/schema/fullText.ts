@@ -340,8 +340,12 @@ export function fullTextErrors(field: FieldModel, table: TableModel): string[] {
 	// Read through comments: a declaration the editor won't rewrite can still be broken by an edit to its sources.
 	const config = parseFullTextConfig(field);
 	if (!config) {
-		// Unreadable here is either a typo Harper will name on load, or a value this editor can't
-		// interpret. Neither is safe to call invalid, so leave the verdict to Harper.
+		// A table written back as it was read gets Harper's verdict, not ours. Once the visual editor
+		// regenerates it, an edit to a source this can't see could break the index, so the table waits
+		// for "Edit as text".
+		if (table.edited) {
+			errors.push('Studio can’t check this full-text index, so edit this table as text.');
+		}
 		return errors;
 	}
 

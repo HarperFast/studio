@@ -291,3 +291,25 @@ describe('a comment between an argument and its value', () => {
 		expect(fullTextErrors(field(table, 'catalogSearch'), table).join('\n')).toMatch(/isn’t a field of this table/);
 	});
 });
+
+describe('unusual argument layouts', () => {
+	it('reads comments around the colon, and a comment right after a value, as comments', () => {
+		for (
+			const args of [
+				'fields # the sources\n: [{ name: "gone" }]',
+				'fields: [{ name: "gone" }], stopWords: false# note\n',
+			]
+		) {
+			const errors = errorsFor(args).join('\n');
+			expect(errors, args).toMatch(/isn’t a field of this table/);
+			expect(errors, args).not.toMatch(/no “name” option/);
+		}
+	});
+
+	it('blocks saving an edited table whose index it can’t read, rather than vouch for it', () => {
+		const table = { ...withArgs('fields: [{ name: """title""" }]'), edited: true };
+		expect(fullTextErrors(field(table, 'catalogSearch'), table).join('\n')).toMatch(/edit this table as text/);
+		const untouched = withArgs('fields: [{ name: """title""" }]');
+		expect(fullTextErrors(field(untouched, 'catalogSearch'), untouched)).toEqual([]);
+	});
+});

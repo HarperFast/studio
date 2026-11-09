@@ -221,13 +221,12 @@ function SearchTester({
 				)}
 				{isCluster && (
 					<p className="text-xs text-muted-foreground">
-						{nodeName
-							? (
-								<>
-									As reported by node <code>{nodeName}</code>.
-								</>
-							)
-							: 'As reported by the node that answered.'} Each node builds its own index, so another node’s can differ.
+						Each node builds its own index, so this readiness is one node’s and another’s can differ.
+						{nodeName && (
+							<>
+								{' '}This connection reaches node <code>{nodeName}</code>, which usually answered the check.
+							</>
+						)}
 					</p>
 				)}
 			</section>
@@ -329,7 +328,7 @@ function SearchTester({
 				</div>
 			</form>
 
-			{search.isError && (
+			{search.isError && search.variables.index.name === index.name && (
 				<Alert variant="destructive">
 					<TriangleAlertIcon />
 					<AlertTitle>

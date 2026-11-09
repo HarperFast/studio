@@ -278,3 +278,17 @@ describe('value positions inside @fullText', () => {
 			.toBeUndefined();
 	});
 });
+
+describe('declarationStartLine inside a description at column 0', () => {
+	it('skips a line inside a """ block that looks like a declaration', () => {
+		const lines = [
+			'type Product @table {',
+			'\t"""',
+			'type of product',
+			'\t"""',
+			'\tsearch: FullText',
+			'\t\t@fullText(',
+		];
+		expect(declarationStartLine(lineNumber => lines[lineNumber - 1], lines.length)).toBe(1);
+	});
+});
