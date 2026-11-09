@@ -210,8 +210,12 @@ Re-sending the cluster's own value resumes a stopped roll and skips members alre
 `RUNNING` again.
 
 The PUT answers before the roll marks the cluster `UPDATING`, so the first read after a save looks exactly like a
-stopped roll. The page treats that picture as the roll starting until it sees the roll, or for
-`ROLL_START_GRACE_MS`, so a save never flashes "didn't finish".
+stopped roll. The page treats that picture as the roll starting until it sees the roll, sees a member that isn't
+`RUNNING` on a `RUNNING` cluster (a change can't start from that, so the roll already ran and stopped), or
+`ROLL_START_GRACE_MS` passes and a read taken since the save has landed. Without that last condition, a page whose
+reads all failed would fall back to the cached cluster from before the save. The save is kept in module state
+(`pendingRecordLocksSaves`), recorded at mutation level, so leaving the page during the gap and coming back doesn't
+offer Try again over a roll that is about to start.
 
 `recordLocksBlocker` mirrors only what central manager is certain to refuse, read from the same record: self-hosted, a
 cluster that isn't `RUNNING`, no instances, a live member that isn't `RUNNING`, and, when turning on, a member below

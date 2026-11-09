@@ -25,7 +25,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { LoaderCircleIcon, LockIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { RECORD_LOCKS_MIN_VERSION, recordLocksBlocker, RecordLocksPhase, recordLocksState } from './recordLocksState';
+import { forgetSave, PendingSave, pendingSave } from './pendingRecordLocksSaves';
+import {
+	hasMemberNotRunning,
+	RECORD_LOCKS_MIN_VERSION,
+	recordLocksBlocker,
+	RecordLocksPhase,
+	recordLocksState,
+} from './recordLocksState';
 import { useSetClusterRecordLocks } from './useSetClusterRecordLocks';
 
 const ROLL_POLL_MS = 5_000;
@@ -92,27 +99,38 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		setSkipDrain(false);
 		setConfirming({ open: true, target, resume });
 	};
-	const [saved, setSaved] = useState<{ target: boolean; at: number } | null>(null);
+	const [saved, setSaved] = useState<PendingSave | null>(() => pendingSave(cluster.id));
+	const [graceOverFor, setGraceOverFor] = useState<PendingSave | null>(null);
 	const { mutate, isPending, error, reset } = useSetClusterRecordLocks();
 
-	// A save is seen through once the cluster carries it and the members are either rolling or done.
-	useEffect(() => {
-		if (saved && state.enabled === saved.target && state.phase !== 'stopped') {
-			setSaved(null);
-		}
-	}, [saved, state.enabled, state.phase]);
+	const phase: RecordLocksPhase = saved ? 'applying' : state.phase;
+	const enabled = saved ? saved.target : state.enabled;
+	// The cluster query is shared, so this joins any other poller rather than adding one.
+	const { dataUpdatedAt } = useQuery({
+		...getClusterInfoQueryOptions(cluster.id, ROLL_POLL_MS),
+		enabled: phase === 'applying',
+	});
+
 	useEffect(() => {
 		if (!saved) {
 			return;
 		}
-		const timer = setTimeout(() => setSaved(null), Math.max(0, saved.at + ROLL_START_GRACE_MS - Date.now()));
+		const seen = state.enabled === saved.target && state.phase !== 'stopped';
+		// After the grace, only a read taken since the save may stand in for it: when every poll has
+		// failed, the cache still holds the cluster from before the save.
+		const outlived = graceOverFor === saved && dataUpdatedAt >= saved.at;
+		if (seen || hasMemberNotRunning(cluster) || outlived) {
+			forgetSave(cluster.id, saved);
+			setSaved(null);
+		}
+	}, [cluster, dataUpdatedAt, graceOverFor, saved, state.enabled, state.phase]);
+	useEffect(() => {
+		if (!saved) {
+			return;
+		}
+		const timer = setTimeout(() => setGraceOverFor(saved), Math.max(0, saved.at + ROLL_START_GRACE_MS - Date.now()));
 		return () => clearTimeout(timer);
 	}, [saved]);
-
-	const phase: RecordLocksPhase = saved ? 'applying' : state.phase;
-	const enabled = saved ? saved.target : state.enabled;
-	// Poll only while something is moving; the cluster query is shared, so this joins any other poller.
-	useQuery({ ...getClusterInfoQueryOptions(cluster.id, ROLL_POLL_MS), enabled: phase === 'applying' });
 
 	const toggleBlocker = recordLocksBlocker(cluster, !state.enabled);
 	const resumeBlocker = recordLocksBlocker(cluster, state.enabled);
@@ -121,7 +139,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	const send = (recordLocks: boolean, skipGtmWait: boolean) => {
 		reset();
 		mutate({ clusterId: cluster.id, organizationId, recordLocks, skipGtmWait }, {
-			onSuccess: () => setSaved({ target: recordLocks, at: Date.now() }),
+			onSuccess: () => setSaved(pendingSave(cluster.id)),
 		});
 	};
 
@@ -259,7 +277,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 					</div>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => send(confirming.target, skipDrain)}>
+						<AlertDialogAction disabled={isPending} onClick={() => send(confirming.target, skipDrain)}>
 							{confirming.resume ? 'Try again' : `Turn ${confirming.target ? 'on' : 'off'}`}
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -283,7 +301,7 @@ function RefusalMessage({ refusal }: { refusal: { message: string; needsSupport:
 	);
 }
 
-export function RecordLocksExplanation() {
+function RecordLocksExplanation() {
 	return (
 		<ul className="list-disc space-y-1.5 pl-5 text-muted-foreground">
 			<li>

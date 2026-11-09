@@ -1,6 +1,6 @@
 import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { recordLocksBlocker, recordLocksState, supportsRecordLocks } from './recordLocksState';
+import { hasMemberNotRunning, recordLocksBlocker, recordLocksState, supportsRecordLocks } from './recordLocksState';
 
 function instance(overrides: Partial<Instance> = {}): Instance {
 	return { id: 'ins-1', status: 'RUNNING', version: '5.3.1', ...overrides } as Instance;
@@ -29,8 +29,15 @@ describe('supportsRecordLocks', () => {
 		['5.3.0-beta.4', false],
 		['5.2.13', false],
 		['4.7.40', false],
-		// and refuses anything semver.valid rejects
+		['5.3.0+build.1', true],
+		[' 5.3.0 ', true],
+		['5.4.0-0a', true],
+		// and refuses anything semver.valid rejects: checked against central manager's own semver
 		['5.3', false],
+		['=5.3.0', false],
+		['5.03.0', false],
+		['05.3.0', false],
+		['5.4.0-beta.01', false],
 		['latest', false],
 		['', false],
 		[undefined, false],
@@ -75,7 +82,7 @@ describe('recordLocksState', () => {
 		const state = recordLocksState(cluster({
 			recordLocks: false,
 			instances: [
-				instance({ id: 'a', recordLocks: null as unknown as boolean }),
+				instance({ id: 'a', recordLocks: null }),
 				instance({ id: 'b', recordLocks: true }),
 			],
 		}));
@@ -88,6 +95,20 @@ describe('recordLocksState', () => {
 			instances: [instance({ id: 'a', recordLocks: true }), instance({ id: 'b', status: 'TERMINATED' })],
 		}));
 		expect(state).toEqual({ enabled: true, phase: 'on', applied: 1, total: 1 });
+	});
+});
+
+describe('hasMemberNotRunning', () => {
+	it('is true only for a running cluster with a live member that is not', () => {
+		expect(hasMemberNotRunning(cluster())).toBe(false);
+		expect(hasMemberNotRunning(cluster({ instances: [instance(), instance({ id: 'b', status: 'FAILED' })] }))).toBe(
+			true,
+		);
+		// mid-roll: the cluster is UPDATING, so a draining member is the roll, not its end
+		expect(hasMemberNotRunning(cluster({ status: 'UPDATING', instances: [instance({ status: 'DRAINING' })] })))
+			.toBe(false);
+		expect(hasMemberNotRunning(cluster({ instances: [instance(), instance({ id: 'b', status: 'TERMINATED' })] })))
+			.toBe(false);
 	});
 });
 

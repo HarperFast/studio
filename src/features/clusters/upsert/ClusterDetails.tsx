@@ -36,7 +36,6 @@ interface ClusterDetailsProps {
 	isPending: boolean;
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
-	/** The cluster being edited has record locks on, which rules out versions below their floor. */
 	recordLocksOn: boolean;
 	regionLocations: SchemaRegion[] | undefined;
 	regionLookup: RegionLookup;

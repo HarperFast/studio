@@ -388,8 +388,10 @@ export interface LocalLegacyRoleAttributePermissionTable {
 
 export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
 
-export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn'> {
+export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn' | 'recordLocks'> {
 	cluster: Cluster;
+	// Central manager writes null, not false, when it turns record locks off on a member.
+	recordLocks?: boolean | null;
 	// The generated schema marks this required, but central manager can list an instance without one.
 	instanceFqdn?: string;
 	status?: BadgeStatus;

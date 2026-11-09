@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { rememberSave } from './pendingRecordLocksSaves';
 
 interface Params {
 	clusterId: string;
@@ -11,7 +12,7 @@ interface Params {
 }
 
 /** Central manager's answer: the members it is about to restart, one at a time, in the background. */
-export interface SetRecordLocksResponse {
+interface SetRecordLocksResponse {
 	id: string;
 	recordLocks: boolean;
 	instancesUpdated?: string[];
@@ -22,7 +23,7 @@ export interface SetRecordLocksResponse {
  * setting rides along, `skipGtmWait` excepted. Sending the value the cluster already has resumes a roll
  * that stopped part way.
  */
-export async function setClusterRecordLocks(clusterId: string, recordLocks: boolean, skipGtmWait = false) {
+async function setClusterRecordLocks(clusterId: string, recordLocks: boolean, skipGtmWait = false) {
 	// Central manager's OpenAPI describes neither this body nor its answer.
 	const body = skipGtmWait ? { recordLocks, skipGtmWait } : { recordLocks };
 	const { data } = await apiClient.put(`/Cluster/${clusterId}` as '/Cluster/{id}', body);
@@ -37,6 +38,8 @@ export function useSetClusterRecordLocks() {
 		// Reported here rather than in a caller's `onError`, which React Query skips once the page unmounts.
 		meta: { skipGlobalErrorToast: true },
 		onError: (error) => console.error(error),
+		// At mutation level, which React Query runs even after the page that sent it unmounts.
+		onSuccess: (_data, { clusterId, recordLocks }) => rememberSave(clusterId, recordLocks),
 		onSettled: (_data, _error, { clusterId, organizationId }) => {
 			void queryClient.invalidateQueries({ queryKey: getClusterInfoQueryOptions(clusterId).queryKey, exact: true });
 			void queryClient.invalidateQueries({ queryKey: [organizationId] });

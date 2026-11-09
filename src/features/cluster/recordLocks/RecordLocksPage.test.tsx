@@ -15,6 +15,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 import { mutationErrorHandler } from '@/react-query/queryClient';
+import { forgetAllSavesForTests } from './pendingRecordLocksSaves';
 import { RecordLocksSettings, ROLL_START_GRACE_MS } from './RecordLocksPage';
 
 beforeAll(() => {
@@ -38,6 +39,7 @@ afterEach(() => {
 	consoleError.mockRestore();
 	vi.useRealTimers();
 	vi.resetAllMocks();
+	forgetAllSavesForTests();
 });
 
 function instance(overrides: Partial<Instance> = {}): Instance {
@@ -67,7 +69,21 @@ function setup(initial: Cluster, { canUpdate = true }: { canUpdate?: boolean } =
 		</QueryClientProvider>
 	);
 	const view = render(ui(initial));
-	return { ...view, show: (c: Cluster) => view.rerender(ui(c)) };
+	return {
+		...view,
+		/** A read of the cluster lands: the page is handed it, and the shared query records when. */
+		show: (c: Cluster) => {
+			act(() => {
+				queryClient.setQueryData([c.id], c);
+			});
+			view.rerender(ui(c));
+		},
+		/** Leave the page and come back to it. */
+		remount: (c: Cluster) => {
+			view.unmount();
+			return render(ui(c));
+		},
+	};
 }
 
 const recordLocksSwitch = () => screen.getByRole<HTMLButtonElement>('switch', { name: 'Cluster-wide record locks' });
@@ -270,6 +286,54 @@ describe('RecordLocksSettings', () => {
 			});
 
 			await waitFor(() => expect(put).toHaveBeenCalledWith('/Cluster/clu-1', { recordLocks: true }));
+		});
+
+		it('is reported at once when a member fails before any read shows the roll', async () => {
+			put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
+			const { show } = setup(cluster());
+			await confirm('Turn on');
+			await screen.findByText('Turning record locks on');
+
+			show(
+				cluster({
+					recordLocks: true,
+					instances: [instance({ id: 'ins-1', status: 'FAILED' }), instance({ id: 'ins-2' })],
+				}),
+			);
+
+			expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
+			expect(screen.queryByText('Turning record locks on')).toBeNull();
+		});
+
+		it('keeps the save through leaving the page and coming back during the gap', async () => {
+			put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
+			const { remount } = setup(cluster());
+			await confirm('Turn on');
+			await screen.findByText('Turning record locks on');
+
+			remount(cluster({ recordLocks: true }));
+
+			expect(screen.getByText('Turning record locks on')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		});
+
+		it('does not fall back to the cluster from before the save when every read after it fails', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
+			const { show } = setup(cluster());
+			await confirm('Turn on');
+			await screen.findByText('Turning record locks on');
+
+			await act(async () => {
+				vi.advanceTimersByTime(ROLL_START_GRACE_MS);
+			});
+
+			expect(screen.getByText('Turning record locks on')).toBeTruthy();
+			expect(within(recordLocksSwitch().closest('div')!).queryByText('Off')).toBeNull();
+
+			show(cluster({ recordLocks: true }));
+
+			expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
 		});
 
 		it('is reported once the roll never shows up after a save', async () => {

@@ -8,11 +8,7 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
-/**
- * Opts a new cluster in to cluster-wide record locks. The form shows it only where central manager
- * would accept it (a Fabric-hosted cluster on Harper 5.3.0+), and `ClusterForm` sends it only then,
- * so a box left ticked before switching to an older version or to self-hosted is never sent.
- */
+/** Shown, and sent, only where central manager accepts it (src/features/cluster/DESIGN.md, record locks). */
 export function ClusterRecordLocks({
 	className,
 	form,

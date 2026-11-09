@@ -10,16 +10,19 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  */
 export const RECORD_LOCKS_MIN_VERSION = '5.3.0';
 
-// What `semver.valid` accepts by default: three numeric parts, an optional prerelease and build, and
-// an optional leading `v` or `=`. Studio's own parser is laxer (`5.3` parses), so it can't decide this.
-const VALID_SEMVER = /^[v=]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// `semver.valid` with default options: it trims, takes a leading `v` but not `=`, and rejects leading
+// zeros in numeric parts and numeric prerelease identifiers. Studio's own parser accepts all of those.
+const IDENTIFIER = '(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)';
+const VALID_SEMVER = new RegExp(
+	`^v?(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-${IDENTIFIER}(?:\\.${IDENTIFIER})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
+);
 
-/** Whether central manager lets a cluster on `version` run record locks. */
 export function supportsRecordLocks(version: string | null | undefined): boolean {
-	if (!version || !VALID_SEMVER.test(version.trim())) {
+	const trimmed = version?.trim();
+	if (!trimmed || !VALID_SEMVER.test(trimmed)) {
 		return false;
 	}
-	return wasAReleasedBeforeB(RECORD_LOCKS_MIN_VERSION, version.trim().replace(/^[v=]/, ''));
+	return wasAReleasedBeforeB(RECORD_LOCKS_MIN_VERSION, trimmed.replace(/^v/, ''));
 }
 
 /** Members that still belong to the cluster, as central manager's `isTerminalInstanceState` counts them. */
@@ -29,12 +32,7 @@ function liveInstances(cluster: Cluster): Instance[] {
 	);
 }
 
-/** Live members central manager would refuse record locks on, for the version they run. */
-export function instancesBelowRecordLocksFloor(cluster: Cluster): Instance[] {
-	return liveInstances(cluster).filter(instance => !supportsRecordLocks(instance.version));
-}
-
-export function describeInstance(instance: Pick<Instance, 'id' | 'name' | 'instanceFqdn'>): string {
+function describeInstance(instance: Pick<Instance, 'id' | 'name' | 'instanceFqdn'>): string {
 	return instance.name || instance.instanceFqdn || instance.id;
 }
 
@@ -45,25 +43,15 @@ function describeStatus(status: string): string {
 export type RecordLocksPhase = 'off' | 'on' | 'applying' | 'stopped';
 
 export interface RecordLocksState {
-	/** The cluster's setting: what central manager rolls onto the members and gives new ones. */
+	/** The cluster's setting, which central manager rolls onto the members and gives new ones. */
 	enabled: boolean;
-	/**
-	 * `applying` while the cluster is mid-update with members still on the old setting; `stopped` when
-	 * the cluster is no longer updating but some are, which is what a roll that failed part way leaves.
-	 */
 	phase: RecordLocksPhase;
-	/** Live members already on the cluster's setting. */
+	/** Live members already on the cluster's setting, of `total` live members. */
 	applied: number;
-	/** Live members. */
 	total: number;
 }
 
-/**
- * Where record locks stand on a cluster. The cluster's `recordLocks` is the intent, written before the
- * roll starts; each member's own `recordLocks` changes only once its restart is handed to host
- * manager, and a failed roll puts the member it stopped on back to its old value. So a member that
- * disagrees with the cluster is one the roll hasn't reached, or one it gave up on.
- */
+/** A member that disagrees with the cluster is one the roll hasn't reached, or one it gave up on (DESIGN.md). */
 export function recordLocksState(cluster: Cluster): RecordLocksState {
 	const enabled = cluster.recordLocks === true;
 	const live = liveInstances(cluster);
@@ -77,19 +65,25 @@ export function recordLocksState(cluster: Cluster): RecordLocksState {
 	return { enabled, phase, applied, total };
 }
 
+/**
+ * A running cluster with a live member that isn't running. A change can't start from that (central
+ * manager requires every member running), so seen after a save, it means the roll already ran and stopped.
+ */
+export function hasMemberNotRunning(cluster: Cluster): boolean {
+	return cluster.status === 'RUNNING'
+		&& liveInstances(cluster).some(instance => instance.status && instance.status !== 'RUNNING');
+}
+
 export interface RecordLocksRefusal {
 	message: string;
 	/** Nothing on the page clears it: a failed instance needs recovering first. */
 	needsSupport: boolean;
-	/** Upgrading the cluster clears it. */
 	needsUpgrade?: boolean;
 }
 
 /**
- * Why central manager would refuse to set record locks to `target` on this cluster, or `null` when it
- * would accept. Only conditions it is certain to refuse, read from the same record it checks
- * (`updateClusterRecordLocks` and `assertClusterMutable` in `updateCluster.js`), so this never blocks a
- * change the server would take. Anything else it refuses still arrives as its own error.
+ * What central manager is certain to refuse, read from the record it checks, so this never blocks a
+ * change it would take (DESIGN.md). A missing status isn't treated as a refusal for the same reason.
  */
 export function recordLocksBlocker(cluster: Cluster, target: boolean): RecordLocksRefusal | null {
 	if (clusterIsSelfManaged(cluster)) {
@@ -121,7 +115,7 @@ export function recordLocksBlocker(cluster: Cluster, target: boolean): RecordLoc
 		};
 	}
 	if (target) {
-		const unsupported = instancesBelowRecordLocksFloor(cluster);
+		const unsupported = live.filter(instance => !supportsRecordLocks(instance.version));
 		if (unsupported.length) {
 			const versions = [...new Set(unsupported.map(instance => instance.version || 'an unknown version'))];
 			return {

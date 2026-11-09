@@ -59,7 +59,6 @@ interface ClusterFormProps {
 	lockedOrganizationRegionIds: string[];
 	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
-	/** The cluster being edited has record locks on. */
 	recordLocksOn?: boolean;
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
