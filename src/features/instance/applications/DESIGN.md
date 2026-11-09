@@ -127,7 +127,8 @@ nothing and is reported without a health check. Rollback to a kept release (#123
 
 ## Going back needs each node to say it keeps the release
 
-Activating an id a node does not hold answers 404 there, and the activation ends `partial`. The records cannot say which
+Activating an id a node does not hold answers 404 there, and the activation is recorded `failed`, though the node that
+received it has already switched, so the cluster is left split between releases. The records cannot say which
 nodes hold what: retention prunes without writing a record, a release deployed from a `file:` directory or made live
 before 5.3.0 is never kept, and `origin_node` is the receiving node's host name rather than its node name. So from
 5.4.0-alpha.1 the Deployments page asks `list_releases` (`useComponentReleases`), and what is on disk decides the offer

@@ -67,8 +67,9 @@ export function summarizeReleases(response: ListReleasesResponse, project: strin
 
 /**
  * Whether activating `deploymentId` can reach every node. A node that holds it live, kept or staged takes it (the
- * live one with no swap: harper `v5.4.0-beta.2:components/Application.ts:5168`); any other answers 404 and the
- * activation ends `partial`. A node that could not answer leaves it unknown, which counts as missing.
+ * live one with no swap: harper `v5.4.0-beta.2:components/Application.ts:5168`). Any other answers 404 (`:5320`), and
+ * the activation is recorded `failed` though the node that received it has already switched (`operations.ts:1178`). A
+ * node that could not answer leaves it unknown, which counts as missing.
  */
 export type ReleaseAvailability =
 	| { kind: 'live-everywhere' }
