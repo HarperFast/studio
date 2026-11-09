@@ -386,6 +386,11 @@ describe('ConfigBackupsIndex on a cluster', () => {
 		);
 		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2', hidden: true })).toBeTruthy());
 		expect(screen.queryByRole('alertdialog')).toBeNull();
+
+		// Back on the database it was opened for, it stays closed.
+		fireEvent.change(screen.getByRole('combobox', { name: 'Database' }), { target: { value: 'analytics' } });
+		await waitFor(() => expect(nodeCard('alpha').getByRole('row', { name: 'Backup 2' })).toBeTruthy());
+		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(nodes.get('ins-a')!.bodies().map((body) => body.operation)).not.toContain('purge_backups');
 	});
 

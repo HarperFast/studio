@@ -93,6 +93,9 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 	// A dialog belongs to the database it was opened for: if a database list refetch moves the page to another one,
 	// the dialog closes rather than confirming against a database the user never chose.
 	const dialog = openedDialog?.database === database ? openedDialog : undefined;
+	if (openedDialog && !dialog) {
+		setDialog(undefined);
+	}
 	const { mutate: createBackup, isPending: isCreating } = useCreateBackup();
 	const { mutate: verifyBackup, isPending: isStartingVerify } = useVerifyBackup();
 	const { mutate: deleteBackup, isPending: isDeleting } = useDeleteBackup();
