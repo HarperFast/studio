@@ -12,6 +12,7 @@ import {
 	ServerIcon,
 	SirenIcon,
 	TicketIcon,
+	UsersIcon,
 } from 'lucide-react';
 
 /**
@@ -41,6 +42,14 @@ const items: Array<
 	{ to: '/admin/billing', label: 'Billing', icon: CreditCardIcon, permission: 'org:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// Gated on deactivation's permission, which keeps the page fabric_admin-only; the details lookup needs both reads.
+	{
+		to: '/admin/users',
+		label: 'Users',
+		icon: UsersIcon,
+		permission: 'user:status',
+		alsoNeeds: ['user:read', 'cluster:read'],
+	},
 	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
 	// super_user cannot mint a staff credential.
 	{
