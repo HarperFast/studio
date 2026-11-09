@@ -39,10 +39,12 @@ export interface Directive {
 	 */
 	hadParens: boolean;
 	/**
-	 * Set when a `#` comment sits inside the parentheses. Regenerating the directive would drop it, so an
-	 * editor that rewrites a directive's arguments (`@fullText`'s) leaves one with comments read-only.
+	 * Set when a `#` comment sits inside the parentheses, which `args` can't hold: the text between them
+	 * as written, and the `args` parsed from it. While `args` is still that array the text is written
+	 * back verbatim, so editing something else keeps the comments; changing an argument replaces `args`
+	 * and drops them. An editor that rewrites arguments (`@fullText`'s) leaves such a directive read-only.
 	 */
-	commentedArgs?: true;
+	commented?: { inner: string; args: DirectiveArg[] };
 }
 
 /**

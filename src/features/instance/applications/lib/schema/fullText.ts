@@ -149,7 +149,7 @@ function readBool(directive: Directive, name: string): boolean | undefined | 'in
 export function readFullTextConfig(field: FieldModel): FullTextConfig | undefined {
 	const directive = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
 	// Rewriting the arguments would drop their comments, so a commented declaration stays as written.
-	if (!directive || directive.commentedArgs || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
+	if (!directive || directive.commented || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
 		return undefined;
 	}
 

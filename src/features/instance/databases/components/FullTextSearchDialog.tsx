@@ -277,6 +277,8 @@ function SearchTester({
 									<input
 										type="checkbox"
 										checked={fields.length === 0 || fields.includes(source.name)}
+										// Searching nothing isn't a search, so the last source stays checked.
+										disabled={fields.length === 1 && fields[0] === source.name}
 										onChange={event => toggleField(source.name, event.target.checked)}
 									/>
 									{source.name}
@@ -331,12 +333,17 @@ function SearchTester({
 			{search.isError && (
 				<Alert variant="destructive">
 					<TriangleAlertIcon />
-					<AlertTitle>Harper refused the search</AlertTitle>
+					<AlertTitle>
+						{isAxiosError(search.error) && search.error.response
+							? 'Harper refused the search'
+							: 'The search got no answer'}
+					</AlertTitle>
 					<AlertDescription>{describeError(search.error).message}</AlertDescription>
 				</Alert>
 			)}
 
-			{search.isSuccess && (
+			{/* Only for the index on screen: one a refresh dropped falls back to another without a reset. */}
+			{search.isSuccess && search.variables.index.name === index.name && (
 				<SearchResults
 					hits={search.data}
 					index={search.variables.index}

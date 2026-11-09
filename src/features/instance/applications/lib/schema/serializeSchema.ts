@@ -48,7 +48,16 @@ function orderByRank<T>(items: T[], keyOf: (item: T) => string, order: string[])
 		.map(entry => entry.item);
 }
 
+/** The text between a directive's parentheses as written, while its arguments are still the ones parsed from it. */
+function untouchedCommentedArgs(directive: Directive): string | undefined {
+	return directive.commented?.args === directive.args ? directive.commented.inner : undefined;
+}
+
 function serializeDirective(directive: Directive): string {
+	const verbatim = untouchedCommentedArgs(directive);
+	if (verbatim !== undefined) {
+		return `@${directive.name}(${verbatim})`;
+	}
 	if (directive.args.length === 0) {
 		return `@${directive.name}`;
 	}
@@ -71,6 +80,10 @@ const BLOCK_DIRECTIVES = new Set(['fullText']);
 
 /** `@fullText(` / one argument per line / `)`, each line indented one level past the field. */
 function serializeBlockDirective(directive: Directive, indent: string): string[] {
+	const verbatim = untouchedCommentedArgs(directive);
+	if (verbatim !== undefined) {
+		return [`${indent}${indent}@${directive.name}(${verbatim})`];
+	}
 	if (directive.args.length === 0) {
 		return [`${indent}${indent}@${directive.name}`];
 	}

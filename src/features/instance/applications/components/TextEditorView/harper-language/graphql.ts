@@ -166,9 +166,9 @@ export function detectCompletionContext(textBeforeCursor: string): GraphqlComple
 	return { kind: 'none' };
 }
 
-// The keyword then a name or `{`, never `:` or `(`: a field or argument may be called `type` or `input`.
-const DECLARATION_LINE_RE =
-	/^\s*(?:extend\s+)?(?:type|input|interface|enum|scalar|union|schema|directive)\b(?!\s*[:(])/;
+// At the start of the line, as declarations are written, and followed by a name or `{`, never `:` or
+// `(`: an indented line is a field, an argument, or a description that happens to begin "type of …".
+const DECLARATION_LINE_RE = /^(?:extend\s+)?(?:type|input|interface|enum|scalar|union|schema|directive)\b(?!\s*[:(])/;
 
 /**
  * The line a context scan starts from: the nearest declaration at or above `lineNumber`. A directive's

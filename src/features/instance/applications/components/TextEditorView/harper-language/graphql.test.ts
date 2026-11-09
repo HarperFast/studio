@@ -236,3 +236,21 @@ describe('declarationStartLine', () => {
 		expect(detectCompletionContext(`${scanned}, `)).toEqual({ kind: 'directiveArg', directive: 'indexed' });
 	});
 });
+
+describe('declarationStartLine and descriptions', () => {
+	it('doesn’t take a description line that begins like a declaration for one', () => {
+		const lines = [
+			'type Product @table {',
+			'\t"""',
+			'\ttype of product, schema notes',
+			'\t"""',
+			'\tkind: String',
+			'\tsearch: FullText',
+			'\t\t@fullText(',
+		];
+		const start = declarationStartLine(lineNumber => lines[lineNumber - 1], lines.length);
+		expect(start).toBe(1);
+		expect(detectCompletionContext(`${lines.slice(start - 1).join('\n')}\n\t\t\t`))
+			.toEqual({ kind: 'directiveArg', directive: 'fullText' });
+	});
+});

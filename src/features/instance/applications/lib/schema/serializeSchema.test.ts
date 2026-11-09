@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createField, createTable } from './mutations';
+import { createField, createTable, setArg } from './mutations';
 import { parseSchema } from './parseSchema';
 import { serializeSchema } from './serializeSchema';
 import { SchemaDocument, Segment, TableModel } from './types';
@@ -375,5 +375,54 @@ describe('a comment between a field and its continued directive', () => {
 		expect(serializeSchema(parsed.document)).toBe(source);
 		// Not offered as an editable table, so no edit can drop the comment.
 		expect(parsed.document.segments.some(segment => segment.kind === 'table')).toBe(false);
+	});
+});
+
+describe('directives with comments inside their arguments', () => {
+	const source = [
+		'type Product @table(audit: true) {',
+		'\tid: ID @primaryKey',
+		'\ttitle: String',
+		'\tcatalogSearch: FullText',
+		'\t\t@fullText(',
+		'\t\t\t# the storefront search',
+		'\t\t\tfields: [{ name: "title" }] # just the title for now',
+		'\t\t)',
+		'}',
+		'',
+	].join('\n');
+
+	function edited(change: (table: TableModel) => TableModel): string {
+		const doc = parse(source);
+		return serializeSchema({
+			...doc,
+			segments: doc.segments.map(segment =>
+				segment.kind === 'table' ? { kind: 'table', table: { ...change(segment.table), edited: true } } : segment
+			),
+		});
+	}
+
+	it('keeps the comments when something else in the table changes', () => {
+		const written = edited(table => ({
+			...table,
+			fields: [...table.fields, { ...createField('price'), type: { kind: 'named', name: 'Float', nonNull: false } }],
+		}));
+		expect(written).toContain(
+			'\t\t@fullText(\n\t\t\t# the storefront search\n\t\t\tfields: [{ name: "title" }] # just the title for now\n\t\t)',
+		);
+		expect(written).toContain('\tprice: Float');
+	});
+
+	it('regenerates the arguments once one of them changes, which is why the editor keeps them read-only', () => {
+		const written = edited(table => ({
+			...table,
+			fields: table.fields.map(field =>
+				field.name === 'catalogSearch'
+					? { ...field, directives: setArg(field.directives, 'fullText', 'stopWords', 'false') }
+					: field
+			),
+		}));
+		expect(written).not.toContain('# the storefront search');
+		expect(written).toContain('\t\t\tstopWords: false');
 	});
 });

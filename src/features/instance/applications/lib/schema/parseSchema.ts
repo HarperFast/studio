@@ -306,18 +306,18 @@ function parseDirectives(text: string): Directive[] {
 		}
 		let args: DirectiveArg[] = [];
 		let hadParens = false;
-		let commented = false;
+		let commented: Directive['commented'];
 		if (text[j] === '(') {
 			const end = skipBalanced(text, j, '(', ')');
 			if (end > 0) {
 				hadParens = true;
 				const inner = text.slice(j + 1, end - 1);
 				args = parseArgs(inner);
-				commented = containsComment(inner);
+				commented = containsComment(inner) ? { inner, args } : undefined;
 				i = end;
 			}
 		}
-		directives.push({ name, args, hadParens, ...(commented ? { commentedArgs: true } : null) });
+		directives.push({ name, args, hadParens, ...(commented ? { commented } : null) });
 	}
 	return directives;
 }

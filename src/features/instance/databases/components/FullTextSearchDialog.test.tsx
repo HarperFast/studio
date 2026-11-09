@@ -91,7 +91,7 @@ function renderDialog(overrides: Partial<Parameters<typeof FullTextSearchDialog>
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
 	const onRefresh = vi.fn();
-	render(
+	const view = (props: Partial<Parameters<typeof FullTextSearchDialog>[0]>) => (
 		<QueryClientProvider client={client}>
 			<FullTextSearchDialog
 				open
@@ -103,11 +103,12 @@ function renderDialog(overrides: Partial<Parameters<typeof FullTextSearchDialog>
 				isCluster={false}
 				isRefreshing={false}
 				onRefresh={onRefresh}
-				{...overrides}
+				{...props}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
-	return { onRefresh };
+	const { rerender } = render(view(overrides));
+	return { onRefresh, rerender: (props: Partial<Parameters<typeof FullTextSearchDialog>[0]>) => rerender(view(props)) };
 }
 
 async function search(query: string) {
@@ -332,5 +333,41 @@ describe('FullTextSearchDialog robustness', () => {
 		const results = await screen.findByRole('region', { name: 'Results' });
 		expect(within(results).getAllByRole('listitem')).toHaveLength(2);
 		expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+	});
+});
+
+describe('FullTextSearchDialog edges', () => {
+	it('says a search got no answer rather than that Harper refused it', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		server.answer = () => {
+			throw new AxiosError('Network Error', AxiosError.ERR_NETWORK);
+		};
+		renderDialog();
+		await search('trail');
+		expect(await screen.findByText('The search got no answer')).toBeTruthy();
+		expect(screen.queryByText('Harper refused the search')).toBeNull();
+	});
+
+	it('keeps the last checked source checked, since searching nothing isn’t a search', () => {
+		renderDialog();
+		fireEvent.click(screen.getByRole('checkbox', { name: /description/ }));
+		fireEvent.click(screen.getByRole('checkbox', { name: /tags/ }));
+		const title = screen.getByRole('checkbox', { name: /title/ }) as HTMLInputElement;
+		expect(title.checked).toBe(true);
+		expect(title.disabled).toBe(true);
+	});
+});
+
+describe('FullTextSearchDialog when an index goes away', () => {
+	it('drops results from an index a refresh no longer lists, rather than show them under another', async () => {
+		const other: FullTextIndexDescription = { ...INDEX, name: 'tagSearch', fields: [{ name: 'tags', weight: 1 }] };
+		const { rerender } = renderDialog({ indexes: [other, INDEX] });
+		await search('trail');
+		expect(await screen.findByRole('region', { name: 'Results' })).toBeTruthy();
+		await act(async () => {
+			rerender({ indexes: [INDEX] });
+		});
+		expect(screen.getByRole('region', { name: 'Index readiness' }).textContent).toContain('catalogSearch');
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
 	});
 });
