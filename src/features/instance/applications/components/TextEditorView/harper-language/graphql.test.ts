@@ -26,8 +26,9 @@ describe('detectCompletionContext', () => {
 		});
 	});
 
-	it('does not treat a colon inside directive args as a field type', () => {
-		expect(detectCompletionContext('  v: [Float] @indexed(type: ')).toEqual({
+	it('does not treat a colon inside directive args as a field type, nor offer argument names as its value', () => {
+		expect(detectCompletionContext('  v: [Float] @indexed(type: ')).toEqual({ kind: 'none' });
+		expect(detectCompletionContext('  v: [Float] @indexed(type: "HNSW" ')).toEqual({
 			kind: 'directiveArg',
 			directive: 'indexed',
 		});
@@ -252,5 +253,28 @@ describe('declarationStartLine and descriptions', () => {
 		expect(start).toBe(1);
 		expect(detectCompletionContext(`${lines.slice(start - 1).join('\n')}\n\t\t\t`))
 			.toEqual({ kind: 'directiveArg', directive: 'fullText' });
+	});
+});
+
+describe('value positions inside @fullText', () => {
+	const head = 'type Product @table {\n\tsearch: FullText\n\t\t@fullText(\n';
+
+	it('offers no keys where a value goes, and keys again once the value is done', () => {
+		const source = { kind: 'inputField', directive: 'fullText', inputType: 'FullTextSource' };
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "title"`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3 `)).toEqual(source);
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3, `)).toEqual(source);
+		expect(detectCompletionContext(`${head}\t\t\tstopWords: `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tstopWords: false\n\t\t\t`)).toEqual({
+			kind: 'directiveArg',
+			directive: 'fullText',
+		});
+	});
+
+	it('shows no argument card for a value', () => {
+		expect(detectHoverTarget({ word: 'fields', charBeforeWord: ' ', textBeforeWord: `${head}\t\t\tanalyzer: ` }))
+			.toBeUndefined();
 	});
 });

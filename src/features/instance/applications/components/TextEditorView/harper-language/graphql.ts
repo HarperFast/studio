@@ -70,6 +70,8 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 	const stack: Frame[] = [];
 	let lastKey: string | undefined;
 	let pendingDirective: string | undefined;
+	// Whether the cursor would type a key, a value after `key:`, or sit right after a value.
+	let slot: 'key' | 'value' | 'afterValue' = 'key';
 	let i = 0;
 	while (i < textBeforeCursor.length) {
 		const char = textBeforeCursor[i];
@@ -77,6 +79,9 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 			i = skipStringOrComment(textBeforeCursor, i);
 			if (i < 0) {
 				return { kind: 'none' };
+			}
+			if (char === '"' && slot === 'value') {
+				slot = 'afterValue';
 			}
 			pendingDirective = undefined;
 			continue;
@@ -94,6 +99,9 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 			pendingDirective = char === '@' ? name : undefined;
 			if (char !== '@' && textBeforeCursor[next] === ':') {
 				lastKey = name;
+			}
+			if (slot === 'value') {
+				slot = 'afterValue';
 			}
 			i = end;
 			continue;
@@ -118,6 +126,15 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 			// A key names the value that follows it, so it never outlives the next bracket.
 			lastKey = undefined;
 		}
+		if (char === ':') {
+			slot = 'value';
+		} else if ('([{'.includes(char)) {
+			slot = 'key';
+		} else if (/[\s,]/.test(char)) {
+			slot = slot === 'afterValue' ? 'key' : slot;
+		} else if (slot === 'value' || ')]}'.includes(char)) {
+			slot = 'afterValue';
+		}
 		if (!/[\s,]/.test(char)) {
 			pendingDirective = undefined;
 		}
@@ -130,6 +147,10 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 	}
 	if (directiveAt < 0) {
 		return undefined;
+	}
+	if (slot !== 'key') {
+		// A value goes here, and suggesting argument names would write `weight: weight:`.
+		return { kind: 'none' };
 	}
 	const directive = (stack[directiveAt] as { name: string }).name;
 	const inner = stack.slice(directiveAt + 1);

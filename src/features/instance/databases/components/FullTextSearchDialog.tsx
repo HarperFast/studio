@@ -113,7 +113,6 @@ function SearchTester({
 	const ids = { index: useId(), mode: useId(), query: useId(), limit: useId(), wait: useId() };
 
 	const [indexName, setIndexName] = useState(indexes[0].name);
-	// Falls back to the first index when the chosen one is gone after a refresh.
 	const index = indexes.find(candidate => candidate.name === indexName) ?? indexes[0];
 	const modes = supportedQueryModes(index);
 	const [chosenComparator, setComparator] = useState<FullTextComparator>('matches');

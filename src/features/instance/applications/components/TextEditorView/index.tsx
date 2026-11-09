@@ -149,7 +149,6 @@ export function TextEditorView() {
 		configureHarperLanguageSupport(monaco);
 	}, []);
 
-	// Schema completions offer only what this instance's Harper has (`FullText` from 5.3.0).
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	useEffect(() => {
 		setHarperGraphqlVersion(registrationInfo?.version);

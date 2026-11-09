@@ -65,7 +65,6 @@ function LoadedSchemaEditorView({
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
-	// Offers `FullText` only where Harper is known to have it (5.3.0+).
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 
 	const buffer = updatedFileContent ?? savedContents;

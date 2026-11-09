@@ -74,3 +74,10 @@ describe('printGraphqlValue', () => {
 		expect(() => printGraphqlValue(Number.NaN)).toThrow(RangeError);
 	});
 });
+
+describe('nesting', () => {
+	it('refuses nesting far past any directive argument rather than overflow the stack', () => {
+		expect(parseGraphqlValue(`${'['.repeat(50_000)}${']'.repeat(50_000)}`)).toBeUndefined();
+		expect(parseGraphqlValue(`${'['.repeat(10)}1${']'.repeat(10)}`)?.value).toEqual([[[[[[[[[[1]]]]]]]]]]);
+	});
+});

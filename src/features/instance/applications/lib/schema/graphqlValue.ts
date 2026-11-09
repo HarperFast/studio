@@ -15,9 +15,12 @@ export type GraphqlValue = string | number | boolean | null | GraphqlValue[] | {
 const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 const NAME = /[_A-Za-z][_0-9A-Za-z]*/y;
 const INVALID = Symbol('invalid');
+// Far deeper than any directive argument; past it the text is refused rather than recursed into.
+const MAX_DEPTH = 64;
 
 class Reader {
 	private index = 0;
+	private depth = 0;
 	private readonly src: string;
 
 	constructor(src: string) {
@@ -57,11 +60,14 @@ class Reader {
 		if (char === '"') {
 			return this.string();
 		}
-		if (char === '[') {
-			return this.list();
-		}
-		if (char === '{') {
-			return this.object();
+		if (char === '[' || char === '{') {
+			if (this.depth >= MAX_DEPTH) {
+				return INVALID;
+			}
+			this.depth++;
+			const nested = char === '[' ? this.list() : this.object();
+			this.depth--;
+			return nested;
 		}
 		const number = this.match(NUMBER);
 		if (number) {

@@ -53,7 +53,6 @@ function skipString(src: string, i: number): number {
 	return -1;
 }
 
-/** Whether `src` holds a `# …` comment outside its strings. */
 function containsComment(src: string): boolean {
 	let i = 0;
 	while (i < src.length) {

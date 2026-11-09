@@ -142,14 +142,19 @@ function readBool(directive: Directive, name: string): boolean | undefined | 'in
 }
 
 /**
- * The declaration on `field`, or `undefined` when there is none or it holds something the editor
- * can't show faithfully (a value of the wrong shape, an option Harper doesn't define). The editor
- * then shows the field read-only rather than rewrite what it couldn't read.
+ * The declaration on `field` for the editor to change, or `undefined` when there is none or it can't
+ * be rewritten faithfully: a value of the wrong shape, an option Harper doesn't define, or comments
+ * among the arguments, which a rewrite would drop. The editor then shows it read-only.
  */
 export function readFullTextConfig(field: FieldModel): FullTextConfig | undefined {
 	const directive = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
-	// Rewriting the arguments would drop their comments, so a commented declaration stays as written.
-	if (!directive || directive.commented || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
+	return directive?.commented ? undefined : parseFullTextConfig(field);
+}
+
+/** The declaration as Harper will read it, comments or not: what validation and rebuild checks need. */
+function parseFullTextConfig(field: FieldModel): FullTextConfig | undefined {
+	const directive = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
+	if (!directive || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
 		return undefined;
 	}
 
@@ -332,7 +337,8 @@ export function fullTextErrors(field: FieldModel, table: TableModel): string[] {
 		errors.push(`@fullText has no “${unknown.name}” option.`);
 	}
 
-	const config = readFullTextConfig(field);
+	// Read through comments: a declaration the editor won't rewrite can still be broken by an edit to its sources.
+	const config = parseFullTextConfig(field);
 	if (!config) {
 		// Unreadable here is either a typo Harper will name on load, or a value this editor can't
 		// interpret. Neither is safe to call invalid, so leave the verdict to Harper.
@@ -475,8 +481,8 @@ export function fullTextIndexChanges(saved: SchemaDocument, current: SchemaDocum
 			changes.push({ ...change, kind: 'build' });
 			continue;
 		}
-		const was = readFullTextConfig(previous.field);
-		const is = readFullTextConfig(field);
+		const was = parseFullTextConfig(previous.field);
+		const is = parseFullTextConfig(field);
 		// When either side can't be read, any change to the arguments may be one that rebuilds.
 		const rebuilds = was && is
 			? storageKey(was) !== storageKey(is)

@@ -276,3 +276,11 @@ describe('comments inside @fullText', () => {
 		}]);
 	});
 });
+
+describe('validating a commented declaration', () => {
+	it('still checks its sources, since an edit elsewhere can break one', () => {
+		const table = withArgs('# storefront\nfields: [{ name: "gone" }]');
+		expect(readFullTextConfig(field(table, 'catalogSearch'))).toBeUndefined();
+		expect(fullTextErrors(field(table, 'catalogSearch'), table).join('\n')).toMatch(/isn’t a field of this table/);
+	});
+});
