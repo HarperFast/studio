@@ -4,10 +4,27 @@ import { nextObservationStamp, syncRestartsFromCluster } from '@/lib/restart/res
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { QueryClient, queryOptions } from '@tanstack/react-query';
 
+const answeredReadRequestedAt = new Map<string, number>();
+
+/** Notes when the newest answered read of a cluster was requested, which says more than when it landed. */
+export function recordClusterRead(clusterId: string, requestedAt: number) {
+	answeredReadRequestedAt.set(clusterId, Math.max(requestedAt, answeredReadRequestedAt.get(clusterId) ?? -Infinity));
+}
+
+export function forgetClusterReadsForTests() {
+	answeredReadRequestedAt.clear();
+}
+
+/** Whether a read of the cluster requested at or after `since` has been answered. */
+export function clusterReadRequestedSince(clusterId: string, since: number): boolean {
+	return (answeredReadRequestedAt.get(clusterId) ?? -Infinity) >= since;
+}
+
 export async function getClusterInfo(clusterId: string) {
 	const requestedAt = nextObservationStamp();
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
 	syncRestartsFromCluster(data as Cluster, requestedAt);
+	recordClusterRead(clusterId, requestedAt);
 	return data as Cluster;
 }
 

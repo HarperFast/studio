@@ -212,8 +212,9 @@ Re-sending the cluster's own value resumes a stopped roll and skips members alre
 The PUT answers before the roll marks the cluster `UPDATING`, so the first read after a save looks exactly like a
 stopped roll. The page treats that picture as the roll starting until it sees the roll, sees a member that isn't
 `RUNNING` on a `RUNNING` cluster (a change can't start from that, so the roll already ran and stopped), or
-`ROLL_START_GRACE_MS` passes and a read taken since the save, carrying the saved value, has landed. Without that last
-condition, a page whose reads all failed would fall back to the cached cluster from before the save. A stopped roll
+`ROLL_START_GRACE_MS` passes and a read requested since the save has been answered (`clusterReadRequestedSince`: when
+it was requested, since one that only landed later may predate the save). Without that, a page whose reads all failed
+would fall back to the cached cluster from before the save. A stopped roll
 keeps polling, slower, so a recovered instance unlocks Try again without a reload. The save is kept in module state
 (`pendingRecordLocksSaves`), recorded at mutation level, so leaving the page during the gap and coming back doesn't
 offer Try again over a roll that is about to start.

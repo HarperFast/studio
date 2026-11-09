@@ -22,7 +22,7 @@ const MAX_VERSION_LENGTH = 256;
 
 export function supportsRecordLocks(version: string | null | undefined): boolean {
 	const trimmed = version?.trim();
-	if (!trimmed || trimmed.length > MAX_VERSION_LENGTH || !VALID_SEMVER.test(trimmed)) {
+	if (!trimmed || version!.length > MAX_VERSION_LENGTH || !VALID_SEMVER.test(trimmed)) {
 		return false;
 	}
 	if (trimmed.replace(/^v/, '').split(/[-+]/)[0].split('.').some(part => !Number.isSafeInteger(Number(part)))) {
@@ -52,7 +52,6 @@ export interface RecordLocksState {
 	/** The cluster's setting, which central manager rolls onto the members and gives new ones. */
 	enabled: boolean;
 	phase: RecordLocksPhase;
-	/** Live members already on the cluster's setting, of `total` live members. */
 	applied: number;
 	total: number;
 }

@@ -20,6 +20,7 @@ vi.mock('@/features/cluster/components/ClusterContentWithSubNavMenu', () => ({
 	ClusterContentWithSubNavMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+import { forgetClusterReadsForTests, recordClusterRead } from '@/features/cluster/queries/getClusterInfoQuery';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { forgetAllSavesForTests, rememberSave } from './pendingRecordLocksSaves';
 import { RecordLocksPage, RecordLocksSettings, ROLL_START_GRACE_MS } from './RecordLocksPage';
@@ -46,6 +47,7 @@ afterEach(() => {
 	vi.useRealTimers();
 	vi.resetAllMocks();
 	forgetAllSavesForTests();
+	forgetClusterReadsForTests();
 });
 
 function instance(overrides: Partial<Instance> = {}): Instance {
@@ -77,8 +79,9 @@ function setup(initial: Cluster, { canUpdate = true }: { canUpdate?: boolean } =
 	const view = render(ui(initial));
 	return {
 		...view,
-		show: (c: Cluster) => {
+		show: (c: Cluster, { requestedAt = Date.now() }: { requestedAt?: number } = {}) => {
 			act(() => {
+				recordClusterRead(c.id, requestedAt);
 				queryClient.setQueryData([c.id], c);
 			});
 			view.rerender(ui(c));
@@ -349,10 +352,26 @@ describe('RecordLocksSettings', () => {
 				vi.advanceTimersByTime(ROLL_START_GRACE_MS);
 			});
 
-			// finished after the save, but still the cluster from before it
-			show(cluster());
+			// landed after the save, but was requested before it
+			show(cluster(), { requestedAt: 0 });
 
 			expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		});
+
+		it('lets go of a save once a fresh read shows the setting changed back since', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			rememberSave('clu-1', true);
+			// the roll finished and someone turned record locks off again while this page was away
+			const { show } = setup(cluster());
+			expect(screen.getByText('Turning record locks on')).toBeTruthy();
+
+			await act(async () => {
+				vi.advanceTimersByTime(ROLL_START_GRACE_MS);
+			});
+			show(cluster());
+
+			expect(screen.queryByText('Turning record locks on')).toBeNull();
+			expect(recordLocksSwitch().disabled).toBe(false);
 		});
 
 		it('keeps reading the cluster, so a recovered instance unlocks Try again', async () => {

@@ -10,7 +10,6 @@ interface Params {
 	skipGtmWait?: boolean;
 }
 
-/** Central manager's answer: the members it is about to restart, one at a time, in the background. */
 interface SetRecordLocksResponse {
 	id: string;
 	recordLocks: boolean;

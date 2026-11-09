@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
 import { Switch } from '@/components/ui/switch';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { clusterReadRequestedSince, getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
@@ -122,11 +122,10 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 			return;
 		}
 		const seen = state.enabled === saved.target && state.phase !== 'stopped';
-		// After the grace, only a read taken since the save may stand in for it: when every poll has
-		// failed, the cache still holds the cluster from before the save. A read can finish after the
-		// save yet have been answered before it, so it must also carry the save, which central manager
-		// writes to the cluster before answering.
-		const outlived = graceOverFor === saved && dataUpdatedAt >= saved.at && state.enabled === saved.target;
+		// After the grace, only a read requested since the save may stand in for it: when every poll has
+		// failed, the cache still holds the cluster from before the save, and a read that merely finished
+		// after the save may have been answered before it. `dataUpdatedAt` re-runs this when a read lands.
+		const outlived = graceOverFor === saved && clusterReadRequestedSince(cluster.id, saved.at);
 		if (seen || hasMemberNotRunning(cluster) || outlived) {
 			forgetSave(cluster.id, saved);
 			setSaved(null);
