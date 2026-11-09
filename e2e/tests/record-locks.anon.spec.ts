@@ -86,7 +86,7 @@ test('turning record locks on sends them alone and follows the roll to the end',
 	const bodies: unknown[] = [];
 	await serve(page, () => cluster, body => {
 		bodies.push(body);
-		// Central manager answers before its roll marks the cluster UPDATING.
+		// A read right after the answer can predate the roll's UPDATING write.
 		cluster = { ...baseCluster, recordLocks: true };
 	});
 

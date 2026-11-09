@@ -209,8 +209,8 @@ with the cluster as one the roll hasn't reached: `applying` while the cluster is
 Re-sending the cluster's own value resumes a stopped roll and skips members already done, once every live member is
 `RUNNING` again.
 
-The PUT answers before the roll marks the cluster `UPDATING`, so the first read after a save looks exactly like a
-stopped roll. The page treats that picture as the roll starting until it sees the roll, sees a member that isn't
+The roll's `UPDATING` write starts before the PUT answers, but nothing waits for it, so a read right after a save can
+still find the cluster `RUNNING` with members disagreeing, exactly like a stopped roll. The page treats that picture as the roll starting until it sees the roll, sees a member that isn't
 `RUNNING` on a `RUNNING` cluster (a change can't start from that, so the roll already ran and stopped), or
 `ROLL_START_GRACE_MS` passes and a read requested since the save has been answered (`clusterReadRequestedSince`: when
 it was requested, since one that only landed later may predate the save). Without that, a page whose reads all failed

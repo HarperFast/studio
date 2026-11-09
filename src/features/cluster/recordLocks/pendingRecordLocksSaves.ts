@@ -1,6 +1,11 @@
+import { nextObservationStamp } from '@/lib/restart/restartTracker';
+
 export interface PendingSave {
 	target: boolean;
+	/** Stamped like a cluster read, so no read requested before the save can tie with it. */
 	at: number;
+	/** Wall-clock time, for the grace timer. */
+	savedAt: number;
 }
 
 /**
@@ -10,8 +15,8 @@ export interface PendingSave {
  */
 const pending = new Map<string, PendingSave>();
 
-export function rememberSave(clusterId: string, target: boolean, at = Date.now()) {
-	pending.set(clusterId, { target, at });
+export function rememberSave(clusterId: string, target: boolean) {
+	pending.set(clusterId, { target, at: nextObservationStamp(), savedAt: Date.now() });
 }
 
 export function pendingSave(clusterId: string): PendingSave | null {

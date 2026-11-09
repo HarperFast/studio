@@ -54,7 +54,6 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		},
 		update && live && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
 		update && live && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
-		// Central manager refuses record locks on a self-hosted cluster, so the page would only say so.
 		update && live && !selfManaged && { to: `${base}/record-locks`, label: 'Record Locks', icon: LockIcon },
 		view && live && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
 	].filter(Boolean) as SubNavItem[];

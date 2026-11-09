@@ -21,6 +21,7 @@ vi.mock('@/features/cluster/components/ClusterContentWithSubNavMenu', () => ({
 }));
 
 import { forgetClusterReadsForTests, recordClusterRead } from '@/features/cluster/queries/getClusterInfoQuery';
+import { nextObservationStamp } from '@/lib/restart/restartTracker';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { forgetAllSavesForTests, rememberSave } from './pendingRecordLocksSaves';
 import { RecordLocksPage, RecordLocksSettings, ROLL_START_GRACE_MS } from './RecordLocksPage';
@@ -79,7 +80,7 @@ function setup(initial: Cluster, { canUpdate = true }: { canUpdate?: boolean } =
 	const view = render(ui(initial));
 	return {
 		...view,
-		show: (c: Cluster, { requestedAt = Date.now() }: { requestedAt?: number } = {}) => {
+		show: (c: Cluster, { requestedAt = nextObservationStamp() }: { requestedAt?: number } = {}) => {
 			act(() => {
 				recordClusterRead(c.id, requestedAt);
 				queryClient.setQueryData([c.id], c);
@@ -235,6 +236,26 @@ describe('RecordLocksSettings', () => {
 
 		expect((await screen.findByText(title)).getAttribute('role')).toBe('alert');
 		expect(screen.queryByText('Turning record locks on')).toBeNull();
+	});
+
+	it('reads a PUT that got no answer as a roll that may be starting, not as one that stopped', async () => {
+		put.mockRejectedValue(
+			{
+				isAxiosError: true,
+				message: 'Request failed with status code 504',
+				config: { method: 'put', url: '/Cluster/clu-1' },
+				response: { status: 504, data: 'Gateway Timeout' },
+			} as AxiosError,
+		);
+		const { show } = setup(cluster());
+
+		await confirm('Turn on');
+		await screen.findByText(/couldn't confirm whether that went through/);
+		// central manager did apply it: the record says on, the members don't yet
+		show(cluster({ recordLocks: true }));
+
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 	});
 
 	it('disables the switch below 5.3.0, says why, and links to the version page', () => {

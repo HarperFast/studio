@@ -15,7 +15,6 @@ export function forgetClusterReadsForTests() {
 	answeredReadRequestedAt.clear();
 }
 
-/** Whether a read of the cluster requested at or after `since` has been answered. */
 export function clusterReadRequestedSince(clusterId: string, since: number): boolean {
 	return (answeredReadRequestedAt.get(clusterId) ?? -Infinity) >= since;
 }

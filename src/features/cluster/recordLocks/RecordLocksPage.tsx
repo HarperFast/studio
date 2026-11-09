@@ -40,8 +40,8 @@ const ROLL_POLL_MS = 5_000;
 const STOPPED_POLL_MS = 15_000;
 
 /**
- * Central manager answers the PUT before its background roll marks the cluster UPDATING, so for a
- * moment after a save the members disagree with the cluster while it still reads RUNNING: the same
+ * Central manager starts the roll's UPDATING write before it answers the PUT but doesn't wait for it,
+ * so a read right after a save can still find the cluster RUNNING with members disagreeing: the
  * picture a roll that stopped part way leaves. Until the page sees the roll, or this long passes,
  * it reads that picture as the roll starting.
  */
@@ -135,7 +135,10 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		if (!saved) {
 			return;
 		}
-		const timer = setTimeout(() => setGraceOverFor(saved), Math.max(0, saved.at + ROLL_START_GRACE_MS - Date.now()));
+		const timer = setTimeout(
+			() => setGraceOverFor(saved),
+			Math.max(0, saved.savedAt + ROLL_START_GRACE_MS - Date.now()),
+		);
 		return () => clearTimeout(timer);
 	}, [saved]);
 
@@ -147,6 +150,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		reset();
 		mutate({ clusterId: cluster.id, organizationId, recordLocks, skipGtmWait }, {
 			onSuccess: () => setSaved(pendingSave(cluster.id)),
+			onError: () => setSaved(pendingSave(cluster.id)),
 		});
 	};
 
