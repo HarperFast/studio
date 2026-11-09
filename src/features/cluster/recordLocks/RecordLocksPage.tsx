@@ -20,6 +20,7 @@ import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/Clus
 import { clusterReadRequestedSince, getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
@@ -129,8 +130,12 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		if (seen || hasMemberNotRunning(cluster) || outlived) {
 			forgetSave(cluster.id, saved);
 			setSaved(null);
+			// The page now shows what the unanswered save did, which is what that message asked to check.
+			if (isUnansweredWrite(error)) {
+				reset();
+			}
 		}
-	}, [cluster, dataUpdatedAt, graceOverFor, saved, state.enabled, state.phase]);
+	}, [cluster, dataUpdatedAt, error, graceOverFor, reset, saved, state.enabled, state.phase]);
 	useEffect(() => {
 		if (!saved) {
 			return;

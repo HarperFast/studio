@@ -256,6 +256,14 @@ describe('RecordLocksSettings', () => {
 
 		expect(screen.getByText('Turning record locks on')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+
+		show(cluster({
+			recordLocks: true,
+			instances: [instance({ id: 'ins-1', recordLocks: true }), instance({ id: 'ins-2', recordLocks: true })],
+		}));
+
+		expect(screen.getByText('On')).toBeTruthy();
+		expect(screen.queryByText(/couldn't confirm whether that went through/)).toBeNull();
 	});
 
 	it('disables the switch below 5.3.0, says why, and links to the version page', () => {
