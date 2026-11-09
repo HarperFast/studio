@@ -38,7 +38,7 @@ export const FULL_TEXT_ANALYZER = 'english@2';
 export const DEFAULT_MAX_FRAGMENTS = 3;
 export const DEFAULT_FRAGMENT_LENGTH = 160;
 /** Harper's only supported media type for a `Blob` source. */
-export const TEXT_PLAIN = 'text/plain';
+const TEXT_PLAIN = 'text/plain';
 
 export interface FullTextSource {
 	name: string;
@@ -78,14 +78,6 @@ const KNOWN_ARGS = ['fields', 'analyzer', 'stopWords', 'positions', 'surfaceTerm
 const SOURCE_KEYS = new Set(['name', 'weight', 'highlight', 'mediaType']);
 const SYNONYM_KEYS = new Set(['source', 'replacements']);
 const HIGHLIGHTING_KEYS = new Set(['maxFragments', 'fragmentLength']);
-
-export function isFullTextField(field: FieldModel): boolean {
-	return baseTypeName(field.type) === FULL_TEXT_TYPE || !!findDirective(field.directives, FULL_TEXT_DIRECTIVE);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Reading and writing the directive                                           */
-/* -------------------------------------------------------------------------- */
 
 function onlyKeys(value: { [key: string]: GraphqlValue }, keys: Set<string>): boolean {
 	return Object.keys(value).every(key => keys.has(key));
@@ -156,7 +148,8 @@ function readBool(directive: Directive, name: string): boolean | undefined | 'in
  */
 export function readFullTextConfig(field: FieldModel): FullTextConfig | undefined {
 	const directive = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
-	if (!directive || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
+	// Rewriting the arguments would drop their comments, so a commented declaration stays as written.
+	if (!directive || directive.commentedArgs || directive.args.some(arg => !KNOWN_ARGS.includes(arg.name))) {
 		return undefined;
 	}
 
@@ -265,10 +258,6 @@ export function emptyFullTextConfig(): FullTextConfig {
 	return { fields: [], synonyms: [] };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Sources                                                                      */
-/* -------------------------------------------------------------------------- */
-
 export type FullTextSourceKind = 'string' | 'stringList' | 'blob';
 
 /**
@@ -302,10 +291,6 @@ export function fullTextSourceCandidates(table: TableModel): FieldModel[] {
 export function newFullTextSource(field: FieldModel): FullTextSource {
 	return fullTextSourceKind(field) === 'blob' ? { name: field.name, mediaType: TEXT_PLAIN } : { name: field.name };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Validation                                                                   */
-/* -------------------------------------------------------------------------- */
 
 function isPositiveInteger(value: number | undefined): boolean {
 	return value === undefined || (Number.isSafeInteger(value) && value > 0);
@@ -424,10 +409,6 @@ export function fullTextErrors(field: FieldModel, table: TableModel): string[] {
 	}
 	return errors;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Rebuilds                                                                     */
-/* -------------------------------------------------------------------------- */
 
 /**
  * The part of a declaration that decides its stored index — Harper's `fullTextStorageDefinition`.

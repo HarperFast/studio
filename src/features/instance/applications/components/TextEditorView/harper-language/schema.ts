@@ -50,12 +50,12 @@ export interface HarperInputType {
 }
 
 /**
- * Whether `item` exists on Harper `version`. An unknown version offers everything: Harper denies
- * `registration_info` to roles with an operations allowlist, and an older server names what it
- * doesn't support when the schema loads.
+ * Whether `item` exists on Harper `version`. An unknown version (`registration_info` is denied to a
+ * role with an operations allowlist) offers only what every release has: a schema naming something
+ * the instance lacks fails to load as a whole, so a wrong guess costs every table, not one field.
  */
 export function availableOn(item: Versioned, version: string | undefined): boolean {
-	return !item.minVersion || version === undefined || wasAReleasedBeforeB(item.minVersion, version);
+	return !item.minVersion || (version !== undefined && wasAReleasedBeforeB(item.minVersion, version));
 }
 
 export const harperDirectives: HarperDirective[] = [

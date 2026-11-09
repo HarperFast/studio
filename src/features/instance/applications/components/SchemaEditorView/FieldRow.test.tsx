@@ -5,6 +5,7 @@ import { getArgValue } from '@/features/instance/applications/lib/schema/mutatio
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { FieldModel, TableModel } from '@/features/instance/applications/lib/schema/types';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { FieldRow } from './FieldRow';
 
@@ -72,7 +73,7 @@ describe('FieldRow type list', () => {
 	it.each([
 		['5.3.0', true],
 		['5.3.6', true],
-		[undefined, true],
+		[undefined, false],
 		['5.3.0-beta.4', false],
 		['5.2.15', false],
 	])('on Harper %s offers FullText: %s', (harperVersion, offered) => {
@@ -200,7 +201,7 @@ describe('FieldRow full-text panel', () => {
 	search: FullText @fullText(fields: [{ name: "body", boost: 2 }])
 }`);
 		renderRow({ table: odd, field: fieldOf(odd, 'search') });
-		expect(screen.getByText(/settings the visual editor can’t show/)).toBeTruthy();
+		expect(screen.getByText(/comments or settings the visual editor can’t keep/)).toBeTruthy();
 		expect(screen.queryByRole('region', { name: 'Source fields' })).toBeNull();
 	});
 
@@ -211,5 +212,53 @@ describe('FieldRow full-text panel', () => {
 		}
 		expect(screen.queryByRole('combobox', { name: 'Add a source field' })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Add synonym/ })).toBeNull();
+	});
+});
+
+describe('FieldRow synonym replacements', () => {
+	function withReplacements(replacements: string) {
+		const table = tableOf(`type T @table(audit: true) {
+	id: ID @primaryKey
+	body: String
+	search: FullText @fullText(fields: [{ name: "body" }], synonyms: [{ source: "shoe", replacements: ${replacements} }])
+}`);
+		return { table, field: fieldOf(table, 'search') };
+	}
+
+	it.each([['["a,b"]'], ['[" shoe"]'], ['[""]']])(
+		'renders replacements %s that don’t survive a trip through the text, without looping',
+		replacements => {
+			renderRow(withReplacements(replacements));
+			expect(screen.getByLabelText('Replacements, comma-separated')).toBeTruthy();
+		},
+	);
+
+	it('keeps what was typed, commas and all, while writing the list', () => {
+		const { table, field } = withReplacements('["trainer"]');
+		let latest = field;
+		// Controlled, as the editor is: each change comes back as the next field.
+		function Controlled() {
+			const [current, setCurrent] = useState(field);
+			latest = current;
+			return (
+				<FieldRow
+					field={current}
+					table={table}
+					typeNames={[]}
+					harperVersion="5.3.6"
+					readOnly={false}
+					onChange={setCurrent}
+					onRemove={vi.fn()}
+					onEnableAudit={vi.fn()}
+				/>
+			);
+		}
+		render(<Controlled />);
+		const input = screen.getByLabelText('Replacements, comma-separated') as HTMLInputElement;
+		fireEvent.change(input, { target: { value: 'trainer, ' } });
+		expect(input.value).toBe('trainer, ');
+		fireEvent.change(input, { target: { value: 'trainer, sneaker' } });
+		expect(input.value).toBe('trainer, sneaker');
+		expect(readFullTextConfig(latest)?.synonyms[0].replacements).toEqual(['trainer', 'sneaker']);
 	});
 });

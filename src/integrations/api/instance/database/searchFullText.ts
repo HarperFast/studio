@@ -64,7 +64,7 @@ export function supportedQueryModes(index: FullTextIndexDescription): FullTextQu
  * The most a search may wait for the index to catch up with earlier writes; Harper refuses more.
  * It only waits as long as it needs to.
  */
-export const MAX_WAIT_FOR_INDEX_MILLISECONDS = 30_000;
+const MAX_WAIT_FOR_INDEX_MILLISECONDS = 30_000;
 
 export interface FullTextSearchParams extends InstanceClientConfig {
 	databaseName: string;
@@ -72,7 +72,7 @@ export interface FullTextSearchParams extends InstanceClientConfig {
 	index: FullTextIndexDescription;
 	comparator: FullTextComparator;
 	query: string;
-	/** A subset of the index's sources to search; all of them when empty. */
+	/** A subset of the index's sources to search; every source `describe_table` listed when empty. */
 	fields: string[];
 	/**
 	 * Wait (up to {@link MAX_WAIT_FOR_INDEX_MILLISECONDS}) until the index covers every write committed
@@ -116,7 +116,10 @@ export function buildFullTextSearchRequest(
 			attribute: index.name,
 			comparator,
 			value: query,
-			...(fields.length > 0 ? { fields } : null),
+			// Always named, never left to the default of every source: describe lists only the sources this
+			// role can read, and the default would also search, and rank on, the ones it left out. Naming them
+			// all gives the same hits and scores as the default when nothing was left out (Harper 5.3.6).
+			fields: fields.length > 0 ? fields : index.fields.map(source => source.name),
 			// `maxIndexLagMilliseconds: 0` makes the search need full coverage, and the wait is how long it may
 			// take to get there; together, writes committed before the search are in its results.
 			...(waitForRecentWrites

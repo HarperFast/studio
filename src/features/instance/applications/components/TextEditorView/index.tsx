@@ -153,6 +153,8 @@ export function TextEditorView() {
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	useEffect(() => {
 		setHarperGraphqlVersion(registrationInfo?.version);
+		// Unset on leaving, so the next instance's editor never completes for this one's release.
+		return () => setHarperGraphqlVersion(undefined);
 	}, [registrationInfo?.version]);
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {

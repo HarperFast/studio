@@ -42,27 +42,29 @@ type Frame =
 	/** `key` is the argument or object field the bracket is the value of, when there is one. */
 	| { kind: 'list' | 'object'; key?: string };
 
-/** Index just past the string or comment starting at `i`, or the end of the text when it never closes. */
+/**
+ * Index just past the string or comment starting at `i`, or -1 when it is still open at the end of the
+ * text: the cursor is inside it.
+ */
 function skipStringOrComment(text: string, i: number): number {
 	if (text[i] === '#') {
-		const end = text.indexOf('\n', i);
-		return end < 0 ? text.length : end;
+		return text.indexOf('\n', i);
 	}
 	if (text.startsWith('"""', i)) {
 		const end = text.indexOf('"""', i + 3);
-		return end < 0 ? text.length : end + 3;
+		return end < 0 ? -1 : end + 3;
 	}
 	let j = i + 1;
 	while (j < text.length && text[j] !== '"' && text[j] !== '\n') {
 		j += text[j] === '\\' ? 2 : 1;
 	}
-	return Math.min(j + 1, text.length);
+	return j >= text.length ? -1 : j + 1;
 }
 
 /**
- * The directive call the cursor sits inside, and how deep: `undefined` when it's in none. Reads the
- * whole text before the cursor rather than one line, because Harper's docs spread a `@fullText(...)`
- * over several.
+ * The directive call the cursor sits inside, and how deep: `undefined` when it's in none, and `none`
+ * inside a string or comment. Reads more than the cursor's line, because Harper's docs spread a
+ * `@fullText(...)` over several.
  */
 function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContext | undefined {
 	const stack: Frame[] = [];
@@ -73,6 +75,9 @@ function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContex
 		const char = textBeforeCursor[i];
 		if (char === '#' || char === '"') {
 			i = skipStringOrComment(textBeforeCursor, i);
+			if (i < 0) {
+				return { kind: 'none' };
+			}
 			pendingDirective = undefined;
 			continue;
 		}
@@ -161,12 +166,30 @@ export function detectCompletionContext(textBeforeCursor: string): GraphqlComple
 	return { kind: 'none' };
 }
 
+// The keyword then a name or `{`, never `:` or `(`: a field or argument may be called `type` or `input`.
+const DECLARATION_LINE_RE =
+	/^\s*(?:extend\s+)?(?:type|input|interface|enum|scalar|union|schema|directive)\b(?!\s*[:(])/;
+
+/**
+ * The line a context scan starts from: the nearest declaration at or above `lineNumber`. A directive's
+ * arguments never leave the declaration they are in, so the scan covers one type rather than every
+ * line above the cursor, which ran on each suggestion and hover.
+ */
+export function declarationStartLine(lineAt: (lineNumber: number) => string, lineNumber: number): number {
+	for (let candidate = lineNumber; candidate > 1; candidate--) {
+		if (DECLARATION_LINE_RE.test(lineAt(candidate))) {
+			return candidate;
+		}
+	}
+	return 1;
+}
+
 let harperVersion: string | undefined;
 
 /**
  * The Harper version the editor is completing for, so it offers only what that release has
  * (`FullText` and `@fullText` from 5.3.0). Monaco's providers are global, so the open instance sets
- * it; `undefined` (unknown) offers everything.
+ * it; `undefined` (unknown) offers only what every release has.
  */
 export function setHarperGraphqlVersion(version: string | undefined): void {
 	harperVersion = version;
@@ -330,9 +353,9 @@ export function registerHarperGraphql(monaco: Monaco): void {
 	monaco.languages.registerCompletionItemProvider('graphql', {
 		triggerCharacters: ['@', ':', '(', '{'],
 		provideCompletionItems(model, position) {
-			// From the top of the file: a directive's arguments can span lines.
+			// From the declaration the cursor is in, not just its line: a directive's arguments can span lines.
 			const textBeforeCursor = model.getValueInRange({
-				startLineNumber: 1,
+				startLineNumber: declarationStartLine(lineNumber => model.getLineContent(lineNumber), position.lineNumber),
 				startColumn: 1,
 				endLineNumber: position.lineNumber,
 				endColumn: position.column,
@@ -376,7 +399,7 @@ export function registerHarperGraphql(monaco: Monaco): void {
 				})
 				: '';
 			const textBeforeWord = model.getValueInRange({
-				startLineNumber: 1,
+				startLineNumber: declarationStartLine(lineNumber => model.getLineContent(lineNumber), position.lineNumber),
 				startColumn: 1,
 				endLineNumber: position.lineNumber,
 				endColumn: wordInfo.startColumn,

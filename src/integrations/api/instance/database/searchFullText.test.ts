@@ -38,7 +38,12 @@ describe('buildFullTextSearchRequest', () => {
 			database: 'data',
 			table: 'Product',
 			get_attributes: ['*', '$score', '$highlights'],
-			conditions: [{ attribute: 'catalogSearch', comparator: 'matches', value: 'trail running' }],
+			conditions: [{
+				attribute: 'catalogSearch',
+				comparator: 'matches',
+				value: 'trail running',
+				fields: ['title', 'description', 'tags'],
+			}],
 			limit: 20,
 		});
 	});
@@ -80,5 +85,14 @@ describe('supportedQueryModes', () => {
 	it('drops phrase without positions, and the prefix modes without surface terms', () => {
 		expect(supportedQueryModes({ ...INDEX, query_modes: ['any', 'all', 'fuzzy'] }).map(mode => mode.comparator))
 			.toEqual(['matches', 'matches_all', 'matches_fuzzy']);
+	});
+});
+
+describe('buildFullTextSearchRequest sources', () => {
+	it('names every source describe listed rather than leaving it to the default, which a restricted role can’t see all of', () => {
+		// describe leaves out the sources this role can't read; Harper's default would still search them.
+		const visibleOnly = { ...INDEX, fields: [{ name: 'title', weight: 3 }] };
+		const [condition] = buildFullTextSearchRequest({ ...BASE, index: visibleOnly }).conditions;
+		expect(condition.fields).toEqual(['title']);
 	});
 });

@@ -38,6 +38,11 @@ export interface Directive {
 	 * there are args.
 	 */
 	hadParens: boolean;
+	/**
+	 * Set when a `#` comment sits inside the parentheses. Regenerating the directive would drop it, so an
+	 * editor that rewrites a directive's arguments (`@fullText`'s) leaves one with comments read-only.
+	 */
+	commentedArgs?: true;
 }
 
 /**

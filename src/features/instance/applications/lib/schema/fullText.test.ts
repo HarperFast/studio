@@ -255,3 +255,24 @@ describe('fullTextIndexChanges', () => {
 			.toEqual([{ tableName: 'Product', indexName: 'catalogSearch', kind: 'rebuild' }]);
 	});
 });
+
+describe('comments inside @fullText', () => {
+	it('leaves a commented declaration read-only, since rewriting it would drop the comments', () => {
+		for (
+			const args of [
+				'fields: [{ name: "title" } # the headline\n]',
+				'# sources first\nfields: [{ name: "title" }]',
+			]
+		) {
+			expect(readFullTextConfig(field(withArgs(args), 'catalogSearch')), args).toBeUndefined();
+		}
+	});
+
+	it('doesn’t mistake a # inside a string for a comment', () => {
+		const table = withArgs('fields: [{ name: "title" }], synonyms: [{ source: "c#", replacements: ["csharp"] }]');
+		expect(readFullTextConfig(field(table, 'catalogSearch'))?.synonyms).toEqual([{
+			source: 'c#',
+			replacements: ['csharp'],
+		}]);
+	});
+});

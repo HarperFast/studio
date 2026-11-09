@@ -189,7 +189,12 @@ describe('FullTextSearchDialog search', () => {
 			database: 'data',
 			table: 'Product',
 			get_attributes: ['*', '$score', '$highlights'],
-			conditions: [{ attribute: 'catalogSearch', comparator: 'matches', value: 'waterproof trail' }],
+			conditions: [{
+				attribute: 'catalogSearch',
+				comparator: 'matches',
+				value: 'waterproof trail',
+				fields: ['title', 'description', 'tags'],
+			}],
 			limit: 20,
 		}]);
 
@@ -278,5 +283,54 @@ describe('FullTextSearchDialog request', () => {
 			limit: 20,
 		});
 		expect(post).toHaveBeenCalledWith('/', expect.anything(), { skipGatewayRetry: true });
+	});
+});
+
+describe('FullTextSearchDialog robustness', () => {
+	it('works with an index and a source named like Object.prototype members', async () => {
+		const odd: FullTextIndexDescription = {
+			...INDEX,
+			name: 'constructor',
+			fields: [{ name: 'toString', weight: 1, highlight: true }, { name: 'valueOf', weight: 1 }],
+		};
+		server.answer = () => [{ id: 'r1', toString: 'trail shoes', $score: 1 }];
+		renderDialog({ indexes: [odd] });
+		fireEvent.click(screen.getByRole('checkbox', { name: /valueOf/ }));
+		await search('trail');
+		expect(searches()[0]).toMatchObject({ conditions: [{ attribute: 'constructor', fields: ['toString'] }] });
+		expect(await screen.findByText('r1')).toBeTruthy();
+	});
+
+	it('clears the results of one index when another is chosen', async () => {
+		const other: FullTextIndexDescription = { ...INDEX, name: 'tagSearch', fields: [{ name: 'tags', weight: 1 }] };
+		renderDialog({ indexes: [INDEX, other] });
+		await search('trail');
+		expect(await screen.findByRole('region', { name: 'Results' })).toBeTruthy();
+		await act(async () => {
+			fireEvent.change(screen.getByLabelText('Index'), { target: { value: 'tagSearch' } });
+		});
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+		expect(screen.getByRole('region', { name: 'Index readiness' }).textContent).toContain('tagSearch');
+	});
+
+	it('asks for the node name again with every readiness check', async () => {
+		const { onRefresh } = renderDialog({ isCluster: true });
+		await screen.findByText('node-a.example.com');
+		server.answer = () => ({ node_name: 'node-b.example.com' });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: /Check again/ }));
+		});
+		expect(onRefresh).toHaveBeenCalledOnce();
+		expect(await screen.findByText('node-b.example.com')).toBeTruthy();
+	});
+
+	it('keeps hits apart when the role can’t read the primary key', async () => {
+		const consoleError = vi.spyOn(console, 'error');
+		server.answer = () => [{ title: 'Trail one', $score: 2 }, { title: 'Trail two', $score: 1 }];
+		renderDialog();
+		await search('trail');
+		const results = await screen.findByRole('region', { name: 'Results' });
+		expect(within(results).getAllByRole('listitem')).toHaveLength(2);
+		expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/);
 	});
 });

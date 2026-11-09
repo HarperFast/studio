@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildDirectiveSignature,
+	declarationStartLine,
 	detectCompletionContext,
 	detectHoverTarget,
 	hoverMarkdownValue,
@@ -181,10 +182,11 @@ describe('version gating', () => {
 			expect(availableOn(item, '5.4.0-beta.2')).toBe(true);
 			expect(availableOn(item, '5.3.0-beta.4')).toBe(false);
 			expect(availableOn(item, '5.2.15')).toBe(false);
-			// An unreadable version hides nothing.
-			expect(availableOn(item, undefined)).toBe(true);
+			// An unreadable version offers only what every release has: a wrong guess breaks the whole schema.
+			expect(availableOn(item, undefined)).toBe(false);
 		}
 		expect(availableOn(findScalar('String')!, '4.7.0')).toBe(true);
+		expect(availableOn(findScalar('String')!, undefined)).toBe(true);
 	});
 
 	it('maps each @fullText object argument to its input type', () => {
@@ -192,5 +194,45 @@ describe('version gating', () => {
 		expect(findArgInputType('fullText', 'synonyms')?.name).toBe('FullTextSynonymRule');
 		expect(findArgInputType('fullText', 'highlighting')?.name).toBe('FullTextHighlighting');
 		expect(findArgInputType('fullText', 'analyzer')).toBeUndefined();
+	});
+});
+
+describe('completion and hover inside strings and comments', () => {
+	const head = 'type Product @table {\n\tsearch: FullText\n\t\t@fullText(\n';
+
+	it('offers nothing inside a string or a comment', () => {
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "wei`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\t# fields: [{ `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext('type Dog { # a @')).toEqual({ kind: 'none' });
+	});
+
+	it('shows no field card for a word inside a string', () => {
+		expect(
+			detectHoverTarget({ word: 'weight', charBeforeWord: '"', textBeforeWord: `${head}\t\t\tfields: [{ name: "` }),
+		)
+			.toBeUndefined();
+	});
+});
+
+describe('declarationStartLine', () => {
+	const lines = [
+		'scalar Url',
+		'type Product @table {',
+		'\ttype: String',
+		'\tinput(arg: Int): String',
+		'\tsearch: FullText',
+		'\t\t@indexed(',
+		'\t\t\ttype: "HNSW"',
+	];
+	const lineAt = (lineNumber: number) => lines[lineNumber - 1];
+
+	it('starts the scan at the declaration the cursor is in, not the top of the file', () => {
+		expect(declarationStartLine(lineAt, 7)).toBe(2);
+		expect(declarationStartLine(lineAt, 1)).toBe(1);
+	});
+
+	it('doesn’t take a field or argument named like a keyword for a declaration', () => {
+		const scanned = lines.slice(declarationStartLine(lineAt, 7) - 1).join('\n');
+		expect(detectCompletionContext(`${scanned}, `)).toEqual({ kind: 'directiveArg', directive: 'indexed' });
 	});
 });

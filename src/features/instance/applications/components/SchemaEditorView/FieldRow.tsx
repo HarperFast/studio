@@ -50,7 +50,7 @@ const KNOWN_FIELD_DIRECTIVES = new Set([
  * with exactly `@fullText` — Harper refuses any other directive on it — so switching to it starts a
  * fresh declaration, and switching away drops the declaration, which no other type can carry.
  */
-export function withBaseType(field: FieldModel, base: string, list: boolean, required: boolean): FieldModel {
+function withBaseType(field: FieldModel, base: string, list: boolean, required: boolean): FieldModel {
 	if (base === FULL_TEXT_TYPE) {
 		return {
 			...field,

@@ -65,7 +65,7 @@ function LoadedSchemaEditorView({
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
-	// Offers `FullText` only where Harper has it (5.3.0+); an unreadable version offers it.
+	// Offers `FullText` only where Harper is known to have it (5.3.0+).
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 
 	const buffer = updatedFileContent ?? savedContents;
@@ -162,9 +162,10 @@ function LoadedSchemaEditorView({
 	const showPreservedHint = useMemo(() => hasUnmodeledContent(doc), [doc]);
 	// Said before the save rather than after: once saved, each node rebuilds its own index and
 	// full-text searches on it can fail until it's done.
+	const savedDoc = useMemo(() => parseDocument(savedContents), [savedContents]);
 	const fullTextChanges = useMemo(
-		() => (serialized === savedContents ? [] : fullTextIndexChanges(parseDocument(savedContents), doc)),
-		[serialized, savedContents, doc],
+		() => (serialized === savedContents ? [] : fullTextIndexChanges(savedDoc, doc)),
+		[serialized, savedContents, savedDoc, doc],
 	);
 
 	// Invalid states (empty tables, bad/duplicate names) would serialize to SDL

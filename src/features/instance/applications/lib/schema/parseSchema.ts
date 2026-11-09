@@ -53,6 +53,26 @@ function skipString(src: string, i: number): number {
 	return -1;
 }
 
+/** Whether `src` holds a `# …` comment outside its strings. */
+function containsComment(src: string): boolean {
+	let i = 0;
+	while (i < src.length) {
+		if (src[i] === '#') {
+			return true;
+		}
+		if (src[i] === '"') {
+			const end = skipString(src, i);
+			if (end < 0) {
+				return false;
+			}
+			i = end;
+		} else {
+			i++;
+		}
+	}
+	return false;
+}
+
 /** Skip a `# …` comment starting at `i`; return the index of the terminating newline (or EOF). */
 function skipLineComment(src: string, i: number): number {
 	let j = i;
@@ -286,15 +306,18 @@ function parseDirectives(text: string): Directive[] {
 		}
 		let args: DirectiveArg[] = [];
 		let hadParens = false;
+		let commented = false;
 		if (text[j] === '(') {
 			const end = skipBalanced(text, j, '(', ')');
 			if (end > 0) {
 				hadParens = true;
-				args = parseArgs(text.slice(j + 1, end - 1));
+				const inner = text.slice(j + 1, end - 1);
+				args = parseArgs(inner);
+				commented = containsComment(inner);
 				i = end;
 			}
 		}
-		directives.push({ name, args, hadParens });
+		directives.push({ name, args, hadParens, ...(commented ? { commentedArgs: true } : null) });
 	}
 	return directives;
 }

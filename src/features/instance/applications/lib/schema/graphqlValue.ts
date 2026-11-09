@@ -11,14 +11,18 @@
 
 export type GraphqlValue = string | number | boolean | null | GraphqlValue[] | { [key: string]: GraphqlValue };
 
-const NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-const NAME = /^[_A-Za-z][_0-9A-Za-z]*/;
+// Sticky, so each match starts at the read position without copying the rest of the input.
+const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+const NAME = /[_A-Za-z][_0-9A-Za-z]*/y;
 const INVALID = Symbol('invalid');
 
 class Reader {
 	private index = 0;
+	private readonly src: string;
 
-	constructor(private readonly src: string) {}
+	constructor(src: string) {
+		this.src = src;
+	}
 
 	/** GraphQL treats commas as whitespace, and `#` starts a comment that runs to the end of the line. */
 	skipIgnored(): void {
@@ -34,6 +38,12 @@ class Reader {
 				return;
 			}
 		}
+	}
+
+	/** The text `pattern` (a sticky regex) matches at the read position, without advancing past it. */
+	private match(pattern: RegExp): string | undefined {
+		pattern.lastIndex = this.index;
+		return pattern.exec(this.src)?.[0];
 	}
 
 	atEnd(): boolean {
@@ -53,18 +63,17 @@ class Reader {
 		if (char === '{') {
 			return this.object();
 		}
-		const rest = this.src.slice(this.index);
-		const number = rest.match(NUMBER);
+		const number = this.match(NUMBER);
 		if (number) {
 			// `1x` is no number at all; GraphQL forbids a name character straight after one.
-			const after = rest[number[0].length];
+			const after = this.src[this.index + number.length];
 			if (after !== undefined && /[_A-Za-z0-9.]/.test(after)) {
 				return INVALID;
 			}
-			this.index += number[0].length;
-			return Number(number[0]);
+			this.index += number.length;
+			return Number(number);
 		}
-		const name = rest.match(NAME)?.[0];
+		const name = this.match(NAME);
 		if (name === 'true' || name === 'false' || name === 'null') {
 			this.index += name.length;
 			return name === 'null' ? null : name === 'true';
@@ -129,7 +138,7 @@ class Reader {
 				this.index++;
 				return fields;
 			}
-			const name = this.src.slice(this.index).match(NAME)?.[0];
+			const name = this.match(NAME);
 			if (!name || Object.hasOwn(fields, name)) {
 				return INVALID;
 			}

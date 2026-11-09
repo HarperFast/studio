@@ -55,7 +55,8 @@ export function FullTextIndexEditor({
 		<div className="mt-3 flex flex-col gap-4 border-l-2 pl-3">
 			<p className="text-xs text-muted-foreground">
 				A full-text index holds no value. Search it by this field’s name with <code>matches</code>,{' '}
-				<code>matches_phrase</code>, <code>matches_prefix</code> and the other full-text comparators.
+				<code>matches_phrase</code>, <code>matches_prefix</code>{' '}
+				and the other full-text comparators. Harper builds it only for a RocksDB table with audit on.
 			</p>
 
 			{audit !== true && <AuditNotice auditOff={audit === false} readOnly={readOnly} onEnableAudit={onEnableAudit} />}
@@ -102,7 +103,7 @@ function UnreadableDeclaration({ field }: { field: FieldModel }) {
 	return (
 		<div className="flex flex-col gap-2 text-sm">
 			<p className="text-muted-foreground">
-				This index has settings the visual editor can’t show. Use “Edit as text” to change them.
+				This index has comments or settings the visual editor can’t keep. Use “Edit as text” to change them.
 			</p>
 			{directive && directive.args.length > 0 && (
 				<pre className="overflow-x-auto rounded bg-muted p-2 text-xs">
@@ -405,14 +406,18 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 /**
- * Replacements as comma-separated text. The typed text is kept as typed (`"shoe,"` mid-word) and only
- * replaced when the list changes from outside, such as a revert, so the cursor never jumps.
+ * Replacements as comma-separated text, kept as typed (`"shoe,"` mid-word) so the cursor never jumps.
+ * The text is rebuilt only when the list changes from outside, such as a revert. That is judged
+ * against the list this input last saw, never by re-reading the text: `["a,b"]` or `[" shoe"]` from a
+ * file can't survive a trip through the text, and comparing against it would reset forever.
  */
 function ReplacementsInput(
 	{ value, disabled, onChange }: { value: string[]; disabled: boolean; onChange: (value: string[]) => void },
 ) {
 	const [draft, setDraft] = useState(() => value.join(', '));
-	if (!sameList(splitReplacements(draft), value)) {
+	const [seen, setSeen] = useState(value);
+	if (!sameList(seen, value)) {
+		setSeen(value);
 		setDraft(value.join(', '));
 	}
 	return (
@@ -422,8 +427,10 @@ function ReplacementsInput(
 			disabled={disabled}
 			grow
 			onChange={text => {
+				const next = splitReplacements(text);
 				setDraft(text);
-				onChange(splitReplacements(text));
+				setSeen(next);
+				onChange(next);
 			}}
 		/>
 	);

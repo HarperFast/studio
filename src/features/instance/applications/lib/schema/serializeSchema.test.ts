@@ -358,3 +358,22 @@ describe('full-text fields', () => {
 		expect(reread.lineComment).toBe('# note');
 	});
 });
+
+describe('a comment between a field and its continued directive', () => {
+	it('keeps the file intact rather than guess where the comment belongs', () => {
+		const source = [
+			'type Product @table(audit: true) {',
+			'\tid: ID @primaryKey',
+			'\ttitle: String',
+			'\tcatalogSearch: FullText',
+			'\t\t# searches the title',
+			'\t\t@fullText(fields: [{ name: "title" }])',
+			'}',
+			'',
+		].join('\n');
+		const parsed = parseSchema(source);
+		expect(serializeSchema(parsed.document)).toBe(source);
+		// Not offered as an editable table, so no edit can drop the comment.
+		expect(parsed.document.segments.some(segment => segment.kind === 'table')).toBe(false);
+	});
+});

@@ -119,14 +119,26 @@ function SearchTester({
 	const [chosenComparator, setComparator] = useState<FullTextComparator>('matches');
 	const comparator = modes.some(mode => mode.comparator === chosenComparator) ? chosenComparator : 'matches';
 	const mode = modes.find(candidate => candidate.comparator === comparator);
-	// Empty means every source. Kept per index so switching back restores the choice.
-	const [chosenFields, setChosenFields] = useState<Record<string, string[]>>({});
-	const fields = (chosenFields[index.name] ?? []).filter(name => index.fields.some(source => source.name === name));
+	// Empty means every source. Kept per index so switching back restores the choice. A Map, so an index
+	// named like an `Object.prototype` member is never found by mistake.
+	const [chosenFields, setChosenFields] = useState<ReadonlyMap<string, string[]>>(() => new Map());
+	const fields = (chosenFields.get(index.name) ?? []).filter(name => index.fields.some(source => source.name === name));
 	const [query, setQuery] = useState('');
 	const [waitForRecentWrites, setWaitForRecentWrites] = useState(false);
 	const [limit, setLimit] = useState(20);
 
-	const { data: nodeName } = useQuery({ ...getAnsweringNodeNameQueryOptions(instanceParams), enabled: isCluster });
+	// Read afresh with every readiness check, so the name labels the reading beside it.
+	const { data: nodeName, refetch: refetchNodeName } = useQuery({
+		...getAnsweringNodeNameQueryOptions(instanceParams),
+		enabled: isCluster,
+		staleTime: 0,
+	});
+	const checkAgain = () => {
+		onRefresh();
+		if (isCluster) {
+			void refetchNodeName();
+		}
+	};
 
 	const search = useMutation({
 		mutationFn: searchFullText,
@@ -145,12 +157,20 @@ function SearchTester({
 	const toggleField = (name: string, on: boolean) => {
 		const current = fields.length === 0 ? index.fields.map(source => source.name) : fields;
 		const next = on ? [...current, name] : current.filter(field => field !== name);
-		// Every source (or none) both mean "search them all", which is also what sends no `fields`.
+		// Every source, or none, both mean "search them all".
 		const all = next.length === index.fields.length || next.length === 0;
-		setChosenFields({
-			...chosenFields,
-			[index.name]: all ? [] : index.fields.map(source => source.name).filter(n => next.includes(n)),
-		});
+		setChosenFields(
+			new Map(chosenFields).set(
+				index.name,
+				all ? [] : index.fields.map(source => source.name).filter(n => next.includes(n)),
+			),
+		);
+	};
+
+	const chooseIndex = (name: string) => {
+		setIndexName(name);
+		// The results were found in the other index; under this one's readiness they'd mislead.
+		search.reset();
 	};
 
 	const onSubmit = (event: FormEvent) => {
@@ -171,7 +191,9 @@ function SearchTester({
 		});
 	};
 
-	const readiness = READINESS[index.readiness.state] ?? { label: index.readiness.state, variant: 'secondary' };
+	const readiness = Object.hasOwn(READINESS, index.readiness.state)
+		? READINESS[index.readiness.state]
+		: { label: index.readiness.state, variant: 'secondary' as const };
 
 	return (
 		<div className="flex min-w-0 flex-col gap-4">
@@ -185,7 +207,7 @@ function SearchTester({
 						variant="ghost"
 						size="sm"
 						className="ml-auto"
-						onClick={onRefresh}
+						onClick={checkAgain}
 						disabled={isRefreshing}
 					>
 						<RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} /> Check again
@@ -216,7 +238,7 @@ function SearchTester({
 					{indexes.length > 1 && (
 						<div className="flex flex-col gap-1">
 							<Label htmlFor={ids.index} className="text-xs text-muted-foreground">Index</Label>
-							<Select value={index.name} onValueChange={setIndexName}>
+							<Select value={index.name} onValueChange={chooseIndex}>
 								<SelectTrigger id={ids.index} className="w-full">
 									<SelectValue />
 								</SelectTrigger>
@@ -345,7 +367,7 @@ function SearchResults({ hits, index, primaryKey, limit }: {
 			<ol className="flex flex-col gap-2">
 				{hits.map((hit, rank) => (
 					<SearchHit
-						key={primaryKey ? String(hit[primaryKey]) : rank}
+						key={primaryKey && Object.hasOwn(hit, primaryKey) ? String(hit[primaryKey]) : rank}
 						hit={hit}
 						rank={rank + 1}
 						index={index}
@@ -366,7 +388,9 @@ function SearchHit({ hit, rank, index, primaryKey }: {
 	const highlights = hit.$highlights ?? {};
 	const sources = index.fields.map(source => ({
 		name: source.name,
-		excerpts: highlights[source.name]?.flatMap(entry => highlightedExcerpts(hit[source.name], entry)) ?? [],
+		excerpts: Object.hasOwn(highlights, source.name)
+			? highlights[source.name].flatMap(entry => highlightedExcerpts(hit[source.name], entry))
+			: [],
 	}));
 	const highlighted = sources.filter(source => source.excerpts.length > 0);
 	return (
@@ -374,7 +398,7 @@ function SearchHit({ hit, rank, index, primaryKey }: {
 			<div className="flex flex-wrap items-baseline gap-x-3">
 				<span className="text-muted-foreground">#{rank}</span>
 				<span className="font-medium break-all">
-					{primaryKey && hit[primaryKey] !== undefined ? String(hit[primaryKey]) : 'Record'}
+					{primaryKey && Object.hasOwn(hit, primaryKey) ? String(hit[primaryKey]) : 'Record'}
 				</span>
 				{typeof hit.$score === 'number' && (
 					<span className="ml-auto text-xs text-muted-foreground">score {formatScore(hit.$score)}</span>
