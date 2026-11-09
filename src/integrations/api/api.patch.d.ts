@@ -63,6 +63,8 @@ export type StaffPermission =
 	| 'plan:read'
 	| 'plan:write'
 	| 'monitoringPolicy:write'
+	| 'user:read'
+	| 'user:status'
 	| 'systemStatus:write'
 	| 'apiToken:create'
 	| 'apiToken:self';

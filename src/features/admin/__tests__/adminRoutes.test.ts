@@ -32,6 +32,8 @@ describe('admin section routes', () => {
 		['/admin/billing', '/billing'],
 		['/admin/hosts', '/hosts'],
 		['/admin/monitoring', '/monitoring'],
+		['/admin/users', '/users'],
+		['/admin/users/usr-1', '/users/$userId'],
 		['/admin/api-token', '/api-token'],
 	])('%s resolves to its own route', (path, expectedId) => {
 		expect(matchLeaf(path).routeId).toContain(expectedId);
