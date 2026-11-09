@@ -219,9 +219,11 @@ cluster that isn't `RUNNING`, no instances, a live member that isn't `RUNNING`, 
 version check. Anything else it refuses, such as a maintenance drain, arrives as its own error beside the control.
 
 The setting goes in a PUT of its own: central manager answers 400 when `name`, `regionPlans`, `version`, `domainIds` or
-`generateDomainCerts` ride along. On create it rides with the rest, and the form sends it only for a Fabric-hosted
-cluster on 5.3.0+, so a box ticked before switching to an older version or to self-hosted never becomes a 400. While
-record locks are on, the version picker disables versions below 5.3.0, which central manager would refuse.
+`generateDomainCerts` ride along. `skipGtmWait` may: the confirmation offers it as "Immediate restart", as the version
+update does, and central manager then restarts each member without draining it first. On create, `recordLocks` rides
+with the rest, and the form sends it only for a Fabric-hosted cluster on 5.3.0+, so a box ticked before switching to an
+older version or to self-hosted never becomes a 400. While record locks are on, the version picker disables versions
+below 5.3.0, which central manager would refuse.
 
 Nothing here can see whether a member runs the LMDB storage engine, where `lock()` doesn't work at all; central manager
 doesn't check that either, so the page says it instead.

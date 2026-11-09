@@ -141,6 +141,48 @@ describe('RecordLocksSettings', () => {
 		await waitFor(() => expect(put).toHaveBeenCalledWith('/Cluster/clu-1', { recordLocks: false }));
 	});
 
+	it('can skip draining traffic, as a version update can', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		setup(cluster());
+		await act(async () => {
+			fireEvent.click(recordLocksSwitch());
+		});
+		const dialog = await screen.findByRole('alertdialog');
+		expect(dialog.textContent).toContain('drained of traffic first');
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Immediate restart' }));
+		});
+		expect(dialog.textContent).toContain('restarts right away, while it still takes traffic');
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Turn on' }));
+		});
+
+		await waitFor(() => expect(put).toHaveBeenCalledWith('/Cluster/clu-1', { recordLocks: true, skipGtmWait: true }));
+	});
+
+	it('starts every confirmation with the drain on', async () => {
+		setup(cluster());
+		await act(async () => {
+			fireEvent.click(recordLocksSwitch());
+		});
+		let dialog = await screen.findByRole('alertdialog');
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Immediate restart' }));
+		});
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		});
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+		await act(async () => {
+			fireEvent.click(recordLocksSwitch());
+		});
+
+		dialog = await screen.findByRole('alertdialog');
+		expect(within(dialog).getByRole<HTMLInputElement>('checkbox', { name: 'Immediate restart' }).checked).toBe(false);
+	});
+
 	it('sends nothing when the confirmation is cancelled', async () => {
 		setup(cluster());
 		await act(async () => {
@@ -218,6 +260,13 @@ describe('RecordLocksSettings', () => {
 
 			await act(async () => {
 				fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+			});
+			const dialog = await screen.findByRole('alertdialog');
+			expect(dialog.textContent).toContain('Finish turning record locks on?');
+			expect(dialog.textContent).toContain('restarts the instances that still need it one at a time');
+			expect(put).not.toHaveBeenCalled();
+			await act(async () => {
+				fireEvent.click(within(dialog).getByRole('button', { name: 'Try again' }));
 			});
 
 			await waitFor(() => expect(put).toHaveBeenCalledWith('/Cluster/clu-1', { recordLocks: true }));

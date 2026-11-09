@@ -63,6 +63,13 @@ export function RecordLocksPage() {
 	);
 }
 
+interface Confirming {
+	open: boolean;
+	target: boolean;
+	/** Re-sending the cluster's own setting to finish a roll that stopped part way. */
+	resume: boolean;
+}
+
 const PHASE_BADGES: Record<RecordLocksPhase, { label: string; variant: 'success' | 'secondary' | 'warning' }> = {
 	on: { label: 'On', variant: 'success' },
 	off: { label: 'Off', variant: 'secondary' },
@@ -76,9 +83,15 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	canUpdate: boolean;
 }) {
 	const switchId = useId();
+	const skipDrainId = useId();
 	const state = recordLocksState(cluster);
-	// The target outlives `open` so the dialog keeps its wording while it animates closed.
-	const [confirming, setConfirming] = useState({ open: false, target: true });
+	// The rest outlives `open` so the dialog keeps its wording while it animates closed.
+	const [confirming, setConfirming] = useState<Confirming>({ open: false, target: true, resume: false });
+	const [skipDrain, setSkipDrain] = useState(false);
+	const confirm = (target: boolean, resume: boolean) => {
+		setSkipDrain(false);
+		setConfirming({ open: true, target, resume });
+	};
 	const [saved, setSaved] = useState<{ target: boolean; at: number } | null>(null);
 	const { mutate, isPending, error, reset } = useSetClusterRecordLocks();
 
@@ -105,9 +118,9 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	const resumeBlocker = recordLocksBlocker(cluster, state.enabled);
 	const badge = PHASE_BADGES[phase];
 
-	const send = (recordLocks: boolean) => {
+	const send = (recordLocks: boolean, skipGtmWait: boolean) => {
 		reset();
-		mutate({ clusterId: cluster.id, organizationId, recordLocks }, {
+		mutate({ clusterId: cluster.id, organizationId, recordLocks, skipGtmWait }, {
 			onSuccess: () => setSaved({ target: recordLocks, at: Date.now() }),
 		});
 	};
@@ -139,7 +152,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 							id={switchId}
 							checked={enabled}
 							disabled={!canUpdate || isPending || phase !== 'on' && phase !== 'off' || !!toggleBlocker}
-							onCheckedChange={(checked) => setConfirming({ open: true, target: checked })}
+							onCheckedChange={(checked) => confirm(checked, false)}
 						/>
 					</div>
 				</CardHeader>
@@ -175,7 +188,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 										size="sm"
 										variant="positiveOutline"
 										disabled={isPending || !!resumeBlocker}
-										onClick={() => send(state.enabled)}
+										onClick={() => confirm(state.enabled, true)}
 									>
 										{isPending ? 'Sending…' : 'Try again'}
 									</Button>
@@ -201,15 +214,22 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 			<AlertDialog open={confirming.open} onOpenChange={(open) => setConfirming(current => ({ ...current, open }))}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Turn record locks {confirming.target ? 'on' : 'off'}?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{confirming.resume
+								? `Finish turning record locks ${confirming.target ? 'on' : 'off'}?`
+								: `Turn record locks ${confirming.target ? 'on' : 'off'}?`}
+						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
 							<div className="space-y-2">
 								<p>
-									Central manager restarts the cluster's {state.total === 1 ? 'instance' : `${state.total} instances`}
+									Central manager restarts {confirming.resume
+										? 'the instances that still need it'
+										: `the cluster's ${state.total === 1 ? 'instance' : `${state.total} instances`}`} one at a time.
 									{' '}
-									one at a time to apply this. Each one is drained of traffic first, so it can take several minutes per
-									instance. The cluster shows as updating until they are all back, and can't take other changes until
-									then.
+									{skipDrain
+										? 'Each one restarts right away, while it still takes traffic.'
+										: 'Each one is drained of traffic first, so it can take several minutes per instance.'}{' '}
+									The cluster shows as updating until they are all back, and can't take other changes until then.
 								</p>
 								{!confirming.target && (
 									<p>
@@ -221,10 +241,26 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 							</div>
 						</AlertDialogDescription>
 					</AlertDialogHeader>
+					<div className="space-y-1 text-sm">
+						<div className="flex items-center gap-2">
+							<input
+								id={skipDrainId}
+								type="checkbox"
+								className="size-4 cursor-pointer"
+								checked={skipDrain}
+								onChange={(event) => setSkipDrain(event.target.checked)}
+							/>
+							<label htmlFor={skipDrainId} className="cursor-pointer font-medium">Immediate restart</label>
+						</div>
+						<p className="text-muted-foreground">
+							Restart each instance without waiting for it to be taken out of the load balancer (faster, but requests it
+							receives while restarting can fail).
+						</p>
+					</div>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => send(confirming.target)}>
-							Turn {confirming.target ? 'on' : 'off'}
+						<AlertDialogAction onClick={() => send(confirming.target, skipDrain)}>
+							{confirming.resume ? 'Try again' : `Turn ${confirming.target ? 'on' : 'off'}`}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
