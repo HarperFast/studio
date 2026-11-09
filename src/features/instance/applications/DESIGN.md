@@ -192,9 +192,14 @@ activated, so a stage leaves the cached setting current. What follows:
   and brings back the one that release was deployed with. Neither `list_deployments` nor `get_deployment` reports
   it (HarperFast/harper#4077), so the activation dialog says so to everyone it offers activation to, and shows the
   current one to anyone who can read it, on 5.3.2 or later.
-- **Removing an application usually keeps the copy.** Studio drops without `restart`, and Harper deletes the copies
-  only after a restart, so the copy stays on disk and is picked up again by a later application of the same name.
-  Harper says so in the `drop_component` answer, which the delete toast shows.
+- **Removing an application leaves the copy on disk, for now or for good.** Studio drops without `restart`. Before
+  5.4.0-alpha.2 Harper deletes the copies only on a later drop, so the copy stays and a later application of the same
+  name picks it up. From 5.4.0-alpha.2 Harper records the removal it owes and discards the copy by itself once no
+  worker has the application loaded, usually after the next restart; a same-name application deployed before then
+  still picks it up. The delete dialog words this by the answering node's version, as other version gates do, so a
+  cluster mid-upgrade can be worded for its newer nodes; it is neutral when the latest read failed or doesn't parse.
+  Harper's `drop_component` answer names "branched database storage" whenever it leaves a copy, and the
+  toast shows it.
 
 ## A live deploy is sent once
 

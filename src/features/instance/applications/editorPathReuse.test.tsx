@@ -137,6 +137,7 @@ vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: ()
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useApplicationBranchedDatabases: () => ({ setting: undefined }),
 	useApplicationsBranchedDatabases: () => ({ settings: [], known: false }),
+	useDiscardsDroppedBranches: () => undefined,
 	invalidateApplicationConfiguration: vi.fn(),
 }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'vs' }));
