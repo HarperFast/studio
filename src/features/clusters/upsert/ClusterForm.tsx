@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
+import { supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
@@ -58,6 +59,8 @@ interface ClusterFormProps {
 	lockedOrganizationRegionIds: string[];
 	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
+	/** The cluster being edited has record locks on. */
+	recordLocksOn?: boolean;
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
@@ -80,6 +83,7 @@ export function ClusterForm({
 	lockedOrganizationRegionIds,
 	partialUpgrade,
 	planTypes,
+	recordLocksOn = false,
 	regionLocationsColocated,
 	regionLocationsDedicated,
 	setSavedClusterState,
@@ -563,6 +567,11 @@ export function ClusterForm({
 				version: formData.version,
 				organizationId,
 				regionPlans: plans,
+				// Only where central manager accepts it: a box ticked before switching to self-hosted or an
+				// older version stays in the form, hidden, and must not turn into a 400.
+				...(formData.recordLocks && !isSelfManaged && supportsRecordLocks(formData.version)
+					? { recordLocks: true }
+					: {}),
 			}, {
 				onSuccess: (data) =>
 					onClusterSavedCallback({
@@ -684,6 +693,7 @@ export function ClusterForm({
 									harperVersions={harperVersions}
 									mode={mode}
 									partialUpgrade={partialUpgrade}
+									recordLocksOn={recordLocksOn}
 									regionLocations={regionLocations}
 									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}

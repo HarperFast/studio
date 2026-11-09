@@ -8,6 +8,7 @@ import { clusterLayoutRoute } from './clusterLayoutRoute';
 import { DomainsPage } from './domains/Page';
 import { FinishSetup } from './FinishSetup';
 import { Instances } from './Instances';
+import { RecordLocksPage } from './recordLocks/RecordLocksPage';
 import { redirectAwayFromDeletedCluster } from './redirectAwayFromDeletedCluster';
 import { Scaling } from './Scaling';
 import { StartingUp } from './StartingUp';
@@ -42,6 +43,14 @@ const clusterDomainsRoute = createRoute({
 	head: () => ({ meta: [{ title: 'Domains — Harper Fabric' }] }),
 	beforeLoad: redirectAwayFromDeletedCluster,
 	component: DomainsPage,
+});
+
+const clusterRecordLocksRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'record-locks',
+	head: () => ({ meta: [{ title: 'Record Locks — Harper Fabric' }] }),
+	beforeLoad: redirectAwayFromDeletedCluster,
+	component: RecordLocksPage,
 });
 
 const clusterUsageRoute = createRoute({
@@ -136,6 +145,7 @@ export const clusterRoutes = [
 	clusterStartingUpRoute,
 	clusterScalingRoute,
 	clusterDomainsRoute,
+	clusterRecordLocksRoute,
 	clusterUsageRoute,
 	clusterFinishSetupRoute,
 	clusterSignInRoute,

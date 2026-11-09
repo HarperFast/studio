@@ -197,3 +197,31 @@ Before sending, it refuses what central manager would refuse, so the user gets a
 Failures stay on the page beside the control, for both domain changes and cluster edits, and the global toast is off
 for both mutations. Each mutation reports a real request failure to RUM itself, at mutation level, but not a refusal,
 which is Studio declining to send.
+
+## Record locks: the cluster holds the intent, each member holds what it runs
+
+Central manager writes the cluster's `recordLocks` before its background roll starts, and changes a member's own
+`recordLocks` only as it hands that member's restart to host manager
+([`updateCluster.js`](https://github.com/HarperFast/central-manager/blob/2581925f/src/resources/cluster/updateCluster.js#L992-L1033)).
+A roll that fails puts the member it stopped on back to its old value, marks it `FAILED`, returns the rest to `RUNNING`
+and the cluster to `RUNNING`. So [`recordLocksState`](recordLocks/recordLocksState.ts) reads a member that disagrees
+with the cluster as one the roll hasn't reached: `applying` while the cluster is `UPDATING`, `stopped` once it isn't.
+Re-sending the cluster's own value resumes a stopped roll and skips members already done, once every live member is
+`RUNNING` again.
+
+The PUT answers before the roll marks the cluster `UPDATING`, so the first read after a save looks exactly like a
+stopped roll. The page treats that picture as the roll starting until it sees the roll, or for
+`ROLL_START_GRACE_MS`, so a save never flashes "didn't finish".
+
+`recordLocksBlocker` mirrors only what central manager is certain to refuse, read from the same record: self-hosted, a
+cluster that isn't `RUNNING`, no instances, a live member that isn't `RUNNING`, and, when turning on, a member below
+5.3.0 or with a version `semver.valid` rejects. A 5.3.0 prerelease is below the floor (`semver.lt`). Turning off has no
+version check. Anything else it refuses, such as a maintenance drain, arrives as its own error beside the control.
+
+The setting goes in a PUT of its own: central manager answers 400 when `name`, `regionPlans`, `version`, `domainIds` or
+`generateDomainCerts` ride along. On create it rides with the rest, and the form sends it only for a Fabric-hosted
+cluster on 5.3.0+, so a box ticked before switching to an older version or to self-hosted never becomes a 400. While
+record locks are on, the version picker disables versions below 5.3.0, which central manager would refuse.
+
+Nothing here can see whether a member runs the LMDB storage engine, where `lock()` doesn't work at all; central manager
+doesn't check that either, so the page says it instead.
