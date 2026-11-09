@@ -27,6 +27,19 @@ export function supportsPayloadBranchedDatabases(harperVersion: string | undefin
 	return !!harperVersion && wasAReleasedBeforeB(MIN_PAYLOAD_BRANCHED_DATABASES_VERSION, harperVersion);
 }
 
+/**
+ * From 5.4.0-alpha.2 a drop that leaves an application's private copies on disk records that it owes their removal,
+ * and Harper discards them by itself once no worker has the application loaded (harper
+ * `resources/branchDatabase.ts` `recordPendingBranchRemoval`, `components/operations.ts` `retryBranchRemoval`). Until
+ * then, an application deployed under the same name defers the removal and picks the copies up. Before 5.4.0-alpha.2
+ * they stay until a later drop discards them. `undefined` when the version is unread.
+ */
+const MIN_DISCARDS_DROPPED_BRANCHES_VERSION = '5.4.0-alpha.2';
+
+export function discardsDroppedBranches(harperVersion: string | undefined): boolean | undefined {
+	return harperVersion ? wasAReleasedBeforeB(MIN_DISCARDS_DROPPED_BRANCHES_VERSION, harperVersion) : undefined;
+}
+
 export function entryHasPackage(configuration: unknown, project: string): boolean {
 	if (!isRecord(configuration) || !Object.hasOwn(configuration, project)) {
 		return false;
@@ -67,8 +80,8 @@ export function describeBranchedDatabases(setting: BranchedDatabases): string {
 }
 
 /**
- * Harper's `drop_component` answer, when it says what became of the application's private copies: kept on disk
- * (Studio drops without a restart, which on 5.3 always keeps them) or failed to remove. Every such answer names
+ * Harper's `drop_component` answer, when it says what became of the application's private copies: left on disk
+ * (Studio drops without a restart, which on 5.3 always leaves them) or failed to remove. Every such answer names
  * "branched database storage" (harper `components/operations.js` `BRANCH_STORAGE_RETAINED`).
  */
 export function branchStorageMessage(response: unknown): string | undefined {

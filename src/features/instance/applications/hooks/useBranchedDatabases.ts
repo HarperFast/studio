@@ -3,6 +3,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceConfigurationReadPermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import {
 	BranchedDatabases,
+	discardsDroppedBranches,
 	entryHasPackage,
 	readBranchedDatabases,
 	supportsBranchedDatabases,
@@ -81,6 +82,21 @@ export function useBranchedDatabasesPossible(): boolean {
 	const params = useInstanceClientIdParams();
 	const { data, isSuccess } = useQuery({ ...getRegistrationInfoQueryOptions(params), retry: retryUnlessRejected() });
 	return !isSuccess || !data?.version || supportsBranchedDatabases(data.version);
+}
+
+/**
+ * Whether Harper discards a dropped application's private copies by itself, or `undefined` while the version is
+ * unread. A refusal leaves it unknown, which the caller words for, so it isn't toasted.
+ */
+export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefined {
+	const params = useInstanceClientIdParams();
+	const { data } = useQuery({
+		...getRegistrationInfoQueryOptions(params),
+		enabled,
+		retry: retryUnlessRejected(),
+		meta: { refusalIsAnAnswer: true },
+	});
+	return discardsDroppedBranches(data?.version);
 }
 
 interface ConfigurationRead {

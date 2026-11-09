@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	branchStorageMessage,
 	describeBranchedDatabases,
+	discardsDroppedBranches,
 	entryHasPackage,
 	readBranchedDatabases,
 	supportsBranchedDatabases,
@@ -18,6 +19,19 @@ describe('supportsPayloadBranchedDatabases', () => {
 		[undefined, false],
 	])('%s → %s', (version, expected) => {
 		expect(supportsPayloadBranchedDatabases(version)).toBe(expected);
+	});
+});
+
+describe('discardsDroppedBranches', () => {
+	it.each([
+		['5.3.6', false],
+		['5.4.0-alpha.1', false],
+		['5.4.0-alpha.2', true],
+		['5.4.0-beta.2', true],
+		['5.4.0', true],
+		[undefined, undefined],
+	])('%s → %s', (version, expected) => {
+		expect(discardsDroppedBranches(version)).toBe(expected);
 	});
 });
 

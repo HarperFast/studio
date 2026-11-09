@@ -6,6 +6,7 @@ import { isProtectedPath } from '@/features/instance/applications/context/isProt
 import {
 	invalidateApplicationConfiguration,
 	useApplicationsBranchedDatabases,
+	useDiscardsDroppedBranches,
 } from '@/features/instance/applications/hooks/useBranchedDatabases';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
@@ -50,6 +51,18 @@ export function DeleteDirectoryOrFileModal() {
 	]);
 	const { settings, known } = useApplicationsBranchedDatabases(droppedApplications);
 	const privateCopies = known ? settings : [];
+	const discardsDropped = useDiscardsDroppedBranches(privateCopies.length > 0);
+	const plural = privateCopies.length > 1;
+	const copies = plural ? 'those copies' : 'that copy';
+	const droppedCopyFate = discardsDropped === true
+		? `Harper discards ${copies} by itself once no worker has the application loaded, usually after the next restart.`
+			+ ' Until then, an application deployed under the same name with a private copy picks it up again.'
+		: discardsDropped === false
+		? `Harper keeps ${copies} on disk when it removes an application without a restart, and an application deployed`
+			+ ' under the same name later with a private copy picks it up again.'
+		: `Harper leaves ${copies} on disk for now, and says after the delete whether it discards ${
+			plural ? 'them' : 'it'
+		} later.`;
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
@@ -118,12 +131,12 @@ export function DeleteDirectoryOrFileModal() {
 			toast.dismiss(id);
 			errorHandler(result.error);
 			if (description) {
-				toast.warning('Private database copy kept', { description });
+				toast.warning('Private database copy left on disk', { description });
 			}
 		} else if (result.canceled) {
 			toast.warning(`${action} canceled!`, { id, description, action: toastOKAction });
 		} else if (description) {
-			toast.warning(`${action} completed, private database copy kept`, {
+			toast.warning(`${action} completed, private database copy left on disk`, {
 				id,
 				description,
 				action: toastOKAction,
@@ -179,9 +192,7 @@ export function DeleteDirectoryOrFileModal() {
 								.map(({ project, setting }) =>
 									`${project} runs on a private copy of ${describeBranchedDatabases(setting)}.`
 								)
-								.join(' ')} Harper keeps {privateCopies.length > 1 ? 'those copies' : 'that copy'}{' '}
-							on disk when it removes an application without a restart, and an application deployed under the same name
-							later with a private copy picks it up again.
+								.join(' ')} {droppedCopyFate}
 						</DialogDescription>
 					)}
 				</DialogHeader>
