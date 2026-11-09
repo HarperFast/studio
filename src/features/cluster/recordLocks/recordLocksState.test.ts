@@ -40,6 +40,9 @@ describe('supportsRecordLocks', () => {
 		['5.4.0-beta.01', false],
 		['99999999999999999.0.0', false],
 		['5.4.0-' + 'a'.repeat(260), false],
+		// semver measures before it trims
+		['5.3.0' + ' '.repeat(260), false],
+		['5.3.0' + ' '.repeat(200), true],
 		['latest', false],
 		['', false],
 		[undefined, false],
