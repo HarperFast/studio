@@ -452,11 +452,28 @@ function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRet
 	);
 }
 
-// A refused answer can still have handed the browser's session to `userId`, ending the one this tab holds.
-function releaseReplacedAccount(userId: string) {
-	if (authStore.holdsAnotherAppUser(userId)) {
-		void clearPreviousAccount();
-	}
+// What an attempt read before sending, to judge its answers by.
+type AttemptAuth = {
+	unchanged: () => boolean;
+	// A refused answer can still have handed the browser's session to `userId`, ending the account this tab held when
+	// it was sent. Only that one: an account taken in since is someone's current session.
+	releaseReplaced: (userId: string) => void;
+};
+
+function readAttemptAuth(): AttemptAuth {
+	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
+	const held = authStore.getHeldAppUser();
+	return {
+		unchanged: () =>
+			authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
+			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision,
+		releaseReplaced: (userId) => {
+			if (held !== null && held !== userId && authStore.getHeldAppUser() === held) {
+				void clearPreviousAccount();
+			}
+		},
+	};
 }
 
 function toastVerified() {
@@ -512,13 +529,13 @@ export function VerifyEmail() {
 		}
 	}, [completeSignIn, isCurrent]);
 
-	const pickUpSession = useCallback(async (id: number, userId: string, authUnchanged: () => boolean) => {
+	const pickUpSession = useCallback(async (id: number, userId: string, auth: AttemptAuth) => {
 		let user;
 		try {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
 			user = await fetchCurrentUser();
 		} catch (error) {
-			releaseReplacedAccount(userId);
+			auth.releaseReplaced(userId);
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
 				setSessionLost(true);
@@ -526,11 +543,11 @@ export function VerifyEmail() {
 			return;
 		}
 		// Another tab can sign this browser into someone else between the verify and this request.
-		if (isCurrent(id) && authUnchanged() && user.id === userId) {
+		if (isCurrent(id) && auth.unchanged() && user.id === userId) {
 			await enterApp(id, user);
 			return;
 		}
-		releaseReplacedAccount(user.id);
+		auth.releaseReplaced(user.id);
 		if (isCurrent(id)) {
 			setSessionLost(true);
 		}
@@ -540,17 +557,13 @@ export function VerifyEmail() {
 		(request: VerifyEmailRequest) => {
 			const id = ++attempt.current;
 			// Read before sending: a sign-out or another sign-in while the request is out supersedes its answer.
-			const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
-			const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
-			const authUnchanged = () =>
-				authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
-				&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision;
+			const auth = readAttemptAuth();
 			setSessionLost(false);
 			setSignInError(undefined);
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
-				const superseded = !isCurrent(id) || !authUnchanged();
+				const superseded = !isCurrent(id) || !auth.unchanged();
 				if (superseded && response.signedIn === true) {
-					releaseReplacedAccount(response.userId);
+					auth.releaseReplaced(response.userId);
 				}
 				if (!isCurrent(id)) {
 					return;
@@ -572,16 +585,16 @@ export function VerifyEmail() {
 				}
 				clearSignUpBrowserProof(response.email);
 				if (opensSession(response)) {
-					void pickUpSession(id, response.userId, authUnchanged);
+					void pickUpSession(id, response.userId, auth);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					logIn({ email: response.email, password: sent.password }, {
 						onSuccess: (user) => {
-							if (isCurrent(id) && authUnchanged() && user.id === response.userId) {
+							if (isCurrent(id) && auth.unchanged() && user.id === response.userId) {
 								void enterApp(id, user);
 								return;
 							}
-							releaseReplacedAccount(user.id);
+							auth.releaseReplaced(user.id);
 							if (isCurrent(id)) {
 								setSessionLost(true);
 							}

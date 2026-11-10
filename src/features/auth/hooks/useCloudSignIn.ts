@@ -28,8 +28,9 @@ export function useCompleteCloudSignIn() {
 
 	return useCallback(async (user: User): Promise<boolean> => {
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
-		if (authStore.holdsAnotherAppUser(user.id)) {
-			await clearPreviousAccount();
+		const held = authStore.getHeldAppUser();
+		if (held !== null && held !== user.id && !(await clearPreviousAccount())) {
+			return false;
 		}
 		authStore.setUserForEntity(OverallAppSignIn, user);
 		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);

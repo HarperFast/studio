@@ -33,7 +33,7 @@ vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: undefined }));
 vi.mock('./handlers/clearAuthStateLocally', async (importOriginal) => ({
 	...await importOriginal<typeof import('./handlers/clearAuthStateLocally')>(),
-	clearPreviousAccount: vi.fn(async () => {}),
+	clearPreviousAccount: vi.fn(async () => true),
 }));
 vi.mock('@/lib/urls/getDefaultSignedInCloudRouteForUser', () => ({
 	getDefaultSignedInCloudRouteForUser: () => '/default-org',
@@ -1039,7 +1039,7 @@ describe('VerifyEmail without a token', () => {
 describe('VerifyEmail while this tab holds another account', () => {
 	beforeEach(() => {
 		storeProof();
-		vi.spyOn(authStore, 'holdsAnotherAppUser').mockReturnValue(true);
+		vi.spyOn(authStore, 'getHeldAppUser').mockReturnValue('u-bob');
 	});
 
 	it('ends the other account before taking them into the verified one', async () => {
@@ -1053,7 +1053,7 @@ describe('VerifyEmail while this tab holds another account', () => {
 
 	it.each([
 		['the session it opened can’t be loaded', () => fetchCurrentUser.mockRejectedValue(axiosError(500))],
-		['the session is another account 19s', () => fetchCurrentUser.mockResolvedValue({ id: 'u2', email: OTHER_EMAIL })],
+		['the session is another account’s', () => fetchCurrentUser.mockResolvedValue({ id: 'u2', email: OTHER_EMAIL })],
 		[
 			'a sign-out landed while the verify was out',
 			() => vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValueOnce(1),
@@ -1069,6 +1069,20 @@ describe('VerifyEmail while this tab holds another account', () => {
 		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
 	});
 
+	it('leaves an account taken in since the verify was sent alone', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		let rejectUser!: (reason: unknown) => void;
+		fetchCurrentUser.mockReturnValue(new Promise((_resolve, reject) => (rejectUser = reject)));
+		render(page());
+		await waitFor(() => expect(fetchCurrentUser).toHaveBeenCalled());
+
+		vi.mocked(authStore.getHeldAppUser).mockReturnValue('u-carol');
+		await act(async () => rejectUser(axiosError(500)));
+
+		expect(screen.getByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).not.toHaveBeenCalled();
+	});
+
 	it('leaves the other account alone when central-manager opened no session', async () => {
 		put.mockResolvedValue(answer('verified', false));
 		render(page());
@@ -1077,7 +1091,7 @@ describe('VerifyEmail while this tab holds another account', () => {
 		expect(clearPreviousAccount).not.toHaveBeenCalled();
 	});
 
-	it('ends the other account when an older central-manager 19s sign-in is another account 19s', async () => {
+	it('ends the other account when an older central-manager’s sign-in is another account’s', async () => {
 		localStorage.clear();
 		put.mockResolvedValue(answer());
 		post.mockResolvedValue({ data: { id: 'u2', email: OTHER_EMAIL } });

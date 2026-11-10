@@ -227,6 +227,26 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 		expect(navigate).toHaveBeenCalledTimes(2);
 	});
 
+	it('does not take in the new account when a sign-out lands while the old one’s logouts are out', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		let finishLogouts!: () => void;
+		vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances').mockReturnValue(
+			new Promise<void>((resolve) => (finishLogouts = resolve)),
+		);
+
+		let entered: Promise<boolean> | undefined;
+		act(() => {
+			entered = result.current(GRACE);
+		});
+		authStore.signOutAllLocally();
+		finishLogouts();
+
+		await expect(entered).resolves.toBe(false);
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(navigate).toHaveBeenCalledTimes(1);
+	});
+
 	it('keeps the cache when the same account is taken in again', async () => {
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 		await act(() => result.current(ADA));

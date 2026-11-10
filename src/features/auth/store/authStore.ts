@@ -381,9 +381,9 @@ class AuthStore {
 		}
 	}
 
-	/** Whether this tab still holds an app user other than `userId`, so that a session for `userId` switches accounts. */
-	public holdsAnotherAppUser(userId: string): boolean {
-		return this.heldAppUser !== null && this.heldAppUser !== userId;
+	/** The app user this tab holds, kept through the blanking a check does, until a sign-out. */
+	public getHeldAppUser(): string | null {
+		return this.heldAppUser;
 	}
 
 	/**
