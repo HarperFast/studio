@@ -258,8 +258,11 @@ describe('parseConfigValue / jsonType', () => {
 
 	it('handles deep nesting without throwing', () => {
 		const nested = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
+		const tooDeep = { ok: false, error: 'This value is nested too deeply to save.' };
 		expect(parseConfigValue(nested(1_000)).ok).toBe(true);
-		expect(parseConfigValue(nested(100_000))).toEqual({ ok: false, error: 'This value is nested too deeply to save.' });
+		expect(parseConfigValue(nested(1_001))).toEqual(tooDeep);
+		// Whatever the engine's own limit: Node 26's JSON.stringify serializes this without throwing.
+		expect(parseConfigValue(nested(100_000))).toEqual(tooDeep);
 	});
 
 	it('names JSON types, telling null and arrays apart from objects', () => {

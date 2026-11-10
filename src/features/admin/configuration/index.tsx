@@ -36,6 +36,21 @@ function hasInexactNumber(root: unknown): boolean {
 	return false;
 }
 
+// Node 26's JSON.stringify no longer throws on deep nesting (Node 24's gave out near 6,000 levels), so the limit is ours.
+const MAX_DEPTH = 1_000;
+
+function isTooDeep(root: unknown): boolean {
+	const pending: [unknown, number][] = [[root, 0]];
+	while (pending.length) {
+		const [value, depth] = pending.pop()!;
+		if (value && typeof value === 'object') {
+			if (depth >= MAX_DEPTH) { return true; }
+			for (const child of Object.values(value)) { pending.push([child, depth + 1]); }
+		}
+	}
+	return false;
+}
+
 export function parseConfigValue(text: string): ParsedValue {
 	let value: unknown;
 	try {
@@ -45,6 +60,9 @@ export function parseConfigValue(text: string): ParsedValue {
 	}
 	if (hasInexactNumber(value)) {
 		return { ok: false, error: 'A number is too large to save exactly.' };
+	}
+	if (isTooDeep(value)) {
+		return { ok: false, error: 'This value is nested too deeply to save.' };
 	}
 	let json: string;
 	try {
