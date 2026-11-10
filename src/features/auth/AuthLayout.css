@@ -525,11 +525,15 @@
 	margin-bottom: 24px;
 }
 
-.auth-form a:not(.gsi-material-button):not(.github-signin-btn) {
+.auth-form a:not(.gsi-material-button):not(.github-signin-btn), .auth-form .auth-link-button {
 	text-decoration: underline;
 	text-decoration-thickness: 1px;
 	color: var(--signin-link);
 	text-underline-offset: 4px;
+}
+
+.auth-form .auth-link-button:hover {
+	color: var(--signin-ink);
 }
 
 .auth-form hr {

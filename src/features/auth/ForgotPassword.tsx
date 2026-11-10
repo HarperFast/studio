@@ -16,6 +16,7 @@ import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
+import { usePrefillEmail } from './prefillEmail';
 
 // The link may already be on its way: sending them to the inbox beats a duplicate request.
 const OUTCOME_UNKNOWN_RECOVERY = 'Check your inbox before requesting another link.';
@@ -27,10 +28,11 @@ const ForgotPasswordSchema = z.object({
 export function ForgotPassword() {
 	const navigate = useNavigate();
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 	const methods = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
 		defaultValues: {
-			email: formPersistenceEmail || '',
+			email: formPersistenceEmail || prefillEmail || '',
 		},
 	});
 	const email = methods.watch('email');
@@ -59,7 +61,7 @@ export function ForgotPassword() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/sign-in', search: { me: email } });
+				navigate({ to: '/sign-in', state: { prefillEmail: formData.email } });
 			},
 			onError: (error) => {
 				setSubmitError(captcha.describeCaptchaError(error) ?? describeAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY));
@@ -102,10 +104,10 @@ export function ForgotPassword() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
+				<Link className="text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
 					Sign in to your account
 				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
+				<Link className="text-sm hover:text-blue-300" to="/sign-up" state={{ prefillEmail: email }}>
 					Sign up for free
 				</Link>
 			</div>

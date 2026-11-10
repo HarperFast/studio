@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import { queryClient } from '@/react-query/queryClient';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCurrentUser } from './getCurrentUser';
 
@@ -28,6 +29,29 @@ describe('getCurrentUser', () => {
 
 		expect(user.fabricRole).toBe('fabric_admin');
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(user);
+	});
+
+	it('clears the account this tab held when the session is now another account’s, then takes that one in', async () => {
+		signIn({ id: 'usr-ada', email: 'ada@example.com' });
+		queryClient.setQueryData(['ada-only'], 'ada data');
+		const instanceSignOut = vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances');
+
+		const user = await getCurrentUser();
+
+		expect(instanceSignOut).toHaveBeenCalledTimes(1);
+		expect(queryClient.getQueryData(['ada-only'])).toBeUndefined();
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(user);
+		instanceSignOut.mockRestore();
+	});
+
+	it('keeps the cache when the session is still the held account’s', async () => {
+		signIn({ id: 'usr-test', email: 'admin@example.com' });
+		queryClient.setQueryData(['own'], 'own data');
+
+		await getCurrentUser();
+
+		expect(queryClient.getQueryData(['own'])).toBe('own data');
+		queryClient.clear();
 	});
 
 	it('leaves a sign-in made while it was in flight, whose session its answer may predate', async () => {
