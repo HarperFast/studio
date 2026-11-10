@@ -17,6 +17,7 @@ const { cluster, post, toast } = vi.hoisted(() => {
 		users: [] as Record<string, unknown>[],
 		policies: [] as Record<string, unknown>[],
 		failAddUser: undefined as number | undefined,
+		clusterPending: false,
 	};
 	const post = vi.fn(async (_url: string, body: Record<string, unknown>) => {
 		const { operation, ...rest } = body;
@@ -70,7 +71,10 @@ vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: { children: unknown; to: string }) => <a href={to}>{children as never}</a>,
 }));
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
-	getClusterInfoQueryOptions: () => ({ queryKey: ['cluster'], queryFn: vi.fn(), enabled: false }),
+	getClusterInfoQueryOptions: () =>
+		cluster.clusterPending
+			? { queryKey: ['cluster'], queryFn: () => new Promise(() => {}), enabled: true }
+			: { queryKey: ['cluster'], queryFn: vi.fn(), enabled: false },
 }));
 vi.mock('sonner', () => ({ toast }));
 
@@ -119,7 +123,14 @@ const workflowText = () =>
 	within(screen.getByRole('region', { name: 'What to commit' })).getByText(/name: Deploy/).textContent;
 
 beforeEach(() => {
-	Object.assign(cluster, { operationsUrl: AUDIENCE, roles: [], users: [], policies: [], failAddUser: undefined });
+	Object.assign(cluster, {
+		operationsUrl: AUDIENCE,
+		roles: [],
+		users: [],
+		policies: [],
+		failAddUser: undefined,
+		clusterPending: false,
+	});
 	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 
@@ -208,7 +219,7 @@ describe('ApplicationDeploys', () => {
 		expect(await screen.findByText('That line is for Acme/api, not acme/web.')).toBeTruthy();
 		type('Branch', "it's");
 		submit();
-		expect(await screen.findByText(/Enter a branch made of letters/)).toBeTruthy();
+		expect(await screen.findByText(/Enter a branch git accepts/)).toBeTruthy();
 		expect(writes()).toEqual([]);
 	});
 
@@ -311,6 +322,24 @@ describe('ApplicationDeploys', () => {
 		expect(await screen.findByText(/hosted runners can't reach this address/)).toBeTruthy();
 		expect(screen.getByText('http://localhost:9925/')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Set up deploys' })).toBeTruthy();
+	});
+
+	it("says nothing about a rerun while the cluster's URL is still loading", async () => {
+		Object.assign(cluster, {
+			operationsUrl: undefined,
+			clusterPending: true,
+			roles: [role()],
+			users: [],
+			policies: [storedPolicy()],
+		});
+		renderPanel();
+		await vi.waitFor(() =>
+			expect(post.mock.calls.map(([, body]) => (body as { operation: string }).operation)).toContain('list_users')
+		);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(screen.getByText('Loading...')).toBeTruthy();
+		expect(screen.queryByText(/refuses until the problems above are fixed/)).toBeNull();
+		expect(screen.queryByText(/User "web-ci-deploy" is missing/)).toBeNull();
 	});
 
 	it("offers no rerun for a missing user when the cluster's URL, and so the policy's audience, can't be checked", async () => {

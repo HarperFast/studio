@@ -34,7 +34,7 @@ const schema = z.object({
 	repository: z.string().trim().min(1, { error: 'Enter the GitHub repository.' }),
 	repositoryIdentity: z.string().trim(),
 	branch: z.string().trim().refine(isCiDeployBranch, {
-		error: 'Enter a branch made of letters, numbers, ".", "_", "-" and "/".',
+		error: 'Enter a branch git accepts, made of letters, numbers, ".", "_", "-" and "/".',
 	}),
 	environment: z.string().trim().refine(isCiDeployEnvironment, {
 		error: 'Enter an environment made of letters, numbers, ".", "_" and "-".',

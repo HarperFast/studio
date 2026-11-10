@@ -155,6 +155,7 @@ describe('importedGitHubRepository', () => {
 				'git+https://github.com/Acme/shop.git#semver:^1.2.0',
 				'git@github.com:Acme/shop.git',
 				'ssh://git@github.com/Acme/shop',
+				'ssh://git@github.com:22/Acme/shop.git',
 				' https://github.com/Acme/shop/ ',
 			]
 		) {
@@ -179,6 +180,7 @@ describe('importedGitHubRepository', () => {
 		const key = { host: 'shop-key.github.com', hostname: 'github.com' };
 		expect(importedGitHubRepository('git@shop-key.github.com:Acme/shop.git', key)).toBe('Acme/shop');
 		expect(importedGitHubRepository('git@SHOP-KEY.github.com:Acme/shop.git#v2', key)).toBe('Acme/shop');
+		expect(importedGitHubRepository('ssh://git@shop-key.github.com:22/Acme/shop.git', key)).toBe('Acme/shop');
 		expect(importedGitHubRepository('git@shop-key.github.com:Acme/shop.git')).toBeUndefined();
 		expect(importedGitHubRepository('git@other.github.com:Acme/shop.git', key)).toBeUndefined();
 		expect(importedGitHubRepository('git@gl-key:Acme/shop.git', { host: 'gl-key', hostname: 'gitlab.com' }))

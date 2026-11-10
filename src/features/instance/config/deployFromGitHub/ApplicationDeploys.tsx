@@ -87,6 +87,11 @@ export function ApplicationDeploys({ app, names, repository }: {
 		);
 	}
 
+	// Until the cluster's URL is known, whether a rerun would refuse isn't either.
+	if (!audience && audiencePending) {
+		return <Loading text="Loading..." />;
+	}
+
 	const source = ciDeploySourceOf(policy);
 	// Without the cluster's URL the stored audience stands in, so everything else can still be checked.
 	const plan = source

@@ -18,7 +18,7 @@ const MISS_STALE_MS = 60_000;
 /** GitHub's own names, which an id lookup must not widen: a segment is never `.` or `..`, or a path. */
 const REPOSITORY_SEGMENT = /^(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
 const GITHUB_URL_PREFIX =
-	/^(?:(?:https?|ssh|git\+https|git\+ssh):\/\/(?:[^@/]+@)?(?:www\.)?github\.com\/|git@github\.com:)/i;
+	/^(?:(?:https?|ssh|git\+https|git\+ssh):\/\/(?:[^@/]+@)?(?:www\.)?github\.com(?::\d+)?\/|git@github\.com:)/i;
 
 export interface GitHubRepository {
 	/** A string, as `repository_id` claims compare byte for byte. */

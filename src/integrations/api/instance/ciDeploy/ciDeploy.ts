@@ -51,9 +51,10 @@ const APPLICATION_PATTERN = /^[A-Za-z0-9_-]+$/;
 const POLICY_ID_PATTERN = /^[A-Za-z0-9_.-]{1,128}$/;
 /**
  * Narrower than git allows, because the branch and environment are written into the workflow and its `if:`: these
- * characters can't end a YAML value or a GitHub expression's string, and cover the names people use.
+ * characters can't end a YAML value or a GitHub expression's string, and cover the names people use. Still no name
+ * git refuses (`git check-ref-format --branch`): not `HEAD`, nor any component ending in `.lock`.
  */
-const BRANCH_PATTERN = /^(?![-/.]|.*(?:\/\/|\/\.|\.\.|\/$|\.lock$|\.$))[A-Za-z0-9._/-]{1,255}$/;
+const BRANCH_PATTERN = /^(?!HEAD$)(?![-/.]|.*(?:\/\/|\/\.|\.\.|\/$|\.lock(?:\/|$)|\.$))[A-Za-z0-9._/-]{1,255}$/;
 const ENVIRONMENT_PATTERN = /^[A-Za-z0-9._-]{1,255}$/;
 const WORKFLOW_PATTERN = /^\.github\/workflows\/[A-Za-z0-9_.-]+\.ya?ml$/;
 const WORKFLOW_REF_PATTERN = /^([^/]+\/[^/]+)\/(\.github\/workflows\/[^/@]+)@refs\/heads\/(.+)$/;

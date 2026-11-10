@@ -114,10 +114,12 @@ describe('names and inputs', () => {
 	});
 
 	it('takes only branch and environment names that are safe to write into the workflow', () => {
-		for (const branch of ['main', 'release/1.0', 'feature/a_b-c']) {
+		for (const branch of ['main', 'release/1.0', 'feature/a_b-c', 'x/HEAD', 'a.lock.b']) {
 			expect(isCiDeployBranch(branch), branch).toBe(true);
 		}
-		for (const branch of ["it's", 'a b', 'a:b', '-x', '/x', 'x/', 'a//b', 'a..b', 'x.lock', 'a/.b', '']) {
+		for (
+			const branch of ["it's", 'a b', 'a:b', '-x', '/x', 'x/', 'a//b', 'a..b', 'x.lock', 'x.lock/y', 'HEAD', 'a/.b', '']
+		) {
 			expect(isCiDeployBranch(branch), branch).toBe(false);
 		}
 		expect(isCiDeployEnvironment('production')).toBe(true);
