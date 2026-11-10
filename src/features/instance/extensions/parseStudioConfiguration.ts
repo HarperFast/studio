@@ -81,8 +81,10 @@ export function parseStudioConfiguration(
 	raw: unknown,
 	capabilities: ReadonlySet<string> = STUDIO_CAPABILITIES,
 ): StudioConfiguration {
+	// A 200 that isn't an object, such as a page from something in front of Harper, says nothing about the
+	// root config, so setup must not read it as one with nothing set and write its preset's settings over it.
 	if (!isRecord(raw)) {
-		return EMPTY_STUDIO_CONFIGURATION;
+		return { ...EMPTY_STUDIO_CONFIGURATION, rootNavigationUnreadable: true };
 	}
 	const merged = parseNavigation(raw.navigation);
 	const root = raw.rootNavigation === undefined ? undefined : parseNavigation(raw.rootNavigation);

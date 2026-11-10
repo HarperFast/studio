@@ -5,6 +5,7 @@ import { SectionsContent } from '@/features/instance/extensions/content/Sections
 import {
 	type ExtensionDataSource,
 	type ExtensionRecord,
+	PartialWriteError,
 	UnconfirmedWriteError,
 } from '@/features/instance/extensions/dataSource';
 import type {
@@ -18,7 +19,7 @@ import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import type { ColumnDef } from '@/lib/table';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { focusManager, MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -376,19 +377,59 @@ describe('SectionsContent action confirmation', () => {
 		);
 	});
 
-	it("never sends one of Harper's own operations", async () => {
-		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+	it("never offers, or sends, one of Harper's own operations", () => {
 		const dataSource = renderSections([{
 			type: 'actions',
 			actions: [{ label: 'Describe', request: { operation: 'describe_all' } }],
 		}], { operations: ['describe_all'] });
-		fireEvent.click(screen.getByRole('button', { name: 'Describe' }));
-		await waitFor(() =>
-			expect(toast.error).toHaveBeenCalledWith('Describe failed', {
-				description: "describe_all is one of Harper's own operations, which a page can't send",
-			})
-		);
+		const button = screen.getByRole('button', { name: 'Describe' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		expect(screen.getByText("Describe_all is one of Harper's own operations, which a page can't send.").id)
+			.toBe(button.getAttribute('aria-describedby'));
+		fireEvent.click(button);
 		expect(dataSource.send).not.toHaveBeenCalled();
+	});
+
+	it("doesn't offer an action needing an optional grant the viewer's role lacks", () => {
+		const optional: ExtensionAccess = {
+			tables: [{ database: 'redirects', table: 'Rule', actions: ['read'] }],
+			optional: { tables: [{ database: 'redirects', table: 'Rule', actions: ['update'] }] },
+		};
+		const reader: LocalRolePermission = {
+			super_user: false,
+			redirects: {
+				tables: {
+					Rule: { read: true, insert: false, update: false, delete: false, attribute_permissions: [] },
+				},
+			},
+		};
+		const dataSource = renderSections([{ type: 'actions', actions: [disable] }], optional, reader);
+		const button = screen.getByRole('button', { name: 'Disable all' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		expect(screen.getByText('Your role cannot update redirects.Rule.')).toBeTruthy();
+		fireEvent.click(button);
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(dataSource.send).not.toHaveBeenCalled();
+		cleanup();
+		renderSections([{ type: 'actions', actions: [disable] }], optional);
+		expect((screen.getByRole('button', { name: 'Disable all' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('warns that a table write Harper applied to only some records partly took effect, and reads the page again', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const dataSource = testDataSource();
+		const partly = 'Harper updated 1 of 2 records. A record is skipped when nothing is stored under its primary key.';
+		vi.mocked(dataSource.send).mockRejectedValue(new PartialWriteError(partly));
+		renderSections([section, { type: 'actions', actions: [disable] }], access, undefined, dataSource);
+		await screen.findByRole('button', { name: 'row r1' });
+		fireEvent.click(screen.getByRole('button', { name: 'Disable all' }));
+		fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Disable all' }));
+		await waitFor(() =>
+			expect(toast.warning).toHaveBeenCalledWith('Disable all only partly took effect', { description: partly })
+		);
+		await waitFor(() => expect(dataSource.list).toHaveBeenCalledTimes(2));
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(toast.error).not.toHaveBeenCalled();
 		logged.mockRestore();
 	});
 });

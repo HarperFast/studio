@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import {
+	checkPageRequest,
 	declaredDataSource,
 	describePageRequest,
 	describeUndeclared,
@@ -30,6 +31,7 @@ import {
 	type ExtensionCount,
 	type ExtensionDataSource,
 	type ExtensionRecord,
+	PartialWriteError,
 	UnconfirmedWriteError,
 } from '@/features/instance/extensions/dataSource';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
@@ -221,16 +223,19 @@ function tableQueryKey(dataSource: ExtensionDataSource, database: string, table:
  * so what the user is told to check is current. These writes skip the global toast, and with it the
  * `console.error` that is how a failed mutation reaches RUM, so this keeps that report.
  */
-function reportWriteFailure(failure: unknown, { inline, failed, unconfirmed, refresh }: {
+function reportWriteFailure(failure: unknown, { inline, failed, partly, unconfirmed, refresh }: {
 	inline: ((message: string) => void) | undefined;
 	/** The toast's title for a definite failure. */
 	failed: string;
+	/** The toast's title for a write Harper applied to only some of its records. */
+	partly?: string;
 	unconfirmed: string;
 	refresh: () => Promise<unknown>;
 }) {
 	console.error(failure);
 	const unknown = isUnansweredWrite(failure) || failure instanceof UnconfirmedWriteError;
-	if (unknown) {
+	const partial = failure instanceof PartialWriteError;
+	if (unknown || partial) {
 		void refresh();
 	}
 	const message = unknown ? unconfirmed : describeError(failure).message;
@@ -238,6 +243,8 @@ function reportWriteFailure(failure: unknown, { inline, failed, unconfirmed, ref
 		inline(message);
 	} else if (unknown) {
 		toast.warning(unconfirmed);
+	} else if (partial) {
+		toast.warning(partly ?? failed, { description: message });
 	} else {
 		toast.error(failed, { description: message });
 	}
@@ -418,8 +425,9 @@ function CountValue({ value, dataSource }: {
 /** A section's table is loaded only when its page declares reading it. */
 function TableView(props: SectionProps & { section: TableSection }) {
 	const { section, access } = props;
+	// Keyed by its table, so a configuration that points this section elsewhere doesn't carry an open editor across.
 	return isDeclared(access, section.database, section.table, 'read')
-		? <DeclaredTableView {...props} />
+		? <DeclaredTableView key={JSON.stringify([section.database, section.table])} {...props} />
 		: <UndeclaredReadCard title={section.title} database={section.database} table={section.table} />;
 }
 
@@ -669,8 +677,9 @@ function RecordDialog({ open, section, fields, record, dataSource, canSave, canD
 /** A form's record is loaded only when its page declares reading the table. */
 function FormView(props: SectionProps & { section: FormSection }) {
 	const { section, access } = props;
+	// Keyed by its record, so unsaved edits never follow the section to another one.
 	return isDeclared(access, section.database, section.table, 'read')
-		? <DeclaredFormView {...props} />
+		? <DeclaredFormView key={JSON.stringify([section.database, section.table, section.recordId])} {...props} />
 		: <UndeclaredReadCard title={section.title} database={section.database} table={section.table} />;
 }
 
@@ -841,7 +850,13 @@ function ActionsView({ section, ...props }: SectionProps & { section: ActionsSec
 	);
 }
 
-function ActionButton({ action, dataSource }: SectionProps & { action: ExtensionAction }) {
+/** A reason from {@link checkPageRequest}, as the sentence written beside a button it disables. */
+function asSentence(reason: string): string {
+	const sentence = reason.charAt(0).toUpperCase() + reason.slice(1);
+	return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
+
+function ActionButton({ action, dataSource, permission, access }: SectionProps & { action: ExtensionAction }) {
 	const queryClient = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
 	// An action usually changes what the page's tables show.
@@ -859,11 +874,16 @@ function ActionButton({ action, dataSource }: SectionProps & { action: Extension
 			reportWriteFailure(failure, {
 				inline: undefined,
 				failed: `${action.label} failed`,
+				partly: `${action.label} only partly took effect`,
 				unconfirmed: `Studio couldn't confirm whether ${action.label} ran. Check whether it took effect before `
 					+ 'you run it again, or it may run twice.',
 				refresh,
 			}),
 	});
+	// An action the viewer's role can't run, such as one needing a grant the page lists as optional, is not
+	// offered: the data source would refuse it only after the viewer had confirmed it.
+	const verdict = checkPageRequest(permission, access, action.request);
+	const blocked = action.unsupported?.reason ?? (verdict.allowed ? undefined : asSentence(verdict.reason));
 	const destructive = action.variant === 'destructive';
 	// A write's author may not have thought to ask, and the request is all the viewer can judge it by.
 	const needsConfirm = action.confirm !== undefined || destructive || isTableWrite(action.request.operation);
@@ -874,17 +894,15 @@ function ActionButton({ action, dataSource }: SectionProps & { action: Extension
 			<div className="grid gap-1">
 				<Button
 					variant={destructive ? 'destructiveOutline' : 'defaultOutline'}
-					disabled={run.isPending || action.unsupported !== undefined}
-					aria-describedby={action.unsupported && noteId}
+					disabled={run.isPending || blocked !== undefined}
+					aria-describedby={blocked && noteId}
 					onClick={() => needsConfirm ? setConfirming(true) : run.mutate()}
 				>
 					{action.icon && <ExtensionIcon name={action.icon} />}
 					{action.label}
 				</Button>
 				{/* A disabled button shows no tooltip, so the reason is written out. */}
-				{action.unsupported && (
-					<p id={noteId} className="text-xs text-muted-foreground max-w-60">{action.unsupported.reason}</p>
-				)}
+				{blocked && <p id={noteId} className="text-xs text-muted-foreground max-w-60">{blocked}</p>}
 			</div>
 			{needsConfirm && (
 				<AlertDialog open={confirming} onOpenChange={setConfirming}>

@@ -64,6 +64,10 @@ export interface ExtensionDataSource {
 	update(database: string, table: string, record: ExtensionRecord, primaryKey: string): Promise<void>;
 	/** Resolves only once Harper's answer names `id` as deleted. */
 	remove(database: string, table: string, id: unknown): Promise<void>;
+	/**
+	 * Sends an action's request. A table write resolves only once Harper's answer says it wrote every record
+	 * the request names; one that skipped some throws {@link PartialWriteError}, and one that wrote none throws.
+	 */
 	send(request: ExtensionRequest): Promise<unknown>;
 }
 
@@ -72,6 +76,9 @@ export interface ExtensionDataSource {
  * failure that invites a retry.
  */
 export class UnconfirmedWriteError extends Error {}
+
+/** A write Harper says it applied to some of the records it was sent and not the rest. */
+export class PartialWriteError extends Error {}
 
 /** Reads `attributes`, or every attribute when Harper refuses one of them by name. */
 async function readProjected<T>(
@@ -168,6 +175,65 @@ function proveWritten(
 	if (skippedAny || !(generated || hashes.some((hash) => sameKey(hash, key)))) {
 		throw unconfirmed;
 	}
+}
+
+interface ActionWrite {
+	/** Where Harper lists what it wrote (dataLayer/insert.ts:284-301, delete.ts:153-161 at harper a0ef126d1). */
+	written: 'inserted_hashes' | 'update_hashes' | 'upserted_hashes' | 'deleted_hashes';
+	/** The request's list of what to write. */
+	sent: 'records' | 'hash_values';
+	did: string;
+	/** Why Harper skips a record; an upsert never does. */
+	skipped?: string;
+}
+
+const ACTION_WRITES: Record<string, ActionWrite> = {
+	insert: { written: 'inserted_hashes', sent: 'records', did: 'added', skipped: 'one with its primary key exists' },
+	update: {
+		written: 'update_hashes',
+		sent: 'records',
+		did: 'updated',
+		skipped: 'nothing is stored under its primary key',
+	},
+	upsert: { written: 'upserted_hashes', sent: 'records', did: 'wrote' },
+	delete: {
+		written: 'deleted_hashes',
+		sent: 'hash_values',
+		did: 'deleted',
+		skipped: 'nothing is stored under its primary key',
+	},
+};
+
+/**
+ * Throws unless Harper's answer to an action's table write says it wrote every record the request named,
+ * as {@link proveWritten} does for a section's single record. Harper answers 200 for a write that skipped
+ * some or all of them, so a 200 alone is no success to announce. The message counts what it wrote, not
+ * what it skipped: Harper's not-found delete lists a count where a key goes (dataLayer/delete.ts:160).
+ */
+function proveActionWritten(request: ExtensionRequest, answer: unknown): void {
+	const write = ACTION_WRITES[request.operation];
+	if (!write) {
+		return;
+	}
+	const response = answer as Partial<Record<string, unknown>> | undefined;
+	const hashes = response?.[write.written];
+	const skipped = response?.skipped_hashes;
+	if (!Array.isArray(hashes) || isMalformedHashes(skipped)) {
+		throw new UnconfirmedWriteError(
+			"Harper's answer didn't say which records it wrote, so the action may or may not have taken effect.",
+		);
+	}
+	// `ids` is the spelling delete.ts:128 copies into `hash_values`.
+	const sent = request[write.sent] ?? (write.sent === 'hash_values' ? request.ids : undefined);
+	const asked = Array.isArray(sent) ? sent.length : undefined;
+	const skippedAny = Array.isArray(skipped) && skipped.length > 0;
+	if (!skippedAny && (asked === undefined || hashes.length >= asked)) {
+		return;
+	}
+	const message = `Harper ${write.did} ${hashes.length}${asked === undefined ? '' : ` of ${asked}`} records.${
+		skippedAny && write.skipped ? ` A record is skipped when ${write.skipped}.` : ''
+	}`;
+	throw hashes.length ? new PartialWriteError(message) : new Error(message);
 }
 
 /**
@@ -279,6 +345,10 @@ export function createHarperDataSource(entityId: string, instanceClient: AxiosIn
 		// (validation/deleteValidator.ts:18); `ids` works only because delete.ts:128 copies it across.
 		remove: async (database, table, id) =>
 			proveDeleted(await operation({ operation: 'delete', database, table, hash_values: [id] }), id),
-		send: operation,
+		send: async (request) => {
+			const answer = await operation(request);
+			proveActionWritten(request, answer);
+			return answer;
+		},
 	};
 }

@@ -1,6 +1,7 @@
 import {
 	createHarperDataSource,
 	EXTENSION_ROW_LIMIT,
+	PartialWriteError,
 	UnconfirmedWriteError,
 } from '@/features/instance/extensions/dataSource';
 import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
@@ -315,5 +316,50 @@ describe('createHarperDataSource', () => {
 			{ operation: 'insert', database: 'redirects', table: 'Rule', records: [{ source: '/a' }] },
 			{ operation: 'update', database: 'redirects', table: 'Rule', records: [{ id: 1, source: '/b' }] },
 		]);
+	});
+});
+
+describe("an action's table write", () => {
+	const records = [{ id: 1 }, { id: 2 }, { id: 3 }];
+	const send = (answer: unknown, request: Record<string, unknown>) =>
+		harper(() => answer).dataSource.send({ database: 'redirects', table: 'Rule', ...request } as never);
+
+	it('resolves with the answer once Harper says it wrote every record', async () => {
+		const answer = { upserted_hashes: [1, 2, 3] };
+		await expect(send(answer, { operation: 'upsert', records })).resolves.toBe(answer);
+		await expect(send({ deleted_hashes: [1, 2], skipped_hashes: [] }, { operation: 'delete', ids: [1, 2] }))
+			.resolves.toBeTruthy();
+	});
+
+	it('says a write Harper applied to only some records partly took effect', async () => {
+		const partly = send({ update_hashes: [1], skipped_hashes: [2, 3] }, { operation: 'update', records });
+		await expect(partly).rejects.toBeInstanceOf(PartialWriteError);
+		await expect(send({ update_hashes: [1], skipped_hashes: [2, 3] }, { operation: 'update', records }))
+			.rejects.toThrow(
+				'Harper updated 1 of 3 records. A record is skipped when nothing is stored under its primary key.',
+			);
+	});
+
+	it('fails a write Harper skipped entirely, counting the records rather than its count of skips', async () => {
+		// Harper's not-found delete puts a count where a key goes.
+		const deleted = send({ deleted_hashes: [], skipped_hashes: [3] }, { operation: 'delete', hash_values: [1, 2, 3] });
+		await expect(deleted).rejects.toThrow(
+			'Harper deleted 0 of 3 records. A record is skipped when nothing is stored under its primary key.',
+		);
+		await expect(deleted).rejects.not.toBeInstanceOf(PartialWriteError);
+		await expect(send({ inserted_hashes: [], skipped_hashes: [1, 2, 3] }, { operation: 'insert', records }))
+			.rejects.toThrow('Harper added 0 of 3 records. A record is skipped when one with its primary key exists.');
+	});
+
+	it("can't confirm a write whose answer doesn't list what it wrote", async () => {
+		await expect(send('<!doctype html>', { operation: 'insert', records })).rejects.toBeInstanceOf(
+			UnconfirmedWriteError,
+		);
+		await expect(send({ inserted_hashes: [1], skipped_hashes: 2 }, { operation: 'insert', records: [{ id: 1 }] }))
+			.rejects.toBeInstanceOf(UnconfirmedWriteError);
+	});
+
+	it("passes any other operation's answer through as it came", async () => {
+		await expect(send('flushed', { operation: 'cache_flush' })).resolves.toBe('flushed');
 	});
 });

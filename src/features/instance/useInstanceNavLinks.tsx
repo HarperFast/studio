@@ -34,7 +34,7 @@ export interface InstanceNavLink {
  * into the bar itself and the More menu. A hidden tab is left out of both but still opens from a link —
  * hiding focuses the UI, it doesn't restrict anything.
  */
-export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: InstanceNavLink[]; all: InstanceNavLink[] } {
+export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: InstanceNavLink[] } {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
@@ -105,7 +105,6 @@ export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: Insta
 			},
 		].filter(excludeFalsy) satisfies InstanceNavLink[];
 		return {
-			all,
 			links: all.filter((link) => visibilityOf(link.key) === 'visible'),
 			tucked: all.filter((link) => visibilityOf(link.key) === 'tucked'),
 		};

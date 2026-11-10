@@ -60,6 +60,9 @@ function AllowedExtensionPage({ page }: { page: PlacedExtensionPage }) {
 				? <UnsupportedNoticeCard notice={page.content} subject="page" />
 				: (
 					<SectionsContent
+						// A new page, or the same page on another cluster, starts over: kept, a form's unsaved edits would be
+						// saved against the record the next page opened, which may not even be in the same table.
+						key={JSON.stringify([dataSource.id, page.key])}
 						sections={page.content.sections}
 						dataSource={dataSource}
 						permission={permission}

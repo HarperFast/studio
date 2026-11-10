@@ -246,6 +246,23 @@ describe('checkPageRequest', () => {
 		expect(checkPageRequest(writer, both, upsert).allowed).toBe(true);
 	});
 
+	it("checks a role's operations allowlist for the operation sent, not for each table action's", () => {
+		const both: ExtensionAccess = {
+			tables: [{ database: 'redirects', table: 'Rule', actions: ['read', 'insert', 'update'] }],
+		};
+		const upsert = { operation: 'upsert', database: 'redirects', table: 'Rule', records: [] };
+		// Harper refuses this upsert at the allowlist gate: `insert` and `update` entries grant it nothing.
+		expect(checkPageRequest({ ...writer, operations: ['insert', 'update'] }, both, upsert)).toEqual({
+			allowed: false,
+			reason: 'your role cannot run upsert',
+		});
+		// And admits this one, though the role lists neither of them.
+		expect(checkPageRequest({ ...writer, operations: ['upsert'] }, both, upsert).allowed).toBe(true);
+		const search = { operation: 'search_by_value', database: 'redirects', table: 'Rule' };
+		expect(checkPageRequest({ ...writer, operations: ['sql'] }, both, search).allowed).toBe(false);
+		expect(checkPageRequest({ ...writer, operations: ['search_by_value'] }, both, search).allowed).toBe(true);
+	});
+
 	it('allows a declared operation only to a role that may run it', () => {
 		const run = { operation: 'redirect_import' };
 		expect(checkPageRequest(superUser, access, run).allowed).toBe(true);

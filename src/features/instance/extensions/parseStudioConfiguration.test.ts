@@ -231,8 +231,14 @@ describe('parseStudioConfiguration', () => {
 		]);
 	});
 
-	it('answers an unusable response with an empty configuration', () => {
-		expect(parseStudioConfiguration('nope')).toEqual({ navigation: {}, pages: [] });
+	it("answers a body that isn't an object with nothing, and with the root config's settings unknown", () => {
+		// Read as "nothing set", setup would start by itself and write its preset over the cluster's own settings.
+		for (const body of ['<!doctype html>', null, [], 42]) {
+			expect(parseStudioConfiguration(body)).toEqual({ navigation: {}, rootNavigationUnreadable: true, pages: [] });
+		}
+	});
+
+	it('answers an unusable list of pages with no pages', () => {
 		expect(parseStudioConfiguration({ pages: 'nope' })).toEqual({ navigation: {}, landing: undefined, pages: [] });
 	});
 

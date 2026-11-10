@@ -32,7 +32,8 @@ Anything else it can't draw, including whatever `requires` a capability missing 
 loses its editor. Access it can't fully read denies the page to every role, super users included, since
 skipping a requirement would open the page to roles it was meant to exclude. An action with keys Studio
 doesn't know is kept. A 4xx (an older Harper, or an allowlisted role without the operation) means plain
-Studio, not an error, and below `STUDIO_CONFIGURATION_MIN_HARPER_VERSION` Studio doesn't ask.
+Studio, not an error, and below `STUDIO_CONFIGURATION_MIN_HARPER_VERSION` Studio doesn't ask. A 200 that
+isn't an object leaves the root config's placements unknown, so preset setup won't write over them.
 
 Hiding is focus, not security: a hidden tab still opens from a link, and the server's permissions are
 unchanged.
@@ -48,8 +49,9 @@ unchanged.
 - **Access**: `role`, `tables`, `operations`, checked like the built-in pages check. The viewer's role
   must meet all of it to see the page, and it bounds everything the page's sections send. Grants under
   `optional` (`tables`, `operations`) are declared but not required, so readers can see a table that
-  only writers edit, or an admin-only action can sit on a page every reader sees; a control that needs one
-  appears only for roles that hold it. A page naming one of Harper's own operations (`HARPER_OPERATIONS`,
+  only writers edit, or an admin-only action can sit on a page every reader sees; a table control that
+  needs one appears only for roles that hold it, and an action is drawn disabled, saying what the role
+  lacks (`checkPageRequest`). A page naming one of Harper's own operations (`HARPER_OPERATIONS`,
   `get_studio_configuration` too), or with access Studio can't fully read, is shown to no role,
   with the reason in place of "not available to your role".
 - **Body**: always `sections` drawn by Studio (text, stats, CRUD table, settings form, actions), so every
@@ -59,7 +61,8 @@ unchanged.
   Studio, so isolating the operations port from the application port loses nothing. Every one also goes
   through the page's declaration (`declaredDataSource`): an undeclared read sends nothing and says so,
   and Add, Edit, Delete and Save need their action declared and granted. An action may send table DML on
-  a declared table with every grant Harper asks for (`upsert` needs insert and update), or an operation
+  a declared table with every grant Harper asks for (`upsert` needs insert and update), and an operations
+  allowlist entry for that operation itself, as Harper's gate reads one, or an operation
   its component registered (`server.registerOperation`) and listed in `access.operations`
   (`checkPageRequest`). Every other Harper operation, `sql`, `search` and `put` included, is refused even
   to a super user, and so are envelope keys such as `impersonate` and `replicated`. An action that
@@ -85,11 +88,14 @@ unchanged.
   a keyless insert, whose key Harper makes up (`resources/Resource.ts:297`), any entry. One listing
   nothing written is a plain failure; one Studio can't read, or naming another key, is an
   `UnconfirmedWriteError`, handled like a write with no answer: Studio says it couldn't confirm it, asks
-  the user to check before retrying, and refetches. Writes and actions report failures themselves, inline
-  or as a toast, never through the global one.
+  the user to check before retrying, and refetches. An action's table write succeeds only when Harper
+  lists as many records written as it sent and skips none; one that wrote some is a `PartialWriteError`,
+  warned as having partly taken effect, with a refetch, and one that wrote none fails. Writes and actions
+  report failures themselves, inline or as a toast, never through the global one.
 - **A settings form keeps unsaved edits** when a newer read changes what it shows, unless that read holds
   them (their own save read back): a note says the record changed or was removed, with a button to
-  discard them and load it.
+  discard them and load it. They never follow the form elsewhere: another page, cluster or record starts
+  it over, since Save would write them to whatever record it had opened instead.
 
 ## Presets (cluster creation)
 

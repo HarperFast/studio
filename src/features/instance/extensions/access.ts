@@ -1,8 +1,8 @@
 import type { ExtensionDataSource } from '@/features/instance/extensions/dataSource';
 import { HARPER_OPERATIONS } from '@/features/instance/extensions/harperOperations';
 import type { ExtensionAccess, ExtensionRequest } from '@/features/instance/extensions/manifest';
-import { checkAnyOperationAllowed } from '@/hooks/checkOperationPermission';
-import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
+import { checkAnyOperationAllowed, checkTableOperationsAllowed } from '@/hooks/checkOperationPermission';
+import { checkSchemaTablePermission, checkTableGrant } from '@/hooks/checkSchemaTablePermission';
 import type { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
 import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
 
@@ -206,10 +206,16 @@ export function checkPageRequest(
 		if (!actions.every((action) => isDeclared(access, database, table, action))) {
 			return { allowed: false, reason: `${operation} on ${database}.${table} is not declared by this page` };
 		}
-		const denied = actions.filter((action) => !checkSchemaTablePermission(permission, database, table, action));
-		return denied.length
-			? { allowed: false, reason: `your role cannot ${denied.join(' and ')} ${database}.${table}` }
-			: { allowed: true };
+		const denied = actions.filter((action) => !checkTableGrant(permission, database, table, action));
+		if (denied.length) {
+			return { allowed: false, reason: `your role cannot ${denied.join(' and ')} ${database}.${table}` };
+		}
+		// The allowlist is checked for the operation sent, as Harper checks it (verifyOperationsAllowlist,
+		// utility/operation_authorization.ts:809-825 at harper a0ef126d1), not for the ones each table action
+		// stands for elsewhere: an upsert needs an `upsert` entry, and `insert` plus `update` grant it nothing.
+		return checkTableOperationsAllowed(permission, [operation])
+			? { allowed: true }
+			: { allowed: false, reason: `your role cannot run ${operation}` };
 	}
 
 	if (HARPER_OPERATIONS.has(operation)) {

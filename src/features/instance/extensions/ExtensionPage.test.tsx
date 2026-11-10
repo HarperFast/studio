@@ -8,10 +8,11 @@ import { parseStudioConfiguration } from '@/features/instance/extensions/parseSt
 import type { PlacedExtensionPage } from '@/features/instance/extensions/useStudioExtensions';
 import type { LocalRolePermission } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+	extensionKey: 'harper-vault.vault',
 	pages: [] as PlacedExtensionPage[],
 	dataSource: {
 		id: 'test',
@@ -25,14 +26,17 @@ const mocks = vi.hoisted(() => ({
 	} satisfies ExtensionDataSource,
 }));
 
-vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ extensionKey: 'harper-vault.vault' }) }));
+vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ extensionKey: mocks.extensionKey }) }));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 	useExtensionPages: () => mocks.pages,
 	useExtensionDataSource: () => mocks.dataSource,
 	useExtensionPermission: () => ({ super_user: true }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	mocks.extensionKey = 'harper-vault.vault';
+});
 
 const superUser: LocalRolePermission = { super_user: true };
 
@@ -83,6 +87,48 @@ describe('ExtensionPage', () => {
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe("Studio can't show Vault");
 		expect(screen.getByText("Studio can't read its access.role. It may need a newer Studio.")).toBeTruthy();
 		expect(screen.queryByText('Hello')).toBeNull();
+	});
+
+	it("doesn't carry one page's unsaved form edits to the next page's record", async () => {
+		const formPage = (id: string, table: string) => ({
+			component: 'harper-vault',
+			id,
+			name: id,
+			placement: 'tab',
+			access: { tables: [{ database: 'vault', table, actions: ['read', 'update'] }] },
+			content: {
+				kind: 'sections',
+				sections: [{
+					type: 'form',
+					database: 'vault',
+					table,
+					recordId: 'default',
+					fields: [{ attribute: 'origin', label: 'Origin', input: 'text' }],
+				}],
+			},
+		});
+		mocks.pages = parseStudioConfiguration({ pages: [formPage('first', 'A'), formPage('second', 'B')] }).pages
+			.map((page) => ({ ...page, verdict: checkExtensionAccess(superUser, page.access) }));
+		mocks.dataSource.get.mockImplementation(async (_database: string, table: string) => ({
+			id: 'default',
+			origin: `stored in ${table}`,
+		}));
+		mocks.extensionKey = 'harper-vault.first';
+		const client = new QueryClient();
+		const tree = () => (
+			<QueryClientProvider client={client}>
+				<ExtensionPage placement="tab" />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(tree());
+		const origin = await screen.findByDisplayValue('stored in A');
+		fireEvent.change(origin, { target: { value: 'edited on the first page' } });
+
+		mocks.extensionKey = 'harper-vault.second';
+		rerender(tree());
+		expect(await screen.findByDisplayValue('stored in B')).toBeTruthy();
+		expect(screen.queryByDisplayValue('edited on the first page')).toBeNull();
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true));
 	});
 
 	it("refuses a page that lists one of Harper's own operations, saying which, not blaming the role", () => {
