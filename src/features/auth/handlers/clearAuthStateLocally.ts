@@ -18,6 +18,19 @@ export function clearAuthStateLocally(): void {
 	]);
 }
 
+/**
+ * Another account's session has replaced this tab's in the browser. Ends the previous account's instance sessions,
+ * which the browser would otherwise present for the new account, and clears the rest locally. No CM logout: that
+ * would end the new session.
+ */
+export async function clearPreviousAccount(): Promise<void> {
+	const instanceLogouts = authStore.signOutFromPotentiallyAuthenticatedInstances();
+	clearAuthStateLocally();
+	await instanceLogouts.catch((error: unknown) =>
+		console.debug("Could not end the previous account's instance sessions:", error)
+	);
+}
+
 export function clearAuthStateAfterSignOutElsewhere(): void {
 	runEvery([
 		() => authStore.forgetAppSignInEndedElsewhere(),

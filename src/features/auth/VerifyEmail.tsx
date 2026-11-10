@@ -21,6 +21,7 @@ import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeAuthFailure } from './describeAuthFailure';
 import { OFFLINE_MESSAGE, OfflineSubmitError, reportAuthFailure } from './failFastOffline';
+import { clearPreviousAccount } from './handlers/clearAuthStateLocally';
 import { useCompleteCloudSignIn, useLoginMutation } from './hooks/useCloudSignIn';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 import {
@@ -451,6 +452,13 @@ function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRet
 	);
 }
 
+// A refused answer can still have handed the browser's session to `userId`, ending the one this tab holds.
+function releaseReplacedAccount(userId: string) {
+	if (authStore.holdsAnotherAppUser(userId)) {
+		void clearPreviousAccount();
+	}
+}
+
 function toastVerified() {
 	toast.success('Success', {
 		description: 'Email verified successfully',
@@ -510,19 +518,20 @@ export function VerifyEmail() {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
 			user = await fetchCurrentUser();
 		} catch (error) {
+			releaseReplacedAccount(userId);
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
 				setSessionLost(true);
 			}
 			return;
 		}
-		if (!isCurrent(id)) {
+		// Another tab can sign this browser into someone else between the verify and this request.
+		if (isCurrent(id) && authUnchanged() && user.id === userId) {
+			await enterApp(id, user);
 			return;
 		}
-		// Another tab can sign this browser into someone else between the verify and this request.
-		if (authUnchanged() && user.id === userId) {
-			await enterApp(id, user);
-		} else {
+		releaseReplacedAccount(user.id);
+		if (isCurrent(id)) {
 			setSessionLost(true);
 		}
 	}, [enterApp, isCurrent]);
@@ -539,12 +548,16 @@ export function VerifyEmail() {
 			setSessionLost(false);
 			setSignInError(undefined);
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
+				const superseded = !isCurrent(id) || !authUnchanged();
+				if (superseded && response.signedIn === true) {
+					releaseReplacedAccount(response.userId);
+				}
 				if (!isCurrent(id)) {
 					return;
 				}
 				setAccountEmail(response.email);
 				// Before the resend below too: it can open a session as well.
-				if (!authUnchanged()) {
+				if (superseded) {
 					setSessionLost(true);
 					return;
 				}
@@ -564,12 +577,12 @@ export function VerifyEmail() {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					logIn({ email: response.email, password: sent.password }, {
 						onSuccess: (user) => {
-							if (!isCurrent(id)) {
+							if (isCurrent(id) && authUnchanged() && user.id === response.userId) {
+								void enterApp(id, user);
 								return;
 							}
-							if (authUnchanged() && user.id === response.userId) {
-								void enterApp(id, user);
-							} else {
+							releaseReplacedAccount(user.id);
+							if (isCurrent(id)) {
 								setSessionLost(true);
 							}
 						},

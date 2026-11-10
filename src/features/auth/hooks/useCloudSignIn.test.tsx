@@ -208,15 +208,20 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 	}
 
 	beforeEach(resetApp);
-	afterEach(resetApp);
+	afterEach(() => {
+		resetApp();
+		vi.restoreAllMocks();
+	});
 
 	it('clears the previous account’s cached data before taking in another account', async () => {
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 		await act(() => result.current(ADA));
 		appQueryClient.setQueryData(['ada-only'], 'ada data');
+		const instanceSignOut = vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances');
 
 		await act(() => result.current(GRACE));
 
+		expect(instanceSignOut).toHaveBeenCalledTimes(1);
 		expect(appQueryClient.getQueryData(['ada-only'])).toBeUndefined();
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(GRACE);
 		expect(navigate).toHaveBeenCalledTimes(2);
@@ -226,9 +231,11 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 		await act(() => result.current(ADA));
 		appQueryClient.setQueryData(['ada-only'], 'ada data');
+		const instanceSignOut = vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances');
 
 		await act(() => result.current(ADA));
 
+		expect(instanceSignOut).not.toHaveBeenCalled();
 		expect(appQueryClient.getQueryData(['ada-only'])).toBe('ada data');
 	});
 });

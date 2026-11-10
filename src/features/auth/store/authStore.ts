@@ -381,9 +381,9 @@ class AuthStore {
 		}
 	}
 
-	/** Whether this tab still holds an app user other than `user`, so that adopting `user` switches accounts. */
-	public holdsAnotherAppUser(user: User): boolean {
-		return this.heldAppUser !== null && this.heldAppUser !== userIdentity(user);
+	/** Whether this tab still holds an app user other than `userId`, so that a session for `userId` switches accounts. */
+	public holdsAnotherAppUser(userId: string): boolean {
+		return this.heldAppUser !== null && this.heldAppUser !== userId;
 	}
 
 	/**

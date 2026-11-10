@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { describeAuthFailure } from '@/features/auth/describeAuthFailure';
 import { failFastOffline, reportAuthFailure } from '@/features/auth/failFastOffline';
-import { clearAuthStateLocally } from '@/features/auth/handlers/clearAuthStateLocally';
+import { clearPreviousAccount } from '@/features/auth/handlers/clearAuthStateLocally';
 import { isEmailNotVerifiedError } from '@/features/auth/isEmailNotVerifiedError';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -28,8 +28,8 @@ export function useCompleteCloudSignIn() {
 
 	return useCallback(async (user: User): Promise<boolean> => {
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
-		if (authStore.holdsAnotherAppUser(user)) {
-			clearAuthStateLocally();
+		if (authStore.holdsAnotherAppUser(user.id)) {
+			await clearPreviousAccount();
 		}
 		authStore.setUserForEntity(OverallAppSignIn, user);
 		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);

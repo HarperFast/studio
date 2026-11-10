@@ -31,6 +31,10 @@ const { fetchCurrentUser } = vi.hoisted(() => ({ fetchCurrentUser: vi.fn() }));
 vi.mock('@/features/auth/queries/getCurrentUser', () => ({ fetchCurrentUser, currentUserQueryKey: ['current-user'] }));
 vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi.fn() }));
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: undefined }));
+vi.mock('./handlers/clearAuthStateLocally', async (importOriginal) => ({
+	...await importOriginal<typeof import('./handlers/clearAuthStateLocally')>(),
+	clearPreviousAccount: vi.fn(async () => {}),
+}));
 vi.mock('@/lib/urls/getDefaultSignedInCloudRouteForUser', () => ({
 	getDefaultSignedInCloudRouteForUser: () => '/default-org',
 }));
@@ -42,6 +46,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OFFLINE_MESSAGE } from './failFastOffline';
+import { clearPreviousAccount } from './handlers/clearAuthStateLocally';
 import { readSignUpBrowserProofFor, SIGN_UP_BROWSER_PROOF_TTL_MS, storeSignUpBrowserProof } from './signUpBrowserProof';
 import { VerifyEmail } from './VerifyEmail';
 
@@ -1027,5 +1032,60 @@ describe('VerifyEmail without a token', () => {
 			expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: SIGNED_UP_EMAIL } })
 		);
 		expect(post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: SIGNED_UP_EMAIL });
+	});
+});
+
+// The verify page admits a signed-in visitor, and a session central-manager opens replaces theirs in the browser.
+describe('VerifyEmail while this tab holds another account', () => {
+	beforeEach(() => {
+		storeProof();
+		vi.spyOn(authStore, 'holdsAnotherAppUser').mockReturnValue(true);
+	});
+
+	it('ends the other account before taking them into the verified one', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		render(page());
+
+		await expectSignedIntoApp();
+		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		['the session it opened can’t be loaded', () => fetchCurrentUser.mockRejectedValue(axiosError(500))],
+		['the session is another account 19s', () => fetchCurrentUser.mockResolvedValue({ id: 'u2', email: OTHER_EMAIL })],
+		[
+			'a sign-out landed while the verify was out',
+			() => vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValueOnce(1),
+		],
+	])('still ends the other account when %s', async (_case, arrange) => {
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		arrange();
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+	});
+
+	it('leaves the other account alone when central-manager opened no session', async () => {
+		put.mockResolvedValue(answer('verified', false));
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).not.toHaveBeenCalled();
+	});
+
+	it('ends the other account when an older central-manager 19s sign-in is another account 19s', async () => {
+		localStorage.clear();
+		put.mockResolvedValue(answer());
+		post.mockResolvedValue({ data: { id: 'u2', email: OTHER_EMAIL } });
+		render(page());
+
+		enterPassword('correct horse');
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
 	});
 });
