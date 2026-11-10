@@ -381,6 +381,11 @@ class AuthStore {
 		}
 	}
 
+	/** Whether this tab still holds an app user other than `user`, so that adopting `user` switches accounts. */
+	public holdsAnotherAppUser(user: User): boolean {
+		return this.heldAppUser !== null && this.heldAppUser !== userIdentity(user);
+	}
+
 	/**
 	 * A `/User/current` answer: the current session's fuller record, not a new sign-in. So, like a check, it writes no
 	 * marker this tab already holds and leaves the sign-in revision alone.

@@ -504,9 +504,7 @@ export function VerifyEmail() {
 		}
 	}, [completeSignIn, isCurrent]);
 
-	const pickUpSession = useCallback(async (id: number) => {
-		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
-		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
+	const pickUpSession = useCallback(async (id: number, userId: string, authUnchanged: () => boolean) => {
 		let user;
 		try {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
@@ -521,10 +519,8 @@ export function VerifyEmail() {
 		if (!isCurrent(id)) {
 			return;
 		}
-		if (
-			authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
-			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision
-		) {
+		// Another tab can sign this browser into someone else between the verify and this request.
+		if (authUnchanged() && user.id === userId) {
 			await enterApp(id, user);
 		} else {
 			setSessionLost(true);
@@ -534,6 +530,12 @@ export function VerifyEmail() {
 	const submit = useCallback(
 		(request: VerifyEmailRequest) => {
 			const id = ++attempt.current;
+			// Read before sending: a sign-out or another sign-in while the request is out supersedes its answer.
+			const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+			const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
+			const authUnchanged = () =>
+				authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
+				&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision;
 			setSessionLost(false);
 			setSignInError(undefined);
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
@@ -551,14 +553,21 @@ export function VerifyEmail() {
 					return;
 				}
 				clearSignUpBrowserProof(response.email);
-				if (opensSession(response)) {
-					void pickUpSession(id);
+				if (!authUnchanged()) {
+					setSessionLost(true);
+				} else if (opensSession(response)) {
+					void pickUpSession(id, response.userId, authUnchanged);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					logIn({ email: response.email, password: sent.password }, {
 						onSuccess: (user) => {
-							if (isCurrent(id)) {
+							if (!isCurrent(id)) {
+								return;
+							}
+							if (authUnchanged()) {
 								void enterApp(id, user);
+							} else {
+								setSessionLost(true);
 							}
 						},
 						onError: (loginError) => {

@@ -5,8 +5,8 @@ import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useCloudSignIn } from './useCloudSignIn';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useCloudSignIn, useCompleteCloudSignIn } from './useCloudSignIn';
 
 // One shared apiClient mock backs both the login POST and the resend POST.
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -30,7 +30,9 @@ vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
 import { apiClient } from '@/config/apiClient';
-import { mutationErrorHandler } from '@/react-query/queryClient';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import type { User } from '@/integrations/api/api.patch';
+import { mutationErrorHandler, queryClient as appQueryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from '../describeAuthFailure';
 
@@ -187,5 +189,46 @@ describe('useCloudSignIn — retryable failures', () => {
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
 		await waitFor(() => expect(result.current.submitError).toBeUndefined());
+	});
+});
+
+// The verify page lets a signed-in visitor in, and the session central-manager opens for the verified account has
+// replaced theirs in this browser.
+describe('useCompleteCloudSignIn — taking in a different account', () => {
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
+	const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+
+	function appWrapper({ children }: PropsWithChildren) {
+		return <QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>;
+	}
+
+	function resetApp() {
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+	}
+
+	beforeEach(resetApp);
+	afterEach(resetApp);
+
+	it('clears the previous account 19s cached data before taking in another account', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		appQueryClient.setQueryData(['ada-only'], 'ada data');
+
+		await act(() => result.current(GRACE));
+
+		expect(appQueryClient.getQueryData(['ada-only'])).toBeUndefined();
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(GRACE);
+		expect(navigate).toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps the cache when the same account is taken in again', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		appQueryClient.setQueryData(['ada-only'], 'ada data');
+
+		await act(() => result.current(ADA));
+
+		expect(appQueryClient.getQueryData(['ada-only'])).toBe('ada data');
 	});
 });

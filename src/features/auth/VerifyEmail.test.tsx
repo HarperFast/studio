@@ -346,6 +346,35 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(screen.getByText('Sign in to continue.')).toBeTruthy();
 	});
 
+	it.each(['getSignOutGeneration', 'getSignInRevision'] as const)(
+		'ignores an answer that arrives after a sign-out or another sign-in (%s moved while it was out)',
+		async (counter) => {
+			let resolve!: (value: unknown) => void;
+			put.mockReturnValue(new Promise((r) => (resolve = r)));
+			const moved = vi.spyOn(authStore, counter).mockReturnValue(1);
+			render(page());
+			await waitFor(() => expect(put).toHaveBeenCalled());
+
+			moved.mockReturnValue(2);
+			await act(async () => resolve(answer('verified', true)));
+
+			expect(fetchCurrentUser).not.toHaveBeenCalled();
+			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+			expect(navigate).not.toHaveBeenCalled();
+			expect(screen.getByText('Sign in to continue.')).toBeTruthy();
+		},
+	);
+
+	it('does not take them into an account other than the one it verified', async () => {
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue({ id: 'u2', email: OTHER_EMAIL });
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
 	it('still takes them into the app when sign-in analytics throw', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		fetchCurrentUser.mockResolvedValue(USER);
@@ -851,6 +880,38 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
 			expect(navigate).not.toHaveBeenCalled();
 			expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+		});
+
+		it('does not sign in when a sign-out lands while the verify is out', async () => {
+			let resolve!: (value: unknown) => void;
+			put.mockReturnValue(new Promise((r) => (resolve = r)));
+			const generation = vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(1);
+			render(page());
+			enterPassword('correct horse');
+			await waitFor(() => expect(put).toHaveBeenCalled());
+
+			generation.mockReturnValue(2);
+			await act(async () => resolve(answer()));
+
+			expect(post).not.toHaveBeenCalled();
+			expect(screen.getByText('Sign in to continue.')).toBeTruthy();
+		});
+
+		it('does not take them in when a sign-out lands while the sign-in is out', async () => {
+			put.mockResolvedValue(answer());
+			let resolveLogin!: (value: unknown) => void;
+			post.mockReturnValue(new Promise((r) => (resolveLogin = r)));
+			const generation = vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(1);
+			render(page());
+			enterPassword('correct horse');
+			await waitFor(() => expect(post).toHaveBeenCalled());
+
+			generation.mockReturnValue(2);
+			await act(async () => resolveLogin({ data: USER }));
+
+			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+			expect(navigate).not.toHaveBeenCalled();
+			expect(screen.getByText('Sign in to continue.')).toBeTruthy();
 		});
 
 		it('asks them to sign in when taking the signed-in user into the app throws', async () => {
