@@ -14,7 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
 	DEFAULT_FRAGMENT_LENGTH,
 	DEFAULT_MAX_FRAGMENTS,
+	emptyFullTextConfig,
 	FULL_TEXT_ANALYZER,
+	FULL_TEXT_DIRECTIVE,
+	FULL_TEXT_TYPE,
 	FullTextConfig,
 	fullTextSourceCandidates,
 	FullTextSourceKind,
@@ -48,8 +51,12 @@ export function FullTextIndexEditor({
 	onChange: (field: FieldModel) => void;
 	onEnableAudit: () => void;
 }) {
-	const config = readFullTextConfig(field);
+	// A bare `FullText` field is a declaration not started yet, not one Studio can't read.
+	const config = findDirective(field.directives, FULL_TEXT_DIRECTIVE)
+		? readFullTextConfig(field)
+		: emptyFullTextConfig();
 	const audit = boolArgValue(getArgValue(table.directives, 'table', 'audit'));
+	const extras = shapeExtras(field);
 
 	return (
 		<div className="mt-3 flex flex-col gap-4 border-l-2 pl-3">
@@ -58,6 +65,14 @@ export function FullTextIndexEditor({
 				<code>matches_phrase</code>, <code>matches_prefix</code>{' '}
 				and the other full-text comparators. Harper builds it only for a RocksDB table with audit on.
 			</p>
+
+			{extras.length > 0 && (
+				<ShapeNotice
+					extras={extras}
+					readOnly={readOnly}
+					onRepair={() => onChange(withPlainShape(field))}
+				/>
+			)}
 
 			{audit !== true && <AuditNotice auditOff={audit === false} readOnly={readOnly} onEnableAudit={onEnableAudit} />}
 
@@ -72,6 +87,56 @@ export function FullTextIndexEditor({
 				)
 				: <UnreadableDeclaration field={field} />}
 		</div>
+	);
+}
+
+/**
+ * What keeps `field` from the one shape Harper accepts, exactly `FullText` with exactly one
+ * `@fullText`: the panel has no Array, Required or directive controls to undo these with.
+ */
+function shapeExtras(field: FieldModel): string[] {
+	const extras: string[] = [];
+	if (field.type.kind === 'list') {
+		extras.push('Array');
+	}
+	if (field.type.nonNull) {
+		extras.push('Required');
+	}
+	if (field.directives.filter(directive => directive.name === FULL_TEXT_DIRECTIVE).length > 1) {
+		extras.push('a second @fullText');
+	}
+	for (const directive of field.directives) {
+		if (directive.name !== FULL_TEXT_DIRECTIVE) {
+			extras.push(`@${directive.name}`);
+		}
+	}
+	return extras;
+}
+
+/** `field` as a plain `FullText` field, keeping its first `@fullText` (or starting one). */
+function withPlainShape(field: FieldModel): FieldModel {
+	const declaration = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
+	return {
+		...field,
+		type: { kind: 'named', name: FULL_TEXT_TYPE, nonNull: false },
+		directives: declaration ? [declaration] : writeFullTextConfig([], emptyFullTextConfig()),
+	};
+}
+
+function ShapeNotice({ extras, readOnly, onRepair }: { extras: string[]; readOnly: boolean; onRepair: () => void }) {
+	return (
+		<Alert variant="destructive">
+			<TriangleAlertIcon />
+			<AlertTitle>Harper accepts only a plain FullText field</AlertTitle>
+			<AlertDescription>
+				<p>This one also has {extras.join(', ')}. Harper refuses the whole schema until they're gone.</p>
+				{!readOnly && (
+					<Button type="button" size="sm" variant="defaultOutline" className="mt-2" onClick={onRepair}>
+						Remove {extras.length === 1 ? 'it' : 'them'}
+					</Button>
+				)}
+			</AlertDescription>
+		</Alert>
 	);
 }
 

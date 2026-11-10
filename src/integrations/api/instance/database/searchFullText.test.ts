@@ -1,6 +1,13 @@
 import { FullTextIndexDescription } from '@/integrations/api/api.patch';
-import { describe, expect, it } from 'vitest';
-import { buildFullTextSearchRequest, FULL_TEXT_QUERY_MODES, supportedQueryModes } from './searchFullText';
+import type { AxiosInstance } from 'axios';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	buildFullTextSearchRequest,
+	FULL_TEXT_QUERY_MODES,
+	FullTextSearchStreamError,
+	searchFullText,
+	supportedQueryModes,
+} from './searchFullText';
 
 /** `describe_table`'s `full_text_indexes[0]` from a real Harper 5.3.6, for the docs' Product table. */
 const INDEX: FullTextIndexDescription = {
@@ -94,5 +101,22 @@ describe('buildFullTextSearchRequest sources', () => {
 		const visibleOnly = { ...INDEX, fields: [{ name: 'title', weight: 3 }] };
 		const [condition] = buildFullTextSearchRequest({ ...BASE, index: visibleOnly }).conditions;
 		expect(condition.fields).toEqual(['title']);
+	});
+});
+
+describe('searchFullText when Harper fails partway', () => {
+	const post = (data: unknown) => ({ post: vi.fn(async () => ({ data })) }) as unknown as AxiosInstance;
+	const params = { ...BASE };
+
+	it('fails the search on the trailing { error } Harper streams once its 200 has begun', async () => {
+		const client = post([{ id: 'shoe-1', $score: 4.3 }, { error: "Full-text index 'catalogSearch' is not ready" }]);
+		await expect(searchFullText({ ...params, instanceClient: client })).rejects.toThrow(
+			new FullTextSearchStreamError("Full-text index 'catalogSearch' is not ready"),
+		);
+	});
+
+	it('keeps a hit that merely has an attribute named error', async () => {
+		const hits = [{ id: 'e1', error: 'disk full', $score: 1.2 }];
+		await expect(searchFullText({ ...params, instanceClient: post(hits) })).resolves.toEqual(hits);
 	});
 });

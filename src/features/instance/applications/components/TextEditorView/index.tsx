@@ -13,7 +13,7 @@ import {
 	getComponentFileQueryKey,
 	type GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
@@ -149,7 +149,9 @@ export function TextEditorView() {
 		configureHarperLanguageSupport(monaco);
 	}, []);
 
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	// Only GraphQL completion varies by release, so other files never ask.
+	const isGraphql = language === 'graphql';
+	const { data: registrationInfo } = useQuery({ ...getHarperVersionProbeOptions(instanceParams), enabled: isGraphql });
 	useEffect(() => {
 		setHarperGraphqlVersion(registrationInfo?.version);
 		// Unset on leaving, so the next instance's editor never completes for this one's release.

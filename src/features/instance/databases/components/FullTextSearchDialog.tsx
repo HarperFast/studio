@@ -20,8 +20,11 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { HighlightedExcerpt, highlightedExcerpts } from '@/features/instance/databases/functions/fullTextHighlights';
 import { FullTextIndexDescription } from '@/integrations/api/api.patch';
 import {
+	FULL_TEXT_QUERY_MODES,
 	FullTextComparator,
 	FullTextHit,
+	FullTextSearchParams,
+	FullTextSearchStreamError,
 	searchFullText,
 	supportedQueryModes,
 } from '@/integrations/api/instance/database/searchFullText';
@@ -33,6 +36,21 @@ import { RefreshCwIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
 
 const RESULT_LIMITS = [10, 20, 50, 100];
+
+type FailureKind = 'refused' | 'stopped' | 'unanswered';
+
+const FAILURE_TITLE: Record<FailureKind, string> = {
+	refused: 'Harper refused the search',
+	stopped: 'Harper stopped the search partway',
+	unanswered: 'The search got no answer',
+};
+
+function failureKind(error: unknown): FailureKind {
+	if (error instanceof FullTextSearchStreamError) {
+		return 'stopped';
+	}
+	return isAxiosError(error) && error.response ? 'refused' : 'unanswered';
+}
 
 const READINESS: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
 	ready: { label: 'Ready', variant: 'success' },
@@ -143,9 +161,9 @@ function SearchTester({
 		mutationFn: searchFullText,
 		meta: { skipGlobalErrorToast: true },
 		onError: (error) => {
-			// Harper refusing the search (a 4xx, or 503 while the index rebuilds) is what a tester is for, so it
-			// stays out of RUM; a failure with no answer at all is reported as any other failure would be.
-			if (isAxiosError(error) && error.response) {
+			// Harper refusing the search (a 4xx, a 503 while the index rebuilds, or a failure partway through) is
+			// what a tester is for, so it stays out of RUM; a failure with no answer at all is reported as usual.
+			if (failureKind(error) !== 'unanswered') {
 				console.debug('Full-text search refused', error);
 			} else {
 				console.error(error);
@@ -332,9 +350,7 @@ function SearchTester({
 				<Alert variant="destructive">
 					<TriangleAlertIcon />
 					<AlertTitle>
-						{isAxiosError(search.error) && search.error.response
-							? 'Harper refused the search'
-							: 'The search got no answer'}
+						{FAILURE_TITLE[failureKind(search.error)]}
 					</AlertTitle>
 					<AlertDescription>{describeError(search.error).message}</AlertDescription>
 				</Alert>
@@ -344,30 +360,61 @@ function SearchTester({
 			{search.isSuccess && search.variables.index.name === index.name && (
 				<SearchResults
 					hits={search.data}
-					index={search.variables.index}
+					searched={search.variables}
+					edited={searchEdited(search.variables, { comparator, query, fields, waitForRecentWrites, limit })}
 					primaryKey={primaryKey}
-					limit={search.variables.limit}
 				/>
 			)}
 		</div>
 	);
 }
 
-function SearchResults({ hits, index, primaryKey, limit }: {
+type SearchInputs = Pick<FullTextSearchParams, 'comparator' | 'query' | 'fields' | 'waitForRecentWrites' | 'limit'>;
+
+/** Whether the form no longer says what the results on screen were searched for. */
+function searchEdited(searched: SearchInputs, current: SearchInputs): boolean {
+	return searched.query !== current.query
+		|| searched.comparator !== current.comparator
+		|| searched.waitForRecentWrites !== current.waitForRecentWrites
+		|| searched.limit !== current.limit
+		|| searched.fields.join('\0') !== current.fields.join('\0');
+}
+
+/** `“trail running” (Phrase, in title)`: what a set of results answers, said beside them. */
+function describeSearch(searched: SearchInputs & { index: FullTextIndexDescription }): string {
+	const mode = FULL_TEXT_QUERY_MODES.find(candidate => candidate.comparator === searched.comparator)?.label
+		?? searched.comparator;
+	const scope = searched.fields.length > 0 ? `, in ${searched.fields.join(', ')}` : '';
+	return `“${searched.query}” (${mode}${scope})`;
+}
+
+function SearchResults({ hits, searched, edited, primaryKey }: {
 	hits: FullTextHit[];
-	index: FullTextIndexDescription;
+	searched: FullTextSearchParams;
+	/** The form has changed since, so these answer an earlier search. */
+	edited: boolean;
 	primaryKey: string | undefined;
-	limit: number;
 }) {
+	const { index, limit } = searched;
+	const forWhat = describeSearch(searched);
+	const editedNote = edited && (
+		<span className="block">These are for your last search. Search again to see results for your changes.</span>
+	);
 	if (hits.length === 0) {
-		return <p className="text-sm text-muted-foreground">No records match.</p>;
+		return (
+			<p className="text-sm text-muted-foreground">
+				No records match {forWhat}.
+				{editedNote}
+			</p>
+		);
 	}
 	return (
 		<section aria-label="Results" className="flex flex-col gap-2">
 			<p className="text-xs text-muted-foreground">
 				{hits.length === limit
-					? `The top ${hits.length} matches, best first. There may be more.`
-					: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}, best first.`}
+					? `The top ${hits.length} matches for ${forWhat}, best first. There may be more.`
+					: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} for ${forWhat}, best first.`}
+				{editedNote}
 			</p>
 			<ol className="flex flex-col gap-2">
 				{hits.map((hit, rank) => (

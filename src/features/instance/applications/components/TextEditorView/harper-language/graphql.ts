@@ -61,6 +61,22 @@ function skipStringOrComment(text: string, i: number): number {
 	return j >= text.length ? -1 : j + 1;
 }
 
+/** Whether the text ends inside a string or a comment, where a word is prose, not schema. */
+function insideStringOrComment(text: string): boolean {
+	let i = 0;
+	while (i < text.length) {
+		if (text[i] === '#' || text[i] === '"') {
+			i = skipStringOrComment(text, i);
+			if (i < 0) {
+				return true;
+			}
+		} else {
+			i++;
+		}
+	}
+	return false;
+}
+
 /**
  * The directive call the cursor sits inside, and how deep: `undefined` when it's in none, and `none`
  * inside a string or comment. Reads more than the cursor's line, because Harper's docs spread a
@@ -247,6 +263,9 @@ export type GraphqlHoverTarget =
 export function detectHoverTarget(
 	{ word, charBeforeWord, textBeforeWord }: { word: string; charBeforeWord: string; textBeforeWord: string },
 ): GraphqlHoverTarget {
+	if (insideStringOrComment(textBeforeWord)) {
+		return undefined;
+	}
 	if (charBeforeWord === '@') {
 		const directive = findDirective(word);
 		return directive ? { kind: 'directive', directive } : undefined;

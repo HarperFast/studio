@@ -208,7 +208,7 @@ describe('FullTextSearchDialog search', () => {
 		expect([...first.querySelectorAll('mark')].map(mark => mark.textContent)).toEqual(['Waterproof', 'trail']);
 		// A hit with nothing highlighted still shows what it matched in.
 		expect(within(second).getByText('Trail mix')).toBeTruthy();
-		expect(within(results).getByText('2 matches, best first.')).toBeTruthy();
+		expect(within(results).getByText('2 matches for “waterproof trail” (Any term), best first.')).toBeTruthy();
 	});
 
 	it('searches only the chosen sources, in the chosen mode, waiting for recent writes when asked', async () => {
@@ -265,7 +265,7 @@ describe('FullTextSearchDialog search', () => {
 		server.answer = () => [];
 		renderDialog();
 		await search('zzz');
-		expect(await screen.findByText('No records match.')).toBeTruthy();
+		expect(await screen.findByText('No records match “zzz” (Any term).')).toBeTruthy();
 	});
 });
 
@@ -387,5 +387,34 @@ describe('FullTextSearchDialog refusal from a dropped index', () => {
 			rerender({ indexes: [INDEX] });
 		});
 		expect(screen.queryByText('Harper refused the search')).toBeNull();
+	});
+});
+
+describe('FullTextSearchDialog results and their search', () => {
+	it('says Harper stopped a search partway, without reporting it as a Studio error or showing the partial hits', async () => {
+		const consoleError = vi.spyOn(console, 'error');
+		const toastError = vi.spyOn(toast, 'error');
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		server.answer = () => [HITS[0], { error: "Full-text index 'catalogSearch' is not ready" }];
+		renderDialog();
+		await search('trail');
+		expect(await screen.findByText('Harper stopped the search partway')).toBeTruthy();
+		expect(screen.getByText("Full-text index 'catalogSearch' is not ready")).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+		expect(consoleError).not.toHaveBeenCalled();
+		expect(toastError).not.toHaveBeenCalled();
+	});
+
+	it('names the search the results answer, and says so once the form changes', async () => {
+		renderDialog();
+		fireEvent.click(screen.getByRole('checkbox', { name: /description/ }));
+		fireEvent.click(screen.getByRole('checkbox', { name: /tags/ }));
+		await search('waterproof trail');
+		const results = await screen.findByRole('region', { name: 'Results' });
+		expect(within(results).getByText(/2 matches for “waterproof trail” \(Any term, in title\), best first\./))
+			.toBeTruthy();
+		expect(within(results).queryByText(/for your last search/)).toBeNull();
+		fireEvent.change(screen.getByLabelText('Query'), { target: { value: 'road' } });
+		expect(within(results).getByText(/These are for your last search/)).toBeTruthy();
 	});
 });

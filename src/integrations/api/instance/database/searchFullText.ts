@@ -130,6 +130,27 @@ export function buildFullTextSearchRequest(
 	};
 }
 
+/**
+ * Harper failing a search after its results began to stream. The response is already a 200 by then, so
+ * Harper ends the array with `{ error }` instead (harper `server/serverHelpers/JSONStream.ts`, v5.3.6):
+ * the hits before it are a partial answer, and the failure is Harper's own words.
+ */
+export class FullTextSearchStreamError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'FullTextSearchStreamError';
+	}
+}
+
+/** The trailing `{ error }` Harper streams in place of further results. A hit always carries `$score`. */
+function streamedError(hit: FullTextHit | undefined): string | undefined {
+	if (!hit || typeof hit !== 'object' || Object.keys(hit).length !== 1) {
+		return undefined;
+	}
+	const { error } = hit as { error?: unknown };
+	return typeof error === 'string' ? error : undefined;
+}
+
 export async function searchFullText({ instanceClient, ...params }: FullTextSearchParams): Promise<FullTextHit[]> {
 	const { data } = await instanceClient.post<FullTextHit[]>('/', buildFullTextSearchRequest(params), {
 		// Harper answers 503 while an index rebuilds (`IndexRebuildingError`), and the gateway retry would
@@ -137,5 +158,9 @@ export async function searchFullText({ instanceClient, ...params }: FullTextSear
 		// can search again, so it is sent once. (The client's 60-second timeout covers the longest wait.)
 		skipGatewayRetry: true,
 	});
+	const failure = Array.isArray(data) ? streamedError(data.at(-1)) : undefined;
+	if (failure !== undefined) {
+		throw new FullTextSearchStreamError(failure);
+	}
 	return data;
 }

@@ -292,3 +292,15 @@ describe('declarationStartLine inside a description at column 0', () => {
 		expect(declarationStartLine(lineNumber => lines[lineNumber - 1], lines.length)).toBe(1);
 	});
 });
+
+describe('hover in prose', () => {
+	it('shows no card for a scalar or directive named inside a comment or a string', () => {
+		expect(detectHoverTarget({ word: 'String', charBeforeWord: ' ', textBeforeWord: 'type T {\n\tname: String # a ' }))
+			.toBeUndefined();
+		expect(detectHoverTarget({ word: 'Long', charBeforeWord: ' ', textBeforeWord: 'type T {\n\t"""\n\tthe ' }))
+			.toBeUndefined();
+		expect(detectHoverTarget({ word: 'table', charBeforeWord: '@', textBeforeWord: '# uses @' })).toBeUndefined();
+		expect(detectHoverTarget({ word: 'Long', charBeforeWord: ' ', textBeforeWord: 'type T {\n\tcount: ' })?.kind)
+			.toBe('scalar');
+	});
+});

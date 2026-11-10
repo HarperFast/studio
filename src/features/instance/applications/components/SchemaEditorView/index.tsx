@@ -20,7 +20,7 @@ import { parseSchema } from '@/features/instance/applications/lib/schema/parseSc
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
 import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
@@ -65,7 +65,7 @@ function LoadedSchemaEditorView({
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const { data: registrationInfo } = useQuery(getHarperVersionProbeOptions(instanceParams));
 
 	const buffer = updatedFileContent ?? savedContents;
 

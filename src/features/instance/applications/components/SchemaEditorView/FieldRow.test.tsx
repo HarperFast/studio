@@ -262,3 +262,36 @@ describe('FieldRow synonym replacements', () => {
 		expect(readFullTextConfig(latest)?.synonyms[0].replacements).toEqual(['trainer', 'sneaker']);
 	});
 });
+
+describe('FieldRow full-text shapes Harper refuses', () => {
+	it('treats a bare FullText field as an index not started yet, and starts @fullText on the first source', () => {
+		const table = tableOf(`type T @table(audit: true) {
+	id: ID @primaryKey
+	body: String
+	search: FullText
+}`);
+		const { changed } = renderRow({ table, field: fieldOf(table, 'search') });
+		expect(screen.queryByText(/can’t keep/)).toBeNull();
+		fireEvent.change(screen.getByRole('combobox', { name: 'Add a source field' }), { target: { value: 'body' } });
+		expect(readFullTextConfig(changed())?.fields).toEqual([{ name: 'body' }]);
+	});
+
+	it('offers to remove what a plain FullText field can’t have, keeping its declaration', () => {
+		const table = tableOf(`type T @table(audit: true) {
+	id: ID @primaryKey
+	body: String
+	search: [FullText]! @indexed @fullText(fields: [{ name: "body", weight: 2 }])
+}`);
+		const { changed } = renderRow({ table, field: fieldOf(table, 'search') });
+		expect(screen.getByText(/also has Array, Required, @indexed/)).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: 'Remove them' }));
+		expect(changed().type).toEqual({ kind: 'named', name: 'FullText', nonNull: false });
+		expect(changed().directives.map(directive => directive.name)).toEqual(['fullText']);
+		expect(readFullTextConfig(changed())?.fields).toEqual([{ name: 'body', weight: 2 }]);
+	});
+
+	it('says nothing about shape for a plain FullText field', () => {
+		renderRow();
+		expect(screen.queryByText(/Harper accepts only a plain FullText field/)).toBeNull();
+	});
+});
