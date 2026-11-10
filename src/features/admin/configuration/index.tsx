@@ -21,8 +21,7 @@ import { useMemo, useState } from 'react';
 
 export type ParsedValue = { ok: true; value: unknown; json: string } | { ok: false; error: string };
 
-// The most arrays and objects one value may nest, counted explicitly: Node 26's V8 parses and
-// stringifies 100,000 levels without throwing, so the engine's stack can't be the limit.
+// Counted here because the engine's stack can't be the limit: some engines serialize 100,000 levels without throwing.
 export const MAX_CONFIG_DEPTH = 1_000;
 
 // JSON.parse turns 1e400 into Infinity, which serializes back as null, and rounds integers past 2^53.
