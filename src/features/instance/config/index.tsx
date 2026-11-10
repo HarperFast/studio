@@ -1,11 +1,13 @@
 import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
@@ -20,6 +22,7 @@ import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
 	CalendarClockIcon,
+	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -68,6 +71,9 @@ export function ConfigIndex() {
 		getClusterInfoQueryOptions(clusterId, false),
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
+	// On a cluster route `version` is whichever member answered first; the page gates each member on its own.
+	const backupsSupported = supportsBackups(version)
+		|| (!params.instanceId && anyMemberSupportsBackups(cluster?.instances));
 
 	// Overview lives at the top (rendered by the nav bars below). Everything else — the built-in entries and
 	// any a cluster's components add — is sorted by name, so a component's entry lands where a reader
@@ -76,6 +82,7 @@ export function ConfigIndex() {
 	const entries: ConfigMenuEntry[] = [
 		...(canManage
 			? [
+				backupsSupported && { name: 'Backups', page: 'config/backups', icon: <DatabaseBackupIcon /> },
 				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
 				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
 				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },

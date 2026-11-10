@@ -4,7 +4,7 @@ import { Link, useParams } from '@tanstack/react-router';
 import { shortDeploymentId } from '../functions/deploymentSource';
 import { StagedReleaseState } from '../functions/stagedRelease';
 
-export function DeploymentLink({ deployment }: { deployment: Deployment }) {
+export function DeploymentLink({ deployment }: { deployment: Pick<Deployment, 'deployment_id'> }) {
 	const params: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({ strict: false });
 	return (
 		<Link

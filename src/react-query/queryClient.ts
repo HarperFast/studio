@@ -1,4 +1,5 @@
 import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
+import { BackupJobUnreportedError } from '@/integrations/api/instance/backups/backups';
 import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -37,6 +38,9 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	}
 	if (rawErr instanceof UnconfirmedWriteError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, `${rawErr.message} ${UNCONFIRMED_WRITE_ADVICE}`);
+	}
+	if (rawErr instanceof BackupJobUnreportedError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
 	}
 	return undefined;
 }
