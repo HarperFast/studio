@@ -252,6 +252,21 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(readSignUpBrowserProofFor(OTHER_EMAIL)).toMatchObject({ proof: 'grace-proof' });
 	});
 
+	it('does not resend with the account’s own proof after a sign-out lands', async () => {
+		storeProof(OTHER_EMAIL, 'grace-proof', Date.now() + 1_000);
+		let resolve!: (value: unknown) => void;
+		put.mockReturnValue(new Promise((r) => (resolve = r)));
+		const generation = vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(1);
+		render(page());
+		await waitFor(() => expect(put).toHaveBeenCalled());
+
+		generation.mockReturnValue(2);
+		await act(async () => resolve(answer('password_required', false)));
+
+		expect(put).toHaveBeenCalledTimes(1);
+		expect(screen.getByText('Enter the password you chose when you signed up.')).toBeTruthy();
+	});
+
 	it('labels the password form with the link’s account, not another sign-up’s, and keeps that one’s proof', async () => {
 		localStorage.clear();
 		storeProof(OTHER_EMAIL, 'grace-proof');
@@ -912,6 +927,18 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
 			expect(navigate).not.toHaveBeenCalled();
 			expect(screen.getByText('Sign in to continue.')).toBeTruthy();
+		});
+
+		it('does not take them into an account other than the one it verified', async () => {
+			put.mockResolvedValue(answer());
+			post.mockResolvedValue({ data: { id: 'u2', email: OTHER_EMAIL } });
+			render(page());
+
+			enterPassword('correct horse');
+
+			expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+			expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+			expect(navigate).not.toHaveBeenCalled();
 		});
 
 		it('asks them to sign in when taking the signed-in user into the app throws', async () => {

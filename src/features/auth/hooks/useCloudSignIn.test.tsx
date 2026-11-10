@@ -210,7 +210,7 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 	beforeEach(resetApp);
 	afterEach(resetApp);
 
-	it('clears the previous account 19s cached data before taking in another account', async () => {
+	it('clears the previous account’s cached data before taking in another account', async () => {
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 		await act(() => result.current(ADA));
 		appQueryClient.setQueryData(['ada-only'], 'ada data');

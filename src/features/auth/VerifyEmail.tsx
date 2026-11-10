@@ -543,6 +543,11 @@ export function VerifyEmail() {
 					return;
 				}
 				setAccountEmail(response.email);
+				// Before the resend below too: it can open a session as well.
+				if (!authUnchanged()) {
+					setSessionLost(true);
+					return;
+				}
 				const own = readSignUpBrowserProofFor(response.email);
 				if (
 					response.outcome === 'password_required' && sent.browserProof !== undefined && own
@@ -553,9 +558,7 @@ export function VerifyEmail() {
 					return;
 				}
 				clearSignUpBrowserProof(response.email);
-				if (!authUnchanged()) {
-					setSessionLost(true);
-				} else if (opensSession(response)) {
+				if (opensSession(response)) {
 					void pickUpSession(id, response.userId, authUnchanged);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
@@ -564,7 +567,7 @@ export function VerifyEmail() {
 							if (!isCurrent(id)) {
 								return;
 							}
-							if (authUnchanged()) {
+							if (authUnchanged() && user.id === response.userId) {
 								void enterApp(id, user);
 							} else {
 								setSessionLost(true);
