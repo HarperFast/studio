@@ -41,3 +41,16 @@ describe('filterableStatuses', () => {
 		expect(statuses).toContain('staged');
 	});
 });
+
+describe('validateDeploymentsSearch commit', () => {
+	const SHA = '0123456789abcdef0123456789abcdef01234567';
+
+	it('keeps a commit as given, full or abbreviated, since Harper compares it exactly', () => {
+		expect(validateDeploymentsSearch({ sha: ` ${SHA} ` }).sha).toBe(SHA);
+		expect(validateDeploymentsSearch({ sha: 'ABCDEF0' }).sha).toBe('ABCDEF0');
+	});
+
+	it.each([['a branch', 'main'], ['too short', 'abc12'], ['not text', [SHA]]])('drops %s', (_label, sha) => {
+		expect(validateDeploymentsSearch({ sha }).sha).toBeUndefined();
+	});
+});

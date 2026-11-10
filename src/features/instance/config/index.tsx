@@ -1,8 +1,10 @@
 import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
@@ -17,6 +19,7 @@ import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
 	CalendarClockIcon,
+	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -59,10 +62,25 @@ export function ConfigIndex() {
 		getClusterInfoQueryOptions(clusterId, false),
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
+	// On a cluster route `version` is whichever member answered first; the page gates each member on its own.
+	const backupsSupported = supportsBackups(version)
+		|| (!params.instanceId && anyMemberSupportsBackups(cluster?.instances));
 
 	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
 	const children = canManage && (
 		<>
+			{backupsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/backups')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<DatabaseBackupIcon className="hidden md:inline-block" /> <span className="ms-3">Backups</span>
+					</Link>
+				</li>
+			)}
 			{certsAvailable && (
 				<li>
 					<Link

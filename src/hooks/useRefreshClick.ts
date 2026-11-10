@@ -6,10 +6,19 @@ export function useRefreshClick(refetch: () => Promise<unknown>) {
 	return useCallback(async () => {
 		toast.loading('Refreshing...', { id: 'refreshing' });
 		const startedAt = Date.now();
-		await refetch();
+		let failed = false;
+		try {
+			await refetch();
+		} catch {
+			failed = true;
+		}
 		if (Date.now() - startedAt < 500) {
 			await sleep(500);
 		}
-		toast.success('Refreshed!', { id: 'refreshing' });
+		if (failed) {
+			toast.error("Couldn't refresh everything", { id: 'refreshing' });
+		} else {
+			toast.success('Refreshed!', { id: 'refreshing' });
+		}
 	}, [refetch]);
 }

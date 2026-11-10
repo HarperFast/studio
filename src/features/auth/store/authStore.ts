@@ -381,6 +381,11 @@ class AuthStore {
 		}
 	}
 
+	/** The app user this tab holds, kept through the blanking a check does, until a sign-out. */
+	public getHeldAppUser(): string | null {
+		return this.heldAppUser;
+	}
+
 	/**
 	 * A `/User/current` answer: the current session's fuller record, not a new sign-in. So, like a check, it writes no
 	 * marker this tab already holds and leaves the sign-in revision alone.

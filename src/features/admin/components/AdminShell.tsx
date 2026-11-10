@@ -2,7 +2,7 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, UsersIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, SlidersHorizontalIcon, UsersIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -33,6 +33,8 @@ const items: Array<
 		permission: 'user:status',
 		alsoNeeds: ['user:read', 'cluster:read'],
 	},
+	// Gated on write, not read: every staff role can read Configuration, but the page is for editing it.
+	{ to: '/admin/configuration', label: 'Configuration', icon: SlidersHorizontalIcon, permission: 'config:write' },
 	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
 	// super_user cannot mint a staff credential.
 	{

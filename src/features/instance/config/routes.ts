@@ -1,3 +1,4 @@
+import { ConfigBackupsIndex } from '@/features/instance/config/backups';
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigDeployFromGitHubIndex } from '@/features/instance/config/deployFromGitHub';
 import { validateDeployFromGitHubSearch } from '@/features/instance/config/deployFromGitHub/deployFromGitHubSearch';
@@ -33,6 +34,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		head: () => ({ meta: [{ title: 'Overview — Harper Fabric' }] }),
 		component: ConfigOverviewIndex,
 		loader: registrationInfoLoader,
+	});
+
+	const instanceConfigBackupsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'backups',
+		head: () => ({ meta: [{ title: 'Backups — Harper Fabric' }] }),
+		component: ConfigBackupsIndex,
 	});
 
 	const instanceConfigRolesRoute = createRoute({
@@ -162,6 +170,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
+
+		instanceConfigBackupsRoute,
 
 		instanceConfigRolesRoute,
 		instanceConfigRoleRoute,

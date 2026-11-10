@@ -1,3 +1,5 @@
+import type { DeployCertification } from '@/integrations/api/instance/applications/deployOutcome';
+
 /** Lifecycle status of an `hdb_deployment` row (Harper >= 5.1.0). */
 export type DeploymentStatus =
 	| 'pending'
@@ -51,8 +53,33 @@ export interface InstallFingerprint {
 /** One node's outcome of a rolling deploy's activation job (5.4.0+). */
 export interface DeploymentPeerActivation {
 	activated: boolean;
+	/**
+	 * That node's canary verdict, as its `deploy_component` answered it (harper `v5.4.0-beta.2:bin/restart.ts:244`).
+	 * Only a node that took the release has one: a refusal reaches the job as an error, which keeps no verdict.
+	 */
+	certification?: DeployCertification | null;
 	message?: string | null;
 	error?: string | null;
+}
+
+/**
+ * Where a deploy came from (5.4.0+, harper `v5.4.0-beta.2:components/deploymentSource.ts`). `oidc` is attested: the
+ * OIDC exchange verified the CI identity token and `policy` names the trust policy it matched. `declared` is what the
+ * client said about itself, which nothing checked. Harper keeps GitHub's claim names, as strings.
+ */
+export interface DeploymentSource {
+	via: 'oidc' | 'declared';
+	policy?: string;
+	repository?: string;
+	sha?: string;
+	ref?: string;
+	workflow_ref?: string;
+	run_id?: string;
+	run_attempt?: string;
+	actor?: string;
+	environment?: string;
+	/** Declared only: the working tree had uncommitted changes. */
+	dirty?: boolean;
 }
 
 export interface DeploymentPeerResult {
@@ -112,6 +139,7 @@ export interface Deployment {
 	activated_from?: string | null;
 	/** The origin's own install, on a deploy or a stage (5.3.1+); an activation installs nothing. */
 	install_fingerprint?: InstallFingerprint | null;
+	source?: DeploymentSource | null;
 	error?: DeploymentError | null;
 }
 
