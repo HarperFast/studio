@@ -295,3 +295,17 @@ describe('FieldRow full-text shapes Harper refuses', () => {
 		expect(screen.queryByText(/Harper accepts only a plain FullText field/)).toBeNull();
 	});
 });
+
+describe('FieldRow switching to FullText', () => {
+	it('keeps a @fullText that was on the field already, rather than starting over', () => {
+		const table = tableOf(`type T @table(audit: true) {
+	id: ID @primaryKey
+	body: String
+	search: String @indexed @fullText(fields: [{ name: "body", weight: 2 }])
+}`);
+		const { changed } = renderRow({ table, field: fieldOf(table, 'search') });
+		fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), { target: { value: 'FullText' } });
+		expect(changed().directives.map(directive => directive.name)).toEqual(['fullText']);
+		expect(readFullTextConfig(changed())?.fields).toEqual([{ name: 'body', weight: 2 }]);
+	});
+});

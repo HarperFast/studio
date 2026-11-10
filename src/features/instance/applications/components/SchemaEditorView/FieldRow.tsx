@@ -25,7 +25,13 @@ import {
 	setIntArg,
 	setStringArg,
 } from '@/features/instance/applications/lib/schema/mutations';
-import { FieldModel, intArgValue, stringArgValue, TableModel } from '@/features/instance/applications/lib/schema/types';
+import {
+	FieldModel,
+	findDirective,
+	intArgValue,
+	stringArgValue,
+	TableModel,
+} from '@/features/instance/applications/lib/schema/types';
 import { TrashIcon } from 'lucide-react';
 import { availableOn, harperScalars } from '../TextEditorView/harper-language/schema';
 import { Disclosure, FIELD_SURFACE, NumberField, SwitchField, TextField } from './controls';
@@ -52,10 +58,12 @@ const KNOWN_FIELD_DIRECTIVES = new Set([
  */
 function withBaseType(field: FieldModel, base: string, list: boolean, required: boolean): FieldModel {
 	if (base === FULL_TEXT_TYPE) {
+		// A misplaced `@fullText` (on a `String`, say) is the declaration this switch was for.
+		const declaration = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
 		return {
 			...field,
 			type: buildType(FULL_TEXT_TYPE, false, false),
-			directives: writeFullTextConfig([], emptyFullTextConfig()),
+			directives: declaration ? [declaration] : writeFullTextConfig([], emptyFullTextConfig()),
 		};
 	}
 	return {
