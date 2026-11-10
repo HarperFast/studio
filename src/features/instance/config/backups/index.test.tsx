@@ -90,7 +90,16 @@ vi.mock('@/features/cluster/queries/getClusterInfoQuery', async () => {
 	const { queryOptions } = await import('@tanstack/react-query');
 	return {
 		getClusterInfoQueryOptions: (clusterId?: string | false) =>
-			queryOptions({ queryKey: [clusterId], queryFn: async () => state.cluster, enabled: !!clusterId }),
+			queryOptions({
+				queryKey: [clusterId],
+				queryFn: async () => {
+					if (state.cluster instanceof Error) {
+						throw state.cluster;
+					}
+					return state.cluster;
+				},
+				enabled: !!clusterId,
+			}),
 	};
 });
 vi.mock('@/hooks/usePermissions', () => ({
@@ -584,6 +593,16 @@ describe('ConfigBackupsIndex gates', () => {
 			expect(screen.getByText("This Harper's version could not be read, so its backups are not shown.")).toBeTruthy()
 		);
 		expect(screen.queryByText(/runs/)).toBeNull();
+	});
+
+	it('rules nothing out when the member list could not be read', async () => {
+		state.version = '5.1.4';
+		state.cluster = new Error('cluster record unavailable');
+		renderPage();
+		await waitFor(() =>
+			expect(screen.getByText("This cluster's nodes could not be listed, so their backups are not shown.")).toBeTruthy()
+		);
+		expect(screen.queryByText(/Backups need Harper/)).toBeNull();
 	});
 
 	it('shows a partly upgraded cluster, even when an old node answers for it', async () => {

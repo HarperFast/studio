@@ -6,7 +6,7 @@
 import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { getJob, HarperJob } from '@/integrations/api/instance/database/getJob';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
+import { pollUnlessForbidden, retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useMutation } from '@tanstack/react-query';
 
 /**
@@ -122,16 +122,17 @@ export function useCreateBackup() {
 }
 
 interface VerifyBackupArgs extends DatabaseArgs {
-	backupId: number;
+	backup: DatabaseBackup;
 	/** Read every file and compare its checksum, as a restore does, instead of checking only that each file is there. */
 	verifyChecksum: boolean;
 }
 
-export function verifyBackup({ instanceClient, database, backupId, verifyChecksum }: VerifyBackupArgs) {
+export async function verifyBackup({ instanceClient, database, backup, verifyChecksum }: VerifyBackupArgs) {
+	await assertStillListed({ instanceClient, database, backup }, 'verified');
 	return startJob(instanceClient, {
 		operation: 'verify_backup',
 		database,
-		backup_id: backupId,
+		backup_id: backup.backupId,
 		verify_checksum: verifyChecksum,
 	});
 }
@@ -145,27 +146,37 @@ interface DeleteBackupArgs extends DatabaseArgs {
 }
 
 export class BackupChangedError extends Error {
-	constructor(backupId: number) {
+	constructor(backupId: number, action: 'deleted' | 'verified') {
 		super(
-			`Studio couldn't confirm backup ${backupId} is still the one you chose, so nothing was deleted. Check the list and try again.`,
+			`Studio couldn't confirm backup ${backupId} is still the one you chose, so it wasn't ${action}. Check the list and try again.`,
 		);
 		this.name = 'BackupChangedError';
 	}
 }
 
 /**
- * `delete_backup` names a backup by id alone, and Harper reuses ids once every backup is gone, so the id a confirmation
- * showed can name a newer backup by the time it is sent. Re-reading first refuses that; Harper takes no precondition, so
- * the window between the read and the delete stays open.
+ * `delete_backup` and `verify_backup` name a backup by id alone, and Harper reuses ids once every backup is gone, so
+ * the id a dialog showed can name a newer backup by the time it is sent. Re-reading first refuses that. Harper exposes no
+ * identity beyond these fields and takes no precondition, so a replacement taken in the same second with the same size
+ * and file count, or one landing between the read and the request, still gets through.
  */
-export async function deleteBackup({ instanceClient, database, backup }: DeleteBackupArgs): Promise<void> {
+async function assertStillListed(
+	{ instanceClient, database, backup }: InstanceClientConfig & { database: string; backup: DatabaseBackup },
+	action: 'deleted' | 'verified',
+): Promise<void> {
 	const current = (await listBackups({ instanceClient, database })).find(({ backupId }) =>
 		backupId === backup.backupId
 	);
-	// No timestamp on either side proves nothing, and a wrong delete can't be undone.
-	if (backup.timestamp === undefined || current?.timestamp !== backup.timestamp) {
-		throw new BackupChangedError(backup.backupId);
+	// No timestamp on either side proves nothing.
+	const same = backup.timestamp !== undefined && current?.timestamp === backup.timestamp
+		&& current.size === backup.size && current.fileCount === backup.fileCount;
+	if (!same) {
+		throw new BackupChangedError(backup.backupId, action);
 	}
+}
+
+export async function deleteBackup({ instanceClient, database, backup }: DeleteBackupArgs): Promise<void> {
+	await assertStillListed({ instanceClient, database, backup }, 'deleted');
 	await instanceClient.post('/', { operation: 'delete_backup', database, backup_id: backup.backupId });
 }
 
@@ -232,6 +243,8 @@ export function backupJobQueryOptions({ entityId, instanceClient, jobId }: Insta
 			query.state.data && backupJobStatus(query.state.data) !== 'running'
 				? false
 				: pollUnlessForbidden(JOB_POLL_MS)(query),
+		// A 403 ends the follow (BackupJobLine), so it must not sit through retries first.
+		retry: retryUnlessRejected(),
 		// The job line shows a failed poll itself, beside the job it couldn't read.
 		meta: { reportsOwnFailure: true },
 	});

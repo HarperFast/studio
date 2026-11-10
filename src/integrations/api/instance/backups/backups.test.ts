@@ -1,9 +1,10 @@
 import { OUTCOME_UNKNOWN_TITLE } from '@/integrations/api/unansweredWrite';
 import { describeError } from '@/react-query/queryClient';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	BackupChangedError,
+	backupJobQueryOptions,
 	backupJobStatus,
 	BackupJobUnreportedError,
 	backupsRemovedByPurge,
@@ -74,9 +75,17 @@ describe('the job operations', () => {
 	});
 
 	it('verifies one backup, saying whether to compare checksums', async () => {
-		const { instanceClient, post } = client({ job_id: 'j-2' });
-		await verifyBackup({ instanceClient, database: 'data', backupId: 7, verifyChecksum: false });
-		expect(post).toHaveBeenCalledWith('/', {
+		const post = vi.fn(async (_url: string, body: { operation: string }) => ({
+			data: body.operation === 'list_backups' ? [{ backup_id: 7, timestamp: 100 }] : { job_id: 'j-2' },
+		}));
+		const instanceClient = { post } as unknown as AxiosInstance;
+		await verifyBackup({
+			instanceClient,
+			database: 'data',
+			backup: { backupId: 7, timestamp: 100 },
+			verifyChecksum: false,
+		});
+		expect(post).toHaveBeenLastCalledWith('/', {
 			operation: 'verify_backup',
 			database: 'data',
 			backup_id: 7,
@@ -114,6 +123,25 @@ describe('deleteBackup and purgeBackups', () => {
 			).rejects.toBeInstanceOf(BackupChangedError);
 			expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
 		}
+	});
+
+	it('deletes nothing when a same-second replacement differs in size or file count', async () => {
+		for (
+			const rows of [[{ backup_id: 5, timestamp: 100, size: 20 }], [{ backup_id: 5, timestamp: 100, file_count: 9 }]]
+		) {
+			const { instanceClient, post } = listingThen(rows);
+			await expect(deleteBackup({ instanceClient, database: 'data', backup: { backupId: 5, timestamp: 100 } })).rejects
+				.toBeInstanceOf(BackupChangedError);
+			expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
+		}
+	});
+
+	it('verifies nothing once the id names a newer backup', async () => {
+		const { instanceClient, post } = listingThen([{ backup_id: 5, timestamp: 900 }]);
+		await expect(
+			verifyBackup({ instanceClient, database: 'data', backup: { backupId: 5, timestamp: 100 }, verifyChecksum: true }),
+		).rejects.toThrow(/wasn't verified/);
+		expect(post.mock.calls.map((call) => call[1].operation)).toEqual(['list_backups']);
 	});
 
 	it('deletes nothing when neither side has a timestamp to tell two backups apart', async () => {
@@ -157,6 +185,19 @@ describe('backupsRemovedByPurge', () => {
 });
 
 describe('reading a job', () => {
+	it('gives up on a 403 at once, so the job line can free the node, but retries a dropped answer', () => {
+		const { retry } = backupJobQueryOptions({ entityId: 'ins-a', instanceClient: {} as AxiosInstance, jobId: 'j' });
+		const forbidden = new AxiosError('Forbidden', 'ERR_BAD_REQUEST', undefined, undefined, {
+			status: 403,
+			statusText: '',
+			headers: {},
+			config: { headers: new AxiosHeaders() },
+			data: {},
+		});
+		expect(typeof retry === 'function' && retry(0, forbidden)).toBe(false);
+		expect(typeof retry === 'function' && retry(0, new AxiosError('Network Error', 'ERR_NETWORK'))).toBe(true);
+	});
+
 	it('treats only COMPLETE and ERROR as ended', () => {
 		expect(backupJobStatus({ id: 'j', status: 'COMPLETE' })).toBe('complete');
 		expect(backupJobStatus({ id: 'j', status: 'ERROR' })).toBe('failed');

@@ -43,9 +43,10 @@ file attachments.
 
 Harper starts the ids over at 1 once every backup of a database is deleted, so an id alone doesn't name one backup
 over time. A verify result is shown on a row only when both the id and the timestamp match the backup it verified, and
-`deleteBackup` re-reads the list and refuses (`BackupChangedError`) unless the confirmed id still names a backup with the
-same, defined timestamp.
-`delete_backup` takes no precondition, so a delete landing between that read and the request is still possible.
+a delete or verify re-reads the list first (`assertStillListed`), refusing with `BackupChangedError` unless the id still
+names a backup with the same defined timestamp, size and file count. Harper exposes no other identity and takes no
+precondition, so a same-second replacement that matches all three, or one landing between that read and the request,
+still gets through.
 
 ## Keep newest N
 
@@ -65,5 +66,5 @@ ended, with no progress figure, so the page shows "running" with the time it sta
 (the new backup's id from `result.backup_id`, or the failure's `message`). While one of the page's jobs runs on a node,
 every write button on that node is held, Verify included: Harper takes one
 write at a time per database's backups and answers the rest with a 409. A job Studio stops reading (missing for 20 s, or
-a 403, which stops the poll for good) is reported as unknown, never as failed, and releases the hold. So is a create or
+a 403, which stops the poll for good and is never retried first) is reported as unknown, never as failed, and releases the hold. So is a create or
 verify Harper accepted without naming a job (`BackupJobUnreportedError`, in `describeUnknownOutcome`).

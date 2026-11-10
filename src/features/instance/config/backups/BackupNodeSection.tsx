@@ -161,11 +161,19 @@ export function BackupNodeSection({ nodeParams, label, name = label, database }:
 		});
 	};
 
-	const onVerify = ({ backupId, timestamp: backupTimestamp }: DatabaseBackup, verifyChecksum: boolean) => {
+	const onVerify = (backup: DatabaseBackup, verifyChecksum: boolean) => {
 		close();
-		verifyBackup({ ...nodeParams, database, backupId, verifyChecksum }, {
-			onSuccess: ({ jobId }) => follow({ jobId, database, kind: 'verify', backupId, backupTimestamp, verifyChecksum }),
-			// "Backup N not found" means the row is stale: deleted from another tab, or by another administrator.
+		verifyBackup({ ...nodeParams, database, backup, verifyChecksum }, {
+			onSuccess: ({ jobId }) =>
+				follow({
+					jobId,
+					database,
+					kind: 'verify',
+					backupId: backup.backupId,
+					backupTimestamp: backup.timestamp,
+					verifyChecksum,
+				}),
+			// A refusal means the row is stale: deleted or replaced from another tab, or by another administrator.
 			onError: () => refreshList(database),
 		});
 	};

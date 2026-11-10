@@ -73,7 +73,8 @@ function BackupsPage() {
 		const ownSettled = ownVersion !== undefined || versionUnreadable;
 		if (memberVersions?.some(supportsBackups)) {
 			supported = true;
-		} else if (!clusterSettled || !ownSettled) {
+		} else if (!clusterSettled || !ownSettled || (isClusterError && !memberVersions?.length)) {
+			// A member list that couldn't be read may hold an upgraded node, so it settles nothing.
 			supported = undefined;
 		} else {
 			supported = ownVersionSupported === false || !!memberVersions?.length ? false : undefined;
@@ -108,8 +109,11 @@ function BackupsPage() {
 			? <PageNotice>Only super users can view or manage backups.</PageNotice>
 			: <Loading text="Loading..." />;
 	}
+	if (supported === undefined && perNode && isClusterError && !memberVersions?.length) {
+		return <PageNotice>This cluster's nodes could not be listed, so their backups are not shown.</PageNotice>;
+	}
 	if (supported === undefined) {
-		return versionUnreadable && (!perNode || cluster !== undefined || isClusterError)
+		return versionUnreadable && (!perNode || cluster !== undefined)
 			? <PageNotice>This Harper's version could not be read, so its backups are not shown.</PageNotice>
 			: <Loading text="Loading..." />;
 	}
