@@ -256,8 +256,7 @@ describe('parseConfigValue / jsonType', () => {
 		expect(parseConfigValue('0.1').ok).toBe(true);
 	});
 
-	// Asserts on .ok and .error alone: a regression returns the whole 100,000-deep value, and comparing or
-	// printing that overflows the stack, so the test would crash instead of failing.
+	// Not toEqual on the result: on a regression it holds the 100,000-deep value, and comparing it overflows the stack.
 	it('refuses values nested past MAX_CONFIG_DEPTH, whatever the engine can parse', () => {
 		const arrays = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
 		const objects = (depth: number) => '{"a":'.repeat(depth) + '1' + '}'.repeat(depth);
@@ -269,7 +268,6 @@ describe('parseConfigValue / jsonType', () => {
 				expect(result.ok ? undefined : result.error).toBe('This value is nested too deeply to save.');
 			}
 		}
-		// Depth, not size: many shallow siblings are fine.
 		expect(parseConfigValue(JSON.stringify(Array.from({ length: 5_000 }, () => [[1]]))).ok).toBe(true);
 	});
 
