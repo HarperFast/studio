@@ -12,8 +12,8 @@ export interface ChatUsage {
 }
 
 /**
- * Central manager refuses org usage to anyone who is not an org admin or holds no chat-read staff
- * permission, so a 403 is the answer for most members: `UsageBar` renders nothing, and it is not toasted.
+ * Central manager refuses org usage to anyone who is neither an org admin nor chat-read staff, so a 403
+ * is the expected answer for most members.
  */
 export function getChatUsageQueryOptions(orgId: string) {
 	return queryOptions({
