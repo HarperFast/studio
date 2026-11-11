@@ -26,6 +26,23 @@ export function supportsStagedDeployments(harperVersion: string | undefined): bo
 }
 
 /**
+ * What Harper 5.4.0-alpha.1 added to tell where each release is (harper#3502, `abf67cd59`): `list_releases`, a
+ * record's `source` and `list_deployments`' `sha` filter, and the `rolling_out` and `partial` statuses. An older Harper
+ * refuses `list_releases` and ignores `sha`, which would list every deployment under a commit filter.
+ */
+const MIN_RELEASE_TRACKING_VERSION = '5.4.0-alpha.1';
+
+export function supportsReleaseTracking(harperVersion: string | undefined): boolean {
+	return !!harperVersion && wasAReleasedBeforeB(MIN_RELEASE_TRACKING_VERSION, harperVersion);
+}
+
+export function useReleaseTrackingAvailable(): boolean {
+	const params = useInstanceClientIdParams();
+	const { data } = useQuery(getRegistrationInfoQueryOptions(params));
+	return supportsReleaseTracking(data?.version);
+}
+
+/**
  * Whether to offer staging and activation. Unlike a put, an unreadable version must not offer them: a node older
  * than 5.3.0 accepts `activate: false` as an unknown field and deploys the release live.
  */

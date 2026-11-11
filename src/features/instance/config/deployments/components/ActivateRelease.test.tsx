@@ -26,7 +26,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 	useSupportsDeploymentSSE: () => false,
 }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
-	useBranchedDatabasesAvailable: () => state.canBranch,
+	useBranchedDatabasesReadable: () => state.canBranch,
 	useApplicationBranchedDatabases: () => state.currentBranches,
 	invalidateApplicationConfiguration: state.invalidateConfiguration,
 }));
@@ -51,7 +51,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { warning: state.warning } }));
 
-import { ActivateStagedRelease, activationMutationKey } from './ActivateStagedRelease';
+import { ActivateRelease, activationMutationKey } from './ActivateRelease';
 
 const staged = {
 	deployment_id: 'a1b2c3d4-0000-4000-8000-000000000001',
@@ -62,7 +62,7 @@ const staged = {
 function renderButton(queryClient = new QueryClient()) {
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<ActivateStagedRelease deployment={staged} />
+			<ActivateRelease project={staged.project} releaseId={staged.deployment_id} />
 		</QueryClientProvider>,
 	);
 }
@@ -80,7 +80,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('ActivateStagedRelease', () => {
+describe('ActivateRelease', () => {
 	it('activates the staged release by its id, only once confirmed', () => {
 		state.mutateAsync.mockReturnValue(new Promise(() => {}));
 		renderButton();
@@ -102,15 +102,118 @@ describe('ActivateStagedRelease', () => {
 	it('adds, when activating it again, that a node already running it only restarts', () => {
 		render(
 			<QueryClientProvider client={new QueryClient()}>
-				<ActivateStagedRelease deployment={staged} intent="again" />
+				<ActivateRelease project={staged.project} releaseId={staged.deployment_id} intent="again" />
 			</QueryClientProvider>,
 		);
 		fireEvent.click(screen.getByRole('button', { name: 'Activate again' }));
 		expect(screen.getByText('Activate this release of web again?')).toBeTruthy();
-		const description = screen.getByText(/Everything was installed when this release was staged/);
+		const description = screen.getByText(/It was installed when it was deployed or staged/);
 		expect(description.textContent).toMatch(
-			/so each node just switches to it\. A node already running it restarts without changing anything\.$/,
+			/so each node just switches to it, and a node already running it restarts without changing anything\.$/,
 		);
+	});
+
+	it('shows a release some node holds no copy of without letting it be activated', () => {
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled />
+			</QueryClientProvider>,
+		);
+		const button = screen.getByRole('button', { name: /Roll back to this release/ }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		fireEvent.click(button);
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('closes an open confirmation once the release is refused, rather than activate it anyway', () => {
+		const queryClient = new QueryClient();
+		const view = (disabled: boolean) => (
+			<QueryClientProvider client={queryClient}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view(false));
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		rerender(view(true));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		expect(state.mutateAsync).not.toHaveBeenCalled();
+	});
+
+	it('asks again before confirming, and confirms only once the answer is in', async () => {
+		let answer: (allowed: boolean) => void = () => {};
+		const revalidate = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)));
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" revalidate={revalidate} />
+			</QueryClientProvider>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		const checking = screen.getByRole('button', { name: 'Checking…' }) as HTMLButtonElement;
+		expect(checking.disabled).toBe(true);
+		expect(revalidate).toHaveBeenCalledTimes(1);
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		await act(async () => answer(true));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+	});
+
+	const revalidating = (revalidate: () => Promise<boolean>) => {
+		const queryClient = new QueryClient();
+		const view = (disabled: boolean) => (
+			<QueryClientProvider client={queryClient}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" disabled={disabled} revalidate={revalidate} />
+			</QueryClientProvider>
+		);
+		return { view, ...render(view(false)) };
+	};
+
+	it('confirms nothing when asking again fails, then or once the release is allowed again', async () => {
+		const { view, rerender } = revalidating(() => Promise.reject(new Error('timed out')));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' })));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(true));
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms nothing the fresh answer refuses, though the release still shows as allowed', async () => {
+		const { view, rerender } = revalidating(() => Promise.resolve(false));
+		await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' })));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+		rerender(view(true));
+		rerender(view(false));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('confirms what the fresh answer allows, though the release still shows as being checked', async () => {
+		let answer: (allowed: boolean) => void = () => {};
+		const { view, rerender } = revalidating(() => new Promise<boolean>((resolve) => (answer = resolve)));
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		rerender(view(true));
+		await act(async () => answer(true));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		rerender(view(false));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		rerender(view(true));
+		expect(screen.queryByText('Roll web back to this release?')).toBeNull();
+	});
+
+	it('goes back to a release by the id that built it, with the same activation call', () => {
+		state.mutateAsync.mockReturnValue(new Promise(() => {}));
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivateRelease project="web" releaseId="d0" intent="rollback" />
+			</QueryClientProvider>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Roll back to this release' }));
+		expect(screen.getByText('Roll web back to this release?')).toBeTruthy();
+		fireEvent.click(screen.getAllByRole('button', { name: 'Roll back to this release' }).at(-1)!);
+		expect(state.mutateAsync.mock.calls[0][0]).toMatchObject({
+			request: { kind: 'activate', project: 'web', deploymentId: 'd0' },
+		});
+		expect(state.useDeployComponentMutation).toHaveBeenCalledWith(activationMutationKey('clu-a', 'd0'));
 	});
 
 	it('still reports an activation whose detail was closed before it settled', async () => {

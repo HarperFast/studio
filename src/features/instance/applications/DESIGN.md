@@ -83,7 +83,9 @@ dialog and the toolbar's Rename and Restart are disabled while a save is in flig
 
 Studio deploys with `restart: 'rolling'`. The node that receives the deploy answers once its own part is done and hands
 the other nodes to a `restart_service` job, named in the response's `restartJobId` (Harper 4.6+). The deployment record
-does not help: only the receiving node writes it, so it reads `success` while that job runs and after it fails.
+does not help: only the receiving node writes it, so before Harper 5.4 it reads `success` while that job runs and after
+it fails. From 5.4 a rolling deploy whose release Harper certifies reads `rolling_out` until the job ends it `success` or
+`partial` (harper `v5.4.0-beta.2:components/operations.ts:1247`); one it does not certify still reads `success`.
 
 So [`deployAndFollowComponent`](../../../integrations/api/instance/applications/deployComponent.ts) follows the job with
 `get_job` before the mutation settles ([`restartJob.ts`](../../../integrations/api/instance/applications/restartJob.ts)):
@@ -123,40 +125,82 @@ because Harper's validator refuses the wrong mix outright: a stage with `restart
 install options or `activate`. A stage succeeds only once every other node confirmed staging it, so a stage restarts
 nothing and is reported without a health check. Rollback to a kept release (#1232) is the same activation call.
 
+## Going back needs each node to say it keeps the release
+
+Activating an id a node does not hold answers 404 there, and the activation is recorded `failed`, though the node that
+received it has already switched, so the cluster is left split between releases. The records cannot say which
+nodes hold what: retention prunes without writing a record, a release deployed from a `file:` directory or made live
+before 5.3.0 is never kept, and `origin_node` is the receiving node's host name rather than its node name. So from
+5.4.0-alpha.1 the Deployments page asks `list_releases` (`useComponentReleases`), and what is on disk decides the offer
+(`releaseOffer`): live on every node offers nothing, live on some offers Activate again, and a node with no copy, or
+one that could not answer, disables it and is named with the reason the record can give.
+
+Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
+and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,
+when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. A
+failed deploy is offered wherever some node holds it, since it may be live on the node that received it.
+`list_releases` is never polled or refetched on focus, since every node walks each kept release's tree to size it.
+`useComponentReleases` asks again when the component's newest record starts, ends, or reaches another node, not at each
+step of a build (`recordsGeneration`). What the nodes hold also changes without a newer record, as a rollout behind the
+newest one finishes or a node joins, so `ActivateRelease` asks once more before it confirms (`useRecheckRelease`). It
+decides on the answer that ask read from the cache, since the props reflect it only a render later, and confirms nothing
+if the ask fails. An answer being refetched, or whose refetch failed, does not enable an activation.
+
 ## Private database copies
 
 Harper 5.3 can run an application on its own copy of some databases (`branchedDatabases`: a list of names, or `true` for
-every database except `system`). Harper reads the setting only from the application's root-config entry, and the only
-operation that writes it there is a package deploy, through
-[`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts). A stage sends it too, but
-Harper keeps it with the staged release and writes it to the entry only when that release is activated, so a stage
-leaves the cached setting current. Four things follow:
+every database except `system`). Harper reads the setting only from the application's root-config entry, and only a
+deploy writes it there, through
+[`deployRequestBody`](../../../integrations/api/instance/applications/deployComponent.ts): `set_configuration` writes
+only `<app>_package` and `<app>_port` into an entry (harper `config/configUtils.ts`, `COMPONENT_PARAM_SUFFIXES`). A
+stage sends it too, but Harper keeps it with the staged release and writes it to the entry only when that release is
+activated, so a stage leaves the cached setting current. What follows:
 
-- **A redeploy resends it.** A package deploy replaces the entry whole, so leaving the setting out turns the copy off
-  and the application quietly goes back to the shared data. The redeploy form starts from the current setting, read
-  from the entry in `get_configuration` ([`useApplicationBranchedDatabases`](hooks/useBranchedDatabases.ts)), and
-  when the form doesn't offer the setting it resends the current one as it is. A super user's redeploy waits for a
-  current read, since the last answer can be the very setting a redeploy would undo. Opening the dialog re-reads it,
-  because another tab, the CLI or a colleague may have changed it; Studio's own imports, deploys, activations and
-  drops invalidate the query once they settle, answered or not, cancelling any read already in flight, since one sent
-  before the write would otherwise count as current; a failed read invalidates it too; and a read still in flight may
-  be about to change the answer. The toolbar label and the delete warning show the setting only while it is current,
-  so neither claims a copy that was just turned off. `get_configuration` is super-user only, so for anyone else the
-  setting is unknown and a redeploy leaves it out, as before (#2019).
-- **Offered from 5.3.2, to super users, on package deploys only.** 5.3.0 and 5.3.1 accept it on a package deploy and
-  ignore it at load (HarperFast/harper#3071), and an unreadable version offers nothing, for the same reason staging
-  isn't offered on one. An application created from a template, by the assistant, or with `harper deploy` has no
-  route on 5.3: `set_configuration` writes only `<app>_package` and `<app>_port` into an entry and refuses any other
-  key (harper `config/configUtils.ts`, `COMPONENT_PARAM_SUFFIXES`), and a payload deploy ignores the setting on 5.3.
-  Harper's unreleased 5.4 accepts it on a payload deploy (harper#3505), which is the likely route for those. Studio
-  still shows such an application's setting when its entry has one.
+- **A package redeploy resends it.** A package deploy replaces the entry whole, so leaving the setting out turns the
+  copy off and the application quietly goes back to the shared data. The redeploy form starts from the current
+  setting, read from the entry in `get_configuration` ([`useApplicationBranchedDatabases`](hooks/useBranchedDatabases.ts)),
+  and when the form doesn't offer the setting it resends the current one as it is. A redeploy by someone who can read
+  it waits for a current read, since the last answer can be the very setting a redeploy would undo. Opening the
+  dialog re-reads it, because another tab, the CLI or a colleague may have changed it; Studio's own imports, deploys,
+  activations and drops invalidate the query once they settle, answered or not, cancelling any read already in
+  flight, since one sent before the write would otherwise count as current; a failed read invalidates it too; and a
+  read still in flight may be about to change the answer. The toolbar label and the delete warning show the setting
+  only while it is current, so neither claims a copy that was just turned off.
+- **Unreadable is unknown, never Off.** A super user can read `get_configuration`, and so can a role whose allowlist
+  grants it, which Harper's gate 2 admits ([`checkSuperUserOperationAllowed`](../../../hooks/checkOperationPermission.ts)).
+  Harper refusing the read (a 403) makes the setting unreadable rather than failed until a read succeeds: it isn't
+  retried or toasted, and neither asking again nor a failure of another kind meanwhile undoes it. For anyone who
+  can't read it, the private copy dialog says why it can't save, and the redeploy and stage dialogs warn that the
+  copy may turn off, unless a version already read and known to predate copies rules one out
+  ([`useBranchedDatabasesPossible`](hooks/useBranchedDatabases.ts)): a role that can't read the setting often can't
+  read `registration_info` either.
+- **A package deploy offers it from 5.3.2, to super users.** 5.3.0 and 5.3.1 accept it on a package deploy and ignore
+  it at load (HarperFast/harper#3071), and an unreadable version offers nothing, for the same reason staging isn't
+  offered on one.
+- **Any other application gets it from a payload deploy, from 5.4.0-alpha.1.** An application made from a template,
+  by the assistant, or with `harper deploy` has no package to redeploy. From harper#3505 a payload deploy writes only
+  the entry's routing keys and keeps any it isn't sent, so Off is `[]`
+  ([`privateCopyToPayloadSetting`](components/PrivateDatabaseCopy/privateCopyValue.ts)); Harper refuses `null` and
+  `false`. [`ApplicationPrivateCopyModal`](modals/ApplicationPrivateCopyModal.tsx) packages the application's files as
+  they are on the server and deploys them again with the new setting
+  ([`deployApplicationFiles`](../../../integrations/api/instance/applications/deployComponent.ts)), which replaces its
+  files on every node, so Save waits for the open file to be saved and no save to be in flight. The archive is
+  streamed down (`package_component { stream: true }`) and uploaded as multipart, never as base64 in JSON, which holds
+  several times the archive in Harper's shared process; and only over a direct connection, because Fabric Connect
+  refuses bodies over 2 MB and records each body it relays. A save is confirmed by reading the entry back: a deploy
+  whose stream was lost, or whose entry reads differently, is never reported as a success.
 - **A release carries its own.** Activating a staged or earlier release can't carry the setting (Harper refuses it),
   and brings back the one that release was deployed with. Neither `list_deployments` nor `get_deployment` reports
-  it, so the activation dialog says so to everyone it offers activation to, and shows the current one where it can
-  read it: to a super user on 5.3.2 or later.
-- **Removing an application usually keeps the copy.** Studio drops without `restart`, and Harper deletes the copies
-  only after a restart, so the copy stays on disk and is picked up again by a later application of the same name.
-  Harper says so in the `drop_component` answer, which the delete toast shows.
+  it (HarperFast/harper#4077), so the activation dialog says so to everyone it offers activation to, and shows the
+  current one to anyone who can read it, on 5.3.2 or later.
+- **Removing an application leaves the copy on disk, for now or for good.** Studio drops without `restart`. Before
+  5.4.0-alpha.2 Harper deletes the copies only on a later drop, so the copy stays and a later application of the same
+  name picks it up. From 5.4.0-alpha.2 Harper records the removal it owes and discards the copy by itself once no
+  worker has the application loaded, usually after the next restart; a same-name application deployed before then
+  still picks it up. The delete dialog words this by the answering node's version, as other version gates do, so a
+  cluster mid-upgrade can be worded for its newer nodes; it is neutral when the latest read failed or doesn't parse.
+  Harper's `drop_component` answer names "branched database storage" whenever it leaves a copy, and the
+  toast shows it.
 
 ## A live deploy is sent once
 

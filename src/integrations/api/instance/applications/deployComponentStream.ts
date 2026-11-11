@@ -1,7 +1,7 @@
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { parseSSEData, SSEMessage } from '@/integrations/api/sse/parseSSEStream';
 import { ResolveInstanceConnectionParams } from '@/integrations/api/sse/resolveInstanceConnection';
-import { streamOperation } from '@/integrations/api/sse/streamOperation';
+import { streamOperation, StreamOperationFile } from '@/integrations/api/sse/streamOperation';
 import { DeployCertification } from './deployOutcome';
 import { RolloutSnapshot } from './restartJob';
 
@@ -82,6 +82,7 @@ export function toDeployStreamEvent(message: SSEMessage): DeployStreamEvent | un
 export interface DeployComponentStreamParams {
 	connection: ResolveInstanceConnectionParams;
 	body: Record<string, unknown>;
+	file?: StreamOperationFile;
 	signal?: AbortSignal;
 	/** Called for each live deploy event so the UI can render progress. */
 	onEvent?: (event: DeployStreamEvent) => void;
@@ -100,6 +101,7 @@ export interface DeployComponentStreamParams {
 export async function deployComponentStream({
 	connection,
 	body,
+	file,
 	signal,
 	onEvent,
 }: DeployComponentStreamParams): Promise<DeployComponentResult> {
@@ -107,6 +109,7 @@ export async function deployComponentStream({
 	const result = await streamOperation({
 		connection,
 		body,
+		file,
 		signal,
 		onMessage: (message) => {
 			const event = toDeployStreamEvent(message);

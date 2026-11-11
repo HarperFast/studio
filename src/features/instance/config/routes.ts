@@ -1,3 +1,4 @@
+import { ConfigBackupsIndex } from '@/features/instance/config/backups';
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
 import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
@@ -7,6 +8,7 @@ import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigPreviewsIndex } from '@/features/instance/config/previews';
 import { validatePreviewsSearch } from '@/features/instance/config/previews/previewsSearch';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigScheduledJobsIndex } from '@/features/instance/config/scheduledJobs';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
@@ -30,6 +32,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		head: () => ({ meta: [{ title: 'Overview — Harper Fabric' }] }),
 		component: ConfigOverviewIndex,
 		loader: registrationInfoLoader,
+	});
+
+	const instanceConfigBackupsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'backups',
+		head: () => ({ meta: [{ title: 'Backups — Harper Fabric' }] }),
+		component: ConfigBackupsIndex,
 	});
 
 	const instanceConfigRolesRoute = createRoute({
@@ -108,6 +117,14 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigPreviewsIndex,
 	});
 
+	const instanceConfigScheduledJobsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'scheduled-jobs',
+		head: () => ({ meta: [{ title: 'Scheduled Jobs — Harper Fabric' }] }),
+		component: ConfigScheduledJobsIndex,
+		loader: registrationInfoLoader,
+	});
+
 	const instanceConfigSecretsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'secrets',
@@ -144,6 +161,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
 
+		instanceConfigBackupsRoute,
+
 		instanceConfigRolesRoute,
 		instanceConfigRoleRoute,
 
@@ -161,6 +180,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigScheduledJobsRoute,
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,

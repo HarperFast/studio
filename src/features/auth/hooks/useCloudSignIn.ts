@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { describeAuthFailure } from '@/features/auth/describeAuthFailure';
 import { failFastOffline, reportAuthFailure } from '@/features/auth/failFastOffline';
+import { clearPreviousAccount } from '@/features/auth/handlers/clearAuthStateLocally';
 import { isEmailNotVerifiedError } from '@/features/auth/isEmailNotVerifiedError';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -18,11 +19,48 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
-export function useCloudSignIn() {
+/** Resolves false when a sign-out landed before it could navigate. */
+export function useCompleteCloudSignIn() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const { redirect } = useSearch({ strict: false });
+
+	return useCallback(async (user: User): Promise<boolean> => {
+		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
+		const held = authStore.getHeldAppUser();
+		if (held !== null && held !== user.id && !(await clearPreviousAccount())) {
+			return false;
+		}
+		authStore.setUserForEntity(OverallAppSignIn, user);
+		const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+		// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
+		try {
+			clearUtmParamsFromUrl();
+			loginSuccessDatadogAction(user);
+			const company = parseCompanyFromEmail(user.email);
+			reoClient?.identify?.({
+				username: user.email,
+				type: 'email',
+				...(company ? { company } : {}),
+			});
+		} catch (error) {
+			console.debug('Sign-in bookkeeping failed, carrying on:', error);
+		}
+		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
+			return false;
+		}
+		void router.invalidate();
+		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+		return true;
+	}, [navigate, queryClient, redirect, router]);
+}
+
+export function useCloudSignIn() {
+	const navigate = useNavigate();
+	const completeSignIn = useCompleteCloudSignIn();
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
@@ -33,23 +71,7 @@ export function useCloudSignIn() {
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		setSubmitError(undefined);
 		submitLoginData(formData, {
-			onSuccess: async (data) => {
-				authStore.setUserForEntity(OverallAppSignIn, data);
-				clearUtmParamsFromUrl();
-				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
-
-				loginSuccessDatadogAction(data);
-
-				const company = parseCompanyFromEmail(data.email);
-				reoClient?.identify?.({
-					username: data.email,
-					type: 'email',
-					...(company ? { company } : {}),
-				});
-				await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-				void router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
-			},
+			onSuccess: completeSignIn,
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
 			// can special-case the unverified-email rejection instead of dead-ending on a red toast.
 			onError: (error) => {
@@ -65,13 +87,13 @@ export function useCloudSignIn() {
 								description: `We sent a new verification link to ${formData.email}.`,
 							}),
 					});
-					void navigate({ to: '/verifying?email=' + encodeURIComponent(formData.email) });
+					void navigate({ to: '/verifying', state: { prefillEmail: formData.email } });
 					return;
 				}
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [navigate, queryClient, redirect, resendEmailVerification, router, submitLoginData]);
+	}, [completeSignIn, navigate, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,
@@ -81,7 +103,7 @@ export function useCloudSignIn() {
 	};
 }
 
-function useLoginMutation() {
+export function useLoginMutation() {
 	return useMutation<User, Error, z.infer<typeof EmailSignInSchema>>({
 		...failFastOffline(onLoginSubmit),
 		// submitForm renders the login-error UX itself (redirecting unverified users into the

@@ -6,11 +6,15 @@
  */
 import { Monaco } from '@/lib/monaco/types';
 import {
+	availableOn,
+	findArgInputType,
 	findDirective,
 	findScalar,
 	HarperDirective,
 	HarperDirectiveArg,
 	harperDirectives,
+	HarperInputType,
+	harperInputTypes,
 	HarperScalar,
 	harperScalars,
 } from './schema';
@@ -22,23 +26,174 @@ import {
 export type GraphqlCompletionContext =
 	| { kind: 'directive' }
 	| { kind: 'directiveArg'; directive: string }
+	/** Inside an object literal a directive argument takes, e.g. a source in `@fullText(fields: [{ … }])`. */
+	| { kind: 'inputField'; directive: string; inputType: string }
 	| { kind: 'fieldType' }
 	| { kind: 'none' };
 
-const DIRECTIVE_ARG_RE = /@(\w+)\s*\([^)]*$/;
 const DIRECTIVE_NAME_RE = /@\w*$/;
 const FIELD_TYPE_RE = /:\s*\[?\s*\w*$/;
+const NAME_START_RE = /[_A-Za-z]/;
+const NAME_CHAR_RE = /[_0-9A-Za-z]/;
+
+type Frame =
+	| { kind: 'directive'; name: string }
+	| { kind: 'paren' }
+	/** `key` is the argument or object field the bracket is the value of, when there is one. */
+	| { kind: 'list' | 'object'; key?: string };
 
 /**
- * Classify what Harper-aware completions to offer based on the text on the
- * current line up to the cursor. Order matters: an open directive call (which
- * may itself contain a `:`) is detected before a field-type position.
+ * Index just past the string or comment starting at `i`, or -1 when it is still open at the end of the
+ * text: the cursor is inside it.
  */
-export function detectCompletionContext(lineBeforeCursor: string): GraphqlCompletionContext {
-	const argMatch = lineBeforeCursor.match(DIRECTIVE_ARG_RE);
-	if (argMatch) {
-		return { kind: 'directiveArg', directive: argMatch[1] };
+function skipStringOrComment(text: string, i: number): number {
+	if (text[i] === '#') {
+		return text.indexOf('\n', i);
 	}
+	if (text.startsWith('"""', i)) {
+		const end = text.indexOf('"""', i + 3);
+		return end < 0 ? -1 : end + 3;
+	}
+	let j = i + 1;
+	while (j < text.length && text[j] !== '"' && text[j] !== '\n') {
+		j += text[j] === '\\' ? 2 : 1;
+	}
+	return j >= text.length ? -1 : j + 1;
+}
+
+/** Whether the text ends inside a string or a comment, where a word is prose, not schema. */
+function insideStringOrComment(text: string): boolean {
+	let i = 0;
+	while (i < text.length) {
+		if (text[i] === '#' || text[i] === '"') {
+			i = skipStringOrComment(text, i);
+			if (i < 0) {
+				return true;
+			}
+		} else {
+			i++;
+		}
+	}
+	return false;
+}
+
+/**
+ * The directive call the cursor sits inside, and how deep: `undefined` when it's in none, and `none`
+ * inside a string or comment. Reads more than the cursor's line, because Harper's docs spread a
+ * `@fullText(...)` over several.
+ */
+function openDirectiveContext(textBeforeCursor: string): GraphqlCompletionContext | undefined {
+	const stack: Frame[] = [];
+	let lastKey: string | undefined;
+	let pendingDirective: string | undefined;
+	// Whether the cursor would type a key, a value after `key:`, or sit right after a value.
+	let slot: 'key' | 'value' | 'afterValue' = 'key';
+	let i = 0;
+	while (i < textBeforeCursor.length) {
+		const char = textBeforeCursor[i];
+		if (char === '#' || char === '"') {
+			i = skipStringOrComment(textBeforeCursor, i);
+			if (i < 0) {
+				return { kind: 'none' };
+			}
+			if (char === '"' && slot === 'value') {
+				slot = 'afterValue';
+			}
+			pendingDirective = undefined;
+			continue;
+		}
+		if (char === '@' || NAME_START_RE.test(char)) {
+			let end = char === '@' ? i + 1 : i;
+			while (end < textBeforeCursor.length && NAME_CHAR_RE.test(textBeforeCursor[end])) {
+				end++;
+			}
+			const name = textBeforeCursor.slice(char === '@' ? i + 1 : i, end);
+			let next = end;
+			while (next < textBeforeCursor.length && /[\s,]/.test(textBeforeCursor[next])) {
+				next++;
+			}
+			pendingDirective = char === '@' ? name : undefined;
+			if (char !== '@' && textBeforeCursor[next] === ':') {
+				lastKey = name;
+			}
+			if (slot === 'value') {
+				slot = 'afterValue';
+			}
+			i = end;
+			continue;
+		}
+		switch (char) {
+			case '(':
+				stack.push(pendingDirective ? { kind: 'directive', name: pendingDirective } : { kind: 'paren' });
+				break;
+			case '[':
+				stack.push({ kind: 'list', key: lastKey });
+				break;
+			case '{':
+				stack.push({ kind: 'object', key: lastKey });
+				break;
+			case ')':
+			case ']':
+			case '}':
+				stack.pop();
+				break;
+		}
+		if ('()[]{}'.includes(char)) {
+			// A key names the value that follows it, so it never outlives the next bracket.
+			lastKey = undefined;
+		}
+		if (char === ':') {
+			slot = 'value';
+		} else if ('([{'.includes(char)) {
+			slot = 'key';
+		} else if (/[\s,]/.test(char)) {
+			slot = slot === 'afterValue' ? 'key' : slot;
+		} else if (slot === 'value' || ')]}'.includes(char)) {
+			slot = 'afterValue';
+		}
+		if (!/[\s,]/.test(char)) {
+			pendingDirective = undefined;
+		}
+		i++;
+	}
+
+	let directiveAt = stack.length - 1;
+	while (directiveAt >= 0 && stack[directiveAt].kind !== 'directive') {
+		directiveAt--;
+	}
+	if (directiveAt < 0) {
+		return undefined;
+	}
+	if (slot !== 'key') {
+		// A value goes here, and suggesting argument names would write `weight: weight:`.
+		return { kind: 'none' };
+	}
+	const directive = (stack[directiveAt] as { name: string }).name;
+	const inner = stack.slice(directiveAt + 1);
+	if (inner.length === 0) {
+		return { kind: 'directiveArg', directive };
+	}
+	// `arg: { … }` or `arg: [{ … }]`: the object takes the argument's input type.
+	const [first, second] = inner;
+	const objectOfArg = inner.length === 1 && first.kind === 'object'
+		? first.key
+		: inner.length === 2 && first.kind === 'list' && second.kind === 'object'
+		? first.key
+		: undefined;
+	const inputType = objectOfArg ? findArgInputType(directive, objectOfArg) : undefined;
+	return inputType ? { kind: 'inputField', directive, inputType: inputType.name } : { kind: 'none' };
+}
+
+/**
+ * Classify what Harper-aware completions to offer from the text before the cursor. Order matters: an
+ * open directive call (which may itself contain a `:`) is detected before a field-type position.
+ */
+export function detectCompletionContext(textBeforeCursor: string): GraphqlCompletionContext {
+	const inDirective = openDirectiveContext(textBeforeCursor);
+	if (inDirective) {
+		return inDirective;
+	}
+	const lineBeforeCursor = textBeforeCursor.slice(textBeforeCursor.lastIndexOf('\n') + 1);
 	if (DIRECTIVE_NAME_RE.test(lineBeforeCursor)) {
 		return { kind: 'directive' };
 	}
@@ -46,6 +201,40 @@ export function detectCompletionContext(lineBeforeCursor: string): GraphqlComple
 		return { kind: 'fieldType' };
 	}
 	return { kind: 'none' };
+}
+
+// At the start of the line, as declarations are written, and followed by a name or `{`, never `:` or
+// `(`: an indented line is a field, an argument, or a description that happens to begin "type of …".
+const DECLARATION_LINE_RE = /^(?:extend\s+)?(?:type|input|interface|enum|scalar|union|schema|directive)\b(?!\s*[:(])/;
+
+/**
+ * The line a context scan starts from: the nearest declaration at or above `lineNumber`. A directive's
+ * arguments never leave the declaration they are in, so the scan covers one type rather than every
+ * line above the cursor, which ran on each suggestion and hover.
+ */
+export function declarationStartLine(lineAt: (lineNumber: number) => string, lineNumber: number): number {
+	// `"""` delimiters from the candidate down to the cursor: an odd count means the candidate sits
+	// inside a description that closes below it, so it is text, not a declaration.
+	let delimiters = 0;
+	for (let candidate = lineNumber; candidate > 1; candidate--) {
+		const line = lineAt(candidate);
+		delimiters += line.split('"""').length - 1;
+		if (delimiters % 2 === 0 && DECLARATION_LINE_RE.test(line)) {
+			return candidate;
+		}
+	}
+	return 1;
+}
+
+let harperVersion: string | undefined;
+
+/**
+ * The Harper version the editor is completing for, so it offers only what that release has
+ * (`FullText` and `@fullText` from 5.3.0). Monaco's providers are global, so the open instance sets
+ * it; `undefined` (unknown) offers only what every release has.
+ */
+export function setHarperGraphqlVersion(version: string | undefined): void {
+	harperVersion = version;
 }
 
 /** Extract the names of types/inputs/interfaces/enums/scalars/unions declared in the document. */
@@ -63,12 +252,20 @@ export type GraphqlHoverTarget =
 	| { kind: 'directive'; directive: HarperDirective }
 	| { kind: 'scalar'; scalar: HarperScalar }
 	| { kind: 'directiveArg'; directive: HarperDirective; arg: HarperDirectiveArg }
+	| { kind: 'inputField'; inputType: HarperInputType; field: HarperDirectiveArg }
 	| undefined;
 
-/** Classify the hovered word into a Harper directive, scalar, or directive argument. */
+/**
+ * Classify the hovered word into a Harper directive, scalar, directive argument, or a field of an
+ * argument's input object. `textBeforeWord` runs from the start of the document, since a directive's
+ * arguments can span lines.
+ */
 export function detectHoverTarget(
-	{ word, charBeforeWord, lineBeforeWord }: { word: string; charBeforeWord: string; lineBeforeWord: string },
+	{ word, charBeforeWord, textBeforeWord }: { word: string; charBeforeWord: string; textBeforeWord: string },
 ): GraphqlHoverTarget {
+	if (insideStringOrComment(textBeforeWord)) {
+		return undefined;
+	}
 	if (charBeforeWord === '@') {
 		const directive = findDirective(word);
 		return directive ? { kind: 'directive', directive } : undefined;
@@ -79,12 +276,19 @@ export function detectHoverTarget(
 		return { kind: 'scalar', scalar };
 	}
 
-	const argMatch = lineBeforeWord.match(DIRECTIVE_ARG_RE);
-	if (argMatch) {
-		const directive = findDirective(argMatch[1]);
+	const context = openDirectiveContext(textBeforeWord);
+	if (context?.kind === 'directiveArg') {
+		const directive = findDirective(context.directive);
 		const arg = directive?.args.find(candidate => candidate.name === word);
 		if (directive && arg) {
 			return { kind: 'directiveArg', directive, arg };
+		}
+	}
+	if (context?.kind === 'inputField') {
+		const inputType = harperInputTypes.find(input => input.name === context.inputType);
+		const field = inputType?.fields.find(candidate => candidate.name === word);
+		if (inputType && field) {
+			return { kind: 'inputField', inputType, field };
 		}
 	}
 
@@ -110,6 +314,8 @@ export function hoverMarkdownValue(target: NonNullable<GraphqlHoverTarget>): str
 		}
 		case 'directiveArg':
 			return `\`\`\`graphql\n${target.arg.name}: ${target.arg.type}\n\`\`\`\n\n_argument of \`@${target.directive.name}\`_\n\n${target.arg.description}`;
+		case 'inputField':
+			return `\`\`\`graphql\n${target.field.name}: ${target.field.type}\n\`\`\`\n\n_field of \`${target.inputType.name}\`_\n\n${target.field.description}`;
 	}
 }
 
@@ -125,7 +331,7 @@ type CompletionRange = {
 };
 
 function directiveCompletions(monaco: Monaco, range: CompletionRange) {
-	return harperDirectives.map(directive => {
+	return harperDirectives.filter(directive => availableOn(directive, harperVersion)).map(directive => {
 		const hasArgs = directive.args.length > 0;
 		return {
 			label: `@${directive.name}`,
@@ -141,7 +347,7 @@ function directiveCompletions(monaco: Monaco, range: CompletionRange) {
 }
 
 function fieldTypeCompletions(monaco: Monaco, range: CompletionRange, typeNames: string[]) {
-	const scalarItems = harperScalars.map(scalar => ({
+	const scalarItems = harperScalars.filter(scalar => availableOn(scalar, harperVersion)).map(scalar => ({
 		label: scalar.name,
 		kind: monaco.languages.CompletionItemKind.Struct,
 		detail: scalar.harperSpecific ? 'Harper scalar' : 'GraphQL scalar',
@@ -175,12 +381,26 @@ function directiveArgCompletions(monaco: Monaco, range: CompletionRange, directi
 	}));
 }
 
+function inputFieldCompletions(monaco: Monaco, range: CompletionRange, inputTypeName: string) {
+	const inputType = harperInputTypes.find(input => input.name === inputTypeName);
+	return (inputType?.fields ?? []).map(field => ({
+		label: field.name,
+		kind: monaco.languages.CompletionItemKind.Property,
+		detail: `${field.type} · ${inputType!.name}`,
+		documentation: { value: field.description },
+		insertText: `${field.name}: $1`,
+		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+		range,
+	}));
+}
+
 export function registerHarperGraphql(monaco: Monaco): void {
 	monaco.languages.registerCompletionItemProvider('graphql', {
-		triggerCharacters: ['@', ':', '('],
+		triggerCharacters: ['@', ':', '(', '{'],
 		provideCompletionItems(model, position) {
-			const lineBeforeCursor = model.getValueInRange({
-				startLineNumber: position.lineNumber,
+			// From the declaration the cursor is in, not just its line: a directive's arguments can span lines.
+			const textBeforeCursor = model.getValueInRange({
+				startLineNumber: declarationStartLine(lineNumber => model.getLineContent(lineNumber), position.lineNumber),
 				startColumn: 1,
 				endLineNumber: position.lineNumber,
 				endColumn: position.column,
@@ -193,12 +413,14 @@ export function registerHarperGraphql(monaco: Monaco): void {
 				endColumn: word.endColumn,
 			};
 
-			const context = detectCompletionContext(lineBeforeCursor);
+			const context = detectCompletionContext(textBeforeCursor);
 			switch (context.kind) {
 				case 'directive':
 					return { suggestions: directiveCompletions(monaco, range) };
 				case 'directiveArg':
 					return { suggestions: directiveArgCompletions(monaco, range, context.directive) };
+				case 'inputField':
+					return { suggestions: inputFieldCompletions(monaco, range, context.inputType) };
 				case 'fieldType':
 					return { suggestions: fieldTypeCompletions(monaco, range, parseTypeNames(model.getValue())) };
 				default:
@@ -221,14 +443,14 @@ export function registerHarperGraphql(monaco: Monaco): void {
 					endColumn: wordInfo.startColumn,
 				})
 				: '';
-			const lineBeforeWord = model.getValueInRange({
-				startLineNumber: position.lineNumber,
+			const textBeforeWord = model.getValueInRange({
+				startLineNumber: declarationStartLine(lineNumber => model.getLineContent(lineNumber), position.lineNumber),
 				startColumn: 1,
 				endLineNumber: position.lineNumber,
 				endColumn: wordInfo.startColumn,
 			});
 
-			const target = detectHoverTarget({ word: wordInfo.word, charBeforeWord, lineBeforeWord });
+			const target = detectHoverTarget({ word: wordInfo.word, charBeforeWord, textBeforeWord });
 			if (!target) {
 				return null;
 			}

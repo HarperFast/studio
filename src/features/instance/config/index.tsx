@@ -1,10 +1,13 @@
 import { Loading } from '@/components/Loading';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
+import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsWaf } from '@/integrations/api/instance/waf/waf';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
@@ -14,6 +17,8 @@ import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
+	CalendarClockIcon,
+	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
 	HandshakeIcon,
@@ -46,6 +51,7 @@ export function ConfigIndex() {
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
+	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -53,10 +59,25 @@ export function ConfigIndex() {
 		getClusterInfoQueryOptions(clusterId, false),
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
+	// On a cluster route `version` is whichever member answered first; the page gates each member on its own.
+	const backupsSupported = supportsBackups(version)
+		|| (!params.instanceId && anyMemberSupportsBackups(cluster?.instances));
 
 	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
 	const children = canManage && (
 		<>
+			{backupsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/backups')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<DatabaseBackupIcon className="hidden md:inline-block" /> <span className="ms-3">Backups</span>
+					</Link>
+				</li>
+			)}
 			{certsAvailable && (
 				<li>
 					<Link
@@ -127,6 +148,18 @@ export function ConfigIndex() {
 					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
 				</Link>
 			</li>
+			{scheduledJobsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/scheduled-jobs')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<CalendarClockIcon className="hidden md:inline-block" /> <span className="ms-3">Scheduled Jobs</span>
+					</Link>
+				</li>
+			)}
 			{
 				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
 			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated

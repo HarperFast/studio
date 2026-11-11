@@ -15,17 +15,19 @@ import { GoogleAuthenticationButton } from './components/GoogleAuthenticationBut
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { useCloudSignIn } from './hooks/useCloudSignIn';
 import { useLastUsedSignInMethod } from './hooks/useLastUsedSignInMethod';
+import { usePrefillEmail } from './prefillEmail';
 
 const rememberControlClassName =
 	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
 
 	const methods = useForm({
 		resolver: zodResolver(EmailSignInSchema),
 		defaultValues: {
-			email: formPersistenceEmail || '',
+			email: formPersistenceEmail || prefillEmail || '',
 			password: '',
 		},
 	});
@@ -84,7 +86,7 @@ export function SignIn() {
 						Sign In <ArrowRight aria-hidden="true" />
 					</Button>
 					<div className="sign-in-recovery">
-						<Link to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
+						<Link to="/forgot-password" state={{ prefillEmail: email }}>Forgot password?</Link>
 					</div>
 				</form>
 			</Form>
@@ -109,7 +111,7 @@ export function SignIn() {
 			</div>
 
 			<p className="sign-in-signup">
-				Don’t have an account? <Link to="/sign-up" search={{ me: email }}>Sign up for free</Link>
+				Don’t have an account? <Link to="/sign-up" state={{ prefillEmail: email }}>Sign up for free</Link>
 			</p>
 
 			{remember

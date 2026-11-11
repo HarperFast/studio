@@ -10,6 +10,7 @@ import { ContentViewer } from './components/ContentViewer';
 import { EditorViewProvider } from './context/EditorViewProvider';
 import { useResizableApplicationsSidebar } from './hooks/useResizableApplicationsSidebar';
 import { AddDirectoryOrFileModal } from './modals/AddDirectoryOrFileModal';
+import { ApplicationPrivateCopyModal } from './modals/ApplicationPrivateCopyModal';
 import { DeleteDirectoryOrFileModal } from './modals/DeleteDirectoryOrFileModal';
 import { DownloadApplicationModal } from './modals/DownloadApplicationModal';
 import { OverwriteConfirmModal } from './modals/OverwriteConfirmModal';
@@ -73,6 +74,7 @@ export function ApplicationsEditor() {
 			<DeleteDirectoryOrFileModal />
 			<DownloadApplicationModal />
 			<RedeployApplicationModal />
+			<ApplicationPrivateCopyModal />
 			<RenameFileModal />
 			<OverwriteConfirmModal />
 		</EditorViewProvider>

@@ -13,11 +13,13 @@
  */
 export class SSEUnsupportedError extends Error {
 	readonly status?: number;
+	readonly refusal?: string;
 
-	constructor(message: string, options?: { cause?: unknown; status?: number }) {
+	constructor(message: string, options?: { cause?: unknown; status?: number; refusal?: string }) {
 		super(message, options);
 		this.name = 'SSEUnsupportedError';
 		this.status = options?.status;
+		this.refusal = options?.refusal;
 	}
 }
 

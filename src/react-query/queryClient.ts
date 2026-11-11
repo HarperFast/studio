@@ -4,6 +4,7 @@ import {
 	CLUSTER_BUSY_TITLE,
 	clusterHeldByWorkflow,
 } from '@/integrations/api/cluster/clusterHeldByWorkflow';
+import { BackupJobUnreportedError } from '@/integrations/api/instance/backups/backups';
 import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -36,6 +37,9 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	}
 	if (rawErr instanceof ImportJobUnconfirmedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, describeImportJobUnconfirmed(rawErr));
+	}
+	if (rawErr instanceof BackupJobUnreportedError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
 	}
 	return undefined;
 }
@@ -185,10 +189,20 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  *
  * A failure a route load is awaiting is the route's: its error page is the message and its error
  * boundary the RUM report (`ensureRouteQueryData`).
+ *
+ * A query with `meta: { refusalIsAnAnswer: true }` shows a 403 itself, as "Studio can't read this", so it isn't toasted.
+ * One with `meta: { reportsOwnFailure: true }` shows every failure itself, so RUM gets it and no toast repeats it.
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
 	if (isRestartNoise(error, query.queryKey)) {
 		console.debug('Suppressed a failure from a restarting entity', error);
+		return;
+	}
+	if (query.meta?.refusalIsAnAnswer && error instanceof AxiosError && error.response?.status === 403) {
+		return;
+	}
+	if (query.meta?.reportsOwnFailure) {
+		console.error(error);
 		return;
 	}
 	if (isClaimedByRoute(query)) {
