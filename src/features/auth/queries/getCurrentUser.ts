@@ -1,4 +1,5 @@
 import { apiClient } from '@/config/apiClient';
+import { clearPreviousAccount } from '@/features/auth/handlers/clearAuthStateLocally';
 // Circular with authStore.ts (it calls fetchCurrentUser); safe because neither
 // module touches the other's exports at module-evaluation time.
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -26,6 +27,12 @@ export async function getCurrentUser(): Promise<User> {
 		authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
 		&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision
 	) {
+		const held = authStore.getHeldAppUser();
+		// The browser's session is another account's now (a verify here, or a sign-in in another tab). Cleared in the
+		// same tick as the sync, so nothing sees this tab signed out in between.
+		if (held !== null && held !== user.id) {
+			void clearPreviousAccount();
+		}
 		authStore.syncAppUser(user);
 	}
 	return user;

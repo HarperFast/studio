@@ -5,8 +5,8 @@ import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useCloudSignIn } from './useCloudSignIn';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useCloudSignIn, useCompleteCloudSignIn } from './useCloudSignIn';
 
 // One shared apiClient mock backs both the login POST and the resend POST.
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -30,7 +30,9 @@ vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
 import { apiClient } from '@/config/apiClient';
-import { mutationErrorHandler } from '@/react-query/queryClient';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
+import type { User } from '@/integrations/api/api.patch';
+import { mutationErrorHandler, queryClient as appQueryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from '../describeAuthFailure';
 
@@ -66,7 +68,7 @@ describe('useCloudSignIn — unverified email', () => {
 		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
 		expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL });
 		// The "we sent a link" toast only fires once the resend actually succeeds.
 		await waitFor(() => expect(toast.info).toHaveBeenCalled());
@@ -105,7 +107,7 @@ describe('useCloudSignIn — unverified email', () => {
 		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
 		await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL }));
 		expect(toast.info).not.toHaveBeenCalled();
 	});
@@ -187,5 +189,73 @@ describe('useCloudSignIn — retryable failures', () => {
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
 		await waitFor(() => expect(result.current.submitError).toBeUndefined());
+	});
+});
+
+// The verify page lets a signed-in visitor in, and the session central-manager opens for the verified account has
+// replaced theirs in this browser.
+describe('useCompleteCloudSignIn — taking in a different account', () => {
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
+	const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+
+	function appWrapper({ children }: PropsWithChildren) {
+		return <QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>;
+	}
+
+	function resetApp() {
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+	}
+
+	beforeEach(resetApp);
+	afterEach(() => {
+		resetApp();
+		vi.restoreAllMocks();
+	});
+
+	it('clears the previous account’s cached data before taking in another account', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		appQueryClient.setQueryData(['ada-only'], 'ada data');
+		const instanceSignOut = vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances');
+
+		await act(() => result.current(GRACE));
+
+		expect(instanceSignOut).toHaveBeenCalledTimes(1);
+		expect(appQueryClient.getQueryData(['ada-only'])).toBeUndefined();
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(GRACE);
+		expect(navigate).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not take in the new account when a sign-out lands while the old one’s logouts are out', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		let finishLogouts!: () => void;
+		vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances').mockReturnValue(
+			new Promise<void>((resolve) => (finishLogouts = resolve)),
+		);
+
+		let entered: Promise<boolean> | undefined;
+		act(() => {
+			entered = result.current(GRACE);
+		});
+		authStore.signOutAllLocally();
+		finishLogouts();
+
+		await expect(entered).resolves.toBe(false);
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(navigate).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the cache when the same account is taken in again', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+		await act(() => result.current(ADA));
+		appQueryClient.setQueryData(['ada-only'], 'ada data');
+		const instanceSignOut = vi.spyOn(authStore, 'signOutFromPotentiallyAuthenticatedInstances');
+
+		await act(() => result.current(ADA));
+
+		expect(instanceSignOut).not.toHaveBeenCalled();
+		expect(appQueryClient.getQueryData(['ada-only'])).toBe('ada data');
 	});
 });
