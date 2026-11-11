@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { apiClient } from '@/config/apiClient';
-import { ConfigurationIndex, jsonType, parseConfigValue } from '@/features/admin/configuration/index';
+import { ConfigurationIndex, jsonType, MAX_CONFIG_DEPTH, parseConfigValue } from '@/features/admin/configuration/index';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -256,13 +256,19 @@ describe('parseConfigValue / jsonType', () => {
 		expect(parseConfigValue('0.1').ok).toBe(true);
 	});
 
-	it('handles deep nesting without throwing', () => {
-		const nested = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
-		const tooDeep = { ok: false, error: 'This value is nested too deeply to save.' };
-		expect(parseConfigValue(nested(1_000)).ok).toBe(true);
-		expect(parseConfigValue(nested(1_001))).toEqual(tooDeep);
-		// Whatever the engine's own limit: Node 26's JSON.stringify serializes this without throwing.
-		expect(parseConfigValue(nested(100_000))).toEqual(tooDeep);
+	// Not toEqual on the result: on a regression it holds the 100,000-deep value, and comparing it overflows the stack.
+	it('refuses values nested past MAX_CONFIG_DEPTH, whatever the engine can parse', () => {
+		const arrays = (depth: number) => '['.repeat(depth) + '1' + ']'.repeat(depth);
+		const objects = (depth: number) => '{"a":'.repeat(depth) + '1' + '}'.repeat(depth);
+		for (const nested of [arrays, objects]) {
+			expect(parseConfigValue(nested(MAX_CONFIG_DEPTH)).ok).toBe(true);
+			for (const depth of [MAX_CONFIG_DEPTH + 1, 100_000]) {
+				const result = parseConfigValue(nested(depth));
+				expect(result.ok).toBe(false);
+				expect(result.ok ? undefined : result.error).toBe('This value is nested too deeply to save.');
+			}
+		}
+		expect(parseConfigValue(JSON.stringify(Array.from({ length: 5_000 }, () => [[1]]))).ok).toBe(true);
 	});
 
 	it('names JSON types, telling null and arrays apart from objects', () => {
