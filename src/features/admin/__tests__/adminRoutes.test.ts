@@ -32,6 +32,8 @@ describe('admin section routes', () => {
 		['/admin/users/usr-1', '/users/$userId'],
 		['/admin/configuration', '/configuration'],
 		['/admin/api-token', '/api-token'],
+		['/admin/workflows', '/workflows'],
+		['/admin/workflows/wf-1', '/workflows/$workflowId'],
 	])('%s resolves to its own route', (path, expectedId) => {
 		expect(matchLeaf(path).routeId).toContain(expectedId);
 	});
@@ -44,5 +46,15 @@ describe('admin section routes', () => {
 		const router = routerAt('/admin');
 		await router.load();
 		expect(router.state.location.pathname).toBe('/admin/notifications');
+	});
+
+	it('round-trips a child workflow id, slashes and all, through its one route parameter', () => {
+		const childId = 'wf-1/batch/b1/child';
+		const router = routerAt('/admin');
+		const href = router.buildLocation({ to: '/admin/workflows/$workflowId', params: { workflowId: childId } }).href;
+		expect(href).toBe('/admin/workflows/wf-1%2Fbatch%2Fb1%2Fchild');
+		const leaf = matchLeaf(href);
+		expect(leaf.routeId).toContain('/workflows/$workflowId');
+		expect(leaf.params).toMatchObject({ workflowId: childId });
 	});
 });

@@ -62,11 +62,25 @@ describe('admin section visibility', () => {
 		]);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users', 'Configuration']);
+		expect(labels(user('super_user'))).toEqual([
+			'Notifications',
+			'Regions',
+			'Hosts',
+			'Monitoring',
+			'Users',
+			'Configuration',
+		]);
 	});
 
 	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users', 'Configuration']);
+		expect(labels(user('fabric_admin'))).toEqual([
+			'Notifications',
+			'Regions',
+			'Hosts',
+			'Monitoring',
+			'Users',
+			'Configuration',
+		]);
 	});
 
 	it('shows Users only to holders of user:status, not to every role that can read users', () => {
@@ -80,5 +94,17 @@ describe('admin section visibility', () => {
 	it('hides Users from a holder of user:status who cannot also read the users and clusters it shows', () => {
 		expect(labels(user('fabric_admin', ['user:status', 'cluster:read']))).toEqual(['Monitoring']);
 		expect(labels(user('fabric_admin', ['user:status', 'user:read']))).toEqual([]);
+	});
+
+	it('shows Workflows to holders of workflow:read', () => {
+		expect(labels(user('fabric_readonly', ['workflow:read']))).toEqual(['Workflows']);
+		expect(labels(user('fabric_support', ['cluster:read', 'workflow:read', 'workflow:manage']))).toEqual([
+			'Monitoring',
+			'Workflows',
+		]);
+	});
+
+	it('hides Workflows from a legacy-API fabric_admin', () => {
+		expect(labels(user('fabric_admin'))).not.toContain('Workflows');
 	});
 });
