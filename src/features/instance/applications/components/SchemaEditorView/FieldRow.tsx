@@ -4,9 +4,16 @@
  * set — relationships, computed values, timestamps, per-role access, and vector
  * index tuning — lives under an "Advanced" disclosure. Any directive the GUI
  * doesn't have a control for is listed read-only so it's visibly preserved.
+ * A `FullText` field takes none of those; it gets the {@link FullTextIndexEditor} instead.
  */
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+	emptyFullTextConfig,
+	FULL_TEXT_DIRECTIVE,
+	FULL_TEXT_TYPE,
+	writeFullTextConfig,
+} from '@/features/instance/applications/lib/schema/fullText';
 import {
 	buildType,
 	fieldBaseType,
@@ -18,10 +25,17 @@ import {
 	setIntArg,
 	setStringArg,
 } from '@/features/instance/applications/lib/schema/mutations';
-import { FieldModel, intArgValue, stringArgValue } from '@/features/instance/applications/lib/schema/types';
+import {
+	FieldModel,
+	findDirective,
+	intArgValue,
+	stringArgValue,
+	TableModel,
+} from '@/features/instance/applications/lib/schema/types';
 import { TrashIcon } from 'lucide-react';
-import { harperScalars } from '../TextEditorView/harper-language/schema';
+import { availableOn, harperScalars } from '../TextEditorView/harper-language/schema';
 import { Disclosure, FIELD_SURFACE, NumberField, SwitchField, TextField } from './controls';
+import { FullTextIndexEditor } from './FullTextIndexEditor';
 
 /** Field directives the GUI has dedicated controls for; anything else is "preserved". */
 const KNOWN_FIELD_DIRECTIVES = new Set([
@@ -34,19 +48,49 @@ const KNOWN_FIELD_DIRECTIVES = new Set([
 	'updatedTime',
 	'expiresAt',
 	'enumerable',
+	FULL_TEXT_DIRECTIVE,
 ]);
+
+/**
+ * The field after its type is switched in the dropdown. A `FullText` field is exactly `FullText`
+ * with exactly `@fullText` — Harper refuses any other directive on it — so switching to it starts a
+ * fresh declaration, and switching away drops the declaration, which no other type can carry.
+ */
+function withBaseType(field: FieldModel, base: string, list: boolean, required: boolean): FieldModel {
+	if (base === FULL_TEXT_TYPE) {
+		// A misplaced `@fullText` (on a `String`, say) is the declaration this switch was for.
+		const declaration = findDirective(field.directives, FULL_TEXT_DIRECTIVE);
+		return {
+			...field,
+			type: buildType(FULL_TEXT_TYPE, false, false),
+			directives: declaration ? [declaration] : writeFullTextConfig([], emptyFullTextConfig()),
+		};
+	}
+	return {
+		...field,
+		type: buildType(base, list, required),
+		directives: field.directives.filter(directive => directive.name !== FULL_TEXT_DIRECTIVE),
+	};
+}
 
 export function FieldRow({
 	field,
+	table,
 	typeNames,
+	harperVersion,
 	readOnly,
 	disableRemove,
 	error,
 	onChange,
 	onRemove,
+	onEnableAudit,
 }: {
 	field: FieldModel;
+	/** The table holding the field: a full-text index picks its sources from it and needs it audited. */
+	table: TableModel;
 	typeNames: string[];
+	/** The instance's Harper version, to offer only the types it has; `undefined` when unknown. */
+	harperVersion: string | undefined;
 	readOnly: boolean;
 	/** True when this is the table's only field: a GraphQL type needs at least one, so removal is blocked. */
 	disableRemove?: boolean;
@@ -54,21 +98,15 @@ export function FieldRow({
 	error?: string;
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;
+	/** Turn on `@table(audit: true)`, which a full-text index needs. */
+	onEnableAudit: () => void;
 }) {
-	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });
-	const togglePresent = (name: string, present: boolean) =>
-		setDirectives(setDirectivePresent(field.directives, name, present));
-	const setStr = (dir: string, arg: string, text: string) =>
-		setDirectives(setStringArg(field.directives, dir, arg, text));
-	const setNum = (dir: string, arg: string, value: number | undefined) =>
-		setDirectives(setIntArg(field.directives, dir, arg, value));
-	const str = (dir: string, arg: string) => stringArgValue(getArgValue(field.directives, dir, arg)) ?? '';
-	const num = (dir: string, arg: string) => intArgValue(getArgValue(field.directives, dir, arg));
-
 	const base = fieldBaseType(field);
 	const list = fieldIsList(field);
 	const required = fieldIsNonNull(field);
 	const indexed = hasDirective(field.directives, 'indexed');
+	const fullText = base === FULL_TEXT_TYPE;
+	const scalars = harperScalars.filter(scalar => availableOn(scalar, harperVersion));
 
 	const preserved = field.directives.filter(directive => !KNOWN_FIELD_DIRECTIVES.has(directive.name));
 
@@ -88,19 +126,18 @@ export function FieldRow({
 					<Select
 						value={base}
 						disabled={readOnly}
-						onValueChange={value => onChange({ ...field, type: buildType(value, list, required) })}
+						onValueChange={value => onChange(withBaseType(field, value, list, required))}
 					>
-						<SelectTrigger className={`w-full ${FIELD_SURFACE}`}>
+						<SelectTrigger className={`w-full ${FIELD_SURFACE}`} aria-label="Type">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{harperScalars.map(scalar => <SelectItem key={scalar.name} value={scalar.name}>{scalar.name}
-							</SelectItem>)}
+							{scalars.map(scalar => <SelectItem key={scalar.name} value={scalar.name}>{scalar.name}</SelectItem>)}
 							{typeNames.filter(name => !harperScalars.some(scalar => scalar.name === name)).map(name => (
 								<SelectItem key={name} value={name}>{name}</SelectItem>
 							))}
-							{/* Keep an unknown/custom type selectable so it isn't silently dropped. */}
-							{base && !harperScalars.some(s => s.name === base) && !typeNames.includes(base) && (
+							{/* Keep an unknown/custom type — or one this Harper predates — selectable so it isn't silently dropped. */}
+							{base && !scalars.some(s => s.name === base) && !typeNames.includes(base) && (
 								<SelectItem value={base}>{base}</SelectItem>
 							)}
 						</SelectContent>
@@ -119,6 +156,63 @@ export function FieldRow({
 				</Button>
 			</div>
 
+			{fullText
+				? (
+					<FullTextIndexEditor
+						field={field}
+						table={table}
+						readOnly={readOnly}
+						onChange={onChange}
+						onEnableAudit={onEnableAudit}
+					/>
+				)
+				: (
+					<ScalarFieldControls
+						field={field}
+						base={base}
+						list={list}
+						required={required}
+						indexed={indexed}
+						preserved={preserved}
+						readOnly={readOnly}
+						onChange={onChange}
+					/>
+				)}
+		</div>
+	);
+}
+
+function ScalarFieldControls({
+	field,
+	base,
+	list,
+	required,
+	indexed,
+	preserved,
+	readOnly,
+	onChange,
+}: {
+	field: FieldModel;
+	base: string;
+	list: boolean;
+	required: boolean;
+	indexed: boolean;
+	preserved: FieldModel['directives'];
+	readOnly: boolean;
+	onChange: (field: FieldModel) => void;
+}) {
+	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });
+	const togglePresent = (name: string, present: boolean) =>
+		setDirectives(setDirectivePresent(field.directives, name, present));
+	const setStr = (dir: string, arg: string, text: string) =>
+		setDirectives(setStringArg(field.directives, dir, arg, text));
+	const setNum = (dir: string, arg: string, value: number | undefined) =>
+		setDirectives(setIntArg(field.directives, dir, arg, value));
+	const str = (dir: string, arg: string) => stringArgValue(getArgValue(field.directives, dir, arg)) ?? '';
+	const num = (dir: string, arg: string) => intArgValue(getArgValue(field.directives, dir, arg));
+
+	return (
+		<>
 			<div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
 				<SwitchField
 					label="Array"
@@ -270,6 +364,6 @@ export function FieldRow({
 					)}
 				</div>
 			</Disclosure>
-		</div>
+		</>
 	);
 }

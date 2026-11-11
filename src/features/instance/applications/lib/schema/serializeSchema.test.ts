@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createField, createTable } from './mutations';
+import { createField, createTable, setArg } from './mutations';
 import { parseSchema } from './parseSchema';
 import { serializeSchema } from './serializeSchema';
 import { SchemaDocument, Segment, TableModel } from './types';
@@ -278,5 +278,151 @@ describe('serializeSchema canonical generation for edited tables', () => {
 		const twiceDoc = parse(once);
 		firstTable(twiceDoc).edited = true;
 		expect(serializeSchema(twiceDoc)).toBe(once);
+	});
+});
+
+describe('full-text fields', () => {
+	// Harper's docs put a long `@fullText(...)` on the lines below its field.
+	const DOCS_LAYOUT = [
+		'type Product @table(audit: true) @export {',
+		'\tid: ID @primaryKey',
+		'\ttitle: String',
+		'\tcatalogSearch: FullText',
+		'\t\t@fullText(',
+		'\t\t\tfields: [{ name: "title", weight: 3, highlight: true }]',
+		'\t\t\thighlighting: { maxFragments: 2, fragmentLength: 120 }',
+		'\t\t) # the storefront search',
+		'\tprice: Float',
+		'}',
+		'',
+	].join('\n');
+
+	it('reads directives that continue onto the lines below their field', () => {
+		const parsed = parseSchema(DOCS_LAYOUT);
+		expect(parsed.ok).toBe(true);
+		const table = firstTable(parsed.document);
+		expect(table.fields.map(field => field.name)).toEqual(['id', 'title', 'catalogSearch', 'price']);
+		const catalogSearch = table.fields[2];
+		expect(catalogSearch.directives.map(directive => directive.name)).toEqual(['fullText']);
+		expect(catalogSearch.directives[0].args.map(arg => arg.name)).toEqual(['fields', 'highlighting']);
+		expect(catalogSearch.lineComment).toBe('# the storefront search');
+		expect(serializeSchema(parsed.document)).toBe(DOCS_LAYOUT);
+	});
+
+	it('keeps a comment after the field line from swallowing the next field', () => {
+		const source = 'type T @table {\n\tid: ID @primaryKey # key\n\tname: String\n}\n';
+		const table = firstTable(parse(source));
+		expect(table.fields.map(field => [field.name, field.lineComment])).toEqual([['id', '# key'], ['name', undefined]]);
+	});
+
+	it('writes an edited @fullText as a block below its field, and reads it back the same', () => {
+		const doc = parse(DOCS_LAYOUT);
+		const table = firstTable(doc);
+		const edited: SchemaDocument = {
+			...doc,
+			segments: doc.segments.map(segment =>
+				segment.kind === 'table' ? { kind: 'table', table: { ...table, edited: true } } : segment
+			),
+		};
+		const written = serializeSchema(edited);
+		expect(written).toBe(DOCS_LAYOUT);
+		expect(serializeSchema(parse(written))).toBe(written);
+	});
+
+	it('writes other directives on the field line and a line comment after the block', () => {
+		const table = { ...createTable('t'), typeName: 'T' };
+		table.fields = [
+			table.fields[0],
+			{
+				...createField('search'),
+				type: { kind: 'named', name: 'FullText', nonNull: false },
+				lineComment: '# note',
+				directives: [
+					{ name: 'fullText', hadParens: true, args: [{ name: 'fields', value: '[{ name: "id" }]' }] },
+					{ name: 'deprecated', hadParens: false, args: [] },
+				],
+			},
+		];
+		const written = serializeSchema({ segments: [{ kind: 'table', table }], indent: '  ', newline: '\n' });
+		expect(written).toBe([
+			'type T @table @export @sealed {',
+			'  id: ID @primaryKey',
+			'  search: FullText @deprecated',
+			'    @fullText(',
+			'      fields: [{ name: "id" }]',
+			'    ) # note',
+			'}',
+		].join('\n'));
+		const reread = firstTable(parse(written)).fields[1];
+		expect(reread.directives.map(directive => directive.name)).toEqual(['deprecated', 'fullText']);
+		expect(reread.lineComment).toBe('# note');
+	});
+});
+
+describe('a comment between a field and its continued directive', () => {
+	it('keeps the file intact rather than guess where the comment belongs', () => {
+		const source = [
+			'type Product @table(audit: true) {',
+			'\tid: ID @primaryKey',
+			'\ttitle: String',
+			'\tcatalogSearch: FullText',
+			'\t\t# searches the title',
+			'\t\t@fullText(fields: [{ name: "title" }])',
+			'}',
+			'',
+		].join('\n');
+		const parsed = parseSchema(source);
+		expect(serializeSchema(parsed.document)).toBe(source);
+		// Not offered as an editable table, so no edit can drop the comment.
+		expect(parsed.document.segments.some(segment => segment.kind === 'table')).toBe(false);
+	});
+});
+
+describe('directives with comments inside their arguments', () => {
+	const source = [
+		'type Product @table(audit: true) {',
+		'\tid: ID @primaryKey',
+		'\ttitle: String',
+		'\tcatalogSearch: FullText',
+		'\t\t@fullText(',
+		'\t\t\t# the storefront search',
+		'\t\t\tfields: [{ name: "title" }] # just the title for now',
+		'\t\t)',
+		'}',
+		'',
+	].join('\n');
+
+	function edited(change: (table: TableModel) => TableModel): string {
+		const doc = parse(source);
+		return serializeSchema({
+			...doc,
+			segments: doc.segments.map(segment =>
+				segment.kind === 'table' ? { kind: 'table', table: { ...change(segment.table), edited: true } } : segment
+			),
+		});
+	}
+
+	it('keeps the comments when something else in the table changes', () => {
+		const written = edited(table => ({
+			...table,
+			fields: [...table.fields, { ...createField('price'), type: { kind: 'named', name: 'Float', nonNull: false } }],
+		}));
+		expect(written).toContain(
+			'\t\t@fullText(\n\t\t\t# the storefront search\n\t\t\tfields: [{ name: "title" }] # just the title for now\n\t\t)',
+		);
+		expect(written).toContain('\tprice: Float');
+	});
+
+	it('regenerates the arguments once one of them changes, which is why the editor keeps them read-only', () => {
+		const written = edited(table => ({
+			...table,
+			fields: table.fields.map(field =>
+				field.name === 'catalogSearch'
+					? { ...field, directives: setArg(field.directives, 'fullText', 'stopWords', 'false') }
+					: field
+			),
+		}));
+		expect(written).not.toContain('# the storefront search');
+		expect(written).toContain('\t\t\tstopWords: false');
 	});
 });
