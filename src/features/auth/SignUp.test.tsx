@@ -10,11 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, historyState } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	historyState: {} as { prefillEmail?: string },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useSearch: () => ({}),
-	Link: ({ children, ...rest }: PropsWithChildren<{ className?: string }>) => <a {...rest}>{children}</a>,
+	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
+		select({ state: historyState }),
+	Link: ({ children, to, state, className }: PropsWithChildren<
+		{ to?: string; state?: { prefillEmail?: string }; className?: string }
+	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
 }));
 
 vi.mock('sonner', () => ({
@@ -579,5 +586,91 @@ describe('SignUp — offline', () => {
 
 		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
 		expect(post).toHaveBeenCalledTimes(3);
+	});
+});
+
+describe('SignUp — handing the address over', () => {
+	it('fills in the address it was handed in history state', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		try {
+			renderSignUp();
+			expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('ada@example.com');
+		} finally {
+			delete historyState.prefillEmail;
+		}
+	});
+
+	it('hands the typed address to the sign-in link in history state, not the URL', () => {
+		renderSignUp();
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+
+		const link = screen.getByRole('link', { name: 'Already have an account? Sign in instead.' });
+		expect(link.getAttribute('data-prefill-email')).toBe('ada@example.com');
+		expect(link.getAttribute('href')).not.toContain('ada');
+	});
+});
+
+describe('SignUp — browser proof', () => {
+	const VERIFYING = { to: '/verifying', state: { prefillEmail: 'taken@example.com' } };
+
+	beforeEach(() => {
+		localStorage.clear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('keeps central-manager’s browser proof for the address, for a day', async () => {
+		post.mockResolvedValue({
+			data: 'Check your email to continue signing up',
+			headers: { 'x-signup-browser-proof': 'proof-from-header' },
+		});
+		const before = Date.now();
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		const stored = JSON.parse(localStorage.getItem('SignUpBrowserProof') ?? '{}')['taken@example.com'];
+		expect(stored).toMatchObject({ proof: 'proof-from-header', email: 'taken@example.com' });
+		expect(stored.expiresAt).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000);
+		expect(stored.expiresAt).toBeLessThanOrEqual(Date.now() + 24 * 60 * 60 * 1000);
+	});
+
+	// A central-manager without central-manager#781's change.
+	it('stores nothing when the answer carries no proof', async () => {
+		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		expect(localStorage.getItem('SignUpBrowserProof')).toBeNull();
+	});
+
+	it('still signs up when storage refuses the proof, and reports nothing', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+			throw new DOMException('The operation is insecure.', 'SecurityError');
+		});
+		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+		});
+		post.mockResolvedValue({
+			data: 'Check your email to continue signing up',
+			headers: { 'x-signup-browser-proof': 'proof-from-header' },
+		});
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(consoleError).not.toHaveBeenCalled();
 	});
 });

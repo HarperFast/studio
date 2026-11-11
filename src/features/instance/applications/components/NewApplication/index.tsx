@@ -18,7 +18,9 @@ import { CommonInstructions } from './CommonInstructions';
 import { ImportInstructions } from './ImportInstructions';
 import { defaultCLIOptions, defaultImportOptions, defaultTemplateOptions, NewApplicationSchema } from './schema';
 import { TemplateInstructions } from './TemplateInstructions';
+import { templates } from './templates';
 import { useCheckCLI } from './useCheckCLI';
+import { useCiDeployOutro } from './useCiDeployOutro';
 import { useCreateFromTemplate } from './useCreateFromTemplate';
 import { useImportApplication } from './useImportApplication';
 
@@ -103,13 +105,24 @@ export function NewApplication() {
 	const setContentsType = useCallback((type: string) => {
 		setValue('contents.type', type as 'template' | 'import' | 'cli', { shouldValidate: true });
 	}, [setValue]);
+	// Once the Templates tab sends someone to the CLI, its command follows whichever template is chosen there.
+	const [templateForCLI, setTemplateForCLI] = useState(false);
+	const cliTemplate = templateForCLI ? findBy(templates, 'id', watch('contents.id')) : undefined;
+	const createWithCLI = useCallback(() => {
+		setTemplateForCLI(true);
+		setContentsType('cli');
+	}, [setContentsType]);
+	const { ciDeploy } = useCiDeployOutro();
+	const project = watch('applicationName').trim() || defaultApplicationName;
 
 	return (
 		<div className="mx-auto max-w-4xl mt-6">
 			<div className="text-center">
 				<h1 className="text-4xl pt-4 pb-2">Bootstrap New API Application</h1>
 				<p className="text-muted-foreground">
-					Create a new application from templates, import existing code, or deploy with Harper CLI
+					{ciDeploy
+						? 'Start from a template, import existing code, or create a project with the Harper CLI that deploys from GitHub'
+						: 'Create a new application from templates, import existing code, or deploy with Harper CLI'}
 				</p>
 			</div>
 
@@ -130,7 +143,7 @@ export function NewApplication() {
 						</Card>
 
 						<Card className="dark:bg-black-dark mt-4 pt-0">
-							<Tabs defaultValue={contentsType} onValueChange={setContentsType}>
+							<Tabs value={contentsType} onValueChange={setContentsType}>
 								<TabsList className="w-full grid grid-cols-3 mt-0">
 									<TabsTrigger value="template">
 										<BoxesIcon />
@@ -155,6 +168,7 @@ export function NewApplication() {
 										control={control}
 										formState={formState}
 										isCreatingFromTemplate={isCreatingFromTemplate}
+										onCreateWithCLI={createWithCLI}
 									/>
 								</TabsContent>
 
@@ -164,6 +178,7 @@ export function NewApplication() {
 										formState={formState}
 										importFailure={importFailure}
 										isImportingApplication={isImportingApplication}
+										project={project}
 										setValue={setValue}
 										watch={watch}
 									/>
@@ -173,6 +188,7 @@ export function NewApplication() {
 									<CLIInstructions
 										defaultApplicationName={defaultApplicationName}
 										formState={formState}
+										template={cliTemplate}
 										watch={watch}
 									/>
 								</TabsContent>

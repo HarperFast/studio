@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPreviewDomain, previewAudience } from './previewAudience';
+import { actionsAudience, isPrivateAudience } from './actionsAudience';
 
-describe('previewAudience', () => {
+describe('actionsAudience', () => {
 	it.each([
 		['https://cluster.example.com:9925/', 'https://cluster.example.com:9925/'],
 		['https://cluster.example.com:9925', 'https://cluster.example.com:9925/'],
@@ -13,7 +13,7 @@ describe('previewAudience', () => {
 		['https://example.com/operations', 'https://example.com:443/operations/'],
 		['https://user:pass@cluster.example.com:9925/?a=b#c', 'https://cluster.example.com:9925/'],
 	])('turns %s into %s', (url, expected) => {
-		expect(previewAudience(url)).toBe(expected);
+		expect(actionsAudience(url)).toBe(expected);
 	});
 
 	it.each([
@@ -25,22 +25,41 @@ describe('previewAudience', () => {
 		undefined,
 		'ftp://cluster.example.com/',
 	])('refuses %j, whose token could never match', (url) => {
-		expect(previewAudience(url)).toBeUndefined();
+		expect(actionsAudience(url)).toBeUndefined();
 	});
 });
 
-describe('defaultPreviewDomain', () => {
-	it('is app. under the host name, lower-cased', () => {
-		expect(defaultPreviewDomain('https://Cluster.Example.com:9925/')).toBe('app.cluster.example.com');
-	});
-
+describe('isPrivateAudience', () => {
 	it.each([
 		'http://localhost:9925/',
 		'http://127.0.0.1:9925/',
 		'http://[::1]:9925/',
-		undefined,
-		'not a url',
-	])('has none for %j, which is not a host name', (audience) => {
-		expect(defaultPreviewDomain(audience)).toBeUndefined();
+		'http://10.0.3.7:9925/',
+		'http://172.20.1.1:9925/',
+		'http://192.168.1.10:9925/',
+		'http://harper.local:9925/',
+		'http://localhost.:9925/',
+		'http://harper.local.:9925/',
+		'http://0.0.0.0:9925/',
+		'http://[::]:9925/',
+		'http://[fe80::1]:9925/',
+		'http://100.101.102.103:9925/',
+		'http://[::ffff:127.0.0.1]:9925/',
+		'http://[::ffff:c0a8:10a]:9925/',
+	])('is private for %s, which a hosted runner cannot reach', (audience) => {
+		expect(isPrivateAudience(audience)).toBe(true);
 	});
+
+	it.each([
+		'https://cluster.example.com:9925/',
+		'http://172.32.0.1:9925/',
+		'https://8.8.8.8:443/',
+		'http://100.128.0.1:9925/',
+		'http://[::ffff:808:808]:9925/',
+	])(
+		'is public for %s',
+		(audience) => {
+			expect(isPrivateAudience(audience)).toBe(false);
+		},
+	);
 });

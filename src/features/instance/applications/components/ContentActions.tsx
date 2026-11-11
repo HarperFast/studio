@@ -20,6 +20,7 @@ import {
 	useDeploymentsAvailable,
 	useStagedDeploymentsAvailable,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { useDeployFromGitHubProject } from '@/features/instance/config/deployFromGitHub/useDeployFromGitHubAvailable';
 import { usePreviewsProject } from '@/features/instance/config/previews/usePreviewsAvailable';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
@@ -49,6 +50,7 @@ import {
 	SaveIcon,
 	TrashIcon,
 	Undo2Icon,
+	WorkflowIcon,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { newApplication } from './ApplicationsSidebar/specialItems';
@@ -165,8 +167,9 @@ export function ContentActions({
 	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
 	const previewsProject = usePreviewsProject(openedEntry?.project);
+	const deployFromGitHubProject = useDeployFromGitHubProject(openedEntry?.project);
 	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject
-		|| !!previewsProject;
+		|| !!previewsProject || !!deployFromGitHubProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.
 	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
 
@@ -466,6 +469,18 @@ export function ContentActions({
 									>
 										<GitPullRequestIcon />
 										Previews
+									</DropdownMenuItem>
+								)}
+								{deployFromGitHubProject && (
+									<DropdownMenuItem
+										onSelect={() =>
+											void navigate({
+												to: buildAbsoluteLinkToPage(routeParams, 'config/deploy-from-github'),
+												search: { project: deployFromGitHubProject },
+											})}
+									>
+										<WorkflowIcon />
+										Deploy from GitHub
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>

@@ -1,7 +1,7 @@
 /**
  * Resolves a GitHub repository to the numeric id an OIDC trust policy pins as `repository_id`. A name can be taken over
  * after a rename or a delete; the id cannot. Every panel that sets up GitHub Actions on a cluster shares this lookup:
- * the Previews panel today, and Deploy from GitHub (studio#1788) once it is built.
+ * Previews and Deploy from GitHub.
  *
  * The request is anonymous and comes from the browser, so a private repository answers 404 exactly as a mistyped name
  * does, and the caller has to ask for the id instead. GitHub allows 60 of these an hour per address, hence the
@@ -18,7 +18,7 @@ const MISS_STALE_MS = 60_000;
 /** GitHub's own names, which an id lookup must not widen: a segment is never `.` or `..`, or a path. */
 const REPOSITORY_SEGMENT = /^(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
 const GITHUB_URL_PREFIX =
-	/^(?:(?:https?|ssh|git\+https|git\+ssh):\/\/(?:[^@/]+@)?(?:www\.)?github\.com\/|git@github\.com:)/i;
+	/^(?:(?:https?|ssh|git\+https|git\+ssh):\/\/(?:[^@/]+@)?(?:www\.)?github\.com(?::\d+)?\/|git@github\.com:)/i;
 
 export interface GitHubRepository {
 	/** A string, as `repository_id` claims compare byte for byte. */

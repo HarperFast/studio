@@ -1,4 +1,5 @@
-// `GET /Cluster/<id>/workflow` is not in the OpenAPI document yet, so its shape is written here.
+// Central manager's read-only customer view of a cluster's workflow, `GET /Cluster/<id>/workflow`: the one holding the
+// cluster, else the last one that did. Not in the OpenAPI document yet, so the shape is written here.
 import { apiClient } from '@/config/apiClient';
 import { errorStatus } from '@/lib/errorStatus';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
@@ -24,7 +25,7 @@ const POLL_MS = 10_000;
  * the user can't see, and a 400 from one older than the endpoint, whose operations proxy refuses the path. While a
  * workflow holds the cluster, such an answer is a passing anomaly, so the poll goes on.
  */
-export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy?: string | null) {
+export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy: string | null | undefined) {
 	const poll = pollUnlessForbidden(heldBy ? POLL_MS : false);
 	return queryOptions({
 		queryKey: ['cluster-workflow', clusterId ?? '', heldBy ?? ''],
@@ -52,9 +53,7 @@ export function latestClusterWorkflowQueryOptions(clusterId: string | undefined,
 		},
 		enabled: !!clusterId,
 		retry: false,
-		meta: { reportsOwnFailure: true },
-		// The interval is the only refetch: a null answer is not asked again on focus or remount.
-		staleTime: Infinity,
+		meta: { quietErrors: true },
 		refetchInterval: poll,
 	});
 }

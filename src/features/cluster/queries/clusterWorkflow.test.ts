@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,10 +60,10 @@ describe(latestClusterWorkflowQueryOptions, () => {
 		expect(interval(null, null, null)).toBe(false);
 	});
 
-	it('lets any other failure through, logged by the query client rather than toasted, and stops on a 403', async () => {
+	it('lets any other failure through, quiet to the query client since each notice says what it can, and stops on a 403', async () => {
 		apiGet.mockRejectedValue(axiosErrorWithStatus(500));
 		await expect(read()).rejects.toThrow('500');
-		expect(latestClusterWorkflowQueryOptions('clu-1').meta).toEqual({ reportsOwnFailure: true });
+		expect(latestClusterWorkflowQueryOptions('clu-1', null).meta).toEqual({ quietErrors: true });
 		expect(interval(undefined, axiosErrorWithStatus(403))).toBe(false);
 	});
 
@@ -71,8 +72,15 @@ describe(latestClusterWorkflowQueryOptions, () => {
 		await expect(read()).resolves.toBeNull();
 	});
 
-	it('never refetches a settled answer on focus or remount: the interval is the only refetch', () => {
-		expect(latestClusterWorkflowQueryOptions('clu-1', 'wf-1').staleTime).toBe(Infinity);
+	it('reads again on the next mount, so a released key does not keep an earlier workflow’s ending', async () => {
+		// The upgrade notice reuses the unheld key after a re-run ends; a settled answer there would be the last run's.
+		const client = new QueryClient();
+		apiGet.mockResolvedValueOnce({ data: { ...ROW, status: 'UNDONE' } });
+		apiGet.mockResolvedValueOnce({ data: { ...ROW, id: 'wf-2', status: 'UNDONE' } });
+		await client.fetchQuery(latestClusterWorkflowQueryOptions('clu-1', null));
+		await expect(client.fetchQuery(latestClusterWorkflowQueryOptions('clu-1', null))).resolves.toMatchObject({
+			id: 'wf-2',
+		});
 	});
 
 	it('drops an empty instance id, which no sentence could name', async () => {
@@ -83,7 +91,7 @@ describe(latestClusterWorkflowQueryOptions, () => {
 	it('is keyed by the cluster and the workflow holding it, and disabled without a cluster', () => {
 		expect(latestClusterWorkflowQueryOptions('clu-1', 'wf-1').queryKey).toEqual(['cluster-workflow', 'clu-1', 'wf-1']);
 		expect(latestClusterWorkflowQueryOptions('clu-1', null).queryKey).toEqual(['cluster-workflow', 'clu-1', '']);
-		expect(latestClusterWorkflowQueryOptions(undefined).enabled).toBe(false);
-		expect(latestClusterWorkflowQueryOptions('clu-1').enabled).toBe(true);
+		expect(latestClusterWorkflowQueryOptions(undefined, null).enabled).toBe(false);
+		expect(latestClusterWorkflowQueryOptions('clu-1', null).enabled).toBe(true);
 	});
 });

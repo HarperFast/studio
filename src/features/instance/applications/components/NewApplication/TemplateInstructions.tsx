@@ -11,16 +11,21 @@ import { Control, FormState } from 'react-hook-form';
 import { z } from 'zod';
 import { NewApplicationSchema } from './schema';
 import { templates } from './templates';
+import { useCiDeployOutro } from './useCiDeployOutro';
 
 export function TemplateInstructions({
 	control,
 	formState,
 	isCreatingFromTemplate,
+	onCreateWithCLI,
 }: {
 	control: Control<z.infer<typeof NewApplicationSchema>>;
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
 	isCreatingFromTemplate: boolean;
+	onCreateWithCLI: () => void;
 }) {
+	// A template made here lives only on the cluster; one made with the CLI starts as a project of its own.
+	const { ciDeploy } = useCiDeployOutro();
 	return (
 		<>
 			<CardHeader>
@@ -91,6 +96,16 @@ export function TemplateInstructions({
 					<RocketIcon className="w-4 h-4 mr-2" />
 					Create from Template
 				</Button>
+				{ciDeploy !== undefined && (
+					<p className="mt-4 text-center text-sm text-muted-foreground">
+						{ciDeploy
+							? 'Want it in a GitHub repository, with every merge deploying here?'
+							: 'Want it in a repository of your own?'}{' '}
+						<Button type="button" variant="link" className="h-auto p-0" onClick={onCreateWithCLI}>
+							Create it with the Harper CLI
+						</Button>
+					</p>
+				)}
 			</CardContent>
 		</>
 	);
