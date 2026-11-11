@@ -178,8 +178,9 @@ export function getContainerOpsPermission(user: User | null, orgId: string): boo
 }
 
 /**
- * Central manager accepts `POST /Chat/Messages` only for `isSuperUser || isOrgAdmin() || can(CHAT_WRITE)`
- * (`resources/chat/messages.js`), so for anyone else the chat widget could only fail.
+ * Central manager accepts `POST /Chat/Messages` only for `isSuperUser || isOrgAdmin() || can(CHAT_WRITE)`,
+ * and the widget also reads `GET /Chat/Usage`, which takes `CHAT_READ` in place of `CHAT_WRITE`
+ * (`resources/chat/`). Staff need both, or part of the widget could only fail.
  */
 export function useChatPermission(orgId?: string): boolean {
 	const { user } = useCloudAuth();
@@ -188,7 +189,8 @@ export function useChatPermission(orgId?: string): boolean {
 }
 
 export function getChatPermission(user: User | null, orgId: string | undefined): boolean {
-	return hasStaffPermission(user, 'chat:write') || (orgId !== undefined && memberIsOrganizationAdmin(user, orgId));
+	return (hasStaffPermission(user, 'chat:write') && hasStaffPermission(user, 'chat:read'))
+		|| (orgId !== undefined && memberIsOrganizationAdmin(user, orgId));
 }
 
 // isOrgAdmin() (central-manager `lib/permissions.js`) is `role === 'admin'` on the aggregated org

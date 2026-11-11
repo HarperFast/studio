@@ -45,6 +45,17 @@ describe('InstanceLayout', () => {
 		expect(screen.getByText('chat widget')).toBeTruthy();
 	});
 
+	it('offers chat to staff who may read and write it', async () => {
+		auth.user = {
+			fabricRole: 'fabric_admin',
+			staffPermissions: ['chat:read', 'chat:write'],
+			roles: {},
+		} as unknown as User;
+		await renderLayout();
+
+		expect(screen.getByText('chat widget')).toBeTruthy();
+	});
+
 	it('leaves chat out for any other member', async () => {
 		auth.user = member('developers');
 		await renderLayout();

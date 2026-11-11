@@ -144,10 +144,11 @@ describe('getChatPermission', () => {
 			.toBe(false);
 	});
 
-	it('allows staff holding chat:write, but not chat:read alone', () => {
-		expect(getChatPermission(staff(['chat:write']), ORG)).toBe(true);
+	it('allows staff holding chat:read and chat:write, but not either alone', () => {
+		expect(getChatPermission(staff(['chat:read', 'chat:write']), ORG)).toBe(true);
 		expect(getChatPermission(staff(['chat:read', 'org:read']), ORG)).toBe(false);
-		expect(getChatPermission(staff(['chat:write']), undefined)).toBe(true);
+		expect(getChatPermission(staff(['chat:write']), ORG)).toBe(false);
+		expect(getChatPermission(staff(['chat:read', 'chat:write']), undefined)).toBe(true);
 		// An API that predates staffPermissions: hasStaffPermission falls back to the role name.
 		expect(getChatPermission({ fabricRole: 'super_user', roles: {} } as unknown as User, ORG)).toBe(true);
 	});

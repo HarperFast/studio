@@ -66,6 +66,7 @@ export type StaffPermission =
 	| 'systemStatus:write'
 	| 'apiToken:create'
 	| 'apiToken:self'
+	| 'chat:read'
 	| 'chat:write';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
