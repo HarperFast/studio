@@ -441,3 +441,61 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		expect((await save()).payload).toBe(saved);
 	});
 });
+
+describe('SchemaEditorView: full-text indexes', () => {
+	// Harper's docs layout: the declaration on the lines below its field.
+	const PRODUCT = [
+		'type Product @table(audit: true) @export {',
+		'\tid: ID @primaryKey',
+		'\ttitle: String',
+		'\tdescription: String',
+		'\tcatalogSearch: FullText',
+		'\t\t@fullText(',
+		'\t\t\tfields: [{ name: "title", weight: 3, highlight: true }, { name: "description" }]',
+		'\t\t\thighlighting: { maxFragments: 2 }',
+		'\t\t)',
+		'}',
+		'',
+	].join('\n');
+	const productSchema: FileEntry = { name: 'search.graphql', path: 'punch/schemas/search.graphql', project: 'punch' };
+
+	async function openProduct() {
+		renderEditor();
+		server.state.files['schemas/search.graphql'] = PRODUCT;
+		await openEntry(productSchema, 'Product');
+		fireEvent.click(screen.getByRole('button', { name: /Product/ }));
+	}
+
+	it('opens a schema laid out like Harper’s docs in the visual editor, untouched', async () => {
+		await openProduct();
+		expect(screen.getByRole('region', { name: 'Source fields' })).toBeTruthy();
+		expect(screen.getByText(/1 full-text index/)).toBeTruthy();
+		expect(buffered('punch/schemas/search.graphql')).toBeUndefined();
+	});
+
+	it('warns before saving a change that rebuilds the index, and not for one that doesn’t', async () => {
+		await openProduct();
+		fireEvent.change(screen.getAllByLabelText('Weight')[0], { target: { value: '5' } });
+		expect(screen.queryByText(/Saving rebuilds/)).toBeNull();
+
+		fireEvent.click(screen.getByTitle('Move description up'));
+		expect(screen.getByText('Saving rebuilds a full-text index')).toBeTruthy();
+		expect(screen.getByText(/can fail until that node finishes/)).toBeTruthy();
+
+		const saved = await save();
+		expect(saved.payload).toContain(
+			'\tcatalogSearch: FullText\n\t\t@fullText(\n\t\t\tfields: [{ name: "description" }, { name: "title", weight: 5, highlight: true }]\n',
+		);
+	});
+
+	it('blocks the save while an index has no sources', async () => {
+		await openProduct();
+		fireEvent.click(screen.getByTitle('Remove title'));
+		fireEvent.click(screen.getByTitle('Remove description'));
+		expect(screen.getByText(/Fix these issues before saving/)).toBeTruthy();
+		expect(screen.getAllByText(/Pick at least one source field for this full-text index/).length).toBeGreaterThan(0);
+		const before = server.state.saves.length;
+		act(() => emitToListeners('SaveFile', true));
+		expect(server.state.saves.length).toBe(before);
+	});
+});
