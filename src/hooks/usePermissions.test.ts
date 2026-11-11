@@ -4,6 +4,7 @@ import type { User } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
 	canManageServiceAccounts,
+	getChatPermission,
 	getContainerOpsPermission,
 	getOrganizationClusterInstancePermissions,
 	getOrganizationClusterPermissions,
@@ -108,6 +109,27 @@ describe('getContainerOpsPermission', () => {
 		expect(getContainerOpsPermission(staff(['cluster:update', 'cluster:read', 'instance:read']), ORG)).toBe(false);
 		// An API that predates staffPermissions: hasStaffPermission falls back to the role name.
 		expect(getContainerOpsPermission({ fabricRole: 'super_user', roles: {} } as unknown as User, ORG)).toBe(true);
+	});
+});
+
+describe('getChatPermission', () => {
+	const member = (role: string) =>
+		({
+			fabricRole: 'least_privileged',
+			staffPermissions: [],
+			roles: { [ORG]: { role, organization: { id: ORG } } },
+		}) as unknown as User;
+
+	it('allows an admin of the organization, and no other member', () => {
+		expect(getChatPermission(member('admin'), ORG)).toBe(true);
+		expect(getChatPermission(member('developers'), ORG)).toBe(false);
+		expect(getChatPermission(member('admin'), 'org-2')).toBe(false);
+		expect(getChatPermission(null, ORG)).toBe(false);
+	});
+
+	it('allows staff holding chat:write, but not chat:read alone', () => {
+		expect(getChatPermission(staff(['chat:write']), ORG)).toBe(true);
+		expect(getChatPermission(staff(['chat:read', 'org:read']), ORG)).toBe(false);
 	});
 });
 
