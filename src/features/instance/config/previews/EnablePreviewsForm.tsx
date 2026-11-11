@@ -11,31 +11,26 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
-import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { authStore, EntityIds } from '@/features/auth/store/authStore';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import {
+	RepositoryIdentityHint,
+	RepositoryLookupMessage,
+	resolveRepositoryIdentity,
+} from '@/features/instance/config/githubActions/RepositoryInput';
+import { useActionsAudience } from '@/features/instance/config/githubActions/useActionsAudience';
 import {
 	EnablePreviewsRequest,
 	EnablePreviewsResponse,
 	useEnablePreviews,
 } from '@/integrations/api/instance/previews/previews';
-import {
-	gitHubRepositoryCommand,
-	GitHubRepositoryLookup,
-	parseGitHubRepositoryIdentity,
-	useGitHubRepositoryLookup,
-} from '@/integrations/github/lookUpGitHubRepository';
-import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { useGitHubRepositoryLookup } from '@/integrations/github/lookUpGitHubRepository';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { defaultPreviewDomain, previewAudience } from './previewAudience';
+import { defaultPreviewDomain } from './previewDomain';
 import { SharedDataWarning } from './PreviewWarnings';
 
 const DEFAULT_BRANCH = 'main';
@@ -82,52 +77,12 @@ export function buildEnablePreviewsRequest(
 	};
 }
 
-/**
- * The cluster's own URL, also when this page is one instance of it: previews belong to the cluster. Only Local Studio,
- * which Harper serves from its operations port, can use the page's origin. Anywhere else that is Studio's own host, and
- * an audience no token is ever requested for.
- */
-function useAudience(entityId: EntityIds): { audience: string | undefined; pending: boolean } {
-	const { clusterId }: { clusterId?: EntityIds } = useParams({ strict: false });
-	const { data: cluster, isLoading } = useQuery(getClusterInfoQueryOptions(clusterId, false));
-	const audience = previewAudience(
-		getOperationsUrlForCluster(cluster)
-			?? authStore.getOperationsUrl(clusterId ?? entityId)
-			?? (isLocalStudio ? window.location.origin : undefined),
-	);
-	// Until the cluster answers, a missing URL is unknown rather than absent.
-	return { audience, pending: !audience && isLoading };
-}
-
-function RepositoryLookupMessage(
-	{ fullName, lookup }: { fullName: string | undefined; lookup: GitHubRepositoryLookup | undefined },
-) {
-	if (!fullName) {
-		return <FormDescription>The owner and name, such as acme/shop, or the repository's URL.</FormDescription>;
-	}
-	if (!lookup) {
-		return <FormDescription>Looking {fullName} up on GitHub…</FormDescription>;
-	}
-	if (lookup.status === 'found') {
-		return <FormDescription>{lookup.repository.fullName}, id {lookup.repository.id}.</FormDescription>;
-	}
-	return (
-		<FormDescription>
-			{lookup.status === 'not-found'
-				? `GitHub doesn't show ${fullName} publicly. If it's private, paste its id and name below. Otherwise, check the name.`
-				: lookup.status === 'rate-limited'
-				? "GitHub's limit on lookups from this address was reached, so paste the id and name below."
-				: "GitHub couldn't be reached, so paste the id and name below."}
-		</FormDescription>
-	);
-}
-
 export function EnablePreviewsForm(
 	{ app, onEnabled }: { app: string; onEnabled: (enabled: EnablePreviewsResponse) => Promise<void> },
 ) {
 	const instanceParams = useInstanceClientIdParams();
 	const { instanceClient, entityId } = instanceParams;
-	const { audience, pending: audiencePending } = useAudience(entityId);
+	const { audience, pending: audiencePending } = useActionsAudience(entityId);
 	const needsHostSuffix = !!audience && !defaultPreviewDomain(audience);
 	const { mutateAsync: enablePreviews, isPending } = useEnablePreviews();
 	const [failure, setFailure] = useState<string>();
@@ -163,23 +118,12 @@ export function EnablePreviewsForm(
 		if (!audience) {
 			return;
 		}
-		if (!fullName) {
-			form.setError('repository', { message: 'Enter the repository as owner/name.' });
+		const resolved = resolveRepositoryIdentity({ fullName, lookup, pasted: values.repositoryIdentity });
+		if (!('identity' in resolved)) {
+			form.setError(resolved.field, { message: resolved.message });
 			return;
 		}
-		if (!lookup) {
-			form.setError('repository', { message: `Still looking ${fullName} up. Try again in a moment.` });
-			return;
-		}
-		const identity = found ?? parseGitHubRepositoryIdentity(values.repositoryIdentity);
-		if (!identity) {
-			form.setError('repositoryIdentity', { message: 'Paste the line the command prints: the id, then the name.' });
-			return;
-		}
-		if (identity.fullName.toLowerCase() !== fullName.toLowerCase()) {
-			form.setError('repositoryIdentity', { message: `That line is for ${identity.fullName}, not ${fullName}.` });
-			return;
-		}
+		const { identity } = resolved;
 		if (needsHostSuffix && !values.hostSuffix.replace(/^\.+/, '')) {
 			form.setError('hostSuffix', { message: 'Enter the domain previews are served under.' });
 			return;
@@ -249,10 +193,7 @@ export function EnablePreviewsForm(
 								<FormControl>
 									<Input placeholder="123456 owner/name" autoComplete="off" {...field} />
 								</FormControl>
-								<FormDescription>
-									<code className="font-mono">{fullName && gitHubRepositoryCommand(fullName)}</code>{' '}
-									prints the line to paste. GitHub Actions has to match its spelling exactly.
-								</FormDescription>
+								<RepositoryIdentityHint fullName={fullName} />
 								<FormMessage />
 							</FormItem>
 						)}
@@ -350,9 +291,7 @@ export function EnablePreviewsForm(
 						<AlertDescription className="whitespace-pre-wrap">{failure}</AlertDescription>
 					</Alert>
 				)}
-				<div>
-					<Button type="submit" disabled={isPending}>Enable previews</Button>
-				</div>
+				<Button type="submit" className="w-fit" disabled={isPending}>Enable previews</Button>
 			</form>
 		</Form>
 	);

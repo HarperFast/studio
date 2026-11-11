@@ -1,27 +1,28 @@
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { FormState, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { NewApplicationSchema } from './schema';
-import { useCLISteps } from './useCLISteps';
+import { CLITemplate, useCLISteps } from './useCLISteps';
 
 export function CLIInstructions({
 	defaultApplicationName,
 	formState,
+	template,
 	watch,
 }: {
 	defaultApplicationName: string;
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
+	template?: CLITemplate;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
 }) {
 	const applicationName = watch('applicationName') || defaultApplicationName;
-	const cliSteps = useCLISteps(applicationName);
-	const cliCopyClicks = useCopyToClipboard(
-		...cliSteps.map(step => step.code),
-	);
+	const cliSteps = useCLISteps(applicationName, template);
+	// Copied at click time: the steps change once the cluster's version loads, and a memo over their texts can go stale.
+	const copy = useCopyTextToClipboard();
 
 	return (
 		<>
@@ -47,7 +48,7 @@ export function CLIInstructions({
 									type="button"
 									variant="default"
 									size="sm"
-									onClick={cliCopyClicks[index]}
+									onClick={() => copy(cliStep.code)}
 								>
 									<CopyIcon className="w-4 h-4" />
 								</Button>

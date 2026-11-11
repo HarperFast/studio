@@ -1,10 +1,8 @@
-import { Button } from '@/components/ui/button';
-import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
+import { CopyableBlock, CopyableValue } from '@/features/instance/config/githubActions/CopyableText';
 import { PreviewPolicy } from '@/integrations/api/instance/previews/previews';
 import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
-import { CopyIcon } from 'lucide-react';
-import { defaultPreviewDomain } from './previewAudience';
 import { PreviewCredentialState } from './PreviewCredential';
+import { defaultPreviewDomain } from './previewDomain';
 import {
 	PREVIEW_CLEANUP_ENVIRONMENT,
 	PREVIEW_ENVIRONMENT,
@@ -20,7 +18,6 @@ const GITHUB_RULE_URL =
 export function PreviewWorkflowInstructions(
 	{ policy, credential }: { policy: PreviewPolicy; credential: PreviewCredentialState },
 ) {
-	const copy = useCopyTextToClipboard();
 	const { app, branch, audience } = policy;
 	const repository = policy.repository && parseGitHubRepository(policy.repository);
 	if (!branch || !audience) {
@@ -65,20 +62,7 @@ export function PreviewWorkflowInstructions(
 										<code className="font-mono">credential: true</code>, which a private repository needs.
 									</p>
 								)}
-								<div className="relative mt-2">
-									<Button
-										className="absolute top-2 right-2"
-										size="sm"
-										variant="defaultOutline"
-										onClick={() => copy(workflow)}
-									>
-										<CopyIcon />
-										<span className="sr-only">Copy workflow</span>
-									</Button>
-									<pre className="max-h-96 overflow-auto rounded-md border bg-muted/50 p-3 text-xs leading-relaxed">
-											<code>{workflow}</code>
-									</pre>
-								</div>
+								<CopyableBlock text={workflow} label="Copy workflow" />
 							</>
 						)}
 				</li>
@@ -100,13 +84,7 @@ export function PreviewWorkflowInstructions(
 						)}
 						:
 					</p>
-					<div className="mt-2 flex items-center gap-2">
-						<code className="break-all font-mono">{audience}</code>
-						<Button size="sm" variant="defaultOutline" onClick={() => copy(audience)}>
-							<CopyIcon />
-							<span className="sr-only">Copy {PREVIEW_TARGET_VARIABLE}</span>
-						</Button>
-					</div>
+					<CopyableValue value={audience} label={`Copy ${PREVIEW_TARGET_VARIABLE}`} />
 				</li>
 				<li>
 					Create two environments, <code className="font-mono">{environment}</code> and{' '}
