@@ -65,7 +65,9 @@ export type StaffPermission =
 	| 'user:status'
 	| 'systemStatus:write'
 	| 'apiToken:create'
-	| 'apiToken:self';
+	| 'apiToken:self'
+	| 'workflow:read'
+	| 'workflow:manage';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
@@ -420,6 +422,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// The job the cluster was created for (a Studio `CLUSTER_PRESETS` id); absent or null for a blank cluster.
 	// Being added to central-manager; not yet in the generated OpenAPI schema.
 	preset?: string | null;
+	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
+	workflowId?: string | null;
 }
 
 export interface ClusterSyncSummary {

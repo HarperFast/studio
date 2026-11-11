@@ -1,5 +1,7 @@
 import { ConfigBackupsIndex } from '@/features/instance/config/backups';
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
+import { ConfigDeployFromGitHubIndex } from '@/features/instance/config/deployFromGitHub';
+import { validateDeployFromGitHubSearch } from '@/features/instance/config/deployFromGitHub/deployFromGitHubSearch';
 import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
 import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
@@ -110,6 +112,14 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigDeploymentsIndex,
 	});
 
+	const instanceConfigDeployFromGitHubRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'deploy-from-github',
+		validateSearch: validateDeployFromGitHubSearch,
+		head: () => ({ meta: [{ title: 'Deploy from GitHub — Harper Fabric' }] }),
+		component: ConfigDeployFromGitHubIndex,
+	});
+
 	const instanceConfigPreviewsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'previews',
@@ -185,6 +195,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigDeploymentsRoute,
 		instanceConfigDeploymentRoute,
+
+		instanceConfigDeployFromGitHubRoute,
 
 		instanceConfigPreviewsRoute,
 

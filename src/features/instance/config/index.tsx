@@ -8,6 +8,7 @@ import { useVisibleExtensionPages } from '@/features/instance/extensions/useStud
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
+import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
@@ -32,6 +33,7 @@ import {
 	RocketIcon,
 	ShieldCheckIcon,
 	UsersIcon,
+	WorkflowIcon,
 } from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
 
@@ -62,6 +64,7 @@ export function ConfigIndex() {
 	const trustPoliciesSupported = supportsTrustPolicies(version);
 	const wafSupported = supportsWaf(version);
 	const previewsSupported = supportsPreviews(version);
+	const deployFromGitHubSupported = supportsCiDeploy(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
 
 	const { clusterId } = params;
@@ -84,6 +87,8 @@ export function ConfigIndex() {
 			? [
 				backupsSupported && { name: 'Backups', page: 'config/backups', icon: <DatabaseBackupIcon /> },
 				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
+				deployFromGitHubSupported
+				&& { name: 'Deploy from GitHub', page: 'config/deploy-from-github', icon: <WorkflowIcon /> },
 				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
 				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
 				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
