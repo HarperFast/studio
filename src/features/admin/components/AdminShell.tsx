@@ -2,7 +2,16 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon, SlidersHorizontalIcon, UsersIcon } from 'lucide-react';
+import {
+	BellIcon,
+	GlobeIcon,
+	KeyRoundIcon,
+	ServerIcon,
+	SirenIcon,
+	SlidersHorizontalIcon,
+	UsersIcon,
+	WorkflowIcon,
+} from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -25,6 +34,14 @@ const items: Array<
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon, permission: 'region:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// A central manager that predates staffPermissions predates the workflow endpoints too.
+	{
+		to: '/admin/workflows',
+		label: 'Workflows',
+		icon: WorkflowIcon,
+		permission: 'workflow:read',
+		needsPermissionsField: true,
+	},
 	// Gated on deactivation's permission, which keeps the page fabric_admin-only; the details lookup needs both reads.
 	{
 		to: '/admin/users',
