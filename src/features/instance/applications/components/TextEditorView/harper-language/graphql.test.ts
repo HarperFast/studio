@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildDirectiveSignature,
+	declarationStartLine,
 	detectCompletionContext,
 	detectHoverTarget,
 	hoverMarkdownValue,
 	parseTypeNames,
 } from './graphql';
-import { findDirective, findScalar } from './schema';
+import { availableOn, findArgInputType, findDirective, findScalar } from './schema';
 
 describe('detectCompletionContext', () => {
 	it('detects a directive after @', () => {
@@ -25,8 +26,9 @@ describe('detectCompletionContext', () => {
 		});
 	});
 
-	it('does not treat a colon inside directive args as a field type', () => {
-		expect(detectCompletionContext('  v: [Float] @indexed(type: ')).toEqual({
+	it('does not treat a colon inside directive args as a field type, nor offer argument names as its value', () => {
+		expect(detectCompletionContext('  v: [Float] @indexed(type: ')).toEqual({ kind: 'none' });
+		expect(detectCompletionContext('  v: [Float] @indexed(type: "HNSW" ')).toEqual({
 			kind: 'directiveArg',
 			directive: 'indexed',
 		});
@@ -62,16 +64,16 @@ describe('parseTypeNames', () => {
 
 describe('detectHoverTarget', () => {
 	it('resolves a directive when preceded by @', () => {
-		const target = detectHoverTarget({ word: 'table', charBeforeWord: '@', lineBeforeWord: 'type Dog ' });
+		const target = detectHoverTarget({ word: 'table', charBeforeWord: '@', textBeforeWord: 'type Dog ' });
 		expect(target).toEqual({ kind: 'directive', directive: findDirective('table') });
 	});
 
 	it('does not resolve an unknown directive', () => {
-		expect(detectHoverTarget({ word: 'unknown', charBeforeWord: '@', lineBeforeWord: '' })).toBeUndefined();
+		expect(detectHoverTarget({ word: 'unknown', charBeforeWord: '@', textBeforeWord: '' })).toBeUndefined();
 	});
 
 	it('resolves a Harper scalar', () => {
-		const target = detectHoverTarget({ word: 'Long', charBeforeWord: ' ', lineBeforeWord: '  count: ' });
+		const target = detectHoverTarget({ word: 'Long', charBeforeWord: ' ', textBeforeWord: '  count: ' });
 		expect(target).toEqual({ kind: 'scalar', scalar: findScalar('Long') });
 	});
 
@@ -79,7 +81,7 @@ describe('detectHoverTarget', () => {
 		const target = detectHoverTarget({
 			word: 'distance',
 			charBeforeWord: ' ',
-			lineBeforeWord: '  v: [Float] @indexed(type: "HNSW", ',
+			textBeforeWord: '  v: [Float] @indexed(type: "HNSW", ',
 		});
 		expect(target?.kind).toBe('directiveArg');
 		if (target?.kind === 'directiveArg') {
@@ -89,7 +91,7 @@ describe('detectHoverTarget', () => {
 	});
 
 	it('returns undefined for an ordinary identifier', () => {
-		expect(detectHoverTarget({ word: 'name', charBeforeWord: ' ', lineBeforeWord: '  name: String' }))
+		expect(detectHoverTarget({ word: 'name', charBeforeWord: ' ', textBeforeWord: '  name: String' }))
 			.toBeUndefined();
 	});
 });
@@ -117,5 +119,188 @@ describe('hoverMarkdownValue', () => {
 		const value = hoverMarkdownValue({ kind: 'scalar', scalar: findScalar('Long')! });
 		expect(value).toContain('Harper scalar');
 		expect(value).toContain('64-bit signed integer');
+	});
+});
+
+describe('@fullText completion across lines', () => {
+	const head = 'type Product @table(audit: true) {\n\ttitle: String\n\tcatalogSearch: FullText\n\t\t@fullText(\n';
+
+	it('offers @fullText’s arguments on the lines inside its parentheses', () => {
+		expect(detectCompletionContext(`${head}\t\t\t`)).toEqual({ kind: 'directiveArg', directive: 'fullText' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "title" }]\n\t\t\t`))
+			.toEqual({ kind: 'directiveArg', directive: 'fullText' });
+	});
+
+	it('offers the input type’s fields inside an argument’s object', () => {
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "title", `))
+			.toEqual({ kind: 'inputField', directive: 'fullText', inputType: 'FullTextSource' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "title" }, { `))
+			.toEqual({ kind: 'inputField', directive: 'fullText', inputType: 'FullTextSource' });
+		expect(detectCompletionContext(`${head}\t\t\thighlighting: { `))
+			.toEqual({ kind: 'inputField', directive: 'fullText', inputType: 'FullTextHighlighting' });
+		expect(detectCompletionContext(`${head}\t\t\tsynonyms: [{ source: "shoe", `))
+			.toEqual({ kind: 'inputField', directive: 'fullText', inputType: 'FullTextSynonymRule' });
+	});
+
+	it('is not fooled by brackets inside strings or comments', () => {
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "ti)tle" # a ) comment\n`))
+			.toEqual({ kind: 'inputField', directive: 'fullText', inputType: 'FullTextSource' });
+	});
+
+	it('leaves the directive once its parentheses close', () => {
+		const closed = `${head}\t\t\tfields: [{ name: "title" }]\n\t\t)\n\tprice: `;
+		expect(detectCompletionContext(closed)).toEqual({ kind: 'fieldType' });
+		expect(detectCompletionContext(`${head}\t\t)\n\tother: String @`)).toEqual({ kind: 'directive' });
+	});
+
+	it('offers nothing in a list waiting for an object, or inside an argument with no input type', () => {
+		expect(detectCompletionContext(`${head}\t\t\tfields: [`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext('  v: [Float] @indexed(type: { ')).toEqual({ kind: 'none' });
+	});
+
+	it('hovers a source field and an argument written on their own lines', () => {
+		const sourceField = detectHoverTarget({
+			word: 'weight',
+			charBeforeWord: ' ',
+			textBeforeWord: `${head}\t\t\tfields: [{ name: "title", `,
+		});
+		expect(sourceField?.kind).toBe('inputField');
+		if (sourceField?.kind === 'inputField') {
+			expect(sourceField.inputType.name).toBe('FullTextSource');
+			expect(hoverMarkdownValue(sourceField)).toContain('_field of `FullTextSource`_');
+		}
+		const arg = detectHoverTarget({ word: 'synonyms', charBeforeWord: '\t', textBeforeWord: `${head}\t\t\t` });
+		expect(arg?.kind).toBe('directiveArg');
+	});
+});
+
+describe('version gating', () => {
+	it('offers FullText and @fullText from 5.3.0, but not on a 5.3.0 prerelease or earlier', () => {
+		const fullText = findScalar('FullText')!;
+		const directive = findDirective('fullText')!;
+		for (const item of [fullText, directive]) {
+			expect(availableOn(item, '5.3.0')).toBe(true);
+			expect(availableOn(item, '5.4.0-beta.2')).toBe(true);
+			expect(availableOn(item, '5.3.0-beta.4')).toBe(false);
+			expect(availableOn(item, '5.2.15')).toBe(false);
+			// An unreadable version offers only what every release has: a wrong guess breaks the whole schema.
+			expect(availableOn(item, undefined)).toBe(false);
+		}
+		expect(availableOn(findScalar('String')!, '4.7.0')).toBe(true);
+		expect(availableOn(findScalar('String')!, undefined)).toBe(true);
+	});
+
+	it('maps each @fullText object argument to its input type', () => {
+		expect(findArgInputType('fullText', 'fields')?.name).toBe('FullTextSource');
+		expect(findArgInputType('fullText', 'synonyms')?.name).toBe('FullTextSynonymRule');
+		expect(findArgInputType('fullText', 'highlighting')?.name).toBe('FullTextHighlighting');
+		expect(findArgInputType('fullText', 'analyzer')).toBeUndefined();
+	});
+});
+
+describe('completion and hover inside strings and comments', () => {
+	const head = 'type Product @table {\n\tsearch: FullText\n\t\t@fullText(\n';
+
+	it('offers nothing inside a string or a comment', () => {
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "wei`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\t# fields: [{ `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext('type Dog { # a @')).toEqual({ kind: 'none' });
+	});
+
+	it('shows no field card for a word inside a string', () => {
+		expect(
+			detectHoverTarget({ word: 'weight', charBeforeWord: '"', textBeforeWord: `${head}\t\t\tfields: [{ name: "` }),
+		)
+			.toBeUndefined();
+	});
+});
+
+describe('declarationStartLine', () => {
+	const lines = [
+		'scalar Url',
+		'type Product @table {',
+		'\ttype: String',
+		'\tinput(arg: Int): String',
+		'\tsearch: FullText',
+		'\t\t@indexed(',
+		'\t\t\ttype: "HNSW"',
+	];
+	const lineAt = (lineNumber: number) => lines[lineNumber - 1];
+
+	it('starts the scan at the declaration the cursor is in, not the top of the file', () => {
+		expect(declarationStartLine(lineAt, 7)).toBe(2);
+		expect(declarationStartLine(lineAt, 1)).toBe(1);
+	});
+
+	it('doesn’t take a field or argument named like a keyword for a declaration', () => {
+		const scanned = lines.slice(declarationStartLine(lineAt, 7) - 1).join('\n');
+		expect(detectCompletionContext(`${scanned}, `)).toEqual({ kind: 'directiveArg', directive: 'indexed' });
+	});
+});
+
+describe('declarationStartLine and descriptions', () => {
+	it('doesn’t take a description line that begins like a declaration for one', () => {
+		const lines = [
+			'type Product @table {',
+			'\t"""',
+			'\ttype of product, schema notes',
+			'\t"""',
+			'\tkind: String',
+			'\tsearch: FullText',
+			'\t\t@fullText(',
+		];
+		const start = declarationStartLine(lineNumber => lines[lineNumber - 1], lines.length);
+		expect(start).toBe(1);
+		expect(detectCompletionContext(`${lines.slice(start - 1).join('\n')}\n\t\t\t`))
+			.toEqual({ kind: 'directiveArg', directive: 'fullText' });
+	});
+});
+
+describe('value positions inside @fullText', () => {
+	const head = 'type Product @table {\n\tsearch: FullText\n\t\t@fullText(\n';
+
+	it('offers no keys where a value goes, and keys again once the value is done', () => {
+		const source = { kind: 'inputField', directive: 'fullText', inputType: 'FullTextSource' };
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ name: "title"`)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3 `)).toEqual(source);
+		expect(detectCompletionContext(`${head}\t\t\tfields: [{ weight: 3, `)).toEqual(source);
+		expect(detectCompletionContext(`${head}\t\t\tstopWords: `)).toEqual({ kind: 'none' });
+		expect(detectCompletionContext(`${head}\t\t\tstopWords: false\n\t\t\t`)).toEqual({
+			kind: 'directiveArg',
+			directive: 'fullText',
+		});
+	});
+
+	it('shows no argument card for a value', () => {
+		expect(detectHoverTarget({ word: 'fields', charBeforeWord: ' ', textBeforeWord: `${head}\t\t\tanalyzer: ` }))
+			.toBeUndefined();
+	});
+});
+
+describe('declarationStartLine inside a description at column 0', () => {
+	it('skips a line inside a """ block that looks like a declaration', () => {
+		const lines = [
+			'type Product @table {',
+			'\t"""',
+			'type of product',
+			'\t"""',
+			'\tsearch: FullText',
+			'\t\t@fullText(',
+		];
+		expect(declarationStartLine(lineNumber => lines[lineNumber - 1], lines.length)).toBe(1);
+	});
+});
+
+describe('hover in prose', () => {
+	it('shows no card for a scalar or directive named inside a comment or a string', () => {
+		expect(detectHoverTarget({ word: 'String', charBeforeWord: ' ', textBeforeWord: 'type T {\n\tname: String # a ' }))
+			.toBeUndefined();
+		expect(detectHoverTarget({ word: 'Long', charBeforeWord: ' ', textBeforeWord: 'type T {\n\t"""\n\tthe ' }))
+			.toBeUndefined();
+		expect(detectHoverTarget({ word: 'table', charBeforeWord: '@', textBeforeWord: '# uses @' })).toBeUndefined();
+		expect(detectHoverTarget({ word: 'Long', charBeforeWord: ' ', textBeforeWord: 'type T {\n\tcount: ' })?.kind)
+			.toBe('scalar');
 	});
 });

@@ -21,19 +21,25 @@ import { useMemo, useState } from 'react';
 
 export type ParsedValue = { ok: true; value: unknown; json: string } | { ok: false; error: string };
 
+// Counted here because the engine's stack can't be the limit: some engines serialize 100,000 levels without throwing.
+export const MAX_CONFIG_DEPTH = 1_000;
+
 // JSON.parse turns 1e400 into Infinity, which serializes back as null, and rounds integers past 2^53.
 // A loop, not recursion: deeply nested input would overflow the stack during render.
-function hasInexactNumber(root: unknown): boolean {
-	const pending = [root];
+function findUnsavable(root: unknown): 'tooDeep' | 'inexactNumber' | null {
+	const pending: [value: unknown, depth: number][] = [[root, 1]];
 	while (pending.length) {
-		const value = pending.pop();
+		const [value, depth] = pending.pop() as [unknown, number];
 		if (typeof value === 'number') {
-			if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) { return true; }
+			if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) {
+				return 'inexactNumber';
+			}
 		} else if (value && typeof value === 'object') {
-			for (const child of Object.values(value)) { pending.push(child); }
+			if (depth > MAX_CONFIG_DEPTH) { return 'tooDeep'; }
+			for (const child of Object.values(value)) { pending.push([child, depth + 1]); }
 		}
 	}
-	return false;
+	return null;
 }
 
 export function parseConfigValue(text: string): ParsedValue {
@@ -43,16 +49,13 @@ export function parseConfigValue(text: string): ParsedValue {
 	} catch (error) {
 		return { ok: false, error: `Not valid JSON: ${(error as Error).message}` };
 	}
-	if (hasInexactNumber(value)) {
-		return { ok: false, error: 'A number is too large to save exactly.' };
+	switch (findUnsavable(value)) {
+		case 'tooDeep':
+			return { ok: false, error: 'This value is nested too deeply to save.' };
+		case 'inexactNumber':
+			return { ok: false, error: 'A number is too large to save exactly.' };
 	}
-	let json: string;
-	try {
-		json = JSON.stringify(value);
-	} catch {
-		return { ok: false, error: 'This value is nested too deeply to save.' };
-	}
-	return { ok: true, value, json };
+	return { ok: true, value, json: JSON.stringify(value) };
 }
 
 export function jsonType(value: unknown): string {

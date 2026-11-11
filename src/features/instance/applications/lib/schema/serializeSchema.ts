@@ -24,8 +24,10 @@ const FIELD_DIRECTIVE_ORDER = [
 	'expiresAt',
 	'enumerable',
 	'allow',
+	'fullText',
 ];
 const ARG_ORDER: Record<string, string[]> = {
+	fullText: ['fields', 'analyzer', 'stopWords', 'positions', 'surfaceTerms', 'synonyms', 'highlighting'],
 	table: ['table', 'database', 'expiration', 'audit', 'eviction', 'scanInterval', 'replicate', 'randomAccessFields'],
 	export: ['name', 'rest', 'mqtt'],
 	indexed: ['type', 'distance', 'efConstruction', 'M', 'optimizeRouting', 'mL', 'efConstructionSearch'],
@@ -46,7 +48,16 @@ function orderByRank<T>(items: T[], keyOf: (item: T) => string, order: string[])
 		.map(entry => entry.item);
 }
 
+/** The text between a directive's parentheses as written, while its arguments are still the ones parsed from it. */
+function untouchedCommentedArgs(directive: Directive): string | undefined {
+	return directive.commented?.args === directive.args ? directive.commented.inner : undefined;
+}
+
 function serializeDirective(directive: Directive): string {
+	const verbatim = untouchedCommentedArgs(directive);
+	if (verbatim !== undefined) {
+		return `@${directive.name}(${verbatim})`;
+	}
 	if (directive.args.length === 0) {
 		return `@${directive.name}`;
 	}
@@ -58,6 +69,30 @@ function serializeDirectives(directives: Directive[], order: string[]): string {
 	return orderByRank(directives, directive => directive.name, order)
 		.map(serializeDirective)
 		.join(' ');
+}
+
+/**
+ * Directives written on lines of their own below the field, one argument per line, the way Harper's
+ * docs lay out `@fullText`. Its arguments are lists and objects that would make an unreadably long
+ * field line.
+ */
+const BLOCK_DIRECTIVES = new Set(['fullText']);
+
+/** `@fullText(` / one argument per line / `)`, each line indented one level past the field. */
+function serializeBlockDirective(directive: Directive, indent: string): string[] {
+	const verbatim = untouchedCommentedArgs(directive);
+	if (verbatim !== undefined) {
+		return [`${indent}${indent}@${directive.name}(${verbatim})`];
+	}
+	if (directive.args.length === 0) {
+		return [`${indent}${indent}@${directive.name}`];
+	}
+	const args = orderByRank(directive.args, arg => arg.name, ARG_ORDER[directive.name] ?? []);
+	return [
+		`${indent}${indent}@${directive.name}(`,
+		...args.map(arg => `${indent}${indent}${indent}${arg.name}: ${arg.value}`),
+		`${indent}${indent})`,
+	];
 }
 
 const BLANK_LINE = /^[ \t]*$/;
@@ -120,9 +155,23 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 		for (const comment of field.leadingComments) {
 			appendCommentLines(lines, comment, indent);
 		}
-		const fieldDirectives = serializeDirectives(field.directives, FIELD_DIRECTIVE_ORDER);
-		const suffix = [fieldDirectives, field.lineComment].filter(Boolean).join(' ');
+		const inline = field.directives.filter(directive => !BLOCK_DIRECTIVES.has(directive.name));
+		const block = orderByRank(
+			field.directives.filter(directive => BLOCK_DIRECTIVES.has(directive.name)),
+			directive => directive.name,
+			FIELD_DIRECTIVE_ORDER,
+		).flatMap(directive => serializeBlockDirective(directive, indent));
+		const fieldDirectives = serializeDirectives(inline, FIELD_DIRECTIVE_ORDER);
+		// A line comment goes last: after the block's closing line when there is one, since a comment
+		// on the field's own line would end the field before the directives below it are read.
+		const suffix = [fieldDirectives, block.length === 0 && field.lineComment].filter(Boolean).join(' ');
 		lines.push(`${indent}${field.name}: ${formatTypeRef(field.type)}${suffix ? ` ${suffix}` : ''}`);
+		if (block.length > 0) {
+			if (field.lineComment) {
+				block[block.length - 1] += ` ${field.lineComment}`;
+			}
+			lines.push(...block);
+		}
 	}
 
 	// Comments that trailed the last field, before `}` — preserved so an edit
