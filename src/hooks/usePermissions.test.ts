@@ -123,13 +123,33 @@ describe('getChatPermission', () => {
 	it('allows an admin of the organization, and no other member', () => {
 		expect(getChatPermission(member('admin'), ORG)).toBe(true);
 		expect(getChatPermission(member('developers'), ORG)).toBe(false);
+		expect(getChatPermission(member('Admin'), ORG)).toBe(false);
 		expect(getChatPermission(member('admin'), 'org-2')).toBe(false);
+		expect(getChatPermission(member('admin'), undefined)).toBe(false);
 		expect(getChatPermission(null, ORG)).toBe(false);
+	});
+
+	it('does not count an admin role behind an OAuth lock', () => {
+		const locked = {
+			role: 'admin',
+			organizationName: 'Org',
+			oauthProviders: [{ name: 'Okta', oauthConfigId: 'oac-1' }],
+		};
+		expect(
+			getChatPermission(
+				{ fabricRole: 'least_privileged', staffPermissions: [], roles: { [ORG]: locked } } as unknown as User,
+				ORG,
+			),
+		)
+			.toBe(false);
 	});
 
 	it('allows staff holding chat:write, but not chat:read alone', () => {
 		expect(getChatPermission(staff(['chat:write']), ORG)).toBe(true);
 		expect(getChatPermission(staff(['chat:read', 'org:read']), ORG)).toBe(false);
+		expect(getChatPermission(staff(['chat:write']), undefined)).toBe(true);
+		// An API that predates staffPermissions: hasStaffPermission falls back to the role name.
+		expect(getChatPermission({ fabricRole: 'super_user', roles: {} } as unknown as User, ORG)).toBe(true);
 	});
 });
 
