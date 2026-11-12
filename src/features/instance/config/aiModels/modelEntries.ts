@@ -113,7 +113,7 @@ export interface ModelSummary {
 	/** Absent when the stored entry isn't something Harper could load. */
 	backend?: string;
 	model?: string;
-	/** Settings worth showing beside the entry. Never a key, and nothing at all for a Fabric entry. */
+	/** Never a key, and for a Fabric entry nothing about where it points. */
 	details: Array<{ label: string; value: string }>;
 	fallback: string[];
 	/** Where the key comes from, never the key: the environment variable's name, or that one is saved. */
