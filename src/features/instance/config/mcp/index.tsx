@@ -86,7 +86,7 @@ function McpServerPage() {
 	// A cluster's save reaches every member, and an older one refuses `enabled` by name, so every member has to
 	// report a version that has it; one that reports none counts as without, and a cluster still loading has none.
 	const onCluster = instanceParams.entityType === 'cluster' && !isLocalStudio;
-	const versions = onCluster ? members.map((instance) => instance.version) : [version];
+	const versions = onCluster ? members.map((instance) => instance.version) : [members[0]?.version ?? version];
 	const canDisable = versions.length > 0 && versions.every(supportsMcpEnabledFlag);
 	const knownVersions = versions.filter((known): known is string => !!known);
 	const oldestVersion = [...knownVersions].sort(compareVersions)[0] ?? version;
@@ -130,8 +130,9 @@ function McpServerPage() {
 	const saved = readMcpState(configuration, canDisable ? oldestVersion : version);
 	const current = draft ?? draftFromMcpState(saved);
 	// Without the flag a list written while the part is off creates its block on a member, which turns it on there.
-	// A cluster page reads one member, so it can't tell which others lack the block either.
-	const sharedListUnsafe = !canDisable && onCluster && members.length > 1;
+	// A cluster page reads one member, so it can't tell which others lack the block, nor how many there are until
+	// the cluster has loaded.
+	const sharedListUnsafe = !canDisable && onCluster && members.length !== 1;
 	const commandsLocked = !canDisable && (!current.operationsOn || sharedListUnsafe);
 	let write: Record<string, unknown> | undefined;
 	let writeError: string | undefined;

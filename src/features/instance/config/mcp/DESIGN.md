@@ -17,8 +17,8 @@ when `canDisable` is false, and the page sets `canDisable` only when every live 
 
 Writing any `mcp_operations_*` key creates the block on a member that has none, which turns the part on there. The page
 reads one member's configuration, so it can't know which members lack the block. With the flag, every list write
-carries `mcp_operations_enabled`. Without it, the list is locked while the part is off, and always on a cluster page
-with more than one member (`sharedListUnsafe`): the list is changed from each instance's own page instead.
+carries `mcp_operations_enabled`. Without it, the list is locked while the part is off, and on a cluster page unless
+the cluster is known to have one member (`sharedListUnsafe`): the list is changed from each instance's own page.
 
 ## An explicit list keeps Harper's defaults, and their exclusions
 
@@ -28,8 +28,8 @@ only (`DEFAULT_EXCLUDED` in harper `components/mcp/tools/operations.ts`), so `li
 `list_secrets` and `list_oidc_trust`. `writeMcpCommandList` denies every such command a pattern brings in unless the
 list names it, and `readMcpCommandList` hides those denials again. For the same reason a list without the defaults
 that is emptied is written as `deny: ['*']`, not an empty `allow`, and read back as that empty list. A deny always
-wins in Harper, so adding a command a removed pattern blocks lifts the pattern and denies the other known commands it
-covered by name (`addMcpCommand`).
+wins in Harper, so a command a removed pattern blocks can't be added until the pattern is put back
+(`blockingMcpPattern`): lifting it for one name would also let in commands Studio can't list.
 
 A saved list is compared with the draft by the commands each gives (`sameMcpCommandAccess`), not by text: a list
 written elsewhere can match Studio's write in different words, or differ from it only in the exclusions. Their

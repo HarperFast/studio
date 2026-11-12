@@ -2,6 +2,7 @@ import { McpCommandList } from '@/integrations/api/instance/mcp/mcpConfig';
 import { describe, expect, it } from 'vitest';
 import {
 	addMcpCommand,
+	blockingMcpPattern,
 	includedMcpCommands,
 	isDefaultMcpCommand,
 	knownMcpCommands,
@@ -93,13 +94,11 @@ describe('editing the list', () => {
 		expect(names(list)).not.toContain('describe_widget');
 	});
 
-	it('lifts a removed pattern that blocks a command being added, keeping the rest it blocked out by name', () => {
-		const known = knownMcpCommands('5.3.6', DEFAULTS).map((command) => command.name);
-		const list = addMcpCommand({ ...DEFAULTS, removed: ['read_*'] }, 'read_log', known);
-		expect(list.removed).toContain('read_audit_log');
-		expect(list.removed).not.toContain('read_*');
-		expect(names(list)).toContain('read_log');
-		expect(names(list)).not.toContain('read_audit_log');
+	it('refuses a command a removed pattern blocks, rather than lifting the pattern for commands it cannot list', () => {
+		const list = { ...DEFAULTS, removed: ['read_*'] };
+		expect(blockingMcpPattern(list, 'read_log')).toBe('read_*');
+		expect(() => addMcpCommand(list, 'read_log')).toThrow('Put back read_* to add read_log.');
+		expect(blockingMcpPattern({ ...DEFAULTS, removed: ['read_log'] }, 'read_log')).toBeUndefined();
 	});
 
 	it('tells default commands from added ones', () => {
