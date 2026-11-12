@@ -163,7 +163,10 @@ describe('the edit form', () => {
 				['https:/me:hunter2@llm.example.com/v1', 'https:/llm.example.com/v1'],
 				['https:///me:hunter2@llm.example.com/v1', 'https:///llm.example.com/v1'],
 				['https:me:hunter2@llm.example.com/v1', 'llm.example.com/v1'],
-				['https:\\\\me:hunter2@llm.example.com/v1', 'llm.example.com/v1'],
+				['https:\\\\me:hunter2@llm.example.com/v1', 'https:\\\\llm.example.com/v1'],
+				['https:\\/me:hunter2@llm.example.com/v1', 'https:\\/llm.example.com/v1'],
+				['https:/\\/me:hunter2@llm.example.com/v1', 'https:/\\/llm.example.com/v1'],
+				['https://llm.example.com\\v1@x', 'https://llm.example.com\\v1@x'],
 				['https://llm.example.com', 'https://llm.example.com'],
 				['https:/me:hunter2@${LLM_HOST}/v1', 'https:/${LLM_HOST}/v1'],
 			]
