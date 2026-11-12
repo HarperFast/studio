@@ -9,8 +9,10 @@ import {
 	composeReport,
 	findEntryChunk,
 	judge,
+	missingPeers,
 	observeAll,
 	observeDeployment,
+	parseExpectedPeers,
 	parseTimeoutSeconds,
 	type PlaywrightReport,
 	probeOrigins,
@@ -158,6 +160,23 @@ describe('the deployed-version gate', () => {
 			expect(() => probeOrigins('https://stage.example.test', entry)).toThrow('not a hostname');
 		},
 	);
+
+	it('refuses a deploy report that names fewer peers than the environment has', () => {
+		const origins = probeOrigins('https://stage.example.test', '');
+		expect(missingPeers(origins, 1)).toMatch(
+			/reported 0 replicated peer\(s\), but this environment expects at least 1/,
+		);
+		expect(missingPeers(probeOrigins('https://stage.example.test', 'stage-2.example.test'), 1)).toBeUndefined();
+		expect(missingPeers(origins, 0)).toBeUndefined();
+	});
+
+	it.each([['', 0], ['1', 1]])('reads expected-peers %j as %d', (value, peers) => {
+		expect(parseExpectedPeers(value)).toBe(peers);
+	});
+
+	it.each(['-1', '1.5', 'two'])('refuses expected-peers %j', (value) => {
+		expect(() => parseExpectedPeers(value)).toThrow('expected-peers must be a whole number');
+	});
 
 	it('fails the round while any node still serves the old build, and names it', async () => {
 		const byHost = (versions: Record<string, string>): typeof fetch =>
@@ -329,6 +348,14 @@ describe('the job summary', () => {
 	it('keeps table cells intact when a message carries pipes or markup', () => {
 		const odd = playwrightTest('unexpected', [{ status: 'failed', error: { message: 'Expected <div> | got </div>' } }]);
 		expect(renderSummary(judge(report([odd]), 1), context)).toContain('Expected &lt;div> \\| got &lt;/div>');
+	});
+
+	it('never clips a long message inside a link, so a masked link cannot leave its prefix behind', () => {
+		const message = `${'x'.repeat(280)} https://dev.example.test/#/set-password/abcdef0123456789abcdef tail`;
+		const odd = playwrightTest('unexpected', [{ status: 'failed', error: { message } }]);
+		const markdown = renderSummary(judge(report([odd]), 1), context);
+		expect(markdown).toContain(`| ${'x'.repeat(280)}… |`);
+		expect(markdown).not.toContain('https://dev.example.test/#/set-pass');
 	});
 
 	it('caps each table and says how many rows it left out', () => {

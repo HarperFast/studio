@@ -110,6 +110,23 @@ export function probeOrigins(baseUrl: string, nodeHosts = ''): string[] {
 	return [...new Set(origins)];
 }
 
+/** An empty peer list for a multi-node environment means the deploy report changed shape, not that it has no peers. */
+export function missingPeers(origins: string[], expectedPeers: number): string | undefined {
+	const peers = origins.length - 1;
+	return peers < expectedPeers
+		? `the deploy reported ${peers} replicated peer(s), but this environment expects at least ${expectedPeers}. `
+			+ 'If deploy_component changed its output, update the peer parsing in .github/actions/studio-deploy.'
+		: undefined;
+}
+
+export function parseExpectedPeers(value: string | undefined): number {
+	const peers = Number(value || 0);
+	if (!Number.isInteger(peers) || peers < 0) {
+		throw new Error(`expected-peers must be a whole number, got "${value}"`);
+	}
+	return peers;
+}
+
 export async function observeAll(
 	origins: string[],
 	version: string,
@@ -256,10 +273,16 @@ export function redactDeep<T>(value: T, secrets: readonly string[]): T {
 	return value;
 }
 
+/** At a word boundary: a link is shown whole, and so masked whole, or not at all. */
+function clip(text: string): string {
+	if (text.length <= 300) { return text; }
+	const head = text.slice(0, 299);
+	const boundary = head.lastIndexOf(' ');
+	return `${boundary > 0 ? head.slice(0, boundary) : ''}…`;
+}
+
 function cell(text: string): string {
-	const flat = text.replace(/\s+/g, ' ').trim();
-	const clipped = flat.length > 300 ? `${flat.slice(0, 299)}…` : flat;
-	return clipped.replace(/\|/g, '\\|').replace(/</g, '&lt;');
+	return clip(text.replace(/\s+/g, ' ').trim()).replace(/\|/g, '\\|').replace(/</g, '&lt;');
 }
 
 export type SummaryContext = {
@@ -278,7 +301,7 @@ function formatDuration(ms: number): string {
 	return seconds >= 60 ? `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
 
-export function headline(verdict: Verdict, environment: string): string {
+function headline(verdict: Verdict, environment: string): string {
 	const { passed, flaky } = verdict.counts;
 	if (verdict.ok) {
 		return `✅ E2E passed on ${environment} — ${passed} passed${flaky ? `, ${flaky} flaky` : ''}`;
@@ -425,6 +448,12 @@ async function waitCommand(): Promise<number> {
 	const version = requiredEnv('EXPECTED_VERSION');
 	const timeoutSeconds = parseTimeoutSeconds(process.env.TIMEOUT_SECONDS);
 	const origins = probeOrigins(baseUrl, process.env.NODE_HOSTS);
+	const peerProblem = missingPeers(origins, parseExpectedPeers(process.env.EXPECTED_PEERS));
+	if (peerProblem) {
+		console.log(annotation('error', 'Deploy peers unknown', peerProblem));
+		publish(`## ❌ ${version}: replicated peers unknown\n\n${peerProblem}\n`);
+		return 1;
+	}
 	const result = await waitForVersion({
 		observe: () => observeAll(origins, version),
 		timeoutMs: timeoutSeconds * 1000,

@@ -85,6 +85,7 @@ jobs:
           base-url: https://stage.studio.harperfabric.com
           expected-version: ${{ needs.deployToStage.outputs.version }}
           node-hosts: ${{ needs.deployToStage.outputs.nodes }}
+          expected-peers: 1
           user-email: ${{ secrets.PLAYWRIGHT_USER_EMAIL }}
           user-password: ${{ secrets.PLAYWRIGHT_USER_PASSWORD }}
           org-id: ${{ secrets.PLAYWRIGHT_ORG_ID }}
