@@ -12,6 +12,8 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 vi.mock('@/features/instance/InstanceNavBar', () => ({ InstanceNavBar: () => null }));
 vi.mock('@/features/restart/RestartingNotice', () => ({ RestartingNotice: () => null }));
 vi.mock('./applications/components/Chat/FloatingChat', () => ({ FloatingChat: () => <div>chat widget</div> }));
+// The dev-only panel reads Studio configuration through React Query, and this render has no QueryClient.
+vi.mock('./extensions/prototype/PrototypePanel', () => ({ PrototypePanel: () => null }));
 vi.mock('@tanstack/react-router', () => ({
 	Outlet: () => <main>page</main>,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
@@ -28,9 +30,11 @@ const member = (role: string) =>
 
 async function renderLayout() {
 	render(<InstanceLayout />);
-	// Settle the lazy chat chunk, so a missing widget means the gate left it out, not that it hasn't loaded.
+	// Settle the lazy chunks, so a missing widget means the gate left it out, not that it hasn't loaded, and
+	// the dev panel renders in every case rather than only when its chunk happens to win the race.
 	await act(async () => {
 		await import('./applications/components/Chat/FloatingChat');
+		await import('./extensions/prototype/PrototypePanel');
 	});
 	expect(screen.getByText('page')).toBeTruthy();
 }
