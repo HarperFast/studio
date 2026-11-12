@@ -1,3 +1,4 @@
+import { ConfigAiModelsIndex } from '@/features/instance/config/aiModels';
 import { ConfigBackupsIndex } from '@/features/instance/config/backups';
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigDeployFromGitHubIndex } from '@/features/instance/config/deployFromGitHub';
@@ -35,6 +36,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		head: () => ({ meta: [{ title: 'Overview — Harper Fabric' }] }),
 		component: ConfigOverviewIndex,
 		loader: registrationInfoLoader,
+	});
+
+	const instanceConfigAiModelsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ai-models',
+		head: () => ({ meta: [{ title: 'AI Models — Harper Fabric' }] }),
+		component: ConfigAiModelsIndex,
 	});
 
 	const instanceConfigBackupsRoute = createRoute({
@@ -180,6 +188,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		instanceOverviewRoute,
 
 		instanceConfigExtensionRoute,
+
+		instanceConfigAiModelsRoute,
 
 		instanceConfigBackupsRoute,
 

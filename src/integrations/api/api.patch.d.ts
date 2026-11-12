@@ -413,6 +413,9 @@ export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceF
 	// Returned by the CM but not yet in the generated OpenAPI schema. True when the instance was
 	// (re)started in safe mode — Harper core is up but user apps/components are not loaded.
 	safeMode?: boolean;
+	// The `models` entries central manager set up for the instance, with each token masked. Returned by
+	// the CM but not yet in the generated OpenAPI schema.
+	modelsConfig?: unknown;
 }
 
 export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {

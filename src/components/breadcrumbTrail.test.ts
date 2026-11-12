@@ -103,6 +103,7 @@ describe('breadcrumbTrail', () => {
 
 	it('spells GitHub as GitHub', () => {
 		expect(labels('/config/deploy-from-github', undefined, {}, NAMES)).toEqual(['Config', 'Deploy from GitHub']);
+		expect(labels('/config/ai-models', undefined, {}, NAMES)).toEqual(['Config', 'AI Models']);
 	});
 });
 
