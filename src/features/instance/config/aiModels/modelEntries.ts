@@ -127,12 +127,13 @@ function text(value: unknown): string | undefined {
 }
 
 /**
- * An address without the `user:password@` in front of its host. Matched as text, not parsed: Ollama's
- * host needs no scheme, and an address can hold a `${VAR}` that `URL` refuses. A password can hold
- * an `@`, so everything up to the last one before the path goes.
+ * An address without the `user:password@` in front of its host. Matched as text and never parsed, so
+ * the rest is shown exactly as stored: Ollama's host needs no scheme, and an address can hold a
+ * `${VAR}` that `URL` would refuse or rewrite. A password can hold an `@`, so everything up to the
+ * last one before the path goes, after any number of slashes.
  */
 function withoutCredentials(value: string): string {
-	return value.replace(/^\s*((?:[a-z][a-z0-9+.-]*:)?\/\/)?[^/?#]*@/i, '$1');
+	return value.replace(/^\s*((?:[a-z][a-z0-9+.-]*:)?\/+)?[^/?#]*@/i, '$1');
 }
 
 export function hidesUrlCredentials(value: unknown): boolean {
@@ -231,7 +232,6 @@ export function emptyModelForm(kind: ModelKind, backend = BACKENDS_BY_KIND[kind]
 	};
 }
 
-/** The key field always starts empty. */
 export function modelFormFromEntry(kind: ModelKind, name: string, entry: StoredRecord): ModelForm {
 	const form = emptyModelForm(kind, text(entry.backend) ?? '');
 	form.name = name;
@@ -349,7 +349,6 @@ export function buildModelEntry(form: ModelForm, stored?: unknown): StoredRecord
 			? generativeName(form.generative) === generativeName(untouched.generative)
 			: form[field] === untouched[field];
 		const typed = form[field].trim();
-		// An empty key field keeps the saved key, and so does one holding only spaces.
 		if (unchanged || (field === 'apiKey' && typed === '')) {
 			continue;
 		}

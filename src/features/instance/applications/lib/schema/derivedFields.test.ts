@@ -281,6 +281,11 @@ describe('both directives', () => {
 		expect(graphqlStringValue('"""\n\t\tfirst\n\t\t  second\n\t"""')).toBe('first\n  second');
 		expect(graphqlStringValue('"""say \\"""hi\\""" """')).toBe('say """hi""" ');
 		expect(graphqlStringValue('"plain"')).toBe('plain');
+		expect(graphqlStringValue('"""\n\n  \n  body\n\n  \n"""')).toBe('body');
+		expect(graphqlStringValue('"""\n  \n"""')).toBe('');
+		const started = performance.now();
+		expect(graphqlStringValue(`"""${'\n'.repeat(300_000)}body"""`)).toBe('body');
+		expect(performance.now() - started).toBeLessThan(2000);
 		const long = Array.from({ length: 1_000_000 }, (_, index) => `  line ${index}`).join('\n');
 		expect(graphqlStringValue(`"""\n${long}\n"""`)?.startsWith('line 0\nline 1\n')).toBe(true);
 		expect(graphqlStringValue('bare')).toBeUndefined();

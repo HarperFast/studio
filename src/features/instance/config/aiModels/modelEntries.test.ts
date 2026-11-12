@@ -160,6 +160,12 @@ describe('the edit form', () => {
 				['https://me:hunt@er2@llm.example.com/v1', 'https://llm.example.com/v1'],
 				[' https://me:hunter2@llm.example.com/v1', 'https://llm.example.com/v1'],
 				['//me:hunter2@llm.example.com/v1', '//llm.example.com/v1'],
+				['https:/me:hunter2@llm.example.com/v1', 'https:/llm.example.com/v1'],
+				['https:///me:hunter2@llm.example.com/v1', 'https:///llm.example.com/v1'],
+				['https:me:hunter2@llm.example.com/v1', 'llm.example.com/v1'],
+				['https:\\\\me:hunter2@llm.example.com/v1', 'llm.example.com/v1'],
+				['https://llm.example.com', 'https://llm.example.com'],
+				['https:/me:hunter2@${LLM_HOST}/v1', 'https:/${LLM_HOST}/v1'],
 			]
 		) {
 			expect(modelFormFromEntry('generative', 'local', { ...local, host: address }).host).toBe(shown);

@@ -82,13 +82,15 @@ export function graphqlStringValue(literal: string | undefined): string | undefi
 		.map((line) => line.length - line.trimStart().length);
 	const indent = indents.reduce((least, next) => Math.min(least, next), indents[0] ?? 0);
 	const dedented = lines.map((line, index) => (index === 0 ? line : line.slice(indent)));
-	while (dedented.length > 0 && dedented[0].trim() === '') {
-		dedented.shift();
+	const first = dedented.findIndex((line) => line.trim() !== '');
+	if (first === -1) {
+		return '';
 	}
-	while (dedented.length > 0 && dedented.at(-1)!.trim() === '') {
-		dedented.pop();
+	let last = dedented.length - 1;
+	while (dedented[last].trim() === '') {
+		last -= 1;
 	}
-	return dedented.join('\n');
+	return dedented.slice(first, last + 1).join('\n');
 }
 
 function embedErrors(field: FieldModel, directive: Directive, fieldNames: ReadonlySet<string>): string[] {
