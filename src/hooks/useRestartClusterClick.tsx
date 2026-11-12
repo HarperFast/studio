@@ -125,7 +125,9 @@ export function useRestartClusterClick(
 							if (canceled) {
 								break;
 							}
-							releaseInstance = markRestarting([instance.id], {
+							// With no other member left answering, the cluster is down while this one restarts.
+							const othersAnswering = instancesRestarted + instancesUnanswered + targets.length - i - 1;
+							releaseInstance = markRestarting(othersAnswering === 0 ? [instance.id, clusterId] : [instance.id], {
 								reach: 'down',
 								ttlMs: RESTART_MARK_TTL_MS,
 							});

@@ -828,7 +828,6 @@ describe('useRollingConfigUpdate restart operation', () => {
 });
 
 describe('useRollingConfigUpdate restart tracking', () => {
-	/** Each request the loop sends, with whether each entity reads as restarting at that moment. */
 	function watchMarks(...entityIds: string[]) {
 		const seen: string[] = [];
 		const record = (step: string) =>
@@ -839,6 +838,8 @@ describe('useRollingConfigUpdate restart tracking', () => {
 		});
 		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
 			record(`restart ${targetOf(instanceClient)}`);
+			await Promise.resolve();
+			record(`back ${targetOf(instanceClient)}`);
 			return { message: 'ok' };
 		});
 		vi.mocked(waitUntilAnsweringAfterRestart).mockImplementation(async ({ instanceClient }) => {
@@ -862,8 +863,10 @@ describe('useRollingConfigUpdate restart tracking', () => {
 		expect(seen).toEqual([
 			'write ins-b: clu-1=rolling ins-a=up ins-b=up',
 			'restart ins-b: clu-1=rolling ins-a=up ins-b=down',
+			'back ins-b: clu-1=rolling ins-a=up ins-b=down',
 			'write ins-a: clu-1=rolling ins-a=up ins-b=up',
 			'restart ins-a: clu-1=rolling ins-a=down ins-b=up',
+			'back ins-a: clu-1=rolling ins-a=down ins-b=up',
 		]);
 	});
 
@@ -873,7 +876,30 @@ describe('useRollingConfigUpdate restart tracking', () => {
 
 		await save({ restartOperation: 'restart' });
 
-		expect(seen).toEqual(['write ins-a: clu-1=down ins-a=up', 'restart ins-a: clu-1=down ins-a=down']);
+		expect(seen).toEqual([
+			'write ins-a: clu-1=down ins-a=up',
+			'restart ins-a: clu-1=down ins-a=down',
+			'back ins-a: clu-1=down ins-a=down',
+		]);
+	});
+
+	it('marks the cluster down while it restarts the only member still answering', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+		const { seen } = watchMarks('clu-1', 'ins-a', 'ins-b');
+		vi.mocked(getInstanceUserInfo).mockImplementation(async ({ instanceClient }) => {
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new Error('connect ECONNREFUSED');
+			}
+			return {} as never;
+		});
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual([
+			'write ins-a: clu-1=rolling ins-a=up ins-b=up',
+			'restart ins-a: clu-1=down ins-a=down ins-b=up',
+			'back ins-a: clu-1=down ins-a=down ins-b=up',
+		]);
 	});
 
 	it('marks a single instance down while it restarts', async () => {
@@ -882,7 +908,7 @@ describe('useRollingConfigUpdate restart tracking', () => {
 
 		await save({ restartOperation: 'restart' });
 
-		expect(seen).toEqual(['write ins-1: ins-1=up', 'restart ins-1: ins-1=down']);
+		expect(seen).toEqual(['write ins-1: ins-1=up', 'restart ins-1: ins-1=down', 'back ins-1: ins-1=down']);
 	});
 
 	it('keeps a member marked until it answers again after a restart that got no verdict', async () => {
@@ -904,6 +930,7 @@ describe('useRollingConfigUpdate restart tracking', () => {
 			'wait ins-b: ins-a=up ins-b=down',
 			'write ins-a: ins-a=up ins-b=up',
 			'restart ins-a: ins-a=down ins-b=up',
+			'back ins-a: ins-a=down ins-b=up',
 		]);
 	});
 
@@ -913,7 +940,15 @@ describe('useRollingConfigUpdate restart tracking', () => {
 
 		await save();
 
+		expect(seen).toHaveLength(6);
 		expect(seen.every(step => step.endsWith('clu-1=up ins-a=up ins-b=up'))).toBe(true);
-		expect(seen).toHaveLength(4);
+	});
+
+	it('checks each member past the restart gate, so one central manager reports as restarting fails fast', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save({ restartOperation: 'restart' });
+
+		expect(vi.mocked(getInstanceUserInfo).mock.calls.map(([config]) => config.skipRestartGate)).toEqual([true, true]);
 	});
 });

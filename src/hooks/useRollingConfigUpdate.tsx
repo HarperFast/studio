@@ -27,10 +27,7 @@ import { toast } from 'sonner';
 
 interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
-	/**
-	 * `restart_service` (the default) restarts only the HTTP workers. Settings Harper's main thread reads only at
-	 * startup, such as the operations API's, need a full `restart`, which takes each instance down while it runs.
-	 */
+	/** `restart_service` leaves Harper's main thread running, so settings it reads only at startup need `restart`. */
 	restartOperation?: 'restart_service' | 'restart';
 }
 
@@ -169,9 +166,11 @@ export function useRollingConfigUpdate(
 				let restartSent = false;
 				let releaseTarget: (() => void) | undefined;
 				try {
-					// Make sure the instance is responding.
+					// Make sure the instance is responding. Ungated, so an instance central manager already reports as
+					// restarting fails here instead of stalling the save.
 					await getInstanceUserInfo({
 						instanceClient,
+						skipRestartGate: true,
 					});
 					if (canceled) {
 						break;
@@ -189,7 +188,14 @@ export function useRollingConfigUpdate(
 					}
 					// Then restart it. Marked only now: a `down` mark would refuse the configuration write above.
 					if (takesDown) {
-						releaseTarget = markRestarting([entityId], { reach: 'down', ttlMs: RESTART_MARK_TTL_MS });
+						// With no other member left answering, the cluster is down while this one restarts.
+						const othersAnswering = instancesRestarted + instancesUnanswered + targets.length - i - 1;
+						releaseTarget = markRestarting(
+							operationsParams.entityType === 'cluster' && othersAnswering === 0
+								? [entityId, operationsParams.entityId]
+								: [entityId],
+							{ reach: 'down', ttlMs: RESTART_MARK_TTL_MS },
+						);
 					}
 					restartSent = true;
 					await restartInstance({
