@@ -95,8 +95,8 @@ function wrapper() {
 	</QueryClientProvider>;
 }
 
-async function save() {
-	const { result } = renderHook(() => useRollingConfigUpdate(), { wrapper: wrapper() });
+async function save(options?: Parameters<typeof useRollingConfigUpdate>[0]) {
+	const { result } = renderHook(() => useRollingConfigUpdate(options), { wrapper: wrapper() });
 	await act(async () => {
 		await (result.current.onConfigUpdate(CHANGES) as unknown as Promise<void>);
 	});
@@ -801,5 +801,26 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 		]);
 		expect(finalError().title).toBe('Not back yet');
 		expect(finalError().description).toContain('may already have the new configuration saved');
+	});
+});
+
+describe('useRollingConfigUpdate restart operation', () => {
+	const operationsSent = () => vi.mocked(restartInstance).mock.calls.map(([{ operation }]) => operation);
+
+	it('restarts only the HTTP workers unless asked otherwise', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save();
+
+		expect(operationsSent()).toEqual(['restart_service', 'restart_service']);
+	});
+
+	it('sends a full restart to every member when asked for one', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save({ restartOperation: 'restart' });
+
+		expect(operationsSent()).toEqual(['restart', 'restart']);
+		expect(vi.mocked(toast.success)).toHaveBeenCalled();
 	});
 });
