@@ -23,7 +23,6 @@ function originOf(url: string | null): string | null {
 	}
 }
 
-/** The application part on the same host, at the HTTP port the configuration names (the secure one when set). */
 function applicationOriginOn(hostname: string, http: McpHttpPorts): string | null {
 	const securePort = Number(http?.securePort);
 	const port = Number(http?.port);
@@ -145,7 +144,7 @@ export interface McpClientConfig {
 	notes: string[];
 }
 
-/** A paste-ready block for each client, the same shape `harper mcp print-config --client <name>` prints. */
+/** Shaped like `harper mcp print-config --client <name>` (harper `bin/mcp/printConfig.ts`). */
 export function mcpClientConfig(client: McpClient, connections: readonly McpConnection[]): McpClientConfig {
 	const servers = (entry: (args: string[]) => unknown) =>
 		Object.fromEntries(connections.map((connection) => [

@@ -78,6 +78,10 @@ export function McpCommandsEditor({
 		}
 		const covered = isMcpOperationIncluded(query, stored);
 		const entry = <span className="font-mono">{query}</span>;
+		const blocked = !covered && blockingMcpPattern(list, query);
+		if (blocked) {
+			return { name: query, label: <>Put back {blocked} to add "{entry}"</> };
+		}
 		return {
 			name: query,
 			label: isMcpPattern(query)

@@ -12,7 +12,7 @@ import {
 	signInCoversApplication,
 } from './mcpConnection';
 
-/** How to reach the parts that are on now, as saved: an address only answers once its instance restarts with it. */
+/** From the saved settings: an address only answers once its instance has restarted with them. */
 export function McpConnect({ hosts, saved, unsavedChanges }: {
 	hosts: readonly McpHost[];
 	saved: McpState;
