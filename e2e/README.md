@@ -34,8 +34,8 @@ lane still runs exactly that pairing until the harness tests the commit each sit
 that belongs in studio-e2e-harness; until it lands, its failures on features dev lacks are skew,
 not regressions.
 
-**Post-deploy check.** `deploy-dev.yaml` also runs these specs right after each dev deploy, from
-the deployed commit, and a red suite fails the deploy run (`.github/deploying.md`, "Post-deploy
+**Post-deploy check.** `deploy-dev.yaml` and `deploy-stage.yaml` also run these specs right after
+each deploy, from the deployed commit, and a red suite fails that deploy run (`.github/deploying.md`, "Post-deploy
 e2e"). It publishes no traces or screenshots — this repo is public — so debug a failure with the
 repro command in the job summary.
 
