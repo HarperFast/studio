@@ -78,7 +78,6 @@ export function TableCard({
 	const exported = hasDirective(table.directives, 'export');
 	const nameError = errors.find(e => e.code === 'INVALID_TABLE_NAME' || e.code === 'DUPLICATE_TABLE_NAME')?.message;
 	const noFieldsError = errors.some(e => e.code === 'NO_FIELDS');
-	// An `@embed` / `@decide` problem is shown beside those controls, not under the field's name.
 	const fieldErrors = new Map(
 		errors.filter(e => e.fieldKey && e.code !== 'INVALID_DERIVED_FIELD').map(e => [e.fieldKey, e.message]),
 	);

@@ -46,7 +46,6 @@ export function readModelsBlock(configuration: unknown): StoredRecord | undefine
 	return isRecord(models) ? models : undefined;
 }
 
-/** The names apps and schema directives can refer to, for each kind a directive uses. */
 export interface InstanceModelNames {
 	embedding: string[];
 	decision: string[];
@@ -66,7 +65,6 @@ export function modelsGatewayEnabled(configuration: unknown): boolean {
 	return isRecord(gateway) && gateway.enabled === true;
 }
 
-/** Whether the root config itself turns on REST, which is what serves `/v1`. */
 export function rootConfigServesRest(configuration: unknown): boolean {
 	return isRecord(configuration) && (!!configuration.rest || !!configuration.REST);
 }

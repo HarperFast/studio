@@ -50,7 +50,6 @@ export function withDecide(field: FieldModel, on: boolean): FieldModel {
 /** A `"""block"""` string inside a larger literal. `parseGraphqlValue` reads only quoted ones. */
 const BLOCK_STRING = /"""[\s\S]*?(?<!\\)"""/g;
 
-/** Undefined when the argument is absent or isn't a list of strings. */
 export function decideValues(directives: Directive[]): string[] | undefined {
 	const literal = getArgValue(directives, DECIDE_DIRECTIVE, 'values');
 	const parsed = literal === undefined
@@ -81,7 +80,7 @@ export function graphqlStringValue(literal: string | undefined): string | undefi
 	const indents = lines.slice(1)
 		.filter((line) => line.trim() !== '')
 		.map((line) => line.length - line.trimStart().length);
-	const indent = indents.length > 0 ? Math.min(...indents) : 0;
+	const indent = indents.reduce((least, next) => Math.min(least, next), indents[0] ?? 0);
 	const dedented = lines.map((line, index) => (index === 0 ? line : line.slice(indent)));
 	while (dedented.length > 0 && dedented[0].trim() === '') {
 		dedented.shift();
@@ -126,8 +125,7 @@ const DECIDE_TARGET_TYPES: Record<string, string> = { confidence: 'Float', decis
 function decideErrors(
 	field: FieldModel,
 	directive: Directive,
-	fieldNames: ReadonlySet<string>,
-	table: TableModel,
+	{ fieldNames, fieldsByName }: TableIndex,
 ): string[] {
 	const errors: string[] = [];
 	const str = (name: string) => graphqlStringValue(getArgValue(field.directives, DECIDE_DIRECTIVE, name));
@@ -164,7 +162,7 @@ function decideErrors(
 			errors.push(`There is no field named "${target}" for @decide's "${name}".`);
 		} else if (target) {
 			const type = DECIDE_TARGET_TYPES[name];
-			const filled = table.fields.find((other) => other.name === target);
+			const filled = fieldsByName.get(target);
 			if (filled && !(filled.type.kind === 'named' && filled.type.name === type)) {
 				errors.push(`@decide's "${name}" needs a ${type} field, and "${target}" isn't one.`);
 			} else if (filled?.type.nonNull) {
@@ -249,11 +247,31 @@ interface Writer {
 	source: string | undefined;
 }
 
-function writersOf(table: TableModel): Writer[] {
-	const writers: Writer[] = [];
+interface TableIndex {
+	fieldNames: ReadonlySet<string>;
+	fieldsByName: ReadonlyMap<string, FieldModel>;
+	writersByField: ReadonlyMap<FieldModel, Writer[]>;
+	writersByFilled: ReadonlyMap<string, Writer[]>;
+}
+
+const indexByTable = new WeakMap<TableModel, TableIndex>();
+
+/** Built once per table, not once per field: validation runs on every edit, and an edit makes a new table object. */
+function indexOf(table: TableModel): TableIndex {
+	const known = indexByTable.get(table);
+	if (known) {
+		return known;
+	}
+	const fieldsByName = new Map<string, FieldModel>();
+	const writersByField = new Map<FieldModel, Writer[]>();
+	const writersByFilled = new Map<string, Writer[]>();
+	const push = <K>(map: Map<K, Writer[]>, key: K, writer: Writer) => map.set(key, [...(map.get(key) ?? []), writer]);
 	for (const field of table.fields) {
 		if (field.name.trim() === '') {
 			continue;
+		}
+		if (!fieldsByName.has(field.name)) {
+			fieldsByName.set(field.name, field);
 		}
 		for (const directive of [EMBED_DIRECTIVE, DECIDE_DIRECTIVE]) {
 			if (!hasDirective(field.directives, directive)) {
@@ -261,15 +279,21 @@ function writersOf(table: TableModel): Writer[] {
 			}
 			const arg = (name: string) => graphqlStringValue(getArgValue(field.directives, directive, name));
 			const also = directive === DECIDE_DIRECTIVE ? [arg('confidence'), arg('decision')] : [];
-			writers.push({
+			const writer: Writer = {
 				directive,
 				field,
 				fills: [field.name, ...also.filter((name): name is string => !!name)],
 				source: arg('source'),
-			});
+			};
+			push(writersByField, field, writer);
+			for (const name of new Set(writer.fills)) {
+				push(writersByFilled, name, writer);
+			}
 		}
 	}
-	return writers;
+	const index = { fieldNames: new Set(fieldsByName.keys()), fieldsByName, writersByField, writersByFilled };
+	indexByTable.set(table, index);
+	return index;
 }
 
 const writerLabel = (writer: Writer) => `@${writer.directive} on "${writer.field.name}"`;
@@ -278,20 +302,17 @@ const writerLabel = (writer: Writer) => `@${writer.directive} on "${writer.field
  * What Harper refuses across the table: a field filled by two directives, and a directive that reads a
  * field one of them fills (its own included).
  */
-function ownershipErrors(field: FieldModel, table: TableModel): string[] {
-	const writers = writersOf(table);
+function ownershipErrors(field: FieldModel, { writersByField, writersByFilled }: TableIndex): string[] {
 	const errors: string[] = [];
-	for (const writer of writers.filter((candidate) => candidate.field === field)) {
+	for (const writer of writersByField.get(field) ?? []) {
 		for (const name of writer.fills) {
-			for (const other of writers) {
-				if (other !== writer && other.fills.includes(name)) {
+			for (const other of writersByFilled.get(name) ?? []) {
+				if (other !== writer) {
 					errors.push(`${writerLabel(other)} also fills "${name}", and only one directive can.`);
 				}
 			}
 		}
-		const filler = writer.source === undefined
-			? undefined
-			: writers.find((other) => other.fills.includes(writer.source!));
+		const filler = writer.source === undefined ? undefined : writersByFilled.get(writer.source)?.[0];
 		if (filler) {
 			errors.push(`@${writer.directive} can't read "${writer.source}": ${writerLabel(filler)} fills it.`);
 		}
@@ -305,13 +326,13 @@ export function derivedFieldErrors(field: FieldModel, table: TableModel): string
 	if (!embed && !decide) {
 		return [];
 	}
-	const fieldNames = new Set(table.fields.map((other) => other.name).filter((name) => name.trim() !== ''));
+	const index = indexOf(table);
 	const errors = [
-		...(embed ? [...embedErrors(field, embed, fieldNames), ...prototypeNameErrors(field, EMBED_DIRECTIVE)] : []),
-		...(decide
-			? [...decideErrors(field, decide, fieldNames, table), ...prototypeNameErrors(field, DECIDE_DIRECTIVE)]
+		...(embed
+			? [...embedErrors(field, embed, index.fieldNames), ...prototypeNameErrors(field, EMBED_DIRECTIVE)]
 			: []),
-		...ownershipErrors(field, table),
+		...(decide ? [...decideErrors(field, decide, index), ...prototypeNameErrors(field, DECIDE_DIRECTIVE)] : []),
+		...ownershipErrors(field, index),
 	];
 	return [...new Set(errors)];
 }

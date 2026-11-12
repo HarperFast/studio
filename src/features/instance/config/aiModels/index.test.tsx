@@ -13,6 +13,7 @@ const { state, remove, toast } = vi.hoisted(() => ({
 		versionError: false,
 		configuration: undefined as unknown,
 		configurationError: false,
+		configurationMeta: undefined as unknown,
 		cluster: undefined as unknown,
 		clusterError: false,
 		entityId: 'clu-1',
@@ -26,7 +27,7 @@ const { state, remove, toast } = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-query')>()),
-	useQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean }) => {
+	useQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean; meta?: unknown }) => {
 		const [first] = options.queryKey;
 		if (first === 'registration_info') {
 			return {
@@ -35,6 +36,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 			};
 		}
 		if (first === 'get_configuration') {
+			state.configurationMeta = options.meta;
 			return {
 				data: options.enabled === false ? undefined : state.configuration,
 				isError: state.configurationError,
@@ -131,6 +133,11 @@ describe('who sees the page', () => {
 		state.versionError = true;
 		render(<ConfigAiModelsIndex />);
 		expect(screen.getByText(/Harper version could not be read/)).toBeTruthy();
+	});
+
+	it('shows a refused settings read itself, without the global toast', () => {
+		render(<ConfigAiModelsIndex />);
+		expect(state.configurationMeta).toEqual({ refusalIsAnAnswer: true });
 	});
 
 	it('says so when the settings could not be loaded', () => {

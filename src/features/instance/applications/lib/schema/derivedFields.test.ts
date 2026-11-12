@@ -281,6 +281,8 @@ describe('both directives', () => {
 		expect(graphqlStringValue('"""\n\t\tfirst\n\t\t  second\n\t"""')).toBe('first\n  second');
 		expect(graphqlStringValue('"""say \\"""hi\\""" """')).toBe('say """hi""" ');
 		expect(graphqlStringValue('"plain"')).toBe('plain');
+		const long = Array.from({ length: 1_000_000 }, (_, index) => `  line ${index}`).join('\n');
+		expect(graphqlStringValue(`"""\n${long}\n"""`)?.startsWith('line 0\nline 1\n')).toBe(true);
 		expect(graphqlStringValue('bare')).toBeUndefined();
 		expect(errorsFor(`${BASE}\tflag: Boolean @decide(source: """body""")`, 'flag')).toEqual([]);
 		expect(errorsFor(`${BASE}\tvector: [Float] @embed(source: """body""", model: """m""")`, 'vector')).toEqual([]);
@@ -298,6 +300,13 @@ describe('both directives', () => {
 				'a "b" ',
 				'c',
 			]);
+	});
+
+	it('ignores a field with no name yet, which is never written to the file', () => {
+		const table = tableOf(`${BASE}\ta: Boolean @decide(source: "body", confidence: "score")`);
+		const unnamed = { ...fieldOf(table, 'a'), name: '' };
+		const withUnnamed = { ...table, fields: [...table.fields, unnamed] };
+		expect(derivedFieldErrors(fieldOf(withUnnamed, 'a'), withUnnamed)).toEqual([]);
 	});
 
 	it('says a reason once, however many arguments earn it', () => {

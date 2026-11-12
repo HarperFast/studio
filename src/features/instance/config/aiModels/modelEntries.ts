@@ -128,13 +128,13 @@ function text(value: unknown): string | undefined {
 
 /**
  * An address without the `user:password@` in front of its host. Matched as text, not parsed: Ollama's
- * host needs no scheme, and an address can hold a `${VAR}` that `URL` refuses.
+ * host needs no scheme, and an address can hold a `${VAR}` that `URL` refuses. A password can hold
+ * an `@`, so everything up to the last one before the path goes.
  */
 function withoutCredentials(value: string): string {
-	return value.replace(/^([a-z][a-z0-9+.-]*:\/\/)?[^/?#@]*@/i, '$1');
+	return value.replace(/^\s*((?:[a-z][a-z0-9+.-]*:)?\/\/)?[^/?#]*@/i, '$1');
 }
 
-/** Whether a stored address carries a `user:password@` that the form leaves out. */
 export function hidesUrlCredentials(value: unknown): boolean {
 	return typeof value === 'string' && withoutCredentials(value) !== value;
 }
@@ -251,7 +251,6 @@ function parseNames(list: string): string[] {
 	return list.split(',').map((name) => name.trim()).filter((name) => name !== '');
 }
 
-/** The generative model a decision entry decides with: Harper uses `default` when it names none. */
 function generativeName(typed: string): string {
 	return typed.trim() || 'default';
 }
@@ -349,10 +348,11 @@ export function buildModelEntry(form: ModelForm, stored?: unknown): StoredRecord
 		const unchanged = field === 'generative'
 			? generativeName(form.generative) === generativeName(untouched.generative)
 			: form[field] === untouched[field];
-		if (unchanged) {
+		const typed = form[field].trim();
+		// An empty key field keeps the saved key, and so does one holding only spaces.
+		if (unchanged || (field === 'apiKey' && typed === '')) {
 			continue;
 		}
-		const typed = form[field].trim();
 		if (typed === '') {
 			delete entry[field];
 		} else {

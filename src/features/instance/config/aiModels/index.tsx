@@ -21,6 +21,7 @@ import {
 } from '@/integrations/api/instance/models/models';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -65,6 +66,8 @@ function AiModelsPage() {
 	const { data: configuration, isError, isFetching, refetch } = useQuery({
 		...getConfigurationQueryOptions(instanceParams),
 		enabled: canManage && supported === true,
+		retry: retryUnlessRejected(),
+		meta: { refusalIsAnAnswer: true },
 	});
 	const { data: cluster, isError: clusterFailed } = useQuery(getClusterInfoQueryOptions(clusterId, false));
 	const onRefreshClick = useRefreshClick(refetch);

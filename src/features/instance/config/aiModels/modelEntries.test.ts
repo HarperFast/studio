@@ -157,6 +157,9 @@ describe('the edit form', () => {
 				['https://llm.example.com/v1?as=me@example.com', 'https://llm.example.com/v1?as=me@example.com'],
 				['${OLLAMA_HOST}', '${OLLAMA_HOST}'],
 				['http://me:hunter2@example.invalid:bad/v1', 'http://example.invalid:bad/v1'],
+				['https://me:hunt@er2@llm.example.com/v1', 'https://llm.example.com/v1'],
+				[' https://me:hunter2@llm.example.com/v1', 'https://llm.example.com/v1'],
+				['//me:hunter2@llm.example.com/v1', '//llm.example.com/v1'],
 			]
 		) {
 			expect(modelFormFromEntry('generative', 'local', { ...local, host: address }).host).toBe(shown);
@@ -167,6 +170,13 @@ describe('the edit form', () => {
 		);
 		expect(JSON.stringify(listed)).not.toContain('hunter2');
 		expect(buildModelEntry(modelFormFromEntry('generative', 'local', local), local)).toEqual(local);
+	});
+
+	it('keeps the saved key when the key field holds only spaces', () => {
+		const stored = block.generative.default;
+		const form = { ...modelFormFromEntry('generative', 'default', stored), apiKey: '   ' };
+		expect(validateModelForm(form, { block, stored })).toBeUndefined();
+		expect(buildModelEntry(form, stored)).toEqual(stored);
 	});
 
 	it('saved untouched, sends back exactly what is stored', () => {

@@ -40,10 +40,8 @@ function directiveAvailable(name: string, harperVersion: string | undefined): bo
 export function DerivedValueEditor({ field, table, models, harperVersion, errors = [], readOnly, onChange }: {
 	field: FieldModel;
 	table: TableModel;
-	/** Absent when the names can't be read: the name is typed instead. */
 	models: InstanceModelNames | undefined;
 	harperVersion: string | undefined;
-	/** What `validateSchema` found wrong with the field's directives. */
 	errors?: readonly string[];
 	readOnly: boolean;
 	onChange: (field: FieldModel) => void;
@@ -215,7 +213,6 @@ export function DerivedValueEditor({ field, table, models, harperVersion, errors
 	);
 }
 
-/** A value that isn't one of `names` stays selected and is marked, never dropped. */
 function NameSelect({ label, value, names, empty, missing, disabled, onChange }: {
 	label: string;
 	value: string;
@@ -288,7 +285,7 @@ function ValuesField({ values, written, disabled, onChange }: {
 	const id = useId();
 	const clean = (text: string) => text.split('\n').map((value) => value.trim()).filter((value) => value !== '');
 	const stored = (values ?? []).join('\n');
-	// What was typed, blank lines and all, kept only while the stored values are still the ones it gave.
+	// Typed text stands only while the stored values are the ones it gave: a change from outside wins.
 	const [typed, setTyped] = useState<{ text: string; gives: string }>();
 	const text = typed?.gives === stored ? typed.text : stored;
 	// One value per line can't hold a line break, an empty value, or spaces at either end.

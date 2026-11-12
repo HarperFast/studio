@@ -5,7 +5,6 @@ import { parse } from 'yaml';
 
 interface RestApp {
 	name: string;
-	/** Absent when the app has no config file. */
 	configFile?: string;
 }
 
@@ -13,7 +12,6 @@ function isDirectory(entry: APIDirectoryEntry | APIFileEntry): entry is APIDirec
 	return Array.isArray((entry as APIDirectoryEntry).entries);
 }
 
-/** Each deployed app and the config file Harper reads for it, in Harper's own order of preference. */
 export function restApps(tree: APIDirectoryEntry | undefined): RestApp[] {
 	return (tree?.entries ?? []).filter(isDirectory).map((app) => {
 		const files = new Set(app.entries.filter((entry) => !isDirectory(entry)).map((entry) => entry.name));

@@ -105,7 +105,6 @@ export function FieldRow({
 	disableRemove?: boolean;
 	/** Validation message for this field (bad or duplicate name), shown inline. */
 	error?: string;
-	/** What `validateSchema` found wrong with the field's `@embed` or `@decide`. */
 	derivedErrors?: readonly string[];
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;

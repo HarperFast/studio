@@ -23,7 +23,6 @@ export type SchemaErrorCode =
 	| 'DUPLICATE_FIELD_NAME'
 	/** A `FullText` field or `@fullText` declaration Harper would refuse (see `./fullText`). */
 	| 'INVALID_FULL_TEXT'
-	/** An `@embed` or `@decide` Harper would refuse (see `./derivedFields`). */
 	| 'INVALID_DERIVED_FIELD';
 
 export interface SchemaValidationError {
