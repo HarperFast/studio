@@ -186,6 +186,18 @@ describe('ConfigMcpIndex', () => {
 		expect((partSwitch('Application') as HTMLButtonElement).disabled).toBe(true);
 	});
 
+	it('keeps a field the user left alone following the saved settings when they refetch', () => {
+		state.version = '5.4.0-beta.4';
+		state.members = [member('node-a', '5.4.0-beta.4')];
+		const { rerender } = render(<ConfigMcpIndex />);
+		fireEvent.click(partSwitch('Application'));
+
+		state.configuration = { mcp: { operations: {} } };
+		rerender(<ConfigMcpIndex />);
+		saveAndConfirm();
+		expect(onConfigUpdate).toHaveBeenCalledWith({ mcp_application_mountPath: '/mcp', mcp_application_enabled: true });
+	});
+
 	it('drops a draft when the page moves to another cluster', () => {
 		const { rerender } = render(<ConfigMcpIndex />);
 		fireEvent.click(partSwitch('Application'));

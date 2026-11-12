@@ -68,7 +68,8 @@ function McpServerPage() {
 	});
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(!isLocalStudio && clusterId, false));
 
-	const [draft, setDraft] = useState<McpDraft | null>(null);
+	// Only what the customer changed, so a field they left alone follows the saved settings when those refetch.
+	const [draft, setDraft] = useState<Partial<McpDraft> | null>(null);
 	const [confirming, setConfirming] = useState(false);
 	const onRestartedSuccessfully = useCallback(() => setDraft(null), []);
 	const { onConfigUpdate, isPending } = useRollingConfigUpdate({
@@ -127,7 +128,7 @@ function McpServerPage() {
 
 	// When every member has the flag, read it as they do: the cached registration version can lag an upgrade.
 	const saved = readMcpState(configuration, canDisable ? oldestVersion : version);
-	const current = draft ?? draftFromMcpState(saved);
+	const current: McpDraft = { ...draftFromMcpState(saved), ...draft };
 	// Without the flag a list written while the part is off creates its block on a member, which turns it on there.
 	// A cluster page reads one member, so it can't tell which others lack the block, nor how many there are until
 	// the cluster has loaded.
@@ -141,7 +142,7 @@ function McpServerPage() {
 		writeError = (error as Error).message;
 	}
 	const unsavedChanges = !!write || !!writeError;
-	const update = (next: Partial<McpDraft>) => setDraft({ ...current, ...next });
+	const update = (next: Partial<McpDraft>) => setDraft({ ...draft, ...next });
 	const scope = instanceParams.entityType === 'cluster' ? 'this cluster' : 'this instance';
 
 	const save = () => {
