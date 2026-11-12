@@ -76,7 +76,6 @@ function McpServerPage() {
 		restartOperation: 'restart',
 	});
 
-	// The members a save reaches: the whole cluster from a cluster's page, or the one instance from its own.
 	const members = useMemo(() => {
 		const live = (cluster?.instances ?? []).filter((instance) =>
 			!deletedClusterStatuses.includes(instance.status ?? '')

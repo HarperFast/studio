@@ -15,16 +15,14 @@ export interface PickerOperation {
 	category: string;
 }
 
-/** A filter miss offered as an entry of its own, e.g. a component-registered operation no catalog can know. */
 export interface PickerCustomCandidate {
 	name: string;
 	label: ReactNode;
 }
 
 /**
- * Grouped checkbox dropdown over a catalog of operation names, shared by a role's allowlist and the MCP server's
- * command list. Borrows the filter/typeahead handling from `features/admin/regions/components/MultiSelect` (which
- * fits chips of known options but not category sections, per-entry badges, or free-text names).
+ * Borrows the filter/typeahead handling from `features/admin/regions/components/MultiSelect`, which fits chips of
+ * known options but not category sections, per-entry badges, or free-text names.
  */
 export function OperationsPicker<T extends PickerOperation>({
 	operations,
