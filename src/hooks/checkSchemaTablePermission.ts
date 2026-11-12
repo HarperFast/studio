@@ -84,7 +84,11 @@ export function checkImportDataPermission(
 	return checkImportDataOperationsAllowed(permission) && checkTableGrant(permission, databaseName, tableName, 'insert');
 }
 
-function checkTableGrant(
+/**
+ * The table grant alone, without the operation allowlist that {@link checkSchemaTablePermission} ANDs in by
+ * action. For a caller that knows the exact operation it will send and checks the allowlist for that.
+ */
+export function checkTableGrant(
 	permission: LocalRolePermission | undefined,
 	databaseName: string,
 	tableName: string,

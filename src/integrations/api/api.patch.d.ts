@@ -419,6 +419,9 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
 	plans?: RegionPlan[];
+	// The job the cluster was created for (a Studio `CLUSTER_PRESETS` id); absent or null for a blank cluster.
+	// Being added to central-manager; not yet in the generated OpenAPI schema.
+	preset?: string | null;
 	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
 	workflowId?: string | null;
 }
@@ -433,6 +436,7 @@ export interface ClusterUpsert extends Omit<SchemaClusterUpsert, 'regionPlans'> 
 	regionPlans: ClusterUpsertRegionPlan[];
 	skipGtmWait?: boolean;
 	version?: string;
+	preset?: string;
 }
 
 export interface InstanceDatabaseMap {
