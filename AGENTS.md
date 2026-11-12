@@ -13,6 +13,14 @@ unrestricted, per `commitlint.config.cjs`). The **Verify Commits** workflow
 `dev`/`stage`/`prod` — a single unprefixed commit fails the check, and history that already
 landed on a deploy branch has to be rewritten and force-pushed to fix it.
 
+The stage merge queue **squashes**. The landed header is the PR title plus `(#123)` (a
+single-commit PR uses that commit's header instead), and its body is every commit message in the
+PR. So the PR title needs a type too: the **Verify PR Title** job lints it as that header, and its
+type alone decides the release and the release-note section; the commits' `feat`/`fix` prefixes
+under it are ignored. The 100-character header limit doesn't count the `(#123)`
+(`commitlint.config.cjs`). Release notes list only references a closing keyword introduces
+(`Closes`/`Fixes`/`Resolves`), once each (`release.config.mjs`).
+
 Don't count on the local hook to catch this first. `.husky/commit-msg` only runs after
 `pnpm install` has run the `prepare: husky` script, which is what points `core.hooksPath`
 at `.husky`. In a fresh clone or worktree that skipped install, `core.hooksPath` is unset,

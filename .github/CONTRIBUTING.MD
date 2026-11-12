@@ -94,9 +94,14 @@ This fetches the OpenAPI spec into `dist/central-manager.json` and generates `sr
 - Keep PRs focused and reasonably small.
 - Ensure `pnpm test` and `pnpm lint` pass before requesting review.
 - Include screenshots or short videos for UI changes when helpful.
-- Use descriptive PR titles that align with Conventional Commits when possible.
+- Give a PR into `dev`, `stage` or `prod` a Conventional Commits title (`feat(browse): …`). The
+  stage merge queue squashes, so the title becomes the commit header and the release-note entry,
+  and its type alone sets the release: use the most significant type among the PR's commits
+  (`feat` over `fix`). **Verify PR Title** checks it, and re-runs when you edit it.
 
-Releases are automated from the `stage` branch via semantic-release.
+Releases are automated from the `stage` branch via semantic-release. A release note lists the
+issues a commit closes (`Closes #123`, `Fixes #123`); a `Refs #123` or a passing mention doesn't
+appear.
 
 ## Code review guidelines
 
