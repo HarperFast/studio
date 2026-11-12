@@ -19,7 +19,11 @@ const WORD_PARAMS = new Set(['mode']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPTIONAL_PARAM = /^\{-\$(\w+)\}$/;
 const SPLAT = '_splat';
-const SEGMENT_LABELS: Record<string, string> = { 'Apis': 'APIs', 'Deploy From Github': 'Deploy from GitHub' };
+const SEGMENT_LABELS: Record<string, string> = {
+	'Apis': 'APIs',
+	'Deploy From Github': 'Deploy from GitHub',
+	'Mcp': 'MCP Server',
+};
 
 /**
  * The parameter each URL segment fills, by name, read from the matched route's `fullPath` (for example

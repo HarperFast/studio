@@ -6,6 +6,7 @@ import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
 import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
+import { ConfigMcpIndex } from '@/features/instance/config/mcp';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigPreviewsIndex } from '@/features/instance/config/previews';
 import { validatePreviewsSearch } from '@/features/instance/config/previews/previewsSearch';
@@ -128,6 +129,13 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigPreviewsIndex,
 	});
 
+	const instanceConfigMcpRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'mcp',
+		head: () => ({ meta: [{ title: 'MCP Server — Harper Fabric' }] }),
+		component: ConfigMcpIndex,
+	});
+
 	const instanceConfigScheduledJobsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'scheduled-jobs',
@@ -199,6 +207,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		instanceConfigDeployFromGitHubRoute,
 
 		instanceConfigPreviewsRoute,
+
+		instanceConfigMcpRoute,
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
