@@ -61,7 +61,6 @@ vi.mock('@/integrations/api/instance/applications/getComponents', () => ({
 vi.mock('@/integrations/api/instance/status/getConfiguration', () => ({
 	getConfigurationQueryOptions: () => ({ queryKey: ['get_configuration', 'ins-1'], queryFn: () => CONFIG }),
 }));
-// The page's save drives the real rolling update and the real restart request; only the waits and probes are faked.
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({
 	getInstanceUserInfo: vi.fn().mockResolvedValue({ username: 'admin' }),
 }));
