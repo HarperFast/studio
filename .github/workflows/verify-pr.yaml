@@ -52,5 +52,10 @@ jobs:
         uses: davelosert/vitest-coverage-report-action@74c2d9210b4fc44c84d8213f61d7ec99837b7aa0 # v2.13.2
       - name: Run lint
         run: pnpm lint
+      # The pre-commit hook checks staged files only, so a `--no-verify` commit or a GitHub-side
+      # edit lands unformatted. Kept out of `studio-verify`: that action gates deploys, and a
+      # whitespace slip shouldn't block one.
+      - name: Check formatting
+        run: pnpm format
       - name: Build
         run: pnpm build

@@ -1,4 +1,5 @@
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import {
 	CLUSTER_BUSY_MESSAGE,
 	CLUSTER_BUSY_TITLE,
@@ -27,6 +28,9 @@ interface DescribedError {
 	message: string;
 }
 
+/** An {@link UnconfirmedWriteError}'s message says which write may have happened; this says what to do. */
+const UNCONFIRMED_WRITE_ADVICE = 'Check whether it took effect before you try again.';
+
 function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	const copy = (title: string, message: string) => ({ title, description: message, message });
 	if (isUnansweredWrite(rawErr)) {
@@ -37,6 +41,9 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	}
 	if (rawErr instanceof ImportJobUnconfirmedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, describeImportJobUnconfirmed(rawErr));
+	}
+	if (rawErr instanceof UnconfirmedWriteError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, `${rawErr.message} ${UNCONFIRMED_WRITE_ADVICE}`);
 	}
 	if (rawErr instanceof BackupJobUnreportedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
