@@ -88,12 +88,12 @@ afterEach(() => {
 	state.mutateAsync.mockReset();
 });
 
-function renderDetail(history: typeof state.history) {
+function renderDetail(history: typeof state.history, deployment = staged) {
 	state.history = history;
 	const queryClient = new QueryClient();
 	render(
 		<QueryClientProvider client={queryClient}>
-			<StagedReleaseDetail deployment={staged} />
+			<StagedReleaseDetail deployment={deployment} />
 		</QueryClientProvider>,
 	);
 	return queryClient;
@@ -118,6 +118,16 @@ async function activateHere(outcome: { resolve: object } | { reject: Error }, hi
 const activationButton = () => screen.queryByRole('button', { name: /Activate|Roll back/ });
 
 describe('StagedReleaseDetail', () => {
+	it('tells the activation what its record says the release puts back (harper#4077)', async () => {
+		const routed: Deployment = {
+			...staged,
+			routing: { host: null, urlPath: null, isolated: null, branchedDatabases: ['data'] },
+		};
+		renderDetail([routed], routed);
+		fireEvent.click(await screen.findByRole('button', { name: /Activate/ }));
+		expect(screen.getByText(/It puts hello on a private copy of data\./)).toBeTruthy();
+	});
+
 	it("reads the component's records from the staged one on, wherever they are listed", async () => {
 		renderDetail([staged]);
 		await screen.findByText('Staged: built and installed, but not live. Activating it just switches each node to it.');

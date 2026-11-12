@@ -116,6 +116,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				offer={offer}
 				disabled={disabled}
 				revalidate={advise ? undefined : recheck}
+				routing={deployment.routing}
 			/>
 		</>
 	);

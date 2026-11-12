@@ -53,19 +53,17 @@ export function entryHasPackage(configuration: unknown, project: string): boolea
 	return isRecord(entry) && entry.package !== undefined;
 }
 
-/**
- * The setting on `project`'s entry in a `get_configuration` answer, or `undefined` when it has none. An empty list
- * branches nothing (harper `resources/branchDatabase.ts` `prepareBranches`), so it reads as none.
- */
+/** The setting on `project`'s entry in a `get_configuration` answer, or `undefined` when it has none. */
 export function readBranchedDatabases(configuration: unknown, project: string): BranchedDatabases | undefined {
 	if (!isRecord(configuration) || !Object.hasOwn(configuration, project)) {
 		return undefined;
 	}
 	const entry = configuration[project];
-	if (!isRecord(entry)) {
-		return undefined;
-	}
-	const value = entry.branchedDatabases;
+	return isRecord(entry) ? toBranchedDatabases(entry.branchedDatabases) : undefined;
+}
+
+/** An empty list branches nothing (harper `resources/branchDatabase.ts` `prepareBranches`), so it reads as none. */
+export function toBranchedDatabases(value: unknown): BranchedDatabases | undefined {
 	if (value === true) {
 		return true;
 	}

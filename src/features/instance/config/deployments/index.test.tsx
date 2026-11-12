@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigDeploymentsIndex } from './index';
@@ -292,6 +292,37 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		fireEvent.click(screen.getByRole('button', { name: '0123456' }));
 		const update = state.navigate.mock.calls.at(-1)?.[0] as { search: (prev: object) => object };
 		expect(update.search({ project: 'web', page: 3 })).toEqual({ project: 'web', sha: SHA, page: undefined });
+	});
+
+	it('shows the private copy each release puts back, once a record on the page says (harper#4077)', () => {
+		const routing = (branchedDatabases: string[] | null) => ({
+			host: null,
+			urlPath: null,
+			isolated: null,
+			branchedDatabases,
+		});
+		state.listData = {
+			deployments: [
+				row('d1', { routing: routing(['data']) }),
+				row('d2', { routing: routing(null) }),
+				row('d3', { routing: null }),
+				row('d4'),
+			],
+			total: 4,
+		};
+		renderPage('5.4.0-beta.2');
+		const column = screen.getAllByRole('columnheader').findIndex((header) => header.textContent === 'Private copy');
+		expect(column).toBeGreaterThan(-1);
+		const shown = screen.getAllByRole('row').slice(1).map((tableRow) =>
+			within(tableRow).getAllByRole('cell')[column].textContent
+		);
+		expect(shown).toEqual(['data', 'Off', 'Keeps current', '—']);
+	});
+
+	it('shows no private copy column when no record on the page says', () => {
+		state.listData = { deployments: [row('d1')], total: 1 };
+		renderPage('5.4.0-beta.2');
+		expect(screen.queryByRole('columnheader', { name: 'Private copy' })).toBeNull();
 	});
 
 	it('shows a declared commit that is not a hash without offering to filter by it', () => {

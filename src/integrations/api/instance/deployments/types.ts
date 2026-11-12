@@ -113,6 +113,17 @@ export interface DeploymentError {
 }
 
 /**
+ * What activating a release puts back on its application's root-config entry (HarperFast/harper#4077, 5.4.0+): exactly
+ * these keys, with a `null` one removed.
+ */
+export interface DeploymentRouting {
+	host: string | null;
+	urlPath: string | null;
+	isolated: boolean | null;
+	branchedDatabases: string[] | true | null;
+}
+
+/**
  * A row from Harper's replicated `hdb_deployment` table. `payload_blob` never travels over
  * the operations API — `list_deployments` and `get_deployment` strip it and expose
  * `payload_blob_present` instead.
@@ -140,6 +151,11 @@ export interface Deployment {
 	/** The origin's own install, on a deploy or a stage (5.3.1+); an activation installs nothing. */
 	install_fingerprint?: InstallFingerprint | null;
 	source?: DeploymentSource | null;
+	/**
+	 * What activating this release puts back (5.4.0+); an activation's record carries its release's. `null`: it leaves
+	 * the routing as it is. Absent: unknown, on an older record or until the deploy determines it.
+	 */
+	routing?: DeploymentRouting | null;
 	error?: DeploymentError | null;
 }
 

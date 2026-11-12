@@ -5,6 +5,7 @@ import { DeploymentSourceCell } from '../components/DeploymentSource';
 import { DeploymentStatusBadge } from '../components/deploymentStatusBadge';
 import { StagedReleaseNote } from '../components/StagedReleaseNote';
 import { shortDeploymentId } from '../functions/deploymentSource';
+import { describeReleasePrivateCopy, releasePrivateCopy } from '../functions/releasePrivateCopy';
 import { StagedReleaseState } from '../functions/stagedRelease';
 
 export interface DeploymentRow extends Deployment {
@@ -18,7 +19,10 @@ function ago(ms?: number) {
 }
 
 export function deploymentColumns(
-	{ commitFilterable }: { commitFilterable: boolean },
+	{ commitFilterable, privateCopy }: {
+		commitFilterable: boolean;
+		privateCopy: boolean;
+	},
 ): Array<ColumnDef<DeploymentRow>> {
 	return [
 		columnHelper.display({
@@ -53,6 +57,14 @@ export function deploymentColumns(
 			enableSorting: false,
 			cell: (props) => <DeploymentSourceCell deployment={props.row.original} commitFilterable={commitFilterable} />,
 		}),
+		...(privateCopy
+			? [columnHelper.display({
+				header: 'Private copy',
+				id: 'private_copy',
+				enableSorting: false,
+				cell: (props) => describeReleasePrivateCopy(releasePrivateCopy(props.row.original)) ?? '—',
+			})]
+			: []),
 		{
 			header: 'User',
 			accessorKey: 'user',

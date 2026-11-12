@@ -59,13 +59,20 @@ const staged = {
 	status: 'staged',
 } as Deployment;
 
-function renderButton(queryClient = new QueryClient()) {
+function renderButton(queryClient = new QueryClient(), routing?: Deployment['routing']) {
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<ActivateRelease project={staged.project} releaseId={staged.deployment_id} />
+			<ActivateRelease project={staged.project} releaseId={staged.deployment_id} routing={routing} />
 		</QueryClientProvider>,
 	);
 }
+
+const routing = (branchedDatabases: string[] | true | null) => ({
+	host: null,
+	urlPath: null,
+	isolated: null,
+	branchedDatabases,
+});
 
 function confirm() {
 	fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
@@ -292,6 +299,29 @@ describe('ActivateRelease', () => {
 		expect(screen.getByText(/brings back the private database copy setting this release was deployed with/))
 			.toBeTruthy();
 		expect(screen.getByText(/web now runs on a private copy of data\./)).toBeTruthy();
+	});
+
+	it.each([
+		['a private copy of data', routing(['data'])],
+		['a private copy of all databases except system', routing(true)],
+		['the shared databases', routing(null)],
+	])('says the release puts web on %s, from its record, and what runs now', (expected, recorded) => {
+		state.canBranch = true;
+		state.currentBranches = { setting: ['data'], known: true };
+		renderButton(undefined, recorded);
+		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
+
+		expect(screen.getByText(new RegExp(`It puts web on ${expected}\\.`))).toBeTruthy();
+		expect(screen.getByText(/web now runs on a private copy of data\./)).toBeTruthy();
+		expect(screen.queryByText(/can.t read/)).toBeNull();
+	});
+
+	it('says a release that puts back no routing leaves the setting as it is', () => {
+		renderButton(undefined, null);
+		fireEvent.click(screen.getByRole('button', { name: /Activate/ }));
+
+		expect(screen.getByText(/It leaves the private database copy setting as it is\./)).toBeTruthy();
+		expect(screen.queryByText(/can.t read/)).toBeNull();
 	});
 
 	it("tells someone who can't configure private copies that the release brings back its own setting", () => {
