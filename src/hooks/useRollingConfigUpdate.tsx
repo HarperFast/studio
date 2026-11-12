@@ -22,6 +22,12 @@ import { toast } from 'sonner';
 
 interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
+	/**
+	 * `restart_service` (the default) restarts the HTTP workers only. Settings the operations server reads only when
+	 * Harper starts, such as `mcp.operations` (harper `server/operationsServer.ts`), need a full `restart`: after a
+	 * `restart_service` the operations part still answered 404 on 5.4.0-beta.4.
+	 */
+	restartOperation?: 'restart_service' | 'restart';
 }
 
 interface RollingConfigUpdateResponse {
@@ -65,7 +71,7 @@ async function planRollingConfigUpdate(
 }
 
 export function useRollingConfigUpdate(
-	{ onRestartedSuccessfully }: RollingConfigUpdateParams = {},
+	{ onRestartedSuccessfully, restartOperation = 'restart_service' }: RollingConfigUpdateParams = {},
 ): RollingConfigUpdateResponse {
 	const operationsParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -169,7 +175,7 @@ export function useRollingConfigUpdate(
 					// Then restart it.
 					restartSent = true;
 					await restartInstance({
-						operation: 'restart_service',
+						operation: restartOperation,
 						replicated: false,
 						instanceClient,
 						onSlowToReturn: () =>
@@ -301,7 +307,7 @@ export function useRollingConfigUpdate(
 			setIsPending(false);
 			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
-	}, [operationsParams, onRestartedSuccessfully, queryClient]);
+	}, [operationsParams, onRestartedSuccessfully, queryClient, restartOperation]);
 
 	return {
 		onConfigUpdate,

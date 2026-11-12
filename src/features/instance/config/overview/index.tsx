@@ -100,7 +100,12 @@ export function ConfigOverviewIndex() {
 	const [jsonError, setJsonError] = useState<string | null>(null);
 	const [restrictedError, setRestrictedError] = useState<string[]>([]);
 
-	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate();
+	// Always a full restart: the operations API runs on Harper's main thread, which a `restart_service` leaves
+	// running, so whatever it read at startup stays stale. That is more than `operationsApi` and `mcp.operations`
+	// (`server/operationsServer.ts`): the main thread's `onStartup` hooks read `authentication` and `logging` keys
+	// too (`security/auth.ts`), and the `agent` component starts only there. A list of the keys that need it would
+	// miss the next one silently, behind a toast that says the change was applied.
+	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate({ restartOperation: 'restart' });
 
 	useEffect(() => {
 		if (sanitizedConfigInfo && !isEditing) {
