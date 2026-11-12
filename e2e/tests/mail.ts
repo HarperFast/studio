@@ -43,6 +43,20 @@ export interface VerificationEmail {
 	link: string;
 }
 
+type LinkList = { links?: { href?: string }[] };
+
+/** Masked in CI before anything can print one: a changed template may carry its token anywhere. */
+function maskedLinks(message: { html?: LinkList; text?: LinkList }): string[] {
+	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
+		.map((link) => link.href)
+		.filter((href): href is string => Boolean(href));
+	for (const href of hrefs) {
+		maskInCi(href);
+		maskInCi(/[?&]token=([^&#]+)/.exec(href)?.[1]);
+	}
+	return hrefs;
+}
+
 /**
  * Wait for the newest email sent to `address` and extract its verification link.
  * Throws (failing the test with a clear message) if none arrives in time or the
@@ -59,14 +73,7 @@ export async function waitForVerificationEmail(
 		{ timeout: timeoutMs, receivedAfter },
 	);
 
-	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
-		.map((l) => l.href)
-		.filter((href): href is string => Boolean(href));
-	// Before anything can print one: a changed template may carry its token somewhere else.
-	for (const href of hrefs) {
-		maskInCi(href);
-		maskInCi(/[?&]token=([^&#]+)/.exec(href)?.[1]);
-	}
+	const hrefs = maskedLinks(message);
 	const link = hrefs.find((href) => /(verify-email|[?&]token=)/i.test(href));
 	if (!link) {
 		throw new Error(
@@ -101,9 +108,7 @@ export async function waitForSetPasswordEmail(
 		);
 	});
 
-	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
-		.map((l) => l.href)
-		.filter((href): href is string => Boolean(href));
+	const hrefs = maskedLinks(message);
 	const link = hrefs.find((href) => /reset-password\?token=/i.test(href));
 	if (!link) {
 		throw new Error(
