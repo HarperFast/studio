@@ -93,6 +93,12 @@ describe('editing the list', () => {
 		expect(names(list)).not.toContain('describe_widget');
 	});
 
+	it('lifts a removed pattern that blocks a command being added, since a deny always wins', () => {
+		const list = addMcpCommand({ ...DEFAULTS, removed: ['read_*'] }, 'read_log');
+		expect(list.removed).toEqual([]);
+		expect(names(list)).toContain('read_log');
+	});
+
 	it('tells default commands from added ones', () => {
 		const list = addMcpCommand(DEFAULTS, 'insert');
 		expect(isDefaultMcpCommand('describe_table', list)).toBe(true);

@@ -173,6 +173,10 @@ function sortedUnique(entries: Iterable<string>): string[] {
 
 export function readMcpCommandList({ allow, deny }: McpStoredList): McpCommandList {
 	const explicit = allow ?? [];
+	if (explicit.length === 0 && deny?.includes('*')) {
+		// How `writeMcpCommandList` stores a list emptied of everything: no defaults, nothing added.
+		return { includesDefaults: false, added: [], removed: sortedUnique(deny.filter((entry) => entry !== '*')) };
+	}
 	const includesDefaults = explicit.length === 0 || MCP_DEFAULT_ALLOW.every((entry) => explicit.includes(entry));
 	const added = includesDefaults ? explicit.filter((entry) => !MCP_DEFAULT_ALLOW.includes(entry)) : [...explicit];
 	const named = new Set(added);
@@ -199,13 +203,25 @@ export function writeMcpCommandList({ includesDefaults, added, removed }: McpCom
 	return { allow, deny: sortedUnique([...removed, ...kept]) };
 }
 
+function patternsOf(entries: readonly string[]): string {
+	return sortedUnique(entries.filter((entry) => entry.includes('*'))).join('\n');
+}
+
 /**
- * Whether two stored lists give the same commands. Not a text comparison: Studio's own write of a list read from
- * elsewhere can differ in order or spelling and still be the same access, and the same text can be different
- * access once Studio adds the default-only exclusions. So it compares the answers for every name either list
- * mentions, every exclusion, and one sample name per pattern.
+ * Whether two stored lists give the same commands. Not a text comparison: Studio's write of a list read from
+ * elsewhere can differ in order and still give the same commands, and the same text can give different ones once
+ * Studio adds the default-only exclusions. The patterns themselves must match, since one sample name per pattern
+ * can't prove two different patterns equal; beyond that it compares the answers for every name either list
+ * mentions, every exclusion, and a sample name per pattern.
  */
 export function sameMcpCommandAccess(a: McpStoredList, b: McpStoredList): boolean {
+	const effectiveAllow = ({ allow }: McpStoredList) => allow?.length ? allow : MCP_DEFAULT_ALLOW;
+	if (
+		patternsOf(effectiveAllow(a)) !== patternsOf(effectiveAllow(b))
+		|| patternsOf(a.deny ?? []) !== patternsOf(b.deny ?? [])
+	) {
+		return false;
+	}
 	const entries = [...(a.allow ?? []), ...(a.deny ?? []), ...(b.allow ?? []), ...(b.deny ?? []), ...MCP_DEFAULT_ALLOW];
 	const probes = new Set([
 		...DEFAULT_ONLY_EXCLUSIONS,

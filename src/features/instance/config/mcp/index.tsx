@@ -98,7 +98,7 @@ function McpServerPage() {
 				? [localMcpHost(localStudioDevUrl || window.location.origin, configuration?.http)]
 				: members
 					.map((instance) =>
-						mcpHostForInstance(instance, clusterIsSelfManaged(cluster) ? configuration?.http : undefined)
+						mcpHostForInstance(instance, clusterIsSelfManaged(cluster) ? { http: configuration?.http } : undefined)
 					)
 					.filter((host) => host.operationsOrigin),
 		[members, configuration, cluster],
@@ -259,6 +259,12 @@ function McpServerPage() {
 					<ul className="list-disc pl-5 text-sm">
 						{describeChanges(saved, current).map((change) => <li key={change}>{change}</li>)}
 					</ul>
+					{onCluster && !canDisable && write && Object.keys(write).some((key) => key.startsWith('mcp_operations_')) && (
+						<p className="text-sm text-warning">
+							On Harper before 5.4 this also turns the operations part on for any instance in the cluster where it is
+							off.
+						</p>
+					)}
 					<DialogFooter>
 						<Button type="button" onClick={() => setConfirming(false)}>
 							<ArrowLeft /> Cancel

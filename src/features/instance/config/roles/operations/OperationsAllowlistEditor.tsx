@@ -289,7 +289,6 @@ const NEEDS_5_3_TITLE = "This instance's Harper checks this operation under its 
 // out whitespace/quote garbage that could never be an operation name.
 const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
 
-/** The shared picker over this version's grantable catalog, with the role's badges and custom-grant rules. */
 function RoleOperationsPicker({
 	grantable,
 	band,
