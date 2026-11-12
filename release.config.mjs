@@ -21,7 +21,6 @@ export function closingReferences(references, { owner, repository }) {
 		if (!reference.action) {
 			return false;
 		}
-		// `#2014`, `studio#2014` and `HarperFast/studio#2014` are one issue.
 		const key = `${reference.owner ?? owner}/${reference.repository ?? repository}#${reference.issue}`.toLowerCase();
 		if (seen.has(key)) {
 			return false;
@@ -38,7 +37,7 @@ export function closingReferences(references, { owner, repository }) {
  * @param {NotesContext} context
  * @returns {NotesContext}
  */
-export function closingReferencesOnly(context) {
+function closingReferencesOnly(context) {
 	return {
 		...context,
 		commitGroups: context.commitGroups?.map((group) => ({

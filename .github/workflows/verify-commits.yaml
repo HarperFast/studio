@@ -5,9 +5,8 @@ on:
   push:
     branches: [dev, stage, prod]
   # The stage merge queue squashes, so the commit that lands is one GitHub writes. Each queued PR
-  # gets its own merge group, and on `merge_group` the pinned action lints only
-  # `merge_group.head_commit.message` from the event payload: that PR's squash commit. It reads no
-  # git range, so the shallow checkout is enough.
+  # gets its own merge group, and the pinned action lints `merge_group.head_commit.message` from
+  # the event payload (`getMergeGroupEventCommits` in its src/action.mjs): that PR's squash commit.
   merge_group:
     branches: [stage]
 jobs:
@@ -29,9 +28,8 @@ jobs:
           configFile: commitlint.config.cjs
 
   # A squash merge of a PR with several commits takes its header from the PR title, which the
-  # job above never sees: it lints commits. So lint the title as the header it will become.
-  # Runs on `edited` too, so fixing the title re-runs it. PRs into other branches (a stack's
-  # base) are skipped: their titles never reach a deploy branch.
+  # job above never sees: it lints commits. So lint the title as the header it will become. PRs
+  # into other branches (a stack's base) are skipped: their titles never reach a deploy branch.
   pr-title:
     name: Verify PR Title
     if: github.event_name == 'pull_request' && contains(fromJSON('["dev", "stage", "prod"]'), github.base_ref)
