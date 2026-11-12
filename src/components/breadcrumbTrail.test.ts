@@ -104,6 +104,10 @@ describe('breadcrumbTrail', () => {
 	it('spells GitHub as GitHub', () => {
 		expect(labels('/config/deploy-from-github', undefined, {}, NAMES)).toEqual(['Config', 'Deploy from GitHub']);
 	});
+
+	it('names the MCP page as its menu entry does', () => {
+		expect(labels('/config/mcp', undefined, {}, NAMES)).toEqual(['Config', 'MCP Server']);
+	});
 });
 
 describe('paramSegments', () => {

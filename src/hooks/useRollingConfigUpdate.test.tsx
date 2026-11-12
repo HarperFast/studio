@@ -413,7 +413,53 @@ describe('useRollingConfigUpdate on clusters that must not replicate', () => {
 	});
 });
 
+describe('useRollingConfigUpdate restart kind', () => {
+	it('restarts the HTTP workers by default, and the whole instance when asked', async () => {
+		useCluster([instance('ins-a', '5.3.6')]);
+		await save();
+		expect(vi.mocked(restartInstance)).toHaveBeenLastCalledWith(
+			expect.objectContaining({ operation: 'restart_service' }),
+		);
+
+		const { result } = renderHook(() => useRollingConfigUpdate({ restartOperation: 'restart' }), {
+			wrapper: wrapper(),
+		});
+		await act(async () => {
+			await (result.current.onConfigUpdate(CHANGES) as unknown as Promise<void>);
+		});
+		expect(vi.mocked(restartInstance)).toHaveBeenLastCalledWith(expect.objectContaining({ operation: 'restart' }));
+	});
+});
+
 describe('useRollingConfigUpdate outcome reporting', () => {
+	it("names Harper's own reason when it refuses the configuration", async () => {
+		useCluster([instance('ins-a', '5.3.6'), instance('ins-b', '5.3.6')]);
+		vi.mocked(setConfiguration).mockRejectedValue(
+			new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+				status: 400,
+				data: { error: 'Unable to update config, unrecognized config parameter: mcp_operations_enabled' },
+			} as never),
+		);
+
+		await save();
+
+		expect(vi.mocked(restartInstance)).not.toHaveBeenCalled();
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain(
+			'Harper refused the change: Unable to update config, unrecognized config parameter: mcp_operations_enabled',
+		);
+	});
+
+	it('names no refusal when only a restart failed', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockRejectedValue(new Error('did not come back'));
+
+		await save();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).not.toContain('Harper refused the change');
+	});
+
 	it('reports a cluster with no instances as a failure, not a success', async () => {
 		useCluster([]);
 
@@ -592,7 +638,8 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 				+ '1 instance failed to update. '
 				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not updated, to keep the cluster available. '
-				+ 'Check its status before you restart it again.',
+				+ 'Check its status before you restart it again.'
+				+ '\nHarper refused the change: Invalid configuration',
 		});
 	});
 
