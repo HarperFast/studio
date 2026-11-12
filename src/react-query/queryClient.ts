@@ -197,7 +197,7 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  * A failure a route load is awaiting is the route's: its error page is the message and its error
  * boundary the RUM report (`ensureRouteQueryData`).
  *
- * A query with `meta: { refusalIsAnAnswer: true }` shows a 403 itself, as "Studio can't read this", so it isn't toasted.
+ * A query with `meta: { refusalIsAnAnswer: true }` handles a 403 itself, by showing it or by hiding what it would have shown, so it isn't toasted.
  * One with `meta: { reportsOwnFailure: true }` shows every failure itself, so RUM gets it and no toast repeats it.
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
