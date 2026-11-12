@@ -26,7 +26,6 @@ function context(messages: string[]) {
 	};
 }
 
-// The stage merge queue squashes: the PR title, then every commit of the PR (cf. #2080, #2031).
 const squash = `feat(full-text): declare full-text indexes in the schema editor (#2080)
 
 * feat(full-text): declare full-text indexes in the schema editor

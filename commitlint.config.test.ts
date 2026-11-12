@@ -20,10 +20,8 @@ async function errorsFor(message: string) {
 	return result.errors.map((error: { name: string }) => error.name);
 }
 
-// 97 characters: under the limit as a PR title, over it once a squash merge appends ` (#2080)`.
 const title = 'feat(full-text): declare full-text indexes in the schema editor, and test searches in the browser';
 
-// The shape the stage merge queue writes: PR title + number, then every commit of the PR.
 const squash = `${title} (#2080)
 
 * ${title}
@@ -65,6 +63,18 @@ describe('commitlint config', () => {
 
 		expect(await errorsFor(header)).toEqual([]);
 		expect(await errorsFor(`${header}b`)).toEqual(['header-max-length-before-pr-number']);
+	});
+
+	it('gives a header ending in its own reference the same verdict once a squash merge appends another', async () => {
+		const fits = `feat(x): ${'a'.repeat(91)}`;
+		const tooLong = `${fits}b`;
+
+		for (const header of [`${fits} (#2014)`, `${fits} (#2014) (#2080)`]) {
+			expect(await errorsFor(header)).toEqual([]);
+		}
+		for (const header of [`${tooLong} (#2014)`, `${tooLong} (#2014) (#2080)`]) {
+			expect(await errorsFor(header)).toEqual(['header-max-length-before-pr-number']);
+		}
 	});
 
 	it('rejects a squash merge whose PR title has no type', async () => {

@@ -1,6 +1,3 @@
-// semantic-release config. JavaScript rather than JSON only so release notes can carry the
-// `closingReferencesOnly` hook below.
-
 /**
  * @typedef {{ action?: string | null, owner?: string | null, repository?: string | null, issue: string }} Reference
  * @typedef {{ owner?: string, repository?: string, commitGroups?: { commits: { references?: Reference[] }[] }[] }} NotesContext
