@@ -141,6 +141,7 @@ test.describe('signup → email verification → login', () => {
 			if (await setPasswordNotice.isVisible()) {
 				const { link: setPasswordLink } = await waitForSetPasswordEmail(email, { receivedAfter: verifiedAfter });
 				signInPassword = randomPassword();
+				maskInCi(signInPassword);
 				await page.goto(setPasswordLink);
 				await page.getByLabel('New Password', { exact: true }).fill(signInPassword);
 				await page.getByLabel('Confirm Password', { exact: true }).fill(signInPassword);
