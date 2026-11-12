@@ -32,12 +32,17 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
 vi.mock('./ClusterForm', () => ({
-	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade }: {
+	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade, recordLocksOn }: {
 		defaultValues: { regionPlans: unknown };
 		startOffOnBilling: boolean;
 		partialUpgrade: unknown;
+		recordLocksOn?: boolean;
 	}) => (
-		<output data-billing={startOffOnBilling} data-partial={JSON.stringify(partialUpgrade ?? null)}>
+		<output
+			data-billing={startOffOnBilling}
+			data-partial={JSON.stringify(partialUpgrade ?? null)}
+			data-record-locks={String(recordLocksOn)}
+		>
 			{JSON.stringify(defaultValues.regionPlans)}
 		</output>
 	),
@@ -176,6 +181,15 @@ describe('UpsertCluster', () => {
 				const partial = JSON.parse(screen.getByRole('status').getAttribute('data-partial')!);
 				expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
 			});
+		});
+
+		it('reads record locks from the live record, not the snapshot taken on navigation', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: { ...mixed, recordLocks: true } as unknown as Cluster };
+			live.cluster = { ...mixed, recordLocks: false };
+			renderUpsert();
+
+			await vi.waitFor(() => expect(screen.getByRole('status').getAttribute('data-record-locks')).toBe('false'));
 		});
 
 		it('does not while a workflow is still upgrading it', async () => {

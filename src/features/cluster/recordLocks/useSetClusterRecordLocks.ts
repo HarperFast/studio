@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rememberSave } from './pendingRecordLocksSaves';
 
 interface Params {
@@ -23,15 +23,25 @@ interface SetRecordLocksResponse {
  * that stopped part way.
  */
 async function setClusterRecordLocks(clusterId: string, recordLocks: boolean, skipGtmWait = false) {
-	// Central manager's OpenAPI describes neither this body nor its answer.
 	const body = skipGtmWait ? { recordLocks, skipGtmWait } : { recordLocks };
 	const { data } = await apiClient.put(`/Cluster/${clusterId}` as '/Cluster/{id}', body);
 	return data as unknown as SetRecordLocksResponse;
 }
 
+const SET_RECORD_LOCKS_KEY = ['setClusterRecordLocks'] as const;
+
+/** A page opened again while its PUT is still out has a fresh mutation, so it asks the cache instead. */
+export function useIsSettingRecordLocks(clusterId: string): boolean {
+	return useIsMutating({
+		mutationKey: SET_RECORD_LOCKS_KEY,
+		predicate: (mutation) => (mutation.state.variables as Params | undefined)?.clusterId === clusterId,
+	}) > 0;
+}
+
 export function useSetClusterRecordLocks() {
 	const queryClient = useQueryClient();
 	return useMutation<SetRecordLocksResponse, Error, Params>({
+		mutationKey: SET_RECORD_LOCKS_KEY,
 		mutationFn: ({ clusterId, recordLocks, skipGtmWait }) => setClusterRecordLocks(clusterId, recordLocks, skipGtmWait),
 		// The page shows central manager's refusal beside the control, so the fading toast is off.
 		// Reported here rather than in a caller's `onError`, which React Query skips once the page unmounts.
@@ -44,7 +54,6 @@ export function useSetClusterRecordLocks() {
 				rememberSave(clusterId, recordLocks);
 			}
 		},
-		// At mutation level, which React Query runs even after the page that sent it unmounts.
 		onSuccess: (_data, { clusterId, recordLocks }) => rememberSave(clusterId, recordLocks),
 		onSettled: (_data, _error, { clusterId, organizationId }) => {
 			void queryClient.invalidateQueries({ queryKey: getClusterInfoQueryOptions(clusterId).queryKey, exact: true });

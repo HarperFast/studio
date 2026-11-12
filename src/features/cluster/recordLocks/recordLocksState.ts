@@ -67,7 +67,7 @@ export function recordLocksState(cluster: Cluster): RecordLocksState {
 	const live = liveInstances(cluster);
 	const onSetting = live.filter(instance => (instance.recordLocks === true) === enabled);
 	const applied = onSetting.length;
-	const done = onSetting.filter(instance => !instance.status || instance.status === 'RUNNING').length;
+	const done = onSetting.filter(instance => instance.status === 'RUNNING').length;
 	const total = live.length;
 	const phase: RecordLocksPhase = applied < total
 		? (cluster.status === 'UPDATING' ? 'applying' : 'stopped')

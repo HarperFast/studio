@@ -382,6 +382,16 @@ describe('RecordLocksSettings', () => {
 		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 	});
 
+	it('keeps the switch off while a save sent before leaving the page is still out', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const { remount } = setup(cluster());
+		await confirm('Turn on');
+
+		remount(cluster());
+
+		expect(recordLocksSwitch().disabled).toBe(true);
+	});
+
 	it('says nothing restarts on a cluster with no live instance', async () => {
 		setup(cluster({ instances: [instance({ status: 'TERMINATED' })] }));
 		await act(async () => {

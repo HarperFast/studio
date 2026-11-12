@@ -412,7 +412,7 @@ export function UpsertCluster() {
 				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
-				recordLocksOn={cluster?.recordLocks === true}
+				recordLocksOn={currentCluster?.recordLocks === true}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
