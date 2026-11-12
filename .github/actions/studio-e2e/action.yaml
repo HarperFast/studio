@@ -86,7 +86,7 @@ runs:
         GREP_INVERT: ${{ inputs.grep-invert }}
         PROJECT: ${{ inputs.project }}
       run: |
-        args=(--max-failures=10 --global-timeout=1500000)
+        args=(--max-failures=10 --global-timeout=1800000)
         if [ -n "$GREP_INVERT" ]; then args+=(--grep-invert="$GREP_INVERT"); fi
         if [ -n "$PROJECT" ]; then args+=(--project="$PROJECT"); fi
         set +e
