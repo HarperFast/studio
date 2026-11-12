@@ -97,6 +97,13 @@ const userDetailsRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/users/UserDetails'), 'UserDetailsPage'),
 });
 
+const configurationRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'configuration',
+	head: () => ({ meta: [{ title: 'Configuration — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/configuration/index'), 'ConfigurationIndex'),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
@@ -131,5 +138,8 @@ export const adminRoutes = [
 	hostsRoute,
 	monitoringRoute,
 	usersRoute.addChildren([usersIndexRoute, userDetailsRoute]),
+	configurationRoute,
 	apiTokenRoute,
+	workflowsRoute,
+	workflowDetailRoute,
 ];

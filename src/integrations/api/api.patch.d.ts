@@ -665,6 +665,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	 */
 	conversionState?: 'APPLYING' | 'FAILED' | null;
 	plans?: RegionPlan[];
+	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
+	workflowId?: string | null;
 }
 
 export interface ClusterSyncSummary {
