@@ -494,3 +494,47 @@ describe('useRestartClusterClick, for a member that accepted the restart but was
 		expect(finalError().title).toBe('Cancelled');
 	});
 });
+
+describe('useRestartClusterClick, for the cluster mark while a member restarts', () => {
+	function recordClusterReach() {
+		const reach: (string | undefined)[] = [];
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			restarted.push(targetOf(instanceClient));
+			reach.push(getRestartState('clu-1')?.reach);
+			return { message: 'ok' };
+		});
+		return reach;
+	}
+
+	beforeEach(() => {
+		vi.mocked(getClusterInfo).mockResolvedValue(
+			{ id: 'clu-1', instances: [instance('ins-a'), instance('ins-b')] } as Cluster,
+		);
+	});
+
+	it('keeps it rolling while another member answers', async () => {
+		const reach = recordClusterReach();
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-b', 'ins-a']);
+		expect(reach).toEqual(['rolling', 'rolling']);
+		expect(getRestartState('clu-1')).toBeUndefined();
+	});
+
+	it('marks it down while it restarts the only member still answering', async () => {
+		vi.mocked(getInstanceUserInfo).mockImplementation(async ({ instanceClient }) => {
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new Error('connect ECONNREFUSED');
+			}
+			return {} as never;
+		});
+		const reach = recordClusterReach();
+
+		await clickRestart();
+
+		expect(restarted).toEqual(['ins-a']);
+		expect(reach).toEqual(['down']);
+		expect(getRestartState('clu-1')).toBeUndefined();
+	});
+});

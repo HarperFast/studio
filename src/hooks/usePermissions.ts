@@ -177,6 +177,22 @@ export function getContainerOpsPermission(user: User | null, orgId: string): boo
 	return hasStaffPermission(user, 'instance:update') || memberIsOrganizationAdmin(user, orgId);
 }
 
+/**
+ * Central manager accepts `POST /Chat/Messages` only for `isSuperUser || isOrgAdmin() || can(CHAT_WRITE)`,
+ * and the widget also reads `GET /Chat/Usage`, which takes `CHAT_READ` in place of `CHAT_WRITE`
+ * (`resources/chat/`). Staff need both, or part of the widget could only fail.
+ */
+export function useChatPermission(orgId?: string): boolean {
+	const { user } = useCloudAuth();
+	const { organizationId: orgIdFromRoute }: { organizationId?: string } = useParams({ strict: false });
+	return getChatPermission(user, orgId ?? orgIdFromRoute);
+}
+
+export function getChatPermission(user: User | null, orgId: string | undefined): boolean {
+	return (hasStaffPermission(user, 'chat:write') && hasStaffPermission(user, 'chat:read'))
+		|| (orgId !== undefined && memberIsOrganizationAdmin(user, orgId));
+}
+
 // isOrgAdmin() (central-manager `lib/permissions.js`) is `role === 'admin'` on the aggregated org
 // role — the same aggregate `/User/current` returns in `roles`. Not `permission.super_user`, which
 // createOrgAdminRole sets false; and exact, since a custom role may be named "Admin".

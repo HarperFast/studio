@@ -1,9 +1,19 @@
 /** @vitest-environment jsdom */
 import { authStore } from '@/features/auth/store/authStore';
+import {
+	getPendingPresetSetup,
+	rememberPendingPresetSetup,
+	resetPendingPresetSetupsForTests,
+} from '@/features/clusters/presets/pendingPresetSetup';
 import type { LocalUser } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/config/constants', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/config/constants')>()),
+	clusterPresetsEnabled: true,
+}));
 
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => {
@@ -55,11 +65,14 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	toastSuccess.mockReset();
 	mutate.mockClear();
+	navigate.mockClear();
+	localStorage.clear();
+	resetPendingPresetSetupsForTests();
 });
 
-async function createAdminUser() {
+async function createAdminUser(fields: { preset?: string } = {}) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	client.setQueryData(['clu-1'], cluster);
+	client.setQueryData(['clu-1'], { ...cluster, ...fields });
 	render(
 		<QueryClientProvider client={client}>
 			<FinishSetup />
@@ -97,5 +110,40 @@ describe(FinishSetup, () => {
 			expect.objectContaining({ operationsUrl: 'https://clu-1.example.com:9925/', signInIds: ['clu-1', 'ins-1'] }),
 			expect.anything(),
 		);
+	});
+
+	describe('once the admin user is created', () => {
+		const destination = async () => {
+			await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+			return navigate.mock.calls[0][0].to;
+		};
+
+		beforeEach(() => {
+			vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
+		});
+
+		it('goes on to set up the preset central-manager records', async () => {
+			await createAdminUser({ preset: 'redirects' });
+			expect(await destination()).toBe('/org-1/clu-1/setup');
+		});
+
+		it('goes on to set up the preset this browser remembers while central-manager records none', async () => {
+			rememberPendingPresetSetup('clu-1', 'redirects');
+			await createAdminUser();
+			expect(await destination()).toBe('/org-1/clu-1/setup');
+		});
+
+		it("lands on the home when central-manager records a preset this build doesn't offer, over the one remembered", async () => {
+			rememberPendingPresetSetup('clu-1', 'redirects');
+			await createAdminUser({ preset: 'retired-preset' });
+			expect(await destination()).toBe('/org-1/clu-1');
+			await waitFor(() => expect(getPendingPresetSetup('clu-1')).toBeUndefined());
+		});
+
+		it('lands on the home when it could not connect, so nobody is signed in to run the setup', async () => {
+			mutate.mockImplementationOnce((_params, { onSuccess }) => onSuccess({ message: 'Login successful', user: null }));
+			await createAdminUser({ preset: 'redirects' });
+			expect(await destination()).toBe('/org-1/clu-1');
+		});
 	});
 });

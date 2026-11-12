@@ -94,13 +94,16 @@ export function WafRuleDialog({ target, onClose, onSaved, onFailed, onReload }: 
 		}
 		if (loaded) {
 			const patch = wafRulePatch(loaded, built.fields);
-			if (!Object.keys(patch).length) {
-				toast.info('No changes to save');
-				onClose();
-				return;
-			}
+			const unchanged = !Object.keys(patch).length;
 			edit.mutate({ ...instanceParams, loaded, patch }, {
-				onSuccess: () => onSaved(loaded.id),
+				onSuccess: () => {
+					if (unchanged) {
+						toast.info('No changes to save');
+						onClose();
+					} else {
+						onSaved(loaded.id);
+					}
+				},
 				onError: onFailed,
 			});
 		} else {

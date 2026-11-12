@@ -35,6 +35,7 @@ vi.mock('@/features/auth/store/authStore', () => ({
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({ getClusterInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo: vi.fn() }));
 vi.mock('@/integrations/api/instance/status/restartInstance', () => ({
+	RESTART_MARK_TTL_MS: 600_000,
 	restartInstance: vi.fn(),
 	waitUntilAnsweringAfterRestart: vi.fn(),
 }));
@@ -51,6 +52,7 @@ import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
 import { setConfiguration } from '@/integrations/api/instance/status/setConfiguration';
+import { getRestartState } from '@/lib/restart/restartTracker';
 import { toast } from 'sonner';
 import { useRollingConfigUpdate } from './useRollingConfigUpdate';
 
@@ -95,8 +97,8 @@ function wrapper() {
 	</QueryClientProvider>;
 }
 
-async function save() {
-	const { result } = renderHook(() => useRollingConfigUpdate(), { wrapper: wrapper() });
+async function save(options?: Parameters<typeof useRollingConfigUpdate>[0]) {
+	const { result } = renderHook(() => useRollingConfigUpdate(options), { wrapper: wrapper() });
 	await act(async () => {
 		await (result.current.onConfigUpdate(CHANGES) as unknown as Promise<void>);
 	});
@@ -801,5 +803,152 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 		]);
 		expect(finalError().title).toBe('Not back yet');
 		expect(finalError().description).toContain('may already have the new configuration saved');
+	});
+});
+
+describe('useRollingConfigUpdate restart operation', () => {
+	const operationsSent = () => vi.mocked(restartInstance).mock.calls.map(([{ operation }]) => operation);
+
+	it('restarts only the HTTP workers unless asked otherwise', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save();
+
+		expect(operationsSent()).toEqual(['restart_service', 'restart_service']);
+	});
+
+	it('sends a full restart to every member when asked for one', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save({ restartOperation: 'restart' });
+
+		expect(operationsSent()).toEqual(['restart', 'restart']);
+		expect(vi.mocked(toast.success)).toHaveBeenCalled();
+	});
+});
+
+describe('useRollingConfigUpdate restart tracking', () => {
+	function watchMarks(...entityIds: string[]) {
+		const seen: string[] = [];
+		const record = (step: string) =>
+			seen.push(`${step}: ${entityIds.map(id => `${id}=${getRestartState(id)?.reach ?? 'up'}`).join(' ')}`);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient }) => {
+			record(`write ${targetOf(instanceClient)}`);
+			return { message: 'ok' };
+		});
+		vi.mocked(restartInstance).mockImplementation(async ({ instanceClient }) => {
+			record(`restart ${targetOf(instanceClient)}`);
+			await Promise.resolve();
+			record(`back ${targetOf(instanceClient)}`);
+			return { message: 'ok' };
+		});
+		vi.mocked(waitUntilAnsweringAfterRestart).mockImplementation(async ({ instanceClient }) => {
+			record(`wait ${targetOf(instanceClient)}`);
+		});
+		return { seen, record };
+	}
+
+	afterEach(() => {
+		for (const id of ['clu-1', 'ins-a', 'ins-b', 'ins-1']) {
+			expect(getRestartState(id), `${id} is still marked`).toBeUndefined();
+		}
+	});
+
+	it('marks a cluster rolling, and each member down only while it restarts, for a full restart', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+		const { seen } = watchMarks('clu-1', 'ins-a', 'ins-b');
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual([
+			'write ins-b: clu-1=rolling ins-a=up ins-b=up',
+			'restart ins-b: clu-1=rolling ins-a=up ins-b=down',
+			'back ins-b: clu-1=rolling ins-a=up ins-b=down',
+			'write ins-a: clu-1=rolling ins-a=up ins-b=up',
+			'restart ins-a: clu-1=rolling ins-a=down ins-b=up',
+			'back ins-a: clu-1=rolling ins-a=down ins-b=up',
+		]);
+	});
+
+	it('marks a one-member cluster down, since nothing else can answer for it', async () => {
+		useCluster([instance('ins-a', '5.1.0')]);
+		const { seen } = watchMarks('clu-1', 'ins-a');
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual([
+			'write ins-a: clu-1=down ins-a=up',
+			'restart ins-a: clu-1=down ins-a=down',
+			'back ins-a: clu-1=down ins-a=down',
+		]);
+	});
+
+	it('marks the cluster down while it restarts the only member still answering', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+		const { seen } = watchMarks('clu-1', 'ins-a', 'ins-b');
+		vi.mocked(getInstanceUserInfo).mockImplementation(async ({ instanceClient }) => {
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new Error('connect ECONNREFUSED');
+			}
+			return {} as never;
+		});
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual([
+			'write ins-a: clu-1=rolling ins-a=up ins-b=up',
+			'restart ins-a: clu-1=down ins-a=down ins-b=up',
+			'back ins-a: clu-1=down ins-a=down ins-b=up',
+		]);
+	});
+
+	it('marks a single instance down while it restarts', async () => {
+		operationsParams.current = { entityType: 'instance', entityId: 'ins-1', instanceClient: { target: 'ins-1' } };
+		const { seen } = watchMarks('ins-1');
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual(['write ins-1: ins-1=up', 'restart ins-1: ins-1=down', 'back ins-1: ins-1=down']);
+	});
+
+	it('keeps a member marked until it answers again after a restart that got no verdict', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+		const { seen, record } = watchMarks('ins-a', 'ins-b');
+		vi.mocked(restartInstance).mockImplementationOnce(async ({ instanceClient }) => {
+			record(`restart ${targetOf(instanceClient)}`);
+			throw new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED, {
+				method: 'post',
+				data: '{"operation":"restart"}',
+			} as InternalAxiosRequestConfig);
+		});
+
+		await save({ restartOperation: 'restart' });
+
+		expect(seen).toEqual([
+			'write ins-b: ins-a=up ins-b=up',
+			'restart ins-b: ins-a=up ins-b=down',
+			'wait ins-b: ins-a=up ins-b=down',
+			'write ins-a: ins-a=up ins-b=up',
+			'restart ins-a: ins-a=down ins-b=up',
+			'back ins-a: ins-a=down ins-b=up',
+		]);
+	});
+
+	it('marks nothing for a restart of the HTTP workers, which keeps the operations API answering', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+		const { seen } = watchMarks('clu-1', 'ins-a', 'ins-b');
+
+		await save();
+
+		expect(seen).toHaveLength(6);
+		expect(seen.every(step => step.endsWith('clu-1=up ins-a=up ins-b=up'))).toBe(true);
+	});
+
+	it('checks each member past the restart gate, so one central manager reports as restarting fails fast', async () => {
+		useCluster([instance('ins-a', '5.1.0'), instance('ins-b', '5.1.0')]);
+
+		await save({ restartOperation: 'restart' });
+
+		expect(vi.mocked(getInstanceUserInfo).mock.calls.map(([config]) => config.skipRestartGate)).toEqual([true, true]);
 	});
 });
