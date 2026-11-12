@@ -41,7 +41,6 @@ export function isRecord(value: unknown): value is StoredRecord {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** The `models` block of a `get_configuration` answer, when it is one. */
 export function readModelsBlock(configuration: unknown): StoredRecord | undefined {
 	const models = isRecord(configuration) ? configuration.models : undefined;
 	return isRecord(models) ? models : undefined;
@@ -53,7 +52,6 @@ export interface InstanceModelNames {
 	decision: string[];
 }
 
-/** The model names in a `get_configuration` answer. */
 export function instanceModelNames(configuration: unknown): InstanceModelNames {
 	const block = readModelsBlock(configuration);
 	const names = (kind: ModelKind) => {
@@ -63,7 +61,6 @@ export function instanceModelNames(configuration: unknown): InstanceModelNames {
 	return { embedding: names('embedding'), decision: names('decision') };
 }
 
-/** Whether `modelsGateway.enabled` is on in a `get_configuration` answer. */
 export function modelsGatewayEnabled(configuration: unknown): boolean {
 	const gateway = isRecord(configuration) ? configuration.modelsGateway : undefined;
 	return isRecord(gateway) && gateway.enabled === true;

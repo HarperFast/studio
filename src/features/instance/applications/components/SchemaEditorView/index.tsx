@@ -69,8 +69,7 @@ function LoadedSchemaEditorView({
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
 	const { data: registrationInfo } = useQuery(getHarperVersionProbeOptions(instanceParams));
-	// The model names `@embed` and `@decide` choose from. Only a super user can read the settings that
-	// hold them; for anyone else, and while they load, the names are typed instead.
+	// Only a super user can read the settings that hold the model names; otherwise they are typed.
 	const isSuperUser = useInstanceManagePermission();
 	const { data: configuration } = useQuery({
 		...getConfigurationQueryOptions(instanceParams),

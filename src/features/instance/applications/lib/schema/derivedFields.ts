@@ -1,16 +1,8 @@
 /**
- * `@embed` and `@decide`: fields Harper fills from another field, with a model, whenever a record is
- * written. `@embed(source, model)` puts an embedding of `source` into a `[Float]` field and indexes it
- * for vector search. `@decide(source, …)` has a decision model pick the value of a `String` (from
- * `values`), `Boolean`, or `Int` (from `minimum` to `maximum`) field.
- *
- * A schema Harper refuses fails to load as a whole, so {@link derivedFieldErrors} checks what Harper
- * checks, and nothing more: each rule is one Harper throws in `resources/graphql.ts`,
- * `resources/models/embedHook.ts` (`assertDerivedFieldOwnership`) or `resources/models/decision.ts`
- * (`validateLeaf`), the same at v5.3.6 and on 5.4. The rules were also run against a live Harper
- * 5.4.0-beta.4: 55 schemas, valid and not, each deployed as its own app, and Harper loaded exactly the
- * ones this accepts. When a rule here changes, repeat that rather than trusting a reading of the source:
- * the first reading missed that a directive can't read a field another one fills.
+ * `@embed` and `@decide`. A schema Harper refuses fails to load as a whole, so
+ * {@link derivedFieldErrors} checks what Harper checks and nothing more: `resources/graphql.ts`,
+ * `resources/models/embedHook.ts` (`assertDerivedFieldOwnership`) and `resources/models/decision.ts`
+ * (`validateLeaf`). How the rules were checked against a running Harper: ../../DESIGN.md.
  */
 import { parseGraphqlValue, printGraphqlValue } from './graphqlValue';
 import { getArgValue, hasDirective, setArg, setDirectivePresent } from './mutations';
@@ -19,7 +11,7 @@ import { Directive, FieldModel, findDirective, stringArgValue, TableModel } from
 export const EMBED_DIRECTIVE = 'embed';
 export const DECIDE_DIRECTIVE = 'decide';
 
-export type DecideLeaf = 'String' | 'Boolean' | 'Int';
+type DecideLeaf = 'String' | 'Boolean' | 'Int';
 
 const DECIDE_LEAVES: readonly string[] = ['String', 'Boolean', 'Int'];
 const DECIDE_STRING_ARGS = ['source', 'model', 'confidence', 'decision', 'instructions'];
@@ -28,24 +20,21 @@ const DECIDE_INT_ARGS = ['minimum', 'maximum'];
 const MAX_DECISION_VALUES = 255;
 const INT_LITERAL = /^-?(?:0|[1-9]\d*)$/;
 
-/** Whether the field is a vector Harper can embed into: a list of `Float`. */
 export function canEmbed(field: FieldModel): boolean {
 	return field.type.kind === 'list' && field.type.of.kind === 'named' && field.type.of.name === 'Float';
 }
 
-/** The kind of decision the field's type selects, when it can hold one. */
 export function decideLeaf(field: FieldModel): DecideLeaf | undefined {
 	return field.type.kind === 'named' && DECIDE_LEAVES.includes(field.type.name)
 		? field.type.name as DecideLeaf
 		: undefined;
 }
 
-/** The other fields of the table, by name: what a derived field can be filled from. */
 export function derivedSourceNames(table: TableModel, field: FieldModel): string[] {
 	return table.fields.filter((other) => other !== field && other.name.trim() !== '').map((other) => other.name);
 }
 
-/** Turns `@embed` on or off. A plain `@indexed` already on the field becomes the HNSW index `@embed` needs. */
+/** A plain `@indexed` already on the field becomes the HNSW index `@embed` needs. */
 export function withEmbed(field: FieldModel, on: boolean): FieldModel {
 	let directives = setDirectivePresent(field.directives, EMBED_DIRECTIVE, on);
 	if (on && hasDirective(directives, 'indexed') && getArgValue(directives, 'indexed', 'type') === undefined) {
@@ -58,14 +47,13 @@ export function withDecide(field: FieldModel, on: boolean): FieldModel {
 	return { ...field, directives: setDirectivePresent(field.directives, DECIDE_DIRECTIVE, on) };
 }
 
-/** The strings in `@decide(values: […])`. Undefined when the argument is absent or isn't a list of strings. */
+/** Undefined when the argument is absent or isn't a list of strings. */
 export function decideValues(directives: Directive[]): string[] | undefined {
 	const literal = getArgValue(directives, DECIDE_DIRECTIVE, 'values');
 	const parsed = literal === undefined ? undefined : parseGraphqlValue(literal)?.value;
 	return Array.isArray(parsed) && parsed.every((value) => typeof value === 'string') ? parsed as string[] : undefined;
 }
 
-/** Sets `@decide(values: […])`, or removes the argument when the list is empty. */
 export function setDecideValues(directives: Directive[], values: string[]): Directive[] {
 	return setArg(directives, DECIDE_DIRECTIVE, 'values', values.length > 0 ? printGraphqlValue(values) : undefined);
 }
@@ -75,28 +63,52 @@ function intArg(directives: Directive[], name: string): number | undefined {
 	return literal !== undefined && INT_LITERAL.test(literal) ? Number(literal) : undefined;
 }
 
+/**
+ * The value of a GraphQL string literal. Harper takes a `"""block"""` string wherever it takes a
+ * quoted one, which `stringArgValue` doesn't read, so it is decoded here the way graphql-js does.
+ */
+export function graphqlStringValue(literal: string | undefined): string | undefined {
+	const trimmed = literal?.trim();
+	if (trimmed === undefined || trimmed.length < 6 || !trimmed.startsWith('"""') || !trimmed.endsWith('"""')) {
+		return stringArgValue(literal);
+	}
+	const lines = trimmed.slice(3, -3).replaceAll('\\"""', '"""').split(/\r\n|[\n\r]/);
+	const indents = lines.slice(1)
+		.filter((line) => line.trim() !== '')
+		.map((line) => line.length - line.trimStart().length);
+	const indent = indents.length > 0 ? Math.min(...indents) : 0;
+	const dedented = lines.map((line, index) => (index === 0 ? line : line.slice(indent)));
+	while (dedented.length > 0 && dedented[0].trim() === '') {
+		dedented.shift();
+	}
+	while (dedented.length > 0 && dedented.at(-1)!.trim() === '') {
+		dedented.pop();
+	}
+	return dedented.join('\n');
+}
+
 function embedErrors(field: FieldModel, directive: Directive, fieldNames: ReadonlySet<string>): string[] {
 	const errors: string[] = [];
 	for (const arg of directive.args) {
-		if (stringArgValue(arg.value) === undefined) {
+		if (graphqlStringValue(arg.value) === undefined) {
 			errors.push(`@embed's "${arg.name}" must be a quoted string.`);
 		}
 	}
 	if (!canEmbed(field)) {
 		errors.push('@embed needs a [Float] field: choose Float and turn on Array.');
 	}
-	const source = stringArgValue(getArgValue(field.directives, EMBED_DIRECTIVE, 'source'));
+	const source = graphqlStringValue(getArgValue(field.directives, EMBED_DIRECTIVE, 'source'));
 	if (!source) {
 		errors.push('Choose the field to embed.');
 	} else if (!fieldNames.has(source)) {
 		errors.push(`There is no field named "${source}" to embed.`);
 	}
-	if (!stringArgValue(getArgValue(field.directives, EMBED_DIRECTIVE, 'model'))) {
+	if (!graphqlStringValue(getArgValue(field.directives, EMBED_DIRECTIVE, 'model'))) {
 		errors.push('Choose the embedding model.');
 	}
 	if (
 		hasDirective(field.directives, 'indexed')
-		&& stringArgValue(getArgValue(field.directives, 'indexed', 'type')) !== 'HNSW'
+		&& graphqlStringValue(getArgValue(field.directives, 'indexed', 'type')) !== 'HNSW'
 	) {
 		errors.push('@embed indexes the field with HNSW itself: set the index type to HNSW, or turn Indexed off.');
 	}
@@ -113,11 +125,11 @@ function decideErrors(
 	table: TableModel,
 ): string[] {
 	const errors: string[] = [];
-	const str = (name: string) => stringArgValue(getArgValue(field.directives, DECIDE_DIRECTIVE, name));
+	const str = (name: string) => graphqlStringValue(getArgValue(field.directives, DECIDE_DIRECTIVE, name));
 	const has = (name: string) => directive.args.some((arg) => arg.name === name);
 	for (const arg of directive.args) {
 		if (DECIDE_STRING_ARGS.includes(arg.name)) {
-			if (stringArgValue(arg.value) === undefined) {
+			if (graphqlStringValue(arg.value) === undefined) {
 				errors.push(`@decide's "${arg.name}" must be a quoted string.`);
 			}
 		} else if (DECIDE_INT_ARGS.includes(arg.name)) {
@@ -125,7 +137,8 @@ function decideErrors(
 				errors.push(`@decide's "${arg.name}" must be a whole number.`);
 			}
 		} else if (arg.name === 'values') {
-			if (decideValues(field.directives) === undefined) {
+			// A list with a block string is one Studio can't read, not one Harper refuses.
+			if (decideValues(field.directives) === undefined && !arg.value.includes('"""')) {
 				errors.push('@decide\'s "values" must be a list of quoted strings.');
 			}
 		} else {
@@ -217,7 +230,7 @@ function prototypeNameErrors(field: FieldModel, directiveName: string): string[]
 	const names = [
 		field.name,
 		...['source', 'confidence', 'decision'].map((arg) =>
-			stringArgValue(getArgValue(field.directives, directiveName, arg))
+			graphqlStringValue(getArgValue(field.directives, directiveName, arg))
 		),
 	];
 	return names
@@ -243,7 +256,7 @@ function writersOf(table: TableModel): Writer[] {
 			if (!hasDirective(field.directives, directive)) {
 				continue;
 			}
-			const arg = (name: string) => stringArgValue(getArgValue(field.directives, directive, name));
+			const arg = (name: string) => graphqlStringValue(getArgValue(field.directives, directive, name));
 			const also = directive === DECIDE_DIRECTIVE ? [arg('confidence'), arg('decision')] : [];
 			writers.push({
 				directive,
@@ -283,7 +296,6 @@ function ownershipErrors(field: FieldModel, table: TableModel): string[] {
 	return errors;
 }
 
-/** Every reason Harper would refuse the field's `@embed` or `@decide`. Empty when it has neither. */
 export function derivedFieldErrors(field: FieldModel, table: TableModel): string[] {
 	const embed = findDirective(field.directives, EMBED_DIRECTIVE);
 	const decide = findDirective(field.directives, DECIDE_DIRECTIVE);
@@ -291,11 +303,12 @@ export function derivedFieldErrors(field: FieldModel, table: TableModel): string
 		return [];
 	}
 	const fieldNames = new Set(table.fields.map((other) => other.name).filter((name) => name.trim() !== ''));
-	return [
+	const errors = [
 		...(embed ? [...embedErrors(field, embed, fieldNames), ...prototypeNameErrors(field, EMBED_DIRECTIVE)] : []),
 		...(decide
 			? [...decideErrors(field, decide, fieldNames, table), ...prototypeNameErrors(field, DECIDE_DIRECTIVE)]
 			: []),
 		...ownershipErrors(field, table),
 	];
+	return [...new Set(errors)];
 }

@@ -16,14 +16,14 @@ import { appsServeRest, restApps } from './restServed';
 const ENDPOINTS = ['POST /v1/embeddings', 'POST /v1/chat/completions', 'GET /v1/models'];
 
 /**
- * Whether REST is running, which is what serves `/v1`: the root config turns it on, or an app does.
- * Undefined while that can't be told, and the apps are only read when the root config doesn't decide it.
+ * Undefined while it can't be told. The apps are read only when the root config doesn't decide it.
  */
 function useRestServed(instanceParams: InstanceClientIdConfig, configuration: unknown): boolean | undefined {
 	const rootServes = rootConfigServesRest(configuration);
 	const { data: components } = useQuery(getComponentsQueryOptions({ ...instanceParams, enabled: !rootServes }));
 	const apps = rootServes || !components ? [] : restApps(components);
-	const withConfig = apps.filter((app) => app.configFile);
+	// An app with no config file serves REST, so no other app's config needs reading.
+	const withConfig = apps.some((app) => !app.configFile) ? [] : apps.filter((app) => app.configFile);
 	const configQueries = useQueries({
 		queries: withConfig.map((app) =>
 			getComponentFileQueryOptions({ ...instanceParams, project: app.name, file: app.configFile, encoding: 'utf8' })
@@ -45,7 +45,6 @@ function useRestServed(instanceParams: InstanceClientIdConfig, configuration: un
 	return appsServeRest(apps, configTexts);
 }
 
-/** The switch for Harper's OpenAI-style `/v1` API, with the address it answers on. */
 export function ModelsApiCard({ instanceParams, configuration, targetNoun }: {
 	instanceParams: InstanceClientIdConfig;
 	configuration: unknown;

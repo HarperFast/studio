@@ -98,7 +98,6 @@ export function FieldRow({
 	typeNames: string[];
 	/** The instance's Harper version, to offer only the types it has; `undefined` when unknown. */
 	harperVersion: string | undefined;
-	/** The instance's model names, for `@embed` and `@decide`; absent when they can't be read. */
 	models?: InstanceModelNames;
 	readOnly: boolean;
 	/** True when this is the table's only field: a GraphQL type needs at least one, so removal is blocked. */
@@ -220,7 +219,6 @@ function ScalarFieldControls({
 	preserved: FieldModel['directives'];
 	readOnly: boolean;
 	onChange: (field: FieldModel) => void;
-	/** The `@embed` / `@decide` controls, shown above Advanced. */
 	derived: ReactNode;
 }) {
 	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });

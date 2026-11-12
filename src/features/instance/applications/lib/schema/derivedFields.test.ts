@@ -5,6 +5,7 @@ import {
 	decideValues,
 	derivedFieldErrors,
 	derivedSourceNames,
+	graphqlStringValue,
 	setDecideValues,
 	withDecide,
 	withEmbed,
@@ -26,7 +27,6 @@ function fieldOf(table: TableModel, name: string): FieldModel {
 	return table.fields.find((field) => field.name === name)!;
 }
 
-/** The errors for the field `name` of a table with these fields. */
 function errorsFor(fields: string, name: string): string[] {
 	const table = tableOf(fields);
 	return derivedFieldErrors(fieldOf(table, name), table);
@@ -274,6 +274,25 @@ describe('both directives', () => {
 		expect(decide('\tnote: String @computed(from: "body")\n', 'decision: "note"')).toEqual([
 			'@decide\'s "decision" field "note" can\'t be a primary key or a computed field.',
 		]);
+	});
+
+	it('reads a block string as Harper does, so a schema Harper takes is not refused', () => {
+		expect(graphqlStringValue('"""body"""')).toBe('body');
+		expect(graphqlStringValue('"""\n\t\tfirst\n\t\t  second\n\t"""')).toBe('first\n  second');
+		expect(graphqlStringValue('"""say \\"""hi\\""" """')).toBe('say """hi""" ');
+		expect(graphqlStringValue('"plain"')).toBe('plain');
+		expect(graphqlStringValue('bare')).toBeUndefined();
+		expect(errorsFor(`${BASE}\tflag: Boolean @decide(source: """body""")`, 'flag')).toEqual([]);
+		expect(errorsFor(`${BASE}\tvector: [Float] @embed(source: """body""", model: """m""")`, 'vector')).toEqual([]);
+		expect(errorsFor(`${BASE}\tlabel: String @decide(source: "body", values: ["""a""", "b"])`, 'label')).toEqual([]);
+		expect(errorsFor(`${BASE}\tlabel: String @decide(source: "body", values: [1, 2])`, 'label')).toEqual([
+			'@decide\'s "values" must be a list of quoted strings.',
+		]);
+	});
+
+	it('says a reason once, however many arguments earn it', () => {
+		const errors = errorsFor(`${BASE}\ttoString: Boolean @decide(source: "toString")`, 'toString');
+		expect(errors.filter((error) => error === '@decide can\'t use a field named "toString".')).toHaveLength(1);
 	});
 
 	it('cannot use a field named like an Object.prototype member', () => {

@@ -3,9 +3,9 @@ import { APIDirectoryEntry, APIFileEntry } from '@/integrations/api/instance/app
 import { isRecord } from '@/integrations/api/instance/models/models';
 import { parse } from 'yaml';
 
-export interface RestApp {
+interface RestApp {
 	name: string;
-	/** The config file Harper loads for the app. Absent when it has none. */
+	/** Absent when the app has no config file. */
 	configFile?: string;
 }
 

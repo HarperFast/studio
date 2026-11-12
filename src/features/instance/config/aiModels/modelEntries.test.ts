@@ -133,6 +133,26 @@ describe('the edit form', () => {
 		expect(form).toMatchObject({ backend: 'openai', model: 'gpt-x', organization: 'org-1', fallback: 'backup' });
 	});
 
+	it('leaves a sign-in inside an address out of the form, and saves the stored address back untouched', () => {
+		const stored = {
+			backend: 'openai',
+			apiKey: SECRET,
+			model: 'gpt-x',
+			baseUrl: 'https://user:hunter2@llm.example.com/v1',
+		};
+		const form = modelFormFromEntry('generative', 'mine', stored);
+		expect(form.baseUrl).toBe('https://llm.example.com/v1');
+		expect(JSON.stringify(form)).not.toContain('hunter2');
+		expect(buildModelEntry(form, stored)).toEqual(stored);
+		expect(buildModelEntry({ ...form, baseUrl: 'https://other.example.com/v1' }, stored)).toEqual({
+			...stored,
+			baseUrl: 'https://other.example.com/v1',
+		});
+		const local = { backend: 'ollama', model: 'llama3.2', host: 'http://me:hunter2@10.0.0.5:11434' };
+		expect(modelFormFromEntry('generative', 'local', local).host).toBe('http://10.0.0.5:11434/');
+		expect(buildModelEntry(modelFormFromEntry('generative', 'local', local), local)).toEqual(local);
+	});
+
 	it('saved untouched, sends back exactly what is stored', () => {
 		for (const [name, stored] of Object.entries(block.generative)) {
 			if (name === 'custom') {
@@ -227,6 +247,23 @@ describe('validateModelForm', () => {
 		expect(validateModelForm({ ...valid, baseUrl: '${LLM_URL}' }, { block })).toBeUndefined();
 		const stored = { backend: 'openai', apiKey: 'k', model: 'm', baseUrl: 'not a url' };
 		expect(validateModelForm(modelFormFromEntry('generative', 'odd', stored), { block, stored })).toBeUndefined();
+	});
+
+	it('asks which generative model decides when there are some but none is named default', () => {
+		const decision = { ...emptyModelForm('decision'), name: 'route' };
+		const noDefault = { generative: { spare: { backend: 'ollama', model: 'llama3.2' } } };
+		expect(validateModelForm(decision, { block: noDefault })).toBe(
+			'Choose the generative model that makes the decision.',
+		);
+		expect(validateModelForm({ ...decision, generative: 'spare' }, { block: noDefault })).toBeUndefined();
+	});
+
+	it('treats a decision model that names default and one that names none as the same', () => {
+		const decision = { ...emptyModelForm('decision'), name: 'route', generative: 'default' };
+		expect(buildModelEntry(decision)).toEqual({ backend: 'generative' });
+		const stored = { backend: 'generative', samples: 3 };
+		expect(buildModelEntry(decision, stored)).toEqual(stored);
+		expect(validateModelForm(decision, { block: { embedding: block.embedding }, stored })).toBeUndefined();
 	});
 
 	it('needs the generative model a decision model decides with to exist', () => {

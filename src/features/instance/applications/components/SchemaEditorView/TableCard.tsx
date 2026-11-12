@@ -50,7 +50,6 @@ export function TableCard({
 	typeNames: string[];
 	/** The instance's Harper version; `undefined` when it can't be read. */
 	harperVersion?: string;
-	/** The instance's model names, for `@embed` and `@decide`; absent when they can't be read. */
 	models?: InstanceModelNames;
 	readOnly: boolean;
 	/** Validation errors for this table (from `validateSchema`), used for inline highlighting. */

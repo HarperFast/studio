@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsApiCard } from './ModelsApiCard';
 
-const { state, onConfigUpdate, queriesSeen } = vi.hoisted(() => ({
+const { state, onConfigUpdate, queriesSeen, filesRead } = vi.hoisted(() => ({
 	state: {
 		restUrl: 'https://my-cluster.example.com/' as string | null,
 		components: undefined as unknown,
@@ -14,6 +14,7 @@ const { state, onConfigUpdate, queriesSeen } = vi.hoisted(() => ({
 	},
 	onConfigUpdate: vi.fn(),
 	queriesSeen: [] as Array<{ queryKey: readonly unknown[]; enabled?: boolean }>,
+	filesRead: [] as string[],
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
@@ -24,6 +25,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	},
 	useQueries: ({ queries }: { queries: Array<{ queryKey: readonly unknown[] }> }) =>
 		queries.map(({ queryKey }) => {
+			filesRead.push(queryKey[2] as string);
 			const text = state.configFiles[queryKey[2] as string];
 			return { data: text === undefined ? undefined : { message: text } };
 		}),
@@ -59,6 +61,7 @@ beforeEach(() => {
 	});
 	onConfigUpdate.mockReset();
 	queriesSeen.length = 0;
+	filesRead.length = 0;
 });
 afterEach(cleanup);
 
@@ -135,6 +138,19 @@ describe('the REST warning', () => {
 		state.configFiles = {};
 		show({});
 		expect(screen.queryByText(warning)).toBeNull();
+	});
+
+	it("reads no app's config once an app without one settles it", () => {
+		state.components = {
+			name: 'components',
+			entries: [
+				{ name: 'bare', entries: [{ name: 'resources.js' }] },
+				{ name: 'site', entries: [{ name: 'config.yaml' }] },
+			],
+		};
+		show({});
+		expect(screen.queryByText(warning)).toBeNull();
+		expect(filesRead).toEqual([]);
 	});
 
 	it('stays away while it cannot tell: the apps, or one app’s config, not read yet', () => {

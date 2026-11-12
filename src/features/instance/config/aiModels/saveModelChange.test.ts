@@ -1,5 +1,5 @@
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
-import type { AxiosInstance } from 'axios';
+import { AxiosError, type AxiosInstance } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fabricModelKeys } from './modelEntries';
 import { ModelSaveError, saveModelChange } from './saveModelChange';
@@ -11,10 +11,12 @@ vi.mock('@/hooks/getClusterRestartTargets', () => ({ getClusterRestartTargets: a
 
 type Body = { operation: string; models?: unknown; replicated?: unknown };
 
-/** An instance that answers `get_configuration` from `config` and applies `set_configuration` to it. */
-function instance(config: Record<string, unknown>, refuse?: unknown) {
+function instance(config: Record<string, unknown>, refuse?: unknown, reports = '5.4.0') {
 	const writes: Body[] = [];
 	const post = vi.fn(async (_path: string, body: Body) => {
+		if (body.operation === 'registration_info') {
+			return { data: { version: reports } };
+		}
 		if (body.operation === 'get_configuration') {
 			return { data: structuredClone(config) };
 		}
@@ -70,7 +72,7 @@ describe('saving to one instance', () => {
 	it('refuses to add over an entry that appeared meanwhile', async () => {
 		const node = instance({ models: { generative: { mine: { backend: 'openai', apiKey: 'k' } } } });
 		await expect(saveModelChange(single(node), { kind: 'generative', name: 'mine', entry: mine }, undefined))
-			.rejects.toBeInstanceOf(ModelSaveError);
+			.rejects.toThrow(/was added since this page loaded/);
 		expect(node.writes).toEqual([]);
 	});
 
@@ -113,9 +115,14 @@ describe('saving to a cluster', () => {
 		& InstanceClientIdConfig
 		& InstanceTypeConfig;
 
-	function members(...nodes: Array<ReturnType<typeof instance> & { version?: string; name?: string }>) {
+	function members(...nodes: Array<ReturnType<typeof instance> & { version?: string | null; name?: string }>) {
 		cluster.targets = nodes.map((node, index) => ({
-			instance: { id: `ins-${index + 1}`, name: node.name, version: node.version ?? '5.4.0', status: 'RUNNING' },
+			instance: {
+				id: `ins-${index + 1}`,
+				name: node.name,
+				version: node.version === null ? undefined : node.version ?? '5.4.0',
+				status: 'RUNNING',
+			},
 			instanceClient: node.client,
 		}));
 		cluster.allInstances = cluster.targets.map((target) => (target as { instance: unknown }).instance);
@@ -157,6 +164,34 @@ describe('saving to a cluster', () => {
 		await expect(saveModelChange(params, { kind: 'generative', name: 'mine', entry: mine }, undefined))
 			.rejects.toThrow('node-2 runs 5.3.6, so nothing was changed.');
 		expect(ready.writes).toEqual([]);
+	});
+
+	it('asks an instance its version when central manager has none, so an old one still stops the save', async () => {
+		const ready = instance({});
+		const old = Object.assign(instance({}, undefined, '5.3.6'), { version: null, name: 'node-2' });
+		members(ready, old);
+		await expect(saveModelChange(params, { kind: 'generative', name: 'mine', entry: mine }, undefined))
+			.rejects.toThrow('node-2 runs 5.3.6, so nothing was changed.');
+		expect(ready.writes).toEqual([]);
+	});
+
+	it('says a later write that got no answer is unconfirmed, not refused', async () => {
+		const unanswered = new AxiosError(
+			'Gateway Timeout',
+			AxiosError.ERR_BAD_RESPONSE,
+			{ method: 'post', url: '/', data: JSON.stringify({ operation: 'set_configuration' }) } as never,
+			undefined,
+			{ status: 504 } as never,
+		);
+		const first = instance({});
+		const second = Object.assign(instance({}, unanswered), { name: 'node-2' });
+		members(first, second);
+		const failure = await saveModelChange(params, { kind: 'generative', name: 'mine', entry: mine }, undefined)
+			.catch((error: unknown) => error);
+		expect((failure as Error).message).toBe(
+			"Saved on 1 of 2 instances, then node-2 didn't answer. Check whether the model changed there before you try again.",
+		);
+		expect((failure as Error).cause).toBe(unanswered);
 	});
 
 	it('says how far it got when an instance refuses part-way, and stops there', async () => {

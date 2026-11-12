@@ -1,9 +1,8 @@
 /**
- * Controls for `@embed` and `@decide`: a field Harper fills from another field, with one of the
- * instance's models, whenever a record is written. Shown on a field whose type can carry the
- * directive (a `[Float]` field for `@embed`; a `String`, `Boolean` or `Int` field for `@decide`),
- * and on any field that already has one, so a misplaced directive can be seen and removed.
+ * Shown on a field whose type can carry `@embed` or `@decide`, and on any field that already has
+ * one, so a misplaced directive can be seen and removed.
  */
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -14,6 +13,7 @@ import {
 	derivedFieldErrors,
 	derivedSourceNames,
 	EMBED_DIRECTIVE,
+	graphqlStringValue,
 	setDecideValues,
 	withDecide,
 	withEmbed,
@@ -21,16 +21,11 @@ import {
 import {
 	getArgValue,
 	hasDirective,
+	setArg,
 	setIntArg,
 	setStringArg,
 } from '@/features/instance/applications/lib/schema/mutations';
-import {
-	FieldModel,
-	findDirective,
-	intArgValue,
-	stringArgValue,
-	TableModel,
-} from '@/features/instance/applications/lib/schema/types';
+import { FieldModel, findDirective, intArgValue, TableModel } from '@/features/instance/applications/lib/schema/types';
 import { InstanceModelNames } from '@/integrations/api/instance/models/models';
 import { useId, useState } from 'react';
 import { availableOn, harperDirectives } from '../TextEditorView/harper-language/schema';
@@ -46,7 +41,7 @@ function directiveAvailable(name: string, harperVersion: string | undefined): bo
 export function DerivedValueEditor({ field, table, models, harperVersion, readOnly, onChange }: {
 	field: FieldModel;
 	table: TableModel;
-	/** The instance's model names, to choose from. Absent when they can't be read, and the name is typed instead. */
+	/** Absent when the names can't be read: the name is typed instead. */
 	models: InstanceModelNames | undefined;
 	harperVersion: string | undefined;
 	readOnly: boolean;
@@ -61,15 +56,23 @@ export function DerivedValueEditor({ field, table, models, harperVersion, readOn
 		return null;
 	}
 
-	const sources = derivedSourceNames(table, field);
+	const sources = embeds || decides ? derivedSourceNames(table, field) : [];
 	const errors = derivedFieldErrors(field, table);
 	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });
-	const str = (directive: string, arg: string) => stringArgValue(getArgValue(field.directives, directive, arg)) ?? '';
+	const str = (directive: string, arg: string) =>
+		graphqlStringValue(getArgValue(field.directives, directive, arg)) ?? '';
 	const setStr = (directive: string, arg: string, value: string) =>
 		setDirectives(setStringArg(field.directives, directive, arg, value));
 	const kept = (findDirective(field.directives, DECIDE_DIRECTIVE)?.args ?? [])
 		.map((arg) => arg.name)
 		.filter((name) => name === 'confidence' || name === 'decision');
+	// Arguments a change of field type left behind, which this type's inputs don't show.
+	const stale = !decides || !leaf
+		? []
+		: (['values', 'minimum', 'maximum'] as const).filter((arg) =>
+			getArgValue(field.directives, DECIDE_DIRECTIVE, arg) !== undefined
+			&& (arg === 'values' ? leaf !== 'String' : leaf !== 'Int')
+		);
 
 	return (
 		<div className="mt-3 flex flex-col gap-3 rounded-md border border-dashed p-3">
@@ -174,6 +177,26 @@ export function DerivedValueEditor({ field, table, models, harperVersion, readOn
 								disabled={readOnly}
 								onChange={(value) => setStr(DECIDE_DIRECTIVE, 'instructions', value)}
 							/>
+							{stale.length > 0 && (
+								<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+									<span>Left from the field's earlier type: {stale.join(', ')}.</span>
+									<Button
+										type="button"
+										size="sm"
+										variant="defaultOutline"
+										disabled={readOnly}
+										onClick={() =>
+											setDirectives(
+												stale.reduce(
+													(directives, arg) => setArg(directives, DECIDE_DIRECTIVE, arg, undefined),
+													field.directives,
+												),
+											)}
+									>
+										Remove {stale.join(', ')}
+									</Button>
+								</div>
+							)}
 							<p className="text-xs text-muted-foreground">
 								Harper has the model choose this field's value whenever a record is written. If the model can't decide,
 								the write fails.
@@ -193,14 +216,12 @@ export function DerivedValueEditor({ field, table, models, harperVersion, readOn
 	);
 }
 
-/** A choice among `names`. A value that isn't one of them stays selected and is marked, never dropped. */
+/** A value that isn't one of `names` stays selected and is marked, never dropped. */
 function NameSelect({ label, value, names, empty, missing, disabled, onChange }: {
 	label: string;
 	value: string;
 	names: readonly string[];
-	/** The label of the choice that sets nothing. */
 	empty: string;
-	/** What to call a value that isn't in `names`. */
 	missing: string;
 	disabled: boolean;
 	onChange: (value: string) => void;
@@ -224,7 +245,6 @@ function NameSelect({ label, value, names, empty, missing, disabled, onChange }:
 	);
 }
 
-/** One of the instance's models, or a typed name when Studio couldn't read which models it has. */
 function ModelSelect({ label, value, names, empty, disabled, onChange }: {
 	label: string;
 	value: string;
@@ -244,7 +264,7 @@ function ModelSelect({ label, value, names, empty, disabled, onChange }: {
 		<div className="flex flex-col gap-1">
 			<NameSelect
 				label={label}
-				value={value}
+				value={unsetIsDefault && value === 'default' ? '' : value}
 				names={offered}
 				empty={unsetIsDefault && !names.includes('default') ? `default (${missing})` : empty}
 				missing={missing}
@@ -260,10 +280,8 @@ function ModelSelect({ label, value, names, empty, disabled, onChange }: {
 	);
 }
 
-/** The strings a `String` field can be given, one per line. */
 function ValuesField({ values, written, disabled, onChange }: {
 	values: string[] | undefined;
-	/** The argument as written, shown when it isn't a list of strings the editor can rewrite. */
 	written: string | undefined;
 	disabled: boolean;
 	onChange: (values: string[]) => void;
@@ -271,12 +289,15 @@ function ValuesField({ values, written, disabled, onChange }: {
 	const id = useId();
 	const clean = (text: string) => text.split('\n').map((value) => value.trim()).filter((value) => value !== '');
 	const stored = (values ?? []).join('\n');
-	// What is being typed, blank lines and all. It is replaced only when the stored values stop matching it.
+	// What is being typed, blank lines and all. Both sides are cleaned before comparing, so stored
+	// values that carry spaces or an empty string can't reset it on every render.
 	const [text, setText] = useState(stored);
-	if (clean(text).join('\n') !== stored) {
+	if (clean(text).join('\n') !== clean(stored).join('\n')) {
 		setText(stored);
 	}
-	if (written !== undefined && values === undefined) {
+	// One value per line can't hold a line break, an empty value, or spaces at either end.
+	const unlisted = values?.some((value) => value === '' || value !== value.trim() || /[\r\n]/.test(value)) ?? false;
+	if (written !== undefined && (values === undefined || unlisted)) {
 		return (
 			<p className="text-xs text-muted-foreground">
 				Values: <code className="font-mono">{written}</code>. Edit them as text.

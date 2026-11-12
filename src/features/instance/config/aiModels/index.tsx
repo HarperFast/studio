@@ -44,8 +44,16 @@ function savedMessage(verb: string, model: { kind: ModelKind; name: string }, ou
 	return `${verb} the ${KIND_LABELS[model.kind].one} model '${model.name}'.${skipped}`;
 }
 
-/** The instance's AI models and its `/v1` API switch. Design notes: ./DESIGN.md. */
+/**
+ * Keyed by entity: the route keeps its component mounted when the entity changes, and an open
+ * dialog's draft must not follow to another one. Design notes: ./DESIGN.md.
+ */
 export function ConfigAiModelsIndex() {
+	const { entityId } = useInstanceClientIdParams();
+	return <AiModelsPage key={entityId} />;
+}
+
+function AiModelsPage() {
 	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
@@ -58,7 +66,7 @@ export function ConfigAiModelsIndex() {
 		...getConfigurationQueryOptions(instanceParams),
 		enabled: canManage && supported === true,
 	});
-	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	const { data: cluster, isError: clusterFailed } = useQuery(getClusterInfoQueryOptions(clusterId, false));
 	const onRefreshClick = useRefreshClick(refetch);
 
 	// Off Fabric nothing is managed. On Fabric the answer waits for the cluster: until it loads, no
@@ -101,13 +109,16 @@ export function ConfigAiModelsIndex() {
 		summaries[kind].filter((model) => model.fabricManaged).map((model) => `${kind}.${model.name}`)
 	);
 	const writeBlocked = !placementKnown
-		? 'Loading where this instance runs.'
+		? clusterFailed
+			? "Studio couldn't read this cluster, so it can't tell which models are Fabric's. Reload to change models here."
+			: undefined
 		: onFabric && !FABRIC_KEEPS_CUSTOMER_MODELS
 		? "Adding your own models isn't available on Fabric yet."
 		: !supportsModelsWrite(version)
 		? `Adding and changing models here needs Harper 5.4 or later. This ${targetNoun} runs ${version}.`
 			+ (onFabric ? '' : " On this version, set them in the models section of the instance's config file.")
 		: undefined;
+	const canChange = placementKnown && writeBlocked === undefined;
 	const busy = isFetching || remove.isPending;
 
 	const onRemoveConfirmed = () => {
@@ -153,7 +164,7 @@ export function ConfigAiModelsIndex() {
 						<RefreshCwIcon />
 						<span className="hidden lg:inline-block">Refresh</span>
 					</Button>
-					{!writeBlocked && (
+					{canChange && (
 						<Button disabled={busy} onClick={() => setDialog({ mode: 'add' })}>
 							<PlusIcon />
 							Add Model
@@ -187,7 +198,7 @@ export function ConfigAiModelsIndex() {
 									: "Fabric doesn't provide any models on this instance."}
 							</PageNotice>
 						)}
-						{writeBlocked && placementKnown && <PageNotice>{writeBlocked}</PageNotice>}
+						{writeBlocked && <PageNotice>{writeBlocked}</PageNotice>}
 
 						{kinds.map((kind) => (
 							<section key={kind} className="flex flex-col gap-2" aria-label={KIND_LABELS[kind].title}>
@@ -204,7 +215,7 @@ export function ConfigAiModelsIndex() {
 													key={model.name}
 													model={model}
 													disabled={busy}
-													canChange={!writeBlocked}
+													canChange={canChange}
 													onEdit={() => {
 														const stored = storedEntry(block, kind, model.name);
 														if (isRecord(stored)) {

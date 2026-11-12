@@ -35,8 +35,9 @@ and `/v1/models` answering 404 until an app with no config file was deployed, th
 The page only ever renders [`summarizeModels`](modelEntries.ts), which says where a key comes from
 (`Key from ${OPENAI_API_KEY}`, or `Key saved`) and never returns one. The edit form starts with an
 empty key input; leaving it empty keeps the stored key, which `buildModelEntry` copies from the
-stored entry without it passing through the form. A `user:password@` in a base URL is dropped
-before display. A Fabric entry shows nothing but its name, backend and model.
+stored entry without it passing through the form. A `user:password@` in a base URL or host is
+dropped before display, in the list and in the edit form alike: an untouched address saves the
+stored one back, and the form says a sign-in is there. A Fabric entry shows nothing but its name, backend and model.
 
 The Overview's raw config editor used to show the block too. It is now a restricted section there
 ([`configRestrictions.ts`](../overview/configRestrictions.ts)): that editor could never save it
@@ -79,12 +80,18 @@ own token. Fanning one instance's block out would put its Fabric entries on ever
 
 - An instance below 5.4 would refuse the write, so if any target's version reads as older, nothing
   is written anywhere.
-- An entry Fabric manages on that instance is never written over, whatever the page thought.
+- An entry Fabric manages is never written over, whatever the page thought. On a cluster route the
+  managed names are the union over its instances: the save writes every instance, so a name Fabric
+  holds on any of them is refused up front, not part-way.
+- When central manager has no version for an instance, the instance is asked before anything is
+  written.
 - With one target, the entry must still be what the page loaded, or the save is refused as stale.
   Across a cluster the page read whichever instance answered, so a difference on another instance
   may only mean it was behind; the save brings it level rather than refusing forever.
-- A failure after the first instance stops the save and says how far it got. The first failure
-  before any write is passed through as it is, so Harper's own refusal is what the form shows.
+- A failure after the first instance stops the save and says how far it got. A write that got no
+  answer is reported as unconfirmed, never as refused (root DESIGN, "A write with no verdict").
+  The first failure before any write is passed through as it is, so Harper's own refusal is what
+  the form shows.
 - An instance that isn't running is skipped and counted in the success message.
 
 Studio's write can hand back a copy of one of Fabric's entries that went stale between the read and
@@ -105,7 +112,8 @@ names them, Harper refuses the write with a 409, which the form shows.
   no `embed` (`components/anthropic/index.ts`).
 - A decision model's only built-in backend is `generative`, which names a generative entry
   (`default` when it names none, `resources/models/generativeDecision.ts`). The form refuses a
-  name that doesn't exist, since Harper would accept it and fail at the first decision.
+  name that doesn't exist, since Harper would accept it and fail at the first decision. Naming
+  `default` and naming none are the same entry, so neither is written over the other.
 - An edit that keeps the backend writes only the fields that were changed, over the stored entry.
   Changing the backend starts the entry over, because Harper refuses another backend's fields and
   the old key belongs to another provider.

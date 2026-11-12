@@ -25,11 +25,15 @@ const instanceParams = { instanceClient: {}, entityId: 'ins-1', entityType: 'ins
 const onClose = vi.fn();
 const onSaved = vi.fn();
 
-function open(target: ModelDialogTarget, kinds = ['embedding', 'generative', 'decision'] as const) {
+function open(
+	target: ModelDialogTarget,
+	kinds = ['embedding', 'generative', 'decision'] as const,
+	loaded: Record<string, unknown> = block,
+) {
 	render(
 		<ModelDialog
 			target={target}
-			block={block}
+			block={loaded}
 			kinds={kinds}
 			instanceParams={instanceParams}
 			fabricKeys={undefined}
@@ -109,6 +113,27 @@ describe('adding a model', () => {
 		expect(sentChange()).toMatchObject({ kind: 'decision', entry: { backend: 'generative', generative: 'spare' } });
 	});
 
+	it('asks which generative model decides when none is named default', () => {
+		open({ mode: 'add' }, undefined, { generative: { spare: block.generative.spare } });
+		type('Kind', 'decision');
+		const choices = [...(screen.getByLabelText('Generative model') as HTMLSelectElement).options];
+		expect(choices.map((option) => option.textContent)).toEqual(['Choose a generative model', 'spare']);
+		type('Name', 'route');
+		fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+		expect(screen.getByText('Choose the generative model that makes the decision.')).toBeTruthy();
+		expect(mutation.mutate).not.toHaveBeenCalled();
+	});
+
+	it('leaves the generative model unnamed when default is chosen, as Harper reads it', () => {
+		open({ mode: 'add' });
+		type('Kind', 'decision');
+		type('Name', 'route');
+		type('Generative model', 'spare');
+		type('Generative model', 'default');
+		fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+		expect(sentChange().entry).toEqual({ backend: 'generative' });
+	});
+
 	it('offers only the kinds this Harper version has', () => {
 		open({ mode: 'add' }, ['embedding', 'generative'] as never);
 		const kinds = [...(screen.getByLabelText('Kind') as HTMLSelectElement).options].map((option) => option.value);
@@ -141,6 +166,17 @@ describe('editing a model', () => {
 		stored: block.generative.default,
 		keyNote: 'Key saved',
 	};
+
+	it('never puts a sign-in saved inside the address in the page, and says it is there', () => {
+		const stored = { ...block.generative.default, baseUrl: 'https://user:hunter2@llm.example.com/v1' };
+		open({ ...target, stored });
+		expect((screen.getByLabelText('Base URL (optional)') as HTMLInputElement).value).toBe('https://llm.example.com/v1');
+		expect(document.body.innerHTML).not.toContain('hunter2');
+		expect(screen.getByText(/includes a sign-in that isn't shown/)).toBeTruthy();
+		type('Model', 'gpt-y');
+		fireEvent.click(screen.getByRole('button', { name: 'Save Model' }));
+		expect(sentChange().entry).toEqual({ ...stored, model: 'gpt-y' });
+	});
 
 	it('never puts the saved key in the page', () => {
 		open(target);

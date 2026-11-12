@@ -9,6 +9,7 @@ import {
 	StoredRecord,
 	supportsModelsWrite,
 } from '@/integrations/api/instance/models/models';
+import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { stableJson } from '@/lib/stableJson';
 import { describeError } from '@/react-query/queryClient';
 import type { AxiosInstance } from 'axios';
@@ -24,7 +25,6 @@ export interface ModelChange {
 }
 
 export interface ModelSaveOutcome {
-	/** Instances that now hold the change. */
 	saved: number;
 	/** Live instances that weren't running, so were not reached. */
 	notRunning: number;
@@ -59,6 +59,12 @@ async function planTargets(
 	};
 }
 
+/** Central manager can leave a member's version out, and an old member must stop the save before any write. */
+async function readVersion(instanceClient: AxiosInstance): Promise<string | undefined> {
+	const { data } = await instanceClient.post('/', { operation: 'registration_info' });
+	return typeof data?.version === 'string' ? data.version : undefined;
+}
+
 /**
  * Sets or removes one model on every running instance. Harper's `set_configuration` replaces the
  * whole `models` block, and each instance's block differs (Fabric's entries point at that
@@ -73,6 +79,11 @@ export async function saveModelChange(
 	const { targets, notRunning } = await planTargets(params);
 	if (targets.length === 0) {
 		throw new ModelSaveError('No running instance was found to save to, so nothing was changed.');
+	}
+	if (params.entityType === 'cluster') {
+		for (const target of targets) {
+			target.version ??= await readVersion(target.instanceClient);
+		}
 	}
 	const tooOld = targets.find((target) => target.version !== undefined && !supportsModelsWrite(target.version));
 	if (tooOld) {
@@ -94,6 +105,11 @@ export async function saveModelChange(
 			// someone else changed it since. Across a cluster the page read whichever instance answered,
 			// so a difference there may only be an instance that was behind, and the save brings it level.
 			if (targets.length === 1 && stableJson(current) !== stableJson(change.loaded)) {
+				if (change.loaded === undefined && change.entry !== undefined) {
+					throw new ModelSaveError(
+						`The ${described} was added since this page loaded. Reload the page to see it.`,
+					);
+				}
 				throw new ModelSaveError(
 					`The ${described} changed since this page loaded it. Reload the page to see it, then try again.`,
 				);
@@ -109,9 +125,11 @@ export async function saveModelChange(
 			if (saved === 0) {
 				throw error;
 			}
+			const reached = `Saved on ${saved} of ${targets.length} instances, then ${target.label} `;
 			throw new ModelSaveError(
-				`Saved on ${saved} of ${targets.length} instances, then ${target.label} refused: `
-					+ describeError(error).message,
+				isUnansweredWrite(error)
+					? `${reached}didn't answer. Check whether the model changed there before you try again.`
+					: `${reached}refused: ${describeError(error).message}`,
 				{ cause: error },
 			);
 		}

@@ -4,7 +4,7 @@
  */
 import { isRecord, MODEL_KINDS, ModelKind, StoredRecord } from '@/integrations/api/instance/models/models';
 
-/** The built-in backends each kind can name. Anthropic has no embedding API, so Harper refuses its `embed`. */
+/** Anthropic has no embedding API, so Harper refuses its `embed`. */
 export const BACKENDS_BY_KIND: Record<ModelKind, readonly string[]> = {
 	embedding: ['ollama', 'openai', 'bedrock'],
 	generative: ['ollama', 'openai', 'anthropic', 'bedrock'],
@@ -46,7 +46,7 @@ function isEnvPlaceholder(value: string): boolean {
 	return value.startsWith('${') && value.endsWith('}') && !value.slice(2, -1).includes(' ');
 }
 
-export function modelKey(kind: ModelKind, name: string): string {
+function modelKey(kind: ModelKind, name: string): string {
 	return `${kind}:${name}`;
 }
 
@@ -115,7 +115,6 @@ export interface ModelSummary {
 	name: string;
 	/** Absent when the stored entry isn't something Harper could load. */
 	backend?: string;
-	/** The provider's model id. */
 	model?: string;
 	/** Settings worth showing beside the entry. Never a key, and nothing at all for a Fabric entry. */
 	details: Array<{ label: string; value: string }>;
@@ -123,7 +122,6 @@ export interface ModelSummary {
 	/** Where the key comes from, never the key: the environment variable's name, or that one is saved. */
 	keyNote?: string;
 	fabricManaged: boolean;
-	/** Whether Studio has a form for the entry's backend. */
 	editable: boolean;
 }
 
@@ -144,6 +142,11 @@ function withoutCredentials(value: string): string {
 	} catch {
 		return value;
 	}
+}
+
+/** Whether a stored address carries a `user:password@` that the form leaves out. */
+export function hidesUrlCredentials(value: unknown): boolean {
+	return typeof value === 'string' && withoutCredentials(value) !== value;
 }
 
 function keyNote(entry: StoredRecord): string | undefined {
@@ -245,6 +248,9 @@ export function modelFormFromEntry(kind: ModelKind, name: string, entry: StoredR
 	for (const field of ['model', 'baseUrl', 'organization', 'host', 'region', 'generative'] as const) {
 		form[field] = text(entry[field]) ?? '';
 	}
+	// A sign-in inside an address is a secret like the key: an untouched field saves the stored one back.
+	form.baseUrl = withoutCredentials(form.baseUrl);
+	form.host = withoutCredentials(form.host);
 	if (Array.isArray(entry.fallback) && entry.fallback.every((item) => typeof item === 'string')) {
 		form.fallback = entry.fallback.join(', ');
 	}
@@ -253,6 +259,11 @@ export function modelFormFromEntry(kind: ModelKind, name: string, entry: StoredR
 
 function parseNames(list: string): string[] {
 	return list.split(',').map((name) => name.trim()).filter((name) => name !== '');
+}
+
+/** The generative model a decision entry decides with: Harper uses `default` when it names none. */
+function generativeName(typed: string): string {
+	return typed.trim() || 'default';
 }
 
 /** The form an untouched edit of `stored` would hold, so a save can tell which fields were changed. */
@@ -312,10 +323,12 @@ export function validateModelForm(
 		}
 	}
 	if (form.kind === 'decision') {
-		const generative = form.generative.trim() || 'default';
-		if (form.generative !== untouched.generative || stored === undefined) {
+		const generative = generativeName(form.generative);
+		if (generative !== generativeName(untouched.generative) || stored === undefined) {
 			if (storedEntry(block, 'generative', generative) === undefined) {
-				return `There is no generative model named '${generative}'. A decision model decides with one, so add it first.`;
+				return form.generative.trim() === '' && modelNames(block, 'generative').length > 0
+					? 'Choose the generative model that makes the decision.'
+					: `There is no generative model named '${generative}'. A decision model decides with one, so add it first.`;
 			}
 		}
 	}
@@ -343,7 +356,10 @@ export function buildModelEntry(form: ModelForm, stored?: unknown): StoredRecord
 	const untouched = untouchedForm(form, stored);
 	const entry: StoredRecord = { ...keepsStored, backend: form.backend };
 	for (const field of BACKEND_FIELDS[form.backend] ?? []) {
-		if (form[field] === untouched[field]) {
+		const unchanged = field === 'generative'
+			? generativeName(form.generative) === generativeName(untouched.generative)
+			: form[field] === untouched[field];
+		if (unchanged) {
 			continue;
 		}
 		const typed = form[field].trim();

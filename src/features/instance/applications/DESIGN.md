@@ -256,6 +256,13 @@ user can read those (`get_configuration`), so for any other role, and while they
 typed instead. A name the instance doesn't have stays selected and is marked, never dropped.
 
 What the editor refuses is exactly what Harper refuses, because one bad directive fails the whole
-schema: see [`derivedFields.ts`](lib/schema/derivedFields.ts), whose header says how the rules were
-checked against a running Harper. `confidence` and `decision` have no inputs; they are kept as
-written and still validated.
+schema: see [`derivedFields.ts`](lib/schema/derivedFields.ts). Each rule is one Harper throws, and
+the set was run against a live Harper 5.4.0-beta.4: 55 schemas, valid and not, each deployed as its
+own app, and Harper loaded exactly the ones the editor accepts. When a rule changes, repeat that
+rather than trusting a reading of Harper's source. `confidence` and `decision` have no inputs; they
+are kept as written and still validated.
+
+The editor never rewrites what it can't show. A `"""block"""` string is read the way Harper reads
+it. Decision values that one per line can't hold (an empty value, a space at either end, a line
+break, a block string) are shown as written, for editing as text. Arguments left by a change of
+field type (`values` on an `Int` field, say) block Save and get a button that removes only them.

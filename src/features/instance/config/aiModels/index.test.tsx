@@ -14,6 +14,8 @@ const { state, remove, toast } = vi.hoisted(() => ({
 		configuration: undefined as unknown,
 		configurationError: false,
 		cluster: undefined as unknown,
+		clusterError: false,
+		entityId: 'clu-1',
 		params: { clusterId: 'clu-1' } as { clusterId?: string; instanceId?: string },
 		local: false,
 		fabricKeepsCustomerModels: false,
@@ -40,12 +42,12 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 				refetch: vi.fn(),
 			};
 		}
-		return { data: state.cluster };
+		return { data: state.cluster, isError: state.clusterError };
 	},
 }));
 vi.mock('@tanstack/react-router', () => ({ useParams: () => state.params }));
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ instanceClient: {}, entityId: 'clu-1', entityType: 'cluster' }),
+	useInstanceClientIdParams: () => ({ instanceClient: {}, entityId: state.entityId, entityType: 'cluster' }),
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
 vi.mock('@/config/constants', async (importOriginal) => ({
@@ -95,6 +97,8 @@ beforeEach(() => {
 		configuration: { models, modelsGateway: { enabled: false } },
 		configurationError: false,
 		cluster: selfManagedCluster,
+		clusterError: false,
+		entityId: 'clu-1',
 		params: { clusterId: 'clu-1' },
 		local: false,
 		fabricKeepsCustomerModels: false,
@@ -213,6 +217,16 @@ describe('on Fabric', () => {
 		render(<ConfigAiModelsIndex />);
 		expect(screen.queryByRole('button', { name: 'Add Model' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+		expect(screen.queryByText(/couldn't read this cluster/)).toBeNull();
+	});
+
+	it('says why nothing can be changed when the cluster could not be read', () => {
+		state.cluster = undefined;
+		state.clusterError = true;
+		render(<ConfigAiModelsIndex />);
+		expect(screen.getByText(/couldn't read this cluster/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Add Model' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
 	});
 });
 
@@ -234,6 +248,15 @@ describe('changing models off Fabric', () => {
 		render(<ConfigAiModelsIndex />);
 		fireEvent.click(within(screen.getByLabelText('generative model mine')).getByRole('button', { name: 'Edit' }));
 		expect(screen.getByTestId('model-dialog').textContent).toBe('edit mine');
+	});
+
+	it('drops an open dialog when the page moves to another cluster or instance', () => {
+		const { rerender } = render(<ConfigAiModelsIndex />);
+		fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+		expect(screen.getByTestId('model-dialog')).toBeTruthy();
+		state.entityId = 'clu-2';
+		rerender(<ConfigAiModelsIndex />);
+		expect(screen.queryByTestId('model-dialog')).toBeNull();
 	});
 
 	it('lets an entry with a custom backend be removed but not edited', () => {

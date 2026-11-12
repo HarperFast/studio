@@ -21,7 +21,6 @@ function tableOf(fields: string): TableModel {
 
 const MODELS = { embedding: ['default', 'multimodal'], decision: ['default', 'route'] };
 
-/** Renders the editor for the field `name`, keeping its edits the way the table card does. */
 function show(
 	fields: string,
 	name: string,
@@ -168,7 +167,6 @@ describe('@decide', () => {
 		const box = screen.getByLabelText('Values to choose from, one per line') as HTMLTextAreaElement;
 		fireEvent.change(box, { target: { value: 'billing\n  refund, or credit \n' } });
 		expect(decideValues(last().directives)).toEqual(['billing', 'refund, or credit']);
-		// The line being typed stays as typed: a trailing newline isn't eaten.
 		expect(box.value).toBe('billing\n  refund, or credit \n');
 		expect(screen.queryByText(/values/i, { selector: 'li' })).toBeNull();
 	});
@@ -207,6 +205,45 @@ describe('@decide', () => {
 		expect(getArgValue(last().directives, 'decide', 'instructions')).toBe('"Be strict."');
 		expect(getArgValue(last().directives, 'decide', 'confidence')).toBe('"score"');
 		expect(getArgValue(last().directives, 'decide', 'decision')).toBe('"why"');
+	});
+
+	it('shows values that one per line cannot hold as written: an end space, an empty value, a line break', () => {
+		for (const values of ['["a ", "b"]', '["a", ""]', '["a\\nb", "c"]']) {
+			show(`\tlabel: String @decide(source: "body", values: ${values})`, 'label');
+			expect(screen.queryByLabelText('Values to choose from, one per line')).toBeNull();
+			expect(screen.getByText(values)).toBeTruthy();
+			cleanup();
+		}
+	});
+
+	it('reads a block string the way Harper does', () => {
+		show('\tflag: Boolean @decide(source: """body""", instructions: """\n\t\tBe strict.\n\t""")', 'flag');
+		expect((screen.getByLabelText('Field to decide from') as HTMLSelectElement).value).toBe('body');
+		expect((screen.getByLabelText('Instructions for the model (optional)') as HTMLInputElement).value).toBe(
+			'Be strict.',
+		);
+		expect(screen.queryByRole('listitem')).toBeNull();
+	});
+
+	it('reads a model written as "default" as the unset choice, not as a missing model', () => {
+		show('\tflag: Boolean @decide(source: "body", model: "default")', 'flag');
+		expect(options('Decision model')).toEqual(['default', 'route']);
+		expect((screen.getByLabelText('Decision model') as HTMLSelectElement).value).toBe('');
+	});
+
+	it('offers to remove the arguments an earlier field type left behind, keeping the rest', () => {
+		const { last } = show(
+			'\tpriority: Int @decide(source: "body", values: ["a", "b"], minimum: 1, maximum: 5)',
+			'priority',
+		);
+		fireEvent.click(screen.getByRole('button', { name: 'Remove values' }));
+		expect(getArgValue(last().directives, 'decide', 'values')).toBeUndefined();
+		expect(getArgValue(last().directives, 'decide', 'source')).toBe('"body"');
+		expect(getArgValue(last().directives, 'decide', 'minimum')).toBe('1');
+		expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
+		cleanup();
+		show('\tflag: Boolean @decide(source: "body", minimum: 1, maximum: 5)', 'flag');
+		expect(screen.getByRole('button', { name: 'Remove minimum, maximum' })).toBeTruthy();
 	});
 });
 

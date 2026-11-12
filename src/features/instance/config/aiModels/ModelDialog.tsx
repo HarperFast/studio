@@ -22,6 +22,7 @@ import {
 	BACKENDS_BY_KIND,
 	buildModelEntry,
 	emptyModelForm,
+	hidesUrlCredentials,
 	KIND_LABELS,
 	ModelForm,
 	modelFormFromEntry,
@@ -47,9 +48,7 @@ export type ModelDialogTarget =
 
 export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, onClose, onSaved }: {
 	target: ModelDialogTarget;
-	/** The `models` block the page loaded, for the names a new entry can't take and the ones it can point at. */
 	block: StoredRecord | undefined;
-	/** The kinds this Harper version has. */
 	kinds: readonly ModelKind[];
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 	fabricKeys: ReadonlySet<string> | undefined;
@@ -68,6 +67,10 @@ export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, 
 	};
 	const fields = BACKEND_FIELDS[form.backend] ?? [];
 	const label = KIND_LABELS[form.kind].one;
+	const hiddenSignIn = (field: 'baseUrl' | 'host') =>
+		stored !== undefined && stored.backend === form.backend && hidesUrlCredentials(stored[field])
+			? " The saved address includes a sign-in that isn't shown. Changing the address replaces it."
+			: '';
 	const generativeNames = modelNames(block, 'generative');
 	const generativeChoices = form.generative === '' || generativeNames.includes(form.generative)
 		? generativeNames
@@ -190,14 +193,17 @@ export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, 
 					)}
 
 					{fields.includes('baseUrl') && (
-						<Field id="model-base-url" label="Base URL (optional)" hint="Leave empty for the provider's own address.">
+						<Field
+							id="model-base-url"
+							label="Base URL (optional)"
+							hint={`Leave empty for the provider's own address.${hiddenSignIn('baseUrl')}`}
+						>
 							<Input
 								id="model-base-url"
 								autoComplete="off"
 								placeholder="https://"
 								value={form.baseUrl}
-								onChange={(event) =>
-									set('baseUrl', event.target.value)}
+								onChange={(event) => set('baseUrl', event.target.value)}
 							/>
 						</Field>
 					)}
@@ -214,13 +220,16 @@ export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, 
 					)}
 
 					{fields.includes('host') && (
-						<Field id="model-host" label="Host (optional)" hint="Leave empty for localhost:11434.">
+						<Field
+							id="model-host"
+							label="Host (optional)"
+							hint={`Leave empty for localhost:11434.${hiddenSignIn('host')}`}
+						>
 							<Input
 								id="model-host"
 								autoComplete="off"
 								value={form.host}
-								onChange={(event) =>
-									set('host', event.target.value)}
+								onChange={(event) => set('host', event.target.value)}
 							/>
 						</Field>
 					)}
@@ -255,7 +264,9 @@ export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, 
 								value={form.generative || 'default'}
 								onChange={(event) => set('generative', event.target.value)}
 							>
-								{!generativeChoices.includes('default') && <option value="default">default</option>}
+								{form.generative === '' && !generativeNames.includes('default') && (
+									<option value="">Choose a generative model</option>
+								)}
 								{generativeChoices.map((name) => <option key={name} value={name}>{name}</option>)}
 							</select>
 						</Field>
