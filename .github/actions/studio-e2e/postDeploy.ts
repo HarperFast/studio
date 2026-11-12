@@ -18,9 +18,9 @@ export type PlaywrightReport = {
 	stats?: { duration?: number };
 };
 
-export type OutcomeStatus = 'passed' | 'failed' | 'flaky' | 'skipped' | 'not run';
+type OutcomeStatus = 'passed' | 'failed' | 'flaky' | 'skipped' | 'not run';
 
-export type TestOutcome = {
+type TestOutcome = {
 	title: string;
 	file: string;
 	line: number;
@@ -30,14 +30,14 @@ export type TestOutcome = {
 	detail: string;
 };
 
-export type Verdict = {
+type Verdict = {
 	ok: boolean;
 	problems: string[];
 	counts: Record<OutcomeStatus, number>;
 	outcomes: TestOutcome[];
 };
 
-export type Observation = { matches: boolean; detail: string };
+type Observation = { matches: boolean; detail: string };
 
 const SECRET_ENV = [
 	'PLAYWRIGHT_USER_EMAIL',
@@ -285,7 +285,7 @@ function cell(text: string): string {
 	return clip(text.replace(/\s+/g, ' ').trim()).replace(/\|/g, '\\|').replace(/</g, '&lt;');
 }
 
-export type SummaryContext = {
+type SummaryContext = {
 	environment: string;
 	baseUrl: string;
 	version: string;

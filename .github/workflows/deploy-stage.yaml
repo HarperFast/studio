@@ -67,9 +67,9 @@ jobs:
     name: E2E against Stage
     needs: deployToStage
     runs-on: ubuntu-latest
-    # Must outlast the 10-minute build wait plus Playwright's 25-minute --global-timeout, or the
+    # Must outlast the 10-minute build wait plus Playwright's 30-minute --global-timeout, or the
     # Report step never runs.
-    timeout-minutes: 45
+    timeout-minutes: 50
     environment: e2e-stage
     permissions:
       contents: read
