@@ -147,7 +147,6 @@ export function useRollingConfigUpdate(
 			let instancesUntouched: number | undefined;
 			let instancesStoppedOnNoVerdict = false;
 			let writtenBeforeCancel = false;
-			// Harper's words for the first configuration it rejected (a 400): they name the setting and the rule.
 			let refusal: string | undefined;
 
 			for (let i = 0; i < targets.length; i++) {

@@ -6,12 +6,10 @@ import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInsta
 export interface McpHost {
 	id: string;
 	label: string;
-	/** e.g. `https://node.example.com:9925` */
 	operationsOrigin: string | null;
 	applicationOrigin: string | null;
 }
 
-/** The instance's own HTTP ports, from its configuration's `http` block. */
 export type McpHttpPorts = { port?: unknown; securePort?: unknown } | undefined;
 
 function originOf(url: string | null): string | null {

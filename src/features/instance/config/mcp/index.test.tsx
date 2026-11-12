@@ -228,6 +228,13 @@ describe('ConfigMcpIndex', () => {
 		expect(screen.getByText(/change the commands from each instance's own page/)).toBeTruthy();
 	});
 
+	it("keeps a pre-5.4 cluster's command list locked until it knows the cluster has one member", () => {
+		state.clusterPending = true;
+		state.configuration = { mcp: { operations: {} } };
+		render(<ConfigMcpIndex />);
+		expect(screen.queryByRole('button', { name: 'Remove read_log' })).toBeNull();
+	});
+
 	it('reads the enabled flag the way every member does, not by a registration version that lags an upgrade', () => {
 		state.version = '5.3.6';
 		state.members = [member('node-a', '5.4.0-beta.4'), member('node-b', '5.4.0-beta.4')];

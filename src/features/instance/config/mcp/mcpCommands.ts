@@ -70,16 +70,20 @@ export function removeMcpCommand(list: McpCommandList, name: string): McpCommand
 }
 
 /**
- * A removed pattern that matches the name has to go too, since Harper's deny always wins; the other known commands
- * it kept out stay out by name.
+ * The removed pattern that keeps a name out, if any. Harper's deny always wins, so the name can't be added while the
+ * pattern stays, and lifting it would also let in commands Studio can't list, such as ones a component adds.
  */
-export function addMcpCommand(list: McpCommandList, name: string, known: readonly string[] = []): McpCommandList {
-	const lifted = list.removed.filter((entry) => entry !== name && matchesMcpPattern(name, [entry]));
-	const keptOut = known.filter((other) => other !== name && matchesMcpPattern(other, lifted));
-	const removed = [
-		...new Set([...list.removed.filter((entry) => entry !== name && !lifted.includes(entry)), ...keptOut]),
-	].sort();
-	const next = { ...list, removed };
+export function blockingMcpPattern(list: McpCommandList, name: string): string | undefined {
+	return list.removed.find((entry) => entry !== name && isMcpPattern(entry) && matchesMcpPattern(name, [entry]));
+}
+
+/** Throws for a name a removed pattern blocks (`blockingMcpPattern`). */
+export function addMcpCommand(list: McpCommandList, name: string): McpCommandList {
+	const blocked = blockingMcpPattern(list, name);
+	if (blocked) {
+		throw new Error(`Put back ${blocked} to add ${name}.`);
+	}
+	const next = { ...list, removed: list.removed.filter((entry) => entry !== name) };
 	if (isMcpOperationIncluded(name, writeMcpCommandList(next))) {
 		return next;
 	}

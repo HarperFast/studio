@@ -15,6 +15,7 @@ import { RotateCcwIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
 	addMcpCommand,
+	blockingMcpPattern,
 	dropAddedMcpEntry,
 	includedMcpCommands,
 	isDefaultMcpCommand,
@@ -28,7 +29,6 @@ import {
 
 const CATEGORIES = [...OPERATION_CATEGORIES, OTHER_CATEGORY];
 
-/** A command name, or a `*` pattern as Harper's allow and deny lists take them. */
 const ENTRY_PATTERN = /^[A-Za-z*][A-Za-z0-9_.:*-]*$/;
 
 const CHANGES_DATA_TITLE = 'This command can change or delete data, or change the instance.';
@@ -64,7 +64,9 @@ export function McpCommandsEditor({
 		onChange(
 			isMcpOperationIncluded(name, stored)
 				? removeMcpCommand(list, name)
-				: addMcpCommand(list, name, known.map((command) => command.name)),
+				: blockingMcpPattern(list, name)
+				? list
+				: addMcpCommand(list, name),
 		);
 
 	const customCandidate = (query: string) => {
@@ -121,8 +123,16 @@ export function McpCommandsEditor({
 				customCandidate={customCandidate}
 				triggerLabel="Add or remove commands…"
 				disabled={disabled}
-				renderBadge={(command) =>
-					command.changesData && <Badge variant="warning" title={CHANGES_DATA_TITLE}>changes data</Badge>}
+				renderBadge={(command) => {
+					const blocked = blockingMcpPattern(list, command.name);
+					return blocked
+						? (
+							<Badge variant="outline" title={`Put back ${blocked} to add this command.`}>
+								blocked by {blocked}
+							</Badge>
+						)
+						: command.changesData && <Badge variant="warning" title={CHANGES_DATA_TITLE}>changes data</Badge>;
+				}}
 			/>
 
 			<div>
