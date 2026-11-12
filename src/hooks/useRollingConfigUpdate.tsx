@@ -4,7 +4,11 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	restartInstance,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
 import {
 	describeUncertainRollingOutcome,
 	RestartUnconfirmedError,
@@ -14,6 +18,7 @@ import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
+import { markRestarting } from '@/lib/restart/restartTracker';
 import { sleep } from '@/lib/sleep';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
@@ -23,9 +28,8 @@ import { toast } from 'sonner';
 interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
 	/**
-	 * `restart_service` (the default) restarts the HTTP workers only. Settings the operations server reads only when
-	 * Harper starts, such as `mcp.operations` (harper `server/operationsServer.ts`), need a full `restart`: after a
-	 * `restart_service` the operations part still answered 404 on 5.4.0-beta.4.
+	 * `restart_service` (the default) restarts only the HTTP workers. Settings Harper's main thread reads only at
+	 * startup, such as the operations API's, need a full `restart`, which takes each instance down while it runs.
 	 */
 	restartOperation?: 'restart_service' | 'restart';
 }
@@ -39,6 +43,7 @@ const MAY_BE_PENDING =
 	'Instances that were not restarted may already have the new configuration saved, and will apply it the next time they restart.';
 
 interface RestartTarget {
+	entityId: string;
 	instanceClient: AxiosInstance;
 	replicationFqdn?: string;
 }
@@ -55,7 +60,7 @@ async function planRollingConfigUpdate(
 	if (operationsParams.entityType !== 'cluster') {
 		return {
 			allInstances: [{ id: operationsParams.entityId, status: 'RUNNING' } as Instance],
-			targets: [{ instanceClient: operationsParams.instanceClient }],
+			targets: [{ entityId: operationsParams.entityId, instanceClient: operationsParams.instanceClient }],
 			fanOutAfterCanary: false,
 		};
 	}
@@ -63,6 +68,7 @@ async function planRollingConfigUpdate(
 	return {
 		allInstances,
 		targets: targets.map(({ instance, instanceClient }) => ({
+			entityId: instance.id,
 			instanceClient,
 			replicationFqdn: instance.replicationFqdn,
 		})),
@@ -110,6 +116,7 @@ export function useRollingConfigUpdate(
 			),
 		});
 
+		let releaseCluster: (() => void) | undefined;
 		try {
 			let plan: RollingConfigUpdatePlan;
 			try {
@@ -127,6 +134,13 @@ export function useRollingConfigUpdate(
 				return;
 			}
 			const { allInstances, targets, fanOutAfterCanary } = plan;
+			const takesDown = restartOperation === 'restart';
+			if (takesDown && operationsParams.entityType === 'cluster') {
+				releaseCluster = markRestarting([operationsParams.entityId], {
+					reach: targets.length === 1 ? 'down' : 'rolling',
+					ttlMs: (targets.length + 1) * RESTART_MARK_TTL_MS,
+				});
+			}
 			let fanOutAttempted = false;
 			let acknowledged = new Set<string>();
 			let instancesRestarted = 0;
@@ -137,7 +151,7 @@ export function useRollingConfigUpdate(
 			let writtenBeforeCancel = false;
 
 			for (let i = 0; i < targets.length; i++) {
-				const { instanceClient, replicationFqdn } = targets[i];
+				const { entityId, instanceClient, replicationFqdn } = targets[i];
 				if (canceled) {
 					break;
 				}
@@ -153,6 +167,7 @@ export function useRollingConfigUpdate(
 				});
 				let restarted = false;
 				let restartSent = false;
+				let releaseTarget: (() => void) | undefined;
 				try {
 					// Make sure the instance is responding.
 					await getInstanceUserInfo({
@@ -172,7 +187,10 @@ export function useRollingConfigUpdate(
 							break;
 						}
 					}
-					// Then restart it.
+					// Then restart it. Marked only now: a `down` mark would refuse the configuration write above.
+					if (takesDown) {
+						releaseTarget = markRestarting([entityId], { reach: 'down', ttlMs: RESTART_MARK_TTL_MS });
+					}
 					restartSent = true;
 					await restartInstance({
 						operation: restartOperation,
@@ -218,6 +236,8 @@ export function useRollingConfigUpdate(
 						});
 						await sleep(3000);
 					}
+				} finally {
+					releaseTarget?.();
 				}
 
 				// The configuration spreads only once an instance has come back up running it, and a
@@ -304,6 +324,7 @@ export function useRollingConfigUpdate(
 				});
 			}
 		} finally {
+			releaseCluster?.();
 			setIsPending(false);
 			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
