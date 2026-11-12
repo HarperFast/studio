@@ -76,6 +76,15 @@ export function UpsertCluster() {
 	// plan change and a region change cannot go in one request. Keyed on what the cluster runs NOW,
 	// not on what is being selected — the freeze lifts as soon as the paid plan lands.
 	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId));
+
+	// The route's cluster is a snapshot from navigation; the cached record follows the cluster notice's polling.
+	const { data: liveCluster } = useQuery({
+		...getClusterInfoQueryOptions(clusterId),
+		enabled: !!clusterId && !!cluster,
+	});
+	// Hold state and instance versions come from one record, so a finished upgrade can't pair with stale versions.
+	const currentCluster = liveCluster ?? cluster;
+	const heldByWorkflow = !!currentCluster?.workflowId;
 	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({

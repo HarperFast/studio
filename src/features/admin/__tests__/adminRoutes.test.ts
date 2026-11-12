@@ -34,6 +34,7 @@ describe('admin section routes', () => {
 		['/admin/monitoring', '/monitoring'],
 		['/admin/users', '/users'],
 		['/admin/users/usr-1', '/users/$userId'],
+		['/admin/configuration', '/configuration'],
 		['/admin/api-token', '/api-token'],
 		['/admin/workflows', '/workflows'],
 		['/admin/workflows/wf-1', '/workflows/$workflowId'],

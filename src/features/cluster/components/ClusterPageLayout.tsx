@@ -2,6 +2,7 @@ import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
 import { isDeletedCluster } from '@/config/clusterStatuses';
 import { ClusterExpiryBanner } from '@/features/cluster/components/ClusterExpiryBanner';
+import { ClusterWorkflowNotice } from '@/features/cluster/components/ClusterWorkflowNotice';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';

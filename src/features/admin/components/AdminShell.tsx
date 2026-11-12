@@ -11,8 +11,10 @@ import {
 	ReceiptTextIcon,
 	ServerIcon,
 	SirenIcon,
+	SlidersHorizontalIcon,
 	TicketIcon,
 	UsersIcon,
+	WorkflowIcon,
 } from 'lucide-react';
 
 /**
@@ -42,6 +44,14 @@ const items: Array<
 	{ to: '/admin/billing', label: 'Billing', icon: CreditCardIcon, permission: 'org:read' },
 	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
 	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
+	// A central manager that predates staffPermissions predates the workflow endpoints too.
+	{
+		to: '/admin/workflows',
+		label: 'Workflows',
+		icon: WorkflowIcon,
+		permission: 'workflow:read',
+		needsPermissionsField: true,
+	},
 	// Gated on deactivation's permission, which keeps the page fabric_admin-only; the details lookup needs both reads.
 	{
 		to: '/admin/users',
@@ -50,6 +60,8 @@ const items: Array<
 		permission: 'user:status',
 		alsoNeeds: ['user:read', 'cluster:read'],
 	},
+	// Gated on write, not read: every staff role can read Configuration, but the page is for editing it.
+	{ to: '/admin/configuration', label: 'Configuration', icon: SlidersHorizontalIcon, permission: 'config:write' },
 	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
 	// super_user cannot mint a staff credential.
 	{
