@@ -77,6 +77,13 @@ describe('commitlint config', () => {
 		}
 	});
 
+	it('passes a squash body that repeats a full-length commit header as a bullet', async () => {
+		const header = `feat(x): ${'a'.repeat(91)} (#2014)`;
+		const body = `feat(x): squash (#2090)\n\n* fix(y): first\n\nCloses #1\n\n* ${header}\n\n* ${header}\n`;
+
+		expect(await errorsFor(body)).toEqual([]);
+	});
+
 	it('rejects a squash merge whose PR title has no type', async () => {
 		expect(await errorsFor('Pricing updates (#2090)')).toEqual(
 			expect.arrayContaining(['subject-empty', 'type-empty']),
