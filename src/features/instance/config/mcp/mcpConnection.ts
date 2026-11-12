@@ -6,11 +6,13 @@ import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInsta
 export interface McpHost {
 	id: string;
 	label: string;
-	/** The operations API origin, e.g. `https://node.example.com:9925`. */
+	/** e.g. `https://node.example.com:9925` */
 	operationsOrigin: string | null;
-	/** The HTTPS origin on the default port, e.g. `https://node.example.com`. */
 	applicationOrigin: string | null;
 }
+
+/** The instance's own HTTP ports, from its configuration's `http` block. */
+export type McpHttpPorts = { port?: unknown; securePort?: unknown } | undefined;
 
 function originOf(url: string | null): string | null {
 	if (!url) {
@@ -23,47 +25,50 @@ function originOf(url: string | null): string | null {
 	}
 }
 
+/** The application part on the same host, at the HTTP port the configuration names (the secure one when set). */
+function applicationOriginOn(hostname: string, http: McpHttpPorts): string | null {
+	const securePort = Number(http?.securePort);
+	const port = Number(http?.port);
+	return securePort > 0
+		? `https://${hostname}:${securePort}`
+		: port > 0
+		? `http://${hostname}:${port}`
+		: null;
+}
+
 /**
  * Each instance gets its own addresses rather than the cluster's: an MCP session lives in a `system.mcp_session`
  * row that does not replicate (harper `components/mcp/DESIGN.md`), so a client a load balancer moves to another
- * member loses its session.
+ * member loses its session. Fabric serves the application part on the instance's HTTPS address at 443; a
+ * self-managed instance (`selfManagedHttp`) serves it on its own configured port.
  */
 export function mcpHostForInstance(
 	instance: Pick<Instance, 'id' | 'name' | 'instanceFqdn' | 'operationsApiSecure' | 'operationsApiPort'>,
+	selfManagedHttp?: McpHttpPorts,
 ): McpHost {
 	const operationsOrigin = originOf(getOperationsUrlForInstance(instance));
-	// The application part is on the instance's HTTPS address at port 443, so the origin is its host alone.
-	const applicationOrigin = operationsOrigin && `https://${new URL(operationsOrigin).hostname}`;
+	const hostname = operationsOrigin && new URL(operationsOrigin).hostname;
 	return {
 		id: instance.id,
 		label: instance.name || instance.instanceFqdn || instance.id,
 		operationsOrigin,
-		applicationOrigin,
+		applicationOrigin: !hostname
+			? null
+			: selfManagedHttp
+			? applicationOriginOn(hostname, selfManagedHttp)
+			: `https://${hostname}`,
 	};
 }
 
-/**
- * Local Studio is served by the instance's own operations API, so that is the page's origin. The application part
- * is on the same host, at the HTTP port the instance's configuration names (the secure one when it has one).
- */
-export function localMcpHost(
-	operationsOrigin: string,
-	http: { port?: unknown; securePort?: unknown } | undefined,
-): McpHost {
-	let applicationOrigin: string | null = null;
-	try {
-		const url = new URL(operationsOrigin);
-		const securePort = Number(http?.securePort);
-		const port = Number(http?.port);
-		if (securePort > 0) {
-			applicationOrigin = `https://${url.hostname}:${securePort}`;
-		} else if (port > 0) {
-			applicationOrigin = `http://${url.hostname}:${port}`;
-		}
-	} catch {
-		// An origin that does not parse has no host to put the application port on.
-	}
-	return { id: 'local', label: 'This instance', operationsOrigin: originOf(operationsOrigin), applicationOrigin };
+/** Local Studio is served by the instance's own operations API, so that is the page's origin. */
+export function localMcpHost(operationsOrigin: string, http: McpHttpPorts): McpHost {
+	const origin = originOf(operationsOrigin);
+	return {
+		id: 'local',
+		label: 'This instance',
+		operationsOrigin: origin,
+		applicationOrigin: origin && applicationOriginOn(new URL(origin).hostname, http),
+	};
 }
 
 export function mcpAddress(origin: string, mountPath: string): string {
@@ -85,8 +90,8 @@ export interface McpConnection {
 	mountPath: string;
 }
 
-/** The server's key in the AI tool's config. `harper mcp print-config` always says `harper`; two parts need two keys. */
-export function mcpServerName(part: McpPart): string {
+/** `harper mcp print-config` always says `harper`; two parts need two keys. */
+function mcpServerName(part: McpPart): string {
 	return part === 'operations' ? 'harper' : 'harper-application';
 }
 

@@ -12,16 +12,14 @@ export const MCP_MIN_VERSION = '5.1.0-beta.1';
 
 /**
  * The first tagged build that honors `mcp.<part>.enabled` (harper 199e53603). Before it a part is on whenever its
- * block exists, and `set_configuration` can only write leaves, never remove a block: `mcp`, `mcp_operations` and
- * `mcp_operations_enabled` are all refused as unrecognized parameters (verified on 5.3.6). So below this version a
- * part Studio turns on cannot be turned off again from Studio.
+ * block exists, and `set_configuration` writes leaves only, so nothing it accepts removes a block.
  */
-export const MCP_ENABLED_FLAG_MIN_VERSION = '5.4.0-alpha.2';
+const MCP_ENABLED_FLAG_MIN_VERSION = '5.4.0-alpha.2';
 
 /** The first tagged build whose built-in agent takes its tools from the operations part's list (harper 37a043854). */
-export const MCP_AGENT_SHARES_LIST_MIN_VERSION = '5.2.0-alpha.6';
+const MCP_AGENT_SHARES_LIST_MIN_VERSION = '5.2.0-alpha.6';
 
-export const MCP_DEFAULT_MOUNT_PATH = '/mcp';
+const MCP_DEFAULT_MOUNT_PATH = '/mcp';
 
 export function supportsMcp(version: string | undefined): boolean {
 	return !!version && wasAReleasedBeforeB(MCP_MIN_VERSION, version);
@@ -58,7 +56,7 @@ export const MCP_DEFAULT_ALLOW: readonly string[] = [
  * expose `list_secrets` and `list_oidc_trust`. Studio denies these whenever it writes an explicit list, unless the
  * customer adds one by name. A command the instance does not have is denied harmlessly.
  */
-export const MCP_DEFAULT_ONLY_EXCLUSIONS: readonly string[] = [
+const DEFAULT_ONLY_EXCLUSIONS: ReadonlySet<string> = new Set([
 	'set_secret',
 	'grant_secret',
 	'revoke_secret',
@@ -73,18 +71,24 @@ export const MCP_DEFAULT_ONLY_EXCLUSIONS: readonly string[] = [
 	'disable_previews',
 	'fence_preview_releases',
 	'get_preview_policy',
-];
+]);
 
-const DEFAULT_ONLY_EXCLUSIONS = new Set(MCP_DEFAULT_ONLY_EXCLUSIONS);
+export function isMcpDefaultOnlyExclusion(name: string): boolean {
+	return DEFAULT_ONLY_EXCLUSIONS.has(name);
+}
 
 export type McpPart = 'operations' | 'application';
 
 export interface McpPartState {
-	/** Whether the block exists in the config at all. */
 	configured: boolean;
 	/** Whether Harper serves this part after its next restart. */
 	on: boolean;
 	mountPath: string;
+}
+
+export interface McpStoredList {
+	allow?: readonly string[];
+	deny?: readonly string[];
 }
 
 export interface McpOperationsState extends McpPartState {
@@ -142,10 +146,7 @@ export function matchesMcpPattern(name: string, patterns: readonly string[] | un
 }
 
 /** Harper's `isOperationAllowed` (`components/mcp/tools/operations.ts`), against a stored allow/deny pair. */
-export function isMcpOperationIncluded(
-	name: string,
-	{ allow, deny }: { allow?: readonly string[]; deny?: readonly string[] },
-): boolean {
+export function isMcpOperationIncluded(name: string, { allow, deny }: McpStoredList): boolean {
 	const usingDefault = !allow || allow.length === 0;
 	if (usingDefault && DEFAULT_ONLY_EXCLUSIONS.has(name)) {
 		return false;
@@ -160,9 +161,9 @@ export function isMcpOperationIncluded(
  */
 export interface McpCommandList {
 	includesDefaults: boolean;
-	/** Entries beyond the defaults (names, or `*` patterns written elsewhere). */
+	/** Names, or `*` patterns written elsewhere. */
 	added: string[];
-	/** Entries in `deny`, other than the default-only exclusions Studio maintains itself. */
+	/** Everything in `deny` except the default-only exclusions Studio maintains itself. */
 	removed: string[];
 }
 
@@ -170,7 +171,7 @@ function sortedUnique(entries: Iterable<string>): string[] {
 	return [...new Set(entries)].sort();
 }
 
-export function readMcpCommandList({ allow, deny }: Pick<McpOperationsState, 'allow' | 'deny'>): McpCommandList {
+export function readMcpCommandList({ allow, deny }: McpStoredList): McpCommandList {
 	const explicit = allow ?? [];
 	const includesDefaults = explicit.length === 0 || MCP_DEFAULT_ALLOW.every((entry) => explicit.includes(entry));
 	const added = includesDefaults ? explicit.filter((entry) => !MCP_DEFAULT_ALLOW.includes(entry)) : [...explicit];
@@ -178,34 +179,42 @@ export function readMcpCommandList({ allow, deny }: Pick<McpOperationsState, 'al
 	return {
 		includesDefaults,
 		added: sortedUnique(added),
-		// A default-only exclusion is Studio's to maintain, unless the list also names it, where it is the customer's.
+		// A default-only exclusion the list also names is the customer's to keep, not Studio's.
 		removed: sortedUnique((deny ?? []).filter((entry) => !DEFAULT_ONLY_EXCLUSIONS.has(entry) || named.has(entry))),
 	};
 }
 
-/** The `allow`/`deny` pair that stores a command list. */
 export function writeMcpCommandList({ includesDefaults, added, removed }: McpCommandList): {
 	allow: string[];
 	deny: string[];
 } {
 	const extra = sortedUnique(added);
-	if (includesDefaults && extra.length === 0) {
-		// An empty `allow` is Harper's default set, with its exclusions; there is nothing to add to `deny`.
-		return { allow: [], deny: sortedUnique(removed) };
+	if (extra.length === 0) {
+		// Harper reads an empty `allow` as its default set, so a list emptied of everything has to deny it all.
+		return { allow: [], deny: sortedUnique(includesDefaults ? removed : ['*', ...removed]) };
 	}
 	const allow = includesDefaults ? [...MCP_DEFAULT_ALLOW, ...extra] : extra;
 	const named = new Set(extra);
-	const kept = MCP_DEFAULT_ONLY_EXCLUSIONS.filter((name) => !named.has(name) && matchesMcpPattern(name, allow));
+	const kept = [...DEFAULT_ONLY_EXCLUSIONS].filter((name) => !named.has(name) && matchesMcpPattern(name, allow));
 	return { allow, deny: sortedUnique([...removed, ...kept]) };
 }
 
-export function mcpCommandListsEqual(a: McpCommandList, b: McpCommandList): boolean {
-	const x = writeMcpCommandList(a);
-	const y = writeMcpCommandList(b);
-	return JSON.stringify(x) === JSON.stringify(y);
+/**
+ * Whether two stored lists give the same commands. Not a text comparison: Studio's own write of a list read from
+ * elsewhere can differ in order or spelling and still be the same access, and the same text can be different
+ * access once Studio adds the default-only exclusions. So it compares the answers for every name either list
+ * mentions, every exclusion, and one sample name per pattern.
+ */
+export function sameMcpCommandAccess(a: McpStoredList, b: McpStoredList): boolean {
+	const entries = [...(a.allow ?? []), ...(a.deny ?? []), ...(b.allow ?? []), ...(b.deny ?? []), ...MCP_DEFAULT_ALLOW];
+	const probes = new Set([
+		...DEFAULT_ONLY_EXCLUSIONS,
+		...entries.filter((entry) => !entry.includes('*')),
+		...entries.filter((entry) => entry.includes('*')).map((pattern) => pattern.replace(/\*/g, 'zz')),
+	]);
+	return [...probes].every((name) => isMcpOperationIncluded(name, a) === isMcpOperationIncluded(name, b));
 }
 
-/** What the customer asks for; compared with the saved {@link McpState} to build a write. */
 export interface McpDraft {
 	operationsOn: boolean;
 	applicationOn: boolean;
@@ -221,9 +230,10 @@ export function draftFromMcpState(state: McpState): McpDraft {
 }
 
 /**
- * The flat `set_configuration` parameters that move an instance from `saved` to `draft`, or `undefined` when
- * nothing changes. Throws when the change needs `mcp.<part>.enabled` and `canDisable` says the instance lacks it:
- * there, writing any key under a part creates its block, which turns the part on.
+ * The flat `set_configuration` parameters that move a cluster from `saved` (one member's answer) to `draft`, or
+ * `undefined` when nothing changes. `canDisable` says every member honors `mcp.<part>.enabled`; without it,
+ * writing any key under a part creates its block on a member that has none, which turns the part on there, so a
+ * change that could leave a part on against the draft throws instead.
  */
 export function buildMcpConfigWrite(
 	saved: McpState,
@@ -231,22 +241,8 @@ export function buildMcpConfigWrite(
 	{ canDisable }: { canDisable: boolean },
 ): Record<string, unknown> | undefined {
 	const write: Record<string, unknown> = {};
-
-	const turnOn = (part: McpPart, state: McpPartState) => {
-		if (!state.configured) {
-			write[`mcp_${part}_mountPath`] = state.mountPath;
-		}
-		if (canDisable) {
-			// A block holding `enabled: false` stays off until the flag says otherwise.
-			write[`mcp_${part}_enabled`] = true;
-		}
-	};
-	const turnOff = (part: McpPart) => {
-		if (!canDisable) {
-			throw new Error(`Turning the MCP ${part} part off needs Harper ${MCP_ENABLED_FLAG_MIN_VERSION} or later.`);
-		}
-		write[`mcp_${part}_enabled`] = false;
-	};
+	const needsFlag = (what: string) =>
+		new Error(`${what} needs every instance on Harper ${MCP_ENABLED_FLAG_MIN_VERSION} or later.`);
 
 	const parts: Array<[McpPart, boolean, McpPartState]> = [
 		['operations', draft.operationsOn, saved.operations],
@@ -254,24 +250,34 @@ export function buildMcpConfigWrite(
 	];
 	for (const [part, wanted, state] of parts) {
 		if (wanted && !state.on) {
-			turnOn(part, state);
+			if (!canDisable && state.configured) {
+				// Only the flag keeps a present block off, and an instance without the flag can't be sent one.
+				throw needsFlag(`Turning the MCP ${part} part back on`);
+			}
+			if (!state.configured) {
+				write[`mcp_${part}_mountPath`] = state.mountPath;
+			}
+			if (canDisable) {
+				write[`mcp_${part}_enabled`] = true;
+			}
 		} else if (!wanted && state.on) {
-			turnOff(part);
+			if (!canDisable) {
+				throw needsFlag(`Turning the MCP ${part} part off`);
+			}
+			write[`mcp_${part}_enabled`] = false;
 		}
 	}
 
-	if (!mcpCommandListsEqual(draft.commands, readMcpCommandList(saved.operations))) {
-		const { allow, deny } = writeMcpCommandList(draft.commands);
-		write.mcp_operations_allow = allow;
-		write.mcp_operations_deny = deny;
-		if (!draft.operationsOn && !saved.operations.configured) {
-			// Writing the list creates the block, and a present block is on unless it says otherwise.
-			if (!canDisable) {
-				throw new Error(
-					`Changing the commands while the MCP operations part is off needs Harper ${MCP_ENABLED_FLAG_MIN_VERSION} or later.`,
-				);
-			}
-			write.mcp_operations_enabled = false;
+	const stored = writeMcpCommandList(draft.commands);
+	if (!sameMcpCommandAccess(stored, saved.operations)) {
+		if (!canDisable && !draft.operationsOn) {
+			throw needsFlag('Changing the commands while the MCP operations part is off');
+		}
+		write.mcp_operations_allow = stored.allow;
+		write.mcp_operations_deny = stored.deny;
+		if (canDisable) {
+			// `saved` is one member's answer; a member with no block would otherwise turn the part on.
+			write.mcp_operations_enabled = draft.operationsOn;
 		}
 	}
 

@@ -18,18 +18,19 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { PageNotice } from '@/features/instance/config/previews/PageNotice';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
+import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import {
 	buildMcpConfigWrite,
 	draftFromMcpState,
 	MCP_MIN_VERSION,
-	mcpCommandListsEqual,
 	McpDraft,
 	McpPart,
 	McpState,
-	readMcpCommandList,
 	readMcpState,
+	sameMcpCommandAccess,
 	supportsMcp,
 	supportsMcpEnabledFlag,
+	writeMcpCommandList,
 } from '@/integrations/api/instance/mcp/mcpConfig';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -45,7 +46,13 @@ import { localMcpHost, mcpHostForInstance } from './mcpConnection';
 /** The `enabled` flag's floor, as the customer reads it: its 5.4 prereleases are not something to send them to. */
 const DISABLE_NEEDS = 'Harper 5.4 or later';
 
+/** Keyed on the entity, so a draft, a pending confirmation or a running save never carries over to another one. */
 export function ConfigMcpIndex() {
+	const { entityId } = useInstanceClientIdParams();
+	return <McpServerPage key={entityId} />;
+}
+
+function McpServerPage() {
 	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
@@ -64,8 +71,6 @@ export function ConfigMcpIndex() {
 	const [draft, setDraft] = useState<McpDraft | null>(null);
 	const [confirming, setConfirming] = useState(false);
 	const onRestartedSuccessfully = useCallback(() => setDraft(null), []);
-	// A full restart: the operations part mounts on the operations server, which restarting the HTTP workers leaves
-	// running with its old settings (verified on 5.4.0-beta.4: `restart_service` left `/mcp` answering 404).
 	const { onConfigUpdate, isPending } = useRollingConfigUpdate({
 		onRestartedSuccessfully,
 		restartOperation: 'restart',
@@ -78,19 +83,25 @@ export function ConfigMcpIndex() {
 		);
 		return instanceId ? live.filter((instance) => instance.id === instanceId) : live;
 	}, [cluster, instanceId]);
-	const memberVersions = members.flatMap((instance) => instance.version ? [instance.version] : []);
-	const versions = memberVersions.length > 0 ? memberVersions : version ? [version] : [];
-	// `enabled: false` is refused by name on an older member, so turning a part off needs every member to have it.
+	// A cluster's save reaches every member, and an older one refuses `enabled` by name, so every member has to
+	// report a version that has it; one that reports none counts as without, and a cluster still loading has none.
+	const onCluster = instanceParams.entityType === 'cluster' && !isLocalStudio;
+	const versions = onCluster ? members.map((instance) => instance.version) : [version];
 	const canDisable = versions.length > 0 && versions.every(supportsMcpEnabledFlag);
-	const oldestVersion = [...versions].sort(compareVersions)[0] ?? version;
+	const knownVersions = versions.filter((known): known is string => !!known);
+	const oldestVersion = [...knownVersions].sort(compareVersions)[0] ?? version;
 	const tooOld = members.filter((instance) => instance.version && !supportsMcp(instance.version));
 
 	const hosts = useMemo(
 		() =>
 			isLocalStudio
 				? [localMcpHost(localStudioDevUrl || window.location.origin, configuration?.http)]
-				: members.map(mcpHostForInstance).filter((host) => host.operationsOrigin),
-		[members, configuration],
+				: members
+					.map((instance) =>
+						mcpHostForInstance(instance, clusterIsSelfManaged(cluster) ? configuration?.http : undefined)
+					)
+					.filter((host) => host.operationsOrigin),
+		[members, configuration, cluster],
 	);
 
 	if (!canManage) {
@@ -117,9 +128,6 @@ export function ConfigMcpIndex() {
 
 	const saved = readMcpState(configuration, version);
 	const current = draft ?? draftFromMcpState(saved);
-	const unsavedChanges = draft !== null
-		&& (draft.operationsOn !== saved.operations.on || draft.applicationOn !== saved.application.on
-			|| !mcpCommandListsEqual(draft.commands, readMcpCommandList(saved.operations)));
 	let write: Record<string, unknown> | undefined;
 	let writeError: string | undefined;
 	try {
@@ -127,9 +135,10 @@ export function ConfigMcpIndex() {
 	} catch (error) {
 		writeError = (error as Error).message;
 	}
+	const unsavedChanges = !!write || !!writeError;
 	const update = (next: Partial<McpDraft>) => setDraft({ ...current, ...next });
-	// Below 5.4 a command list written while the part is off creates its block, which turns the part on.
-	const commandsLocked = !canDisable && !current.operationsOn && !saved.operations.configured;
+	// Without the flag a list written while the part is off creates its block on a member, which turns it on there.
+	const commandsLocked = !canDisable && !current.operationsOn;
 	const scope = instanceParams.entityType === 'cluster' ? 'this cluster' : 'this instance';
 
 	const save = () => {
@@ -176,6 +185,7 @@ export function ConfigMcpIndex() {
 			>
 				<McpCommandsEditor
 					list={current.commands}
+					saved={saved.operations}
 					onChange={(commands) => update({ commands })}
 					version={oldestVersion ?? version}
 					disabled={isPending || commandsLocked}
@@ -269,7 +279,7 @@ function describeChanges(saved: McpState, draft: McpDraft): string[] {
 	if (draft.applicationOn !== saved.application.on) {
 		changes.push(`Turn the application part ${draft.applicationOn ? 'on' : 'off'}.`);
 	}
-	if (!mcpCommandListsEqual(draft.commands, readMcpCommandList(saved.operations))) {
+	if (!sameMcpCommandAccess(writeMcpCommandList(draft.commands), saved.operations)) {
 		changes.push('Change the operations commands.');
 	}
 	return changes;

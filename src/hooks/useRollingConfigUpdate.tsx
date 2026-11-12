@@ -22,7 +22,7 @@ import { markRestarting } from '@/lib/restart/restartTracker';
 import { sleep } from '@/lib/sleep';
 import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
-import type { AxiosInstance } from 'axios';
+import { type AxiosInstance, isAxiosError } from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -147,7 +147,7 @@ export function useRollingConfigUpdate(
 			let instancesUntouched: number | undefined;
 			let instancesStoppedOnNoVerdict = false;
 			let writtenBeforeCancel = false;
-			// Harper's own words for the first configuration write it refused: they name the setting and the rule.
+			// Harper's words for the first configuration it rejected (a 400): they name the setting and the rule.
 			let refusal: string | undefined;
 
 			for (let i = 0; i < targets.length; i++) {
@@ -226,7 +226,7 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
-					if (writing && !unanswered) {
+					if (writing && isAxiosError(error) && error.response?.status === 400) {
 						refusal ??= describeError(error).message;
 					}
 					if (unanswered && restartSent) {

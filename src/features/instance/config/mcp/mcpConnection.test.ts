@@ -30,6 +30,12 @@ describe('mcpHostForInstance', () => {
 		expect(mcpAddress(host.applicationOrigin!, '/mcp')).toBe('https://node-1.example.harperfabric.com/mcp');
 	});
 
+	it("puts a self-managed instance's application part on its own configured port", () => {
+		expect(mcpHostForInstance(instance, { port: 9926, securePort: null }).applicationOrigin).toBe(
+			'http://node-1.example.harperfabric.com:9926',
+		);
+	});
+
 	it('has no address for an instance without one', () => {
 		expect(mcpHostForInstance({ ...instance, instanceFqdn: undefined })).toMatchObject({
 			operationsOrigin: null,

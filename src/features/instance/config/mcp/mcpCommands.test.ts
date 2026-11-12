@@ -86,6 +86,13 @@ describe('editing the list', () => {
 		expect(names(list)).toContain('get_components');
 	});
 
+	it('denies a name Studio does not list when a pattern already covers it', () => {
+		const list = removeMcpCommand(DEFAULTS, 'describe_widget');
+		expect(list.removed).toEqual(['describe_widget']);
+		expect(names(list)).toContain('describe_table');
+		expect(names(list)).not.toContain('describe_widget');
+	});
+
 	it('tells default commands from added ones', () => {
 		const list = addMcpCommand(DEFAULTS, 'insert');
 		expect(isDefaultMcpCommand('describe_table', list)).toBe(true);

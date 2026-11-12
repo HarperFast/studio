@@ -8,6 +8,7 @@ import {
 	McpState,
 	readMcpCommandList,
 	readMcpState,
+	sameMcpCommandAccess,
 	supportsMcp,
 	supportsMcpEnabledFlag,
 	writeMcpCommandList,
@@ -127,6 +128,15 @@ describe('command lists', () => {
 		expect(isMcpOperationIncluded('get_configuration', stored)).toBe(true);
 	});
 
+	it('denies everything when a list without the defaults is emptied, rather than falling back to them', () => {
+		const stored = writeMcpCommandList({ includesDefaults: false, added: [], removed: [] });
+		expect(stored).toEqual({ allow: [], deny: ['*'] });
+		for (const name of ['describe_table', 'read_log', 'insert']) {
+			expect(isMcpOperationIncluded(name, stored)).toBe(false);
+		}
+		expect(sameMcpCommandAccess(writeMcpCommandList(readMcpCommandList(stored)), stored)).toBe(true);
+	});
+
 	it('reads back what it writes', () => {
 		const list = { includesDefaults: true, added: ['insert', 'update'], removed: ['read_log'] };
 		expect(readMcpCommandList(writeMcpCommandList(list))).toEqual(list);
@@ -177,7 +187,7 @@ describe('buildMcpConfigWrite', () => {
 	it('refuses to turn a part off where Harper has no way to', () => {
 		const on = stateOf({ application: {} }, V53);
 		expect(() => buildMcpConfigWrite(on, draft(on, { applicationOn: false }), { canDisable: false })).toThrow(
-			'needs Harper 5.4.0-alpha.2 or later',
+			'needs every instance on Harper 5.4.0-alpha.2 or later',
 		);
 	});
 
@@ -203,13 +213,39 @@ describe('buildMcpConfigWrite', () => {
 		);
 	});
 
-	it('leaves enabled alone when the list changes on a block that already holds enabled: false', () => {
+	it('states the part with every list write, since a member with no block would otherwise turn it on', () => {
 		const disabled = stateOf({ operations: { enabled: false } }, V54);
 		const commands = { includesDefaults: true, added: [], removed: ['read_log'] };
 		expect(buildMcpConfigWrite(disabled, draft(disabled, { commands }), { canDisable: true })).toEqual({
 			mcp_operations_allow: [],
 			mcp_operations_deny: ['read_log'],
+			mcp_operations_enabled: false,
 		});
+		const on = stateOf({ operations: {} }, V54);
+		expect(buildMcpConfigWrite(on, draft(on, { commands }), { canDisable: true })).toMatchObject({
+			mcp_operations_enabled: true,
+		});
+	});
+
+	it('refuses to turn a part back on where only some members honor the flag', () => {
+		const disabled = stateOf({ operations: { enabled: false } }, V54);
+		expect(() => buildMcpConfigWrite(disabled, draft(disabled, { operationsOn: true }), { canDisable: false }))
+			.toThrow('Turning the MCP operations part back on needs every instance');
+	});
+
+	it('offers to close a pattern list written elsewhere that exposes the exclusions', () => {
+		const exposed = stateOf({ operations: { allow: ['list_*'] } });
+		expect(buildMcpConfigWrite(exposed, draftFromMcpState(exposed), { canDisable: false })).toEqual({
+			mcp_operations_allow: ['list_*'],
+			mcp_operations_deny: ['list_oidc_trust', 'list_secrets'],
+		});
+	});
+
+	it('does not count a list written elsewhere that gives the same commands as a change', () => {
+		const same = stateOf({
+			operations: { allow: [...MCP_DEFAULT_ALLOW].reverse(), deny: ['list_secrets', 'list_oidc_trust'] },
+		});
+		expect(buildMcpConfigWrite(same, draftFromMcpState(same), { canDisable: false })).toBeUndefined();
 	});
 
 	it('does not count reordering or Studio-kept exclusions as a change', () => {

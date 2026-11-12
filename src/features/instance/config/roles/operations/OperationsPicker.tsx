@@ -72,7 +72,9 @@ export function OperationsPicker<T extends PickerOperation>({
 
 	const rawQuery = filter.trim();
 	const query = rawQuery.toLowerCase();
-	const filtered = query ? operations.filter((operation) => operation.name.includes(query)) : operations;
+	const filtered = query
+		? operations.filter((operation) => operation.name.toLowerCase().includes(query))
+		: operations;
 	const byCategory = groupBy([...filtered], 'category');
 	const custom = rawQuery ? customCandidate?.(rawQuery) : undefined;
 

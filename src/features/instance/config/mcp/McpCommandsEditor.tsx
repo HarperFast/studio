@@ -2,7 +2,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { OPERATION_CATEGORIES } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { OperationsPicker } from '@/features/instance/config/roles/operations/OperationsPicker';
-import { agentSharesMcpOperationsList, McpCommandList } from '@/integrations/api/instance/mcp/mcpConfig';
+import {
+	agentSharesMcpOperationsList,
+	isMcpDefaultOnlyExclusion,
+	isMcpOperationIncluded,
+	McpCommandList,
+	McpStoredList,
+	writeMcpCommandList,
+} from '@/integrations/api/instance/mcp/mcpConfig';
 import { pluralize } from '@/lib/pluralize';
 import { RotateCcwIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -28,11 +35,14 @@ const CHANGES_DATA_TITLE = 'This command can change or delete data, or change th
 
 export function McpCommandsEditor({
 	list,
+	saved,
 	onChange,
 	version,
 	disabled,
 }: {
 	list: McpCommandList;
+	/** The allow and deny lists the instance holds now. */
+	saved: McpStoredList;
 	onChange: (next: McpCommandList) => void;
 	version: string;
 	disabled?: boolean;
@@ -43,22 +53,42 @@ export function McpCommandsEditor({
 	const changesData = included.filter((command) => command.changesData);
 	const addedPatterns = list.added.filter(isMcpPattern);
 
-	const toggle = (name: string) =>
-		onChange(includedNames.has(name) ? removeMcpCommand(list, name) : addMcpCommand(list, name));
+	const stored = writeMcpCommandList(list);
+	// Exposed today only because the list was written without Studio's exclusions; saving takes them out.
+	const servedNow = known.filter((command) =>
+		isMcpDefaultOnlyExclusion(command.name) && isMcpOperationIncluded(command.name, saved)
+		&& !includedNames.has(command.name)
+	);
 
-	const customCandidate = (query: string) =>
-		ENTRY_PATTERN.test(query) && !known.some((command) => command.name === query) && !list.added.includes(query)
-			? {
-				name: query,
-				label: (
+	// By what the list gives, not by the catalog: a name only a pattern covers is in, and picking it takes it out.
+	const toggle = (name: string) =>
+		onChange(isMcpOperationIncluded(name, stored) ? removeMcpCommand(list, name) : addMcpCommand(list, name));
+
+	const customCandidate = (query: string) => {
+		const lower = query.toLowerCase();
+		const listed = [...known.map((command) => command.name), ...list.added, ...list.removed]
+			.some((name) => name.toLowerCase() === lower);
+		if (!ENTRY_PATTERN.test(query) || listed) {
+			return undefined;
+		}
+		const what = isMcpPattern(query)
+			? 'every command whose name matches'
+			: "a command Studio doesn't list, such as one a component adds";
+		return {
+			name: query,
+			label: isMcpOperationIncluded(query, stored)
+				? (
 					<>
-						Add "<span className="font-mono">{query}</span>" {isMcpPattern(query)
-							? '(every command whose name matches)'
-							: "(a command Studio doesn't list, such as one a component adds)"}
+						Remove "<span className="font-mono">{query}</span>" ({what}; a pattern already includes it)
+					</>
+				)
+				: (
+					<>
+						Add "<span className="font-mono">{query}</span>" ({what})
 					</>
 				),
-			}
-			: undefined;
+		};
+	};
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -141,6 +171,16 @@ export function McpCommandsEditor({
 					onAction={(entry) => onChange(restoreMcpCommand(list, entry))}
 					disabled={disabled}
 				/>
+			)}
+
+			{servedNow.length > 0 && (
+				<p className="text-xs text-warning">
+					This instance serves <span className="font-mono">{servedNow.map((command) => command.name).join(', ')}</span>
+					{' '}
+					today, which Harper keeps out of its default set. Saving from Studio takes{' '}
+					{servedNow.length === 1 ? 'it' : 'them'} out unless you add {servedNow.length === 1 ? 'it' : 'each one'}{' '}
+					by name.
+				</p>
 			)}
 
 			{changesData.length > 0 && (

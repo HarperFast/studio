@@ -81,7 +81,6 @@ export function addMcpCommand(list: McpCommandList, name: string): McpCommandLis
 	return { ...lifted, added: [...new Set([...list.added, name])].sort() };
 }
 
-/** Drops an added entry (a name or a pattern) outright. */
 export function dropAddedMcpEntry(list: McpCommandList, entry: string): McpCommandList {
 	return { ...list, added: list.added.filter((existing) => existing !== entry) };
 }
