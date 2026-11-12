@@ -9,12 +9,12 @@ teaches Harper's fastify server to serve those files.
 Four workflows own the deploy path, plus three composite actions. (`verify-pr.yaml` and
 `verify-commits.yaml` gate pull requests and are not part of deploying.)
 
-| Workflow            | Runs on                  | Holds credentials                                            |
-| ------------------- | ------------------------ | ------------------------------------------------------------ |
-| `deploy-dev.yaml`   | push to `dev`, manual    | yes — CM + Datadog; its `e2e` job only the `e2e-dev` secrets |
-| `deploy-stage.yaml` | push to `stage`, manual  | yes — CM + Datadog + `contents: write`                       |
-| `deploy-prod.yaml`  | push to `prod`, manual   | yes — CM + Datadog                                           |
-| `verify-stage.yaml` | `merge_group` on `stage` | **no**                                                       |
+| Workflow            | Runs on                  | Holds credentials                                              |
+| ------------------- | ------------------------ | -------------------------------------------------------------- |
+| `deploy-dev.yaml`   | push to `dev`, manual    | yes — CM + Datadog; its `e2e` job only the `e2e-dev` secrets   |
+| `deploy-stage.yaml` | push to `stage`, manual  | yes — CM + Datadog + `contents: write`; `e2e` only `e2e-stage` |
+| `deploy-prod.yaml`  | push to `prod`, manual   | yes — CM + Datadog                                             |
+| `verify-stage.yaml` | `merge_group` on `stage` | **no**                                                         |
 
 - **`.github/actions/studio-verify`** — install, test, lint, optionally build. **Takes no
   credentials, by design.**
@@ -132,9 +132,10 @@ only happens because someone asked for it.
 
 ## Post-deploy e2e
 
-`deploy-dev.yaml` runs an `e2e` job after `deployToDev`, in the same run, so a red suite turns the
-deploy run red. Nothing rolls back — the deploy has already happened. Stage and prod are not wired
-yet.
+`deploy-dev.yaml` and `deploy-stage.yaml` each run an `e2e` job after their deploy job, in the same
+run, so a red suite turns that deploy run red. Nothing rolls back — the deploy has already happened.
+Prod is not wired yet. Stage is the steadier signal while `dev` integrates unfinished epics: a stage
+run tests what is about to be promoted, a dev run what is still being integrated.
 
 - **Same commit by construction.** The job checks out the run's own commit and waits until the site
   serves the version the deploy job just built (`studio-deploy`'s `version` output, the
@@ -152,8 +153,8 @@ yet.
   (`replicated: []`), stage replicates to `stage-2.studio.harperfabric.com` and prod to
   `studio-2.harperfabric.com`. A name that is not a hostname fails the gate rather than being skipped.
 - **Its own runner, its own secrets.** The job never receives the CM or Datadog credentials. Its
-  test-account secrets live in the `e2e-dev` environment; restricted to the `dev` branch (setup
-  below), a job on any other branch cannot read them — the scoping studio#1651 wants for the deploy
+  test-account secrets live in the `e2e-dev` / `e2e-stage` environment; each restricted to its own
+  branch (setup below), a job on any other branch cannot read them — the scoping studio#1651 wants for the deploy
   secrets. `src/lib/workflowPrivilege.test.ts` pins that an e2e job references no deploy secret,
   only reads the repo, and never overrides the checkout ref.
 - **What fails it:** a failed test, a skipped test (a skip means a prerequisite the run was given
@@ -166,8 +167,9 @@ yet.
   configured secrets; a value a spec generates (the round-trip's address, password and
   verification token) must be masked by the spec with `maskInCi` (`e2e/tests/maskInCi.ts`)
   before anything can print it.
-- **Concurrency:** the workflow-level `dev` group spans the e2e job, so the next dev deploy waits
-  for it — a deploy landing mid-run would change the build under the tests. GitHub keeps one
+- **Concurrency:** the workflow-level group (`dev`, `stage-deploy`) spans the e2e job, so the next
+  deploy to that environment waits for it — a deploy landing mid-run would change the build under
+  the tests. GitHub keeps one
   pending run per group, so a burst of pushes waits for one e2e run, not one each. **Re-run failed
   jobs** re-runs only `e2e`, which passes its gate only while that version is still deployed.
 
@@ -175,7 +177,9 @@ yet.
 environment with no secrets and no branch policy, so until this runs every deploy of that branch
 goes red on skipped specs, and nothing restricts which branch could read secrets added later.
 Values come from whoever owns the test accounts — never a personal login — and each environment
-gets its own Mailosaur server and key:
+gets its own Mailosaur server and key. The signup round-trip also needs that Mailosaur domain in the
+environment's `ALLOWLIST_EMAIL_DOMAINS`, or signup answers 403 and the run fails. For stage, replace
+`e2e-dev` and `dev` with `e2e-stage` and `stage`:
 
 ```bash
 gh api -X PUT repos/HarperFast/studio/environments/e2e-dev \
