@@ -4,6 +4,11 @@ on:
     types: [opened, synchronize, edited, reopened, ready_for_review]
   push:
     branches: [dev, stage, prod]
+  # The stage merge queue squashes, so the commit that lands is one GitHub writes: the PR title
+  # (or a lone commit's header) plus ` (#123)`, over the PR's commit messages. For a merge group
+  # the action lints that squash commit, the exact message that reaches stage.
+  merge_group:
+    branches: [stage]
 jobs:
   commitlint:
     name: Verify Commits
@@ -21,3 +26,35 @@ jobs:
         uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6.2.1
         with:
           configFile: commitlint.config.cjs
+
+  # A squash merge of a PR with several commits takes its header from the PR title, which the
+  # job above never sees: it lints commits. So lint the title as the header it will become.
+  # Runs on `edited` too, so fixing the title re-runs it. PRs into other branches (a stack's
+  # base) are skipped: their titles never reach a deploy branch.
+  pr-title:
+    name: Verify PR Title
+    if: github.event_name == 'pull_request' && contains(fromJSON('["dev", "stage", "prod"]'), github.base_ref)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+          node-version-file: '.nvmrc'
+      # commitlint needs no build step, so skip every install script, husky's included.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint the title as its squash-merge header
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: printf '%s (#%s)\n' "$PR_TITLE" "$PR_NUMBER" | pnpm exec commitlint
