@@ -4,6 +4,7 @@ import type { Organization } from '@/integrations/api/api.patch';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -12,7 +13,13 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { get: vi.fn(), put: vi.fn(), 
 vi.mock('@tanstack/react-router', () => {
 	const router = { invalidate: vi.fn() };
 	const navigate = vi.fn();
-	return { useNavigate: () => navigate, useRouter: () => router };
+	return {
+		useNavigate: () => navigate,
+		useRouter: () => router,
+		Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
+			<a href={to} className={className}>{children}</a>
+		),
+	};
 });
 
 vi.mock('sonner', () => ({
@@ -187,7 +194,10 @@ describe('ClusterForm — the version picker while record locks are on', () => {
 				value: [{ name: 'current', version: '5.3.1' }, { name: 'scoped', version: '5.2.13', scoped: true }],
 			},
 		});
-		expect(screen.getByText(/To move to an older version, turn them off on the Record Locks page first/)).toBeTruthy();
+		expect(screen.getByText(/To move to an older version, turn them off on the/)).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Record Locks page' }).getAttribute('href')).toBe(
+			'/org-a/clu-1/record-locks',
+		);
 
 		await openPicker();
 

@@ -26,7 +26,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { LoaderCircleIcon, LockIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { forgetSave, PendingSave, pendingSave } from './pendingRecordLocksSaves';
+import { forgetSave, PendingSave, usePendingSave } from './pendingRecordLocksSaves';
 import {
 	hasMemberNotRunning,
 	RECORD_LOCKS_MIN_VERSION,
@@ -106,36 +106,38 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		setSkipDrain(false);
 		setConfirming({ open: true, target, resume });
 	};
-	const [saved, setSaved] = useState<PendingSave | null>(() => pendingSave(cluster.id));
+	const saved = usePendingSave(cluster.id);
 	const [graceOverFor, setGraceOverFor] = useState<PendingSave | null>(null);
 	const { mutate, isPending, error, reset } = useSetClusterRecordLocks();
 
 	const phase: RecordLocksPhase = saved ? 'applying' : state.phase;
 	const enabled = saved ? saved.target : state.enabled;
+	// Central manager stamps a member's setting when it hands over its restart, so every member can match
+	// while the last one, and the cluster, are still updating: that isn't settled until the cluster runs.
+	const updating = cluster.status === 'UPDATING';
 	// The cluster query is shared, so this joins any other poller rather than adding one.
 	const { dataUpdatedAt } = useQuery({
-		...getClusterInfoQueryOptions(cluster.id, phase === 'applying' ? ROLL_POLL_MS : STOPPED_POLL_MS),
-		enabled: phase === 'applying' || phase === 'stopped',
+		...getClusterInfoQueryOptions(cluster.id, phase === 'stopped' ? STOPPED_POLL_MS : ROLL_POLL_MS),
+		enabled: phase === 'applying' || phase === 'stopped' || updating,
 	});
 
 	useEffect(() => {
 		if (!saved) {
 			return;
 		}
-		const seen = state.enabled === saved.target && state.phase !== 'stopped';
+		const seen = state.enabled === saved.target && state.phase !== 'stopped' && !updating;
 		// After the grace, only a read requested since the save may stand in for it: when every poll has
 		// failed, the cache still holds the cluster from before the save, and a read that merely finished
 		// after the save may have been answered before it. `dataUpdatedAt` re-runs this when a read lands.
-		const outlived = graceOverFor === saved && clusterReadRequestedSince(cluster.id, saved.at);
+		const outlived = graceOverFor === saved && !updating && clusterReadRequestedSince(cluster.id, saved.at);
 		if (seen || hasMemberNotRunning(cluster) || outlived) {
 			forgetSave(cluster.id, saved);
-			setSaved(null);
 			// The page now shows what the unanswered save did, which is what that message asked to check.
 			if (isUnansweredWrite(error)) {
 				reset();
 			}
 		}
-	}, [cluster, dataUpdatedAt, error, graceOverFor, reset, saved, state.enabled, state.phase]);
+	}, [cluster, dataUpdatedAt, error, graceOverFor, reset, saved, state.enabled, state.phase, updating]);
 	useEffect(() => {
 		if (!saved) {
 			return;
@@ -147,16 +149,15 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 		return () => clearTimeout(timer);
 	}, [saved]);
 
+	// Central manager accepts a change with no live member, and records it for members added later.
+	const restartsSomething = state.total > 0 || confirming.resume;
 	const toggleBlocker = recordLocksBlocker(cluster, !state.enabled);
 	const resumeBlocker = recordLocksBlocker(cluster, state.enabled);
 	const badge = PHASE_BADGES[phase];
 
 	const send = (recordLocks: boolean, skipGtmWait: boolean) => {
 		reset();
-		mutate({ clusterId: cluster.id, organizationId, recordLocks, skipGtmWait }, {
-			onSuccess: () => setSaved(pendingSave(cluster.id)),
-			onError: () => setSaved(pendingSave(cluster.id)),
-		});
+		mutate({ clusterId: cluster.id, organizationId, recordLocks, skipGtmWait });
 	};
 
 	return (
@@ -200,8 +201,7 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 							<AlertTitle>Turning record locks {enabled ? 'on' : 'off'}</AlertTitle>
 							<AlertDescription>
 								Central manager is restarting the instances one at a time, and the cluster shows as updating until they
-								are all back.{' '}
-								{state.enabled === enabled && state.total > 0 && `${state.applied} of ${state.total} done.`}
+								are all back. {state.enabled === enabled && state.total > 0 && `${state.done} of ${state.total} done.`}
 							</AlertDescription>
 						</Alert>
 					)}
@@ -255,16 +255,25 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
 							<div className="space-y-2">
-								<p>
-									Central manager restarts {confirming.resume
-										? 'the instances that still need it'
-										: `the cluster's ${state.total === 1 ? 'instance' : `${state.total} instances`}`} one at a time.
-									{' '}
-									{skipDrain
-										? 'Each one restarts right away, while it still takes traffic.'
-										: 'Each one is drained of traffic first, so it can take several minutes per instance.'}{' '}
-									The cluster shows as updating until they are all back, and can't take other changes until then.
-								</p>
+								{!restartsSomething
+									? (
+										<p>
+											No instance is running in this cluster, so nothing restarts. Central manager records the setting,
+											and instances added later get it.
+										</p>
+									)
+									: (
+										<p>
+											Central manager restarts {confirming.resume
+												? 'the instances that still need it'
+												: `the cluster's ${state.total === 1 ? 'instance' : `${state.total} instances`}`} one at a time.
+											{' '}
+											{skipDrain
+												? 'Each one restarts right away, while it still takes traffic.'
+												: 'Each one is drained of traffic first, so it can take several minutes per instance.'}{' '}
+											The cluster shows as updating until they are all back, and can't take other changes until then.
+										</p>
+									)}
 								{!confirming.target && (
 									<p>
 										While record locks are off, <code>lock()</code>{' '}
@@ -275,22 +284,24 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 							</div>
 						</AlertDialogDescription>
 					</AlertDialogHeader>
-					<div className="space-y-1 text-sm">
-						<div className="flex items-center gap-2">
-							<input
-								id={skipDrainId}
-								type="checkbox"
-								className="size-4 cursor-pointer"
-								checked={skipDrain}
-								onChange={(event) => setSkipDrain(event.target.checked)}
-							/>
-							<label htmlFor={skipDrainId} className="cursor-pointer font-medium">Immediate restart</label>
+					{restartsSomething && (
+						<div className="space-y-1 text-sm">
+							<div className="flex items-center gap-2">
+								<input
+									id={skipDrainId}
+									type="checkbox"
+									className="size-4 cursor-pointer"
+									checked={skipDrain}
+									onChange={(event) => setSkipDrain(event.target.checked)}
+								/>
+								<label htmlFor={skipDrainId} className="cursor-pointer font-medium">Immediate restart</label>
+							</div>
+							<p className="text-muted-foreground">
+								Restart each instance without waiting for it to be taken out of the load balancer (faster, but requests
+								it receives while restarting can fail).
+							</p>
 						</div>
-						<p className="text-muted-foreground">
-							Restart each instance without waiting for it to be taken out of the load balancer (faster, but requests it
-							receives while restarting can fail).
-						</p>
-					</div>
+					)}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction disabled={isPending} onClick={() => send(confirming.target, skipDrain)}>

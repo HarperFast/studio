@@ -209,15 +209,21 @@ with the cluster as one the roll hasn't reached: `applying` while the cluster is
 Re-sending the cluster's own value resumes a stopped roll and skips members already done, once every live member is
 `RUNNING` again.
 
+Every member can carry the new value while the last one, and the cluster, are still `UPDATING`: the value is stamped
+at handover, not when the restart finishes. So a save isn't seen through until the cluster runs again, and the page
+keeps polling while the cluster is `UPDATING`, whatever the members say. A viewer with no save of its own sees On or
+Off there, with the switch disabled because the cluster is updating, until the cluster runs.
+
 The roll's `UPDATING` write starts before the PUT answers, but nothing waits for it, so a read right after a save can
-still find the cluster `RUNNING` with members disagreeing, exactly like a stopped roll. The page treats that picture as the roll starting until it sees the roll, sees a member that isn't
-`RUNNING` on a `RUNNING` cluster (a change can't start from that, so the roll already ran and stopped), or
-`ROLL_START_GRACE_MS` passes and a read requested since the save has been answered (`clusterReadRequestedSince`: when
-it was requested, since one that only landed later may predate the save). Without that, a page whose reads all failed
-would fall back to the cached cluster from before the save. A stopped roll
-keeps polling, slower, so a recovered instance unlocks Try again without a reload. The save is kept in module state
-(`pendingRecordLocksSaves`), recorded at mutation level, so leaving the page during the gap and coming back doesn't
-offer Try again over a roll that is about to start.
+still find the cluster `RUNNING` with members disagreeing, exactly like a stopped roll. The page treats that picture
+as the roll starting until it sees the roll, sees a member that isn't `RUNNING` on a `RUNNING` cluster (a change
+can't start from that, so the roll already ran and stopped), or `ROLL_START_GRACE_MS` passes, the cluster isn't
+updating, and a read requested since the save has been answered (`clusterReadRequestedSince`: when it was requested,
+since one that only landed later may predate the save). Without that, a page whose reads all failed would fall back to
+the cached cluster from before the save. Those request times are kept for ten minutes per cluster. A stopped roll keeps
+polling, slower, so a recovered instance unlocks Try again without a reload. The save is kept in a module-level store
+(`pendingRecordLocksSaves`) that the page subscribes to, recorded at mutation level, so a save that settles after the
+page was left and opened again still reads as the roll starting rather than offering Try again over it.
 
 `recordLocksBlocker` mirrors only what central manager is certain to refuse, read from the same record: self-hosted, a
 cluster that isn't `RUNNING`, no instances, a live member that isn't `RUNNING`, and, when turning on, a member below

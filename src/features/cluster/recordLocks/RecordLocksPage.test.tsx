@@ -108,6 +108,31 @@ async function confirm(action: 'Turn on' | 'Turn off') {
 	return text;
 }
 
+interface Deferred {
+	promise: Promise<unknown>;
+	resolve: (value: unknown) => void;
+	reject: (error: unknown) => void;
+}
+
+function deferred(): Deferred {
+	let resolve!: (value: unknown) => void;
+	let reject!: (error: unknown) => void;
+	const promise = new Promise((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function gatewayTimeout() {
+	return {
+		isAxiosError: true,
+		message: 'Request failed with status code 504',
+		config: { method: 'put', url: '/Cluster/clu-1' },
+		response: { status: 504, data: 'Gateway Timeout' },
+	} as AxiosError;
+}
+
 describe('RecordLocksSettings', () => {
 	it('explains what the setting does', () => {
 		setup(cluster());
@@ -289,6 +314,85 @@ describe('RecordLocksSettings', () => {
 
 		expect(recordLocksSwitch().disabled).toBe(true);
 		expect(screen.getByText('You need permission to update this cluster to change this.')).toBeTruthy();
+	});
+
+	it('keeps a save pending through the last restart, which central manager stamps before it finishes', async () => {
+		put.mockResolvedValue({ data: { id: 'clu-1', recordLocks: true } });
+		const { show } = setup(cluster());
+		await confirm('Turn on');
+
+		show(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [
+				instance({ id: 'ins-1', recordLocks: true }),
+				instance({ id: 'ins-2', recordLocks: true, status: 'UPDATING' }),
+			],
+		}));
+
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		expect(screen.getByText(/1 of 2 done/)).toBeTruthy();
+
+		show(cluster({
+			recordLocks: true,
+			instances: [instance({ id: 'ins-1', recordLocks: true }), instance({ id: 'ins-2', recordLocks: true })],
+		}));
+
+		expect(screen.queryByText('Turning record locks on')).toBeNull();
+		expect(screen.getByText('On')).toBeTruthy();
+	});
+
+	it('keeps reading a cluster that is still updating, though every member already carries the setting', async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		const { show } = setup(cluster());
+		show(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [
+				instance({ id: 'ins-1', recordLocks: true }),
+				instance({ id: 'ins-2', recordLocks: true, status: 'UPDATING' }),
+			],
+		}));
+		get.mockClear();
+
+		await act(async () => {
+			vi.advanceTimersByTime(5_000);
+		});
+
+		expect(get).toHaveBeenCalledWith('/Cluster/clu-1');
+	});
+
+	it.each([
+		['answered', (settle: Deferred) => settle.resolve({ data: { id: 'clu-1', recordLocks: true } })],
+		['unanswered', (settle: Deferred) => settle.reject(gatewayTimeout())],
+	])('picks up a save %s after the page was left and opened again', async (_, settleWith) => {
+		const settle = deferred();
+		put.mockReturnValue(settle.promise);
+		const { remount } = setup(cluster());
+		await confirm('Turn on');
+		remount(cluster({ recordLocks: true }));
+		expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
+
+		await act(async () => {
+			settleWith(settle);
+			await settle.promise.catch(() => {});
+		});
+
+		expect(await screen.findByText('Turning record locks on')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+	});
+
+	it('says nothing restarts on a cluster with no live instance', async () => {
+		setup(cluster({ instances: [instance({ status: 'TERMINATED' })] }));
+		await act(async () => {
+			fireEvent.click(recordLocksSwitch());
+		});
+
+		const dialog = await screen.findByRole('alertdialog');
+
+		expect(dialog.textContent).toContain('No instance is running in this cluster, so nothing restarts');
+		expect(dialog.textContent).not.toContain('0 instances');
+		expect(within(dialog).queryByRole('checkbox', { name: 'Immediate restart' })).toBeNull();
 	});
 
 	describe('a roll that stopped part way', () => {

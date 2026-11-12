@@ -54,7 +54,7 @@ describe('supportsRecordLocks', () => {
 
 describe('recordLocksState', () => {
 	it('reads a cluster without the field as off', () => {
-		expect(recordLocksState(cluster())).toEqual({ enabled: false, phase: 'off', applied: 2, total: 2 });
+		expect(recordLocksState(cluster())).toEqual({ enabled: false, phase: 'off', applied: 2, done: 2, total: 2 });
 	});
 
 	it('is on once every member carries the setting', () => {
@@ -62,7 +62,19 @@ describe('recordLocksState', () => {
 			recordLocks: true,
 			instances: [instance({ id: 'a', recordLocks: true }), instance({ id: 'b', recordLocks: true })],
 		}));
-		expect(state).toEqual({ enabled: true, phase: 'on', applied: 2, total: 2 });
+		expect(state).toEqual({ enabled: true, phase: 'on', applied: 2, done: 2, total: 2 });
+	});
+
+	it('counts a member stamped with the setting but still restarting as applied, not done', () => {
+		const state = recordLocksState(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [
+				instance({ id: 'a', recordLocks: true }),
+				instance({ id: 'b', recordLocks: true, status: 'UPDATING' }),
+			],
+		}));
+		expect(state).toMatchObject({ applied: 2, done: 1, total: 2 });
 	});
 
 	it('is applying while the cluster updates with members still to restart', () => {
@@ -71,7 +83,7 @@ describe('recordLocksState', () => {
 			status: 'UPDATING',
 			instances: [instance({ id: 'a', recordLocks: true }), instance({ id: 'b', status: 'PENDING_UPGRADE' })],
 		}));
-		expect(state).toEqual({ enabled: true, phase: 'applying', applied: 1, total: 2 });
+		expect(state).toEqual({ enabled: true, phase: 'applying', applied: 1, done: 1, total: 2 });
 	});
 
 	it('has stopped when the cluster is running again with members left on the old setting', () => {
@@ -80,7 +92,7 @@ describe('recordLocksState', () => {
 			recordLocks: true,
 			instances: [instance({ id: 'a', recordLocks: true }), instance({ id: 'b', status: 'FAILED' })],
 		}));
-		expect(state).toEqual({ enabled: true, phase: 'stopped', applied: 1, total: 2 });
+		expect(state).toEqual({ enabled: true, phase: 'stopped', applied: 1, done: 1, total: 2 });
 	});
 
 	it('counts a member turned off as null, the value central manager writes, as off', () => {
@@ -99,7 +111,7 @@ describe('recordLocksState', () => {
 			recordLocks: true,
 			instances: [instance({ id: 'a', recordLocks: true }), instance({ id: 'b', status: 'TERMINATED' })],
 		}));
-		expect(state).toEqual({ enabled: true, phase: 'on', applied: 1, total: 1 });
+		expect(state).toEqual({ enabled: true, phase: 'on', applied: 1, done: 1, total: 1 });
 	});
 });
 

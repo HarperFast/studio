@@ -1,4 +1,5 @@
 import { nextObservationStamp } from '@/lib/restart/restartTracker';
+import { useSyncExternalStore } from 'react';
 
 export interface PendingSave {
 	target: boolean;
@@ -14,9 +15,29 @@ export interface PendingSave {
  * of offering Try again over a roll that is about to begin.
  */
 const pending = new Map<string, PendingSave>();
+const listeners = new Set<() => void>();
+
+function changed() {
+	for (const listener of listeners) {
+		listener();
+	}
+}
+
+function subscribe(listener: () => void) {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+}
+
+/** A page mounted before its save settles still sees it: the save lands after the PUT answers. */
+export function usePendingSave(clusterId: string): PendingSave | null {
+	return useSyncExternalStore(subscribe, () => pendingSave(clusterId));
+}
 
 export function rememberSave(clusterId: string, target: boolean) {
 	pending.set(clusterId, { target, at: nextObservationStamp(), savedAt: Date.now() });
+	changed();
 }
 
 export function pendingSave(clusterId: string): PendingSave | null {
@@ -27,9 +48,11 @@ export function pendingSave(clusterId: string): PendingSave | null {
 export function forgetSave(clusterId: string, save: PendingSave) {
 	if (pending.get(clusterId) === save) {
 		pending.delete(clusterId);
+		changed();
 	}
 }
 
 export function forgetAllSavesForTests() {
 	pending.clear();
+	changed();
 }

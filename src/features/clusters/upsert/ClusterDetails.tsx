@@ -15,6 +15,7 @@ import { ClusterRecordLocks } from '@/features/clusters/upsert/fields/ClusterRec
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { Link } from '@tanstack/react-router';
 import { ArrowRight, Layers3, Server, Sparkles } from 'lucide-react';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
@@ -198,7 +199,10 @@ export function ClusterDetails({
 						{versionsHeldBackByRecordLocks && (
 							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-muted-foreground">
 								Record locks are on, and they need Harper {RECORD_LOCKS_MIN_VERSION}{' '}
-								or later. To move to an older version, turn them off on the Record Locks page first.
+								or later. To move to an older version, turn them off on the{' '}
+								<Link className="underline" to={`/${organizationId}/${clusterId}/record-locks`}>Record Locks page</Link>
+								{' '}
+								first.
 							</p>
 						)}
 						<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />

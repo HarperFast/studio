@@ -55,7 +55,9 @@ export interface RecordLocksState {
 	/** The cluster's setting, which central manager rolls onto the members and gives new ones. */
 	enabled: boolean;
 	phase: RecordLocksPhase;
+	/** Live members on the cluster's setting, and of those, the ones back to running, of `total`. */
 	applied: number;
+	done: number;
 	total: number;
 }
 
@@ -63,14 +65,16 @@ export interface RecordLocksState {
 export function recordLocksState(cluster: Cluster): RecordLocksState {
 	const enabled = cluster.recordLocks === true;
 	const live = liveInstances(cluster);
-	const applied = live.filter(instance => (instance.recordLocks === true) === enabled).length;
+	const onSetting = live.filter(instance => (instance.recordLocks === true) === enabled);
+	const applied = onSetting.length;
+	const done = onSetting.filter(instance => !instance.status || instance.status === 'RUNNING').length;
 	const total = live.length;
 	const phase: RecordLocksPhase = applied < total
 		? (cluster.status === 'UPDATING' ? 'applying' : 'stopped')
 		: enabled
 		? 'on'
 		: 'off';
-	return { enabled, phase, applied, total };
+	return { enabled, phase, applied, done, total };
 }
 
 /**
