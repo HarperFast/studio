@@ -61,7 +61,11 @@ export function McpCommandsEditor({
 
 	// By what the list gives, not by the catalog: a name only a pattern covers is in, and picking it takes it out.
 	const toggle = (name: string) =>
-		onChange(isMcpOperationIncluded(name, stored) ? removeMcpCommand(list, name) : addMcpCommand(list, name));
+		onChange(
+			isMcpOperationIncluded(name, stored)
+				? removeMcpCommand(list, name)
+				: addMcpCommand(list, name, known.map((command) => command.name)),
+		);
 
 	const customCandidate = (query: string) => {
 		const lower = query.toLowerCase();
@@ -169,9 +173,12 @@ export function McpCommandsEditor({
 				<p className="text-xs text-warning">
 					This instance serves <span className="font-mono">{servedNow.map((command) => command.name).join(', ')}</span>
 					{' '}
-					today, which Harper keeps out of its default set. Saving from Studio takes{' '}
-					{servedNow.length === 1 ? 'it' : 'them'} out unless you add {servedNow.length === 1 ? 'it' : 'each one'}{' '}
-					by name.
+					today, which Harper keeps out of its default set.{!disabled && (
+						<>
+							{' '}Saving from Studio takes {servedNow.length === 1 ? 'it' : 'them'} out unless you add{' '}
+							{servedNow.length === 1 ? 'it' : 'each one'} by name.
+						</>
+					)}
 				</p>
 			)}
 

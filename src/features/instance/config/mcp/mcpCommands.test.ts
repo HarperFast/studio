@@ -93,10 +93,13 @@ describe('editing the list', () => {
 		expect(names(list)).not.toContain('describe_widget');
 	});
 
-	it('lifts a removed pattern that blocks a command being added, since a deny always wins', () => {
-		const list = addMcpCommand({ ...DEFAULTS, removed: ['read_*'] }, 'read_log');
-		expect(list.removed).toEqual([]);
+	it('lifts a removed pattern that blocks a command being added, keeping the rest it blocked out by name', () => {
+		const known = knownMcpCommands('5.3.6', DEFAULTS).map((command) => command.name);
+		const list = addMcpCommand({ ...DEFAULTS, removed: ['read_*'] }, 'read_log', known);
+		expect(list.removed).toContain('read_audit_log');
+		expect(list.removed).not.toContain('read_*');
 		expect(names(list)).toContain('read_log');
+		expect(names(list)).not.toContain('read_audit_log');
 	});
 
 	it('tells default commands from added ones', () => {

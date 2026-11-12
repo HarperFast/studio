@@ -199,6 +199,7 @@ describe('ConfigMcpIndex', () => {
 	});
 
 	it('warns that a list written elsewhere exposes commands Harper keeps out of its defaults', () => {
+		state.members = [member('node-a', '5.3.6')];
 		state.configuration = { mcp: { operations: { allow: ['list_*'] } } };
 		render(<ConfigMcpIndex />);
 		expect(screen.getByText(/list_oidc_trust, list_secrets/)).toBeTruthy();
@@ -210,6 +211,7 @@ describe('ConfigMcpIndex', () => {
 	});
 
 	it('removes a default command by denying it', () => {
+		state.members = [member('node-a', '5.3.6')];
 		state.configuration = { mcp: { operations: {} } };
 		render(<ConfigMcpIndex />);
 
@@ -219,12 +221,19 @@ describe('ConfigMcpIndex', () => {
 		expect(onConfigUpdate).toHaveBeenCalledWith({ mcp_operations_allow: [], mcp_operations_deny: ['read_log'] });
 	});
 
-	it('warns, below 5.4, that a command-list save turns the part on wherever it is off', () => {
+	it("locks a cluster's command list below 5.4, where a save would turn the part on for a member that is off", () => {
 		state.configuration = { mcp: { operations: {} } };
 		render(<ConfigMcpIndex />);
-		fireEvent.click(screen.getByRole('button', { name: 'Remove read_log' }));
-		fireEvent.click(screen.getByRole('button', { name: 'Save & Restart' }));
-		expect(within(screen.getByRole('dialog')).getByText(/turns the operations part on for any instance/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Remove read_log' })).toBeNull();
+		expect(screen.getByText(/change the commands from each instance's own page/)).toBeTruthy();
+	});
+
+	it('reads the enabled flag the way every member does, not by a registration version that lags an upgrade', () => {
+		state.version = '5.3.6';
+		state.members = [member('node-a', '5.4.0-beta.4'), member('node-b', '5.4.0-beta.4')];
+		state.configuration = { mcp: { operations: { enabled: false } } };
+		render(<ConfigMcpIndex />);
+		expect(partSwitch('Operations').getAttribute('aria-checked')).toBe('false');
 	});
 
 	it('locks the command list below 5.4 while the operations part is off, since saving it would turn the part on', () => {

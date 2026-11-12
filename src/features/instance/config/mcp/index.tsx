@@ -126,19 +126,22 @@ function McpServerPage() {
 		return <Loading text="Loading..." />;
 	}
 
-	const saved = readMcpState(configuration, version);
+	// When every member has the flag, read it as they do: the cached registration version can lag an upgrade.
+	const saved = readMcpState(configuration, canDisable ? oldestVersion : version);
 	const current = draft ?? draftFromMcpState(saved);
+	// Without the flag a list written while the part is off creates its block on a member, which turns it on there.
+	// A cluster page reads one member, so it can't tell which others lack the block either.
+	const sharedListUnsafe = !canDisable && onCluster && members.length > 1;
+	const commandsLocked = !canDisable && (!current.operationsOn || sharedListUnsafe);
 	let write: Record<string, unknown> | undefined;
 	let writeError: string | undefined;
 	try {
-		write = buildMcpConfigWrite(saved, current, { canDisable });
+		write = buildMcpConfigWrite(saved, current, { canDisable, listLocked: commandsLocked });
 	} catch (error) {
 		writeError = (error as Error).message;
 	}
 	const unsavedChanges = !!write || !!writeError;
 	const update = (next: Partial<McpDraft>) => setDraft({ ...current, ...next });
-	// Without the flag a list written while the part is off creates its block on a member, which turns it on there.
-	const commandsLocked = !canDisable && !current.operationsOn;
 	const scope = instanceParams.entityType === 'cluster' ? 'this cluster' : 'this instance';
 
 	const save = () => {
@@ -192,8 +195,10 @@ function McpServerPage() {
 				/>
 				{commandsLocked && (
 					<p className="mt-2 text-xs text-muted-foreground">
-						On Harper{' '}
-						{oldestVersion}, saving a command list turns the operations part on, so turn it on to change its commands.
+						On Harper {oldestVersion}, saving a command list turns the operations part on wherever it is off,{' '}
+						{sharedListUnsafe
+							? "so change the commands from each instance's own page."
+							: 'so turn it on to change its commands.'}
 					</p>
 				)}
 			</PartCard>
@@ -259,12 +264,6 @@ function McpServerPage() {
 					<ul className="list-disc pl-5 text-sm">
 						{describeChanges(saved, current).map((change) => <li key={change}>{change}</li>)}
 					</ul>
-					{onCluster && !canDisable && write && Object.keys(write).some((key) => key.startsWith('mcp_operations_')) && (
-						<p className="text-sm text-warning">
-							On Harper before 5.4 this also turns the operations part on for any instance in the cluster where it is
-							off.
-						</p>
-					)}
 					<DialogFooter>
 						<Button type="button" onClick={() => setConfirming(false)}>
 							<ArrowLeft /> Cancel

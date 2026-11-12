@@ -9,14 +9,16 @@ shows how to connect (HarperFast/studio#2011).
 
 `set_configuration` writes leaves only, so nothing it accepts removes a block, and a present block is on. The flag
 arrived in 5.4.0-alpha.2; an older member refuses `mcp_<part>_enabled` by name, and ignores `enabled: false` written by
-hand (`readMcpState` reads the flag by version). So `buildMcpConfigWrite` throws for any change that needs the flag
+hand (`readMcpState` reads the flag by version, the oldest member's once all have it: the cached registration version
+can lag an upgrade). So `buildMcpConfigWrite` throws for any change that needs the flag
 when `canDisable` is false, and the page sets `canDisable` only when every live member reports a version that has it.
 
 ## Every command-list write states the part
 
 Writing any `mcp_operations_*` key creates the block on a member that has none, which turns the part on there. The page
 reads one member's configuration, so it can't know which members lack the block. With the flag, every list write
-carries `mcp_operations_enabled`; without it, the list is locked while the part is off.
+carries `mcp_operations_enabled`. Without it, the list is locked while the part is off, and always on a cluster page
+with more than one member (`sharedListUnsafe`): the list is changed from each instance's own page instead.
 
 ## An explicit list keeps Harper's defaults, and their exclusions
 
@@ -26,7 +28,8 @@ only (`DEFAULT_EXCLUDED` in harper `components/mcp/tools/operations.ts`), so `li
 `list_secrets` and `list_oidc_trust`. `writeMcpCommandList` denies every such command a pattern brings in unless the
 list names it, and `readMcpCommandList` hides those denials again. For the same reason a list without the defaults
 that is emptied is written as `deny: ['*']`, not an empty `allow`, and read back as that empty list. A deny always
-wins in Harper, so adding a command a removed pattern blocks lifts the pattern (`addMcpCommand`).
+wins in Harper, so adding a command a removed pattern blocks lifts the pattern and denies the other known commands it
+covered by name (`addMcpCommand`).
 
 A saved list is compared with the draft by the commands each gives (`sameMcpCommandAccess`), not by text: a list
 written elsewhere can match Studio's write in different words, or differ from it only in the exclusions. Their
