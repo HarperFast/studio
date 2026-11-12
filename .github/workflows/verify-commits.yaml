@@ -4,9 +4,10 @@ on:
     types: [opened, synchronize, edited, reopened, ready_for_review]
   push:
     branches: [dev, stage, prod]
-  # The stage merge queue squashes, so the commit that lands is one GitHub writes: the PR title
-  # (or a lone commit's header) plus ` (#123)`, over the PR's commit messages. For a merge group
-  # the action lints that squash commit, the exact message that reaches stage.
+  # The stage merge queue squashes, so the commit that lands is one GitHub writes. Each queued PR
+  # gets its own merge group, and on `merge_group` the pinned action lints only
+  # `merge_group.head_commit.message` from the event payload: that PR's squash commit. It reads no
+  # git range, so the shallow checkout is enough.
   merge_group:
     branches: [stage]
 jobs:
