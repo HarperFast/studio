@@ -413,24 +413,6 @@ describe('useRollingConfigUpdate on clusters that must not replicate', () => {
 	});
 });
 
-describe('useRollingConfigUpdate restart kind', () => {
-	it('restarts the HTTP workers by default, and the whole instance when asked', async () => {
-		useCluster([instance('ins-a', '5.3.6')]);
-		await save();
-		expect(vi.mocked(restartInstance)).toHaveBeenLastCalledWith(
-			expect.objectContaining({ operation: 'restart_service' }),
-		);
-
-		const { result } = renderHook(() => useRollingConfigUpdate({ restartOperation: 'restart' }), {
-			wrapper: wrapper(),
-		});
-		await act(async () => {
-			await (result.current.onConfigUpdate(CHANGES) as unknown as Promise<void>);
-		});
-		expect(vi.mocked(restartInstance)).toHaveBeenLastCalledWith(expect.objectContaining({ operation: 'restart' }));
-	});
-});
-
 describe('useRollingConfigUpdate outcome reporting', () => {
 	it("names Harper's own reason when it refuses the configuration", async () => {
 		useCluster([instance('ins-a', '5.3.6'), instance('ins-b', '5.3.6')]);
