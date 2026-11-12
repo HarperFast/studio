@@ -139,7 +139,7 @@ export function ClusterForm({
 		// A version edit submits neither regions nor instances, so a stale draft cannot block it.
 		if (mode === 'version') {
 			// The picker disables these, but one picked before the live read showed record locks on stays picked.
-			if (recordLocksOn && !supportsRecordLocks(data.version)) {
+			if (recordLocksOn && data.version && !supportsRecordLocks(data.version)) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['version'],
@@ -283,7 +283,7 @@ export function ClusterForm({
 	});
 
 	useEffect(function revalidateVersionWhenRecordLocksChange() {
-		if (mode === 'version' && recordLocksOn) {
+		if (mode === 'version') {
 			void form.trigger('version');
 		}
 	}, [form, mode, recordLocksOn]);

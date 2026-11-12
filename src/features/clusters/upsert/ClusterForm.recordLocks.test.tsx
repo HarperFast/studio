@@ -73,23 +73,24 @@ function renderForm(
 	},
 ) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-	return render(
+	const values = {
+		clusterName: 'Locks',
+		abbreviatedName: '',
+		version: '5.3.0',
+		deploymentDescription: 'Colocated',
+		performanceDescription: 'Free tier',
+		fqdn: '',
+		instances: [],
+		regionPlans: [{ regionId: 'us-small' }],
+		...defaultValues,
+	};
+	const ui = (locksOn: boolean | undefined) => (
 		<QueryClientProvider client={queryClient}>
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId={clusterId}
 				currentRegions={[]}
-				defaultValues={{
-					clusterName: 'Locks',
-					abbreviatedName: '',
-					version: '5.3.0',
-					deploymentDescription: 'Colocated',
-					performanceDescription: 'Free tier',
-					fqdn: '',
-					instances: [],
-					regionPlans: [{ regionId: 'us-small' }],
-					...defaultValues,
-				}}
+				defaultValues={values}
 				deploymentToPerformanceToPlan={groupThenKeyBy(plans, 'deploymentDescription', 'performanceDescription')}
 				harperVersions={harperVersions}
 				mode={mode}
@@ -101,14 +102,16 @@ function renderForm(
 				lockedOrganizationRegionIds={[]}
 				partialUpgrade={null}
 				planTypes={plans}
-				recordLocksOn={recordLocksOn}
-				regionLocationsColocated={[...regions]}
-				regionLocationsDedicated={[...regions]}
+				recordLocksOn={locksOn}
+				regionLocationsColocated={regions}
+				regionLocationsDedicated={regions}
 				setSavedClusterState={vi.fn()}
 				startOffOnBilling={false}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
+	const view = render(ui(recordLocksOn));
+	return { ...view, setRecordLocksOn: (locksOn: boolean) => view.rerender(ui(locksOn)) };
 }
 
 const recordLocksBox = () => screen.queryByRole<HTMLInputElement>('checkbox', { name: 'Cluster-wide record locks' });
@@ -219,6 +222,35 @@ describe('ClusterForm — the version picker while record locks are on', () => {
 		});
 
 		expect(await screen.findByText('Record locks are on, so the cluster needs Harper 5.3.0 or later.')).toBeTruthy();
+	});
+
+	it('says nothing before a version is picked, and lets go once record locks turn off', async () => {
+		const options = {
+			...versions(),
+			value: [{ name: 'current', version: '5.3.1' }, { name: 'scoped', version: '5.2.13', scoped: true }],
+		};
+		const message = 'Record locks are on, so the cluster needs Harper 5.3.0 or later.';
+		const unpicked = renderForm({ version: undefined }, {
+			clusterId: 'clu-1',
+			mode: 'version',
+			recordLocksOn: true,
+			harperVersions: options,
+		});
+		await act(async () => {});
+		expect(screen.queryByText(message)).toBeNull();
+		unpicked.unmount();
+
+		const { setRecordLocksOn } = renderForm({ version: '5.2.13' }, {
+			clusterId: 'clu-1',
+			mode: 'version',
+			recordLocksOn: true,
+			harperVersions: options,
+		});
+		await screen.findByText(message);
+
+		await act(async () => setRecordLocksOn(false));
+
+		await waitFor(() => expect(screen.queryByText(message)).toBeNull());
 	});
 
 	it('leaves every version open while record locks are off', async () => {

@@ -202,8 +202,11 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 							<LoaderCircleIcon className="animate-spin" />
 							<AlertTitle>Turning record locks {enabled ? 'on' : 'off'}</AlertTitle>
 							<AlertDescription>
-								Central manager is restarting the instances one at a time, and the cluster shows as updating until they
-								are all back. {state.enabled === enabled && state.total > 0 && `${state.done} of ${state.total} done.`}
+								{state.total === 0
+									? 'Central manager is recording the setting for instances added later.'
+									: 'Central manager is restarting the instances one at a time, and the cluster shows as updating until they are all back.'}
+								{' '}
+								{state.enabled === enabled && state.total > 0 && `${state.done} of ${state.total} done.`}
 							</AlertDescription>
 						</Alert>
 					)}

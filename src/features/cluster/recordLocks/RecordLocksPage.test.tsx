@@ -415,6 +415,14 @@ describe('RecordLocksSettings', () => {
 		expect(dialog.textContent).toContain('No instance is running in this cluster, so nothing restarts');
 		expect(dialog.textContent).not.toContain('0 instances');
 		expect(within(dialog).queryByRole('checkbox', { name: 'Immediate restart' })).toBeNull();
+
+		put.mockReturnValue(new Promise(() => {}));
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Turn on' }));
+		});
+
+		expect(screen.getByText(/recording the setting for instances added later/)).toBeTruthy();
+		expect(screen.queryByText(/restarting the instances/)).toBeNull();
 	});
 
 	describe('a roll that stopped part way', () => {
