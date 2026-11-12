@@ -1,4 +1,4 @@
-import { authStore } from '@/features/auth/store/authStore';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { queryClient } from '@/react-query/queryClient';
 
@@ -16,6 +16,23 @@ export function clearAuthStateLocally(): void {
 		() => authStore.wipeLocalStorageForSignOut(),
 		clearSessionStorage,
 	]);
+}
+
+/**
+ * Another account's session has replaced this tab's in the browser. Ends the previous account's instance sessions,
+ * which the browser would otherwise present for the new account, and clears the rest locally. No CM logout: that
+ * would end the new session. Resolves false when a sign-out or another sign-in lands while the logouts are out.
+ */
+export async function clearPreviousAccount(): Promise<boolean> {
+	const instanceLogouts = authStore.signOutFromPotentiallyAuthenticatedInstances();
+	clearAuthStateLocally();
+	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
+	await instanceLogouts.catch((error: unknown) =>
+		console.debug("Could not end the previous account's instance sessions:", error)
+	);
+	return authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
+		&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision;
 }
 
 export function clearAuthStateAfterSignOutElsewhere(): void {

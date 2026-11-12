@@ -1,6 +1,7 @@
 import { breadcrumbTrail } from '@/components/breadcrumbTrail';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
+import { useExtensionPageName } from '@/features/instance/extensions/useStudioExtensions';
 import { Cluster, Instance, Organization } from '@/integrations/api/api.patch';
 import { Link, useLocation, useMatches, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
@@ -22,6 +23,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	const pathname = leaf?.pathname ?? location.pathname;
 	const routePath: string | undefined = leaf?.fullPath;
 	const params = leaf?.params as Record<string, unknown> | undefined;
+	const extensionName = useExtensionPageName(params?.extensionKey);
 
 	const breadcrumbs = useMemo(() => {
 		const breadcrumbs = [
@@ -35,6 +37,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 			organization: organization?.name,
 			cluster: cluster?.name,
 			instance: instance?.name,
+			extension: extensionName,
 		});
 		for (const { path, label, title } of trail) {
 			breadcrumbs.push(
@@ -59,7 +62,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 		}
 
 		return breadcrumbs;
-	}, [pathname, routePath, params, cluster?.name, instance?.name, organization?.name]);
+	}, [pathname, routePath, params, cluster?.name, instance?.name, organization?.name, extensionName]);
 
 	return (
 		<div role="list" className="flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">

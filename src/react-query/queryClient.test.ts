@@ -1,3 +1,4 @@
+import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -469,6 +470,47 @@ describe('a write that got no verdict', () => {
 	});
 });
 
+describe('a write Harper answered without saying whether it landed', () => {
+	const message = "Harper's answer didn't say it deleted that record, so it may or may not be gone.";
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('is described as an unknown outcome, in its own words and with what to do', () => {
+		const described = describeError(new UnconfirmedWriteError(message));
+
+		expect(described).toEqual({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description: described.message,
+			message: `${message} Check whether it took effect before you try again.`,
+		});
+	});
+
+	it('tells a mutation’s caller not to add a "failed" toast of its own', () => {
+		expect(shouldToastOwnFailure(new UnconfirmedWriteError(message))).toBe(false);
+	});
+
+	it('gets a toast of its own, never collapsed with read timeouts', () => {
+		errorHandler(new UnconfirmedWriteError(message));
+		errorHandler(new AxiosError('timeout of 60000ms exceeded', AxiosError.ECONNABORTED));
+
+		const toasts = vi.mocked(toast.error).mock.calls.map(([title, options]) => [title, options?.id]);
+		expect(toasts).toEqual([[OUTCOME_UNKNOWN_TITLE, undefined], ['Error', 'request-timeout']]);
+	});
+
+	it('leaves a plain failure from the same writes an ordinary failure', () => {
+		const skipped = new Error('Harper skipped it: nothing is stored under that key any more.');
+
+		expect(describeError(skipped).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
+		expect(shouldToastOwnFailure(skipped)).toBe(true);
+	});
+});
+
 describe('a restart Harper accepted whose target was never confirmed back', () => {
 	const unconfirmed = () =>
 		new RestartUnconfirmedError(
@@ -571,5 +613,69 @@ describe('a load job Studio stopped following before it ended', () => {
 
 	it('leaves the poll failure itself to the usual extraction, as a read', () => {
 		expect(describeError(pollFailure()).title).not.toBe(OUTCOME_UNKNOWN_TITLE);
+	});
+});
+
+describe('a cluster a durable workflow holds', () => {
+	const config = { url: '/Cluster/clu-1', method: 'put' } as InternalAxiosRequestConfig;
+	const held = new AxiosError('Request failed with status code 409', AxiosError.ERR_BAD_REQUEST, config, undefined, {
+		status: 409,
+		statusText: '',
+		data: { code: 'Conflict', title: 'Cluster is held by workflow wf-abc; wait for it to finish before the update' },
+		headers: {},
+		config,
+	});
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+		queryClient.clear();
+	});
+
+	it('is described in our words, without the workflow id', () => {
+		const described = describeError(held);
+		expect(described.title).toBe('Update in progress');
+		expect(described.message).toMatch(/busy with an update/);
+		expect(JSON.stringify(described)).not.toContain('wf-abc');
+	});
+
+	it('refetches that cluster’s record and nothing else, even for a mutation that renders its own failure', async () => {
+		queryClient.setQueryData(['clu-1'], { id: 'clu-1' });
+		queryClient.setQueryData(['clu-1', 'databases'], {});
+		queryClient.setQueryData(['clu-2'], { id: 'clu-2' });
+		const observer = new MutationObserver(queryClient, {
+			mutationFn: () => Promise.reject(held),
+			meta: { skipGlobalErrorToast: true },
+		});
+		await expect(observer.mutate()).rejects.toBe(held);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(queryClient.getQueryState(['clu-1'])?.isInvalidated).toBe(true);
+		expect(queryClient.getQueryState(['clu-1', 'databases'])?.isInvalidated).toBe(false);
+		expect(queryClient.getQueryState(['clu-2'])?.isInvalidated).toBe(false);
+	});
+
+	it('refetches nothing for an unrelated failure', async () => {
+		const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+		const observer = new MutationObserver(queryClient, { mutationFn: () => Promise.reject(new Error('nope')) });
+		await expect(observer.mutate()).rejects.toThrow('nope');
+		expect(invalidate).not.toHaveBeenCalled();
+	});
+});
+
+describe('an optional read', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('fails quietly when it says so: no toast, nothing for RUM', () => {
+		vi.clearAllMocks();
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		queryErrorHandler(new Error('boom'), { queryKey: ['x'], meta: { quietErrors: true } } as never);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 });

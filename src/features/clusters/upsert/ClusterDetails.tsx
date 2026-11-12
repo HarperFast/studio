@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { DialogFooter } from '@/components/ui/dialog';
+import { clusterPresetsEnabled } from '@/config/constants';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
 import { RECORD_LOCKS_MIN_VERSION, supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
@@ -9,11 +10,12 @@ import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/
 import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
+import { ClusterPreset } from '@/features/clusters/upsert/fields/ClusterPreset';
 import { ClusterRecordLocks } from '@/features/clusters/upsert/fields/ClusterRecordLocks';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
-import { ArrowRight, Layers3, Server } from 'lucide-react';
+import { ArrowRight, Layers3, Server, Sparkles } from 'lucide-react';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
@@ -221,6 +223,21 @@ export function ClusterDetails({
 		<>
 			<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
 				<div className="min-w-0 space-y-6">
+					{clusterPresetsEnabled && !clusterId && !isSelfManaged && (
+						<Card className="min-w-0 gap-0 overflow-hidden py-0">
+							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
+								<h2 className="flex items-center gap-2 text-base font-semibold">
+									<Sparkles className="size-4 text-primary" />What is this cluster for?
+								</h2>
+								<CardDescription>
+									Pick a job and Studio sets the cluster up for it once you have signed in.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="py-6 text-foreground">
+								<ClusterPreset className="w-full" form={form} />
+							</CardContent>
+						</Card>
+					)}
 					<Card className="min-w-0 gap-0 overflow-hidden py-0">
 						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
 							<h2 className="flex items-center gap-2 text-base font-semibold">

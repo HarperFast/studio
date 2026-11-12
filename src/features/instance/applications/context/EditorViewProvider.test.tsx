@@ -20,7 +20,9 @@ vi.mock('@/integrations/api/instance/applications/setComponentFile', () => ({
 	useSetComponentFile: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/lib/events/listener', () => ({ useListener: vi.fn() }));
-vi.mock('@tanstack/react-query', () => ({
+// Partial: the current-user query reaches `queryClient.ts`, which builds a real QueryClient on import.
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+	...await importOriginal<typeof import('@tanstack/react-query')>(),
 	queryOptions: (options: unknown) => options,
 	useMutationState: () => [],
 	useQuery: () => ({ data: undefined }),

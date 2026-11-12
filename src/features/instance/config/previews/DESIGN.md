@@ -9,8 +9,8 @@ rest of the page, so a connection that falls back to the Fabric Connect proxy ca
 one Central Manager call here is the existing secrets key lookup for a managed cluster, which the Secrets page makes too.
 
 `audience` never comes from the client's `baseURL`, which is the proxy's on that fallback. It comes from the cluster's
-own record, then the auth store, and `previewAudience` refuses a proxy URL. On an instance page it is still the
-cluster's URL, because previews belong to the cluster.
+own record, then the auth store, and `actionsAudience` (`config/githubActions/`, shared with Deploy from GitHub)
+refuses a proxy URL. On an instance page it is still the cluster's URL, because previews belong to the cluster.
 
 ## The version floor is 5.4.0-alpha.2, not 5.4.0-alpha.1
 

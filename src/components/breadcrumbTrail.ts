@@ -4,6 +4,7 @@ export interface BreadcrumbNames {
 	organization?: string;
 	cluster?: string;
 	instance?: string;
+	extension?: string;
 }
 
 export interface Breadcrumb {
@@ -18,6 +19,7 @@ const WORD_PARAMS = new Set(['mode']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPTIONAL_PARAM = /^\{-\$(\w+)\}$/;
 const SPLAT = '_splat';
+const SEGMENT_LABELS: Record<string, string> = { 'Apis': 'APIs', 'Deploy From Github': 'Deploy from GitHub' };
 
 /**
  * The parameter each URL segment fills, by name, read from the matched route's `fullPath` (for example
@@ -107,12 +109,16 @@ export function breadcrumbTrail(
 				path += '/instances';
 			}
 			trail.push({ path, ...paramLabel(param, valueAt(index), names) });
+		} else if (segment === 'ext' && paramNames[index + 1] === 'extensionKey') {
+			// A component's page: `ext` has no page of its own, so the pair is one crumb named for the page.
+			trail.push({ path: `${path}/${segments[index + 1]}`, label: names.extension || valueAt(index + 1) });
+			index += 1;
 		} else if (segment === 'databases' && segments.length === index + 3) {
 			trail.push({ path, label: valueAt(index + 2) });
 			index += 2;
 		} else {
 			const label = capitalizeWords(segment);
-			trail.push({ path, label: label === 'Apis' ? 'APIs' : label });
+			trail.push({ path, label: SEGMENT_LABELS[label] ?? label });
 		}
 	}
 	return trail;

@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultClusterUsername } from '@/config/constants';
 import { authStore } from '@/features/auth/store/authStore';
+import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
@@ -36,6 +37,7 @@ export function FinishSetup() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
+	const preset = useClusterPreset(cluster);
 
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
@@ -90,10 +92,15 @@ export function FinishSetup() {
 				// doesn't bounce us back here off a stale poll.
 				await markClusterPasswordSet(queryClient, clusterId);
 				void router.invalidate();
+				const home = buildAbsoluteLinkToPage({ organizationId: cluster!.organizationId, clusterId });
 				await navigate({
 					to: redirect?.startsWith('/')
 						? redirect
-						: buildAbsoluteLinkToPage({ organizationId: cluster!.organizationId, clusterId }),
+						// A cluster created for a preset goes straight on to installing it, now that someone
+						// who can is signed in. Signed out, its home offers the setup once they connect.
+						: user && preset
+						? `${home}/setup`
+						: home,
 				});
 			},
 		});
@@ -103,6 +110,7 @@ export function FinishSetup() {
 		instancesReady,
 		navigate,
 		operationsUrl,
+		preset,
 		queryClient,
 		redirect,
 		router,

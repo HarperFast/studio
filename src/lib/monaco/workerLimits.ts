@@ -36,6 +36,12 @@ export const MAX_WORKER_MODEL_CHARS = 512 * 1024;
  */
 export const MAX_EXTRA_LIB_CHARS_TOTAL = 8 * 1024 * 1024;
 
+/**
+ * The worker's clone cost scales with the file count, which the char budget can't
+ * see; see "Type acquisition stops at its budget" in the applications DESIGN.md.
+ */
+export const MAX_EXTRA_LIB_FILES_TOTAL = 2_000;
+
 /** The outcome of offering one acquired declaration to {@link ExtraLibBudget}. */
 export interface ExtraLibAdmission {
 	/** Whether the declaration was admitted (and the running total advanced). */
@@ -67,6 +73,7 @@ export interface ExtraLibAdmission {
  */
 export class ExtraLibBudget {
 	private totalChars = 0;
+	private totalFiles = 0;
 	private spent = false;
 
 	/**
@@ -91,11 +98,12 @@ export class ExtraLibBudget {
 		if (chars > MAX_WORKER_MODEL_CHARS) {
 			return { admitted: false, justExhausted: false, oversize: true };
 		}
-		if (this.totalChars + chars > MAX_EXTRA_LIB_CHARS_TOTAL) {
+		if (this.totalChars + chars > MAX_EXTRA_LIB_CHARS_TOTAL || this.totalFiles >= MAX_EXTRA_LIB_FILES_TOTAL) {
 			this.spent = true;
 			return { admitted: false, justExhausted: true, oversize: false };
 		}
 		this.totalChars += chars;
+		this.totalFiles++;
 		return { admitted: true, justExhausted: false, oversize: false };
 	}
 }

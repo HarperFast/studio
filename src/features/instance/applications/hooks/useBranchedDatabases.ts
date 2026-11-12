@@ -3,6 +3,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceConfigurationReadPermission, useInstanceManagePermission } from '@/hooks/usePermissions';
 import {
 	BranchedDatabases,
+	discardsDroppedBranches,
 	entryHasPackage,
 	readBranchedDatabases,
 	supportsBranchedDatabases,
@@ -81,6 +82,21 @@ export function useBranchedDatabasesPossible(): boolean {
 	const params = useInstanceClientIdParams();
 	const { data, isSuccess } = useQuery({ ...getRegistrationInfoQueryOptions(params), retry: retryUnlessRejected() });
 	return !isSuccess || !data?.version || supportsBranchedDatabases(data.version);
+}
+
+/**
+ * Unknown unless the latest version read succeeded: a refresh that is refused or fails keeps the earlier answer as
+ * `data`, and the caller words an unknown neutrally, so a refusal isn't toasted.
+ */
+export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefined {
+	const params = useInstanceClientIdParams();
+	const { data, isSuccess } = useQuery({
+		...getRegistrationInfoQueryOptions(params),
+		enabled,
+		retry: retryUnlessRejected(),
+		meta: { refusalIsAnAnswer: true },
+	});
+	return isSuccess ? discardsDroppedBranches(data?.version) : undefined;
 }
 
 interface ConfigurationRead {

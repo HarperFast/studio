@@ -1,6 +1,7 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
 import { isDeletedCluster } from '@/config/clusterStatuses';
+import { ClusterWorkflowNotice } from '@/features/cluster/components/ClusterWorkflowNotice';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -66,6 +67,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 				</aside>
 				<section className="md:col-span-9 lg:col-span-10 min-w-0">
 					<RestartingNotice entityId={clusterId} clusterId={clusterId} noun="cluster" className="mb-4" />
+					{cluster && live && (
+						<ClusterWorkflowNotice clusterId={clusterId} workflowId={cluster.workflowId} className="mb-4" />
+					)}
 					{children}
 				</section>
 			</div>

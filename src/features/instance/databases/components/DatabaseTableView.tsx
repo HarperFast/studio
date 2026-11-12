@@ -106,6 +106,7 @@ import {
 	FunnelXIcon,
 	PlusIcon,
 	RefreshCwIcon,
+	TextSearchIcon,
 	Trash2Icon,
 	TrashIcon,
 } from 'lucide-react';
@@ -115,6 +116,7 @@ import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
 import { EmptyResultSet } from './EmptyResultSet';
 import { FilterSyntaxHelp } from './FilterSyntaxHelp';
+import { FullTextSearchDialog } from './FullTextSearchDialog';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
 import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
@@ -164,7 +166,7 @@ export function DatabaseTableView({
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
-	const { data: describeTableData } = useQuery(
+	const { data: describeTableData, isFetching: isDescribeFetching, refetch: refetchDescribe } = useQuery(
 		getDescribeTableQueryOptions({
 			...instanceParams,
 			databaseName,
@@ -178,6 +180,10 @@ export function DatabaseTableView({
 	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
 	const tableFromMap = describedTable(instanceDatabaseMap, databaseName, tableName);
 	const instanceTable = describeTableData ?? tableFromMap;
+	// Only Harper 5.3+ describes full-text indexes, and only those with a source this user can read, so
+	// their presence is the whole gate for the search tester: no version check could add anything.
+	const fullTextIndexes = instanceTable?.full_text_indexes ?? [];
+	const [isFullTextSearchOpen, setIsFullTextSearchOpen] = useEffectedState(false, allParams);
 
 	// What the empty state may actually invite, each gated on the source it would use rather than on
 	// `methods.*`: `methods.sample` and `methods.file` share one path (see IMPORT_METHOD_PATHS), so
@@ -1114,6 +1120,20 @@ export function DatabaseTableView({
 						</Button>
 					)}
 
+					{fullTextIndexes.length > 0 && (
+						<Button
+							variant="ghost"
+							onClick={() => {
+								// Readiness changes as indexes rebuild, so read it fresh for each opening.
+								void refetchDescribe();
+								setIsFullTextSearchOpen(true);
+							}}
+						>
+							<TextSearchIcon className="inline-block" />
+							Full-text Search
+						</Button>
+					)}
+
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
@@ -1265,6 +1285,17 @@ export function DatabaseTableView({
 				onDeleteRecord={onDeleteRecord}
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending || isPutTableRecordsPending}
 				isDeleteTableRecordsPending={isDeleteTableRecordsPending}
+			/>
+			<FullTextSearchDialog
+				open={isFullTextSearchOpen && fullTextIndexes.length > 0}
+				onOpenChange={setIsFullTextSearchOpen}
+				databaseName={databaseName}
+				tableName={tableName}
+				primaryKey={primaryKey}
+				indexes={fullTextIndexes}
+				isCluster={!!clusterId && !instanceId}
+				isRefreshing={isDescribeFetching}
+				onRefresh={() => void refetchDescribe()}
 			/>
 			<AlertDialog
 				open={!!confirmationCopy}

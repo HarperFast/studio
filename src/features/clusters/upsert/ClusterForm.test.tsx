@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -51,9 +51,14 @@ const plan = {
 	priceUsd: 0,
 } as SchemaPlan;
 
-function renderVersionForm() {
-	return render(
-		<QueryClientProvider client={newQueryClient()}>
+const partial = { latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false };
+function versionForm(
+	version = '5.0.2',
+	queryClient = newQueryClient(),
+	partialUpgrade: typeof partial | null = partial,
+) {
+	return (
+		<QueryClientProvider client={queryClient}>
 			<ClusterForm
 				alreadyUsingFree={false}
 				clusterId="clu-1"
@@ -61,7 +66,7 @@ function renderVersionForm() {
 				defaultValues={{
 					clusterName: 'my-cluster',
 					abbreviatedName: '',
-					version: '5.0.2',
+					version,
 					deploymentDescription: 'Shared',
 					performanceDescription: 'Basic',
 					regionPlans: [],
@@ -76,16 +81,17 @@ function renderVersionForm() {
 				canUseCustomRegions={false}
 				canDefineCustomRegions={false}
 				lockedOrganizationRegionIds={[]}
-				partialUpgrade={{ latest: '5.0.2', behindCount: 1, total: 2, ambiguous: false }}
+				partialUpgrade={partialUpgrade}
 				planTypes={[plan]}
 				regionLocationsColocated={[]}
 				regionLocationsDedicated={[]}
 				setSavedClusterState={vi.fn()}
 				startOffOnBilling={false}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
 }
+const renderVersionForm = () => render(versionForm());
 
 let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -127,6 +133,62 @@ describe('ClusterForm — a refused edit', () => {
 
 		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
 		expect(queryByText(refusal)).toBeNull();
+	});
+});
+
+describe('ClusterForm — the version picker', () => {
+	it('follows the version the cluster runs when it moves under an untouched form', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const queryClient = newQueryClient();
+		const { findByRole, rerender } = render(versionForm('5.0.2', queryClient));
+		await findByRole('button', { name: /Edit Cluster/ });
+
+		rerender(versionForm('5.0.3', queryClient));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+		fireEvent.click(submit);
+
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/Cluster/clu-1', expect.objectContaining({ version: '5.0.3' }), {
+				timeout: 0,
+			})
+		);
+	});
+
+	it('keeps another field the user changed when the version moves', async () => {
+		const queryClient = newQueryClient();
+		const { findByRole, getByLabelText, rerender } = render(versionForm('5.0.2', queryClient, null));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		expect(submit.disabled).toBe(true);
+		fireEvent.click(getByLabelText('Immediate upgrade and restart'));
+		await waitFor(() => expect(submit.disabled).toBe(false));
+
+		rerender(versionForm('5.0.3', queryClient, null));
+		await act(async () => {});
+
+		expect((getByLabelText('Immediate upgrade and restart') as HTMLInputElement).checked).toBe(true);
+		expect(submit.disabled).toBe(false);
+	});
+});
+
+describe('ClusterForm — the version picker, through an ambiguous target', () => {
+	it('clears for an unknown target, then follows the next known one', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		const queryClient = newQueryClient();
+		const { findByRole, rerender } = render(versionForm('5.0.2', queryClient));
+		await findByRole('button', { name: /Edit Cluster/ });
+
+		rerender(versionForm(undefined as unknown as string, queryClient));
+		rerender(versionForm('5.0.3', queryClient));
+		const submit = await findByRole('button', { name: /Edit Cluster/ }) as HTMLButtonElement;
+		await waitFor(() => expect(submit.disabled).toBe(false));
+		fireEvent.click(submit);
+
+		await waitFor(() =>
+			expect(put).toHaveBeenCalledWith('/Cluster/clu-1', expect.objectContaining({ version: '5.0.3' }), {
+				timeout: 0,
+			})
+		);
 	});
 });
 

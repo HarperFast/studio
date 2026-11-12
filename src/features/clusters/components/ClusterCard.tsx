@@ -16,6 +16,8 @@ import { ClusterProgress } from '@/features/clusters/components/ClusterProgress'
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
+import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -55,6 +57,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const { cluster } = summary;
 	const clusterIds = { organizationId: cluster.organizationId, clusterId: cluster.id };
 	const syncLabel = describeSyncSummary(summary.syncSummary);
+	const preset = useClusterPreset(cluster);
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
@@ -371,6 +374,12 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 										className="animate-[spin_2.5s_linear_infinite] motion-reduce:animate-none"
 									/>
 									{syncLabel}
+								</Badge>
+							)}
+							{preset && (
+								<Badge variant="outline" className="rounded-full" title="What this cluster was created for">
+									<ExtensionIcon name={preset.icon} className="size-3" />
+									{preset.name}
 								</Badge>
 							)}
 							<span className="text-xs text-muted-foreground">{summary.hosting}</span>

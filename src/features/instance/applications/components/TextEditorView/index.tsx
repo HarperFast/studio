@@ -13,15 +13,17 @@ import {
 	getComponentFileQueryKey,
 	type GetComponentFileResponse,
 } from '@/integrations/api/instance/applications/getComponentFile';
+import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
-import { hashKey, useQueryClient } from '@tanstack/react-query';
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DegradedIntelliSenseBanner, type IntelliSenseDegradation } from './DegradedIntelliSenseBanner';
 import { configureHarperLanguageSupport } from './harper-language';
+import { setHarperGraphqlVersion } from './harper-language/graphql';
 import './monaco-customizations.css';
 
 const extensionToLanguageMap: Record<string, string> = {
@@ -146,6 +148,15 @@ export function TextEditorView() {
 	const handleEditorWillMount: EditorProps['beforeMount'] = useCallback((monaco) => {
 		configureHarperLanguageSupport(monaco);
 	}, []);
+
+	// Only GraphQL completion varies by release, so other files never ask.
+	const isGraphql = language === 'graphql';
+	const { data: registrationInfo } = useQuery({ ...getHarperVersionProbeOptions(instanceParams), enabled: isGraphql });
+	useEffect(() => {
+		setHarperGraphqlVersion(registrationInfo?.version);
+		// Unset on leaving, so the next instance's editor never completes for this one's release.
+		return () => setHarperGraphqlVersion(undefined);
+	}, [registrationInfo?.version]);
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		setMounted([editor, monaco]);

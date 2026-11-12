@@ -19,6 +19,7 @@ import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { DeployFromGitHubHint } from './DeployFromGitHubHint';
 import { ImportAuthorization } from './ImportAuthorization';
 import { NewApplicationSchema } from './schema';
 import { ImportFailure } from './useImportApplication';
@@ -28,6 +29,7 @@ export function ImportInstructions({
 	formState,
 	importFailure,
 	isImportingApplication,
+	project,
 	setValue,
 	watch,
 }: {
@@ -35,6 +37,7 @@ export function ImportInstructions({
 	formState: FormState<z.infer<typeof NewApplicationSchema>>;
 	importFailure?: ImportFailure;
 	isImportingApplication: boolean;
+	project: string;
 	setValue: UseFormSetValue<z.infer<typeof NewApplicationSchema>>;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
 }) {
@@ -98,6 +101,7 @@ export function ImportInstructions({
 									</FormItem>
 								)}
 							/>
+							<DeployFromGitHubHint project={project} watch={watch} />
 						</div>
 					</TabsContent>
 
