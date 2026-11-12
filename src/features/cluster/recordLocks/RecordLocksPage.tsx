@@ -34,7 +34,7 @@ import {
 	RecordLocksPhase,
 	recordLocksState,
 } from './recordLocksState';
-import { useIsSettingRecordLocks, useSetClusterRecordLocks } from './useSetClusterRecordLocks';
+import { useRecordLocksBeingSet, useSetClusterRecordLocks } from './useSetClusterRecordLocks';
 
 const ROLL_POLL_MS = 5_000;
 // Slower: a stopped roll waits on someone recovering an instance, which Try again needs to see.
@@ -109,10 +109,12 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	const saved = usePendingSave(cluster.id);
 	const [graceOverFor, setGraceOverFor] = useState<PendingSave | null>(null);
 	const { mutate, error, reset } = useSetClusterRecordLocks();
-	const isPending = useIsSettingRecordLocks(cluster.id);
+	const beingSet = useRecordLocksBeingSet(cluster.id);
+	const isPending = beingSet !== undefined;
 
-	const phase: RecordLocksPhase = saved ? 'applying' : state.phase;
-	const enabled = saved ? saved.target : state.enabled;
+	// A save still out reads as the roll starting too: a read may already show the new value on the cluster.
+	const phase: RecordLocksPhase = saved || isPending ? 'applying' : state.phase;
+	const enabled = saved?.target ?? beingSet ?? state.enabled;
 	// Central manager stamps a member's setting when it hands over its restart, so every member can match
 	// while the last one, and the cluster, are still updating: that isn't settled until the cluster runs.
 	const updating = cluster.status === 'UPDATING';

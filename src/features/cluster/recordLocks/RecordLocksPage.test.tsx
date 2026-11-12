@@ -371,7 +371,7 @@ describe('RecordLocksSettings', () => {
 		const { remount } = setup(cluster());
 		await confirm('Turn on');
 		remount(cluster({ recordLocks: true }));
-		expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
 
 		await act(async () => {
 			settleWith(settle);
@@ -382,14 +382,26 @@ describe('RecordLocksSettings', () => {
 		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 	});
 
+	it('follows a save recorded after it mounted, from wherever it was recorded', () => {
+		setup(cluster({ recordLocks: true }));
+		expect(screen.getByText("Record locks didn't finish turning on")).toBeTruthy();
+
+		act(() => rememberSave('clu-1', true));
+
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+	});
+
 	it('keeps the switch off while a save sent before leaving the page is still out', async () => {
 		put.mockReturnValue(new Promise(() => {}));
 		const { remount } = setup(cluster());
 		await confirm('Turn on');
 
-		remount(cluster());
+		remount(cluster({ recordLocks: true }));
 
 		expect(recordLocksSwitch().disabled).toBe(true);
+		// the cluster already reads on and the members don't: a save still out, not a roll that stopped
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		expect(screen.queryByText(/didn't finish/)).toBeNull();
 	});
 
 	it('says nothing restarts on a cluster with no live instance', async () => {

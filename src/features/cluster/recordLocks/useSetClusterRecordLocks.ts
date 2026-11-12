@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { rememberSave } from './pendingRecordLocksSaves';
 
 interface Params {
@@ -30,12 +30,20 @@ async function setClusterRecordLocks(clusterId: string, recordLocks: boolean, sk
 
 const SET_RECORD_LOCKS_KEY = ['setClusterRecordLocks'] as const;
 
-/** A page opened again while its PUT is still out has a fresh mutation, so it asks the cache instead. */
-export function useIsSettingRecordLocks(clusterId: string): boolean {
-	return useIsMutating({
-		mutationKey: SET_RECORD_LOCKS_KEY,
-		predicate: (mutation) => (mutation.state.variables as Params | undefined)?.clusterId === clusterId,
-	}) > 0;
+/**
+ * The value a save still out for this cluster is setting, or `undefined` when none is. A page opened again
+ * while its PUT is still out has a fresh mutation, so it asks the cache instead.
+ */
+export function useRecordLocksBeingSet(clusterId: string): boolean | undefined {
+	const targets = useMutationState({
+		filters: {
+			mutationKey: SET_RECORD_LOCKS_KEY,
+			status: 'pending',
+			predicate: (mutation) => (mutation.state.variables as Params | undefined)?.clusterId === clusterId,
+		},
+		select: (mutation) => (mutation.state.variables as Params).recordLocks,
+	});
+	return targets.at(-1);
 }
 
 export function useSetClusterRecordLocks() {

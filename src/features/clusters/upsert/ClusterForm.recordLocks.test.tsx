@@ -207,6 +207,20 @@ describe('ClusterForm — the version picker while record locks are on', () => {
 		expect(screen.getByRole('option', { name: /5\.3\.1/ }).getAttribute('aria-disabled')).toBeNull();
 	});
 
+	it('refuses a version below 5.3.0 picked before the live read showed record locks on', async () => {
+		renderForm({ version: '5.2.13' }, {
+			clusterId: 'clu-1',
+			mode: 'version',
+			recordLocksOn: true,
+			harperVersions: {
+				...versions(),
+				value: [{ name: 'current', version: '5.3.1' }, { name: 'scoped', version: '5.2.13', scoped: true }],
+			},
+		});
+
+		expect(await screen.findByText('Record locks are on, so the cluster needs Harper 5.3.0 or later.')).toBeTruthy();
+	});
+
 	it('leaves every version open while record locks are off', async () => {
 		renderForm({ version: '5.3.1' }, {
 			clusterId: 'clu-1',
