@@ -245,3 +245,17 @@ before it. `@mui/icons-material` is ~10,000 one-line declarations, ~2 MB in all:
 yet one session logged ~14,000 "DataCloneError: … out of memory" errors importing it. `MAX_EXTRA_LIB_FILES_TOTAL`
 seals the budget like the character cap does, and accepted files are handed to Monaco in batches
 (`EXTRA_LIB_FLUSH_MS`), so a burst of arrivals costs one clone per batch, not one per file.
+
+## Fields a model fills
+
+The schema editor offers `@embed` on a `[Float]` field and `@decide` on a `String`, `Boolean` or `Int`
+field ([`DerivedValueEditor`](components/SchemaEditorView/DerivedValueEditor.tsx)), each from the
+release that has it, and on any field that already carries one so a misplaced directive can be seen
+and removed. The model is chosen from the names in the instance's `models` settings. Only a super
+user can read those (`get_configuration`), so for any other role, and while they load, the name is
+typed instead. A name the instance doesn't have stays selected and is marked, never dropped.
+
+What the editor refuses is exactly what Harper refuses, because one bad directive fails the whole
+schema: see [`derivedFields.ts`](lib/schema/derivedFields.ts), whose header says how the rules were
+checked against a running Harper. `confidence` and `decision` have no inputs; they are kept as
+written and still validated.

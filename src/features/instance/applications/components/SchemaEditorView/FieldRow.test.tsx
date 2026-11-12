@@ -108,6 +108,37 @@ describe('FieldRow type list', () => {
 	});
 });
 
+describe('FieldRow @embed and @decide', () => {
+	const TICKET = tableOf(`type Ticket @table {
+	id: ID @primaryKey
+	body: String
+	vector: [Float] @embed(source: "body", model: "default") @sealed
+	label: String
+}`);
+
+	it('shows the directive in its own controls, not among the preserved ones', () => {
+		renderRow({ field: fieldOf(TICKET, 'vector'), table: TICKET, models: { embedding: ['default'], decision: [] } });
+		expect((screen.getByLabelText('Field to embed') as HTMLSelectElement).value).toBe('body');
+		expect((screen.getByLabelText('Embedding model') as HTMLSelectElement).value).toBe('default');
+		fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+		const preserved = screen.getByText(/Preserved directives/);
+		expect(preserved.textContent).toContain('@sealed');
+		expect(preserved.textContent).not.toContain('@embed');
+	});
+
+	it('offers @decide on a String field and passes the edit up', () => {
+		const { changed } = renderRow({ field: fieldOf(TICKET, 'label'), table: TICKET });
+		fireEvent.click(screen.getByLabelText(/Decide from another field/));
+		expect(changed().directives.map(directive => directive.name)).toEqual(['decide']);
+	});
+
+	it('offers neither on a FullText field', () => {
+		renderRow();
+		expect(screen.queryByLabelText(/Decide from another field/)).toBeNull();
+		expect(screen.queryByLabelText(/Embed another field/)).toBeNull();
+	});
+});
+
 describe('FieldRow full-text panel', () => {
 	it('replaces the scalar controls with the index editor', () => {
 		renderRow();

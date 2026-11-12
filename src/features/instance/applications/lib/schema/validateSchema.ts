@@ -10,6 +10,7 @@
  * and a blank-named field is skipped by `generateTable`, so neither can reach the
  * file — flagging them would just nag about work in progress.
  */
+import { derivedFieldErrors } from './derivedFields';
 import { fullTextErrors } from './fullText';
 import { GRAPHQL_NAME_HINT, isValidGraphqlName } from './graphqlName';
 import { SchemaDocument, TableModel } from './types';
@@ -21,7 +22,9 @@ export type SchemaErrorCode =
 	| 'INVALID_FIELD_NAME'
 	| 'DUPLICATE_FIELD_NAME'
 	/** A `FullText` field or `@fullText` declaration Harper would refuse (see `./fullText`). */
-	| 'INVALID_FULL_TEXT';
+	| 'INVALID_FULL_TEXT'
+	/** An `@embed` or `@decide` Harper would refuse (see `./derivedFields`). */
+	| 'INVALID_DERIVED_FIELD';
 
 export interface SchemaValidationError {
 	tableId: string;
@@ -91,6 +94,9 @@ export function validateTable(table: TableModel, duplicateTableNames: Set<string
 		}
 		for (const message of fullTextErrors(field, table)) {
 			errors.push({ ...anchor, code: 'INVALID_FULL_TEXT', message });
+		}
+		for (const message of derivedFieldErrors(field, table)) {
+			errors.push({ ...anchor, code: 'INVALID_DERIVED_FIELD', message });
 		}
 	}
 

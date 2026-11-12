@@ -214,6 +214,60 @@ export const harperDirectives: HarperDirective[] = [
 			},
 		],
 	},
+	// `@embed` and `@decide` are not declared in Harper's `schema.graphql`: their arguments are the ones
+	// `resources/graphql.ts` reads.
+	{
+		name: 'embed',
+		minVersion: '5.1.0',
+		locations: ['FIELD_DEFINITION'],
+		description:
+			'Fill this `[Float]` field with an embedding of another field whenever a record is written, and index it for vector search (HNSW).',
+		args: [
+			{ name: 'source', type: 'String', description: 'The field whose value is embedded.' },
+			{
+				name: 'model',
+				type: 'String',
+				description: "The name of an embedding model in the instance's `models` settings.",
+			},
+		],
+	},
+	{
+		name: 'decide',
+		minVersion: '5.3.0',
+		locations: ['FIELD_DEFINITION'],
+		description:
+			"Have a decision model fill this `String`, `Boolean` or `Int` field from another field whenever a record is written. The write fails when the model can't decide.",
+		args: [
+			{ name: 'source', type: 'String', description: 'The field the decision is made from.' },
+			{
+				name: 'values',
+				type: '[String]',
+				description: 'The 2 to 255 strings a `String` field can be given. Required on one, and only allowed there.',
+			},
+			{ name: 'minimum', type: 'Int', description: 'The lowest value an `Int` field can be given.' },
+			{
+				name: 'maximum',
+				type: 'Int',
+				description: 'The highest value an `Int` field can be given. The range covers 2 to 255 whole numbers.',
+			},
+			{
+				name: 'model',
+				type: 'String',
+				description: "The name of a decision model in the instance's `models` settings. Defaults to `default`.",
+			},
+			{
+				name: 'confidence',
+				type: 'String',
+				description: 'A nullable `Float` field that receives how confident the model was.',
+			},
+			{
+				name: 'decision',
+				type: 'String',
+				description: "A nullable `String` field that receives the decision's id.",
+			},
+			{ name: 'instructions', type: 'String', description: 'Extra guidance given to the model with each decision.' },
+		],
+	},
 	{
 		name: 'createdTime',
 		locations: ['FIELD_DEFINITION'],

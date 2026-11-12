@@ -55,7 +55,11 @@ const server = vi.hoisted(() => {
 
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => server.params }));
 vi.mock('@/config/useEntityRestURL', () => ({ useEntityRestURL: () => 'https://instance.example.com:9925' }));
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
+// Not a super user, so the editor never asks for the instance's settings to list its model names.
+vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceBrowseManagePermission: () => true,
+	useInstanceManagePermission: () => false,
+}));
 vi.mock('@tanstack/react-router', () => {
 	const navigate = () => {};
 	const search = {};

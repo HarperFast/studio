@@ -175,6 +175,28 @@ describe('@fullText completion across lines', () => {
 });
 
 describe('version gating', () => {
+	it('offers @embed from 5.1.0 and @decide from 5.3.0, and neither when the version is unknown', () => {
+		const embed = findDirective('embed')!;
+		const decide = findDirective('decide')!;
+		expect(availableOn(embed, '5.1.0')).toBe(true);
+		expect(availableOn(embed, '5.0.9')).toBe(false);
+		expect(availableOn(decide, '5.3.0')).toBe(true);
+		expect(availableOn(decide, '5.2.15')).toBe(false);
+		expect(availableOn(embed, undefined)).toBe(false);
+		expect(availableOn(decide, undefined)).toBe(false);
+		expect(embed.args.map(arg => arg.name)).toEqual(['source', 'model']);
+		expect(decide.args.map(arg => arg.name)).toEqual([
+			'source',
+			'values',
+			'minimum',
+			'maximum',
+			'model',
+			'confidence',
+			'decision',
+			'instructions',
+		]);
+	});
+
 	it('offers FullText and @fullText from 5.3.0, but not on a 5.3.0 prerelease or earlier', () => {
 		const fullText = findScalar('FullText')!;
 		const directive = findDirective('fullText')!;
