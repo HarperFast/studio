@@ -47,8 +47,15 @@ const instanceParams = {
 	entityId: 'clu-1',
 } as InstanceClientIdConfig;
 
-function show(configuration: unknown) {
-	render(<ModelsApiCard instanceParams={instanceParams} configuration={configuration} targetNoun="cluster" />);
+function show(configuration: unknown, servesOwnPorts = state.local) {
+	render(
+		<ModelsApiCard
+			instanceParams={instanceParams}
+			configuration={configuration}
+			targetNoun="cluster"
+			servesOwnPorts={servesOwnPorts}
+		/>,
+	);
 }
 
 beforeEach(() => {
@@ -97,6 +104,18 @@ describe('the /v1 API switch', () => {
 		state.local = true;
 		show({ rest: true, http: { port: 9926, securePort: null } });
 		expect(screen.getByText('http://localhost:9926/v1')).toBeTruthy();
+	});
+
+	it("on an instance reached on Harper's own ports, shows the port its config names", () => {
+		state.restUrl = 'http://localhost';
+		show({ rest: true, http: { port: 9926, securePort: null } }, true);
+		expect(screen.getByText('http://localhost:9926/v1')).toBeTruthy();
+		cleanup();
+		show({ rest: true, http: { port: 9926, securePort: null } }, false);
+		expect(screen.getByText('http://localhost/v1')).toBeTruthy();
+		cleanup();
+		show({ rest: true }, true);
+		expect(screen.getByText('http://localhost/v1')).toBeTruthy();
 	});
 
 	it('says the address is not known rather than showing a wrong one', () => {

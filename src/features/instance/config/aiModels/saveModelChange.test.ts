@@ -61,6 +61,13 @@ describe('saving to one instance', () => {
 		}]);
 	});
 
+	it('asks the instance its version, and writes nothing to one that cannot take the write', async () => {
+		const node = instance({}, undefined, '5.3.6');
+		await expect(saveModelChange(single(node), { kind: 'generative', name: 'mine', entry: mine }, undefined))
+			.rejects.toThrow('This instance runs 5.3.6, so nothing was changed.');
+		expect(node.writes).toEqual([]);
+	});
+
 	it('refuses an edit of an entry that changed since the page loaded it, and writes nothing', async () => {
 		const node = instance({ models: { generative: { mine: { backend: 'ollama', model: 'changed-by-someone' } } } });
 		await expect(

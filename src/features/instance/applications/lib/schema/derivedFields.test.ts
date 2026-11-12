@@ -285,9 +285,19 @@ describe('both directives', () => {
 		expect(errorsFor(`${BASE}\tflag: Boolean @decide(source: """body""")`, 'flag')).toEqual([]);
 		expect(errorsFor(`${BASE}\tvector: [Float] @embed(source: """body""", model: """m""")`, 'vector')).toEqual([]);
 		expect(errorsFor(`${BASE}\tlabel: String @decide(source: "body", values: ["""a""", "b"])`, 'label')).toEqual([]);
-		expect(errorsFor(`${BASE}\tlabel: String @decide(source: "body", values: [1, 2])`, 'label')).toEqual([
-			'@decide\'s "values" must be a list of quoted strings.',
-		]);
+		const values = (literal: string) =>
+			errorsFor(`${BASE}\tlabel: String @decide(source: "body", values: ${literal})`, 'label');
+		const notAList = ['@decide\'s "values" must be a list of quoted strings.'];
+		expect(values('[1, 2]')).toEqual(notAList);
+		expect(values('"""not-a-list"""')).toEqual(notAList);
+		expect(values('["""a""", 123]')).toEqual(notAList);
+		expect(values('["""only-one"""]')).toEqual(['Give 2 to 255 values to choose from.']);
+		expect(values('["""dup""", """dup"""]')).toEqual(['Each value must be different.']);
+		expect(decideValues(fieldOf(tableOf(`${BASE}\tl: String @decide(values: ["""a "b" """, "c"])`), 'l').directives))
+			.toEqual([
+				'a "b" ',
+				'c',
+			]);
 	});
 
 	it('says a reason once, however many arguments earn it', () => {

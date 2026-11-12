@@ -82,6 +82,12 @@ export function TableCard({
 	const fieldErrors = new Map(
 		errors.filter(e => e.fieldKey && e.code !== 'INVALID_DERIVED_FIELD').map(e => [e.fieldKey, e.message]),
 	);
+	const derivedErrors = new Map<string, string[]>();
+	for (const error of errors) {
+		if (error.code === 'INVALID_DERIVED_FIELD' && error.fieldKey) {
+			derivedErrors.set(error.fieldKey, [...(derivedErrors.get(error.fieldKey) ?? []), error.message]);
+		}
+	}
 	const preserved = table.directives.filter(directive => !KNOWN_TABLE_DIRECTIVES.has(directive.name));
 	const fieldCount = table.fields.length;
 	const fullTextCount = table.fields.filter(field => fieldBaseType(field) === FULL_TEXT_TYPE).length;
@@ -269,6 +275,7 @@ export function TableCard({
 										onEnableAudit={() => setBool('table', 'audit', true, false)}
 										disableRemove={fieldCount === 1}
 										error={field.key ? fieldErrors.get(field.key) : undefined}
+										derivedErrors={field.key ? derivedErrors.get(field.key) : undefined}
 										onChange={next =>
 											onChange({ ...table, fields: table.fields.map((f, i) => i === index ? next : f) })}
 										onRemove={() => onChange({ ...table, fields: table.fields.filter((_, i) => i !== index) })}

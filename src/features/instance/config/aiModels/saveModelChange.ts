@@ -59,7 +59,7 @@ async function planTargets(
 	};
 }
 
-/** Central manager can leave a member's version out, and an old member must stop the save before any write. */
+/** A target's version isn't always known beforehand, and an old one must stop the save before any write. */
 async function readVersion(instanceClient: AxiosInstance): Promise<string | undefined> {
 	const { data } = await instanceClient.post('/', { operation: 'registration_info' });
 	return typeof data?.version === 'string' ? data.version : undefined;
@@ -80,10 +80,8 @@ export async function saveModelChange(
 	if (targets.length === 0) {
 		throw new ModelSaveError('No running instance was found to save to, so nothing was changed.');
 	}
-	if (params.entityType === 'cluster') {
-		for (const target of targets) {
-			target.version ??= await readVersion(target.instanceClient);
-		}
+	for (const target of targets) {
+		target.version ??= await readVersion(target.instanceClient);
 	}
 	const tooOld = targets.find((target) => target.version !== undefined && !supportsModelsWrite(target.version));
 	if (tooOld) {

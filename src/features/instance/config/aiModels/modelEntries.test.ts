@@ -149,7 +149,23 @@ describe('the edit form', () => {
 			baseUrl: 'https://other.example.com/v1',
 		});
 		const local = { backend: 'ollama', model: 'llama3.2', host: 'http://me:hunter2@10.0.0.5:11434' };
-		expect(modelFormFromEntry('generative', 'local', local).host).toBe('http://10.0.0.5:11434/');
+		expect(modelFormFromEntry('generative', 'local', local).host).toBe('http://10.0.0.5:11434');
+		for (
+			const [address, shown] of [
+				['me:hunter2@ollama.internal:11434', 'ollama.internal:11434'],
+				['https://me:hunter2@${LLM_HOST}/v1', 'https://${LLM_HOST}/v1'],
+				['https://llm.example.com/v1?as=me@example.com', 'https://llm.example.com/v1?as=me@example.com'],
+				['${OLLAMA_HOST}', '${OLLAMA_HOST}'],
+				['http://me:hunter2@example.invalid:bad/v1', 'http://example.invalid:bad/v1'],
+			]
+		) {
+			expect(modelFormFromEntry('generative', 'local', { ...local, host: address }).host).toBe(shown);
+		}
+		const listed = summarizeModels(
+			{ generative: { local: { ...local, host: 'me:hunter2@ollama.internal:11434' } } },
+			undefined,
+		);
+		expect(JSON.stringify(listed)).not.toContain('hunter2');
 		expect(buildModelEntry(modelFormFromEntry('generative', 'local', local), local)).toEqual(local);
 	});
 

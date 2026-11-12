@@ -88,6 +88,7 @@ export function FieldRow({
 	readOnly,
 	disableRemove,
 	error,
+	derivedErrors,
 	onChange,
 	onRemove,
 	onEnableAudit,
@@ -104,6 +105,8 @@ export function FieldRow({
 	disableRemove?: boolean;
 	/** Validation message for this field (bad or duplicate name), shown inline. */
 	error?: string;
+	/** What `validateSchema` found wrong with the field's `@embed` or `@decide`. */
+	derivedErrors?: readonly string[];
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;
 	/** Turn on `@table(audit: true)`, which a full-text index needs. */
@@ -190,6 +193,7 @@ export function FieldRow({
 								table={table}
 								models={models}
 								harperVersion={harperVersion}
+								errors={derivedErrors}
 								readOnly={readOnly}
 								onChange={onChange}
 							/>

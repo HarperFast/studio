@@ -22,8 +22,8 @@ function useRestServed(instanceParams: InstanceClientIdConfig, configuration: un
 	const rootServes = rootConfigServesRest(configuration);
 	const { data: components } = useQuery(getComponentsQueryOptions({ ...instanceParams, enabled: !rootServes }));
 	const apps = rootServes || !components ? [] : restApps(components);
-	// An app with no config file serves REST, so no other app's config needs reading.
-	const withConfig = apps.some((app) => !app.configFile) ? [] : apps.filter((app) => app.configFile);
+	const servedByAppWithoutConfig = apps.some((app) => !app.configFile);
+	const withConfig = servedByAppWithoutConfig ? [] : apps.filter((app) => app.configFile);
 	const configQueries = useQueries({
 		queries: withConfig.map((app) =>
 			getComponentFileQueryOptions({ ...instanceParams, project: app.name, file: app.configFile, encoding: 'utf8' })
@@ -45,17 +45,24 @@ function useRestServed(instanceParams: InstanceClientIdConfig, configuration: un
 	return appsServeRest(apps, configTexts);
 }
 
-export function ModelsApiCard({ instanceParams, configuration, targetNoun }: {
+export function ModelsApiCard({ instanceParams, configuration, targetNoun, servesOwnPorts }: {
 	instanceParams: InstanceClientIdConfig;
 	configuration: unknown;
 	targetNoun: 'instance' | 'cluster';
+	/**
+	 * Whether Studio reaches this instance on Harper's own ports (Local Studio, an instance of a
+	 * self-managed cluster), so REST is on the port its config names. On Fabric the config names the
+	 * port inside the container, not the public one.
+	 */
+	servesOwnPorts: boolean;
 }) {
 	const enabled = modelsGatewayEnabled(configuration);
 	const restServed = useRestServed(instanceParams, configuration);
 	const entityRestUrl = useEntityRestURL();
-	const restUrl = isLocalStudio
+	const ownRestUrl = servesOwnPorts
 		? localRestUrl(configuration, instanceParams.instanceClient.defaults.baseURL)
-		: entityRestUrl;
+		: undefined;
+	const restUrl = isLocalStudio ? ownRestUrl : ownRestUrl ?? entityRestUrl;
 	const address = restUrl ? `${restUrl.replace(/\/+$/, '')}/v1` : undefined;
 	const [onCopyClick] = useCopyToClipboard(address ?? '');
 	const { onConfigUpdate, isPending } = useRollingConfigUpdate();

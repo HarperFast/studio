@@ -1,7 +1,4 @@
-/**
- * Reading, describing and changing the entries of Harper's `models` block. Nothing here returns a
- * stored key: a summary says only where the key comes from. Design notes: ./DESIGN.md.
- */
+/** Nothing here returns a stored key: a summary says only where the key comes from. Design notes: ./DESIGN.md. */
 import { isRecord, MODEL_KINDS, ModelKind, StoredRecord } from '@/integrations/api/instance/models/models';
 
 /** Anthropic has no embedding API, so Harper refuses its `embed`. */
@@ -129,19 +126,12 @@ function text(value: unknown): string | undefined {
 	return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
-/** A URL without any `user:password@` it carries. Text that isn't a URL is returned as it is. */
+/**
+ * An address without the `user:password@` in front of its host. Matched as text, not parsed: Ollama's
+ * host needs no scheme, and an address can hold a `${VAR}` that `URL` refuses.
+ */
 function withoutCredentials(value: string): string {
-	try {
-		const url = new URL(value);
-		if (!url.username && !url.password) {
-			return value;
-		}
-		url.username = '';
-		url.password = '';
-		return url.toString();
-	} catch {
-		return value;
-	}
+	return value.replace(/^([a-z][a-z0-9+.-]*:\/\/)?[^/?#@]*@/i, '$1');
 }
 
 /** Whether a stored address carries a `user:password@` that the form leaves out. */
@@ -241,7 +231,7 @@ export function emptyModelForm(kind: ModelKind, backend = BACKENDS_BY_KIND[kind]
 	};
 }
 
-/** The form for a stored entry. The key field always starts empty. */
+/** The key field always starts empty. */
 export function modelFormFromEntry(kind: ModelKind, name: string, entry: StoredRecord): ModelForm {
 	const form = emptyModelForm(kind, text(entry.backend) ?? '');
 	form.name = name;

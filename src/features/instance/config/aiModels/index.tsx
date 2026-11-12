@@ -231,7 +231,12 @@ function AiModelsPage() {
 						))}
 
 						{supportsModelsGateway(version) && (
-							<ModelsApiCard instanceParams={instanceParams} configuration={configuration} targetNoun={targetNoun} />
+							<ModelsApiCard
+								instanceParams={instanceParams}
+								configuration={configuration}
+								targetNoun={targetNoun}
+								servesOwnPorts={isLocalStudio || (placementKnown && !onFabric && !!instanceId)}
+							/>
 						)}
 					</>
 				)}

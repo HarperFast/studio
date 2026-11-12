@@ -10,7 +10,6 @@ import {
 	DECIDE_DIRECTIVE,
 	decideLeaf,
 	decideValues,
-	derivedFieldErrors,
 	derivedSourceNames,
 	EMBED_DIRECTIVE,
 	graphqlStringValue,
@@ -38,12 +37,14 @@ function directiveAvailable(name: string, harperVersion: string | undefined): bo
 	return !!directive && availableOn(directive, harperVersion);
 }
 
-export function DerivedValueEditor({ field, table, models, harperVersion, readOnly, onChange }: {
+export function DerivedValueEditor({ field, table, models, harperVersion, errors = [], readOnly, onChange }: {
 	field: FieldModel;
 	table: TableModel;
 	/** Absent when the names can't be read: the name is typed instead. */
 	models: InstanceModelNames | undefined;
 	harperVersion: string | undefined;
+	/** What `validateSchema` found wrong with the field's directives. */
+	errors?: readonly string[];
 	readOnly: boolean;
 	onChange: (field: FieldModel) => void;
 }) {
@@ -57,7 +58,6 @@ export function DerivedValueEditor({ field, table, models, harperVersion, readOn
 	}
 
 	const sources = embeds || decides ? derivedSourceNames(table, field) : [];
-	const errors = derivedFieldErrors(field, table);
 	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });
 	const str = (directive: string, arg: string) =>
 		graphqlStringValue(getArgValue(field.directives, directive, arg)) ?? '';
@@ -66,7 +66,6 @@ export function DerivedValueEditor({ field, table, models, harperVersion, readOn
 	const kept = (findDirective(field.directives, DECIDE_DIRECTIVE)?.args ?? [])
 		.map((arg) => arg.name)
 		.filter((name) => name === 'confidence' || name === 'decision');
-	// Arguments a change of field type left behind, which this type's inputs don't show.
 	const stale = !decides || !leaf
 		? []
 		: (['values', 'minimum', 'maximum'] as const).filter((arg) =>
@@ -289,12 +288,9 @@ function ValuesField({ values, written, disabled, onChange }: {
 	const id = useId();
 	const clean = (text: string) => text.split('\n').map((value) => value.trim()).filter((value) => value !== '');
 	const stored = (values ?? []).join('\n');
-	// What is being typed, blank lines and all. Both sides are cleaned before comparing, so stored
-	// values that carry spaces or an empty string can't reset it on every render.
-	const [text, setText] = useState(stored);
-	if (clean(text).join('\n') !== clean(stored).join('\n')) {
-		setText(stored);
-	}
+	// What was typed, blank lines and all, kept only while the stored values are still the ones it gave.
+	const [typed, setTyped] = useState<{ text: string; gives: string }>();
+	const text = typed?.gives === stored ? typed.text : stored;
 	// One value per line can't hold a line break, an empty value, or spaces at either end.
 	const unlisted = values?.some((value) => value === '' || value !== value.trim() || /[\r\n]/.test(value)) ?? false;
 	if (written !== undefined && (values === undefined || unlisted)) {
@@ -314,8 +310,9 @@ function ValuesField({ values, written, disabled, onChange }: {
 				value={text}
 				disabled={disabled}
 				onChange={(event) => {
-					setText(event.target.value);
-					onChange(clean(event.target.value));
+					const given = clean(event.target.value);
+					setTyped({ text: event.target.value, gives: given.join('\n') });
+					onChange(given);
 				}}
 			/>
 		</div>

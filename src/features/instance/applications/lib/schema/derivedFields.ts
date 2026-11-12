@@ -47,10 +47,15 @@ export function withDecide(field: FieldModel, on: boolean): FieldModel {
 	return { ...field, directives: setDirectivePresent(field.directives, DECIDE_DIRECTIVE, on) };
 }
 
+/** A `"""block"""` string inside a larger literal. `parseGraphqlValue` reads only quoted ones. */
+const BLOCK_STRING = /"""[\s\S]*?(?<!\\)"""/g;
+
 /** Undefined when the argument is absent or isn't a list of strings. */
 export function decideValues(directives: Directive[]): string[] | undefined {
 	const literal = getArgValue(directives, DECIDE_DIRECTIVE, 'values');
-	const parsed = literal === undefined ? undefined : parseGraphqlValue(literal)?.value;
+	const parsed = literal === undefined
+		? undefined
+		: parseGraphqlValue(literal.replace(BLOCK_STRING, (block) => JSON.stringify(graphqlStringValue(block))))?.value;
 	return Array.isArray(parsed) && parsed.every((value) => typeof value === 'string') ? parsed as string[] : undefined;
 }
 
@@ -137,8 +142,7 @@ function decideErrors(
 				errors.push(`@decide's "${arg.name}" must be a whole number.`);
 			}
 		} else if (arg.name === 'values') {
-			// A list with a block string is one Studio can't read, not one Harper refuses.
-			if (decideValues(field.directives) === undefined && !arg.value.includes('"""')) {
+			if (decideValues(field.directives) === undefined) {
 				errors.push('@decide\'s "values" must be a list of quoted strings.');
 			}
 		} else {
@@ -238,7 +242,6 @@ function prototypeNameErrors(field: FieldModel, directiveName: string): string[]
 		.map((name) => `@${directiveName} can't use a field named "${name}".`);
 }
 
-/** One directive on one field, with every field it fills: its own, and for `@decide` its confidence and decision fields. */
 interface Writer {
 	directive: string;
 	field: FieldModel;

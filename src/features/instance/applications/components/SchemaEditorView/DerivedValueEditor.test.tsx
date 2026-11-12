@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { decideValues } from '@/features/instance/applications/lib/schema/derivedFields';
+import { decideValues, derivedFieldErrors } from '@/features/instance/applications/lib/schema/derivedFields';
 import { getArgValue, hasDirective } from '@/features/instance/applications/lib/schema/mutations';
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { FieldModel, TableModel } from '@/features/instance/applications/lib/schema/types';
@@ -37,6 +37,7 @@ function show(
 				table={current}
 				models={MODELS}
 				harperVersion="5.3.6"
+				errors={derivedFieldErrors(field, current)}
 				readOnly={false}
 				onChange={(next) => {
 					onChange(next);
@@ -169,6 +170,21 @@ describe('@decide', () => {
 		expect(decideValues(last().directives)).toEqual(['billing', 'refund, or credit']);
 		expect(box.value).toBe('billing\n  refund, or credit \n');
 		expect(screen.queryByText(/values/i, { selector: 'li' })).toBeNull();
+	});
+
+	it('shows the stored values again once they change from outside the box', () => {
+		const table = tableOf('\tlabel: String @decide(source: "body", values: ["a", "b"])');
+		const field = table.fields.find((candidate) => candidate.name === 'label')!;
+		const props = { table, models: MODELS, harperVersion: '5.3.6', readOnly: false, onChange: vi.fn() };
+		const { rerender } = render(<DerivedValueEditor field={field} {...props} />);
+		const box = screen.getByLabelText('Values to choose from, one per line') as HTMLTextAreaElement;
+		fireEvent.change(box, { target: { value: 'a\nb\n' } });
+		expect(box.value).toBe('a\nb\n');
+		const other = tableOf('\tlabel: String @decide(source: "body", values: ["x", "y"])').fields.find((candidate) =>
+			candidate.name === 'label'
+		)!;
+		rerender(<DerivedValueEditor field={other} {...props} />);
+		expect(box.value).toBe('x\ny');
 	});
 
 	it('shows values it cannot rewrite as written, for editing as text', () => {

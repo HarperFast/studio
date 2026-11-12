@@ -118,6 +118,7 @@ describe('adding a model', () => {
 		type('Kind', 'decision');
 		const choices = [...(screen.getByLabelText('Generative model') as HTMLSelectElement).options];
 		expect(choices.map((option) => option.textContent)).toEqual(['Choose a generative model', 'spare']);
+		expect((screen.getByLabelText('Generative model') as HTMLSelectElement).value).toBe('');
 		type('Name', 'route');
 		fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
 		expect(screen.getByText('Choose the generative model that makes the decision.')).toBeTruthy();

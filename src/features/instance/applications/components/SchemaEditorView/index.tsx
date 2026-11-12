@@ -20,7 +20,7 @@ import { parseSchema } from '@/features/instance/applications/lib/schema/parseSc
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
 import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
 import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
-import { instanceModelNames } from '@/integrations/api/instance/models/models';
+import { instanceModelNames, supportsModels } from '@/integrations/api/instance/models/models';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
@@ -73,7 +73,7 @@ function LoadedSchemaEditorView({
 	const isSuperUser = useInstanceManagePermission();
 	const { data: configuration } = useQuery({
 		...getConfigurationQueryOptions(instanceParams),
-		enabled: isSuperUser,
+		enabled: isSuperUser && supportsModels(registrationInfo?.version),
 		retry: retryUnlessRejected(),
 		meta: { refusalIsAnAnswer: true },
 	});

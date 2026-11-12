@@ -261,7 +261,7 @@ export function ModelDialog({ target, block, kinds, instanceParams, fabricKeys, 
 								id="model-generative"
 								className={SELECT_CLASS}
 								disabled={generativeChoices.length === 0}
-								value={form.generative || 'default'}
+								value={form.generative || (generativeNames.includes('default') ? 'default' : '')}
 								onChange={(event) => set('generative', event.target.value)}
 							>
 								{form.generative === '' && !generativeNames.includes('default') && (

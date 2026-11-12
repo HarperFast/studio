@@ -83,8 +83,8 @@ own token. Fanning one instance's block out would put its Fabric entries on ever
 - An entry Fabric manages is never written over, whatever the page thought. On a cluster route the
   managed names are the union over its instances: the save writes every instance, so a name Fabric
   holds on any of them is refused up front, not part-way.
-- When central manager has no version for an instance, the instance is asked before anything is
-  written.
+- A target whose version isn't known beforehand (the instance of an instance route, or a member
+  central manager has no version for) is asked before anything is written.
 - With one target, the entry must still be what the page loaded, or the save is refused as stale.
   Across a cluster the page read whichever instance answered, so a difference on another instance
   may only mean it was behind; the save brings it level rather than refusing forever.
@@ -125,7 +125,12 @@ names them, Harper refuses the write with a 409, which the form shows.
 a restart, so the switch uses `useRollingConfigUpdate` like the Overview's save. The three
 endpoints need a super user (`resources/models/v1/index.ts`).
 
-They are served by REST, and the gateway doesn't start REST itself. REST runs when the root config
+The address shown is the cluster's public REST address. Where Studio reaches Harper on its own
+ports (Local Studio, an instance of a self-managed cluster) it is that host on the port the config
+names, since the operations port can't stand in for it. On Fabric the config names the port inside
+the container, so it is never used there.
+
+The endpoints are served by REST, and the gateway doesn't start REST itself. REST runs when the root config
 has a `rest` section or an app turns it on: by naming `rest` in its config file, or by having no
 config file at all, since Harper then loads `components/DEFAULT_CONFIG.ts`, which has `rest: true`.
 [`restServed.ts`](restServed.ts) decides it from the root config first and reads app configs only

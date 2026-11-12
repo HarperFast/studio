@@ -252,8 +252,8 @@ The schema editor offers `@embed` on a `[Float]` field and `@decide` on a `Strin
 field ([`DerivedValueEditor`](components/SchemaEditorView/DerivedValueEditor.tsx)), each from the
 release that has it, and on any field that already carries one so a misplaced directive can be seen
 and removed. The model is chosen from the names in the instance's `models` settings. Only a super
-user can read those (`get_configuration`), so for any other role, and while they load, the name is
-typed instead. A name the instance doesn't have stays selected and is marked, never dropped.
+user can read those (`get_configuration`, which also returns every key), and the read is made only
+on a Harper that has models. For any other role, and while they load, the name is typed instead. A name the instance doesn't have stays selected and is marked, never dropped.
 
 What the editor refuses is exactly what Harper refuses, because one bad directive fails the whole
 schema: see [`derivedFields.ts`](lib/schema/derivedFields.ts). Each rule is one Harper throws, and
@@ -262,6 +262,7 @@ own app, and Harper loaded exactly the ones the editor accepts. When a rule chan
 rather than trusting a reading of Harper's source. `confidence` and `decision` have no inputs; they
 are kept as written and still validated.
 
+The controls show the errors `validateSchema` already found for the field, so the two can't disagree.
 The editor never rewrites what it can't show. A `"""block"""` string is read the way Harper reads
 it. Decision values that one per line can't hold (an empty value, a space at either end, a line
 break, a block string) are shown as written, for editing as text. Arguments left by a change of

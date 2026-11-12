@@ -62,7 +62,11 @@ vi.mock('@/integrations/api/instance/models/models', async (importOriginal) => (
 		return state.fabricKeepsCustomerModels;
 	},
 }));
-vi.mock('./ModelsApiCard', () => ({ ModelsApiCard: () => <div data-testid="v1-card" /> }));
+vi.mock('./ModelsApiCard', () => ({
+	ModelsApiCard: ({ servesOwnPorts }: { servesOwnPorts: boolean }) => (
+		<div data-testid="v1-card" data-own-ports={String(servesOwnPorts)} />
+	),
+}));
 vi.mock('./ModelDialog', () => ({
 	ModelDialog: ({ target }: { target: { mode: string; name?: string } }) => (
 		<div data-testid="model-dialog">{target.mode} {target.name}</div>
@@ -177,6 +181,25 @@ describe('listing the models', () => {
 		state.version = '5.2.0';
 		render(<ConfigAiModelsIndex />);
 		expect(screen.queryByTestId('v1-card')).toBeNull();
+	});
+
+	it("tells the /v1 card to use the config's port only where Studio reaches Harper on its own ports", () => {
+		const ownPorts = () => {
+			render(<ConfigAiModelsIndex />);
+			const value = screen.getByTestId('v1-card').getAttribute('data-own-ports');
+			cleanup();
+			return value;
+		};
+		expect(ownPorts()).toBe('false');
+		state.params = { clusterId: 'clu-1', instanceId: 'ins-1' };
+		expect(ownPorts()).toBe('true');
+		state.cluster = fabricCluster;
+		expect(ownPorts()).toBe('false');
+		state.cluster = undefined;
+		expect(ownPorts()).toBe('false');
+		state.params = {};
+		state.local = true;
+		expect(ownPorts()).toBe('true');
 	});
 });
 
