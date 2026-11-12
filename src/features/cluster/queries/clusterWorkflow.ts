@@ -30,6 +30,10 @@ export function latestClusterWorkflowQueryOptions(clusterId: string | undefined,
 	return queryOptions({
 		queryKey: ['cluster-workflow', clusterId ?? '', heldBy ?? ''],
 		queryFn: async (): Promise<ClusterWorkflow | null> => {
+			// Callers replace `enabled`, and a refetch or fetchQuery skips it, so the read itself refuses a missing id.
+			if (!clusterId) {
+				return null;
+			}
 			let data: unknown;
 			try {
 				({ data } = await apiClient.get(`/Cluster/${clusterId}/workflow` as '/Cluster/{id}'));

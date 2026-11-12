@@ -94,4 +94,10 @@ describe(latestClusterWorkflowQueryOptions, () => {
 		expect(latestClusterWorkflowQueryOptions(undefined, null).enabled).toBe(false);
 		expect(latestClusterWorkflowQueryOptions('clu-1', null).enabled).toBe(true);
 	});
+
+	it('answers null without a request when fetched without a cluster, which `enabled` cannot stop', async () => {
+		const client = new QueryClient();
+		await expect(client.fetchQuery(latestClusterWorkflowQueryOptions(undefined, null))).resolves.toBeNull();
+		expect(apiGet).not.toHaveBeenCalled();
+	});
 });
