@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import { rememberAppSignIn } from './signInMarkers';
 
 test.beforeEach(async ({ page }) => {
+	await page.route('**/*', route =>
+		['fetch', 'xhr'].includes(route.request().resourceType())
+			? route.fulfill({ status: 404, json: { error: 'Unmocked test request' } })
+			: route.continue());
 	await rememberAppSignIn(page);
 	await page.route(
 		'**/User/current',
