@@ -69,14 +69,21 @@ export function removeMcpCommand(list: McpCommandList, name: string): McpCommand
 	};
 }
 
-/** A removed pattern that matches the name has to go too: Harper's deny always wins over its allow. */
-export function addMcpCommand(list: McpCommandList, name: string): McpCommandList {
-	const removed = list.removed.filter((entry) => entry !== name && !matchesMcpPattern(name, [entry]));
-	const lifted = { ...list, removed };
-	if (isMcpOperationIncluded(name, writeMcpCommandList(lifted))) {
-		return lifted;
+/**
+ * A removed pattern that matches the name has to go too, since Harper's deny always wins; the other known commands
+ * it kept out stay out by name.
+ */
+export function addMcpCommand(list: McpCommandList, name: string, known: readonly string[] = []): McpCommandList {
+	const lifted = list.removed.filter((entry) => entry !== name && matchesMcpPattern(name, [entry]));
+	const keptOut = known.filter((other) => other !== name && matchesMcpPattern(other, lifted));
+	const removed = [
+		...new Set([...list.removed.filter((entry) => entry !== name && !lifted.includes(entry)), ...keptOut]),
+	].sort();
+	const next = { ...list, removed };
+	if (isMcpOperationIncluded(name, writeMcpCommandList(next))) {
+		return next;
 	}
-	return { ...lifted, added: [...new Set([...list.added, name])].sort() };
+	return { ...next, added: [...new Set([...list.added, name])].sort() };
 }
 
 export function dropAddedMcpEntry(list: McpCommandList, entry: string): McpCommandList {

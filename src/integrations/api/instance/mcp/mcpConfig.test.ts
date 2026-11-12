@@ -254,6 +254,12 @@ describe('buildMcpConfigWrite', () => {
 		});
 	});
 
+	it('leaves a locked list alone, even one that exposes the exclusions', () => {
+		const exposed = stateOf({ operations: { allow: ['list_*'] } });
+		expect(buildMcpConfigWrite(exposed, draftFromMcpState(exposed), { canDisable: false, listLocked: true }))
+			.toBeUndefined();
+	});
+
 	it('does not count a list written elsewhere that gives the same commands as a change', () => {
 		const same = stateOf({
 			operations: { allow: [...MCP_DEFAULT_ALLOW].reverse(), deny: ['list_secrets', 'list_oidc_trust'] },

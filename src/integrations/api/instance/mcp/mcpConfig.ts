@@ -249,12 +249,12 @@ export function draftFromMcpState(state: McpState): McpDraft {
  * The flat `set_configuration` parameters that move a cluster from `saved` (one member's answer) to `draft`, or
  * `undefined` when nothing changes. `canDisable` says every member honors `mcp.<part>.enabled`; without it,
  * writing any key under a part creates its block on a member that has none, which turns the part on there, so a
- * change that could leave a part on against the draft throws instead.
+ * change that could leave a part on against the draft throws instead. `listLocked` leaves the command list as it is.
  */
 export function buildMcpConfigWrite(
 	saved: McpState,
 	draft: McpDraft,
-	{ canDisable }: { canDisable: boolean },
+	{ canDisable, listLocked = false }: { canDisable: boolean; listLocked?: boolean },
 ): Record<string, unknown> | undefined {
 	const write: Record<string, unknown> = {};
 	const needsFlag = (what: string) =>
@@ -285,7 +285,7 @@ export function buildMcpConfigWrite(
 	}
 
 	const stored = writeMcpCommandList(draft.commands);
-	if (!sameMcpCommandAccess(stored, saved.operations)) {
+	if (!listLocked && !sameMcpCommandAccess(stored, saved.operations)) {
 		if (!canDisable && !draft.operationsOn) {
 			throw needsFlag('Changing the commands while the MCP operations part is off');
 		}
