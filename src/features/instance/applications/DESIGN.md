@@ -190,9 +190,13 @@ activated, so a stage leaves the cached setting current. What follows:
   refuses bodies over 2 MB and records each body it relays. A save is confirmed by reading the entry back: a deploy
   whose stream was lost, or whose entry reads differently, is never reported as a success.
 - **A release carries its own.** Activating a staged or earlier release can't carry the setting (Harper refuses it),
-  and brings back the one that release was deployed with. Neither `list_deployments` nor `get_deployment` reports
-  it (HarperFast/harper#4077), so the activation dialog says so to everyone it offers activation to, and shows the
-  current one to anyone who can read it, on 5.3.2 or later.
+  and brings back the one that release was deployed with. From 5.4 the deployment record says which, as `routing`
+  (HarperFast/harper#4077), and an activation's record carries its release's
+  ([`releasePrivateCopy`](../config/deployments/functions/releasePrivateCopy.ts)): `null` keeps the current setting, and
+  a record without it, from an older Harper or a deploy that hasn't decided it, is unknown. The deployments table shows
+  it in a column only when a record on the page has it, the record's detail shows it, and the activation dialog says
+  what the release puts back, or that Studio can't read it. The dialog also shows the current setting to anyone who
+  can read it, on 5.3.2 or later.
 - **Removing an application leaves the copy on disk, for now or for good.** Studio drops without `restart`. Before
   5.4.0-alpha.2 Harper deletes the copies only on a later drop, so the copy stays and a later application of the same
   name picks it up. From 5.4.0-alpha.2 Harper records the removal it owes and discards the copy by itself once no

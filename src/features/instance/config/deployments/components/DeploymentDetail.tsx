@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { describePeerInstall } from '../functions/describePeerInstall';
+import { describeReleasePrivateCopy, releasePrivateCopy } from '../functions/releasePrivateCopy';
 import { DeploymentSourceFields } from './DeploymentSource';
 import { DeploymentStatusBadge } from './deploymentStatusBadge';
 import { ReleasedRecordDetail } from './ReleasedRecordDetail';
@@ -187,6 +188,10 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 							</Link>
 						)
 						: undefined}
+				/>
+				<Field
+					label="Private copy"
+					value={describeReleasePrivateCopy(releasePrivateCopy(deployment))}
 				/>
 			</div>
 

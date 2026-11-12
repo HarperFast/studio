@@ -51,7 +51,33 @@ function renderFailedDeployment(message: string) {
 	);
 }
 
+function renderRecord(record: Partial<Deployment>) {
+	const deployment: Deployment = { deployment_id: 'd1', project: 'widgets', status: 'success', ...record };
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	queryClient.setQueryData(['entity-1', 'get_deployment', 'd1'], deployment);
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<DeploymentDetail deploymentId="d1" />
+		</QueryClientProvider>,
+	);
+}
+
 describe('DeploymentDetail', () => {
+	it.each([
+		['data, events', { host: null, urlPath: null, isolated: null, branchedDatabases: ['data', 'events'] }],
+		['Off', { host: 'shop.example.com', urlPath: null, isolated: null, branchedDatabases: null }],
+		['Keeps current', null],
+	])('shows the private database copy its release puts back: %s (harper#4077)', (expected, routing) => {
+		renderRecord({ routing });
+		expect(screen.getByText('Private copy')).toBeTruthy();
+		expect(screen.getByText(expected)).toBeTruthy();
+	});
+
+	it('shows no private copy for a record that does not say', () => {
+		renderRecord({});
+		expect(screen.queryByText('Private copy')).toBeNull();
+	});
+
 	it.each([
 		"ENOENT: no such file or directory, open '/tmp/harper-git-clone-oXPS7c/package.json'",
 		"ENOENT: no such file or directory, open 'C:\\Users\\h\\AppData\\Local\\Temp\\harper-git-clone-q1W2e3\\package.json'",

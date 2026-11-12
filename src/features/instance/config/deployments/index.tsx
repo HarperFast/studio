@@ -92,7 +92,11 @@ export function ConfigDeploymentsIndex() {
 	const firstShown = total === 0 ? 0 : (page - 1) * DEPLOYMENTS_PAGE_SIZE + 1;
 	const lastShown = Math.min(total, (page - 1) * DEPLOYMENTS_PAGE_SIZE + deployments.length);
 	const filtered = !!project || !!status || !!sha;
-	const columns = useMemo(() => deploymentColumns({ commitFilterable: releaseTracking }), [releaseTracking]);
+	const privateCopy = useMemo(() => deployments.some((deployment) => deployment.routing !== undefined), [deployments]);
+	const columns = useMemo(() => deploymentColumns({ commitFilterable: releaseTracking, privateCopy }), [
+		releaseTracking,
+		privateCopy,
+	]);
 
 	const setSearch = useCallback(
 		(patch: DeploymentsSearch) => {

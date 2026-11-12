@@ -20,7 +20,8 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	const builtByOther = releaseId !== deployment.deployment_id;
 	const { data: builtBy } = useQuery({
 		...getDeploymentQueryOptions({ ...instanceParams, deploymentId: releaseId }),
-		enabled: builtByOther && check.kind === 'missing',
+		enabled: builtByOther
+			&& (check.kind === 'missing' || (check.kind === 'available' && deployment.routing === undefined)),
 	});
 	const failed = deployment.status === 'failed';
 	// Its error already says why it failed; with every node saying it holds none there is nothing to offer.
@@ -48,6 +49,7 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 				offer={offer}
 				disabled={disabled}
 				revalidate={recheck}
+				routing={deployment.routing === undefined ? builtBy?.routing : deployment.routing}
 			/>
 		</>
 	);

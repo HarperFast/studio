@@ -25,10 +25,14 @@ import {
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { reportDeployFailure, reportDeployOutcome } from '@/features/instance/applications/modals/reportDeployHealth';
-import { describeBranchedDatabases } from '@/integrations/api/instance/applications/branchedDatabases';
+import {
+	BranchedDatabases,
+	describeBranchedDatabases,
+} from '@/integrations/api/instance/applications/branchedDatabases';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { deployFailureDetails } from '@/integrations/api/instance/applications/deployOutcome';
 import { DeployRolloutError } from '@/integrations/api/instance/applications/restartJob';
+import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
@@ -36,6 +40,7 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { releasePrivateCopy } from '../functions/releasePrivateCopy';
 
 /** Keyed by the release, so every record of it (its own, each activation of it) shares one pending activation. */
 export function activationMutationKey(entityId: string | undefined, releaseId: string) {
@@ -47,6 +52,10 @@ export function activationMutationKey(entityId: string | undefined, releaseId: s
  * may not be live everywhere, because a deploy failed or some node did not take it.
  */
 export type ActivationIntent = 'activate' | 'rollback' | 'again';
+
+function runsOn(setting: BranchedDatabases | undefined): string {
+	return setting ? `a private copy of ${describeBranchedDatabases(setting)}` : 'the shared databases';
+}
 
 const BUTTON_LABEL: Record<ActivationIntent, string> = {
 	activate: 'Activate',
@@ -62,6 +71,7 @@ export function ActivateRelease({
 	offer = true,
 	disabled = false,
 	revalidate,
+	routing,
 }: {
 	project: string;
 	/** The id of the deployment that built it: an activation's `activated_from`, or a deploy's own id. */
@@ -77,6 +87,7 @@ export function ActivateRelease({
 	 * answer alone, since `disabled` reflects it only a render later.
 	 */
 	revalidate?: () => Promise<boolean>;
+	routing?: Deployment['routing'];
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -87,6 +98,7 @@ export function ActivateRelease({
 	const recordAction = useDeploymentRecordAction();
 	const canReadBranches = useBranchedDatabasesReadable();
 	const currentBranches = useApplicationBranchedDatabases(canReadBranches ? project : undefined);
+	const releaseCopy = releasePrivateCopy({ routing });
 	// Keyed so a detail closed and reopened mid-rollout still knows this release is being activated.
 	const mutationKey = useMemo(() => activationMutationKey(instanceParams.entityId, deploymentId), [
 		instanceParams.entityId,
@@ -242,13 +254,17 @@ export function ActivateRelease({
 								)}
 						</AlertDialogDescription>
 						<AlertDialogDescription>
-							It also brings back the private database copy setting this release was deployed with, which Studio
-							can&apos;t read. {currentBranches.known
-								&& `${project} now runs on ${
-									currentBranches.setting
-										? `a private copy of ${describeBranchedDatabases(currentBranches.setting)}`
-										: 'the shared databases'
-								}.`}
+							{releaseCopy.kind === 'unknown'
+								? (
+									<>
+										It also brings back the private database copy setting this release was deployed with, which Studio
+										can&apos;t read.
+									</>
+								)
+								: releaseCopy.kind === 'unchanged'
+								? 'It leaves the private database copy setting as it is.'
+								: `It puts ${project} on ${runsOn(releaseCopy.setting)}.`}{' '}
+							{currentBranches.known && `${project} now runs on ${runsOn(currentBranches.setting)}.`}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
