@@ -41,7 +41,6 @@ export function McpCommandsEditor({
 	disabled,
 }: {
 	list: McpCommandList;
-	/** The allow and deny lists the instance holds now. */
 	saved: McpStoredList;
 	onChange: (next: McpCommandList) => void;
 	version: string;
@@ -71,22 +70,15 @@ export function McpCommandsEditor({
 		if (!ENTRY_PATTERN.test(query) || listed) {
 			return undefined;
 		}
-		const what = isMcpPattern(query)
-			? 'every command whose name matches'
-			: "a command Studio doesn't list, such as one a component adds";
+		const covered = isMcpOperationIncluded(query, stored);
+		const entry = <span className="font-mono">{query}</span>;
 		return {
 			name: query,
-			label: isMcpOperationIncluded(query, stored)
-				? (
-					<>
-						Remove "<span className="font-mono">{query}</span>" ({what}; a pattern already includes it)
-					</>
-				)
-				: (
-					<>
-						Add "<span className="font-mono">{query}</span>" ({what})
-					</>
-				),
+			label: isMcpPattern(query)
+				? <>{covered ? 'Remove' : 'Add'} every command whose name matches "{entry}"</>
+				: covered
+				? <>Remove "{entry}" (a pattern includes it)</>
+				: <>Add "{entry}" (a command Studio doesn't list, such as one a component adds)</>,
 		};
 	};
 

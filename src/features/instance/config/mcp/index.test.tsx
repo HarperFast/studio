@@ -219,6 +219,14 @@ describe('ConfigMcpIndex', () => {
 		expect(onConfigUpdate).toHaveBeenCalledWith({ mcp_operations_allow: [], mcp_operations_deny: ['read_log'] });
 	});
 
+	it('warns, below 5.4, that a command-list save turns the part on wherever it is off', () => {
+		state.configuration = { mcp: { operations: {} } };
+		render(<ConfigMcpIndex />);
+		fireEvent.click(screen.getByRole('button', { name: 'Remove read_log' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Save & Restart' }));
+		expect(within(screen.getByRole('dialog')).getByText(/turns the operations part on for any instance/)).toBeTruthy();
+	});
+
 	it('locks the command list below 5.4 while the operations part is off, since saving it would turn the part on', () => {
 		render(<ConfigMcpIndex />);
 		expect(screen.queryByRole('button', { name: 'Remove read_log' })).toBeNull();

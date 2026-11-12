@@ -33,6 +33,12 @@ export function McpConnect({ hosts, saved, unsavedChanges }: {
 		&& { part: 'application' as const, target: host.applicationOrigin, mountPath: application.mountPath },
 	].filter((connection): connection is McpConnection => !!connection);
 
+	if (connections.length === 0) {
+		return (
+			<p className="text-sm text-muted-foreground">Studio doesn't have an address for this instance's MCP server.</p>
+		);
+	}
+
 	return (
 		<div className="flex flex-col gap-4 text-sm">
 			{unsavedChanges && (

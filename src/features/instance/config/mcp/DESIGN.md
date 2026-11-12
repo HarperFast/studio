@@ -25,10 +25,12 @@ default patterns along with it. Harper keeps secrets, OIDC trust policy and prev
 only (`DEFAULT_EXCLUDED` in harper `components/mcp/tools/operations.ts`), so `list_*` in an explicit list exposes
 `list_secrets` and `list_oidc_trust`. `writeMcpCommandList` denies every such command a pattern brings in unless the
 list names it, and `readMcpCommandList` hides those denials again. For the same reason a list without the defaults
-that is emptied is written as `deny: ['*']`, not an empty `allow`.
+that is emptied is written as `deny: ['*']`, not an empty `allow`, and read back as that empty list. A deny always
+wins in Harper, so adding a command a removed pattern blocks lifts the pattern (`addMcpCommand`).
 
 A saved list is compared with the draft by the commands each gives (`sameMcpCommandAccess`), not by text: a list
-written elsewhere can match Studio's write in different words, or differ from it only in the exclusions.
+written elsewhere can match Studio's write in different words, or differ from it only in the exclusions. Their
+patterns must match outright, because one sample name per pattern cannot prove two patterns equal.
 
 "Changes data" comes from `isReadOperation`, not Harper's `destructiveHint`, which misses `drop_component` and
 `deploy_component` (HarperFast/harper#3075).

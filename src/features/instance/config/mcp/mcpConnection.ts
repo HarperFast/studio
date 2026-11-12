@@ -40,11 +40,12 @@ function applicationOriginOn(hostname: string, http: McpHttpPorts): string | nul
  * Each instance gets its own addresses rather than the cluster's: an MCP session lives in a `system.mcp_session`
  * row that does not replicate (harper `components/mcp/DESIGN.md`), so a client a load balancer moves to another
  * member loses its session. Fabric serves the application part on the instance's HTTPS address at 443; a
- * self-managed instance (`selfManagedHttp`) serves it on its own configured port.
+ * self-managed instance serves it on its configured port, which the page reads from one member and assumes the
+ * rest share.
  */
 export function mcpHostForInstance(
 	instance: Pick<Instance, 'id' | 'name' | 'instanceFqdn' | 'operationsApiSecure' | 'operationsApiPort'>,
-	selfManagedHttp?: McpHttpPorts,
+	selfManaged?: { http: McpHttpPorts },
 ): McpHost {
 	const operationsOrigin = originOf(getOperationsUrlForInstance(instance));
 	const hostname = operationsOrigin && new URL(operationsOrigin).hostname;
@@ -54,8 +55,8 @@ export function mcpHostForInstance(
 		operationsOrigin,
 		applicationOrigin: !hostname
 			? null
-			: selfManagedHttp
-			? applicationOriginOn(hostname, selfManagedHttp)
+			: selfManaged
+			? applicationOriginOn(hostname, selfManaged.http)
 			: `https://${hostname}`,
 	};
 }

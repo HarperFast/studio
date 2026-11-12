@@ -55,12 +55,10 @@ export function includedMcpCommands(version: string, list: McpCommandList): McpC
 	return knownMcpCommands(version, list).filter((command) => isMcpOperationIncluded(command.name, stored));
 }
 
-/** Whether a command comes from Harper's default set rather than an entry the customer added. */
 export function isDefaultMcpCommand(name: string, list: McpCommandList): boolean {
 	return list.includesDefaults && matchesMcpPattern(name, MCP_DEFAULT_ALLOW);
 }
 
-/** Takes a command out: drops the entry that added it, or denies it when a default pattern brings it in. */
 export function removeMcpCommand(list: McpCommandList, name: string): McpCommandList {
 	const added = list.added.filter((entry) => entry !== name);
 	const stillIncluded = isMcpOperationIncluded(name, writeMcpCommandList({ ...list, added }));
@@ -71,9 +69,9 @@ export function removeMcpCommand(list: McpCommandList, name: string): McpCommand
 	};
 }
 
-/** Puts a command in: lifts its removal, and adds it by name when nothing else would bring it in. */
+/** A removed pattern that matches the name has to go too: Harper's deny always wins over its allow. */
 export function addMcpCommand(list: McpCommandList, name: string): McpCommandList {
-	const removed = list.removed.filter((entry) => entry !== name);
+	const removed = list.removed.filter((entry) => entry !== name && !matchesMcpPattern(name, [entry]));
 	const lifted = { ...list, removed };
 	if (isMcpOperationIncluded(name, writeMcpCommandList(lifted))) {
 		return lifted;

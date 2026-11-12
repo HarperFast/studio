@@ -137,6 +137,19 @@ describe('command lists', () => {
 		expect(sameMcpCommandAccess(writeMcpCommandList(readMcpCommandList(stored)), stored)).toBe(true);
 	});
 
+	it('reads a list emptied of everything back as one, so adding a command lets it in', () => {
+		const emptied = readMcpCommandList({ allow: [], deny: ['*'] });
+		expect(emptied).toEqual({ includesDefaults: false, added: [], removed: [] });
+		expect(isMcpOperationIncluded('insert', writeMcpCommandList({ ...emptied, added: ['insert'] }))).toBe(true);
+	});
+
+	it('counts dropping a pattern as a change even where its sample name is denied on both sides', () => {
+		const before = { allow: [...MCP_DEFAULT_ALLOW, 'acme_*'], deny: ['acme_z*'] };
+		const after = { allow: [...MCP_DEFAULT_ALLOW], deny: ['acme_z*'] };
+		expect(isMcpOperationIncluded('acme_deploy', before)).toBe(true);
+		expect(sameMcpCommandAccess(before, after)).toBe(false);
+	});
+
 	it('reads back what it writes', () => {
 		const list = { includesDefaults: true, added: ['insert', 'update'], removed: ['read_log'] };
 		expect(readMcpCommandList(writeMcpCommandList(list))).toEqual(list);
