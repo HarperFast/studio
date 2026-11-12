@@ -24,6 +24,8 @@ const { state, queriesSeen, onConfigUpdate, rollingOptions } = vi.hoisted(() => 
 		members: [] as Member[],
 		params: { clusterId: 'clu-1' } as { clusterId?: string; instanceId?: string },
 		entityType: 'cluster' as 'cluster' | 'instance',
+		entityId: 'clu-1',
+		clusterPending: false,
 	},
 	queriesSeen: [] as Array<{ queryKey: readonly unknown[]; enabled?: boolean }>,
 	onConfigUpdate: vi.fn(),
@@ -39,12 +41,15 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 		if (options.queryKey[0] === 'get_configuration') {
 			return { data: options.enabled === false ? undefined : state.configuration, isError: false };
 		}
-		return { data: { id: 'clu-1', instances: state.members } };
+		return {
+			data: state.clusterPending ? undefined : { id: 'clu-1', instances: state.members },
+			isPending: state.clusterPending,
+		};
 	},
 }));
 vi.mock('@tanstack/react-router', () => ({ useParams: () => state.params }));
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ instanceClient: {}, entityId: 'clu-1', entityType: state.entityType }),
+	useInstanceClientIdParams: () => ({ instanceClient: {}, entityId: state.entityId, entityType: state.entityType }),
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
 vi.mock('@/hooks/useRollingConfigUpdate', () => ({
@@ -99,6 +104,8 @@ beforeEach(() => {
 		members: [member('node-a', '5.3.6'), member('node-b', '5.3.6')],
 		params: { clusterId: 'clu-1' },
 		entityType: 'cluster',
+		entityId: 'clu-1',
+		clusterPending: false,
 	});
 });
 
@@ -169,6 +176,37 @@ describe('ConfigMcpIndex', () => {
 		state.configuration = { mcp: { application: {} } };
 		render(<ConfigMcpIndex />);
 		expect((partSwitch('Application') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("cannot turn a part off while the cluster's member versions are still loading", () => {
+		state.version = '5.4.0-beta.4';
+		state.clusterPending = true;
+		state.configuration = { mcp: { application: {} } };
+		render(<ConfigMcpIndex />);
+		expect((partSwitch('Application') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('drops a draft when the page moves to another cluster', () => {
+		const { rerender } = render(<ConfigMcpIndex />);
+		fireEvent.click(partSwitch('Application'));
+		expect(screen.getByRole('button', { name: 'Save & Restart' })).toBeTruthy();
+
+		state.entityId = 'clu-2';
+		state.params = { clusterId: 'clu-2' };
+		rerender(<ConfigMcpIndex />);
+		expect(screen.queryByRole('button', { name: 'Save & Restart' })).toBeNull();
+		expect(partSwitch('Application').getAttribute('aria-checked')).toBe('false');
+	});
+
+	it('warns that a list written elsewhere exposes commands Harper keeps out of its defaults', () => {
+		state.configuration = { mcp: { operations: { allow: ['list_*'] } } };
+		render(<ConfigMcpIndex />);
+		expect(screen.getByText(/list_oidc_trust, list_secrets/)).toBeTruthy();
+		saveAndConfirm();
+		expect(onConfigUpdate).toHaveBeenCalledWith({
+			mcp_operations_allow: ['list_*'],
+			mcp_operations_deny: ['list_oidc_trust', 'list_secrets'],
+		});
 	});
 
 	it('removes a default command by denying it', () => {

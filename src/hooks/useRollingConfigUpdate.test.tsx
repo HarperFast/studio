@@ -450,6 +450,21 @@ describe('useRollingConfigUpdate outcome reporting', () => {
 		);
 	});
 
+	it('names no refusal for a write that failed for another reason', async () => {
+		useCluster([instance('ins-a', '5.3.6')]);
+		vi.mocked(setConfiguration).mockRejectedValue(
+			new AxiosError('Request failed with status code 403', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+				status: 403,
+				data: { error: 'This operation is restricted to super users' },
+			} as never),
+		);
+
+		await save();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).not.toContain('Harper refused the change');
+	});
+
 	it('names no refusal when only a restart failed', async () => {
 		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
 		vi.mocked(restartInstance).mockRejectedValue(new Error('did not come back'));
@@ -638,8 +653,7 @@ describe('useRollingConfigUpdate, for a member that accepted the restart but was
 				+ '1 instance failed to update. '
 				+ "1 instance accepted the restart but couldn't be confirmed back, so it may still be starting. "
 				+ '1 other instance was not updated, to keep the cluster available. '
-				+ 'Check its status before you restart it again.'
-				+ '\nHarper refused the change: Invalid configuration',
+				+ 'Check its status before you restart it again.',
 		});
 	});
 
