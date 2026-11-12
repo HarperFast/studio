@@ -26,6 +26,8 @@ describe('parseGitHubRepository', () => {
 		['https://github.com/acme/shop/tree/main', 'acme/shop'],
 		['git@github.com:acme/shop.git', 'acme/shop'],
 		['ssh://git@github.com/acme/shop.git', 'acme/shop'],
+		['ssh://git@github.com:22/acme/shop.git', 'acme/shop'],
+		['https://github.com:443/acme/shop', 'acme/shop'],
 		['git+https://github.com/acme/shop.git', 'acme/shop'],
 	])('reads %s', (input, expected) => {
 		expect(parseGitHubRepository(input)).toBe(expected);
@@ -42,6 +44,7 @@ describe('parseGitHubRepository', () => {
 		'acme/..',
 		'https://gitlab.com/acme/shop',
 		'https://github.com.evil.example/acme/shop',
+		'https://github.com:evil.example/acme/shop',
 		'git@gitlab.com:acme/shop.git',
 	])('refuses %j', (input) => {
 		expect(parseGitHubRepository(input)).toBeUndefined();

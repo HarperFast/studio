@@ -16,10 +16,11 @@ describe('admin section visibility', () => {
 			'region:read',
 			'host:read',
 			'cluster:read',
+			'config:write',
 			'apiToken:create',
 			'apiToken:self',
 		]);
-		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'API Tokens']);
+		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Configuration', 'API Tokens']);
 	});
 
 	it('shows only the pages a narrower role holds', () => {
@@ -28,6 +29,7 @@ describe('admin section visibility', () => {
 			'Regions',
 		]);
 		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
+		expect(labels(user('fabric_readonly', ['region:read', 'config:read']))).toEqual(['Regions']);
 		expect(labels(user('fabric_readonly', ['region:read', 'host:read']))).toEqual(['Regions', 'Hosts']);
 	});
 
@@ -71,6 +73,7 @@ describe('admin section visibility', () => {
 			'Hosts',
 			'Monitoring',
 			'Users',
+			'Configuration',
 		]);
 	});
 
@@ -85,6 +88,7 @@ describe('admin section visibility', () => {
 			'Hosts',
 			'Monitoring',
 			'Users',
+			'Configuration',
 		]);
 	});
 
@@ -99,5 +103,17 @@ describe('admin section visibility', () => {
 	it('hides Users from a holder of user:status who cannot also read the users and clusters it shows', () => {
 		expect(labels(user('fabric_admin', ['user:status', 'cluster:read']))).toEqual(['Monitoring']);
 		expect(labels(user('fabric_admin', ['user:status', 'user:read']))).toEqual([]);
+	});
+
+	it('shows Workflows to holders of workflow:read', () => {
+		expect(labels(user('fabric_readonly', ['workflow:read']))).toEqual(['Workflows']);
+		expect(labels(user('fabric_support', ['cluster:read', 'workflow:read', 'workflow:manage']))).toEqual([
+			'Monitoring',
+			'Workflows',
+		]);
+	});
+
+	it('hides Workflows from a legacy-API fabric_admin', () => {
+		expect(labels(user('fabric_admin'))).not.toContain('Workflows');
 	});
 });

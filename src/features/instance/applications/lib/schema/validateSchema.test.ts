@@ -70,3 +70,24 @@ describe('validateSchema', () => {
 		expect(error?.fieldName).toBe('bad name');
 	});
 });
+
+describe('validateSchema full-text fields', () => {
+	it('anchors each full-text problem to its field, so the save is blocked and the field says why', () => {
+		const errors = validateSchema(
+			parseSchema('type Doc @table(audit: true) {\n\tid: ID @primaryKey\n\tbody: String\n\tsearch: FullText\n}\n')
+				.document,
+		);
+		expect(errors).toEqual([expect.objectContaining({
+			code: 'INVALID_FULL_TEXT',
+			fieldName: 'search',
+			message: 'Pick at least one source field for this full-text index.',
+		})]);
+		expect(errors[0].fieldKey).toBeTruthy();
+	});
+
+	it('accepts a valid declaration', () => {
+		expect(codesFor(
+			'type Doc @table(audit: true) {\n\tid: ID @primaryKey\n\tbody: String\n\tsearch: FullText @fullText(fields: [{ name: "body" }])\n}\n',
+		)).toEqual([]);
+	});
+});

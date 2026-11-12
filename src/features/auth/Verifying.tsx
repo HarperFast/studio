@@ -4,9 +4,12 @@ import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
 import { AuthHeading } from './components/AuthHeading';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
+import { usePrefillEmail } from './prefillEmail';
 
 export function Verifying() {
-	const { email }: { email?: string } = useSearch({ strict: false });
+	const { email: searchEmail }: { email?: string } = useSearch({ strict: false });
+	const prefillEmail = usePrefillEmail();
+	const email = searchEmail || prefillEmail;
 
 	const { mutate: resendEmailVerification, isPending } = useResendEmailVerification();
 
@@ -46,7 +49,7 @@ export function Verifying() {
 				<Link
 					className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
 					to="/sign-in"
-					search={{ me: email }}
+					state={{ prefillEmail: email }}
 				>
 					I did it, let me sign in!
 				</Link>

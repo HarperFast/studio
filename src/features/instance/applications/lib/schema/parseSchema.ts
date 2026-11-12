@@ -53,6 +53,25 @@ function skipString(src: string, i: number): number {
 	return -1;
 }
 
+function containsComment(src: string): boolean {
+	let i = 0;
+	while (i < src.length) {
+		if (src[i] === '#') {
+			return true;
+		}
+		if (src[i] === '"') {
+			const end = skipString(src, i);
+			if (end < 0) {
+				return false;
+			}
+			i = end;
+		} else {
+			i++;
+		}
+	}
+	return false;
+}
+
 /** Skip a `# …` comment starting at `i`; return the index of the terminating newline (or EOF). */
 function skipLineComment(src: string, i: number): number {
 	let j = i;
@@ -90,6 +109,14 @@ function skipBalanced(src: string, i: number, open: string, close: string): numb
 		j++;
 	}
 	return -1;
+}
+
+function skipWhitespaceAndComments(src: string, i: number): number {
+	let j = skipWhitespace(src, i);
+	while (src[j] === '#') {
+		j = skipWhitespace(src, skipLineComment(src, j));
+	}
+	return j;
 }
 
 function skipWhitespace(src: string, i: number): number {
@@ -213,7 +240,7 @@ function readValueToken(src: string, i: number): number {
 		return end < 0 ? src.length : end;
 	}
 	let j = i;
-	while (j < src.length && !/[\s,)]/.test(src[j])) {
+	while (j < src.length && !/[\s,)#]/.test(src[j])) {
 		j++;
 	}
 	return j;
@@ -240,11 +267,12 @@ function parseArgs(inner: string): DirectiveArg[] {
 			i++;
 			continue;
 		}
-		i = skipWhitespace(inner, i);
+		// Comments may sit on either side of the `:`; they belong to neither the name nor the value.
+		i = skipWhitespaceAndComments(inner, i);
 		if (inner[i] !== ':') {
 			continue;
 		}
-		i = skipWhitespace(inner, i + 1);
+		i = skipWhitespaceAndComments(inner, i + 1);
 		const valueStart = i;
 		i = readValueToken(inner, i);
 		args.push({ name, value: inner.slice(valueStart, i).trim() });
@@ -286,15 +314,18 @@ function parseDirectives(text: string): Directive[] {
 		}
 		let args: DirectiveArg[] = [];
 		let hadParens = false;
+		let commented: Directive['commented'];
 		if (text[j] === '(') {
 			const end = skipBalanced(text, j, '(', ')');
 			if (end > 0) {
 				hadParens = true;
-				args = parseArgs(text.slice(j + 1, end - 1));
+				const inner = text.slice(j + 1, end - 1);
+				args = parseArgs(inner);
+				commented = containsComment(inner) ? { inner, args } : undefined;
 				i = end;
 			}
 		}
-		directives.push({ name, args, hadParens });
+		directives.push({ name, args, hadParens, ...(commented ? { commented } : null) });
 	}
 	return directives;
 }
@@ -348,6 +379,17 @@ function skipInlineWhitespace(src: string, i: number): number {
 }
 
 /**
+ * Skip spaces/tabs, and also line breaks when the next thing after them is a directive, so a field's
+ * directives may continue onto following lines. Otherwise stops at the end of the line, which keeps
+ * an inline `# …` comment attached to the field.
+ */
+function skipToContinuedDirective(src: string, i: number): number {
+	const inline = skipInlineWhitespace(src, i);
+	const ahead = skipWhitespace(src, inline);
+	return src[ahead] === '@' ? ahead : inline;
+}
+
+/**
  * Parse the fields between a type body's braces; return null if anything is
  * malformed. Comment/description lines that trail the last field (no field
  * follows them) are returned as `trailingComments` so they survive regeneration.
@@ -395,9 +437,11 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 			return null;
 		}
 		i = typeRef.end;
-		// Same-line directives.
+		// Directives, on the field's line or continuing onto the next ones — Harper's docs put a long
+		// `@fullText(...)` on the line below its field. A field name can't start with `@`, so a line
+		// that does continues this field.
 		const directiveStart = i;
-		i = skipInlineWhitespace(body, i);
+		i = skipToContinuedDirective(body, i);
 		while (body[i] === '@') {
 			i++;
 			while (i < body.length && isIdentChar(body[i])) {
@@ -411,8 +455,7 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 				}
 				j = end;
 			}
-			i = j;
-			i = skipInlineWhitespace(body, i);
+			i = skipToContinuedDirective(body, j);
 		}
 		const directives = parseDirectives(body.slice(directiveStart, i));
 		// Inline trailing comment.

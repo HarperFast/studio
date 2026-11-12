@@ -16,7 +16,12 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), dismiss: vi.fn() } }));
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OfflineSubmitError } from '../failFastOffline';
-import { isVerifyEmailUnavailable, isVerifyEmailUnconfirmed, useVerifyEmailMutation } from './useVerifyEmail';
+import {
+	isVerifyEmailUnavailable,
+	isVerifyEmailUnconfirmed,
+	useVerifyEmailMutation,
+	VerifyEmailRequest,
+} from './useVerifyEmail';
 
 // The shape axios rejects with: `isUnansweredWrite` needs the request's `config`.
 const verifyRequest = { method: 'put', url: '/VerifyEmail/' };
@@ -45,11 +50,11 @@ function wrapper({ children }: PropsWithChildren) {
 	return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-function startVerification() {
+function startVerification(request: VerifyEmailRequest = { token: 'verify-token', browserProof: 'browser-proof' }) {
 	const { result } = renderHook(() => useVerifyEmailMutation(), { wrapper });
 	let settled!: Promise<unknown>;
 	act(() => {
-		settled = result.current.mutateAsync({ token: 'verify-token' }).catch((error: unknown) => error);
+		settled = result.current.mutateAsync(request).catch((error: unknown) => error);
 	});
 	return settled;
 }
@@ -112,14 +117,19 @@ describe('isVerifyEmailUnconfirmed', () => {
 });
 
 describe('useVerifyEmailMutation', () => {
-	it('sends the token as the body of PUT /VerifyEmail/', async () => {
-		put.mockResolvedValue({ data: { userId: 'u1', email: 'ada@example.com', outcome: 'reset_email_sent' } });
+	it.each<[string, VerifyEmailRequest]>([
+		['the sign-up proof', { token: 'verify-token', browserProof: 'browser-proof' }],
+		['the sign-up password', { token: 'verify-token', password: 'correct horse' }],
+		['a new password', { token: 'verify-token', newPassword: 'battery staple' }],
+	])('sends the token with %s, and nothing else, as the body of PUT /VerifyEmail/', async (_case, request) => {
+		const response = { userId: 'u1', email: 'ada@example.com', outcome: 'verified', signedIn: true };
+		put.mockResolvedValue({ data: response });
 
-		const settled = startVerification();
+		const settled = startVerification(request);
 		await advance(0);
 
-		expect(put).toHaveBeenCalledWith('/VerifyEmail/', { token: 'verify-token' });
-		await expect(settled).resolves.toEqual({ userId: 'u1', email: 'ada@example.com', outcome: 'reset_email_sent' });
+		expect(put).toHaveBeenCalledWith('/VerifyEmail/', request);
+		await expect(settled).resolves.toEqual(response);
 	});
 
 	it('retries a 503 three times, 2s, 4s and 8s apart, and resolves with the answer that finally came', async () => {
@@ -146,7 +156,8 @@ describe('useVerifyEmailMutation', () => {
 		expect(put).toHaveBeenCalledTimes(4);
 
 		await expect(settled).resolves.toMatchObject({ outcome: 'reset_email_sent' });
-		expect(put.mock.calls.every(([, body]) => body.token === 'verify-token')).toBe(true);
+		expect(put.mock.calls.every(([, body]) => body.token === 'verify-token' && body.browserProof === 'browser-proof'))
+			.toBe(true);
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 

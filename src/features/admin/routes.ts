@@ -97,11 +97,33 @@ const userDetailsRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/users/UserDetails'), 'UserDetailsPage'),
 });
 
+const configurationRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'configuration',
+	head: () => ({ meta: [{ title: 'Configuration — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/configuration/index'), 'ConfigurationIndex'),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
 	head: () => ({ meta: [{ title: 'API Tokens — Harper Fabric' }] }),
 	component: lazyRouteComponent(async () => import('@/features/admin/apiToken/index'), 'ApiTokenIndex'),
+});
+
+const workflowsRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'workflows',
+	head: () => ({ meta: [{ title: 'Workflows — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/workflows/index'), 'WorkflowsAdminIndex'),
+});
+
+// A child workflow's id contains slashes; the router encodes them into this one segment and decodes them back.
+const workflowDetailRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'workflows/$workflowId',
+	head: () => ({ meta: [{ title: 'Workflow — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/workflows/WorkflowDetail'), 'WorkflowDetailPage'),
 });
 
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
@@ -116,5 +138,8 @@ export const adminRoutes = [
 	hostsRoute,
 	monitoringRoute,
 	usersRoute.addChildren([usersIndexRoute, userDetailsRoute]),
+	configurationRoute,
 	apiTokenRoute,
+	workflowsRoute,
+	workflowDetailRoute,
 ];
