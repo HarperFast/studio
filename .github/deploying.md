@@ -143,12 +143,14 @@ run tests what is about to be promoted, a dev run what is still being integrated
   that does not track `stage`, so `stage`'s specs against the dev site compare two different
   commits: that is what turned studio-e2e-harness#10 red, 36 failures for features dev did not have.
   A deploy that never goes live fails the job too.
-- **Every node, not a sample.** The public origin reaches whichever node the load balancer picks, so
+- **Every replicated peer, not a sample.** The public origin reaches whichever node the load balancer picks, so
   repeated checks through it cannot prove every node updated. `deploy_component … replicated=true`
   names the peers it replicated to, `studio-deploy` passes them on as its `nodes` output, and the
   gate probes each by its own hostname alongside the public origin: every one must serve the new
-  version, three rounds in a row. The node the deploy ran on reports its own result; its hostname is
-  part of the `CLI_DEPLOY_TARGET` secret, so it is not probed by name. This relies on each peer's
+  version, three rounds in a row. The node the deploy ran on is trusted on `deploy_component`'s exit
+  code, not probed: its hostname is part of the `CLI_DEPLOY_TARGET` secret. Static files are read
+  from disk on every request, so it serves the new build once that call returns — except during a
+  `restart` deploy, when it may be down while the peers pass and the suite can reach it mid-restart. This relies on each peer's
   Harper node name being the public hostname it serves Studio on — true today: dev is a single node
   (`replicated: []`), stage replicates to `stage-2.studio.harperfabric.com` and prod to
   `studio-2.harperfabric.com`. A name that is not a hostname fails the gate rather than being skipped, and stage sets
@@ -161,8 +163,9 @@ run tests what is about to be promoted, a dev run what is still being integrated
   only reads the repo, and never overrides the checkout ref.
 - **What fails it:** a failed test, a skipped test (a skip means a prerequisite the run was given
   stopped working — `e2e/README.md`, "Skips are deliberate"), no tests run, or no report. Flaky
-  tests warn. Playwright stops after 10 failures or 25 minutes (the signup round-trip alone may take
-  10 minutes an attempt), inside the job's 45, so a slow red run still writes its report.
+  tests warn. Playwright stops after 10 failures or 30 minutes (the signup round-trip alone may take
+  14 minutes an attempt, and CI retries it once), inside the job's 50, so a slow red run still
+  writes its report.
 - **What it publishes:** the log, failure annotations and a job summary with a repro command. **No
   trace, video, screenshot or HTML report is uploaded**: anyone signed in to GitHub can download a
   public repo's artifacts, and a Playwright trace records the session cookie. GitHub masks the
