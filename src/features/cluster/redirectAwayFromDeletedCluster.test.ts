@@ -55,7 +55,7 @@ async function landingFor(path: string, cluster: { status: string; terminatedAt?
 	}
 }
 
-const operatesOnLiveCluster = ['instances', 'scaling', 'domains', 'edit', 'edit/version'];
+const operatesOnLiveCluster = ['instances', 'scaling', 'domains', 'record-locks', 'edit', 'edit/version'];
 const gone = [
 	{ status: 'TERMINATED' },
 	{ status: 'TERMINATING' },

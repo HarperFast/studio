@@ -9165,6 +9165,7 @@ export interface components {
             organizationId: string;
             plans?: components["schemas"]["RegionPlan"][];
             purchasedBlocks?: components["schemas"]["PurchasedBlock"][];
+            recordLocks?: boolean;
             resetPassword?: boolean;
             status?: string;
             /** Format: Date */
@@ -9303,6 +9304,7 @@ export interface components {
             planId?: string;
             /** Format: Int */
             readIopsLimit?: number;
+            recordLocks?: boolean;
             region?: string;
             regionId?: string;
             replicationFqdn?: string;

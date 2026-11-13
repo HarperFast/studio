@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
+import { RECORD_LOCKS_MIN_VERSION, supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
@@ -60,6 +61,7 @@ interface ClusterFormProps {
 	lockedOrganizationRegionIds: string[];
 	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
+	recordLocksOn?: boolean;
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
@@ -82,6 +84,7 @@ export function ClusterForm({
 	lockedOrganizationRegionIds,
 	partialUpgrade,
 	planTypes,
+	recordLocksOn = false,
 	regionLocationsColocated,
 	regionLocationsDedicated,
 	setSavedClusterState,
@@ -135,6 +138,14 @@ export function ClusterForm({
 		const isSelfManaged = data.deploymentDescription === 'Self-Hosted';
 		// A version edit submits neither regions nor instances, so a stale draft cannot block it.
 		if (mode === 'version') {
+			// The picker disables these, but one picked before the live read showed record locks on stays picked.
+			if (recordLocksOn && data.version && !supportsRecordLocks(data.version)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['version'],
+					message: `Record locks are on, so the cluster needs Harper ${RECORD_LOCKS_MIN_VERSION} or later.`,
+				});
+			}
 			return;
 		}
 		if (isSelfManaged) {
@@ -262,6 +273,7 @@ export function ClusterForm({
 		deploymentToPerformanceToPlan,
 		mode,
 		preexistingOrganizationRegionIds,
+		recordLocksOn,
 	]);
 
 	const form = useForm({
@@ -269,6 +281,12 @@ export function ClusterForm({
 		resolver: zodResolver(UpsertClusterSchema.superRefine(refineZod)),
 		defaultValues,
 	});
+
+	useEffect(function revalidateVersionWhenRecordLocksChange() {
+		if (mode === 'version') {
+			void form.trigger('version');
+		}
+	}, [form, mode, recordLocksOn]);
 
 	// useForm keeps the defaults it mounted with. When the version the cluster runs moves under an open Version page
 	// (an upgrade ending part way), an untouched picker follows it, so a re-run targets that version; a choice the user
@@ -584,6 +602,11 @@ export function ClusterForm({
 				version: formData.version,
 				organizationId,
 				regionPlans: plans,
+				// Only where central manager accepts it: a box ticked before switching to self-hosted or an
+				// older version stays in the form, hidden, and must not turn into a 400.
+				...(formData.recordLocks && !isSelfManaged && supportsRecordLocks(formData.version)
+					? { recordLocks: true }
+					: {}),
 				// Recorded so the cluster keeps its job wherever it is opened (a central-manager that predates the
 				// field drops it, which is why the browser remembers it too).
 				preset: presetToRecord,
@@ -713,6 +736,7 @@ export function ClusterForm({
 									harperVersions={harperVersions}
 									mode={mode}
 									partialUpgrade={partialUpgrade}
+									recordLocksOn={recordLocksOn}
 									regionLocations={regionLocations}
 									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}

@@ -4,10 +4,34 @@ import { nextObservationStamp, syncRestartsFromCluster } from '@/lib/restart/res
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { QueryClient, queryOptions } from '@tanstack/react-query';
 
+const answeredReadRequestedAt = new Map<string, number>();
+// A pending save asks only about reads since itself, and its page polls, so a pruned cluster just waits
+// for its next read. Without the bound every cluster ever read stays for the life of the tab.
+const READ_WATERMARK_HORIZON_MS = 10 * 60_000;
+
+/** Notes when the newest answered read of a cluster was requested, which says more than when it landed. */
+export function recordClusterRead(clusterId: string, requestedAt: number) {
+	for (const [id, at] of answeredReadRequestedAt) {
+		if (at < requestedAt - READ_WATERMARK_HORIZON_MS) {
+			answeredReadRequestedAt.delete(id);
+		}
+	}
+	answeredReadRequestedAt.set(clusterId, Math.max(requestedAt, answeredReadRequestedAt.get(clusterId) ?? -Infinity));
+}
+
+export function forgetClusterReadsForTests() {
+	answeredReadRequestedAt.clear();
+}
+
+export function clusterReadRequestedSince(clusterId: string, since: number): boolean {
+	return (answeredReadRequestedAt.get(clusterId) ?? -Infinity) >= since;
+}
+
 export async function getClusterInfo(clusterId: string) {
 	const requestedAt = nextObservationStamp();
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
 	syncRestartsFromCluster(data as Cluster, requestedAt);
+	recordClusterRead(clusterId, requestedAt);
 	return data as Cluster;
 }
 

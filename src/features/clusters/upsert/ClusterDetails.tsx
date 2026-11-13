@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
 import { DialogFooter } from '@/components/ui/dialog';
 import { clusterPresetsEnabled } from '@/config/constants';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
+import { RECORD_LOCKS_MIN_VERSION, supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
@@ -10,9 +11,11 @@ import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
 import { ClusterPreset } from '@/features/clusters/upsert/fields/ClusterPreset';
+import { ClusterRecordLocks } from '@/features/clusters/upsert/fields/ClusterRecordLocks';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { Link } from '@tanstack/react-router';
 import { ArrowRight, Layers3, Server, Sparkles } from 'lucide-react';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
@@ -36,6 +39,7 @@ interface ClusterDetailsProps {
 	isPending: boolean;
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
+	recordLocksOn: boolean;
 	regionLocations: SchemaRegion[] | undefined;
 	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
@@ -62,6 +66,7 @@ export function ClusterDetails({
 	isPending,
 	mode,
 	partialUpgrade,
+	recordLocksOn,
 	regionLocations,
 	regionLookup,
 	regionNameToLatencyToRegion,
@@ -139,6 +144,9 @@ export function ClusterDetails({
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
+	const selectedVersion = form.watch('version');
+	const versionsHeldBackByRecordLocks = recordLocksOn
+		&& !!harperVersions?.value?.some(version => !supportsRecordLocks(version.version));
 
 	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
 	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried. Not
@@ -186,7 +194,17 @@ export function ClusterDetails({
 							className="col-span-3"
 							form={form}
 							harperVersions={harperVersions}
+							recordLocksOn={recordLocksOn}
 						/>
+						{versionsHeldBackByRecordLocks && (
+							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-muted-foreground">
+								Record locks are on, and they need Harper {RECORD_LOCKS_MIN_VERSION}{' '}
+								or later. To move to an older version, turn them off on the{' '}
+								<Link className="underline" to={`/${organizationId}/${clusterId}/record-locks`}>Record Locks page</Link>
+								{' '}
+								first.
+							</p>
+						)}
 						<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
 						{partialUpgrade && (
 							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
@@ -249,6 +267,9 @@ export function ClusterDetails({
 							{isSelfManaged
 								? <ClusterFQDN form={form} disabled={!!clusterId} />
 								: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
+							{!clusterId && !isSelfManaged && supportsRecordLocks(selectedVersion) && (
+								<ClusterRecordLocks className="col-span-3 md:col-span-6" form={form} />
+							)}
 						</CardContent>
 					</Card>
 					<Card className="min-w-0 gap-0 overflow-hidden py-0">

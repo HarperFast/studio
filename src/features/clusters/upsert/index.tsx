@@ -293,6 +293,8 @@ export function UpsertCluster() {
 				fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 				instances,
 				regionPlans,
+				// Try Again on a failed cluster keeps its record-lock choice. An edit never sends it.
+				recordLocks: clusterToLoad?.recordLocks === true,
 			},
 			unresolvedRegionIds,
 			draftDiscarded,
@@ -410,6 +412,7 @@ export function UpsertCluster() {
 				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
+				recordLocksOn={currentCluster?.recordLocks === true}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
