@@ -42,7 +42,6 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	// name (e.g. `anvils`, or an imported app under "Imported Applications").
 	const isApplicationRoot = !!entry && isDirectory(entry) && entry.path === entry.project;
 	const canEditFile = !!entry && !isDirectory(entry) && !isReadOnlyPackage && canRead && canWrite;
-	// A rename reads the source, writes the destination, then drops the source.
 	const canRename = !!entry && !isReadOnlyPackage && !isApplicationRoot && canRead && canWrite && canDrop;
 	const canAddEntries = !!entry && !isReadOnlyPackage && canWrite;
 	const canAddTable = !!entry && entry.path.endsWith('.graphql') && canRead && canWrite;

@@ -724,7 +724,6 @@ class AuthStore {
 				this.fabricConnectAuth.delete(id);
 				this.bumpConnectionGeneration(id);
 			}
-			// A request the sign-out cut short fails like any other; report it as the sign-out.
 			throwIfSignedOut(err);
 			throw err;
 		}

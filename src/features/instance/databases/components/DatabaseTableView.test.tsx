@@ -142,7 +142,6 @@ const describeTableData = vi.hoisted(() => ({ current: undefined as InstanceTabl
 // off the page the way an invalidation or a focus refetch does.
 const pageRows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
 const schemaRelationshipMap = vi.hoisted(() => ({ current: undefined as SchemaRelationshipMap | undefined }));
-// Whether each record query was allowed to run, so a test can tell "not sent" from "came back empty".
 const recordQueries = vi.hoisted(() => ({ enabled: [] as unknown[], schemaDiscoveryEnabled: [] as unknown[] }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {

@@ -41,7 +41,6 @@ export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: Insta
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	// A read-only Fabric Connect session reaches the pages its operations allowlist covers; a super user reaches all.
 	const permission = useInstanceAuth(useInstanceClientIdParams().entityId).user?.role?.permission;
 	const canRun = (operation: string) => checkInstanceOperationAllowed(permission, operation, version) === true;
 	const canBrowseComponents = canRun('get_components');
@@ -104,8 +103,7 @@ export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: Insta
 				icon: <ExtensionIcon name={page.icon} className="inline-block" />,
 				name: page.name,
 			})),
-			// Config is a super-user page, except that a component can add an entry a lesser role may open, and a
-			// read-only session may list deployments; then Config holds just those entries for them.
+			// Config is a super-user page, except for the entries a lesser role may open.
 			(canManage || canListDeployments || extensionConfigEntries.length > 0) && {
 				key: 'config',
 				to: buildAbsoluteLinkToPage(params, 'config'),

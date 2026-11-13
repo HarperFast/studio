@@ -115,7 +115,6 @@ export function ConfigIndex() {
 				trustPoliciesSupported && { name: 'Trust Policies', page: 'config/trust-policies', icon: <BadgeCheckIcon /> },
 				{ name: 'Users', page: 'config/users', icon: <UsersIcon /> },
 			].filter(excludeFalsy)
-			// A read-only Fabric Connect session may list deployments and nothing else built in here.
 			: canListDeployments && deploymentsAvailable
 			? [{ name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> }]
 			: []),
@@ -146,9 +145,8 @@ export function ConfigIndex() {
 	if (!canManage && canListDeployments === undefined) {
 		return <Loading centered text="Loading..." />;
 	}
-	// A lesser role reaches only its entries here: the Overview and every other page run operations only a manager
-	// may, so the index or a deep link elsewhere opens their first entry, or leaves Config when they have none,
-	// before those queries start. The router matches `config/` to the same index.
+	// The Overview and the other built-in pages run operations only a manager may. The router matches `config/` to the
+	// same index.
 	const onEntry = entries.some((entry) => isAtOrUnder(pathname, buildAbsoluteLinkToPage(params, entry.page)));
 	if (!canManage && !onEntry) {
 		const to = entries.length > 0 ? buildAbsoluteLinkToPage(params, entries[0].page) : buildAbsoluteLinkToPage(params);

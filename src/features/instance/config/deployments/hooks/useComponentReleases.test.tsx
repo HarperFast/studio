@@ -10,12 +10,16 @@ const state = vi.hoisted(() => ({
 	releases: [] as Array<() => Promise<unknown>>,
 	params: {} as { entityId: string; entityType: string; instanceClient: object },
 	retried: undefined as Promise<unknown> | undefined,
+	canListReleases: true,
 }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => state.params }));
 const clusterA = { entityId: 'clu-a', entityType: 'cluster', instanceClient: { post: state.post } };
 state.params = clusterA;
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useReleaseTrackingAvailable: () => true,
+}));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => operation !== 'list_releases' || state.canListReleases,
 }));
 
 import { useComponentReleases, useRecheckRelease, useReleaseCheck, useRetryReleases } from './useComponentReleases';
@@ -54,6 +58,7 @@ afterEach(() => {
 	state.post.mockClear();
 	state.releases = [];
 	state.params = clusterA;
+	state.canListReleases = true;
 	state.newest = { deployments: [{ deployment_id: 'v3', project: 'web', status: 'success' }], total: 3 };
 });
 
@@ -79,6 +84,18 @@ async function newestChanges(queryClient: QueryClient, status: string, activated
 }
 
 describe('useComponentReleases', () => {
+	it('asks nothing of a session whose token cannot list releases, such as a read-only one', async () => {
+		state.canListReleases = false;
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<Panel />
+			</QueryClientProvider>,
+		);
+		expect(screen.getByTestId('panel').textContent).toBe('unsupported');
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect(state.post).not.toHaveBeenCalled();
+	});
+
 	it('asks the nodes once when it mounts, however many views read it and however the list loads', async () => {
 		await renderBoth();
 		expect(releaseCalls()).toBe(1);
