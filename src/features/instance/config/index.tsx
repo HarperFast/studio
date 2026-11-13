@@ -9,6 +9,7 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
+import { supportsMcp } from '@/integrations/api/instance/mcp/mcpConfig';
 import { supportsModels } from '@/integrations/api/instance/models/models';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
@@ -31,6 +32,7 @@ import {
 	KeyIcon,
 	LockIcon,
 	PieChartIcon,
+	PlugIcon,
 	RocketIcon,
 	ShieldCheckIcon,
 	SparklesIcon,
@@ -69,6 +71,7 @@ export function ConfigIndex() {
 	const deployFromGitHubSupported = supportsCiDeploy(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
 	const modelsSupported = supportsModels(version);
+	const mcpSupported = supportsMcp(version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -96,6 +99,7 @@ export function ConfigIndex() {
 				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
 				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
 				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
+				mcpSupported && { name: 'MCP Server', page: 'config/mcp', icon: <PlugIcon /> },
 				previewsSupported && { name: 'Previews', page: 'config/previews', icon: <GitPullRequestIcon /> },
 				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
 				scheduledJobsSupported

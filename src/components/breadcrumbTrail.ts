@@ -23,6 +23,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 	'Ai Models': 'AI Models',
 	'Apis': 'APIs',
 	'Deploy From Github': 'Deploy from GitHub',
+	'Mcp': 'MCP Server',
 };
 
 /**

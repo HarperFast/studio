@@ -414,6 +414,49 @@ describe('useRollingConfigUpdate on clusters that must not replicate', () => {
 });
 
 describe('useRollingConfigUpdate outcome reporting', () => {
+	it("names Harper's own reason when it refuses the configuration", async () => {
+		useCluster([instance('ins-a', '5.3.6'), instance('ins-b', '5.3.6')]);
+		vi.mocked(setConfiguration).mockRejectedValue(
+			new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+				status: 400,
+				data: { error: 'Unable to update config, unrecognized config parameter: mcp_operations_enabled' },
+			} as never),
+		);
+
+		await save();
+
+		expect(vi.mocked(restartInstance)).not.toHaveBeenCalled();
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain(
+			'Harper refused the change: Unable to update config, unrecognized config parameter: mcp_operations_enabled',
+		);
+	});
+
+	it('names no refusal for a write that failed for another reason', async () => {
+		useCluster([instance('ins-a', '5.3.6')]);
+		vi.mocked(setConfiguration).mockRejectedValue(
+			new AxiosError('Request failed with status code 403', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+				status: 403,
+				data: { error: 'This operation is restricted to super users' },
+			} as never),
+		);
+
+		await save();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).not.toContain('Harper refused the change');
+	});
+
+	it('names no refusal when only a restart failed', async () => {
+		useCluster([instance('ins-a', '5.1.29'), instance('ins-b', '5.1.29')]);
+		vi.mocked(restartInstance).mockRejectedValue(new Error('did not come back'));
+
+		await save();
+
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).not.toContain('Harper refused the change');
+	});
+
 	it('reports a cluster with no instances as a failure, not a success', async () => {
 		useCluster([]);
 

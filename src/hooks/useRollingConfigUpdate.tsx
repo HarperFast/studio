@@ -20,8 +20,9 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { markRestarting } from '@/lib/restart/restartTracker';
 import { sleep } from '@/lib/sleep';
+import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
-import type { AxiosInstance } from 'axios';
+import { type AxiosInstance, isAxiosError } from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -146,6 +147,7 @@ export function useRollingConfigUpdate(
 			let instancesUntouched: number | undefined;
 			let instancesStoppedOnNoVerdict = false;
 			let writtenBeforeCancel = false;
+			let refusal: string | undefined;
 
 			for (let i = 0; i < targets.length; i++) {
 				const { entityId, instanceClient, replicationFqdn } = targets[i];
@@ -165,6 +167,7 @@ export function useRollingConfigUpdate(
 				let restarted = false;
 				let restartSent = false;
 				let releaseTarget: (() => void) | undefined;
+				let writing = false;
 				try {
 					// Make sure the instance is responding. Ungated, so an instance central manager already reports as
 					// restarting fails here instead of stalling the save.
@@ -177,10 +180,12 @@ export function useRollingConfigUpdate(
 					}
 
 					if (!replicationFqdn || !acknowledged.has(replicationFqdn.toLowerCase())) {
+						writing = true;
 						await setConfiguration({
 							...params,
 							instanceClient,
 						});
+						writing = false;
 						if (canceled) {
 							writtenBeforeCancel = true;
 							break;
@@ -220,6 +225,9 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
+					if (writing && isAxiosError(error) && error.response?.status === 400) {
+						refusal ??= describeError(error).message;
+					}
 					if (unanswered && restartSent) {
 						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
 						toast.loading(`Could Not Confirm Instance ${i + 1} of ${targets.length}`, {
@@ -321,6 +329,7 @@ export function useRollingConfigUpdate(
 								allInstances.length !== instancesRestarted
 								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 							].filter(excludeFalsy).shift() || ''))
+						+ (refusal ? `\nHarper refused the change: ${refusal}` : '')
 						+ (fanOutAttempted || writtenBeforeCancel ? '\n' + MAY_BE_PENDING : ''),
 					duration: 10_000,
 					action: {

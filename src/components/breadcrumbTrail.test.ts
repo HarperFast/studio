@@ -105,6 +105,10 @@ describe('breadcrumbTrail', () => {
 		expect(labels('/config/deploy-from-github', undefined, {}, NAMES)).toEqual(['Config', 'Deploy from GitHub']);
 		expect(labels('/config/ai-models', undefined, {}, NAMES)).toEqual(['Config', 'AI Models']);
 	});
+
+	it('names the MCP page as its menu entry does', () => {
+		expect(labels('/config/mcp', undefined, {}, NAMES)).toEqual(['Config', 'MCP Server']);
+	});
 });
 
 describe('paramSegments', () => {

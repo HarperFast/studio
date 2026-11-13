@@ -1,12 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-	DropdownMenu,
-	DropdownMenuCheckboxItem,
-	DropdownMenuContent,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdownMenu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -35,10 +27,10 @@ import {
 	STRUCTURE_USER_DDL_OPERATIONS,
 } from '@/integrations/api/localRolePermission';
 import { cn } from '@/lib/cn';
-import { groupBy } from '@/lib/groupBy';
 import { pluralize } from '@/lib/pluralize';
-import { ChevronDown, PlusIcon, XIcon } from 'lucide-react';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { XIcon } from 'lucide-react';
+import { useRef } from 'react';
+import { OperationsPicker } from './OperationsPicker';
 
 /**
  * Structured editor for a role's `permission.operations` allowlist (HarperFast/studio#1627).
@@ -187,7 +179,7 @@ export function OperationsAllowlistEditor({
 						))}
 					</div>
 
-					<OperationsPicker
+					<RoleOperationsPicker
 						grantable={grantable}
 						band={band}
 						selectedSet={selectedSet}
@@ -297,12 +289,7 @@ const NEEDS_5_3_TITLE = "This instance's Harper checks this operation under its 
 // out whitespace/quote garbage that could never be an operation name.
 const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
 
-/**
- * Grouped checkbox dropdown over the grantable catalog, borrowing the filter/typeahead handling
- * from `features/admin/regions/components/MultiSelect` (which fits chips of known options but not
- * category sections, super_user badges, or free-text names for component-registered operations).
- */
-function OperationsPicker({
+function RoleOperationsPicker({
 	grantable,
 	band,
 	selectedSet,
@@ -315,151 +302,64 @@ function OperationsPicker({
 	onToggle: (name: string) => void;
 	disabled?: boolean;
 }) {
-	const [open, setOpen] = useState(false);
-	const [filter, setFilter] = useState('');
-	const inputRef = useRef<HTMLInputElement>(null);
-	const contentRef = useRef<HTMLDivElement>(null);
-
-	// Radix focuses the menu (enabling its typeahead) on open; move focus to the filter input so
-	// the first keystrokes filter instead. The dropdown-menu primitive has no onOpenAutoFocus
-	// (unlike Dialog), hence the two rAFs: the first lets the portaled content mount, the second
-	// lands after Radix's own mount-autofocus so ours wins (same approach as MultiSelect).
-	useEffect(() => {
-		if (!open) {
-			return;
-		}
-		let inner = 0;
-		const outer = requestAnimationFrame(() => {
-			inner = requestAnimationFrame(() => inputRef.current?.focus());
-		});
-		return () => {
-			cancelAnimationFrame(outer);
-			cancelAnimationFrame(inner);
-		};
-	}, [open]);
-
-	const rawQuery = filter.trim();
-	const query = rawQuery.toLowerCase();
-	const filtered = query ? grantable.filter((operation) => operation.name.includes(query)) : grantable;
-	const byCategory = groupBy(filtered, 'category');
-
 	// Component-registered operations (5.2+) have instance-specific names no static catalog can
 	// know, so a filter miss that looks like an operation name is offered as a custom grant.
 	// Anything the catalog already speaks for stays out — groups, non-delegable ops, and alias
 	// spellings the picker deliberately withholds — as does a case variant of a known name, which
 	// validateOperations rejects. A catalog name this version merely predates is allowed through,
 	// since the server validates and may well accept it (backports).
-	const knownInfo = getOperationInfo(rawQuery);
-	// A miss that only differs in case from a name we know: the server would reject it, so offering
-	// it buys an opaque save error. A name we know exactly but this version predates is different —
-	// that one stays offered, since a backport may well accept it.
-	const caseVariantOfKnownName = !knownInfo
-		&& (isOperationGroupName(query) || OPERATION_CATALOG.some((operation) => operation.name === query));
-	const customCandidate = CUSTOM_OPERATION_PATTERN.test(rawQuery)
+	const customCandidate = (rawQuery: string) => {
+		const query = rawQuery.toLowerCase();
+		const knownInfo = getOperationInfo(rawQuery);
+		// A miss that only differs in case from a name we know: the server would reject it, so offering
+		// it buys an opaque save error. A name we know exactly but this version predates is different —
+		// that one stays offered, since a backport may well accept it.
+		const caseVariantOfKnownName = !knownInfo
+			&& (isOperationGroupName(query) || OPERATION_CATALOG.some((operation) => operation.name === query));
+		const offered = CUSTOM_OPERATION_PATTERN.test(rawQuery)
 			&& !isOperationGroupName(rawQuery)
 			&& !caseVariantOfKnownName
 			&& !knownInfo?.nonDelegable
 			&& !knownInfo?.aliasOf
 			&& gateVerdict(rawQuery, band) !== 'never'
 			&& !grantable.some((operation) => operation.name === rawQuery)
-			&& !selectedSet.has(rawQuery)
-		? rawQuery
-		: undefined;
-
-	// From the filter input the arrow keys must move into the list ourselves — Radix only does it
-	// when the keydown target is the content element. Printable keys stay ours, not typeahead's.
-	const onFilterKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			const items = contentRef.current?.querySelectorAll<HTMLElement>(
-				'[role="menuitemcheckbox"]:not([data-disabled])',
-			);
-			if (items?.length) {
-				(event.key === 'ArrowDown' ? items[0] : items[items.length - 1]).focus();
+			&& !selectedSet.has(rawQuery);
+		return offered
+			? {
+				name: rawQuery,
+				label: (
+					<>
+						Grant "<span className="font-mono">{rawQuery}</span>" {knownInfo
+							? '(listed for newer Harper versions — this instance may reject it)'
+							: '(component-registered operation)'}
+					</>
+				),
 			}
-			return;
-		}
-		if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
-			event.stopPropagation();
-		}
+			: undefined;
 	};
 
 	return (
-		<DropdownMenu
-			open={open}
-			onOpenChange={(next) => {
-				setOpen(next);
-				if (!next) {
-					setFilter('');
-				}
-			}}
-		>
-			<DropdownMenuTrigger asChild disabled={disabled}>
-				<Button type="button" variant="outline" className="w-full justify-between font-normal">
-					<span className="truncate text-muted-foreground">Add operations…</span>
-					<ChevronDown className="size-4 shrink-0 opacity-60" />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				ref={contentRef}
-				className="w-(--radix-dropdown-menu-trigger-width) max-h-72 overflow-y-auto"
-				align="start"
-			>
-				<input
-					ref={inputRef}
-					value={filter}
-					onChange={(event) => setFilter(event.target.value)}
-					onKeyDown={onFilterKeyDown}
-					placeholder="Filter operations…"
-					aria-label="Filter operations"
-					className="mb-1 w-full rounded-md border bg-transparent px-2 py-1 text-sm outline-none"
-				/>
-				{OPERATION_CATEGORIES.filter((category) => byCategory[category]).map((category) => (
-					<div key={category}>
-						<DropdownMenuLabel className="text-xs text-muted-foreground">{category}</DropdownMenuLabel>
-						{byCategory[category].map((operation) => (
-							<DropdownMenuCheckboxItem
-								key={operation.name}
-								checked={selectedSet.has(operation.name)}
-								onCheckedChange={() => onToggle(operation.name)}
-								// Keep the menu open across picks.
-								onSelect={(event) => event.preventDefault()}
-							>
-								<span className="flex-1 truncate font-mono text-xs">{operation.name}</span>
-								{gateVerdict(operation.name, band) === 'needs-5.3'
-									? (
-										<Badge variant="outline" title={NEEDS_5_3_TITLE}>
-											needs newer Harper
-										</Badge>
-									)
-									: operation.su && (
-										<Badge variant="warning" title="Normally requires super_user; listing it grants it to this role">
-											super_user
-										</Badge>
-									)}
-							</DropdownMenuCheckboxItem>
-						))}
-					</div>
-				))}
-				{customCandidate && (
-					<DropdownMenuCheckboxItem
-						checked={false}
-						onCheckedChange={() => onToggle(customCandidate)}
-						onSelect={(event) => event.preventDefault()}
-					>
-						<PlusIcon className="size-3" />
-						<span className="flex-1 truncate text-xs">
-							Grant "<span className="font-mono">{customCandidate}</span>" {knownInfo
-								? '(listed for newer Harper versions — this instance may reject it)'
-								: '(component-registered operation)'}
-						</span>
-					</DropdownMenuCheckboxItem>
-				)}
-				{filtered.length === 0 && !customCandidate && (
-					<div className="px-2 py-1.5 text-sm text-muted-foreground">No matching operations</div>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<OperationsPicker
+			operations={grantable}
+			categories={OPERATION_CATEGORIES}
+			selected={selectedSet}
+			onToggle={onToggle}
+			customCandidate={customCandidate}
+			triggerLabel="Add operations…"
+			disabled={disabled}
+			renderBadge={(operation) =>
+				gateVerdict(operation.name, band) === 'needs-5.3'
+					? (
+						<Badge variant="outline" title={NEEDS_5_3_TITLE}>
+							needs newer Harper
+						</Badge>
+					)
+					: operation.su && (
+						<Badge variant="warning" title="Normally requires super_user; listing it grants it to this role">
+							super_user
+						</Badge>
+					)}
+		/>
 	);
 }
 
