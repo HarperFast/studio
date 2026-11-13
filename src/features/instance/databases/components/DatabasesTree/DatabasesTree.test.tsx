@@ -31,6 +31,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 	useInstanceBrowseManagePermission: () => permission.canManage,
 	useInstanceSchemaTablePermission: () => true,
 	useInstanceImportDataPermission: () => true,
+	useInstanceSchemaTableReadDenied: () => false,
 }));
 
 const exportCsv = vi.hoisted(() => vi.fn());

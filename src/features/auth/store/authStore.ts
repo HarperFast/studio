@@ -1,6 +1,7 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { DirectConnectionRequiredError, isScopedOperationToken } from '@/features/auth/scopedOperationToken';
 import {
 	forgetAllEntitySettings,
 	forgetEntitySettings,
@@ -652,9 +653,9 @@ class AuthStore {
 		operationsUrl: string | null | undefined,
 	): Promise<LocalUser> {
 		const signOutGeneration = this.getSignOutGeneration(id);
-		const throwIfSignedOut = () => {
+		const throwIfSignedOut = (cause?: unknown) => {
 			if (this.getSignOutGeneration(id) !== signOutGeneration) {
-				throw new SignedOutWhileConnectingError();
+				throw new SignedOutWhileConnectingError({ cause });
 			}
 		};
 		let claimedGeneration: number | undefined;
@@ -698,6 +699,12 @@ class AuthStore {
 				}
 			}
 
+			// Central-manager proxies only the mint for a scoped (read-only) token's holder, so routing every
+			// operation through it would fail each one.
+			if (isScopedOperationToken(operationToken)) {
+				throw new DirectConnectionRequiredError(isDirectOperationsUrl(operationsUrl) ? 'unreachable' : 'noAddress');
+			}
+
 			// Proxy fallback: route every operation through the central-manager proxy.
 			claim({ mode: 'proxy' });
 			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
@@ -717,6 +724,8 @@ class AuthStore {
 				this.fabricConnectAuth.delete(id);
 				this.bumpConnectionGeneration(id);
 			}
+			// A request the sign-out cut short fails like any other; report it as the sign-out.
+			throwIfSignedOut(err);
 			throw err;
 		}
 	}
@@ -1164,8 +1173,8 @@ class AuthStore {
 }
 
 class SignedOutWhileConnectingError extends Error {
-	constructor() {
-		super('Signed out before Fabric Connect finished connecting.');
+	constructor(options?: ErrorOptions) {
+		super('Signed out before Fabric Connect finished connecting.', options);
 		this.name = 'SignedOutWhileConnectingError';
 	}
 }

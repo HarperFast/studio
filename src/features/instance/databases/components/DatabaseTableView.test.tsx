@@ -17,6 +17,8 @@ const permissionState = vi.hoisted(() => ({
 	canImportFromFile: true,
 	allowedSources: ['csv-data', 'csv-url', 'json-records'] as string[],
 	canDeleteRecords: true,
+	readDenied: false,
+	componentFileAccess: true as boolean | undefined,
 }));
 
 // Stable references: the component keys effects off these objects' identity, and the real
@@ -50,7 +52,13 @@ vi.mock('@/integrations/api/instance/database/cleanupOrphanBlobs', () => ({
 	useCleanupOrphanBlobsMutation: () => ({ mutate: cleanupOrphanBlobs.mutate, isPending: cleanupOrphanBlobs.isPending }),
 }));
 
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: () => true,
+	useInstanceOperationAccess: (operation: string) =>
+		operation !== 'get_component_file' || permissionState.componentFileAccess,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceSchemaTableReadDenied: () => permissionState.readDenied,
 	useInstanceBrowseManagePermission: () => permissionState.canManageBrowseInstance,
 	useInstanceImportDataPermission: () => true,
 	useInstanceImportCapabilities: () => ({
@@ -87,13 +95,15 @@ const tableViewSelection = vi.hoisted(() => ({
 	current: undefined as TableRowSelection | undefined,
 }));
 const tableViewResultSet = vi.hoisted(() => ({ current: '' }));
+const tableViewData = vi.hoisted(() => ({ current: undefined as unknown[] | undefined }));
 
 // Only the component is stubbed: `rowSelectionKey` is the real helper deciding which rows this
 // component can address, and the derived-selection tests below turn on it behaving as shipped.
 vi.mock('./TableView', async (importOriginal) => ({
 	...await importOriginal<typeof import('./TableView')>(),
-	TableView: ({ columns, emptyState, rowSelection, resultSetKey }: {
+	TableView: ({ columns, data, emptyState, rowSelection, resultSetKey }: {
 		columns: { accessorKey?: string }[];
+		data?: unknown[];
 		emptyState?: React.ReactNode;
 		rowSelection?: TableRowSelection;
 		resultSetKey: string;
@@ -101,6 +111,7 @@ vi.mock('./TableView', async (importOriginal) => ({
 		tableViewColumns.current = columns;
 		tableViewSelection.current = rowSelection;
 		tableViewResultSet.current = resultSetKey;
+		tableViewData.current = data;
 		// Rendering the slot is what lets a test follow a card click through to the launch it fires.
 		return <>{emptyState}</>;
 	},
@@ -131,19 +142,28 @@ const describeTableData = vi.hoisted(() => ({ current: undefined as InstanceTabl
 // off the page the way an invalidation or a focus refetch does.
 const pageRows = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
 const schemaRelationshipMap = vi.hoisted(() => ({ current: undefined as SchemaRelationshipMap | undefined }));
+// Whether each record query was allowed to run, so a test can tell "not sent" from "came back empty".
+const recordQueries = vi.hoisted(() => ({ enabled: [] as unknown[], schemaDiscoveryEnabled: [] as unknown[] }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('@tanstack/react-query')>();
 	return {
 		...actual,
-		useQuery: (options: { queryKey: readonly unknown[] }) =>
-			options.queryKey.includes('describe_table')
+		useQuery: (options: { queryKey: readonly unknown[]; enabled?: unknown }) => {
+			if (options.queryKey.some((part) => part === 'search_by_value' || part === 'search_by_conditions')) {
+				recordQueries.enabled.push(options.enabled);
+			}
+			if (options.queryKey.includes('schema-relationships')) {
+				recordQueries.schemaDiscoveryEnabled.push(options.enabled);
+			}
+			return options.queryKey.includes('describe_table')
 				? { data: describeTableData.current, isFetching: false, isError: false }
 				: options.queryKey.includes('search_by_value')
 				? { data: { data: pageRows.current }, isFetching: false, isError: false }
 				: options.queryKey.includes('schema-relationships')
 				? { data: schemaRelationshipMap.current, isFetching: false, isError: false }
-				: { data: undefined, isFetching: false, isError: false, refetch: vi.fn() },
+				: { data: undefined, isFetching: false, isError: false, refetch: vi.fn() };
+		},
 	};
 });
 
@@ -164,9 +184,14 @@ afterEach(() => {
 	permissionState.canImportFromFile = true;
 	permissionState.allowedSources = ['csv-data', 'csv-url', 'json-records'];
 	permissionState.canDeleteRecords = true;
+	permissionState.readDenied = false;
+	permissionState.componentFileAccess = true;
+	recordQueries.enabled = [];
+	recordQueries.schemaDiscoveryEnabled = [];
 	tableViewColumns.current = [];
 	tableViewSelection.current = undefined;
 	tableViewResultSet.current = '';
+	tableViewData.current = undefined;
 	instanceClientState.entityId = 'instance-1';
 	pageRows.current = [];
 	schemaRelationshipMap.current = undefined;
@@ -706,5 +731,27 @@ describe('DatabaseTableView asking before an action', () => {
 
 		expect(question(/^Delete/)).toBeNull();
 		expect(deleteRecords.mutate).not.toHaveBeenCalled();
+	});
+
+	it('skips reading component schemas for relationships when the session cannot read component files', () => {
+		permissionState.componentFileAccess = false;
+		renderView();
+
+		expect(recordQueries.schemaDiscoveryEnabled.length).toBeGreaterThan(0);
+		expect(recordQueries.schemaDiscoveryEnabled.every((enabled) => enabled === false)).toBe(true);
+	});
+
+	it('sends no record query for a table the session cannot read, and says why instead of showing it empty', () => {
+		permissionState.readDenied = true;
+		describeTableData.current = dogTable;
+		pageRows.current = [{ id: 42 }];
+		renderView();
+
+		expect(recordQueries.enabled.length).toBeGreaterThan(0);
+		expect(recordQueries.enabled.every((enabled) => enabled === false)).toBe(true);
+		expect(tableViewData.current).toEqual([]);
+		expect(screen.getByText('This connection can describe the table but not read its records.')).toBeTruthy();
+		openTableOptions();
+		expect(exportCsvItem()?.getAttribute('aria-disabled')).toBe('true');
 	});
 });

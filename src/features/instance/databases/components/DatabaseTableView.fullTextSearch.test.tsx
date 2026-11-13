@@ -59,9 +59,13 @@ vi.mock('@/config/useInstanceClient', () => {
 	return { useInstanceClientIdParams: () => params };
 });
 
-vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => false }));
+vi.mock('@/hooks/useAuth', () => ({
+	useStaffPermission: () => false,
+	useInstanceAuth: () => ({ user: { role: { permission: { super_user: true } } } }),
+}));
 vi.mock('@/hooks/usePermissions', () => ({
 	useInstanceBrowseManagePermission: () => true,
+	useInstanceSchemaTableReadDenied: () => false,
 	useInstanceImportDataPermission: () => true,
 	useInstanceImportCapabilities: () => ({
 		methods: { sample: true, file: true, url: true },

@@ -3,7 +3,7 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { isProtectedEntry } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { usePayloadBranchedDatabasesAvailable } from '@/features/instance/applications/hooks/useBranchedDatabases';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 
 export interface EntryActions {
 	/** Editable file (not a directory, not a read-only package). */
@@ -29,22 +29,28 @@ export interface EntryActions {
  * can't drift. Mirrors the gating previously inlined in ContentActions.
  */
 export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): EntryActions {
-	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const payloadBranchesAvailable = usePayloadBranchedDatabasesAvailable();
+	const canRead = useInstanceOperationPermission('get_component_file');
+	const canWrite = useInstanceOperationPermission('set_component_file');
+	const canDrop = useInstanceOperationPermission('drop_component');
+	const canDeploy = useInstanceOperationPermission('deploy_component');
+	const canPackage = useInstanceOperationPermission('package_component');
 
 	const isReadOnlyPackage = !!entry?.package;
 	const isProtected = isProtectedEntry(entry);
 	// An application root is the top-level directory whose path is just the project
 	// name (e.g. `anvils`, or an imported app under "Imported Applications").
 	const isApplicationRoot = !!entry && isDirectory(entry) && entry.path === entry.project;
-	const canEditFile = !!entry && !isDirectory(entry) && !isReadOnlyPackage && canManageBrowseInstance;
-	const canRename = !!entry && !isReadOnlyPackage && canManageBrowseInstance && !isApplicationRoot;
-	const canAddEntries = !!entry && !isReadOnlyPackage && canManageBrowseInstance;
-	const canAddTable = !!entry && entry.path.endsWith('.graphql') && canManageBrowseInstance;
-	const canDeleteEntry = !!entry && !isProtected && canManageBrowseInstance;
-	const canDownload = isApplicationRoot;
-	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !isProtected;
-	const canChangePrivateCopy = isApplicationRoot && !isReadOnlyPackage && !isProtected && payloadBranchesAvailable;
+	const canEditFile = !!entry && !isDirectory(entry) && !isReadOnlyPackage && canRead && canWrite;
+	// A rename reads the source, writes the destination, then drops the source.
+	const canRename = !!entry && !isReadOnlyPackage && !isApplicationRoot && canRead && canWrite && canDrop;
+	const canAddEntries = !!entry && !isReadOnlyPackage && canWrite;
+	const canAddTable = !!entry && entry.path.endsWith('.graphql') && canRead && canWrite;
+	const canDeleteEntry = !!entry && !isProtected && canDrop;
+	const canDownload = isApplicationRoot && canPackage;
+	const canRedeploy = isReadOnlyPackage && !isProtected && canDeploy;
+	const canChangePrivateCopy = isApplicationRoot && !isReadOnlyPackage && !isProtected && payloadBranchesAvailable
+		&& canDeploy;
 
 	return {
 		canEditFile,

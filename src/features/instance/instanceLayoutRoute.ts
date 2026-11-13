@@ -7,13 +7,16 @@ import {
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { redirectAwayFromDeletedCluster } from '@/features/cluster/redirectAwayFromDeletedCluster';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
+import { hasStaffPermission } from '@/hooks/useAuth';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { describeError } from '@/react-query/queryClient';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { toast } from 'sonner';
 import { registrationInfoLoader } from './registrationInfoLoader';
 
 export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance') {
@@ -65,7 +68,9 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	let attemptedEstablish = false;
 	if (authStore.checkForFabricConnect(entityId) && !authStore.hasResolvedFabricConnect(entityId)) {
 		attemptedEstablish = true;
-		if (await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId)) {
+		const reloadingUser = (context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined)?.user;
+		const readOnly = !!reloadingUser && connectionAccess(reloadingUser, params).readOnly;
+		if (await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly)) {
 			return;
 		}
 	}
@@ -96,10 +101,11 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 
 	// First visit: if the user can manage this entity, connect them via Fabric Connect automatically.
 	// Skip if we already tried above (e.g. reload with an unreachable proxy) to avoid a duplicate mint.
-	const { update } = params.instanceId
-		? getOrganizationClusterInstancePermissions(overallAuth.user, params.organizationId, params.clusterId)
-		: getOrganizationClusterPermissions(overallAuth.user, params.organizationId, params.clusterId);
-	if (!attemptedEstablish && update && await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId)) {
+	const { update, readOnly } = connectionAccess(overallAuth.user, params);
+	if (
+		!attemptedEstablish && (update || readOnly)
+		&& await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly)
+	) {
 		return;
 	}
 
@@ -109,11 +115,25 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	throw redirect({ to, search: buildRedirectInSearch() });
 }
 
-/** Establishes Fabric Connect auth, returning whether it succeeded. */
+function connectionAccess(
+	user: AuthenticatedCloudConnection['user'],
+	params: { organizationId: string; clusterId: string; instanceId?: string },
+): { update: boolean; readOnly: boolean } {
+	const { update } = params.instanceId
+		? getOrganizationClusterInstancePermissions(user, params.organizationId, params.clusterId)
+		: getOrganizationClusterPermissions(user, params.organizationId, params.clusterId);
+	return { update, readOnly: !update && hasStaffPermission(user, 'cluster:connectReadOnly') };
+}
+
+/**
+ * A read-only caller has no instance credentials to fall back on, so its failure is shown rather than
+ * left to the sign-in redirect.
+ */
 async function tryEstablishFabricConnect(
 	entityId: string,
 	cluster: Cluster | undefined,
 	instanceId: string | undefined,
+	reportFailure = false,
 ): Promise<boolean> {
 	try {
 		await authStore.establishFabricConnectAuth({
@@ -125,6 +145,10 @@ async function tryEstablishFabricConnect(
 		// Expected: the instance may be down, restarting, or unauthorized. The caller falls through to
 		// the sign-in redirect. Use debug so RUM doesn't forward it to Datadog (it only forwards errors).
 		console.debug('Fabric Connect not established', err);
+		if (reportFailure && (err as Error)?.name !== 'SignedOutWhileConnectingError') {
+			const { title, description } = describeError(err);
+			toast.error(`Read-only access unavailable: ${title}`, { description });
+		}
 		return false;
 	}
 }

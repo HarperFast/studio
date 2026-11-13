@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigDeploymentsIndex } from './index';
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
 
 const state = vi.hoisted(() => ({
 	version: undefined as string | undefined,

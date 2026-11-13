@@ -34,6 +34,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 import { EditorViewProvider } from './EditorViewProvider';
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
 
 const protectedRoot: DirectoryEntry = {
 	name: 'status-check',

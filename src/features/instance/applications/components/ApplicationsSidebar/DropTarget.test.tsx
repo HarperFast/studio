@@ -63,6 +63,7 @@ function mount() {
 		openedEntryContents: undefined,
 		setOpenedEntryContents: () => {},
 		openedEntryReadFailed: false,
+		canReadFiles: true,
 		focusedItem: undefined,
 		setFocusedItem: () => {},
 		expandedItems: [],

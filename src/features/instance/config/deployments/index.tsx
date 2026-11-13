@@ -8,7 +8,7 @@ import {
 	supportsReleaseTracking,
 	supportsStagedDeployments,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { DeploymentStatus } from '@/integrations/api/instance/deployments/types';
@@ -30,7 +30,7 @@ const ALL_STATUSES = 'all';
 
 export function ConfigDeploymentsIndex() {
 	const navigate = useNavigate();
-	const canManage = useInstanceManagePermission();
+	const canListDeployments = useInstanceOperationPermission('list_deployments');
 	const { deploymentId }: { deploymentId?: string } = useParams({ strict: false });
 	const { project, status: requestedStatus, sha: requestedSha, page = 1 }: DeploymentsSearch = useSearch({
 		strict: false,
@@ -73,7 +73,7 @@ export function ConfigDeploymentsIndex() {
 			sha,
 			limit: DEPLOYMENTS_PAGE_SIZE,
 			offset: (page - 1) * DEPLOYMENTS_PAGE_SIZE,
-			enabled: canManage && deploymentsAvailable,
+			enabled: canListDeployments && deploymentsAvailable,
 			pollWhileOpen: true,
 		}),
 	);
@@ -135,7 +135,7 @@ export function ConfigDeploymentsIndex() {
 		}
 	}, [project]);
 
-	if (!canManage) {
+	if (!canListDeployments) {
 		return (
 			<div className="p-2 text-sm text-muted-foreground">
 				Viewing deployments requires super-user permissions on this instance.

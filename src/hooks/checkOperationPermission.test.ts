@@ -4,6 +4,7 @@ import {
 	checkImportDataOperationsAllowed,
 	checkImportMethodAllowed,
 	checkImportSourceAllowed,
+	checkInstanceOperationAllowed,
 	checkSuperUserOperationAllowed,
 	checkTableActionAllowed,
 	IMPORT_METHODS,
@@ -234,5 +235,44 @@ describe('checkSuperUserOperationAllowed', () => {
 	it('refuses an allowlist that leaves the operation out', () => {
 		expect(checkSuperUserOperationAllowed(perm({ operations: ['deploy_component'] }), 'get_configuration')).toBe(false);
 		expect(checkSuperUserOperationAllowed(perm({ operations: [] }), 'get_configuration')).toBe(false);
+	});
+});
+
+describe('checkInstanceOperationAllowed', () => {
+	const readOnly = perm({
+		super_user: false,
+		cluster_user: false,
+		operations: ['read_log', 'get_components', 'get_status'],
+	});
+
+	it('lets a super user run anything', () => {
+		expect(checkInstanceOperationAllowed(perm({ super_user: true }), 'read_log', '5.3.0')).toBe(true);
+	});
+
+	it('grants a role only what its allowlist lists', () => {
+		expect(checkInstanceOperationAllowed(readOnly, 'read_log', '5.3.0')).toBe(true);
+		expect(checkInstanceOperationAllowed(readOnly, 'get_component_file', '5.3.0')).toBe(false);
+	});
+
+	it('grants nothing to a role without an allowlist, unlike checkAnyOperationAllowed', () => {
+		expect(checkInstanceOperationAllowed(perm({ structure_user: true }), 'read_log', undefined)).toBe(false);
+	});
+
+	it("has no answer while the user, or an allowlisted role's version, is loading", () => {
+		expect(checkInstanceOperationAllowed(undefined, 'read_log', '5.3.0')).toBeUndefined();
+		expect(checkInstanceOperationAllowed(readOnly, 'read_log', undefined)).toBeUndefined();
+		expect(checkInstanceOperationAllowed(perm({ super_user: true }), 'read_log', undefined)).toBe(true);
+	});
+
+	it('grants nothing on a version that could not be read', () => {
+		expect(checkInstanceOperationAllowed(readOnly, 'read_log', null)).toBe(false);
+	});
+
+	it('follows the gate on versions where a listing does not match', () => {
+		// get_status is unnamed before 5.3, so listing it grants nothing there.
+		expect(checkInstanceOperationAllowed(readOnly, 'get_status', '5.2.15')).toBe(false);
+		// An alias resolves to its canonical entry, so listing the alias grants nothing.
+		expect(checkInstanceOperationAllowed(perm({ operations: ['describe_database'] }), 'describe_database', '5.3.0'))
+			.toBe(false);
 	});
 });

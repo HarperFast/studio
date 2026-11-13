@@ -19,6 +19,7 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
@@ -52,6 +53,13 @@ export function RenameFileModal() {
 	}, [trigger]);
 
 	const { openedEntry, entryExists, reloadRootEntries, isSavingAnyFile } = useEditorView();
+	const { canRename } = useEntryActions(openedEntry);
+	// Shortcuts set the flag without checking; left set, it would open the dialog on a later entry.
+	useEffect(() => {
+		if (isModalOpen && !canRename) {
+			setWatchedValue('ShowRenameFileModal', false);
+		}
+	}, [isModalOpen, canRename]);
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const RenameFileSchema = z.object({
@@ -169,7 +177,7 @@ export function RenameFileModal() {
 	}, [closeModal, form]);
 
 	return (
-		<Dialog onOpenChange={closeModal} open={isModalOpen}>
+		<Dialog onOpenChange={closeModal} open={!!isModalOpen && canRename}>
 			<DialogContent
 				aria-describedby={undefined}
 				className="text-popover-foreground"

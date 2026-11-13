@@ -17,6 +17,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { forgetReplacedPath } from '@/features/instance/applications/lib/editorPathState';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
@@ -24,13 +25,19 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 import { confirmOverwrite } from './confirmOverwrite';
 
 export function AddDirectoryOrFileModal() {
 	const { value: type, trigger } = useWatchedValue('ShowAddDirectoryOrFileModalType', false);
+	const canWrite = useInstanceOperationPermission('set_component_file');
+	useEffect(() => {
+		if (type && !canWrite) {
+			setWatchedValue('ShowAddDirectoryOrFileModalType', false);
+		}
+	}, [type, canWrite]);
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowAddDirectoryOrFileModalType', false);
@@ -143,7 +150,7 @@ export function AddDirectoryOrFileModal() {
 	}, [closeModal, form]);
 
 	return (
-		<Dialog onOpenChange={closeModal} open={!!type}>
+		<Dialog onOpenChange={closeModal} open={!!type && canWrite}>
 			<DialogContent
 				aria-describedby={undefined}
 				className="text-popover-foreground"

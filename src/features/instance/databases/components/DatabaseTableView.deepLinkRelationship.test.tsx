@@ -27,6 +27,7 @@ const instance = vi.hoisted(() => ({
 	searches: [] as SearchBody[],
 	holdComponents: true,
 	releaseComponents: () => {},
+	componentFileAccess: true as boolean | undefined,
 }));
 
 function table(name: string, attributes: InstanceTable['attributes']): InstanceTable {
@@ -117,7 +118,12 @@ vi.mock('@/hooks/useAuth', () => ({
 	useStaffPermission: () => false,
 }));
 
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: () => true,
+	useInstanceOperationAccess: () => instance.componentFileAccess,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceSchemaTableReadDenied: () => false,
 	useInstanceBrowseManagePermission: () => true,
 	useInstanceImportDataPermission: () => true,
 	useInstanceImportCapabilities: () => ({
@@ -148,6 +154,7 @@ afterEach(() => {
 	cleanup();
 	instance.searches = [];
 	instance.holdComponents = true;
+	instance.componentFileAccess = true;
 });
 
 const newQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -176,6 +183,27 @@ describe('DatabaseTableView deep-linked filter on a relationship only the compon
 		expect(instance.searches).toEqual([]);
 
 		instance.releaseComponents();
+
+		await expectForeignKeySearch();
+	});
+
+	it('waits while it is unknown whether the session may read component files', async () => {
+		instance.holdComponents = false;
+		instance.componentFileAccess = undefined;
+		const queryClient = newQueryClient();
+		const view = () => (
+			<QueryClientProvider client={queryClient}>
+				<DatabaseTableView instanceDatabaseMap={databaseMap} databaseName="data" tableName="Book" />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view());
+		await screen.findByRole('cell', { name: 'b2' }, { timeout: 10_000 });
+		await act(async () => {});
+		expect(instance.searches).toEqual([]);
+		expect(fullScanQuestion()).toBeNull();
+
+		instance.componentFileAccess = true;
+		rerender(view());
 
 		await expectForeignKeySearch();
 	});

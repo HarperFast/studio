@@ -11,6 +11,7 @@ import {
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import {
 	branchStorageMessage,
 	describeBranchedDatabases,
@@ -22,11 +23,17 @@ import { pluralize } from '@/lib/pluralize';
 import { errorHandler } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash } from 'lucide-react';
-import { MouseEvent, useCallback, useMemo } from 'react';
+import { MouseEvent, useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
 export function DeleteDirectoryOrFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
+	const canDrop = useInstanceOperationPermission('drop_component');
+	useEffect(() => {
+		if (isModalOpen && !canDrop) {
+			setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
+		}
+	}, [isModalOpen, canDrop]);
 
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -172,7 +179,7 @@ export function DeleteDirectoryOrFileModal() {
 	}, [handleDeleteFolderOrFile]);
 
 	return (
-		<Dialog onOpenChange={closeModal} open={isModalOpen}>
+		<Dialog onOpenChange={closeModal} open={isModalOpen && canDrop}>
 			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<DialogHeader>
 					<DialogTitle>{action} {thing}</DialogTitle>

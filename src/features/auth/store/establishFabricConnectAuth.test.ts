@@ -88,6 +88,18 @@ describe('authStore.establishFabricConnectAuth', () => {
 		expect(createInstanceAuthenticationTokens).toHaveBeenCalledTimes(1);
 	});
 
+	it('reports a mint that fails after a sign-out as the sign-out', async () => {
+		const mintFailure = new Error('Network Error');
+		let rejectMint!: (error: Error) => void;
+		createInstanceAuthenticationTokens.mockReturnValue(new Promise((_, reject) => (rejectMint = reject)));
+
+		const connecting = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
+		authStore.signOutAllLocally();
+		rejectMint(mintFailure);
+
+		await expect(connecting).rejects.toMatchObject({ name: 'SignedOutWhileConnectingError', cause: mintFailure });
+	});
+
 	it('clears resolution and rethrows when no token can be obtained', async () => {
 		createInstanceAuthenticationTokens.mockRejectedValue(new Error('proxy unauthorized'));
 
@@ -228,5 +240,50 @@ describe('authStore.recoverExpiredOperationToken', () => {
 		expect(a).toBe('refreshed-token');
 		expect(b).toBe('refreshed-token');
 		expect(refreshInstanceOperationToken).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('authStore.establishFabricConnectAuth with a read-only (scoped) token', () => {
+	const scopedToken = [
+		'eyJhbGciOiJSUzI1NiJ9',
+		btoa(JSON.stringify({ sub: 'scoped-operation' })).replace(/=+$/, ''),
+		'sig',
+	]
+		.join('.');
+
+	beforeEach(() => {
+		getInstanceClient.mockImplementation(({ forceFabricConnect }: { forceFabricConnect?: boolean }) => ({
+			defaults: { baseURL: forceFabricConnect ? PROXY_URL : DIRECT_URL },
+		}));
+		// Central-manager returns no refresh token for a scoped mint.
+		createInstanceAuthenticationTokens.mockResolvedValue({ operationToken: scopedToken });
+	});
+
+	afterEach(() => {
+		authStore.flagForFabricConnect('ins-1', false);
+		localStorage.clear();
+		vi.clearAllMocks();
+	});
+
+	it('connects directly, like any other token', async () => {
+		getInstanceUserInfo.mockResolvedValue(directUser);
+
+		expect(await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL })).toBe(directUser);
+		expect(authStore.getOperationToken('ins-1')).toBe(scopedToken);
+	});
+
+	it('refuses the proxy fallback when the instance is unreachable, since central-manager would refuse it', async () => {
+		getInstanceUserInfo.mockRejectedValue(new Error('CORS'));
+
+		await expect(authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL }))
+			.rejects.toMatchObject({ name: 'DirectConnectionRequiredError' });
+		expect(getInstanceUserInfo).toHaveBeenCalledTimes(1);
+		expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(false);
+	});
+
+	it('refuses the proxy when there is no direct address at all, without blaming the network', async () => {
+		await expect(authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: PROXY_URL }))
+			.rejects.toMatchObject({ name: 'DirectConnectionRequiredError', message: expect.stringContaining('no address') });
+		expect(getInstanceUserInfo).not.toHaveBeenCalled();
 	});
 });

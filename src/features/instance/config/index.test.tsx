@@ -13,6 +13,7 @@ const { viewer, route, entries } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => viewer.canManage }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationAccess: () => false }));
 vi.mock('@/features/instance/extensions/ExtensionIcon', () => ({ ExtensionIcon: () => null }));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 	useVisibleExtensionPages: () => entries.pages,
