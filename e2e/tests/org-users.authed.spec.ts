@@ -58,9 +58,9 @@ test.describe('authenticated app', () => {
 				process.env.E2E_ALLOW_NO_ORG === '1',
 				'No organization resolved and E2E_ALLOW_NO_ORG=1 — treating this account as org-less.',
 			);
-			// Studio shows this in place of the picker when the orgs query returned none, which a new
-			// environment's test account hits first.
-			if (await page.getByRole('heading', { name: 'Create an organization' }).isVisible()) {
+			// A new environment's test account usually has no organization yet.
+			const newOrgPage = page.getByRole('heading', { name: 'Create an organization' });
+			if (await newOrgPage.waitFor({ timeout: 2_000 }).then(() => true, () => false)) {
 				throw new Error(
 					'Studio found no organization for this account: it shows "Create an organization" instead of '
 						+ 'the org picker. Add the account to an organization on this target, or pin '

@@ -151,7 +151,7 @@ is verified by signing in without bouncing to `/#/verifying`. Config: set
 only the mail sent to the address it signed up with: the Mailosaur server is shared by every lane and
 developer, so purging the whole server would delete another run's verification email mid-wait.
 
-Two operational gotchas:
+Three operational gotchas:
 
 - **Signup is domain-allowlisted.** central-manager `User.allowCreate` rejects signup (403)
   unless the email domain matches the `ALLOWLIST_EMAIL_DOMAINS` Configuration record. The
@@ -194,7 +194,8 @@ it does not depend on what any runner happens to check:
 - **Unresolvable organization** → failure (a broken post-login redirect or org picker looks exactly
   like "no org"). Opt out with `E2E_ALLOW_NO_ORG=1` for an account that genuinely has none.
 - **Signup 403** → failure (as likely an authz/WAF regression as the email-domain gate). Opt out
-  with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`.
+  with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`; the
+  opt-out covers only a `Forbidden` refusal, never reCAPTCHA's `Verification failed`.
 - **Org-users 403** → failure (as likely an authz regression as a provisioning gap). Opt out with
   `E2E_ALLOW_ORG_USERS_403_SKIP=1` once you've confirmed the account simply lacks users-view.
 
