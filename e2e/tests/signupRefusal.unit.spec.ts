@@ -1,9 +1,31 @@
 import { expect, test } from '@playwright/test';
-import { describeSignupRefusal, sentCaptchaToken } from './signupRefusal';
+import { describeSignupRefusal, sentCaptchaToken, signupRefusalCause } from './signupRefusal';
 
-// The bodies central-manager sends, verbatim apart from the title.
+// The body central-manager sends (stage, 2026-11-13), verbatim apart from the title.
 const refusal = (title: string) =>
 	JSON.stringify({ type: 'error:ClientError', code: 'ClientError', title, status: 403, instance: '/User/' });
+
+test.describe('signupRefusalCause', () => {
+	for (
+		const [label, body, cause] of [
+			['problem-details title', refusal('Verification failed'), 'captcha'],
+			['plain string', 'Verification failed', 'captcha'],
+			['JSON string', JSON.stringify('Verification failed'), 'captcha'],
+			['message field', JSON.stringify({ message: 'Verification failed' }), 'captcha'],
+			['mixed envelope', JSON.stringify({ title: 'Forbidden', detail: 'Verification failed' }), 'captcha'],
+			['allowlist title', refusal('Forbidden'), 'allowlist'],
+			['allowlist plain string', 'Forbidden', 'allowlist'],
+			['a page that mentions Forbidden', '<html>403 Forbidden</html>', 'other'],
+			['another title', refusal('Account locked'), 'other'],
+			['empty', '', 'other'],
+			['JSON null', 'null', 'other'],
+		] as const
+	) {
+		test(`${label} -> ${cause}`, () => {
+			expect(signupRefusalCause(body)).toBe(cause);
+		});
+	}
+});
 
 test.describe('describeSignupRefusal', () => {
 	test('a refused reCAPTCHA token points at the score threshold, not the allowlist', () => {
