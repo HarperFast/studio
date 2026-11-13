@@ -275,18 +275,13 @@ function generativeName(typed: string): string {
 	return typed.trim() || 'default';
 }
 
-/** The form an untouched edit of `stored` would hold, so a save can tell which fields were changed. */
 function untouchedForm(form: ModelForm, stored: unknown): ModelForm {
 	return isRecord(stored) && stored.backend === form.backend
 		? modelFormFromEntry(form.kind, form.name, stored)
 		: emptyModelForm(form.kind, form.backend);
 }
 
-/**
- * The first reason the form can't be saved, or nothing. `stored` is the entry being edited, absent
- * for a new one. Only what the user changed is checked, so an entry Harper already holds can be
- * saved back as it is.
- */
+/** Only what the user changed is checked, so an entry Harper already holds can be saved back as it is. */
 export function validateModelForm(
 	form: ModelForm,
 	{ block, stored }: { block: StoredRecord | undefined; stored?: unknown },
@@ -355,10 +350,10 @@ export function validateModelForm(
 }
 
 /**
- * The entry to store for a valid form. An edit that keeps the backend starts from the stored entry
- * and writes only the fields that were changed, so a saved key, and every setting the form has no
- * input for, goes back exactly as it was. Changing the backend starts over: Harper refuses an entry
- * carrying another backend's fields, and a key for one provider is no use to another.
+ * An edit that keeps the backend writes only the fields that were changed, so a saved key, and every
+ * setting the form has no input for, goes back exactly as it was. Changing the backend starts over:
+ * Harper refuses an entry carrying another backend's fields, and a key for one provider is no use to
+ * another.
  */
 export function buildModelEntry(form: ModelForm, stored?: unknown): StoredRecord {
 	const keepsStored = isRecord(stored) && stored.backend === form.backend ? stored : undefined;

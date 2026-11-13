@@ -1,6 +1,5 @@
 /**
- * Harper's AI model settings: the `models` block of the root config and the `/v1` API switch.
- * What Harper accepts, from which release, and why a save is a per-instance read-modify-write:
+ * What Harper accepts, from which release, and why a save goes instance by instance:
  * src/features/instance/config/aiModels/DESIGN.md.
  */
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
@@ -34,7 +33,7 @@ export const FABRIC_KEEPS_CUSTOMER_MODELS: boolean = false;
 export const MODEL_KINDS = ['embedding', 'generative', 'decision'] as const;
 export type ModelKind = typeof MODEL_KINDS[number];
 
-/** A stored entry, or a whole block, as Harper returned it. Nothing about its shape is assumed. */
+/** As Harper returned it: nothing about its shape is assumed. */
 export type StoredRecord = Record<string, unknown>;
 
 export function isRecord(value: unknown): value is StoredRecord {
