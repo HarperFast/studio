@@ -1,7 +1,3 @@
-/**
- * Shown on a field whose type can carry `@embed` or `@decide`, and on any field that already has
- * one, so a misplaced directive can be seen and removed.
- */
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';

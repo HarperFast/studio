@@ -167,6 +167,11 @@ describe('the edit form', () => {
 				['https:\\/me:hunter2@llm.example.com/v1', 'https:\\/llm.example.com/v1'],
 				['https:/\\/me:hunter2@llm.example.com/v1', 'https:/\\/llm.example.com/v1'],
 				['https://llm.example.com\\v1@x', 'https://llm.example.com\\v1@x'],
+				['https:\t//me:hunter2@llm.example.com/v1', 'https://llm.example.com/v1'],
+				['ht\ntps://me:hunter2@llm.example.com/v1', 'https://llm.example.com/v1'],
+				['\u0001https://me:hunter2@llm.example.com/v1', 'https://llm.example.com/v1'],
+				[' https://llm.example.com/v1', ' https://llm.example.com/v1'],
+				['foo://me:hunter2\\x@llm.example.com/v1', ''],
 				['https://llm.example.com', 'https://llm.example.com'],
 				['https:/me:hunter2@${LLM_HOST}/v1', 'https:/${LLM_HOST}/v1'],
 			]
@@ -178,6 +183,12 @@ describe('the edit form', () => {
 			undefined,
 		);
 		expect(JSON.stringify(listed)).not.toContain('hunter2');
+		const unread = summarizeModels(
+			{ generative: { local: { ...local, host: 'foo://me:hunter2\\x@llm.example.com/v1' } } },
+			undefined,
+		);
+		expect(unread.generative[0].details).toContainEqual({ label: 'Host', value: 'Not shown: it includes a sign-in' });
+		expect(JSON.stringify(unread)).not.toContain('hunter2');
 		expect(buildModelEntry(modelFormFromEntry('generative', 'local', local), local)).toEqual(local);
 	});
 

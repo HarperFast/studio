@@ -18,9 +18,7 @@ import { isFabricManaged, KIND_LABELS, storedEntry, withModelEntry } from './mod
 export interface ModelChange {
 	kind: ModelKind;
 	name: string;
-	/** The entry to store. Absent removes the model. */
 	entry?: StoredRecord;
-	/** The entry as the page loaded it. Absent for a new model. */
 	loaded?: unknown;
 }
 

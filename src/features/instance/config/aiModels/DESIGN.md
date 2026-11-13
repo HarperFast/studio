@@ -37,7 +37,8 @@ The page only ever renders [`summarizeModels`](modelEntries.ts), which says wher
 empty key input; leaving it empty keeps the stored key, which `buildModelEntry` copies from the
 stored entry without it passing through the form. A `user:password@` in a base URL or host is
 dropped before display, in the list and in the edit form alike: an untouched address saves the
-stored one back, and the form says a sign-in is there. A Fabric entry never shows where it points
+stored one back, and the form says a sign-in is there. An address `URL` still reads a sign-in from
+after that is hidden whole. A Fabric entry never shows where it points
 (host, base URL, region, organization) or anything about its key: only its name, backend and model,
 and the other models it names.
 

@@ -127,13 +127,34 @@ function text(value: unknown): string | undefined {
 }
 
 /**
- * An address without the `user:password@` in front of its host. Matched as text and never parsed, so
- * the rest is shown exactly as stored: Ollama's host needs no scheme, and an address can hold a
- * `${VAR}` that `URL` would refuse or rewrite. A password can hold an `@`, so everything up to the
- * last one before the path goes, after any number of slashes or backslashes.
+ * An address without the `user:password@` in front of its host. Matched as text, so the rest is shown
+ * exactly as stored: Ollama's host needs no scheme, and an address can hold a `${VAR}` that `URL`
+ * would refuse or rewrite. A password can hold an `@`, so everything up to the last one before the
+ * path goes, after any number of slashes or backslashes. `URL` skips tabs and line breaks anywhere
+ * and control characters at the start, so they are skipped here too. Empty when `URL` still finds a
+ * sign-in in what is left: an address this can't read is hidden whole.
  */
 function withoutCredentials(value: string): string {
-	return value.replace(/^\s*((?:[a-z][a-z0-9+.-]*:)?[\\/]+)?[^/\\?#]*@/i, '$1');
+	const unbroken = value.replace(/[\t\n\r]/g, '');
+	let start = 0;
+	while (start < unbroken.length && unbroken.charCodeAt(start) <= 0x20) {
+		start += 1;
+	}
+	const read = unbroken.slice(start);
+	const shown = read.replace(/^((?:[a-z][a-z0-9+.-]*:)?[\\/]+)?[^/\\?#]*@/i, '$1');
+	if (carriesSignIn(shown)) {
+		return '';
+	}
+	return shown === read ? value : shown;
+}
+
+function carriesSignIn(address: string): boolean {
+	try {
+		const url = new URL(address);
+		return url.username !== '' || url.password !== '';
+	} catch {
+		return false;
+	}
 }
 
 export function hidesUrlCredentials(value: unknown): boolean {
@@ -167,7 +188,7 @@ function summarize(
 		for (const [field, label] of [['host', 'Host'], ['baseUrl', 'Base URL'], ['region', 'Region']] as const) {
 			const value = text(entry[field]);
 			if (value) {
-				details.push({ label, value: withoutCredentials(value) });
+				details.push({ label, value: withoutCredentials(value) || 'Not shown: it includes a sign-in' });
 			}
 		}
 		const organization = text(entry.organization);
@@ -212,7 +233,6 @@ export interface ModelForm {
 	region: string;
 	/** A decision model's generative model. Empty means `default`. */
 	generative: string;
-	/** Names of other models of the same kind, separated by commas. */
 	fallback: string;
 }
 
