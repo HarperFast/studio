@@ -197,3 +197,47 @@ Before sending, it refuses what central manager would refuse, so the user gets a
 Failures stay on the page beside the control, for both domain changes and cluster edits, and the global toast is off
 for both mutations. Each mutation reports a real request failure to RUM itself, at mutation level, but not a refusal,
 which is Studio declining to send.
+
+## Record locks: the cluster holds the intent, each member holds what it runs
+
+Central manager writes the cluster's `recordLocks` before its background roll starts, and changes a member's own
+`recordLocks` only as it hands that member's restart to host manager
+([`updateCluster.js`](https://github.com/HarperFast/central-manager/blob/2581925f/src/resources/cluster/updateCluster.js#L992-L1033)).
+A roll that fails puts the member it stopped on back to its old value, marks it `FAILED`, returns the rest to `RUNNING`
+and the cluster to `RUNNING`. So [`recordLocksState`](recordLocks/recordLocksState.ts) reads a member that disagrees
+with the cluster as one the roll hasn't reached: `applying` while the cluster is `UPDATING`, `stopped` once it isn't.
+Re-sending the cluster's own value resumes a stopped roll and skips members already done, once every live member is
+`RUNNING` again.
+
+Every member can carry the new value while the last one, and the cluster, are still `UPDATING`: the value is stamped
+at handover, not when the restart finishes. So a save isn't seen through until the cluster runs again, and the page
+keeps polling while the cluster is `UPDATING`, whatever the members say. A roll the page watched (members disagreeing
+while the cluster updated) stays applying until the cluster runs, save or not. A page that never saw one doesn't
+assume it: an `UPDATING` cluster whose members all match may be running any other update, so it shows On or Off
+with the switch disabled until the cluster runs.
+
+The roll's `UPDATING` write starts before the PUT answers, but nothing waits for it, so a read right after a save can
+still find the cluster `RUNNING` with members disagreeing, exactly like a stopped roll. The page treats that picture
+as the roll starting until it sees the roll, sees a member that isn't `RUNNING` on a `RUNNING` cluster (a change
+can't start from that, so the roll already ran and stopped), or `ROLL_START_GRACE_MS` passes, the cluster isn't
+updating, and a read requested since the save has been answered (`clusterReadRequestedSince`: when it was requested,
+since one that only landed later may predate the save). Without that, a page whose reads all failed would fall back to
+the cached cluster from before the save. Those request times are kept for ten minutes per cluster. A stopped roll keeps
+polling, slower, so a recovered instance unlocks Try again without a reload. The save is kept in a module-level store
+(`pendingRecordLocksSaves`) that the page subscribes to, recorded at mutation level, so a save that settles after the
+page was left and opened again still reads as the roll starting rather than offering Try again over it.
+
+`recordLocksBlocker` mirrors only what central manager is certain to refuse, read from the same record: self-hosted, a
+cluster that isn't `RUNNING`, no instances, a live member that isn't `RUNNING`, and, when turning on, a member below
+5.3.0 or with a version `semver.valid` rejects. A 5.3.0 prerelease is below the floor (`semver.lt`). Turning off has no
+version check. Anything else it refuses, such as a maintenance drain, arrives as its own error beside the control.
+
+The setting goes in a PUT of its own: central manager answers 400 when `name`, `regionPlans`, `version`, `domainIds` or
+`generateDomainCerts` ride along. `skipGtmWait` may: the confirmation offers it as "Immediate restart", as the version
+update does, and central manager then restarts each member without draining it first. On create, `recordLocks` rides
+with the rest, and the form sends it only for a Fabric-hosted cluster on 5.3.0+, so a box ticked before switching to an
+older version or to self-hosted never becomes a 400. While record locks are on, the version picker disables versions
+below 5.3.0, which central manager would refuse.
+
+Nothing here can see whether a member runs the LMDB storage engine, where `lock()` doesn't work at all; central manager
+doesn't check that either, so the page says it instead.

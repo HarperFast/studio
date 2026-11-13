@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	describeWafAction,
@@ -33,6 +34,7 @@ import {
 	DEFAULT_WAF_SCORE_THRESHOLD,
 	isFabricStarterRule,
 	listWafRulesQueryOptions,
+	refetchWafRulesToRest,
 	supportsWaf,
 	useDropWafRule,
 	useSetWafMode,
@@ -41,7 +43,7 @@ import {
 	WafRule,
 	wafRuleDeferrals,
 } from '@/integrations/api/instance/waf/waf';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -63,13 +65,28 @@ function WafPage() {
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const supported = registrationInfo === undefined ? undefined : supportsWaf(registrationInfo.version);
-	const { data, isFetching, isError, refetch } = useQuery(
-		listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true }),
-	);
+	const listQuery = listWafRulesQueryOptions({ ...instanceParams, enabled: canManage && supported === true });
+	const { data, isFetching, isError, refetch } = useQuery(listQuery);
 	const onRefreshClick = useRefreshClick(refetch);
+	const queryClient = useQueryClient();
 
-	const { mutate: toggleRule, isPending: isTogglePending } = useToggleWafRule();
 	const { mutate: dropRule, isPending: isDropPending } = useDropWafRule();
+	const [rereading, setRereading] = useState<ReadonlyMap<string, number>>(new Map());
+	const onWritten = (id: string) => {
+		const settle = (step: number) =>
+			setRereading((current) => {
+				const next = new Map(current);
+				const count = (current.get(id) ?? 0) + step;
+				if (count > 0) {
+					next.set(id, count);
+				} else {
+					next.delete(id);
+				}
+				return next;
+			});
+		settle(1);
+		void refetchWafRulesToRest(queryClient, listQuery.queryKey, refetch).finally(() => settle(-1));
+	};
 	const [dialog, setDialog] = useState<{ target: WafRuleDialogTarget; session: number }>();
 	// Every open, close and reload starts a new session, and so does leaving the page: the form remounts
 	// on each, and a reload that comes back after any of them is dropped.
@@ -78,8 +95,7 @@ function WafPage() {
 		dialogSessions.current += 1;
 	}, []);
 	const [dropTarget, setDropTarget] = useState<WafRule>();
-	// Held through the refetch too, so a second click never acts on the row the write just replaced.
-	const busy = isTogglePending || isDropPending || isFetching;
+	const isLocked = (id: string) => (isDropPending && dropTarget?.id === id) || rereading.has(id);
 
 	const rules = useMemo(
 		() =>
@@ -116,14 +132,6 @@ function WafPage() {
 		);
 	}
 
-	// Per-call callbacks, dropped if the page unmounts, so a write never reports on the next cluster.
-	const onAlter = (rule: WafRule, patch: { shadow?: boolean; enabled?: boolean }, success: string) => {
-		toggleRule({ ...instanceParams, loaded: rule, patch }, {
-			onSuccess: () => toast.success(success),
-			onSettled: () => void refetch(),
-		});
-	};
-
 	const showDialog = (target?: WafRuleDialogTarget) => {
 		dialogSessions.current += 1;
 		setDialog(target && { target, session: dialogSessions.current });
@@ -151,7 +159,7 @@ function WafPage() {
 			onSuccess: () => toast.success(`Deleted firewall rule '${dropTarget.id}'`),
 			onSettled: () => {
 				setDropTarget(undefined);
-				void refetch();
+				onWritten(dropTarget.id);
 			},
 		});
 	};
@@ -194,10 +202,15 @@ function WafPage() {
 
 			<section className="flex flex-col gap-3" aria-label="Firewall rules">
 				<h3 className="text-base font-semibold">Rules</h3>
-				{isError
-					? <PageNotice>The firewall rules could not be loaded.</PageNotice>
-					: rules === undefined
-					? <Loading text="Loading..." />
+				{isError && (
+					<PageNotice>
+						{rules === undefined
+							? 'The firewall rules could not be loaded.'
+							: 'The firewall rules could not be reloaded, so this list may be out of date.'}
+					</PageNotice>
+				)}
+				{rules === undefined
+					? !isError && <Loading text="Loading..." />
 					: rules.length === 0
 					? <PageNotice>No firewall rules yet. Add one to start filtering requests.</PageNotice>
 					: (
@@ -206,15 +219,9 @@ function WafPage() {
 								<WafRuleCard
 									key={rule.id}
 									rule={rule}
-									disabled={busy}
-									onSetShadow={(shadow) =>
-										onAlter(
-											rule,
-											{ shadow },
-											shadow ? `'${rule.id}' is now watch-only` : `'${rule.id}' is now enforced`,
-										)}
-									onSetEnabled={(enabled) =>
-										onAlter(rule, { enabled }, `${enabled ? 'Enabled' : 'Disabled'} '${rule.id}'`)}
+									instanceParams={instanceParams}
+									locked={isLocked(rule.id)}
+									onWritten={() => onWritten(rule.id)}
 									onEdit={() => showDialog({ kind: 'edit', rule })}
 									onDelete={() => setDropTarget(rule)}
 								/>
@@ -228,14 +235,14 @@ function WafPage() {
 					key={dialog.session}
 					target={dialog.target}
 					onClose={() => showDialog()}
-					onFailed={() => void refetch()}
+					onFailed={() => (dialog.target.kind === 'edit' ? onWritten(dialog.target.rule.id) : void refetch())}
 					onReload={(id) => void reloadDialogRule(id)}
 					onSaved={(id) => {
 						toast.success(
 							dialog.target.kind === 'edit' ? `Saved firewall rule '${id}'` : `Added firewall rule '${id}'`,
 						);
 						showDialog();
-						void refetch();
+						onWritten(id);
 					}}
 				/>
 			)}
@@ -243,7 +250,7 @@ function WafPage() {
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={`firewall rule '${dropTarget?.id ?? ''}'`}
 				isModalOpen={dropTarget !== undefined}
-				setIsModalOpen={(open) => !open && setDropTarget(undefined)}
+				setIsModalOpen={(open) => !open && !isDropPending && setDropTarget(undefined)}
 				deletionConfirmed={onDropConfirmed}
 				deletionPending={isDropPending}
 				hideDataLossWarning
@@ -272,14 +279,24 @@ function WafRuleStatus({ rule, deferred }: { rule: WafRule; deferred: boolean })
 	return <Badge variant="success">{rule.action === 'score' ? 'Scoring' : 'Blocking'}</Badge>;
 }
 
-function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDelete }: {
+function WafRuleCard({ rule, instanceParams, locked, onWritten, onEdit, onDelete }: {
 	rule: WafRule;
-	disabled: boolean;
-	onSetShadow: (shadow: boolean) => void;
-	onSetEnabled: (enabled: boolean) => void;
+	instanceParams: InstanceClientIdConfig;
+	locked: boolean;
+	onWritten: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
 }) {
+	// Per card, because `mutate`'s own callbacks fire only for its latest call: one page-level hook would
+	// drop the result of an overlapping toggle on another rule.
+	const { mutate: toggleRule, isPending } = useToggleWafRule();
+	const disabled = locked || isPending;
+	const alter = (patch: { shadow?: boolean; enabled?: boolean }, success: string) => {
+		toggleRule({ ...instanceParams, loaded: rule, patch }, {
+			onSuccess: () => toast.success(success),
+			onSettled: () => onWritten(),
+		});
+	};
 	const deferrals = wafRuleDeferrals(rule);
 	const starter = isFabricStarterRule(rule);
 	const provenance = starter ? 'Added by Fabric when the cluster was created' : describeWafProvenance(rule);
@@ -311,7 +328,11 @@ function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDele
 							size="sm"
 							variant={watchOnly ? 'positiveOutline' : 'defaultOutline'}
 							disabled={disabled}
-							onClick={() => onSetShadow(!watchOnly)}
+							onClick={() =>
+								alter(
+									{ shadow: !watchOnly },
+									watchOnly ? `'${rule.id}' is now enforced` : `'${rule.id}' is now watch-only`,
+								)}
 							title={watchOnly
 								? `Matching requests will be ${rule.action === 'score' ? 'scored' : 'blocked'}, not just logged.`
 								: 'Matching requests will be logged as would-block and let through.'}
@@ -319,7 +340,12 @@ function WafRuleCard({ rule, disabled, onSetShadow, onSetEnabled, onEdit, onDele
 							{watchOnly ? (rule.action === 'score' ? 'Start scoring' : 'Start blocking') : 'Watch only'}
 						</Button>
 					)}
-					<Button size="sm" variant="defaultOutline" disabled={disabled} onClick={() => onSetEnabled(!enabled)}>
+					<Button
+						size="sm"
+						variant="defaultOutline"
+						disabled={disabled}
+						onClick={() => alter({ enabled: !enabled }, `${enabled ? 'Disabled' : 'Enabled'} '${rule.id}'`)}
+					>
 						{enabled ? 'Disable' : 'Enable'}
 					</Button>
 					<Button size="sm" variant="defaultOutline" disabled={disabled} onClick={onEdit}>

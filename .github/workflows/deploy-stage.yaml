@@ -30,6 +30,9 @@ jobs:
       # because every event this workflow accepts is trusted — see the `merge_group` note in
       # .github/deploying.md before adding a trigger here.
       contents: write
+    outputs:
+      version: ${{ steps.deploy.outputs.version }}
+      nodes: ${{ steps.deploy.outputs.nodes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,6 +49,7 @@ jobs:
           # A manual run does not release, so it skips this and builds once, in the deploy step.
           build: ${{ github.event_name == 'push' }}
       - name: Build and deploy
+        id: deploy
         uses: ./.github/actions/studio-deploy
         with:
           environment: stage
@@ -57,3 +61,33 @@ jobs:
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}
           cli-deploy-target: ${{ secrets.CLI_DEPLOY_TARGET }}
+
+  # Its own job so its own runner: e2e code never shares a machine with the deploy credentials.
+  e2e:
+    name: E2E against Stage
+    needs: deployToStage
+    runs-on: ubuntu-latest
+    # Must outlast the 10-minute build wait plus Playwright's 30-minute --global-timeout, or the
+    # Report step never runs.
+    timeout-minutes: 50
+    environment: e2e-stage
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run e2e against the deployed build
+        uses: ./.github/actions/studio-e2e
+        with:
+          environment: stage
+          base-url: https://stage.studio.harperfabric.com
+          expected-version: ${{ needs.deployToStage.outputs.version }}
+          node-hosts: ${{ needs.deployToStage.outputs.nodes }}
+          expected-peers: 1
+          user-email: ${{ secrets.PLAYWRIGHT_USER_EMAIL }}
+          user-password: ${{ secrets.PLAYWRIGHT_USER_PASSWORD }}
+          org-id: ${{ secrets.PLAYWRIGHT_ORG_ID }}
+          mailosaur-api-key: ${{ secrets.MAILOSAUR_API_KEY }}
+          mailosaur-server-id: ${{ secrets.MAILOSAUR_SERVER_ID }}

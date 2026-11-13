@@ -5,6 +5,8 @@
  * authenticate.
  */
 
+import { parseGitHubRepository } from '@/integrations/github/lookUpGitHubRepository';
+
 const SCHEME_PREFIX = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const SCP_LIKE = /^(?:[^@/]+@)?([^/:]+):/;
 const NON_SSH_SCHEMES = new Set(['http:', 'https:', 'git+http:', 'git+https:', 'git:']);
@@ -85,4 +87,18 @@ export function toSSHGitUrl(ref: string, sshHost: string): string | null {
 		return null;
 	}
 	return `git@${sshHost}:${path}${url.hash}`;
+}
+
+/**
+ * The GitHub repository a git import URL names, as `owner/name`: a github.com URL or remote, or one on the host alias of
+ * an SSH key whose hostname is github.com. A `#ref` after it is only the branch or tag the import installs.
+ */
+export function importedGitHubRepository(
+	ref: string,
+	sshKey?: { host?: string; hostname?: string },
+): string | undefined {
+	const url = ref.trim().replace(/#.*$/, '');
+	const host = extractGitUrlHost(url)?.toLowerCase();
+	const onAlias = !!host && host === sshKey?.host?.toLowerCase() && sshKey.hostname?.toLowerCase() === 'github.com';
+	return parseGitHubRepository(onAlias ? replaceGitUrlHost(url, 'github.com') : url);
 }

@@ -32,10 +32,20 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
 vi.mock('./ClusterForm', () => ({
-	ClusterForm: ({ defaultValues, startOffOnBilling }: {
+	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade, recordLocksOn }: {
 		defaultValues: { regionPlans: unknown };
 		startOffOnBilling: boolean;
-	}) => <output data-billing={startOffOnBilling}>{JSON.stringify(defaultValues.regionPlans)}</output>,
+		partialUpgrade: unknown;
+		recordLocksOn?: boolean;
+	}) => (
+		<output
+			data-billing={startOffOnBilling}
+			data-partial={JSON.stringify(partialUpgrade ?? null)}
+			data-record-locks={String(recordLocksOn)}
+		>
+			{JSON.stringify(defaultValues.regionPlans)}
+		</output>
+	),
 }));
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
@@ -54,6 +64,13 @@ vi.mock('@/features/clusters/queries/getRegionLocationsQuery', () => ({
 }));
 vi.mock('@/features/clusters/queries/getHarperVersionsQuery', () => ({
 	getHarperVersionsOptions: () => answer('versions', { value: [{ name: 'current', version: '5.3.2' }] }),
+}));
+const live = vi.hoisted(() => ({ cluster: undefined as unknown }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
+	getClusterInfoQueryOptions: () => ({
+		queryKey: ['cluster'],
+		queryFn: async () => live.cluster ?? new Promise(() => {}),
+	}),
 }));
 vi.mock('@/features/admin/organizationRegions/queries/getOrganizationRegions', () => ({
 	getOrganizationRegionsQueryOptions: () => answer('organizationRegions', []),
@@ -79,7 +96,10 @@ function renderUpsert() {
 	);
 }
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+	localStorage.clear();
+	live.cluster = undefined;
+});
 
 describe('UpsertCluster', () => {
 	it('retries a failed dedicated cluster from the dedicated catalog, where its regions are', async () => {
@@ -122,5 +142,62 @@ describe('UpsertCluster', () => {
 		expect(toast.warning).toHaveBeenCalledWith(
 			'Your saved cluster changes could not be restored. Please make them again.',
 		);
+	});
+
+	describe('on the Version page of a cluster with instances on two versions', () => {
+		const mixed = {
+			...dedicatedCluster,
+			status: 'RUNNING',
+			plans: [{ regionId: 'eu-ded', planId: 'plan-ded' }],
+			instances: [{ status: 'RUNNING', version: '5.3.2' }, { status: 'RUNNING', version: '5.3.0' }],
+		};
+
+		it('offers to re-run an upgrade that stopped part way', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: mixed as unknown as Cluster };
+			renderUpsert();
+
+			const partial = JSON.parse((await screen.findByRole('status')).getAttribute('data-partial')!);
+			expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
+		});
+
+		it('reads versions from the live record once the workflow holding it finishes', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = {
+				organization,
+				cluster: {
+					...mixed,
+					workflowId: 'wf-1',
+					instances: [{ status: 'RUNNING', version: '5.3.0' }, { status: 'RUNNING', version: '5.3.0' }],
+				} as unknown as Cluster,
+			};
+			let release: (cluster: unknown) => void = () => {};
+			live.cluster = new Promise((resolve) => (release = resolve));
+			renderUpsert();
+
+			await screen.findByRole('status');
+			release({ ...mixed, workflowId: null });
+			await vi.waitFor(() => {
+				const partial = JSON.parse(screen.getByRole('status').getAttribute('data-partial')!);
+				expect(partial).toMatchObject({ latest: '5.3.2', behindCount: 1 });
+			});
+		});
+
+		it('reads record locks from the live record, not the snapshot taken on navigation', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: { ...mixed, recordLocks: true } as unknown as Cluster };
+			live.cluster = { ...mixed, recordLocks: false };
+			renderUpsert();
+
+			await vi.waitFor(() => expect(screen.getByRole('status').getAttribute('data-record-locks')).toBe('false'));
+		});
+
+		it('does not while a workflow is still upgrading it', async () => {
+			route.params = { organizationId: 'org-1', clusterId: 'clu-1', mode: 'version' } as typeof route.params;
+			route.context = { organization, cluster: { ...mixed, workflowId: 'wf-1' } as unknown as Cluster };
+			renderUpsert();
+
+			expect((await screen.findByRole('status')).getAttribute('data-partial')).toBe('null');
+		});
 	});
 });

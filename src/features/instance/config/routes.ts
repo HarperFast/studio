@@ -1,15 +1,24 @@
+import { ConfigAiModelsIndex } from '@/features/instance/config/aiModels';
+import { ConfigBackupsIndex } from '@/features/instance/config/backups';
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
+import { ConfigDeployFromGitHubIndex } from '@/features/instance/config/deployFromGitHub';
+import { validateDeployFromGitHubSearch } from '@/features/instance/config/deployFromGitHub/deployFromGitHubSearch';
 import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
 import { validateDeploymentsSearch } from '@/features/instance/config/deployments/deploymentsSearch';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
+import { ConfigMcpIndex } from '@/features/instance/config/mcp';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
+import { ConfigPreviewsIndex } from '@/features/instance/config/previews';
+import { validatePreviewsSearch } from '@/features/instance/config/previews/previewsSearch';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigScheduledJobsIndex } from '@/features/instance/config/scheduledJobs';
 import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigTrustPoliciesIndex } from '@/features/instance/config/trustPolicies';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { ConfigWafIndex } from '@/features/instance/config/waf';
+import { extensionConfigPageComponent } from '@/features/instance/extensions/routes';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
 import { createRoute } from '@tanstack/react-router';
@@ -28,6 +37,20 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		head: () => ({ meta: [{ title: 'Overview — Harper Fabric' }] }),
 		component: ConfigOverviewIndex,
 		loader: registrationInfoLoader,
+	});
+
+	const instanceConfigAiModelsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ai-models',
+		head: () => ({ meta: [{ title: 'AI Models — Harper Fabric' }] }),
+		component: ConfigAiModelsIndex,
+	});
+
+	const instanceConfigBackupsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'backups',
+		head: () => ({ meta: [{ title: 'Backups — Harper Fabric' }] }),
+		component: ConfigBackupsIndex,
 	});
 
 	const instanceConfigRolesRoute = createRoute({
@@ -98,6 +121,37 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigDeploymentsIndex,
 	});
 
+	const instanceConfigDeployFromGitHubRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'deploy-from-github',
+		validateSearch: validateDeployFromGitHubSearch,
+		head: () => ({ meta: [{ title: 'Deploy from GitHub — Harper Fabric' }] }),
+		component: ConfigDeployFromGitHubIndex,
+	});
+
+	const instanceConfigPreviewsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'previews',
+		validateSearch: validatePreviewsSearch,
+		head: () => ({ meta: [{ title: 'Previews — Harper Fabric' }] }),
+		component: ConfigPreviewsIndex,
+	});
+
+	const instanceConfigMcpRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'mcp',
+		head: () => ({ meta: [{ title: 'MCP Server — Harper Fabric' }] }),
+		component: ConfigMcpIndex,
+	});
+
+	const instanceConfigScheduledJobsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'scheduled-jobs',
+		head: () => ({ meta: [{ title: 'Scheduled Jobs — Harper Fabric' }] }),
+		component: ConfigScheduledJobsIndex,
+		loader: registrationInfoLoader,
+	});
+
 	const instanceConfigSecretsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'secrets',
@@ -131,8 +185,21 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigCertificatesIndex,
 	});
 
+	const instanceConfigExtensionRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ext/$extensionKey',
+		head: () => ({ meta: [{ title: 'Config — Harper Fabric' }] }),
+		component: extensionConfigPageComponent,
+	});
+
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
+
+		instanceConfigExtensionRoute,
+
+		instanceConfigAiModelsRoute,
+
+		instanceConfigBackupsRoute,
 
 		instanceConfigRolesRoute,
 		instanceConfigRoleRoute,
@@ -147,8 +214,16 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		instanceConfigDeploymentsRoute,
 		instanceConfigDeploymentRoute,
 
+		instanceConfigDeployFromGitHubRoute,
+
+		instanceConfigPreviewsRoute,
+
+		instanceConfigMcpRoute,
+
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigScheduledJobsRoute,
 
 		instanceConfigSecretsRoute,
 		instanceConfigSecretRoute,

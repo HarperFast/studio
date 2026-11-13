@@ -6,6 +6,8 @@ import { DeploymentStatus, isTerminalDeploymentStatus, ListDeploymentsResponse }
 export interface ListDeploymentsParams extends InstanceClientIdConfig {
 	project?: string;
 	status?: DeploymentStatus;
+	/** The commit a record's `source` names, matched exactly (5.4.0-alpha.1+; an older Harper ignores it). */
+	sha?: string;
 	since?: number;
 	until?: number;
 	limit?: number;
@@ -28,6 +30,7 @@ export async function listDeployments({
 	instanceClient,
 	project,
 	status,
+	sha,
 	since,
 	until,
 	limit,
@@ -37,6 +40,7 @@ export async function listDeployments({
 		operation: 'list_deployments',
 		project,
 		status,
+		sha,
 		since,
 		until,
 		limit,
@@ -46,9 +50,9 @@ export async function listDeployments({
 }
 
 export function getDeploymentsQueryOptions(params: ListDeploymentsParams) {
-	const { entityId, project, status, since, until, limit, offset, pollWhileOpen } = params;
+	const { entityId, project, status, sha, since, until, limit, offset, pollWhileOpen } = params;
 	return queryOptions({
-		queryKey: [entityId, 'list_deployments', { project, status, since, until, limit, offset }] as const,
+		queryKey: [entityId, 'list_deployments', { project, status, sha, since, until, limit, offset }] as const,
 		queryFn: () => listDeployments(params),
 		retry: false,
 		enabled: params.enabled !== false,

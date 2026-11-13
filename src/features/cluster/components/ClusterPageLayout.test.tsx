@@ -53,6 +53,7 @@ describe(ClusterPageLayout, () => {
 			'Scaling /org-1/clu-1/edit',
 			'Version /org-1/clu-1/edit/version',
 			'Domains /org-1/clu-1/domains',
+			'Record Locks /org-1/clu-1/record-locks',
 			'Instances /org-1/clu-1/instances',
 		]);
 	});
@@ -69,7 +70,7 @@ describe(ClusterPageLayout, () => {
 	});
 
 	it('keeps every section of a FAILED cluster without terminatedAt, which may still be serving', async () => {
-		expect(await railFor({ status: 'FAILED' })).toHaveLength(6);
+		expect(await railFor({ status: 'FAILED' })).toHaveLength(7);
 	});
 
 	it('keeps only Overview for a removed self-hosted cluster', async () => {

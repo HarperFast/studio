@@ -2,12 +2,18 @@ import { Loading } from '@/components/Loading';
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { DeployProgress } from '@/features/instance/applications/components/DeployProgress/DeployProgress';
+import { describeCertification } from '@/features/instance/applications/components/DeployProgress/describeDeployOutcome';
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { deploymentRecordPath } from '@/features/instance/applications/hooks/useDeploymentRecordAction';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { explainDeployFailureText } from '@/integrations/api/instance/applications/explainDeployFailure';
 import { getDeploymentQueryOptions, getDeploymentStream } from '@/integrations/api/instance/deployments/getDeployment';
-import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import {
+	Deployment,
+	DeploymentPeerResult,
+	DeploymentStatus,
+	isTerminalDeploymentStatus,
+} from '@/integrations/api/instance/deployments/types';
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
 import { humanFileSize } from '@/lib/humanFileSize';
@@ -16,7 +22,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { describePeerInstall } from '../functions/describePeerInstall';
+import { describeReleasePrivateCopy, releasePrivateCopy } from '../functions/releasePrivateCopy';
+import { DeploymentSourceFields } from './DeploymentSource';
 import { DeploymentStatusBadge } from './deploymentStatusBadge';
+import { ReleasedRecordDetail } from './ReleasedRecordDetail';
 import { StagedReleaseDetail } from './StagedReleaseDetail';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -29,6 +38,48 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 			<span className="break-words text-sm">{value}</span>
 		</div>
 	);
+}
+
+const OUTCOME_TONE = { success: 'text-success', destructive: 'text-destructive', muted: 'text-muted-foreground' };
+
+// On a rolling deploy (5.4.0+) a node's staging status reads `success` before it takes the release, and even when it
+// never does: only its `activation` says whether it runs it. A record Harper ended `partial` without reaching a node
+// (an activation job that failed or was cut short) names it in `error.nodes` and records no activation for it.
+function peerOutcome(
+	peer: DeploymentPeerResult,
+	status: DeploymentStatus,
+): { label: string; tone: keyof typeof OUTCOME_TONE } {
+	const { activation } = peer;
+	if (activation) {
+		const reason = activation.error || activation.message;
+		return activation.activated
+			? { label: 'activated', tone: 'success' }
+			: { label: `not activated${reason ? `: ${reason}` : ''}`, tone: 'destructive' };
+	}
+	if (peer.status !== 'failed' && status === 'rolling_out') {
+		return { label: 'waiting to activate', tone: 'muted' };
+	}
+	if (peer.status !== 'failed' && status === 'partial') {
+		return { label: 'activation not confirmed', tone: 'destructive' };
+	}
+	const peerError = errorText(peer.error);
+	return {
+		label: `${peer.status ?? 'ok'}${peerError ? `: ${peerError}` : ''}`,
+		tone: peer.status === 'failed' ? 'destructive' : 'success',
+	};
+}
+
+/** A node's canary verdict, which Harper records only for a node that took the release. */
+function peerCertification(peer: DeploymentPeerResult) {
+	const certification = peer.activation?.activated ? peer.activation.certification : undefined;
+	return typeof certification === 'string' && certification ? describeCertification(certification) : undefined;
+}
+
+// A certified rollout's job records each other node's activation; the receiving node certified the release before the
+// job started, and only told the client that deployed (harper `v5.4.0-beta.2:components/operations.ts:1256`).
+function isCertifiedRollout(deployment: Deployment): boolean {
+	return deployment.status === 'rolling_out' || deployment.status === 'partial'
+		|| !!deployment.peer_results?.some((peer) => peer.activation);
 }
 
 function timestamp(ms?: number) {
@@ -138,9 +189,23 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 						)
 						: undefined}
 				/>
+				<Field
+					label="Private copy"
+					value={describeReleasePrivateCopy(releasePrivateCopy(deployment))}
+				/>
 			</div>
 
+			{deployment.source && (
+				<>
+					<Separator />
+					<DeploymentSourceFields source={deployment.source} />
+				</>
+			)}
+
 			{deployment.status === 'staged' && <StagedReleaseDetail deployment={deployment} />}
+			{(deployment.status === 'success' || deployment.status === 'partial' || deployment.status === 'failed') && (
+				<ReleasedRecordDetail deployment={deployment} />
+			)}
 
 			{showLiveProgress && (
 				<>
@@ -173,18 +238,24 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 					<Separator />
 					<div>
 						<div className="mb-1 text-xs font-medium text-muted-foreground">Other nodes</div>
+						{isCertifiedRollout(deployment) && (
+							<p className="mb-2 text-xs text-muted-foreground">
+								{deployment.origin_node ?? 'The node that received the deploy'}
+								{deployment.origin_node && ', which received it,'}{' '}
+								took the release first. Its certification went only to whoever started the deploy, so it isn&apos;t
+								recorded here.
+							</p>
+						)}
 						<ul className="flex flex-col gap-2 text-sm">
 							{deployment.peer_results.map((peer, i) => {
-								const peerError = errorText(peer.error);
+								const outcome = peerOutcome(peer, deployment.status);
 								const install = describePeerInstall(peer);
+								const certification = peerCertification(peer);
 								return (
 									<li key={peer.node ?? i} className="flex flex-col gap-0.5">
 										<span className="flex items-center justify-between gap-2">
 											<span className="truncate">{peer.node}</span>
-											<span className={peer.status === 'failed' ? 'text-destructive' : 'text-success'}>
-												{peer.status ?? 'ok'}
-												{peerError ? `: ${peerError}` : ''}
-											</span>
+											<span className={OUTCOME_TONE[outcome.tone]}>{outcome.label}</span>
 										</span>
 										{install && (
 											<span
@@ -194,6 +265,14 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 												)}
 											>
 												{install.label}
+											</span>
+										)}
+										{certification && (
+											<span
+												className={cn('text-xs', certification.certified ? 'text-muted-foreground' : 'text-amber-600')}
+											>
+												{certification.label}
+												{certification.detail ? `: ${certification.detail}` : ''}
 											</span>
 										)}
 									</li>

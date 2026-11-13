@@ -1,4 +1,10 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { HarperRefusalError, readResponseRefusal } from '@/integrations/api/readResponseRefusal';
+import {
+	resolveInstanceConnection,
+	ResolveInstanceConnectionParams,
+} from '@/integrations/api/sse/resolveInstanceConnection';
+import { anySignal, timeoutSignal } from '@/lib/abortSignals';
 import { useMutation } from '@tanstack/react-query';
 
 interface PackageComponentParams {
@@ -32,6 +38,60 @@ async function packageComponent({
 		{ timeout: 300_000, skipGatewayRetry: true },
 	);
 	return data;
+}
+
+interface ComponentArchiveParams {
+	connection: ResolveInstanceConnectionParams;
+	project: string;
+	skipNodeModules: boolean;
+	signal?: AbortSignal;
+}
+
+/** As long as the buffered `package_component` above is given, since a retry builds the whole archive again. */
+const ARCHIVE_TIMEOUT_MS = 300_000;
+
+/**
+ * `project`'s files as a gzipped tarball, streamed (`stream: true`, Harper 5.4) rather than base64 in JSON, which
+ * holds several times the archive in Harper's shared process. Direct connections only: Fabric Connect relays JSON.
+ */
+export async function fetchComponentArchive({
+	connection,
+	project,
+	skipNodeModules,
+	signal,
+}: ComponentArchiveParams): Promise<Blob> {
+	const { url, headers, credentials, mode } = resolveInstanceConnection(connection);
+	if (mode === 'proxy') {
+		throw new Error('Packaging an application for a deploy needs a direct connection, not Fabric Connect.');
+	}
+	const deadline = timeoutSignal(ARCHIVE_TIMEOUT_MS);
+	const combined = anySignal([signal, deadline.signal]);
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: { ...headers, Accept: 'application/octet-stream' },
+			credentials,
+			body: JSON.stringify({
+				operation: 'package_component',
+				project,
+				skip_node_modules: skipNodeModules,
+				stream: true,
+			}),
+			signal: combined.signal,
+		});
+		if (!response.ok) {
+			const refusal = await readResponseRefusal(response);
+			throw new HarperRefusalError(refusal ?? `Harper couldn't package ${project} (status ${response.status}).`);
+		}
+		if ((response.headers.get('content-type') ?? '').includes('application/json')) {
+			await response.body?.cancel().catch(() => {});
+			throw new Error(`Harper answered with JSON rather than an archive of ${project}.`);
+		}
+		return await response.blob();
+	} finally {
+		deadline.cleanup();
+		combined.cleanup();
+	}
 }
 
 export function usePackageComponentMutation() {

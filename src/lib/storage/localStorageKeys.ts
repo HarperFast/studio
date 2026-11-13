@@ -11,5 +11,6 @@ export const enum LocalStorageKeys {
 	'RememberSignInMethod' = 'RememberSignInMethod',
 	'ResizableModalSize' = 'ResizableModalSize',
 	'SavedClusterState' = 'SavedClusterState',
+	'SignUpBrowserProof' = 'SignUpBrowserProof',
 	'Theme' = 'Theme',
 }

@@ -1,17 +1,22 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { DialogFooter } from '@/components/ui/dialog';
+import { clusterPresetsEnabled } from '@/config/constants';
 import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessage';
+import { RECORD_LOCKS_MIN_VERSION, supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
 import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
+import { ClusterPreset } from '@/features/clusters/upsert/fields/ClusterPreset';
+import { ClusterRecordLocks } from '@/features/clusters/upsert/fields/ClusterRecordLocks';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
-import { ArrowRight, Layers3, Server } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { ArrowRight, Layers3, Server, Sparkles } from 'lucide-react';
 import { ReactNode, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
@@ -34,6 +39,7 @@ interface ClusterDetailsProps {
 	isPending: boolean;
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
+	recordLocksOn: boolean;
 	regionLocations: SchemaRegion[] | undefined;
 	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
@@ -60,6 +66,7 @@ export function ClusterDetails({
 	isPending,
 	mode,
 	partialUpgrade,
+	recordLocksOn,
 	regionLocations,
 	regionLookup,
 	regionNameToLatencyToRegion,
@@ -137,6 +144,9 @@ export function ClusterDetails({
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
+	const selectedVersion = form.watch('version');
+	const versionsHeldBackByRecordLocks = recordLocksOn
+		&& !!harperVersions?.value?.some(version => !supportsRecordLocks(version.version));
 
 	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
 	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried. Not
@@ -184,7 +194,17 @@ export function ClusterDetails({
 							className="col-span-3"
 							form={form}
 							harperVersions={harperVersions}
+							recordLocksOn={recordLocksOn}
 						/>
+						{versionsHeldBackByRecordLocks && (
+							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-muted-foreground">
+								Record locks are on, and they need Harper {RECORD_LOCKS_MIN_VERSION}{' '}
+								or later. To move to an older version, turn them off on the{' '}
+								<Link className="underline" to={`/${organizationId}/${clusterId}/record-locks`}>Record Locks page</Link>
+								{' '}
+								first.
+							</p>
+						)}
 						<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
 						{partialUpgrade && (
 							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
@@ -207,6 +227,21 @@ export function ClusterDetails({
 		<>
 			<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
 				<div className="min-w-0 space-y-6">
+					{clusterPresetsEnabled && !clusterId && !isSelfManaged && (
+						<Card className="min-w-0 gap-0 overflow-hidden py-0">
+							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
+								<h2 className="flex items-center gap-2 text-base font-semibold">
+									<Sparkles className="size-4 text-primary" />What is this cluster for?
+								</h2>
+								<CardDescription>
+									Pick a job and Studio sets the cluster up for it once you have signed in.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="py-6 text-foreground">
+								<ClusterPreset className="w-full" form={form} />
+							</CardContent>
+						</Card>
+					)}
 					<Card className="min-w-0 gap-0 overflow-hidden py-0">
 						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
 							<h2 className="flex items-center gap-2 text-base font-semibold">
@@ -232,6 +267,9 @@ export function ClusterDetails({
 							{isSelfManaged
 								? <ClusterFQDN form={form} disabled={!!clusterId} />
 								: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
+							{!clusterId && !isSelfManaged && supportsRecordLocks(selectedVersion) && (
+								<ClusterRecordLocks className="col-span-3 md:col-span-6" form={form} />
+							)}
 						</CardContent>
 					</Card>
 					<Card className="min-w-0 gap-0 overflow-hidden py-0">

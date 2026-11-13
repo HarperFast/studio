@@ -1,20 +1,30 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
 import { isDeletedCluster } from '@/config/clusterStatuses';
+import { ClusterWorkflowNotice } from '@/features/cluster/components/ClusterWorkflowNotice';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { ChartColumnIncreasing, GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
+import {
+	ChartColumnIncreasing,
+	GaugeIcon,
+	GlobeIcon,
+	LayoutDashboardIcon,
+	LockIcon,
+	ServerIcon,
+	TagIcon,
+} from 'lucide-react';
 import { ReactNode } from 'react';
 
 /**
- * Shared shell for the cluster-scoped pages (overview/home, instances, scaling, domains). Renders the
+ * Shared shell for the cluster-scoped pages (overview/home, instances, scaling, domains, record locks). Renders the
  * same responsive sub-nav rail as the org page so those sections persist across them. The in-cluster
  * studio (apps, databases, …) keeps its own top nav — this rail is the cluster-settings level. Items
- * are gated by cluster permissions (scaling/domains require manage; domains also hides for self-managed).
+ * are gated by cluster permissions (scaling/domains/record locks require manage; domains and record locks also hide
+ * for self-managed).
  * A terminated cluster keeps only Overview and, when managed, Usage (see DESIGN.md).
  */
 export function ClusterPageLayout({ children }: { children: ReactNode }) {
@@ -45,6 +55,7 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		},
 		update && live && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
 		update && live && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
+		update && live && !selfManaged && { to: `${base}/record-locks`, label: 'Record Locks', icon: LockIcon },
 		view && live && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
 	].filter(Boolean) as SubNavItem[];
 
@@ -56,6 +67,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 				</aside>
 				<section className="md:col-span-9 lg:col-span-10 min-w-0">
 					<RestartingNotice entityId={clusterId} clusterId={clusterId} noun="cluster" className="mb-4" />
+					{cluster && live && (
+						<ClusterWorkflowNotice clusterId={clusterId} workflowId={cluster.workflowId} className="mb-4" />
+					)}
 					{children}
 				</section>
 			</div>

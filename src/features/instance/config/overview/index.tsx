@@ -100,7 +100,8 @@ export function ConfigOverviewIndex() {
 	const [jsonError, setJsonError] = useState<string | null>(null);
 	const [restrictedError, setRestrictedError] = useState<string[]>([]);
 
-	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate();
+	// Any key here may be one Harper's main thread reads only at startup (`operationsApi`, `mcp`, `authentication`).
+	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate({ restartOperation: 'restart' });
 
 	useEffect(() => {
 		if (sanitizedConfigInfo && !isEditing) {

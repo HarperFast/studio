@@ -4,27 +4,14 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { ACCOUNT_PASSWORD_MAX_LENGTH, ACCOUNT_PASSWORD_TOO_LONG_ERROR, zodRequirePassword } from '@/lib/zod/password';
+import { NewAccountPasswordSchema } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
 import { AuthInput } from './components/AuthInput';
 import { useResetPasswordMutation } from './hooks/useResetPassword';
-
-const ResetPasswordSchema = z
-	.object({
-		password: zodRequirePassword
-			.min(8, { error: 'Password must be at least 8 characters long.' })
-			.max(ACCOUNT_PASSWORD_MAX_LENGTH, { error: ACCOUNT_PASSWORD_TOO_LONG_ERROR }),
-		confirmPassword: z.string(),
-	})
-	.refine((data) => data.password === data.confirmPassword, {
-		error: 'Passwords do not match.',
-		path: ['confirmPassword'],
-	});
 
 export function ResetPassword() {
 	const { token } = useSearch({ strict: false });
@@ -37,7 +24,7 @@ export function ResetPassword() {
 	}, [token, navigate]);
 
 	const methods = useForm({
-		resolver: zodResolver(ResetPasswordSchema),
+		resolver: zodResolver(NewAccountPasswordSchema),
 		defaultValues: {
 			password: '',
 			confirmPassword: '',

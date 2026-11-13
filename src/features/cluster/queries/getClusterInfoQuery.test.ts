@@ -2,7 +2,13 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { getClusterInfoQueryOptions, markClusterPasswordSet } from './getClusterInfoQuery';
+import {
+	clusterReadRequestedSince,
+	forgetClusterReadsForTests,
+	getClusterInfoQueryOptions,
+	markClusterPasswordSet,
+	recordClusterRead,
+} from './getClusterInfoQuery';
 
 /** The subset of `Query` the `refetchInterval` callback reads. */
 type ErrorStateQuery = { state: { error: unknown } };
@@ -115,5 +121,20 @@ describe('markClusterPasswordSet', () => {
 		expect(queryClient.getQueryData(getClusterInfoQueryOptions(CLUSTER_ID).queryKey)).toMatchObject({
 			resetPassword: false,
 		});
+	});
+});
+
+describe('cluster read watermarks', () => {
+	it('forgets a cluster not read for ten minutes, so they do not pile up for the life of the tab', () => {
+		forgetClusterReadsForTests();
+		recordClusterRead('clu-old', 1_000);
+		recordClusterRead('clu-new', 1_000 + 10 * 60_000);
+		expect(clusterReadRequestedSince('clu-old', 1_000)).toBe(true);
+
+		recordClusterRead('clu-new', 1_001 + 10 * 60_000);
+
+		expect(clusterReadRequestedSince('clu-old', 1_000)).toBe(false);
+		expect(clusterReadRequestedSince('clu-new', 1_000)).toBe(true);
+		forgetClusterReadsForTests();
 	});
 });

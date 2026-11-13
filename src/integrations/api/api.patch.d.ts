@@ -55,6 +55,8 @@ export type StaffPermission =
 	| 'instance:read'
 	| 'instance:update'
 	| 'billing:write'
+	| 'config:read'
+	| 'config:write'
 	| 'host:read'
 	| 'region:read'
 	| 'region:write'
@@ -63,7 +65,11 @@ export type StaffPermission =
 	| 'user:status'
 	| 'systemStatus:write'
 	| 'apiToken:create'
-	| 'apiToken:self';
+	| 'apiToken:self'
+	| 'workflow:read'
+	| 'workflow:manage'
+	| 'chat:read'
+	| 'chat:write';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
@@ -179,6 +185,17 @@ export interface AdminRegionPayload {
 	forceLocations?: boolean;
 	active?: boolean;
 	organizationIds?: string[] | null;
+}
+
+/**
+ * A row of GET /Admin/Configuration/. `superUserOnly` is computed by central-manager, not stored: true
+ * when only the core super user may change the key (staff hold config:write only for the rest).
+ */
+export interface AdminConfigurationEntry {
+	name: string;
+	description?: string | null;
+	value: unknown;
+	superUserOnly: boolean;
 }
 
 /**
@@ -388,14 +405,19 @@ export interface LocalLegacyRoleAttributePermissionTable {
 
 export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
 
-export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn'> {
+export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceFqdn' | 'recordLocks'> {
 	cluster: Cluster;
+	// Central manager writes null, not false, when it turns record locks off on a member.
+	recordLocks?: boolean | null;
 	// The generated schema marks this required, but central manager can list an instance without one.
 	instanceFqdn?: string;
 	status?: BadgeStatus;
 	// Returned by the CM but not yet in the generated OpenAPI schema. True when the instance was
 	// (re)started in safe mode — Harper core is up but user apps/components are not loaded.
 	safeMode?: boolean;
+	// The `models` entries central manager set up for the instance, with each token masked. Returned by
+	// the CM but not yet in the generated OpenAPI schema.
+	modelsConfig?: unknown;
 }
 
 export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
@@ -404,6 +426,11 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
 	plans?: RegionPlan[];
+	// The job the cluster was created for (a Studio `CLUSTER_PRESETS` id); absent or null for a blank cluster.
+	// Being added to central-manager; not yet in the generated OpenAPI schema.
+	preset?: string | null;
+	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
+	workflowId?: string | null;
 }
 
 export interface ClusterSyncSummary {
@@ -413,9 +440,16 @@ export interface ClusterSyncSummary {
 }
 
 export interface ClusterUpsert extends Omit<SchemaClusterUpsert, 'regionPlans'> {
+	/**
+	 * Cluster-wide record locks (Harper 5.3.0+, not self-hosted). On create, `true` opts in. An update
+	 * sends it alone: central manager answers 400 when `name`, `regionPlans`, `version`, `domainIds`
+	 * or `generateDomainCerts` come with it (`updateCluster.js`); `skipGtmWait` may.
+	 */
+	recordLocks?: boolean;
 	regionPlans: ClusterUpsertRegionPlan[];
 	skipGtmWait?: boolean;
 	version?: string;
+	preset?: string;
 }
 
 export interface InstanceDatabaseMap {
@@ -443,6 +477,34 @@ export interface InstanceTable {
 	db_audit_size: number;
 	last_updated_record?: number;
 	attributes: InstanceAttribute[];
+	/**
+	 * The table's full-text indexes (Harper 5.3+), each with its readiness on the node that answered.
+	 * An index's sources are filtered to those the caller can read, and an index with none is left out.
+	 * A `FullText` field never appears in `attributes`.
+	 */
+	full_text_indexes?: FullTextIndexDescription[];
+}
+
+/** One entry of `describe_table`'s `full_text_indexes` (harper `dataLayer/schemaDescribe.ts`, v5.3). */
+export interface FullTextIndexDescription {
+	/** The `FullText` field's name, which is what a search condition names. */
+	name: string;
+	fields: Array<{ name: string; weight: number; media_type?: string; highlight?: true }>;
+	analyzer: string;
+	stop_words: boolean;
+	positions: boolean;
+	surface_terms: boolean;
+	synonyms: Array<{ source: string; replacements: string[] }>;
+	/** `false` when the index doesn't highlight; a search that asks for highlights is then refused. */
+	highlighting: false | { maxFragments: number; fragmentLength: number };
+	/** Which modes this index answers: `any`, `all` and `fuzzy` always; `phrase` with positions; `prefix` and `fuzzy-prefix` with surface terms. */
+	query_modes: string[];
+	readiness: {
+		state: 'unknown' | 'ready' | 'rebuilding' | 'needs-rebuild' | 'unavailable' | string;
+		reason?: string;
+		owner_epoch: string;
+		rebuild_attempts: number;
+	};
 }
 
 export interface InstanceAttribute {

@@ -6,20 +6,23 @@ teaches Harper's fastify server to serve those files.
 
 ## The layout
 
-Four workflows own the deploy path, plus two composite actions. (`verify-pr.yaml` and
+Four workflows own the deploy path, plus three composite actions. (`verify-pr.yaml` and
 `verify-commits.yaml` gate pull requests and are not part of deploying.)
 
-| Workflow            | Runs on                  | Holds credentials                      |
-| ------------------- | ------------------------ | -------------------------------------- |
-| `deploy-dev.yaml`   | push to `dev`, manual    | yes — CM + Datadog                     |
-| `deploy-stage.yaml` | push to `stage`, manual  | yes — CM + Datadog + `contents: write` |
-| `deploy-prod.yaml`  | push to `prod`, manual   | yes — CM + Datadog                     |
-| `verify-stage.yaml` | `merge_group` on `stage` | **no**                                 |
+| Workflow            | Runs on                  | Holds credentials                                              |
+| ------------------- | ------------------------ | -------------------------------------------------------------- |
+| `deploy-dev.yaml`   | push to `dev`, manual    | yes — CM + Datadog; its `e2e` job only the `e2e-dev` secrets   |
+| `deploy-stage.yaml` | push to `stage`, manual  | yes — CM + Datadog + `contents: write`; `e2e` only `e2e-stage` |
+| `deploy-prod.yaml`  | push to `prod`, manual   | yes — CM + Datadog                                             |
+| `verify-stage.yaml` | `merge_group` on `stage` | **no**                                                         |
 
 - **`.github/actions/studio-verify`** — install, test, lint, optionally build. **Takes no
   credentials, by design.**
 - **`.github/actions/studio-deploy`** — release, version, build, sourcemap upload, staging the
   component, deploy. Every credentialed step lives here. Assumes verify installed first.
+- **`.github/actions/studio-e2e`** — after a deploy, wait until the environment serves the new
+  build, then run `e2e/` against it. Takes e2e test-account credentials, never deploy ones — see
+  [Post-deploy e2e](#post-deploy-e2e).
 
 The three deploy workflows are deliberately thin: they own only what differs per environment —
 trigger branch, concurrency group, sourcemap URL, which secrets, and whether a push releases. A
@@ -161,3 +164,71 @@ input's declared default rather than falling back to it — so the callers defau
 (`inputs.restart || false`) and the action re-normalizes in shell, treating anything that is not
 exactly `true` as the default. Two independent guards, either sufficient on its own: a restart
 only happens because someone asked for it.
+
+## Post-deploy e2e
+
+`deploy-dev.yaml` and `deploy-stage.yaml` each run an `e2e` job after their deploy job, in the same
+run, so a red suite turns that deploy run red. Nothing rolls back — the deploy has already happened.
+Prod is not wired yet. Stage is the steadier signal while `dev` integrates unfinished epics: a stage
+run tests what is about to be promoted, a dev run what is still being integrated.
+
+- **Same commit by construction.** The job checks out the run's own commit and waits until the site
+  serves the version the deploy job just built (`studio-deploy`'s `version` output, the
+  `VITE_STUDIO_VERSION` in the entry chunk), for up to 10 minutes. `dev` is an integration branch
+  that does not track `stage`, so `stage`'s specs against the dev site compare two different
+  commits: that is what turned studio-e2e-harness#10 red, 36 failures for features dev did not have.
+  A deploy that never goes live fails the job too.
+- **Every replicated peer, not a sample.** The public origin reaches whichever node the load balancer picks, so
+  repeated checks through it cannot prove every node updated. `deploy_component … replicated=true`
+  names the peers it replicated to, `studio-deploy` passes them on as its `nodes` output, and the
+  gate probes each by its own hostname alongside the public origin: every one must serve the new
+  version, three rounds in a row. The node the deploy ran on is trusted on `deploy_component`'s exit
+  code, not probed: its hostname is part of the `CLI_DEPLOY_TARGET` secret. Static files are read
+  from disk on every request, so it serves the new build once that call returns — except during a
+  `restart` deploy, when it may be down while the peers pass and the suite can reach it mid-restart. This relies on each peer's
+  Harper node name being the public hostname it serves Studio on — true today: dev is a single node
+  (`replicated: []`), stage replicates to `stage-2.studio.harperfabric.com` and prod to
+  `studio-2.harperfabric.com`. A name that is not a hostname fails the gate rather than being skipped, and stage sets
+  `expected-peers: 1` so a deploy report that names no peer fails it too, instead of quietly
+  falling back to the public origin alone.
+- **Its own runner, its own secrets.** The job never receives the CM or Datadog credentials. Its
+  test-account secrets live in the `e2e-dev` / `e2e-stage` environment; each restricted to its own
+  branch (setup below), a job on any other branch cannot read them — the scoping studio#1651 wants for the deploy
+  secrets. `src/lib/workflowPrivilege.test.ts` pins that an e2e job references no deploy secret,
+  only reads the repo, and never overrides the checkout ref.
+- **What fails it:** a failed test, a skipped test (a skip means a prerequisite the run was given
+  stopped working — `e2e/README.md`, "Skips are deliberate"), no tests run, or no report. Flaky
+  tests warn. Playwright stops after 10 failures or 30 minutes (the signup round-trip alone may take
+  14 minutes an attempt, and CI retries it once), inside the job's 50, so a slow red run still
+  writes its report.
+- **What it publishes:** the log, failure annotations and a job summary with a repro command. **No
+  trace, video, screenshot or HTML report is uploaded**: anyone signed in to GitHub can download a
+  public repo's artifacts, and a Playwright trace records the session cookie. GitHub masks the
+  configured secrets; a value a spec generates (the round-trip's address, password and
+  verification token) must be masked by the spec with `maskInCi` (`e2e/tests/maskInCi.ts`)
+  before anything can print it.
+- **Concurrency:** the workflow-level group (`dev`, `stage-deploy`) spans the e2e job, so the next
+  deploy to that environment waits for it — a deploy landing mid-run would change the build under
+  the tests. GitHub keeps one
+  pending run per group, so a burst of pushes waits for one e2e run, not one each. **Re-run failed
+  jobs** re-runs only `e2e`, which passes its gate only while that version is still deployed.
+
+**Create the environment before the job reaches its branch.** GitHub auto-creates a missing
+environment with no secrets and no branch policy, so until this runs every deploy of that branch
+goes red on skipped specs, and nothing restricts which branch could read secrets added later.
+Values come from whoever owns the test accounts — never a personal login — and each environment
+gets its own Mailosaur server and key. The signup round-trip also needs that Mailosaur domain in the
+environment's `ALLOWLIST_EMAIL_DOMAINS`, or signup answers 403 and the run fails. For stage, replace
+`e2e-dev` and `dev` with `e2e-stage` and `stage`:
+
+```bash
+gh api -X PUT repos/HarperFast/studio/environments/e2e-dev \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/HarperFast/studio/environments/e2e-dev/deployment-branch-policies -f name=dev -f type=branch
+for name in PLAYWRIGHT_USER_EMAIL PLAYWRIGHT_USER_PASSWORD MAILOSAUR_API_KEY MAILOSAUR_SERVER_ID; do
+  gh secret set "$name" --env e2e-dev --repo HarperFast/studio
+done
+```
+
+`PLAYWRIGHT_ORG_ID` is optional; without it the authed specs use the account's post-login landing.

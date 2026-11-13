@@ -23,9 +23,19 @@ const server = vi.hoisted(() => {
 		failReads: false,
 		pendingWrite: undefined as Promise<void> | undefined,
 		saves: [] as Array<{ file: string; payload: string | undefined }>,
+		superUser: false,
+		version: undefined as string | undefined,
+		operations: [] as string[],
 	};
 	const instanceClient = {
 		post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
+			state.operations.push(body.operation);
+			if (body.operation === 'registration_info') {
+				return { data: { version: state.version } };
+			}
+			if (body.operation === 'get_configuration') {
+				return { data: { models: { embedding: { default: { backend: 'ollama' }, search: { backend: 'ollama' } } } } };
+			}
 			if (body.operation === 'get_component_file') {
 				await state.pendingRead;
 				if (state.failReads) {
@@ -55,7 +65,10 @@ const server = vi.hoisted(() => {
 
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => server.params }));
 vi.mock('@/config/useEntityRestURL', () => ({ useEntityRestURL: () => 'https://instance.example.com:9925' }));
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceBrowseManagePermission: () => true,
+	useInstanceManagePermission: () => server.state.superUser,
+}));
 vi.mock('@tanstack/react-router', () => {
 	const navigate = () => {};
 	const search = {};
@@ -190,6 +203,9 @@ afterEach(() => {
 	server.state.pendingRead = undefined;
 	server.state.failReads = false;
 	server.state.pendingWrite = undefined;
+	server.state.superUser = false;
+	server.state.version = undefined;
+	server.state.operations = [];
 	server.state.saves = [];
 });
 
@@ -439,5 +455,102 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		expect(screen.getByLabelText<HTMLInputElement>('Database').value).toBe('');
 		expect(buffered(newSchema.path)).toBe(saved);
 		expect((await save()).payload).toBe(saved);
+	});
+});
+
+describe('SchemaEditorView: the model names for @embed and @decide', () => {
+	const TICKET =
+		'type Ticket @table {\n\tid: ID @primaryKey\n\tbody: String\n\tvector: [Float] @embed(source: "body", model: "search")\n}\n';
+	const ticketSchema: FileEntry = { name: 'ticket.graphql', path: 'punch/schemas/ticket.graphql', project: 'punch' };
+
+	async function openTicket() {
+		renderEditor();
+		server.state.files['schemas/ticket.graphql'] = TICKET;
+		await openEntry(ticketSchema, 'Ticket');
+		fireEvent.click(screen.getByRole('button', { name: /Ticket/ }));
+	}
+
+	it("lists the instance's models for a super user on a Harper that has them", async () => {
+		server.state.superUser = true;
+		server.state.version = '5.3.6';
+		await openTicket();
+		const model = await screen.findByRole('combobox', { name: 'Embedding model' });
+		await waitFor(() =>
+			expect([...(model as HTMLSelectElement).options].map(option => option.value)).toEqual(['', 'default', 'search'])
+		);
+	});
+
+	it('never reads the settings for another role, or on a Harper without models', async () => {
+		server.state.version = '5.3.6';
+		await openTicket();
+		expect((await screen.findByLabelText('Embedding model')).tagName).toBe('INPUT');
+		expect(server.state.operations).not.toContain('get_configuration');
+		cleanup();
+
+		server.state.operations = [];
+		server.state.superUser = true;
+		server.state.version = '5.0.4';
+		await openTicket();
+		await waitFor(() => expect(server.state.operations).toContain('registration_info'));
+		expect((await screen.findByLabelText('Embedding model')).tagName).toBe('INPUT');
+		expect(server.state.operations).not.toContain('get_configuration');
+	});
+});
+
+describe('SchemaEditorView: full-text indexes', () => {
+	// Harper's docs layout: the declaration on the lines below its field.
+	const PRODUCT = [
+		'type Product @table(audit: true) @export {',
+		'\tid: ID @primaryKey',
+		'\ttitle: String',
+		'\tdescription: String',
+		'\tcatalogSearch: FullText',
+		'\t\t@fullText(',
+		'\t\t\tfields: [{ name: "title", weight: 3, highlight: true }, { name: "description" }]',
+		'\t\t\thighlighting: { maxFragments: 2 }',
+		'\t\t)',
+		'}',
+		'',
+	].join('\n');
+	const productSchema: FileEntry = { name: 'search.graphql', path: 'punch/schemas/search.graphql', project: 'punch' };
+
+	async function openProduct() {
+		renderEditor();
+		server.state.files['schemas/search.graphql'] = PRODUCT;
+		await openEntry(productSchema, 'Product');
+		fireEvent.click(screen.getByRole('button', { name: /Product/ }));
+	}
+
+	it('opens a schema laid out like Harper’s docs in the visual editor, untouched', async () => {
+		await openProduct();
+		expect(screen.getByRole('region', { name: 'Source fields' })).toBeTruthy();
+		expect(screen.getByText(/1 full-text index/)).toBeTruthy();
+		expect(buffered('punch/schemas/search.graphql')).toBeUndefined();
+	});
+
+	it('warns before saving a change that rebuilds the index, and not for one that doesn’t', async () => {
+		await openProduct();
+		fireEvent.change(screen.getAllByLabelText('Weight')[0], { target: { value: '5' } });
+		expect(screen.queryByText(/Saving rebuilds/)).toBeNull();
+
+		fireEvent.click(screen.getByTitle('Move description up'));
+		expect(screen.getByText('Saving rebuilds a full-text index')).toBeTruthy();
+		expect(screen.getByText(/can fail until that node finishes/)).toBeTruthy();
+
+		const saved = await save();
+		expect(saved.payload).toContain(
+			'\tcatalogSearch: FullText\n\t\t@fullText(\n\t\t\tfields: [{ name: "description" }, { name: "title", weight: 5, highlight: true }]\n',
+		);
+	});
+
+	it('blocks the save while an index has no sources', async () => {
+		await openProduct();
+		fireEvent.click(screen.getByTitle('Remove title'));
+		fireEvent.click(screen.getByTitle('Remove description'));
+		expect(screen.getByText(/Fix these issues before saving/)).toBeTruthy();
+		expect(screen.getAllByText(/Pick at least one source field for this full-text index/).length).toBeGreaterThan(0);
+		const before = server.state.saves.length;
+		act(() => emitToListeners('SaveFile', true));
+		expect(server.state.saves.length).toBe(before);
 	});
 });

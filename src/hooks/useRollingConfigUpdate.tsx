@@ -4,7 +4,11 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import { Instance } from '@/integrations/api/api.patch';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { restartInstance, waitUntilAnsweringAfterRestart } from '@/integrations/api/instance/status/restartInstance';
+import {
+	RESTART_MARK_TTL_MS,
+	restartInstance,
+	waitUntilAnsweringAfterRestart,
+} from '@/integrations/api/instance/status/restartInstance';
 import {
 	describeUncertainRollingOutcome,
 	RestartUnconfirmedError,
@@ -14,14 +18,18 @@ import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
+import { markRestarting } from '@/lib/restart/restartTracker';
 import { sleep } from '@/lib/sleep';
+import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
-import type { AxiosInstance } from 'axios';
+import { type AxiosInstance, isAxiosError } from 'axios';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
+	/** `restart_service` leaves Harper's main thread running, so settings it reads only at startup need `restart`. */
+	restartOperation?: 'restart_service' | 'restart';
 }
 
 interface RollingConfigUpdateResponse {
@@ -33,6 +41,7 @@ const MAY_BE_PENDING =
 	'Instances that were not restarted may already have the new configuration saved, and will apply it the next time they restart.';
 
 interface RestartTarget {
+	entityId: string;
 	instanceClient: AxiosInstance;
 	replicationFqdn?: string;
 }
@@ -49,7 +58,7 @@ async function planRollingConfigUpdate(
 	if (operationsParams.entityType !== 'cluster') {
 		return {
 			allInstances: [{ id: operationsParams.entityId, status: 'RUNNING' } as Instance],
-			targets: [{ instanceClient: operationsParams.instanceClient }],
+			targets: [{ entityId: operationsParams.entityId, instanceClient: operationsParams.instanceClient }],
 			fanOutAfterCanary: false,
 		};
 	}
@@ -57,6 +66,7 @@ async function planRollingConfigUpdate(
 	return {
 		allInstances,
 		targets: targets.map(({ instance, instanceClient }) => ({
+			entityId: instance.id,
 			instanceClient,
 			replicationFqdn: instance.replicationFqdn,
 		})),
@@ -65,7 +75,7 @@ async function planRollingConfigUpdate(
 }
 
 export function useRollingConfigUpdate(
-	{ onRestartedSuccessfully }: RollingConfigUpdateParams = {},
+	{ onRestartedSuccessfully, restartOperation = 'restart_service' }: RollingConfigUpdateParams = {},
 ): RollingConfigUpdateResponse {
 	const operationsParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -104,6 +114,7 @@ export function useRollingConfigUpdate(
 			),
 		});
 
+		let releaseCluster: (() => void) | undefined;
 		try {
 			let plan: RollingConfigUpdatePlan;
 			try {
@@ -121,6 +132,13 @@ export function useRollingConfigUpdate(
 				return;
 			}
 			const { allInstances, targets, fanOutAfterCanary } = plan;
+			const takesDown = restartOperation === 'restart';
+			if (takesDown && operationsParams.entityType === 'cluster') {
+				releaseCluster = markRestarting([operationsParams.entityId], {
+					reach: targets.length === 1 ? 'down' : 'rolling',
+					ttlMs: (targets.length + 1) * RESTART_MARK_TTL_MS,
+				});
+			}
 			let fanOutAttempted = false;
 			let acknowledged = new Set<string>();
 			let instancesRestarted = 0;
@@ -129,9 +147,10 @@ export function useRollingConfigUpdate(
 			let instancesUntouched: number | undefined;
 			let instancesStoppedOnNoVerdict = false;
 			let writtenBeforeCancel = false;
+			let refusal: string | undefined;
 
 			for (let i = 0; i < targets.length; i++) {
-				const { instanceClient, replicationFqdn } = targets[i];
+				const { entityId, instanceClient, replicationFqdn } = targets[i];
 				if (canceled) {
 					break;
 				}
@@ -147,29 +166,45 @@ export function useRollingConfigUpdate(
 				});
 				let restarted = false;
 				let restartSent = false;
+				let releaseTarget: (() => void) | undefined;
+				let writing = false;
 				try {
-					// Make sure the instance is responding.
+					// Make sure the instance is responding. Ungated, so an instance central manager already reports as
+					// restarting fails here instead of stalling the save.
 					await getInstanceUserInfo({
 						instanceClient,
+						skipRestartGate: true,
 					});
 					if (canceled) {
 						break;
 					}
 
 					if (!replicationFqdn || !acknowledged.has(replicationFqdn.toLowerCase())) {
+						writing = true;
 						await setConfiguration({
 							...params,
 							instanceClient,
 						});
+						writing = false;
 						if (canceled) {
 							writtenBeforeCancel = true;
 							break;
 						}
 					}
-					// Then restart it.
+					// Then restart it. Marked only now: a `down` mark would refuse the configuration write above.
+					if (takesDown) {
+						// With no other member left answering, the cluster is down while this one restarts.
+						const othersAnswering = instancesRestarted + instancesUnanswered + targets.length - i - 1;
+						releaseTarget = markRestarting(
+							operationsParams.entityType === 'cluster' && othersAnswering === 0
+								? [entityId, operationsParams.entityId]
+								: [entityId],
+							{ reach: 'down', ttlMs: RESTART_MARK_TTL_MS },
+						);
+					}
 					restartSent = true;
 					await restartInstance({
-						operation: 'restart_service',
+						operation: restartOperation,
 						replicated: false,
 						instanceClient,
 						onSlowToReturn: () =>
@@ -190,6 +225,9 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
+					if (writing && isAxiosError(error) && error.response?.status === 400) {
+						refusal ??= describeError(error).message;
+					}
 					if (unanswered && restartSent) {
 						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
 						toast.loading(`Could Not Confirm Instance ${i + 1} of ${targets.length}`, {
@@ -212,6 +250,8 @@ export function useRollingConfigUpdate(
 						});
 						await sleep(3000);
 					}
+				} finally {
+					releaseTarget?.();
 				}
 
 				// The configuration spreads only once an instance has come back up running it, and a
@@ -289,6 +329,7 @@ export function useRollingConfigUpdate(
 								allInstances.length !== instancesRestarted
 								&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 							].filter(excludeFalsy).shift() || ''))
+						+ (refusal ? `\nHarper refused the change: ${refusal}` : '')
 						+ (fanOutAttempted || writtenBeforeCancel ? '\n' + MAY_BE_PENDING : ''),
 					duration: 10_000,
 					action: {
@@ -298,10 +339,11 @@ export function useRollingConfigUpdate(
 				});
 			}
 		} finally {
+			releaseCluster?.();
 			setIsPending(false);
 			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
-	}, [operationsParams, onRestartedSuccessfully, queryClient]);
+	}, [operationsParams, onRestartedSuccessfully, queryClient, restartOperation]);
 
 	return {
 		onConfigUpdate,

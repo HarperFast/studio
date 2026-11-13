@@ -13,11 +13,30 @@ unrestricted, per `commitlint.config.cjs`). The **Verify Commits** workflow
 `dev`/`stage`/`prod` — a single unprefixed commit fails the check, and history that already
 landed on a deploy branch has to be rewritten and force-pushed to fix it.
 
+The stage merge queue **squashes**. The landed header is the PR title plus `(#123)` (a
+single-commit PR uses that commit's header instead), and its body is every commit message in the
+PR. So the PR title needs a type too: the **Verify PR Title** job lints it as that header, and for
+a multi-commit PR its type alone decides the release and the release-note section; the commits'
+`feat`/`fix` prefixes under it are ignored. The 100-character header limit doesn't count trailing
+`(#123)` references (`commitlint.config.cjs`). Release notes list only references a closing keyword introduces
+(`Closes`/`Fixes`/`Resolves`), once each (`release.config.mjs`).
+
 Don't count on the local hook to catch this first. `.husky/commit-msg` only runs after
 `pnpm install` has run the `prepare: husky` script, which is what points `core.hooksPath`
 at `.husky`. In a fresh clone or worktree that skipped install, `core.hooksPath` is unset,
 the hook never fires, and a non-conforming message commits silently — CI is the first thing
 that objects.
+
+## Imports — extensionless by design; the TypeStrip extension rule doesn't apply
+
+Studio is a bundler-resolved app: Vite resolves its imports, and `tsc -b` type-checks them with
+`"moduleResolution": "bundler"`. Node never loads its source through type stripping, so local
+imports stay extensionless (`from './wafRuleForm'`, `from '@/lib/stableJson'`), as every import
+in the repo already is. Harper's TypeStrip checklist asks for `.ts` on every import; studio is
+exempt (decided in #1994). Reviewers: don't raise a missing extension as a finding.
+
+Adding one wouldn't compile anyway: neither `tsconfig.app.json` nor `tsconfig.node.json` sets
+`allowImportingTsExtensions`, so a `.ts` specifier fails `tsc -b` with TS5097.
 
 ## Routing — keep `getParentRoute` and `addChildren` in lockstep
 

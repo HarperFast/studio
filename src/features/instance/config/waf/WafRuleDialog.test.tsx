@@ -217,20 +217,41 @@ describe('WafRuleDialog', () => {
 		expect(screen.queryByRole('button', { name: 'Load the current rule' })).toBeNull();
 	});
 
-	it('closes without writing when nothing changed', async () => {
+	it('sends an empty patch when nothing changed, and closes once the rule is confirmed unchanged', async () => {
 		const onClose = vi.fn();
+		const onSaved = vi.fn();
+		edit.mutate.mockImplementation((_args, options: { onSuccess: () => void }) => options.onSuccess());
 		render(
 			<WafRuleDialog
 				target={{ kind: 'edit', rule: JA4_RULE }}
 				onClose={onClose}
-				onSaved={vi.fn()}
+				onSaved={onSaved}
 				onFailed={vi.fn()}
 				onReload={vi.fn()}
 			/>,
 		);
 		await submit(/Save Rule/);
-		expect(edit.mutate).not.toHaveBeenCalled();
+		expect(edit.mutate.mock.calls[0][0]).toMatchObject({ loaded: JA4_RULE, patch: {} });
 		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(onSaved).not.toHaveBeenCalled();
+	});
+
+	it('stays open when an unchanged save finds the rule changed, so the reload is still offered', async () => {
+		const onClose = vi.fn();
+		const onFailed = vi.fn();
+		edit.mutate.mockImplementation((_args, options: { onError: () => void }) => options.onError());
+		render(
+			<WafRuleDialog
+				target={{ kind: 'edit', rule: JA4_RULE }}
+				onClose={onClose}
+				onSaved={vi.fn()}
+				onFailed={onFailed}
+				onReload={vi.fn()}
+			/>,
+		);
+		await submit(/Save Rule/);
+		expect(onFailed).toHaveBeenCalledTimes(1);
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it('shows no action for a stored rule that has none, and asks for one before saving', async () => {

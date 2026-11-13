@@ -56,9 +56,12 @@ export const UpsertClusterSchema = z.object({
 		}),
 	).max(100, { error: 'A maximum of 100 instances can be added to each cluster.' }),
 
+	recordLocks: z.boolean().optional(),
 	skipToBilling: z.boolean().optional(),
 	skipGtmWait: z.boolean().optional(),
 	sourceClusterId: z.string().optional(),
+	/** A `CLUSTER_PRESETS` id; Studio installs it once the new cluster's admin signs in. */
+	preset: z.string().optional(),
 });
 
 export type UpsertClusterSchemaType = z.infer<typeof UpsertClusterSchema>;

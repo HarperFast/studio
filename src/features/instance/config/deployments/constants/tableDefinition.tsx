@@ -1,9 +1,11 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { DeploymentSourceCell } from '../components/DeploymentSource';
 import { DeploymentStatusBadge } from '../components/deploymentStatusBadge';
 import { StagedReleaseNote } from '../components/StagedReleaseNote';
-import { deploymentSource, shortDeploymentId } from '../functions/deploymentSource';
+import { shortDeploymentId } from '../functions/deploymentSource';
+import { describeReleasePrivateCopy, releasePrivateCopy } from '../functions/releasePrivateCopy';
 import { StagedReleaseState } from '../functions/stagedRelease';
 
 export interface DeploymentRow extends Deployment {
@@ -16,53 +18,63 @@ function ago(ms?: number) {
 	return ms ? translateSecondsToAgo((Date.now() - ms) / 1000, ms) : '—';
 }
 
-export const deploymentColumns: Array<ColumnDef<DeploymentRow>> = [
-	columnHelper.display({
-		header: 'Deployment',
-		id: 'deployment_id',
-		enableSorting: false,
-		cell: (props) => (
-			<span className="font-mono text-xs" title={props.row.original.deployment_id}>
-				{shortDeploymentId(props.row.original.deployment_id)}
-			</span>
-		),
-	}),
-	{
-		header: 'Component',
-		accessorKey: 'project',
-		enableSorting: false,
+export function deploymentColumns(
+	{ commitFilterable, privateCopy }: {
+		commitFilterable: boolean;
+		privateCopy: boolean;
 	},
-	columnHelper.display({
-		header: 'Status',
-		id: 'status',
-		enableSorting: false,
-		cell: (props) => (
-			<span className="flex flex-wrap items-center gap-1">
-				<DeploymentStatusBadge status={props.row.original.status} />
-				{props.row.original.status === 'staged' && <StagedReleaseNote release={props.row.original.release} />}
-			</span>
-		),
-	}),
-	columnHelper.display({
-		header: 'Source',
-		id: 'source',
-		enableSorting: false,
-		cell: (props) => {
-			const source = deploymentSource(props.row.original);
-			return source
-				? <span className="break-all text-xs" title={source.title}>{source.label}</span>
-				: '—';
+): Array<ColumnDef<DeploymentRow>> {
+	return [
+		columnHelper.display({
+			header: 'Deployment',
+			id: 'deployment_id',
+			enableSorting: false,
+			cell: (props) => (
+				<span className="font-mono text-xs" title={props.row.original.deployment_id}>
+					{shortDeploymentId(props.row.original.deployment_id)}
+				</span>
+			),
+		}),
+		{
+			header: 'Component',
+			accessorKey: 'project',
+			enableSorting: false,
 		},
-	}),
-	{
-		header: 'User',
-		accessorKey: 'user',
-		enableSorting: false,
-	},
-	columnHelper.display({
-		header: 'Started',
-		id: 'started_at',
-		enableSorting: false,
-		cell: (props) => ago(props.row.original.started_at),
-	}),
-];
+		columnHelper.display({
+			header: 'Status',
+			id: 'status',
+			enableSorting: false,
+			cell: (props) => (
+				<span className="flex flex-wrap items-center gap-1">
+					<DeploymentStatusBadge status={props.row.original.status} />
+					{props.row.original.status === 'staged' && <StagedReleaseNote release={props.row.original.release} />}
+				</span>
+			),
+		}),
+		columnHelper.display({
+			header: 'Source',
+			id: 'source',
+			enableSorting: false,
+			cell: (props) => <DeploymentSourceCell deployment={props.row.original} commitFilterable={commitFilterable} />,
+		}),
+		...(privateCopy
+			? [columnHelper.display({
+				header: 'Private copy',
+				id: 'private_copy',
+				enableSorting: false,
+				cell: (props) => describeReleasePrivateCopy(releasePrivateCopy(props.row.original)) ?? '—',
+			})]
+			: []),
+		{
+			header: 'User',
+			accessorKey: 'user',
+			enableSorting: false,
+		},
+		columnHelper.display({
+			header: 'Started',
+			id: 'started_at',
+			enableSorting: false,
+			cell: (props) => ago(props.row.original.started_at),
+		}),
+	];
+}

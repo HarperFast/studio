@@ -85,6 +85,7 @@
 		"tailwind-merge": "^3.0.2",
 		"tailwindcss": "^4.0.9",
 		"tailwindcss-animate": "^1.0.7",
+		"yaml": "^2.9.0",
 		"zod": "4.6.7"
 	},
 	"devDependencies": {
@@ -103,16 +104,15 @@
 		"dotenv-cli": "^11.0.0",
 		"dprint": "^0.64.0",
 		"happy-dom": "^21.0.0",
-		"harper": "5.3.5",
+		"harper": "5.3.6",
 		"husky": "^9.1.7",
-		"jsdom": "^30.1.1",
+		"jsdom": "^31.0.0",
 		"oxlint": "^1.32.0",
 		"semantic-release": "^25.0.0",
 		"typescript": "~7.0.0",
 		"vite": "^8.0.0",
-		"vitest": "^5.0.0",
-		"yaml": "^2.9.0"
+		"vitest": "^5.0.0"
 	},
-	"packageManager": "pnpm@12.16.1",
+	"packageManager": "pnpm@12.18.0",
 	"license": "Apache-2.0"
 }

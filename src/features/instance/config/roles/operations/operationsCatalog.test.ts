@@ -16,6 +16,7 @@ import {
 	resolveGrantBand,
 	supportsOperationsAllowlist,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { PREVIEWS_MIN_VERSION } from '@/integrations/api/instance/previews/previews';
 import { describe, expect, it } from 'vitest';
 
 describe('supportsOperationsAllowlist', () => {
@@ -62,8 +63,11 @@ describe('OPERATION_CATALOG', () => {
 			'create_backup',
 			'delete_backup',
 			'delete_secret',
+			'disable_previews',
 			'drop_oidc_trust',
+			'enable_previews',
 			'get_deployment_payload',
+			'get_preview_policy',
 			'get_secrets_public_key',
 			'grant_secret',
 			'list_backups',
@@ -128,6 +132,26 @@ describe('getGrantableOperations', () => {
 			expect(names, version).not.toContain('add_oidc_trust');
 			expect(names, version).not.toContain('list_oidc_trust');
 			expect(names, version).not.toContain('drop_oidc_trust');
+		}
+	});
+
+	it('never offers the preview operations, on a version that has them or one that does not', () => {
+		for (const version of ['5.3.4', '5.4.0-alpha.1', '5.4.0']) {
+			const names = getGrantableOperations(version).map((operation) => operation.name);
+			expect(names, version).not.toContain('enable_previews');
+			expect(names, version).not.toContain('disable_previews');
+			expect(names, version).not.toContain('get_preview_policy');
+		}
+	});
+
+	it('marks the preview operations super-user only, from the build that has them', () => {
+		for (const name of ['enable_previews', 'disable_previews', 'get_preview_policy']) {
+			expect(getOperationInfo(name)).toMatchObject({
+				su: true,
+				nonDelegable: true,
+				addedIn: PREVIEWS_MIN_VERSION,
+				category: 'Components & Deployments',
+			});
 		}
 	});
 

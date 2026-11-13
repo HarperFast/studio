@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	history: [] as object[] | Error | 'pending',
+	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
 	mutateAsync: vi.fn(),
 }));
@@ -26,6 +27,7 @@ vi.mock('@tanstack/react-router', () => {
 vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () => ({
 	useStagedDeploymentsAvailable: () => true,
 	useSupportsDeploymentSSE: () => false,
+	useReleaseTrackingAvailable: () => state.releases !== undefined,
 }));
 vi.mock('@/features/instance/applications/hooks/useComponentHealthCheck', () => ({
 	useComponentHealthCheck: () => vi.fn(),
@@ -65,7 +67,10 @@ const later: Deployment = {
 	started_at: 300,
 };
 
-state.post.mockImplementation(() => {
+state.post.mockImplementation((_url: string, body: { operation: string }) => {
+	if (body.operation === 'list_releases') {
+		return state.releases instanceof Error ? Promise.reject(state.releases) : Promise.resolve({ data: state.releases });
+	}
 	const { history } = state;
 	if (history === 'pending') {
 		return new Promise(() => {});
@@ -78,16 +83,17 @@ state.post.mockImplementation(() => {
 afterEach(() => {
 	cleanup();
 	state.history = [];
+	state.releases = undefined;
 	state.post.mockClear();
 	state.mutateAsync.mockReset();
 });
 
-function renderDetail(history: typeof state.history) {
+function renderDetail(history: typeof state.history, deployment = staged) {
 	state.history = history;
 	const queryClient = new QueryClient();
 	render(
 		<QueryClientProvider client={queryClient}>
-			<StagedReleaseDetail deployment={staged} />
+			<StagedReleaseDetail deployment={deployment} />
 		</QueryClientProvider>,
 	);
 	return queryClient;
@@ -112,6 +118,16 @@ async function activateHere(outcome: { resolve: object } | { reject: Error }, hi
 const activationButton = () => screen.queryByRole('button', { name: /Activate|Roll back/ });
 
 describe('StagedReleaseDetail', () => {
+	it('tells the activation what its record says the release puts back (harper#4077)', async () => {
+		const routed: Deployment = {
+			...staged,
+			routing: { host: null, urlPath: null, isolated: null, branchedDatabases: ['data'] },
+		};
+		renderDetail([routed], routed);
+		fireEvent.click(await screen.findByRole('button', { name: /Activate/ }));
+		expect(screen.getByText(/It puts hello on a private copy of data\./)).toBeTruthy();
+	});
+
 	it("reads the component's records from the staged one on, wherever they are listed", async () => {
 		renderDetail([staged]);
 		await screen.findByText('Staged: built and installed, but not live. Activating it just switches each node to it.');
@@ -154,6 +170,19 @@ describe('StagedReleaseDetail', () => {
 	it('offers to activate it again when a later deploy failed and may have replaced it somewhere', async () => {
 		renderDetail([{ ...later, status: 'failed' }, activation, staged]);
 		expect(await screen.findByText(/may not be live everywhere/)).toBeTruthy();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
+	it('says a later rolling deploy that ended partial went live on only some nodes', async () => {
+		renderDetail([{ ...later, status: 'partial' }, activation, staged]);
+		expect(await screen.findByText(/went live on only some nodes, so it may not be live everywhere/)).toBeTruthy();
+		expect(screen.queryByText(/failed and may have gone live/)).toBeNull();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
+	it('offers to activate it again when its own rolling activation ended partial', async () => {
+		renderDetail([{ ...activation, status: 'partial' }, staged]);
+		expect(await screen.findByText(/but some nodes did not take it, so it may not be live everywhere/)).toBeTruthy();
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
 
@@ -214,5 +243,99 @@ describe('StagedReleaseDetail', () => {
 		await activateHere({ reject: new Error('node b did not restart') }, [activation, staged]);
 		expect(await screen.findByText(/Live: activated by/)).toBeTruthy();
 		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+});
+
+describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds', () => {
+	const holding = (node: string, live: string | undefined, kept: Array<[string, 'staged' | 'kept']>) => ({
+		node,
+		components: [{
+			project: 'hello',
+			...(live && { deployment_id: live }),
+			releases: kept.map(([deployment_id, state]) => ({ deployment_id, state, at: 1, size: 1 })),
+		}],
+	});
+
+	it('refuses to activate a release some node no longer holds, and says which and why', async () => {
+		state.releases = {
+			nodes: [holding('a', later.deployment_id, [[STAGED_ID, 'staged']]), holding('b', undefined, [])],
+		};
+		renderDetail([staged]);
+		expect(await screen.findByText(/This needs every node to hold the release, and some do not/)).toBeTruthy();
+		expect(screen.getByText(/^b: it isn't kept there: it was made live before Harper 5\.3, retention pruned it/))
+			.toBeTruthy();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.queryByText(/just switches each node/)).toBeNull();
+		expect(state.post).toHaveBeenCalledWith('/', { operation: 'list_releases', project: 'hello', replicated: true });
+	});
+
+	it('says once, from the nodes, what activating a release every node holds does', async () => {
+		state.releases = {
+			nodes: [
+				holding('a', later.deployment_id, [[STAGED_ID, 'staged']]),
+				holding('b', later.deployment_id, [[STAGED_ID, 'staged']]),
+			],
+		};
+		renderDetail([staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		expect(screen.getByText(/^Staged: built and installed, but not live\.$/)).toBeTruthy();
+		expect(screen.getAllByText(/switches each/)).toHaveLength(1);
+	});
+
+	it('offers to activate it again where it is live on only some nodes, though the records say it is live', async () => {
+		state.releases = {
+			nodes: [holding('a', STAGED_ID, []), holding('b', later.deployment_id, [[STAGED_ID, 'staged']])],
+		};
+		renderDetail([activation, staged]);
+		expect(await screen.findByText(/^Live on a\. The other nodes hold it/)).toBeTruthy();
+		expect(screen.queryByText(/nothing to activate/)).toBeNull();
+		const button = activationButton() as HTMLButtonElement;
+		expect(button.textContent).toContain('Activate again');
+		expect(button.disabled).toBe(false);
+	});
+
+	it("drops the records' claim that it is live where the nodes report it live on none", async () => {
+		state.releases = {
+			nodes: [
+				holding('a', later.deployment_id, [[STAGED_ID, 'kept']]),
+				holding('b', later.deployment_id, [[STAGED_ID, 'kept']]),
+			],
+		};
+		renderDetail([activation, staged]);
+		expect(await screen.findByText(/Every node holds this release/)).toBeTruthy();
+		expect(screen.queryByText(/nothing to activate/)).toBeNull();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('offers nothing for a release live on every node, though the records say a later deploy failed', async () => {
+		state.releases = { nodes: [holding('a', STAGED_ID, []), holding('b', STAGED_ID, [])] };
+		renderDetail([{ ...later, status: 'failed' }, activation, staged]);
+		expect(await screen.findByText(/^Live on every node\./)).toBeTruthy();
+		expect(screen.queryByText(/may not be live everywhere/)).toBeNull();
+		expect(activationButton()).toBeNull();
+	});
+
+	it('asks the nodes again before confirming, and refuses once a node that joined since has no copy', async () => {
+		const holdsIt = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'staged']]);
+		state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+		renderDetail([staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		state.releases = { nodes: [holdsIt('a'), holdsIt('b'), holding('c', later.deployment_id, [])] };
+
+		fireEvent.click(activationButton()!);
+		expect(await screen.findByText(/^c: it isn't kept there/)).toBeTruthy();
+		await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Checking/ })).toBeNull());
+		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.queryByText('Activate this release of hello?')).toBeNull();
+		expect(state.mutateAsync).not.toHaveBeenCalled();
+	});
+
+	it("shows, but refuses, the activation when the nodes can't be asked", async () => {
+		state.releases = new Error('list_releases timed out');
+		renderDetail([staged]);
+		expect(await screen.findByText(/Nothing here is enabled until every node says it holds the release\./))
+			.toBeTruthy();
+		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 	});
 });

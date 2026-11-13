@@ -34,6 +34,9 @@ export const RESTRICTED_CONFIG: Record<string, any> = {
 	node: 'blocked',
 	license: 'blocked',
 	componentsRoot: 'blocked',
+	// Holds provider keys and Fabric's tokens, and `set_configuration` takes it only whole: the AI Models page
+	// shows it without them.
+	models: 'blocked',
 	analytics: 'allowed',
 	applications: 'allowed',
 	localStudio: 'allowed',

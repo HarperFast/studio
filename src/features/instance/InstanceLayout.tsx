@@ -2,6 +2,7 @@ import { isLocalStudio } from '@/config/constants';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
+import { useChatPermission } from '@/hooks/usePermissions';
 import { Outlet, useParams } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 
@@ -12,8 +13,16 @@ const FloatingChat = lazy(() =>
 	import('./applications/components/Chat/FloatingChat').then((m) => ({ default: m.FloatingChat }))
 );
 
+// PROTOTYPE: the component-pages scenario switcher, on the dev server only. Gated where it is declared, not
+// only where it renders: a production build keeps any `lazy()` it can reach, and so would still emit the
+// panel's chunk with the demo components in it, though nothing ever loads it.
+const PrototypePanel = import.meta.env.DEV
+	? lazy(() => import('./extensions/prototype/PrototypePanel').then((m) => ({ default: m.PrototypePanel })))
+	: undefined;
+
 export function InstanceLayout() {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const canChat = useChatPermission();
 	return (
 		<>
 			<nav className="studio-subnav fixed top-20 w-full z-39 h-12 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none">
@@ -28,9 +37,14 @@ export function InstanceLayout() {
 				/>
 				<Outlet />
 			</div>
-			{!isLocalStudio && (
+			{!isLocalStudio && canChat && (
 				<Suspense fallback={null}>
 					<FloatingChat />
+				</Suspense>
+			)}
+			{PrototypePanel && (
+				<Suspense fallback={null}>
+					<PrototypePanel />
 				</Suspense>
 			)}
 		</>

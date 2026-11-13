@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	supportsDeployments,
+	supportsReleaseTracking,
 	supportsStagedDeployments,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
@@ -15,11 +16,13 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import { Row } from '@/lib/table';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { ComponentReleasesPanel } from './components/ComponentReleases';
 import { DEPLOYMENT_STATUS_LABEL } from './components/deploymentStatusBadge';
 import { deploymentColumns, DeploymentRow } from './constants/tableDefinition';
 import { DEPLOYMENTS_PAGE_SIZE, DeploymentsSearch, filterableStatuses } from './deploymentsSearch';
+import { useRetryReleases } from './hooks/useComponentReleases';
 import { useStagedReleases } from './hooks/useStagedReleases';
 import { DeploymentDetailModal } from './modals/DeploymentDetailModal';
 
@@ -29,7 +32,9 @@ export function ConfigDeploymentsIndex() {
 	const navigate = useNavigate();
 	const canManage = useInstanceManagePermission();
 	const { deploymentId }: { deploymentId?: string } = useParams({ strict: false });
-	const { project, status: requestedStatus, page = 1 }: DeploymentsSearch = useSearch({ strict: false });
+	const { project, status: requestedStatus, sha: requestedSha, page = 1 }: DeploymentsSearch = useSearch({
+		strict: false,
+	});
 	const instanceParams = useInstanceClientIdParams();
 	// The nav hides this page below Harper 5.1, but a bookmark or back-navigation still lands here.
 	const { data: registrationInfo, isError: registrationFailed } = useQuery(
@@ -38,25 +43,34 @@ export function ConfigDeploymentsIndex() {
 	const versionKnown = registrationInfo !== undefined;
 	const versionUnavailable = !versionKnown && registrationFailed;
 	const deploymentsAvailable = supportsDeployments(registrationInfo?.version);
-	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version));
+	const statuses = filterableStatuses(supportsStagedDeployments(registrationInfo?.version), registrationInfo?.version);
 	const status = requestedStatus && statuses.includes(requestedStatus) ? requestedStatus : undefined;
 	const unsupportedStatus = versionKnown && !!requestedStatus && !status;
+	// An older Harper ignores `sha` and would list every deployment under a commit filter.
+	const releaseTracking = supportsReleaseTracking(registrationInfo?.version);
+	const sha = releaseTracking ? requestedSha : undefined;
+	const unsupportedSha = versionKnown && !!requestedSha && !sha;
 	useEffect(() => {
 		// Otherwise the URL would keep claiming a filter the list is not applying.
-		if (unsupportedStatus) {
+		if (unsupportedStatus || unsupportedSha) {
 			void navigate({
 				to: '.',
-				search: (previous: DeploymentsSearch) => ({ ...previous, status: undefined }),
+				search: (previous: DeploymentsSearch) => ({
+					...previous,
+					...(unsupportedStatus && { status: undefined }),
+					...(unsupportedSha && { sha: undefined }),
+				}),
 				replace: true,
 			});
 		}
-	}, [unsupportedStatus, navigate]);
+	}, [unsupportedStatus, unsupportedSha, navigate]);
 
 	const { data, isFetching, isRefetching, refetch, error } = useQuery(
 		getDeploymentsQueryOptions({
 			...instanceParams,
 			project,
 			status,
+			sha,
 			limit: DEPLOYMENTS_PAGE_SIZE,
 			offset: (page - 1) * DEPLOYMENTS_PAGE_SIZE,
 			enabled: canManage && deploymentsAvailable,
@@ -77,7 +91,12 @@ export function ConfigDeploymentsIndex() {
 	const total = data?.total ?? 0;
 	const firstShown = total === 0 ? 0 : (page - 1) * DEPLOYMENTS_PAGE_SIZE + 1;
 	const lastShown = Math.min(total, (page - 1) * DEPLOYMENTS_PAGE_SIZE + deployments.length);
-	const filtered = !!project || !!status;
+	const filtered = !!project || !!status || !!sha;
+	const privateCopy = useMemo(() => deployments.some((deployment) => deployment.routing !== undefined), [deployments]);
+	const columns = useMemo(() => deploymentColumns({ commitFilterable: releaseTracking, privateCopy }), [
+		releaseTracking,
+		privateCopy,
+	]);
 
 	const setSearch = useCallback(
 		(patch: DeploymentsSearch) => {
@@ -104,7 +123,10 @@ export function ConfigDeploymentsIndex() {
 	);
 	const onRowClick = useCallback((row: Row<DeploymentRow>) => onSelect(row.original.deployment_id), [onSelect]);
 	const closeModal = useCallback(() => onSelect(undefined), [onSelect]);
-	const onRefreshClick = useRefreshClick(refetch);
+	const retryReleases = useRetryReleases();
+	const onRefreshClick = useRefreshClick(
+		useCallback(() => (releaseTracking ? retryReleases() : refetch()), [releaseTracking, retryReleases, refetch]),
+	);
 	const projectInput = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		// Follows a filter set from outside the field, such as the editor's link, without remounting it.
@@ -131,10 +153,11 @@ export function ConfigDeploymentsIndex() {
 
 	return (
 		<>
+			{project && releaseTracking && <ComponentReleasesPanel project={project} />}
 			<SimpleBrowseDataTable<DeploymentRow>
 				data={rows}
 				isFetching={isFetching || isRefetching || (!versionKnown && !versionUnavailable)}
-				columns={deploymentColumns}
+				columns={columns}
 				onRowClick={onRowClick}
 			>
 				<form
@@ -167,6 +190,18 @@ export function ConfigDeploymentsIndex() {
 							))}
 						</SelectContent>
 					</Select>
+					{sha && (
+						<Button
+							type="button"
+							variant="ghostOutline"
+							size="sm"
+							title={`Commit ${sha}`}
+							aria-label={`Clear the commit filter ${sha.slice(0, 7)}`}
+							onClick={() => setSearch({ sha: undefined, page: undefined })}
+						>
+							<span className="font-mono">Commit {sha.slice(0, 7)}</span> <XIcon />
+						</Button>
+					)}
 				</form>
 				<Button
 					variant="defaultOutline"
@@ -200,6 +235,8 @@ export function ConfigDeploymentsIndex() {
 								</button>
 							</>
 						)
+						: sha
+						? 'No deployments match these filters. A commit filter matches only a full commit SHA, exactly as recorded.'
 						: filtered
 						? 'No deployments match these filters.'
 						: 'No deployments yet.'}

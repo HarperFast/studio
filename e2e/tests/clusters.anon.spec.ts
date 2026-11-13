@@ -27,6 +27,10 @@ const user = {
 };
 
 test.beforeEach(async ({ page }) => {
+	await page.route('**/*', route =>
+		['fetch', 'xhr'].includes(route.request().resourceType())
+			? route.fulfill({ status: 404, json: { error: 'Unmocked test request' } })
+			: route.continue());
 	await rememberAppSignIn(page);
 	await page.route('**/User/current', route => route.fulfill({ json: user }));
 	await page.route('**/Organization/org-fixture', route => route.fulfill({ json: organization }));

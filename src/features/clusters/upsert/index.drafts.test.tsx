@@ -25,6 +25,9 @@ vi.mock('@tanstack/react-query', () => ({
 		}[queryKey[0]],
 	}),
 }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
+	getClusterInfoQueryOptions: () => ({ queryKey: ['cluster'] }),
+}));
 vi.mock(
 	'@/features/cluster/queries/getPlanTypesQuery',
 	() => ({ getPlanTypesOptions: () => ({ queryKey: ['plans'] }) }),

@@ -1,3 +1,11 @@
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
+import {
+	CLUSTER_BUSY_MESSAGE,
+	CLUSTER_BUSY_TITLE,
+	clusterHeldByWorkflow,
+} from '@/integrations/api/cluster/clusterHeldByWorkflow';
+import { BackupJobUnreportedError } from '@/integrations/api/instance/backups/backups';
 import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
@@ -20,6 +28,9 @@ interface DescribedError {
 	message: string;
 }
 
+/** An {@link UnconfirmedWriteError}'s message says which write may have happened; this says what to do. */
+const UNCONFIRMED_WRITE_ADVICE = 'Check whether it took effect before you try again.';
+
 function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	const copy = (title: string, message: string) => ({ title, description: message, message });
 	if (isUnansweredWrite(rawErr)) {
@@ -30,6 +41,12 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	}
 	if (rawErr instanceof ImportJobUnconfirmedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, describeImportJobUnconfirmed(rawErr));
+	}
+	if (rawErr instanceof UnconfirmedWriteError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, `${rawErr.message} ${UNCONFIRMED_WRITE_ADVICE}`);
+	}
+	if (rawErr instanceof BackupJobUnreportedError) {
+		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
 	}
 	return undefined;
 }
@@ -47,6 +64,10 @@ export function describeError(rawErr: unknown): DescribedError {
 	const unknownOutcome = describeUnknownOutcome(rawErr);
 	if (unknownOutcome) {
 		return unknownOutcome;
+	}
+	// The raw refusal names an internal workflow id; customers see it too, so it gets our own copy.
+	if (clusterHeldByWorkflow(rawErr)) {
+		return { title: CLUSTER_BUSY_TITLE, description: CLUSTER_BUSY_MESSAGE, message: CLUSTER_BUSY_MESSAGE };
 	}
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
@@ -150,7 +171,17 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
 	_variables,
 	_onMutateResult,
 	mutation,
+	context,
 ) => {
+	// Before the opt-out: forms that render their own failure still need the cluster record refetched, which is what
+	// puts its workflow notice on the page that was refused. Only the record: the refused write changed nothing else.
+	const held = clusterHeldByWorkflow(error);
+	if (held?.clusterId) {
+		void context.client.invalidateQueries({
+			queryKey: getClusterInfoQueryOptions(held.clusterId).queryKey,
+			exact: true,
+		});
+	}
 	if (mutation.meta?.skipGlobalErrorToast) {
 		return;
 	}
@@ -165,13 +196,27 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  *
  * A failure a route load is awaiting is the route's: its error page is the message and its error
  * boundary the RUM report (`ensureRouteQueryData`).
+ *
+ * A query with `meta: { refusalIsAnAnswer: true }` handles a 403 itself, by showing it or by hiding what it would have shown, so it isn't toasted.
+ * One with `meta: { reportsOwnFailure: true }` shows every failure itself, so RUM gets it and no toast repeats it.
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
 	if (isRestartNoise(error, query.queryKey)) {
 		console.debug('Suppressed a failure from a restarting entity', error);
 		return;
 	}
+	if (query.meta?.refusalIsAnAnswer && error instanceof AxiosError && error.response?.status === 403) {
+		return;
+	}
+	if (query.meta?.reportsOwnFailure) {
+		console.error(error);
+		return;
+	}
 	if (isClaimedByRoute(query)) {
+		return;
+	}
+	if (query.meta?.quietErrors) {
+		console.debug('Suppressed a failure from an optional read', error);
 		return;
 	}
 	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {

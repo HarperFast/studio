@@ -100,6 +100,15 @@ describe('breadcrumbTrail', () => {
 	it('Title Cases segments no route declares, as before', () => {
 		expect(labels('/profile/api-token', undefined, {}, NAMES)).toEqual(['Profile', 'Api Token']);
 	});
+
+	it('spells GitHub as GitHub', () => {
+		expect(labels('/config/deploy-from-github', undefined, {}, NAMES)).toEqual(['Config', 'Deploy from GitHub']);
+		expect(labels('/config/ai-models', undefined, {}, NAMES)).toEqual(['Config', 'AI Models']);
+	});
+
+	it('names the MCP page as its menu entry does', () => {
+		expect(labels('/config/mcp', undefined, {}, NAMES)).toEqual(['Config', 'MCP Server']);
+	});
 });
 
 describe('paramSegments', () => {

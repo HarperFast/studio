@@ -7,6 +7,7 @@ import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
@@ -65,6 +66,14 @@ export function UpsertCluster() {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
+	// The route's cluster is a snapshot from navigation; the cached record follows the cluster notice's polling.
+	const { data: liveCluster } = useQuery({
+		...getClusterInfoQueryOptions(clusterId),
+		enabled: !!clusterId && !!cluster,
+	});
+	// Hold state and instance versions come from one record, so a finished upgrade can't pair with stale versions.
+	const currentCluster = liveCluster ?? cluster;
+	const heldByWorkflow = !!currentCluster?.workflowId;
 	const [storedClusterState, setStoredClusterState] = useLocalStorage<
 		| null
 		| ({
@@ -106,28 +115,31 @@ export function UpsertCluster() {
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
-		if (cluster?.instances && newHarperVersions) {
+		if (currentCluster?.instances && newHarperVersions) {
 			return {
 				...newHarperVersions,
-				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], cluster.instances),
+				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], currentCluster.instances),
 			} satisfies HarperVersionsResponse;
 		}
 		return newHarperVersions;
-	}, [newHarperVersions, cluster]);
+	}, [newHarperVersions, currentCluster]);
 
 	// Detect a partially-upgraded cluster, where at least one instance failed to reach the version the
 	// rest of the cluster is on. In that state the version picker pre-selects the latest version as
 	// "current" and offers nothing newer, so the form can never become dirty — leaving no way to
 	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
 	// the current target as a recovery path — unless a pinned (scoped) version is among the lagging
-	// ones, in which case the target is ambiguous and the user picks it.
+	// ones, in which case the target is ambiguous and the user picks it. While a workflow holds the cluster the
+	// lagging instances are the ones its upgrade hasn't reached yet, not a failure to recover from.
 	const partialUpgrade = useMemo(
 		() =>
-			detectPartialUpgrade(
-				cluster?.instances ?? [],
-				(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
-			),
-		[cluster, newHarperVersions],
+			heldByWorkflow
+				? null
+				: detectPartialUpgrade(
+					currentCluster?.instances ?? [],
+					(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
+				),
+		[currentCluster, heldByWorkflow, newHarperVersions],
 	);
 
 	const alreadyUsingFree = useMemo(() => {
@@ -281,6 +293,8 @@ export function UpsertCluster() {
 				fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 				instances,
 				regionPlans,
+				// Try Again on a failed cluster keeps its record-lock choice. An edit never sends it.
+				recordLocks: clusterToLoad?.recordLocks === true,
 			},
 			unresolvedRegionIds,
 			draftDiscarded,
@@ -398,6 +412,7 @@ export function UpsertCluster() {
 				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
+				recordLocksOn={currentCluster?.recordLocks === true}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}

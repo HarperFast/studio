@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigDeploymentsIndex } from './index';
@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
 	historyData: undefined as { deployments: object[]; total: number } | undefined,
 	search: {} as Record<string, unknown>,
 	navigate: vi.fn(),
+	releasesAsked: [] as Record<string, unknown>[],
+	releases: undefined as object | undefined,
 }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
@@ -34,6 +36,14 @@ vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 }));
 vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
 	getDeploymentsQueryOptions: (params: { enabled?: boolean; limit?: number }) => {
+		if (params.limit === 1) {
+			return {
+				queryKey: ['newest', params],
+				queryFn: () => new Promise(() => {}),
+				enabled: false,
+				initialData: { deployments: [], total: 0 },
+			};
+		}
 		// The page asks for a page; what became of a staged record is asked of the component's whole history.
 		if (params.limit === undefined) {
 			state.historyParams.push(params);
@@ -54,6 +64,19 @@ vi.mock('@/integrations/api/instance/deployments/listDeployments', () => ({
 		};
 	},
 }));
+vi.mock('@/integrations/api/instance/deployments/listReleases', () => ({
+	getReleasesQueryOptions: (params: { enabled?: boolean; project: string }) => {
+		if (params.enabled !== false) {
+			state.releasesAsked.push(params);
+		}
+		return {
+			queryKey: ['list_releases', params.project],
+			queryFn: () => new Promise(() => {}),
+			enabled: params.enabled,
+			...(state.releases ? { initialData: state.releases } : {}),
+		};
+	},
+}));
 vi.mock('./modals/DeploymentDetailModal', () => ({ DeploymentDetailModal: () => null }));
 
 afterEach(() => {
@@ -67,6 +90,8 @@ afterEach(() => {
 	state.historyData = undefined;
 	state.search = {};
 	state.navigate.mockClear();
+	state.releasesAsked = [];
+	state.releases = undefined;
 });
 
 function renderPage(version: string | undefined) {
@@ -220,5 +245,128 @@ describe('ConfigDeploymentsIndex filters and paging', () => {
 		state.listData = { deployments: [row('e5f6a7b8-0000-4000-8000-000000000002')], total: 1 };
 		renderPage('5.3.0');
 		expect(state.historyParams).toEqual([]);
+	});
+});
+
+describe('ConfigDeploymentsIndex on Harper 5.4', () => {
+	const SHA = '0123456789abcdef0123456789abcdef01234567';
+
+	it('filters by commit, and clears that filter on its own', () => {
+		state.search = { project: 'web', sha: SHA, page: 2 };
+		renderPage('5.4.0-alpha.1');
+		expect(state.listParams.at(-1)).toMatchObject({ project: 'web', sha: SHA });
+		fireEvent.click(screen.getByRole('button', { name: 'Clear the commit filter 0123456' }));
+		const update = state.navigate.mock.calls.at(-1)?.[0] as { search: (prev: object) => object };
+		expect(update.search({ project: 'web', sha: SHA, page: 2 })).toEqual({ project: 'web' });
+	});
+
+	it('drops a commit filter an older Harper would ignore, rather than list every deployment under it', () => {
+		state.search = { sha: SHA };
+		renderPage('5.3.5');
+		expect(state.listParams.at(-1)?.sha).toBeUndefined();
+		const update = state.navigate.mock.calls.at(-1)?.[0] as { search: (prev: object) => object; replace: boolean };
+		expect(update.replace).toBe(true);
+		expect(update.search({ sha: SHA, project: 'web' })).toEqual({ project: 'web' });
+	});
+
+	it.each([
+		['abbreviated', '0123456'],
+		['uppercase', SHA.toUpperCase()],
+		['SHA-256 prefix', '0123456789abcdef0123456789abcdef0123456789abcdef'],
+	])('says a commit filter matching nothing must be the full SHA, exactly as recorded: %s', (_name, filter) => {
+		state.search = { sha: filter };
+		state.listData = { deployments: [], total: 0 };
+		renderPage('5.4.0-beta.2');
+		expect(state.listParams.at(-1)?.sha).toBe(filter);
+		expect(screen.getByText(/A commit filter matches only a full commit SHA, exactly as recorded\./)).toBeTruthy();
+	});
+
+	it('shows the commit a CI deploy was built from, and filters by it on click', () => {
+		state.listData = {
+			deployments: [row('d1', { source: { via: 'oidc', policy: 'p', repository: 'acme/web', sha: SHA } })],
+			total: 1,
+		};
+		renderPage('5.4.0-beta.2');
+		expect(screen.getByText('acme/web')).toBeTruthy();
+		expect(screen.getByText('OIDC')).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: '0123456' }));
+		const update = state.navigate.mock.calls.at(-1)?.[0] as { search: (prev: object) => object };
+		expect(update.search({ project: 'web', page: 3 })).toEqual({ project: 'web', sha: SHA, page: undefined });
+	});
+
+	it('shows the private copy each release puts back, once a record on the page says (harper#4077)', () => {
+		const routing = (branchedDatabases: string[] | null) => ({
+			host: null,
+			urlPath: null,
+			isolated: null,
+			branchedDatabases,
+		});
+		state.listData = {
+			deployments: [
+				row('d1', { routing: routing(['data']) }),
+				row('d2', { routing: routing(null) }),
+				row('d3', { routing: null }),
+				row('d4'),
+			],
+			total: 4,
+		};
+		renderPage('5.4.0-beta.2');
+		const column = screen.getAllByRole('columnheader').findIndex((header) => header.textContent === 'Private copy');
+		expect(column).toBeGreaterThan(-1);
+		const shown = screen.getAllByRole('row').slice(1).map((tableRow) =>
+			within(tableRow).getAllByRole('cell')[column].textContent
+		);
+		expect(shown).toEqual(['data', 'Off', 'Keeps current', '—']);
+	});
+
+	it('shows no private copy column when no record on the page says', () => {
+		state.listData = { deployments: [row('d1')], total: 1 };
+		renderPage('5.4.0-beta.2');
+		expect(screen.queryByRole('columnheader', { name: 'Private copy' })).toBeNull();
+	});
+
+	it('shows a declared commit that is not a hash without offering to filter by it', () => {
+		state.listData = {
+			deployments: [row('d1', { source: { via: 'declared', repository: 'acme/web', sha: 'main' } })],
+			total: 1,
+		};
+		renderPage('5.4.0-beta.2');
+		expect(screen.getByText('main').tagName).toBe('SPAN');
+		expect(screen.queryByRole('button', { name: 'main' })).toBeNull();
+	});
+
+	it('shows what each node holds of the component it is filtered to', () => {
+		state.search = { project: 'web' };
+		const at = Date.now() - 60_000;
+		state.releases = {
+			nodes: [
+				{
+					node: 'a',
+					components: [{
+						project: 'web',
+						deployment_id: 'v3',
+						releases: [{ deployment_id: 'v2', state: 'kept', at, size: 2048 }],
+					}],
+				},
+				{ node: 'b', components: [{ project: 'web', deployment_id: 'v3', releases: [] }] },
+				{ node: 'c', error: 'timed out' },
+			],
+		};
+		renderPage('5.4.0-beta.2');
+		const panel = screen.getByRole('region', { name: 'Releases of web' });
+		expect(panel.textContent).toContain('Live on a, b');
+		expect(panel.textContent).toContain('Kept on a · not on b');
+		expect(panel.textContent).toContain("c couldn't say what it holds: timed out");
+		expect(state.releasesAsked.at(-1)).toMatchObject({ project: 'web' });
+	});
+
+	it('asks no node what it holds before Harper 5.4, or without a component', () => {
+		state.search = { project: 'web' };
+		renderPage('5.3.5');
+		cleanup();
+		state.search = {};
+		renderPage('5.4.0-beta.2');
+		expect(state.releasesAsked).toEqual([]);
+		expect(screen.queryByRole('region', { name: /Releases of/ })).toBeNull();
 	});
 });

@@ -7,6 +7,8 @@
  * When the bundled `harper` package updates that schema, reconcile this file.
  */
 
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
+
 export type HarperDirectiveLocation = 'OBJECT' | 'FIELD_DEFINITION';
 
 export interface HarperDirectiveArg {
@@ -16,7 +18,17 @@ export interface HarperDirectiveArg {
 	description: string;
 }
 
-export interface HarperDirective {
+/** Something Harper added in a given release; older instances don't offer it. */
+interface Versioned {
+	/**
+	 * The first Harper release that has it. Its prereleases don't count: `FullText` shipped in
+	 * `5.3.0-beta.3` with a declaration shape 5.3.0 then dropped without an upgrade path.
+	 * Absent: every supported release.
+	 */
+	minVersion?: string;
+}
+
+export interface HarperDirective extends Versioned {
 	/** Directive name without the leading `@`. */
 	name: string;
 	locations: HarperDirectiveLocation[];
@@ -24,11 +36,26 @@ export interface HarperDirective {
 	args: HarperDirectiveArg[];
 }
 
-export interface HarperScalar {
+export interface HarperScalar extends Versioned {
 	name: string;
 	description: string;
 	/** True for Harper extensions beyond the GraphQL built-in scalars. */
 	harperSpecific: boolean;
+}
+
+/** An `input` type a directive argument takes, so the editor can complete the fields of its objects. */
+export interface HarperInputType {
+	name: string;
+	fields: HarperDirectiveArg[];
+}
+
+/**
+ * Whether `item` exists on Harper `version`. An unknown version (`registration_info` is denied to a
+ * role with an operations allowlist) offers only what every release has: a schema naming something
+ * the instance lacks fails to load as a whole, so a wrong guess costs every table, not one field.
+ */
+export function availableOn(item: Versioned, version: string | undefined): boolean {
+	return !item.minVersion || (version !== undefined && wasAReleasedBeforeB(item.minVersion, version));
 }
 
 export const harperDirectives: HarperDirective[] = [
@@ -187,6 +214,60 @@ export const harperDirectives: HarperDirective[] = [
 			},
 		],
 	},
+	// `@embed` and `@decide` are not declared in Harper's `schema.graphql`: their arguments are the ones
+	// `resources/graphql.ts` reads.
+	{
+		name: 'embed',
+		minVersion: '5.1.0',
+		locations: ['FIELD_DEFINITION'],
+		description:
+			'Fill this `[Float]` field with an embedding of another field whenever a record is written, and index it for vector search (HNSW).',
+		args: [
+			{ name: 'source', type: 'String', description: 'The field whose value is embedded.' },
+			{
+				name: 'model',
+				type: 'String',
+				description: "The name of an embedding model in the instance's `models` settings.",
+			},
+		],
+	},
+	{
+		name: 'decide',
+		minVersion: '5.3.0',
+		locations: ['FIELD_DEFINITION'],
+		description:
+			"Have a decision model fill this `String`, `Boolean` or `Int` field from another field whenever a record is written. The write fails when the model can't decide.",
+		args: [
+			{ name: 'source', type: 'String', description: 'The field the decision is made from.' },
+			{
+				name: 'values',
+				type: '[String]',
+				description: 'The 2 to 255 strings a `String` field can be given. Required on one, and only allowed there.',
+			},
+			{ name: 'minimum', type: 'Int', description: 'The lowest value an `Int` field can be given.' },
+			{
+				name: 'maximum',
+				type: 'Int',
+				description: 'The highest value an `Int` field can be given. The range covers 2 to 255 whole numbers.',
+			},
+			{
+				name: 'model',
+				type: 'String',
+				description: "The name of a decision model in the instance's `models` settings. Defaults to `default`.",
+			},
+			{
+				name: 'confidence',
+				type: 'String',
+				description: 'A nullable `Float` field that receives how confident the model was.',
+			},
+			{
+				name: 'decision',
+				type: 'String',
+				description: "A nullable `String` field that receives the decision's id.",
+			},
+			{ name: 'instructions', type: 'String', description: 'Extra guidance given to the model with each decision.' },
+		],
+	},
 	{
 		name: 'createdTime',
 		locations: ['FIELD_DEFINITION'],
@@ -218,7 +299,86 @@ export const harperDirectives: HarperDirective[] = [
 			},
 		],
 	},
+	{
+		name: 'fullText',
+		locations: ['FIELD_DEFINITION'],
+		minVersion: '5.3.0',
+		description:
+			'Declares a full-text index on a `FullText` field; the field name names the index. The table must be audited (`@table(audit: true)`) and use RocksDB. Changing the sources, their order or media type, the analyzer, stop words, synonyms, positions or surface terms rebuilds the index; weights and highlighting do not.',
+		args: [
+			{
+				name: 'fields',
+				type: '[FullTextSource!]!',
+				description:
+					'The stored `String`, `[String]` or `Blob` fields to index, each `{ name, weight, highlight, mediaType }`. Keep the order stable: reordering rebuilds the index.',
+			},
+			{
+				name: 'analyzer',
+				type: 'String',
+				description: 'Text analyzer. Only `"english@2"` (the default) is supported.',
+			},
+			{ name: 'stopWords', type: 'Boolean', description: 'Ignore common words such as "the". Defaults to true.' },
+			{
+				name: 'positions',
+				type: 'Boolean',
+				description: 'Store term positions. Phrase search needs them. Defaults to true.',
+			},
+			{
+				name: 'surfaceTerms',
+				type: 'Boolean',
+				description: 'Store surface terms. Prefix search and highlighting need them. Defaults to true.',
+			},
+			{
+				name: 'synonyms',
+				type: '[FullTextSynonymRule!]',
+				description: 'Index-time synonym rules, each `{ source, replacements }`.',
+			},
+			{
+				name: 'highlighting',
+				type: 'FullTextHighlighting',
+				description:
+					'Turns on highlighting: `{ maxFragments, fragmentLength }` (defaults 3 and 160). At least one source must set `highlight: true`.',
+			},
+		],
+	},
 ];
+
+export const harperInputTypes: HarperInputType[] = [
+	{
+		name: 'FullTextSource',
+		fields: [
+			{ name: 'name', type: 'String!', description: 'The source field to index.' },
+			{ name: 'weight', type: 'Float', description: 'Relevance weight, greater than zero. Defaults to 1.' },
+			{
+				name: 'highlight',
+				type: 'Boolean',
+				description: 'Return highlighted matches from this source when the index enables highlighting.',
+			},
+			{ name: 'mediaType', type: 'String', description: 'Required for a `Blob` source: `"text/plain"`.' },
+		],
+	},
+	{
+		name: 'FullTextSynonymRule',
+		fields: [
+			{ name: 'source', type: 'String!', description: 'The term to expand.' },
+			{ name: 'replacements', type: '[String!]!', description: 'The terms to index alongside it.' },
+		],
+	},
+	{
+		name: 'FullTextHighlighting',
+		fields: [
+			{ name: 'maxFragments', type: 'Int', description: 'Fragments returned per matched value. Defaults to 3.' },
+			{ name: 'fragmentLength', type: 'Int', description: 'Characters per fragment. Defaults to 160.' },
+		],
+	},
+];
+
+/** The input type a directive argument's objects take (`fields` of `@fullText` → `FullTextSource`). */
+export function findArgInputType(directiveName: string, argName: string): HarperInputType | undefined {
+	const arg = findDirective(directiveName)?.args.find(candidate => candidate.name === argName);
+	const typeName = arg?.type.replace(/[[\]!]/g, '');
+	return harperInputTypes.find(input => input.name === typeName);
+}
 
 export const harperScalars: HarperScalar[] = [
 	{
@@ -256,6 +416,13 @@ export const harperScalars: HarperScalar[] = [
 		harperSpecific: true,
 		description:
 			'64-bit signed integer. Some clients may serialize values as strings to preserve precision across environments.',
+	},
+	{
+		name: 'FullText',
+		harperSpecific: true,
+		minVersion: '5.3.0',
+		description:
+			'A full-text index, declared with `@fullText`. It holds no value: the field name names the index, which you search with `matches`, `matches_all`, `matches_phrase`, `matches_prefix`, `matches_fuzzy` or `matches_fuzzy_prefix`. Must be exactly `FullText` (not a list, not required).',
 	},
 	{ name: 'Boolean', harperSpecific: false, description: 'true or false' },
 	{ name: 'Float', harperSpecific: false, description: 'A signed double-precision floating-point value.' },
