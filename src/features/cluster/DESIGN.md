@@ -211,8 +211,10 @@ Re-sending the cluster's own value resumes a stopped roll and skips members alre
 
 Every member can carry the new value while the last one, and the cluster, are still `UPDATING`: the value is stamped
 at handover, not when the restart finishes. So a save isn't seen through until the cluster runs again, and the page
-keeps polling while the cluster is `UPDATING`, whatever the members say. A viewer with no save of its own sees On or
-Off there, with the switch disabled because the cluster is updating, until the cluster runs.
+keeps polling while the cluster is `UPDATING`, whatever the members say. A roll the page watched (members disagreeing
+while the cluster updated) stays applying until the cluster runs, save or not. A page that never saw one doesn't
+assume it: an `UPDATING` cluster whose members all match may be running any other update, so it shows On or Off
+with the switch disabled until the cluster runs.
 
 The roll's `UPDATING` write starts before the PUT answers, but nothing waits for it, so a read right after a save can
 still find the cluster `RUNNING` with members disagreeing, exactly like a stopped roll. The page treats that picture

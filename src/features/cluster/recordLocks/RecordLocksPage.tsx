@@ -112,12 +112,20 @@ export function RecordLocksSettings({ cluster, organizationId, canUpdate }: {
 	const beingSet = useRecordLocksBeingSet(cluster.id);
 	const isPending = beingSet !== undefined;
 
-	// A save still out reads as the roll starting too: a read may already show the new value on the cluster.
-	const phase: RecordLocksPhase = saved || isPending ? 'applying' : state.phase;
-	const enabled = saved?.target ?? beingSet ?? state.enabled;
 	// Central manager stamps a member's setting when it hands over its restart, so every member can match
 	// while the last one, and the cluster, are still updating: that isn't settled until the cluster runs.
 	const updating = cluster.status === 'UPDATING';
+	// So a roll this page has watched stays applying until the cluster runs again. One it never saw isn't
+	// assumed: an UPDATING cluster whose members all match may be running any other update.
+	const [watchedRoll, setWatchedRoll] = useState(false);
+	if (state.phase === 'applying' && !watchedRoll) {
+		setWatchedRoll(true);
+	} else if (watchedRoll && !updating) {
+		setWatchedRoll(false);
+	}
+	// A save still out reads as the roll starting too: a read may already show the new value on the cluster.
+	const phase: RecordLocksPhase = saved || isPending || (watchedRoll && updating) ? 'applying' : state.phase;
+	const enabled = saved?.target ?? beingSet ?? state.enabled;
 	const { dataUpdatedAt } = useQuery({
 		...getClusterInfoQueryOptions(cluster.id, phase === 'stopped' ? STOPPED_POLL_MS : ROLL_POLL_MS),
 		enabled: phase === 'applying' || phase === 'stopped' || updating,

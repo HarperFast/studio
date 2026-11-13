@@ -342,6 +342,49 @@ describe('RecordLocksSettings', () => {
 		expect(screen.getByText('On')).toBeTruthy();
 	});
 
+	it('keeps a roll it watched applying through the last restart, with no save of its own', () => {
+		const { show } = setup(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [instance({ id: 'ins-1', recordLocks: true }), instance({ id: 'ins-2', status: 'PENDING_UPGRADE' })],
+		}));
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+
+		show(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [
+				instance({ id: 'ins-1', recordLocks: true }),
+				instance({ id: 'ins-2', recordLocks: true, status: 'UPDATING' }),
+			],
+		}));
+
+		expect(screen.getByText('Turning record locks on')).toBeTruthy();
+		expect(screen.getByText(/1 of 2 done/)).toBeTruthy();
+
+		show(cluster({
+			recordLocks: true,
+			instances: [instance({ id: 'ins-1', recordLocks: true }), instance({ id: 'ins-2', recordLocks: true })],
+		}));
+
+		expect(screen.queryByText('Turning record locks on')).toBeNull();
+		expect(screen.getByText('On')).toBeTruthy();
+	});
+
+	it('does not call an update it never saw a record-locks roll in one', () => {
+		setup(cluster({
+			recordLocks: true,
+			status: 'UPDATING',
+			instances: [
+				instance({ id: 'ins-1', recordLocks: true }),
+				instance({ id: 'ins-2', recordLocks: true, status: 'UPDATING' }),
+			],
+		}));
+
+		expect(screen.queryByText('Turning record locks on')).toBeNull();
+		expect(screen.getByText('The cluster is updating. Record locks can change once it is running again.')).toBeTruthy();
+	});
+
 	it('keeps reading a cluster that is still updating, though every member already carries the setting', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		const { show } = setup(cluster());
