@@ -176,15 +176,23 @@ run tests what is about to be promoted, a dev run what is still being integrated
   deploy to that environment waits for it — a deploy landing mid-run would change the build under
   the tests. GitHub keeps one
   pending run per group, so a burst of pushes waits for one e2e run, not one each. **Re-run failed
-  jobs** re-runs only `e2e`, which passes its gate only while that version is still deployed.
+  jobs** re-runs only `e2e`, which passes its gate only while that version is still deployed. A
+  manual run from another branch deploys but skips `e2e`, whose environment admits only its own
+  branch.
 
 **Create the environment before the job reaches its branch.** GitHub auto-creates a missing
 environment with no secrets and no branch policy, so until this runs every deploy of that branch
 goes red on skipped specs, and nothing restricts which branch could read secrets added later.
 Values come from whoever owns the test accounts — never a personal login — and each environment
-gets its own Mailosaur server and key. The signup round-trip also needs that Mailosaur domain in the
-environment's `ALLOWLIST_EMAIL_DOMAINS`, or signup answers 403 and the run fails. For stage, replace
-`e2e-dev` and `dev` with `e2e-stage` and `stage`:
+gets its own Mailosaur server and key. The target's central-manager needs three things in place, or
+the run fails:
+
+- the Mailosaur domain in its `ALLOWLIST_EMAIL_DOMAINS` Configuration row, or signup answers 403;
+- on stage, which enforces reCAPTCHA (local and dev do not), its `RECAPTCHA_MIN_SCORE` row at `0`: a
+  headless browser on a GitHub runner scores below the 0.5 default and signup answers 403;
+- the test account in an organization, or the org-users spec finds nothing to open.
+
+For stage, replace `e2e-dev` and `dev` with `e2e-stage` and `stage`:
 
 ```bash
 gh api -X PUT repos/HarperFast/studio/environments/e2e-dev \

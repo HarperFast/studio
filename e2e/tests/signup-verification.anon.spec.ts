@@ -9,6 +9,7 @@ import {
 	waitForVerificationEmail,
 } from './mail';
 import { maskInCi } from './maskInCi';
+import { describeSignupRefusal, sentCaptchaToken } from './signupRefusal';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
@@ -108,11 +109,7 @@ test.describe('signup → email verification → login', () => {
 					'Signup returned 403 and E2E_ALLOW_SIGNUP_403_SKIP=1 — treating as the known '
 						+ `ALLOWLIST_EMAIL_DOMAINS gap. Server said: ${detail.slice(0, 200)}`,
 				);
-				throw new Error(
-					'Signup returned 403. If this is the email-domain allowlist, add the Mailosaur server '
-						+ "domain to the target's ALLOWLIST_EMAIL_DOMAINS (or set E2E_ALLOW_SIGNUP_403_SKIP=1 "
-						+ `to skip deliberately). Otherwise this is a signup regression. Server said: ${detail.slice(0, 300)}`,
-				);
+				throw new Error(describeSignupRefusal(detail, sentCaptchaToken(signupResponse.request().postData())));
 			}
 			expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
 			accountApiBase = signupApiBase(signupResponse.url());

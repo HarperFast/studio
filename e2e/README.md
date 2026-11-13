@@ -159,6 +159,11 @@ Two operational gotchas:
   must be in that list; otherwise the round-trip **fails** with a pointer to this, unless the
   explicit escape hatch `E2E_ALLOW_SIGNUP_403_SKIP=1` is set (a 403 is at least as likely to be an
   authz/WAF regression as a misconfigured allowlist, so failing is the safe default).
+- **Stage enforces reCAPTCHA.** After the allowlist, a stage (or prod) central-manager scores the
+  signup's reCAPTCHA token and refuses a low score with 403 `Verification failed`; a headless
+  browser on a CI runner scores low. On a test environment, set the `RECAPTCHA_MIN_SCORE`
+  Configuration row to `0`. The failure message says which check refused the signup and whether
+  the page sent a token at all.
 - **Account churn.** Each run creates a real account on the backend; the spec self-deletes it in a
   `finally` (see `accountCleanup.ts`). The delete goes to the API the signup request actually
   reached, not to `PLAYWRIGHT_BASE_URL`: on a localhost target the dev server serves only the UI and
