@@ -22,6 +22,8 @@ vi.mock('@tanstack/react-router', () => {
 	};
 });
 vi.mock('@/components/SubNavMenu', () => ({ SubNavMenu: () => null }));
+const apiGet = vi.hoisted(() => vi.fn());
+vi.mock('@/config/apiClient', () => ({ apiClient: { get: apiGet } }));
 vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 	ClusterPageLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -50,7 +52,10 @@ beforeEach(() => {
 	viewer.superUser = false;
 	useOwedPresetSetup.mockReset();
 });
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	apiGet.mockReset();
+});
 
 async function renderHome(state: Cluster) {
 	cluster = state;
@@ -62,6 +67,7 @@ async function renderHome(state: Cluster) {
 		</QueryClientProvider>,
 	);
 	await act(() => null);
+	return client;
 }
 
 const base = {
@@ -77,6 +83,66 @@ describe(ClusterHome, () => {
 		await renderHome({ ...base, status: 'TERMINATED' });
 		expect(screen.getByRole('heading', { name: 'Cluster Terminated' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
+	});
+
+	it('shows a cluster whose delete is still running as terminating, and names the members of a delete that stopped', async () => {
+		apiGet.mockResolvedValue({
+			data: {
+				id: 'wf-1',
+				type: 'DELETE_CLUSTER',
+				status: 'PAUSED',
+				pause: { reason: 'failed', at: '2026-11-06T00:00:00.000Z' },
+				failedInstanceIds: ['ins-2'],
+				message: 'Instance ins-2 did not confirm the deletion in time.',
+			},
+		});
+		await renderHome({
+			...base,
+			status: 'TERMINATING',
+			instances: [{ id: 'ins-1', name: 'east-1' }, { id: 'ins-2', name: 'west-1' }],
+		} as unknown as Cluster);
+		expect(screen.getByRole('heading', { name: 'Cluster Terminating' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
+		expect((await screen.findByRole('status')).textContent).toContain(
+			'Termination stoppedInstance west-1 did not confirm the deletion in time.',
+		);
+		expect(apiGet).toHaveBeenCalledWith('/Cluster/clu-1/workflow');
+	});
+
+	it('drops the notice and reads no more once the cluster is gone', async () => {
+		apiGet.mockResolvedValue({
+			data: {
+				id: 'wf-1',
+				type: 'DELETE_CLUSTER',
+				status: 'PAUSED',
+				pause: { reason: 'failed' },
+				failedInstanceIds: [],
+			},
+		});
+		const terminating = { ...base, status: 'TERMINATING', workflowId: 'wf-1' } as Cluster;
+		const client = await renderHome(terminating);
+		await screen.findByRole('status');
+		await act(async () => {
+			client.setQueryData(['clu-1'], { ...terminating, status: 'TERMINATED', workflowId: null });
+			await new Promise((resolve) => setTimeout(resolve));
+		});
+		expect(screen.getByRole('heading', { name: 'Cluster Terminated' })).toBeTruthy();
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(apiGet).toHaveBeenCalledTimes(1);
+	});
+
+	it('calls a self-hosted cluster whose removal is still running removing, not removed', async () => {
+		apiGet.mockResolvedValue({
+			data: { id: 'wf-1', type: 'DELETE_CLUSTER', status: 'RUNNING', failedInstanceIds: [] },
+		});
+		await renderHome({ ...base, status: 'TERMINATING', plans: [{ planId: 'self-hosted-free' }] } as unknown as Cluster);
+		expect(screen.getByRole('heading', { name: 'Cluster Removing' })).toBeTruthy();
+	});
+
+	it('reads no workflow for a cluster that is already gone', async () => {
+		await renderHome({ ...base, status: 'TERMINATED' });
+		expect(apiGet).not.toHaveBeenCalled();
+		expect(screen.queryByRole('status')).toBeNull();
 	});
 
 	it('shows a failed build that central manager rolled back (FAILED with terminatedAt) as gone', async () => {

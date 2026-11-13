@@ -1,6 +1,7 @@
 // Central manager's read-only customer view of a cluster's workflow, `GET /Cluster/<id>/workflow`: the one holding the
 // cluster, else the last one that did. Not in the OpenAPI document yet, so the shape is written here.
 import { apiClient } from '@/config/apiClient';
+import { errorStatus } from '@/lib/errorStatus';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
@@ -17,30 +18,46 @@ export interface ClusterWorkflow {
 }
 
 const POLL_MS = 10_000;
-const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
 
 /**
- * Keyed by the workflow holding the cluster, so the read starts over when one claims or releases it. A 404 is a cluster
- * that never had one or that the user can't see, or a central manager without the endpoint.
+ * Keyed by the workflow holding the cluster, so the read starts over when one claims or releases it, and polled only
+ * while one holds it. Null is a central manager with no workflow to show: a 404 for a cluster that never had one or that
+ * the user can't see, and a 400 from one older than the endpoint, whose operations proxy refuses the path. While a
+ * workflow holds the cluster, such an answer is a passing anomaly, so the poll goes on.
  */
 export function latestClusterWorkflowQueryOptions(clusterId: string | undefined, heldBy: string | null | undefined) {
 	const poll = pollUnlessForbidden(heldBy ? POLL_MS : false);
 	return queryOptions({
 		queryKey: ['cluster-workflow', clusterId ?? '', heldBy ?? ''],
 		queryFn: async (): Promise<ClusterWorkflow | null> => {
-			const { data } = await apiClient.get(`/Cluster/${clusterId}/workflow` as '/Cluster/{id}');
-			const row = data as unknown as Partial<ClusterWorkflow> | undefined;
-			if (!row?.id || typeof row.status !== 'string') { return null; }
+			// Callers replace `enabled`, and a refetch or fetchQuery skips it, so the read itself refuses a missing id.
+			if (!clusterId) {
+				return null;
+			}
+			let data: unknown;
+			try {
+				({ data } = await apiClient.get(`/Cluster/${clusterId}/workflow` as '/Cluster/{id}'));
+			} catch (error) {
+				const status = errorStatus(error);
+				if (status === 404 || status === 400) {
+					return null;
+				}
+				throw error;
+			}
+			const row = data as Partial<ClusterWorkflow> | undefined;
+			if (!row?.id || typeof row.status !== 'string') {
+				return null;
+			}
 			return {
 				...row,
 				failedInstanceIds: Array.isArray(row.failedInstanceIds)
-					? row.failedInstanceIds.filter((id) => typeof id === 'string')
+					? row.failedInstanceIds.filter((id) => typeof id === 'string' && id.length > 0)
 					: [],
 			} as ClusterWorkflow;
 		},
 		enabled: !!clusterId,
 		retry: false,
 		meta: { quietErrors: true },
-		refetchInterval: (query) => (statusOf(query.state.error) === 404 ? false : poll(query)),
+		refetchInterval: poll,
 	});
 }

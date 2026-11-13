@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClusterStateMenu } from './ClusterStateMenu';
 
-const state = vi.hoisted(() => ({ user: null as unknown, run: vi.fn() }));
+const state = vi.hoisted(() => ({ user: null as unknown, run: vi.fn(), terminate: vi.fn(), toast: vi.fn() }));
+vi.mock('sonner', () => ({ toast: { success: state.toast, error: vi.fn(), dismiss: vi.fn() } }));
 vi.mock(
 	'@tanstack/react-query',
 	async importOriginal => ({
@@ -27,13 +28,19 @@ vi.mock(
 );
 vi.mock(
 	'@/features/clusters/mutations/terminateCluster',
-	() => ({ useTerminateClusterMutation: () => ({ mutate: vi.fn(), isPending: false }) }),
+	async importOriginal => ({
+		...await importOriginal<typeof import('@/features/clusters/mutations/terminateCluster')>(),
+		useTerminateClusterMutation: () => ({ mutate: state.terminate, isPending: false }),
+	}),
 );
 vi.mock('@/features/clusters/components/ClusterContainerOpModals', () => ({
 	ClusterContainerOpModals: ({ restartOpen }: { restartOpen: boolean }) => restartOpen ? <p>Restart dialog</p> : null,
 }));
 vi.mock('@/features/clusters/components/SafeModeConfirmDialog', () => ({ SafeModeConfirmDialog: () => null }));
-vi.mock('@/components/ConfirmDeletionModal', () => ({ ConfirmDeletionModal: () => null }));
+vi.mock('@/components/ConfirmDeletionModal', () => ({
+	ConfirmDeletionModal: ({ isModalOpen, deletionConfirmed }: { isModalOpen: boolean; deletionConfirmed: () => void }) =>
+		isModalOpen ? <button type="button" onClick={deletionConfirmed}>Confirm terminate</button> : null,
+}));
 
 beforeAll(() => {
 	Object.assign(Element.prototype, {
@@ -53,6 +60,8 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	state.run.mockClear();
+	state.terminate.mockReset();
+	state.toast.mockClear();
 });
 
 const ORG = 'org-a';
@@ -119,6 +128,27 @@ describe('ClusterStateMenu', () => {
 		expect(isDisabled('Terminate')).toBe(true);
 		fireEvent.click(screen.getByRole('menuitem', { name: 'Start' }));
 		expect(state.run).toHaveBeenCalledWith('start', { safeMode: false, strategy: 'parallel' });
+	});
+
+	it('says the termination started, not finished, when central manager only admitted it', async () => {
+		state.user = member('admin', { update: true, delete: true });
+		state.terminate.mockImplementation((_id: string, { onSuccess }: { onSuccess: (result: unknown) => void }) =>
+			onSuccess({ id: 'clu-a', workflowId: 'wf-1', status: 'TERMINATING' })
+		);
+		render(<ClusterStateMenu cluster={cluster()} />);
+		openMenu();
+		fireEvent.click(screen.getByRole('menuitem', { name: 'Terminate' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Confirm terminate' }));
+
+		expect(state.terminate).toHaveBeenCalledWith('clu-a', expect.anything());
+		await vi.waitFor(() =>
+			expect(state.toast).toHaveBeenCalledWith(
+				'Success',
+				expect.objectContaining({
+					description: 'Cluster termination started. It stays listed as Terminating until every instance is gone.',
+				}),
+			)
+		);
 	});
 
 	it('renders nothing for a member who can only view the cluster', () => {

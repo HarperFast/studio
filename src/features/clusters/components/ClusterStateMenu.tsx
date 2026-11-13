@@ -11,7 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { describeTermination, useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
@@ -51,11 +51,11 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
-			onSuccess: async () => {
+			onSuccess: async (result) => {
 				await queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
 				setTerminateOpen(false);
 				toast.success('Success', {
-					description: 'Cluster successfully terminated.',
+					description: describeTermination(result, clusterIsSelfManaged(cluster)),
 					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
 				});
 				// The overview for a terminated cluster is a dead end — return to the clusters list.
@@ -67,7 +67,7 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 				setTerminateOpen(false);
 			},
 		});
-	}, [cluster.id, cluster.organizationId, terminateCluster, queryClient, router]);
+	}, [cluster, terminateCluster, queryClient, router]);
 
 	const onConfirmSafeMode = useCallback(() => {
 		const action = safeModeAction;
