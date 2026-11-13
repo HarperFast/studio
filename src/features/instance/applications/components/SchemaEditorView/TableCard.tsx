@@ -27,6 +27,7 @@ import {
 	TableModel,
 } from '@/features/instance/applications/lib/schema/types';
 import { SchemaValidationError } from '@/features/instance/applications/lib/schema/validateSchema';
+import { InstanceModelNames } from '@/integrations/api/instance/models/models';
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon, TrashIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Disclosure, NumberField, SwitchField, TextField } from './controls';
@@ -38,6 +39,7 @@ export function TableCard({
 	table,
 	typeNames,
 	harperVersion,
+	models,
 	readOnly,
 	errors,
 	defaultCollapsed,
@@ -48,6 +50,7 @@ export function TableCard({
 	typeNames: string[];
 	/** The instance's Harper version; `undefined` when it can't be read. */
 	harperVersion?: string;
+	models?: InstanceModelNames;
 	readOnly: boolean;
 	/** Validation errors for this table (from `validateSchema`), used for inline highlighting. */
 	errors: SchemaValidationError[];
@@ -75,7 +78,15 @@ export function TableCard({
 	const exported = hasDirective(table.directives, 'export');
 	const nameError = errors.find(e => e.code === 'INVALID_TABLE_NAME' || e.code === 'DUPLICATE_TABLE_NAME')?.message;
 	const noFieldsError = errors.some(e => e.code === 'NO_FIELDS');
-	const fieldErrors = new Map(errors.filter(e => e.fieldKey).map(e => [e.fieldKey, e.message]));
+	const fieldErrors = new Map(
+		errors.filter(e => e.fieldKey && e.code !== 'INVALID_DERIVED_FIELD').map(e => [e.fieldKey, e.message]),
+	);
+	const derivedErrors = new Map<string, string[]>();
+	for (const error of errors) {
+		if (error.code === 'INVALID_DERIVED_FIELD' && error.fieldKey) {
+			derivedErrors.set(error.fieldKey, [...(derivedErrors.get(error.fieldKey) ?? []), error.message]);
+		}
+	}
 	const preserved = table.directives.filter(directive => !KNOWN_TABLE_DIRECTIVES.has(directive.name));
 	const fieldCount = table.fields.length;
 	const fullTextCount = table.fields.filter(field => fieldBaseType(field) === FULL_TEXT_TYPE).length;
@@ -258,10 +269,12 @@ export function TableCard({
 										table={table}
 										typeNames={typeNames}
 										harperVersion={harperVersion}
+										models={models}
 										readOnly={readOnly}
 										onEnableAudit={() => setBool('table', 'audit', true, false)}
 										disableRemove={fieldCount === 1}
 										error={field.key ? fieldErrors.get(field.key) : undefined}
+										derivedErrors={field.key ? derivedErrors.get(field.key) : undefined}
 										onChange={next =>
 											onChange({ ...table, fields: table.fields.map((f, i) => i === index ? next : f) })}
 										onRemove={() => onChange({ ...table, fields: table.fields.filter((_, i) => i !== index) })}

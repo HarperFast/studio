@@ -245,3 +245,25 @@ before it. `@mui/icons-material` is ~10,000 one-line declarations, ~2 MB in all:
 yet one session logged ~14,000 "DataCloneError: … out of memory" errors importing it. `MAX_EXTRA_LIB_FILES_TOTAL`
 seals the budget like the character cap does, and accepted files are handed to Monaco in batches
 (`EXTRA_LIB_FLUSH_MS`), so a burst of arrivals costs one clone per batch, not one per file.
+
+## Fields a model fills
+
+The schema editor offers `@embed` on a `[Float]` field and `@decide` on a `String`, `Boolean` or `Int`
+field ([`DerivedValueEditor`](components/SchemaEditorView/DerivedValueEditor.tsx)), each from the
+release that has it, and on any field that already carries one so a misplaced directive can be seen
+and removed. The model is chosen from the names in the instance's `models` settings. Only a super
+user can read those (`get_configuration`, which also returns every key), and the read is made only
+on a Harper that has models. For any other role, and while they load, the name is typed instead. A name the instance doesn't have stays selected and is marked, never dropped.
+
+What the editor refuses is exactly what Harper refuses, because one bad directive fails the whole
+schema: see [`derivedFields.ts`](lib/schema/derivedFields.ts). Each rule is one Harper throws, and
+the set was run against a live Harper 5.4.0-beta.4: 55 schemas, valid and not, each deployed as its
+own app, and Harper loaded exactly the ones the editor accepts. When a rule changes, repeat that
+rather than trusting a reading of Harper's source. `confidence` and `decision` have no inputs; they
+are kept as written and still validated.
+
+The controls show the errors `validateSchema` already found for the field, so the two can't disagree.
+The editor never rewrites what it can't show. A `"""block"""` string is read the way Harper reads
+it. Decision values that one per line can't hold (an empty value, a space at either end, a line
+break, a block string) are shown as written, for editing as text. Arguments left by a change of
+field type (`values` on an `Int` field, say) block Save and get a button that removes only them.

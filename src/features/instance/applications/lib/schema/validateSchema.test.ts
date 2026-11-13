@@ -90,4 +90,23 @@ describe('validateSchema full-text fields', () => {
 			'type Doc @table(audit: true) {\n\tid: ID @primaryKey\n\tbody: String\n\tsearch: FullText @fullText(fields: [{ name: "body" }])\n}\n',
 		)).toEqual([]);
 	});
+
+	it('attaches an @embed or @decide problem to its field, so the save is blocked and the field says why', () => {
+		const errors = validateSchema(
+			parseSchema(
+				'type Doc @table {\n\tid: ID @primaryKey\n\tbody: String\n\tvector: Float @embed(source: "body", model: "default")\n\tlabel: String @decide(source: "body")\n}\n',
+			).document,
+		);
+		expect(errors.map(error => [error.code, error.fieldName, error.message])).toEqual([
+			['INVALID_DERIVED_FIELD', 'vector', '@embed needs a [Float] field: choose Float and turn on Array.'],
+			['INVALID_DERIVED_FIELD', 'label', 'List the values the model can choose from.'],
+		]);
+		expect(errors.every(error => !!error.fieldKey)).toBe(true);
+	});
+
+	it('accepts valid @embed and @decide fields', () => {
+		expect(codesFor(
+			'type Doc @table {\n\tid: ID @primaryKey\n\tbody: String\n\tvector: [Float] @embed(source: "body", model: "default")\n\tlabel: String @decide(source: "body", values: ["a", "b"])\n\turgent: Boolean @decide(source: "body")\n\tpriority: Int @decide(source: "body", minimum: 1, maximum: 5)\n}\n',
+		)).toEqual([]);
+	});
 });

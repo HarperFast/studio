@@ -10,6 +10,7 @@ import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
 import { supportsCiDeploy } from '@/integrations/api/instance/ciDeploy/ciDeploy';
 import { supportsMcp } from '@/integrations/api/instance/mcp/mcpConfig';
+import { supportsModels } from '@/integrations/api/instance/models/models';
 import { supportsTrustPolicies } from '@/integrations/api/instance/oidcTrust/oidcTrust';
 import { supportsPreviews } from '@/integrations/api/instance/previews/previews';
 import { supportsScheduledJobs } from '@/integrations/api/instance/scheduler/scheduler';
@@ -34,6 +35,7 @@ import {
 	PlugIcon,
 	RocketIcon,
 	ShieldCheckIcon,
+	SparklesIcon,
 	UsersIcon,
 	WorkflowIcon,
 } from 'lucide-react';
@@ -68,6 +70,7 @@ export function ConfigIndex() {
 	const previewsSupported = supportsPreviews(version);
 	const deployFromGitHubSupported = supportsCiDeploy(version);
 	const scheduledJobsSupported = supportsScheduledJobs(version);
+	const modelsSupported = supportsModels(version);
 	const mcpSupported = supportsMcp(version);
 
 	const { clusterId } = params;
@@ -88,6 +91,7 @@ export function ConfigIndex() {
 	const entries: ConfigMenuEntry[] = [
 		...(canManage
 			? [
+				modelsSupported && { name: 'AI Models', page: 'config/ai-models', icon: <SparklesIcon /> },
 				backupsSupported && { name: 'Backups', page: 'config/backups', icon: <DatabaseBackupIcon /> },
 				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
 				deployFromGitHubSupported

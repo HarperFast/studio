@@ -1,7 +1,9 @@
 /** @vitest-environment jsdom */
 import { createTable, hasDirective } from '@/features/instance/applications/lib/schema/mutations';
+import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { TableModel } from '@/features/instance/applications/lib/schema/types';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { TableCard } from './TableCard';
 
@@ -78,6 +80,22 @@ describe('TableCard', () => {
 		});
 		expect(screen.getByText(/1 issue/)).toBeTruthy();
 		expect(screen.getByText('Bad field name.')).toBeTruthy();
+	});
+
+	it('shows an @embed problem once, beside its controls, from the validation it was given', () => {
+		const { document } = parseSchema(
+			'type Ticket @table {\n\tid: ID @primaryKey\n\tvector: [Float] @embed(source: "body")\n}\n',
+		);
+		const segment = document.segments.find(s => s.kind === 'table');
+		const table = segment?.kind === 'table' ? segment.table : makeTable();
+		renderCard({ table, errors: validateSchema(document) });
+		expect(screen.getByText(/2 issues/)).toBeTruthy();
+		expect(screen.getAllByText('There is no field named "body" to embed.')).toHaveLength(1);
+		expect(screen.getAllByText('Choose the embedding model.')).toHaveLength(1);
+		expect(screen.getAllByRole('listitem')).toHaveLength(2);
+		cleanup();
+		renderCard({ table, errors: [] });
+		expect(screen.queryByText('Choose the embedding model.')).toBeNull();
 	});
 
 	it('warns and blocks last-field removal when a table has a NO_FIELDS error', () => {

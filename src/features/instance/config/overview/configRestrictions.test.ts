@@ -177,4 +177,14 @@ describe('omitRestrictedFields', () => {
 		const sanitized = omitRestrictedFields(config);
 		expect(sanitized.replication).toEqual({ databases: ['db1'] });
 	});
+
+	it('should omit the models block, which holds provider keys and Fabric tokens', () => {
+		const config = {
+			models: { generative: { default: { backend: 'openai', apiKey: 'sk-secret' } } },
+			modelsGateway: { enabled: true },
+		};
+		expect(omitRestrictedFields(config)).toEqual({ modelsGateway: { enabled: true } });
+		expect(isRestrictedConfigPath('models', { generative: {} }, undefined)).toBe(true);
+		expect(isRestrictedConfigPath('modelsGateway.enabled', false, true)).toBe(false);
+	});
 });

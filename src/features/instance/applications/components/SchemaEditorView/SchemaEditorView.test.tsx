@@ -23,9 +23,19 @@ const server = vi.hoisted(() => {
 		failReads: false,
 		pendingWrite: undefined as Promise<void> | undefined,
 		saves: [] as Array<{ file: string; payload: string | undefined }>,
+		superUser: false,
+		version: undefined as string | undefined,
+		operations: [] as string[],
 	};
 	const instanceClient = {
 		post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
+			state.operations.push(body.operation);
+			if (body.operation === 'registration_info') {
+				return { data: { version: state.version } };
+			}
+			if (body.operation === 'get_configuration') {
+				return { data: { models: { embedding: { default: { backend: 'ollama' }, search: { backend: 'ollama' } } } } };
+			}
 			if (body.operation === 'get_component_file') {
 				await state.pendingRead;
 				if (state.failReads) {
@@ -55,7 +65,10 @@ const server = vi.hoisted(() => {
 
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => server.params }));
 vi.mock('@/config/useEntityRestURL', () => ({ useEntityRestURL: () => 'https://instance.example.com:9925' }));
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceBrowseManagePermission: () => true,
+	useInstanceManagePermission: () => server.state.superUser,
+}));
 vi.mock('@tanstack/react-router', () => {
 	const navigate = () => {};
 	const search = {};
@@ -190,6 +203,9 @@ afterEach(() => {
 	server.state.pendingRead = undefined;
 	server.state.failReads = false;
 	server.state.pendingWrite = undefined;
+	server.state.superUser = false;
+	server.state.version = undefined;
+	server.state.operations = [];
 	server.state.saves = [];
 });
 
@@ -439,6 +455,45 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 		expect(screen.getByLabelText<HTMLInputElement>('Database').value).toBe('');
 		expect(buffered(newSchema.path)).toBe(saved);
 		expect((await save()).payload).toBe(saved);
+	});
+});
+
+describe('SchemaEditorView: the model names for @embed and @decide', () => {
+	const TICKET =
+		'type Ticket @table {\n\tid: ID @primaryKey\n\tbody: String\n\tvector: [Float] @embed(source: "body", model: "search")\n}\n';
+	const ticketSchema: FileEntry = { name: 'ticket.graphql', path: 'punch/schemas/ticket.graphql', project: 'punch' };
+
+	async function openTicket() {
+		renderEditor();
+		server.state.files['schemas/ticket.graphql'] = TICKET;
+		await openEntry(ticketSchema, 'Ticket');
+		fireEvent.click(screen.getByRole('button', { name: /Ticket/ }));
+	}
+
+	it("lists the instance's models for a super user on a Harper that has them", async () => {
+		server.state.superUser = true;
+		server.state.version = '5.3.6';
+		await openTicket();
+		const model = await screen.findByRole('combobox', { name: 'Embedding model' });
+		await waitFor(() =>
+			expect([...(model as HTMLSelectElement).options].map(option => option.value)).toEqual(['', 'default', 'search'])
+		);
+	});
+
+	it('never reads the settings for another role, or on a Harper without models', async () => {
+		server.state.version = '5.3.6';
+		await openTicket();
+		expect((await screen.findByLabelText('Embedding model')).tagName).toBe('INPUT');
+		expect(server.state.operations).not.toContain('get_configuration');
+		cleanup();
+
+		server.state.operations = [];
+		server.state.superUser = true;
+		server.state.version = '5.0.4';
+		await openTicket();
+		await waitFor(() => expect(server.state.operations).toContain('registration_info'));
+		expect((await screen.findByLabelText('Embedding model')).tagName).toBe('INPUT');
+		expect(server.state.operations).not.toContain('get_configuration');
 	});
 });
 

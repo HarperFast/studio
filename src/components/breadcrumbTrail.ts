@@ -20,6 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPTIONAL_PARAM = /^\{-\$(\w+)\}$/;
 const SPLAT = '_splat';
 const SEGMENT_LABELS: Record<string, string> = {
+	'Ai Models': 'AI Models',
 	'Apis': 'APIs',
 	'Deploy From Github': 'Deploy from GitHub',
 	'Mcp': 'MCP Server',

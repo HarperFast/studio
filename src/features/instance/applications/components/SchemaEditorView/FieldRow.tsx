@@ -8,6 +8,7 @@
  */
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DECIDE_DIRECTIVE, EMBED_DIRECTIVE } from '@/features/instance/applications/lib/schema/derivedFields';
 import {
 	emptyFullTextConfig,
 	FULL_TEXT_DIRECTIVE,
@@ -32,9 +33,12 @@ import {
 	stringArgValue,
 	TableModel,
 } from '@/features/instance/applications/lib/schema/types';
+import { InstanceModelNames } from '@/integrations/api/instance/models/models';
 import { TrashIcon } from 'lucide-react';
+import { ReactNode } from 'react';
 import { availableOn, harperScalars } from '../TextEditorView/harper-language/schema';
 import { Disclosure, FIELD_SURFACE, NumberField, SwitchField, TextField } from './controls';
+import { DerivedValueEditor } from './DerivedValueEditor';
 import { FullTextIndexEditor } from './FullTextIndexEditor';
 
 /** Field directives the GUI has dedicated controls for; anything else is "preserved". */
@@ -48,6 +52,8 @@ const KNOWN_FIELD_DIRECTIVES = new Set([
 	'updatedTime',
 	'expiresAt',
 	'enumerable',
+	EMBED_DIRECTIVE,
+	DECIDE_DIRECTIVE,
 	FULL_TEXT_DIRECTIVE,
 ]);
 
@@ -78,9 +84,11 @@ export function FieldRow({
 	table,
 	typeNames,
 	harperVersion,
+	models,
 	readOnly,
 	disableRemove,
 	error,
+	derivedErrors,
 	onChange,
 	onRemove,
 	onEnableAudit,
@@ -91,11 +99,13 @@ export function FieldRow({
 	typeNames: string[];
 	/** The instance's Harper version, to offer only the types it has; `undefined` when unknown. */
 	harperVersion: string | undefined;
+	models?: InstanceModelNames;
 	readOnly: boolean;
 	/** True when this is the table's only field: a GraphQL type needs at least one, so removal is blocked. */
 	disableRemove?: boolean;
 	/** Validation message for this field (bad or duplicate name), shown inline. */
 	error?: string;
+	derivedErrors?: readonly string[];
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;
 	/** Turn on `@table(audit: true)`, which a full-text index needs. */
@@ -176,6 +186,17 @@ export function FieldRow({
 						preserved={preserved}
 						readOnly={readOnly}
 						onChange={onChange}
+						derived={
+							<DerivedValueEditor
+								field={field}
+								table={table}
+								models={models}
+								harperVersion={harperVersion}
+								errors={derivedErrors}
+								readOnly={readOnly}
+								onChange={onChange}
+							/>
+						}
 					/>
 				)}
 		</div>
@@ -191,6 +212,7 @@ function ScalarFieldControls({
 	preserved,
 	readOnly,
 	onChange,
+	derived,
 }: {
 	field: FieldModel;
 	base: string;
@@ -200,6 +222,7 @@ function ScalarFieldControls({
 	preserved: FieldModel['directives'];
 	readOnly: boolean;
 	onChange: (field: FieldModel) => void;
+	derived: ReactNode;
 }) {
 	const setDirectives = (directives: FieldModel['directives']) => onChange({ ...field, directives });
 	const togglePresent = (name: string, present: boolean) =>
@@ -239,6 +262,8 @@ function ScalarFieldControls({
 					onChange={value => togglePresent('indexed', value)}
 				/>
 			</div>
+
+			{derived}
 
 			<Disclosure label="Advanced">
 				<div className="flex flex-col gap-4">

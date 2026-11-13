@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const PRERENDER = { key: 'harper-prerender.prerendering', name: 'Pre-rendering', icon: 'layers', placement: 'config' };
 
 const { viewer, route, entries } = vi.hoisted(() => ({
-	viewer: { canManage: false },
+	viewer: { canManage: false, version: '5.4.0' },
 	route: { pathname: '/org-1/clu-1/config' },
 	entries: { pages: [] as Record<string, string>[] },
 }));
@@ -25,7 +25,7 @@ vi.mock('@tanstack/react-router', () => ({
 	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
 	Outlet: () => <div data-testid="outlet" />,
-	useLoaderData: () => ({ version: '5.4.0' }),
+	useLoaderData: () => ({ version: viewer.version }),
 	useLocation: () => ({ pathname: route.pathname }),
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 }));
@@ -37,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	viewer.canManage = false;
+	viewer.version = '5.4.0';
 	route.pathname = '/org-1/clu-1/config';
 });
 
@@ -71,5 +72,24 @@ describe('ConfigIndex', () => {
 		render(<ConfigIndex />);
 		expect(screen.queryByTestId('navigate')).toBeNull();
 		expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
+	});
+
+	it('lists AI Models for a super user from the release that has the models block', () => {
+		viewer.canManage = true;
+		viewer.version = '5.1.0';
+		render(<ConfigIndex />);
+		expect(screen.getAllByText('AI Models')[0].closest('a')?.getAttribute('href')).toBe(
+			'/org-1/clu-1/config/ai-models',
+		);
+		cleanup();
+		viewer.version = '5.0.4';
+		render(<ConfigIndex />);
+		expect(screen.queryByText('AI Models')).toBeNull();
+	});
+
+	it('keeps AI Models from a role that cannot manage the instance', () => {
+		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';
+		render(<ConfigIndex />);
+		expect(screen.queryByText('AI Models')).toBeNull();
 	});
 });

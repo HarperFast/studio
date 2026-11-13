@@ -19,11 +19,14 @@ import { FullTextIndexChange, fullTextIndexChanges } from '@/features/instance/a
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
 import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
+import { instanceModelNames, supportsModels } from '@/integrations/api/instance/models/models';
+import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
+import { retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { useQuery } from '@tanstack/react-query';
 import { CodeIcon, PlusIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useState } from 'react';
@@ -66,6 +69,18 @@ function LoadedSchemaEditorView({
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
 	const { data: registrationInfo } = useQuery(getHarperVersionProbeOptions(instanceParams));
+	// Only a super user can read the settings that hold the model names; otherwise they are typed.
+	const isSuperUser = useInstanceManagePermission();
+	const { data: configuration } = useQuery({
+		...getConfigurationQueryOptions(instanceParams),
+		enabled: isSuperUser && supportsModels(registrationInfo?.version),
+		retry: retryUnlessRejected(),
+		meta: { refusalIsAnAnswer: true },
+	});
+	const models = useMemo(
+		() => (configuration === undefined ? undefined : instanceModelNames(configuration)),
+		[configuration],
+	);
 
 	const buffer = updatedFileContent ?? savedContents;
 
@@ -260,6 +275,7 @@ function LoadedSchemaEditorView({
 							table={table}
 							typeNames={typeNames}
 							harperVersion={registrationInfo?.version}
+							models={models}
 							readOnly={readOnly}
 							errors={errorsByTable.get(table.id) ?? []}
 							defaultCollapsed={!table.id.startsWith('new-')}
