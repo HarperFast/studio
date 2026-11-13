@@ -4,7 +4,7 @@
  * the allowlist has passed. Local and dev central-managers skip reCAPTCHA, so a lane that is green
  * there can still be refused on stage.
  */
-export type SignupRefusalCause = 'captcha' | 'allowlist' | 'other';
+type SignupRefusalCause = 'captcha' | 'allowlist' | 'other';
 
 // The same shapes Studio's isCaptchaVerificationError reads: a plain string, Harper's error/message
 // envelopes, or an RFC 9457 title/detail. reCAPTCHA is checked first, since a mixed envelope can
