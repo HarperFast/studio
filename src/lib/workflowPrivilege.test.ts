@@ -149,7 +149,6 @@ describe('post-deploy e2e jobs', () => {
 		expect(checkout?.with?.ref).toBeUndefined();
 	});
 
-	// The environment admits one branch, and a manual run from any other still deploys first.
 	it.each(e2eJobs())('$label runs only on the branch its deploy pushes from', ({ job, pushBranches }) => {
 		expect(pushBranches).toHaveLength(1);
 		expect(job.if).toBe(`github.ref == 'refs/heads/${pushBranches?.[0]}'`);

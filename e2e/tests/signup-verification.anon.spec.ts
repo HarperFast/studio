@@ -9,7 +9,7 @@ import {
 	waitForVerificationEmail,
 } from './mail';
 import { maskInCi } from './maskInCi';
-import { describeSignupRefusal, sentCaptchaToken } from './signupRefusal';
+import { describeSignupRefusal, sentCaptchaToken, signupRefusalCause } from './signupRefusal';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
@@ -101,12 +101,13 @@ test.describe('signup → email verification → login', () => {
 			// at least as likely to be a real authz/WAF/rate-limit regression. Skipping on it — as this
 			// spec used to — makes the round-trip go permanently quiet the moment signup breaks, which
 			// is precisely when a monitor should shout. So: FAIL by default, and require an explicit
-			// opt-in for the known-misconfigured case (the monitored lanes never set it).
+			// opt-in for the known-misconfigured case (the monitored lanes never set it). The opt-in
+			// covers the allowlist alone, so it cannot also hide a reCAPTCHA or authz refusal.
 			if (signupResponse.status() === 403) {
 				const detail = await signupResponse.text().catch(() => '');
 				test.skip(
-					process.env.E2E_ALLOW_SIGNUP_403_SKIP === '1',
-					'Signup returned 403 and E2E_ALLOW_SIGNUP_403_SKIP=1 — treating as the known '
+					process.env.E2E_ALLOW_SIGNUP_403_SKIP === '1' && signupRefusalCause(detail) === 'allowlist',
+					'Signup returned 403 Forbidden and E2E_ALLOW_SIGNUP_403_SKIP=1 — treating as the known '
 						+ `ALLOWLIST_EMAIL_DOMAINS gap. Server said: ${detail.slice(0, 200)}`,
 				);
 				throw new Error(describeSignupRefusal(detail, sentCaptchaToken(signupResponse.request().postData())));
