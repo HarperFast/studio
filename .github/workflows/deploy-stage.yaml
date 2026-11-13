@@ -66,6 +66,9 @@ jobs:
   e2e:
     name: E2E against Stage
     needs: deployToStage
+    # A manual run from another branch still deploys, but e2e-stage admits only `stage`, so this job
+    # would fail on the environment rather than test anything.
+    if: github.ref == 'refs/heads/stage'
     runs-on: ubuntu-latest
     # Must outlast the 10-minute build wait plus Playwright's 30-minute --global-timeout, or the
     # Report step never runs.
