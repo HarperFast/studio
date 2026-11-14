@@ -108,15 +108,22 @@ describe('workflow privilege boundary', () => {
  */
 describe('post-deploy e2e jobs', () => {
 	type Step = { uses?: string; with?: Record<string, unknown> };
-	type E2eJob = { needs?: string | string[]; environment?: unknown; permissions?: unknown; steps?: Step[] };
+	type E2eJob = {
+		needs?: string | string[];
+		if?: string;
+		environment?: unknown;
+		permissions?: unknown;
+		steps?: Step[];
+	};
+	type Workflow = { on?: { push?: { branches?: string[] } }; jobs?: Record<string, E2eJob> };
 	const DEPLOY_SECRET = /CLI_TARGET_USERNAME|HARPERDB_CLI_TARGET_PASSWORD|CLI_DEPLOY_TARGET|DATADOG_API_KEY/;
 
 	const e2eJobs = () =>
 		workflowFiles().flatMap((name) => {
-			const jobs = (parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8')).jobs ?? {}) as Record<string, E2eJob>;
-			return Object.entries(jobs)
+			const workflow = parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8')) as Workflow;
+			return Object.entries(workflow.jobs ?? {})
 				.filter(([, job]) => job.steps?.some((step) => step.uses === './.github/actions/studio-e2e'))
-				.map(([id, job]) => ({ label: `${name} › ${id}`, job }));
+				.map(([id, job]) => ({ label: `${name} › ${id}`, job, pushBranches: workflow.on?.push?.branches }));
 		});
 
 	it('finds the e2e jobs to check', () => {
@@ -140,6 +147,11 @@ describe('post-deploy e2e jobs', () => {
 		const checkout = job.steps?.find((step) => step.uses?.startsWith('actions/checkout@'));
 		expect(checkout).toBeDefined();
 		expect(checkout?.with?.ref).toBeUndefined();
+	});
+
+	it.each(e2eJobs())('$label runs only on the branch its deploy pushes from', ({ job, pushBranches }) => {
+		expect(pushBranches).toHaveLength(1);
+		expect(job.if).toBe(`github.ref == 'refs/heads/${pushBranches?.[0]}'`);
 	});
 });
 

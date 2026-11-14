@@ -151,7 +151,7 @@ is verified by signing in without bouncing to `/#/verifying`. Config: set
 only the mail sent to the address it signed up with: the Mailosaur server is shared by every lane and
 developer, so purging the whole server would delete another run's verification email mid-wait.
 
-Two operational gotchas:
+Three operational gotchas:
 
 - **Signup is domain-allowlisted.** central-manager `User.allowCreate` rejects signup (403)
   unless the email domain matches the `ALLOWLIST_EMAIL_DOMAINS` Configuration record. The
@@ -159,6 +159,11 @@ Two operational gotchas:
   must be in that list; otherwise the round-trip **fails** with a pointer to this, unless the
   explicit escape hatch `E2E_ALLOW_SIGNUP_403_SKIP=1` is set (a 403 is at least as likely to be an
   authz/WAF regression as a misconfigured allowlist, so failing is the safe default).
+- **Stage enforces reCAPTCHA.** After the allowlist, a stage (or prod) central-manager scores the
+  signup's reCAPTCHA token and refuses a low score with 403 `Verification failed`; a headless
+  browser on a CI runner scores low. On a test environment, set the `RECAPTCHA_MIN_SCORE`
+  Configuration row to `0`. The failure message says which check refused the signup and whether
+  the page sent a token at all.
 - **Account churn.** Each run creates a real account on the backend; the spec self-deletes it in a
   `finally` (see `accountCleanup.ts`). The delete goes to the API the signup request actually
   reached, not to `PLAYWRIGHT_BASE_URL`: on a localhost target the dev server serves only the UI and
@@ -189,7 +194,8 @@ it does not depend on what any runner happens to check:
 - **Unresolvable organization** → failure (a broken post-login redirect or org picker looks exactly
   like "no org"). Opt out with `E2E_ALLOW_NO_ORG=1` for an account that genuinely has none.
 - **Signup 403** → failure (as likely an authz/WAF regression as the email-domain gate). Opt out
-  with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`.
+  with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`; the
+  opt-out covers only a `Forbidden` refusal, never reCAPTCHA's `Verification failed`.
 - **Org-users 403** → failure (as likely an authz regression as a provisioning gap). Opt out with
   `E2E_ALLOW_ORG_USERS_403_SKIP=1` once you've confirmed the account simply lacks users-view.
 
