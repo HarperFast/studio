@@ -255,7 +255,6 @@ describe('authStore.establishFabricConnectAuth with a read-only (scoped) token',
 		getInstanceClient.mockImplementation(({ forceFabricConnect }: { forceFabricConnect?: boolean }) => ({
 			defaults: { baseURL: forceFabricConnect ? PROXY_URL : DIRECT_URL },
 		}));
-		// Central-manager returns no refresh token for a scoped mint.
 		createInstanceAuthenticationTokens.mockResolvedValue({ operationToken: scopedToken });
 	});
 

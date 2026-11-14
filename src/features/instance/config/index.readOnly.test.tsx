@@ -1,6 +1,4 @@
-/**
- * @vitest-environment jsdom
- */
+/** @vitest-environment jsdom */
 import { ConfigIndex } from '@/features/instance/config';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
