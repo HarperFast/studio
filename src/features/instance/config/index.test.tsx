@@ -9,7 +9,7 @@ const PRERENDER = { key: 'harper-prerender.prerendering', name: 'Pre-rendering',
 const { viewer, route, entries } = vi.hoisted(() => ({
 	viewer: { canManage: false, version: '5.4.0' },
 	route: { pathname: '/org-1/clu-1/config' },
-	entries: { pages: [] as Record<string, string>[] },
+	entries: { pages: [] as Record<string, string>[], pending: false },
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => viewer.canManage }));
@@ -17,6 +17,7 @@ vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationA
 vi.mock('@/features/instance/extensions/ExtensionIcon', () => ({ ExtensionIcon: () => null }));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 	useVisibleExtensionPages: () => entries.pages,
+	useStudioConfiguration: () => ({ isPending: entries.pending }),
 }));
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	...await importOriginal<typeof import('@tanstack/react-query')>(),
@@ -38,6 +39,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	viewer.canManage = false;
+	entries.pending = false;
 	viewer.version = '5.4.0';
 	route.pathname = '/org-1/clu-1/config';
 });
@@ -65,6 +67,15 @@ describe('ConfigIndex', () => {
 		render(<ConfigIndex />);
 		expect(screen.queryByTestId('navigate')).toBeNull();
 		expect(screen.getByTestId('outlet')).toBeTruthy();
+	});
+
+	it("waits on a reload of a lesser role's component entry until the entries have loaded", () => {
+		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';
+		entries.pages = [];
+		entries.pending = true;
+		render(<ConfigIndex />);
+		expect(screen.queryByTestId('navigate')).toBeNull();
+		expect(screen.getByText('Loading...')).toBeTruthy();
 	});
 
 	it('keeps a super user on the Overview', () => {

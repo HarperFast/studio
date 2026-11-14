@@ -23,7 +23,10 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	useQuery: () => ({ data: undefined }),
 }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => state.canManage }));
-vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({ useVisibleExtensionPages: () => [] }));
+vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
+	useVisibleExtensionPages: () => [],
+	useStudioConfiguration: () => ({ isPending: false }),
+}));
 vi.mock('@/hooks/useInstanceOperationPermission', () => ({
 	useInstanceOperationAccess: (operation: string) =>
 		operation === 'list_deployments' ? state.canListDeployments : false,

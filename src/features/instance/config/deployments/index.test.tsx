@@ -383,7 +383,7 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 });
 
 describe('ConfigDeploymentsIndex refresh', () => {
-	it('refreshes only the history for a token that cannot list releases, such as a read-only one', async () => {
+	it('rechecks no releases on Refresh for a token that cannot list them, such as a read-only one', async () => {
 		state.canListReleases = false;
 		renderPage('5.4.0');
 		fireEvent.click(screen.getByRole('button', { name: /refresh/i }));

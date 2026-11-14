@@ -4,7 +4,7 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
-import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
+import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceOperationAccess } from '@/hooks/useInstanceOperationPermission';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -90,6 +90,7 @@ export function ConfigIndex() {
 	// any a cluster's components add — is sorted by name, so a component's entry lands where a reader
 	// expects it rather than at the end.
 	const extensionEntries = useVisibleExtensionPages('config');
+	const { isPending: extensionEntriesPending } = useStudioConfiguration();
 	const entries: ConfigMenuEntry[] = [
 		...(canManage
 			? [
@@ -142,7 +143,7 @@ export function ConfigIndex() {
 		</>
 	);
 
-	if (!canManage && canListDeployments === undefined) {
+	if (!canManage && (canListDeployments === undefined || extensionEntriesPending)) {
 		return <Loading centered text="Loading..." />;
 	}
 	// The Overview and the other built-in pages run operations only a manager may. The router matches `config/` to the
