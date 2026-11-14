@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigDeploymentsIndex } from './index';
-vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
 
 const state = vi.hoisted(() => ({
 	version: undefined as string | undefined,
@@ -18,6 +17,15 @@ const state = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	releasesAsked: [] as Record<string, unknown>[],
 	releases: undefined as object | undefined,
+	canListReleases: true,
+	retryReleases: vi.fn(() => Promise.resolve()),
+}));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => operation !== 'list_releases' || state.canListReleases,
+}));
+vi.mock('./hooks/useComponentReleases', async (importOriginal) => ({
+	...(await importOriginal<typeof import('./hooks/useComponentReleases')>()),
+	useRetryReleases: () => state.retryReleases,
 }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
@@ -93,6 +101,8 @@ afterEach(() => {
 	state.navigate.mockClear();
 	state.releasesAsked = [];
 	state.releases = undefined;
+	state.canListReleases = true;
+	state.retryReleases.mockClear();
 });
 
 function renderPage(version: string | undefined) {
@@ -369,5 +379,22 @@ describe('ConfigDeploymentsIndex on Harper 5.4', () => {
 		renderPage('5.4.0-beta.2');
 		expect(state.releasesAsked).toEqual([]);
 		expect(screen.queryByRole('region', { name: /Releases of/ })).toBeNull();
+	});
+});
+
+describe('ConfigDeploymentsIndex refresh', () => {
+	it('refreshes only the history for a token that cannot list releases, such as a read-only one', async () => {
+		state.canListReleases = false;
+		renderPage('5.4.0');
+		fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(state.retryReleases).not.toHaveBeenCalled();
+	});
+
+	it('rechecks releases too where the token can list them', async () => {
+		renderPage('5.4.0');
+		fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(state.retryReleases).toHaveBeenCalled();
 	});
 });
