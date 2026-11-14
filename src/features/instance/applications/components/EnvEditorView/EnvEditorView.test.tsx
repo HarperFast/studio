@@ -46,8 +46,9 @@ vi.mock('@/features/instance/applications/context/editorFileContent', () => ({
 	discardEditorFileContentIfSaved: vi.fn(),
 }));
 
-vi.mock('@/hooks/usePermissions', () => ({
-	useInstanceBrowseManagePermission: () => true,
+const operations = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !operations.denied.has(operation),
 }));
 
 // The raw-text escape hatch mounts Monaco; a marker div is enough to assert the handoff.
@@ -127,6 +128,18 @@ describe('EnvEditorView (plaintext mode — Harper < 5.2 returns raw text)', () 
 		// And it can be hidden again.
 		fireEvent.click(screen.getByTitle('Hide value'));
 		expect(screen.queryByText('secret123')).toBeNull();
+	});
+
+	it('offers no add to a session that cannot write the file', async () => {
+		mockPlaintext();
+		operations.denied.add('set_component_file');
+		try {
+			renderView();
+			await screen.findByText('API_KEY');
+			expect(screen.queryByRole('button', { name: /add/i })).toBeNull();
+		} finally {
+			operations.denied.clear();
+		}
 	});
 
 	it('treats unsaved raw edits it wrote as saved, unless they changed since', async () => {
@@ -249,6 +262,43 @@ describe('EnvEditorView (protected mode — Harper >= 5.2 masks values)', () => 
 		expect(screen.getByText('DB_URL')).toBeTruthy();
 		expect(screen.queryByTitle('Reveal value')).toBeNull();
 		expect(screen.queryByRole('button', { name: /edit as text/i })).toBeNull();
+	});
+
+	it('offers no add without set_env_value, even with whole-file writes', async () => {
+		mockProtected();
+		operations.denied.add('set_env_value');
+		try {
+			renderView();
+			await screen.findByText('API_KEY');
+			expect(screen.queryByRole('button', { name: /add/i })).toBeNull();
+		} finally {
+			operations.denied.clear();
+		}
+	});
+
+	it('offers no delete to a role that can delete but not set a value, since delete lives in the edit dialog', async () => {
+		mockProtected();
+		operations.denied.add('set_env_value');
+		try {
+			renderView();
+			fireEvent.click(await screen.findByText('DB_URL'));
+			expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
+		} finally {
+			operations.denied.clear();
+		}
+	});
+
+	it('offers no delete without delete_env_value', async () => {
+		mockProtected();
+		operations.denied.add('delete_env_value');
+		try {
+			renderView();
+			fireEvent.click(await screen.findByText('DB_URL'));
+			await screen.findByRole('button', { name: /save/i });
+			expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
+		} finally {
+			operations.denied.clear();
+		}
 	});
 
 	it('adds a secret through set_env_value and shows the returned key list', async () => {

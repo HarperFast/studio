@@ -4,7 +4,8 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
-import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
+import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
+import { useInstanceOperationAccess } from '@/hooks/useInstanceOperationPermission';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
@@ -75,6 +76,7 @@ export function ConfigIndex() {
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
+	const canListDeployments = useInstanceOperationAccess('list_deployments');
 	const { pathname } = useLocation();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, false),
@@ -88,6 +90,7 @@ export function ConfigIndex() {
 	// any a cluster's components add — is sorted by name, so a component's entry lands where a reader
 	// expects it rather than at the end.
 	const extensionEntries = useVisibleExtensionPages('config');
+	const { isPending: extensionEntriesPending } = useStudioConfiguration();
 	const entries: ConfigMenuEntry[] = [
 		...(canManage
 			? [
@@ -113,6 +116,8 @@ export function ConfigIndex() {
 				trustPoliciesSupported && { name: 'Trust Policies', page: 'config/trust-policies', icon: <BadgeCheckIcon /> },
 				{ name: 'Users', page: 'config/users', icon: <UsersIcon /> },
 			].filter(excludeFalsy)
+			: canListDeployments && deploymentsAvailable
+			? [{ name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> }]
 			: []),
 		...extensionEntries.map((extension) => ({
 			name: extension.name,
@@ -138,11 +143,15 @@ export function ConfigIndex() {
 		</>
 	);
 
-	// A lesser role reaches Config only for a component's entry, and the Overview is a super-user page, so
-	// the index opens their first entry instead. The router matches `config/` to the same index.
-	const atIndex = pathname.replace(/\/+$/, '') === buildAbsoluteLinkToPage(params, 'config');
-	if (!canManage && entries.length > 0 && atIndex) {
-		return <Navigate to={buildAbsoluteLinkToPage(params, entries[0].page)} replace />;
+	if (!canManage && (canListDeployments === undefined || extensionEntriesPending)) {
+		return <Loading centered text="Loading..." />;
+	}
+	// The Overview and the other built-in pages run operations only a manager may. The router matches `config/` to the
+	// same index.
+	const onEntry = entries.some((entry) => isAtOrUnder(pathname, buildAbsoluteLinkToPage(params, entry.page)));
+	if (!canManage && !onEntry) {
+		const to = entries.length > 0 ? buildAbsoluteLinkToPage(params, entries[0].page) : buildAbsoluteLinkToPage(params);
+		return <Navigate to={to} replace />;
 	}
 
 	return (
@@ -219,4 +228,10 @@ function MobileConfigNavBar({ params, children, showOverview }: {
 			{children}
 		</ul>
 	);
+}
+
+function isAtOrUnder(pathname: string, path: string): boolean {
+	const at = pathname.replace(/\/+$/, '');
+	const base = path.replace(/\/+$/, '');
+	return at === base || at.startsWith(`${base}/`);
 }

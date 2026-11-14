@@ -29,8 +29,13 @@ vi.mock('@/lib/events/watcher', () => ({
 	useWatchedValue: () => ({ value: 'file', trigger: undefined }),
 	setWatchedValue: vi.fn(),
 }));
+const operations = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !operations.denied.has(operation),
+}));
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 
+import { setWatchedValue } from '@/lib/events/watcher';
 import { AddDirectoryOrFileModal } from './AddDirectoryOrFileModal';
 
 function renderWithQueryClient(ui: ReactElement) {
@@ -48,6 +53,18 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe('AddDirectoryOrFileModal', () => {
+	it('stays closed for a session that cannot write component files', () => {
+		operations.denied.add('set_component_file');
+		try {
+			vi.mocked(setWatchedValue).mockClear();
+			renderWithQueryClient(<AddDirectoryOrFileModal />);
+			expect(screen.queryByRole('dialog')).toBeNull();
+			expect(setWatchedValue).toHaveBeenCalledWith('ShowAddDirectoryOrFileModalType', false);
+		} finally {
+			operations.denied.clear();
+		}
+	});
+
 	it('stops the name at the 50 characters the form accepts, and says so there', () => {
 		renderWithQueryClient(<AddDirectoryOrFileModal />);
 		const name = screen.getByLabelText('Name') as HTMLInputElement;

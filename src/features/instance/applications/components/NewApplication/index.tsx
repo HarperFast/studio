@@ -9,6 +9,7 @@ import { findBy } from '@/lib/arrays/findBy';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouteContext } from '@tanstack/react-router';
+import { cx } from 'class-variance-authority';
 import { BoxesIcon, GitBranchIcon, TerminalIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -24,7 +25,10 @@ import { useCiDeployOutro } from './useCiDeployOutro';
 import { useCreateFromTemplate } from './useCreateFromTemplate';
 import { useImportApplication } from './useImportApplication';
 
-export function NewApplication() {
+export function NewApplication({ canCreateFromTemplate, canImport }: {
+	canCreateFromTemplate: boolean;
+	canImport: boolean;
+}) {
 	const { rootEntries } = useEditorView();
 	const { organization, instance, cluster }: {
 		organization?: Organization;
@@ -67,12 +71,10 @@ export function NewApplication() {
 		mode: 'onTouched',
 		defaultValues: {
 			applicationName: '',
-			contents: {
-				...defaultImportOptions,
-				...defaultCLIOptions,
-				// The last option will be the default selection.
-				...defaultTemplateOptions,
-			},
+			// The last option will be the default selection.
+			contents: canCreateFromTemplate
+				? { ...defaultImportOptions, ...defaultCLIOptions, ...defaultTemplateOptions }
+				: { ...defaultTemplateOptions, ...defaultCLIOptions, ...defaultImportOptions },
 		},
 	});
 	const { watch, handleSubmit, control, setValue, formState } = methods;
@@ -144,15 +146,21 @@ export function NewApplication() {
 
 						<Card className="dark:bg-black-dark mt-4 pt-0">
 							<Tabs value={contentsType} onValueChange={setContentsType}>
-								<TabsList className="w-full grid grid-cols-3 mt-0">
-									<TabsTrigger value="template">
-										<BoxesIcon />
-										<span className="hidden sm:inline-block">Templates</span>
-									</TabsTrigger>
-									<TabsTrigger value="import">
-										<GitBranchIcon />
-										Import
-									</TabsTrigger>
+								<TabsList
+									className={cx('w-full grid mt-0', canCreateFromTemplate && canImport ? 'grid-cols-3' : 'grid-cols-2')}
+								>
+									{canCreateFromTemplate && (
+										<TabsTrigger value="template">
+											<BoxesIcon />
+											<span className="hidden sm:inline-block">Templates</span>
+										</TabsTrigger>
+									)}
+									{canImport && (
+										<TabsTrigger value="import">
+											<GitBranchIcon />
+											Import
+										</TabsTrigger>
+									)}
 									<TabsTrigger value="cli">
 										<TerminalIcon />
 										<span className="hidden md:inline-block">Harper</span> CLI

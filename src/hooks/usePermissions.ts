@@ -358,6 +358,18 @@ export function useInstanceImportCapabilities(entityId?: EntityIds): {
 	}), [permission]);
 }
 
+/** An unknown user is not denied, so a table opened while the user is still loading queries as it always has. */
+export function useInstanceSchemaTableReadDenied(
+	entityId: EntityIds | undefined,
+	databaseName: string,
+	tableName: string,
+): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	const permission = user?.role?.permission;
+	return !!permission && !checkSchemaTablePermission(permission, databaseName, tableName, 'read');
+}
+
 export function useInstanceSchemaTableAttributePermission(
 	entityId: EntityIds | undefined,
 	databaseName: string,

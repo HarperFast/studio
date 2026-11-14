@@ -1,6 +1,8 @@
 import {
 	canonicalOperationName,
+	expandEffectiveOperations,
 	OPERATION_GROUPS,
+	resolveGrantBand,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import {
 	LocalRoleAttributePermissionAction,
@@ -173,3 +175,47 @@ export function checkImportMethodAllowed(
 export function checkImportDataOperationsAllowed(permission: LocalRolePermission | undefined): boolean {
 	return IMPORT_METHODS.some((method) => checkImportMethodAllowed(permission, method));
 }
+
+/**
+ * For an operation that is super_user-only unless delegated, any other role runs it only through an
+ * `operations` allowlist that grants it on this version. Unlike {@link checkAnyOperationAllowed}, no
+ * allowlist means no: these surfaces were super_user-only before allowlists existed, and an unprovable
+ * grant must not show a page whose first request is refused. `undefined` while the user, or for an
+ * allowlist the version, is still loading; a `null` version could not be read.
+ */
+export function checkInstanceOperationAllowed(
+	permission: LocalRolePermission | undefined,
+	operation: string,
+	version: string | null | undefined,
+): boolean | undefined {
+	if (!permission) {
+		return undefined;
+	}
+	if (permission.super_user === true) {
+		return true;
+	}
+	const allowlist = getOperationsAllowlist(permission);
+	if (!allowlist) {
+		return false;
+	}
+	if (version === undefined) {
+		return undefined;
+	}
+	if (!version) {
+		return false;
+	}
+	const band = resolveGrantBand(version);
+	let byBand = effectiveAllowlists.get(allowlist);
+	if (!byBand) {
+		byBand = new Map();
+		effectiveAllowlists.set(allowlist, byBand);
+	}
+	let effective = byBand.get(band);
+	if (!effective) {
+		effective = new Set(expandEffectiveOperations(allowlist, band));
+		byBand.set(band, effective);
+	}
+	return effective.has(operation);
+}
+
+const effectiveAllowlists = new WeakMap<readonly string[], Map<string, ReadonlySet<string>>>();

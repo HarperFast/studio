@@ -20,6 +20,7 @@ export type EditorViewContextValue = {
 	) => void;
 	/** Reading the opened entry's contents failed: `openedEntryContents` stays unknown until a read succeeds. */
 	openedEntryReadFailed: boolean;
+	canReadFiles: boolean;
 
 	focusedItem: TreeItemIndex | undefined;
 	setFocusedItem: (

@@ -1,4 +1,5 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -10,33 +11,40 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { isScopedOperationToken } from '@/features/auth/scopedOperationToken';
+import { authStore } from '@/features/auth/store/authStore';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { checkInstanceOperationAllowed } from '@/hooks/checkOperationPermission';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useLocation } from '@tanstack/react-router';
 import { EllipsisIcon, Menu } from 'lucide-react';
+import { useMemo } from 'react';
 
 const activeLinkProps = {
 	className: 'text-primary font-semibold bg-primary/10 rounded-md dark:text-white dark:bg-white/10',
 };
 
 export function InstanceNavBar() {
-	const canManage = useInstanceManagePermission();
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const statusAvailable = supportsGetStatus(version) && canManage;
-
 	const instanceParams = useInstanceClientIdParams();
+	const permission = useInstanceAuth(instanceParams.entityId).user?.role?.permission;
+	const statusAvailable = supportsGetStatus(version)
+		&& checkInstanceOperationAllowed(permission, 'get_status', version) === true;
+
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const restartRequired = statusData?.restartRequired ?? false;
 	const { links, tucked } = useInstanceNavLinks();
+	const operationToken = authStore.getOperationToken(instanceParams.entityId);
+	const readOnly = useMemo(() => isScopedOperationToken(operationToken), [operationToken]);
 
 	return (
 		<>
-			<DesktopInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} />
-			<MobileInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} />
+			<DesktopInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} readOnly={readOnly} />
+			<MobileInstanceNavBar links={links} tucked={tucked} restartRequired={restartRequired} readOnly={readOnly} />
 		</>
 	);
 }
@@ -45,16 +53,18 @@ interface NavBarProps {
 	links: InstanceNavLink[];
 	tucked: InstanceNavLink[];
 	restartRequired: boolean;
+	readOnly: boolean;
 }
 
-function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
+function DesktopInstanceNavBar({ links, tucked, restartRequired, readOnly }: NavBarProps) {
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
 		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
 		// until xl, where the full word labels fit.
 		<div className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between h-full text-sm text-foreground">
 			<Breadcrumbs restartRequired={restartRequired} />
-			<div className="flex space-x-2">
+			<div className="flex items-center space-x-2">
+				{readOnly && <ReadOnlyBadge />}
 				{links.map(({ key, shortName, ...link }) => {
 					const linkElement = (
 						<Link
@@ -136,12 +146,13 @@ function isAtOrUnder(pathname: string, to: string): boolean {
 	return pathname === to || pathname.startsWith(`${to}/`);
 }
 
-function MobileInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
+function MobileInstanceNavBar({ links, tucked, restartRequired, readOnly }: NavBarProps) {
 	return (
 		<>
 			{/* Mirror of DesktopInstanceNavBar: hover devices drop the hamburger at md, touch-only keeps it until xl. */}
 			<div className="flex md:[@media(hover:hover)]:hidden xl:hidden items-center justify-between h-full px-2 text-foreground">
 				<Breadcrumbs restartRequired={restartRequired} />
+				{readOnly && <ReadOnlyBadge />}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant="ghost" className="p-0">
@@ -180,5 +191,13 @@ function MobileLink({ link }: { link: InstanceNavLink }) {
 				{link.name}
 			</Link>
 		</DropdownMenuItem>
+	);
+}
+
+function ReadOnlyBadge() {
+	return (
+		<Badge variant="secondary" title="Connected with a read-only token: changes are not available">
+			Read-only
+		</Badge>
 	);
 }

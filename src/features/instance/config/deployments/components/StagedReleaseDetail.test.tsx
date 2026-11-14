@@ -49,6 +49,7 @@ vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
 import { StagedReleaseDetail } from './StagedReleaseDetail';
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
 
 const STAGED_ID = '4ac92da3-d8a0-423e-b145-5df107957dd4';
 const ACTIVATION_ID = '5c12b89e-1111-4000-8000-000000000001';

@@ -63,6 +63,10 @@ vi.mock('@/lib/events/watcher', () => ({
 	setWatchedValue: vi.fn(),
 }));
 
+const operations = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !operations.denied.has(operation),
+}));
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 vi.mock('@/integrations/api/instance/applications/dropComponent', () => ({ dropComponent: vi.fn() }));
 vi.mock('@/react-query/queryClient', () => ({ errorHandler: vi.fn() }));
@@ -77,6 +81,7 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@/features/instance/applications/lib/deleteSelectedItems', () => ({ deleteSelectedItems }));
 
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { setWatchedValue } from '@/lib/events/watcher';
 import { DeleteDirectoryOrFileModal } from './DeleteDirectoryOrFileModal';
 
 // A seeded answer is fresh unless `stale`, which makes the modal ask again, and the instance refuses (`post`).
@@ -118,6 +123,20 @@ function confirmDelete(name: RegExp) {
 }
 
 describe('DeleteDirectoryOrFileModal', () => {
+	it('stays closed for a session that cannot drop components', () => {
+		openedEntry = rootEntries[1];
+		selectedItems = [rootEntries[1].path];
+		operations.denied.add('drop_component');
+		try {
+			vi.mocked(setWatchedValue).mockClear();
+			renderWithQueryClient(<DeleteDirectoryOrFileModal />);
+			expect(screen.queryByRole('dialog')).toBeNull();
+			expect(setWatchedValue).toHaveBeenCalledWith('ShowDeleteDirectoryOrFileModal', false);
+		} finally {
+			operations.denied.clear();
+		}
+	});
+
 	it('refuses to delete a selection containing a protected component', async () => {
 		openedEntry = rootEntries[0];
 		selectedItems = ['status-check', 'status-check/resources.js'];
