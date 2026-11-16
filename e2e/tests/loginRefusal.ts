@@ -15,8 +15,8 @@ export function describeLoginRefusal(status: number, body: string): string {
 }
 
 export function describeUnreachableLogin(url: string, errorText: string | undefined): string {
-	return `Sign-in to ${new URL(url).origin} got no response (${errorText ?? 'request failed'}), so this browser `
-		+ 'could not reach central-manager: an outage, or a proxy or allowlist blocking it.';
+	return `Sign-in to ${new URL(url).origin} got no response (${errorText ?? 'request failed'}): `
+		+ 'central-manager is down, or a proxy or allowlist is blocking this browser from it.';
 }
 
 export function isLoginRequest(method: string, url: string): boolean {

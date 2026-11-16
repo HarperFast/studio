@@ -12,6 +12,7 @@ const authFile = path.join(dir, '..', '.auth', 'user.json');
 
 const email = process.env.PLAYWRIGHT_USER_EMAIL;
 const password = process.env.PLAYWRIGHT_USER_PASSWORD;
+const LOGIN_WAIT_MS = 30_000;
 
 /**
  * Logs in through the real UI once and persists the session (the cookie set by
@@ -46,13 +47,24 @@ setup('authenticate', async ({ page }) => {
 	await page.getByLabel('Password', { exact: true }).fill(password);
 	const loginRequest = page.waitForRequest(
 		(request) => isLoginRequest(request.method(), request.url()),
-		{ timeout: 30_000 },
+		{ timeout: LOGIN_WAIT_MS },
 	);
 	await page.getByRole('button', { name: 'Sign In' }).click();
 	// Checked before the URL: an unverified account's 403 sends Studio to the verification page, which
 	// also leaves /sign-in.
 	const request = await loginRequest;
-	const response = await request.response();
+	// response() has no timeout of its own, and Studio's API client gives up only at 60 s, the test's
+	// whole budget.
+	const pending = request.response();
+	pending.catch(() => {});
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const hung = new Promise<'hung'>((resolve) => {
+		timer = setTimeout(() => resolve('hung'), LOGIN_WAIT_MS);
+	});
+	const response = await Promise.race([pending, hung]).finally(() => clearTimeout(timer));
+	if (response === 'hung') {
+		throw new Error(describeUnreachableLogin(request.url(), `still waiting after ${LOGIN_WAIT_MS / 1000} s`));
+	}
 	if (!response) {
 		throw new Error(describeUnreachableLogin(request.url(), request.failure()?.errorText));
 	}
