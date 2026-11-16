@@ -139,7 +139,9 @@ describe('EditUserModal active toggle', () => {
 	});
 
 	it('offers the switch to a role whose operations allowlist grants alter_user', () => {
-		auth.value = { user: user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] })) };
+		auth.value = {
+			user: user('delegate', true, role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] })),
+		};
 		renderModal(alice);
 
 		expect(activeSwitch()).not.toBeNull();
@@ -147,7 +149,8 @@ describe('EditUserModal active toggle', () => {
 
 	it.each([
 		['a role without super_user', { super_user: false }],
-		['an allowlist that does not grant alter_user', { operations: ['list_users'] }],
+		['an allowlist that does not grant alter_user', { operations: ['list_users', 'list_roles'] }],
+		['an allowlist without list_roles, which the modal needs to render', { operations: ['list_users', 'alter_user'] }],
 	])('hides the switch from %s', async (_, permission) => {
 		auth.value = { user: user('limited', true, role('limited', permission as LocalRolePermission)) };
 		renderModal(alice);
@@ -170,7 +173,11 @@ describe('EditUserModal active toggle', () => {
 	});
 
 	it('locks the switch on for the only active super user', async () => {
-		const delegate = user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] }));
+		const delegate = user(
+			'delegate',
+			true,
+			role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] }),
+		);
 		const admin = user('admin', true, superRole);
 		auth.value = { user: delegate };
 		renderModal(admin, [delegate, admin, user('dormant', false, superRole)]);
@@ -185,11 +192,29 @@ describe('EditUserModal active toggle', () => {
 		const deactivatedElsewhere = { ...alice, active: false };
 		repoll(deactivatedElsewhere, [viewer, deactivatedElsewhere]);
 
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('false');
 		expect(await save()).not.toHaveProperty('active');
 	});
 
+	it("keeps the editor's choice when the list re-polls after they touched the switch", async () => {
+		const { repoll } = renderModal(alice);
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+		const deactivatedElsewhere = { ...alice, active: false };
+		repoll(deactivatedElsewhere, [viewer, deactivatedElsewhere]);
+		repoll(alice, [viewer, alice]);
+
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('false');
+		expect(await save()).toMatchObject({ username: 'alice', active: false });
+	});
+
 	it('does not send a deactivation once the switch has become locked', async () => {
-		const delegate = user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] }));
+		const delegate = user(
+			'delegate',
+			true,
+			role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] }),
+		);
 		const admin = user('admin', true, superRole);
 		const backup = user('backup', true, superRole);
 		auth.value = { user: delegate };

@@ -274,10 +274,13 @@ export function useInstanceConfigurationReadPermission(entityId?: EntityIds): bo
 	return checkSuperUserOperationAllowed(user?.role?.permission, 'get_configuration');
 }
 
+/** Also needs `list_roles`: the Edit User modal that holds the Active switch cannot render without it. */
 export function useInstanceAlterUserPermission(entityId?: EntityIds): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
-	return checkSuperUserOperationAllowed(user?.role?.permission, 'alter_user');
+	const permission = user?.role?.permission;
+	return checkSuperUserOperationAllowed(permission, 'alter_user')
+		&& checkSuperUserOperationAllowed(permission, 'list_roles');
 }
 
 export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean {
