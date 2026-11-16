@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { describeLoginRefusal, isLoginRequest } from './loginRefusal';
+import { describeLoginRefusal, describeUnreachableLogin, isLoginRequest } from './loginRefusal';
 
-// The body central-manager sends, verbatim apart from the title.
 const refusal = (status: number, title: string) =>
 	JSON.stringify({ type: 'error:ClientError', code: 'ClientError', title, status, instance: '/Login/' });
 
@@ -32,6 +31,20 @@ test.describe('describeLoginRefusal', () => {
 		const message = describeLoginRefusal(401, 'x'.repeat(1_000));
 		expect(message).toContain(`Server said: ${'x'.repeat(300)}`);
 		expect(message).not.toContain('x'.repeat(301));
+	});
+});
+
+test.describe('describeUnreachableLogin', () => {
+	test('names the origin and the network error, and points away from the account', () => {
+		const message = describeUnreachableLogin('https://cm.example.test/Login/?x=1', 'net::ERR_CONNECTION_REFUSED');
+		expect(message).toContain('Sign-in to https://cm.example.test got no response');
+		expect(message).toContain('net::ERR_CONNECTION_REFUSED');
+		expect(message).not.toContain('/Login/');
+		expect(message).not.toContain('PLAYWRIGHT_USER_EMAIL');
+	});
+
+	test('still reads when the browser gives no error text', () => {
+		expect(describeUnreachableLogin('https://cm.example.test/Login/', undefined)).toContain('(request failed)');
 	});
 });
 
