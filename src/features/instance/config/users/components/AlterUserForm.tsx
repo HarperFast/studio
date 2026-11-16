@@ -109,7 +109,6 @@ export function AlterUserForm({
 					<DialogTitle>Edit User</DialogTitle>
 				</DialogHeader>
 
-				{/* Columns follow the dialog's own width, not the window's, because the dialog resizes. */}
 				<div className="grid gap-4 @2xl:grid-cols-2 @2xl:gap-x-8">
 					<div className="grid content-start gap-4">
 						<FormField
@@ -185,7 +184,7 @@ export function AlterUserForm({
 										<FormControl>
 											<Switch
 												name={field.name}
-												checked={field.value}
+												checked={activeToggle === 'only-active-super-user' || field.value}
 												onCheckedChange={field.onChange}
 												onBlur={field.onBlur}
 												ref={field.ref}
@@ -237,7 +236,6 @@ export function AlterUserForm({
 					</div>
 				</div>
 
-				{/* The body scrolls, so keep Save in view when the form runs past the dialog's saved height. */}
 				<DialogFooter className="sticky bottom-0 bg-popover py-2">
 					<div className="flex justify-between w-full">
 						<Button
