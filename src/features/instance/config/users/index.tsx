@@ -113,6 +113,7 @@ export function ConfigUsersIndex() {
 			/>
 			{isEditModalOpen && (
 				<EditUserModal
+					key={selectedUser.username}
 					instanceId={instanceId}
 					clusterId={clusterId}
 					closeModal={closeEditModal}

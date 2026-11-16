@@ -29,7 +29,6 @@ export function EditUserModal({
 	isModalOpen: boolean;
 	closeModal: () => void;
 	data: LocalUser;
-	/** Every user on the instance, to tell whether `data` is its only active super user. */
 	users: readonly LocalUser[];
 	onUserDeleted: () => void;
 	onUserUpdated: () => void;
@@ -40,7 +39,7 @@ export function EditUserModal({
 	const isSelf = !isFabricConnect && auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
-	// Like delete, your own account isn't offered: deactivating it would lock you out.
+	// Deactivating your own account would lock you out.
 	let activeToggle: ActiveToggle = 'hidden';
 	if (canAlterUsers && !isSelf) {
 		activeToggle = isOnlyActiveSuperUser(users, data.username) ? 'only-active-super-user' : 'editable';
