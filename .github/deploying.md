@@ -190,7 +190,9 @@ the run fails:
 - the Mailosaur domain in its `ALLOWLIST_EMAIL_DOMAINS` Configuration row, or signup answers 403;
 - on stage, which enforces reCAPTCHA (local and dev do not), its `RECAPTCHA_MIN_SCORE` row at `0`: a
   headless browser on a GitHub runner scores below the 0.5 default and signup answers 403;
-- the test account in an organization, or the org-users spec finds nothing to open.
+- the test account itself, verified and in an organization. Accounts are per environment, so sign-in
+  answers 401 on a target where the account was never created, and without an organization the
+  org-users spec finds nothing to open.
 
 For stage, replace `e2e-dev` and `dev` with `e2e-stage` and `stage`:
 

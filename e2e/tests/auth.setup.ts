@@ -2,6 +2,7 @@ import { expect, test as setup } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describeLoginRefusal, isLoginRequest } from './loginRefusal';
 
 // This file lives in tests/ (so the `setup` project's testMatch finds it), but
 // the auth state lives at the e2e root — one level up — to match the
@@ -43,7 +44,17 @@ setup('authenticate', async ({ page }) => {
 	// labels "Email"/"Password", submit button "Sign In".
 	await page.getByLabel('Email').fill(email);
 	await page.getByLabel('Password', { exact: true }).fill(password);
+	const loginResponse = page.waitForResponse(
+		(response) => isLoginRequest(response.request().method(), response.url()),
+		{ timeout: 30_000 },
+	);
 	await page.getByRole('button', { name: 'Sign In' }).click();
+	// Checked before the URL: an unverified account's 403 sends Studio to the verification page, which
+	// also leaves /sign-in.
+	const response = await loginResponse;
+	if (!response.ok()) {
+		throw new Error(describeLoginRefusal(response.status(), await response.text()));
+	}
 
 	// Success = navigated off the sign-in route. Landing varies (single org ->
 	// /#/<orgId>, else the org picker /#/), so assert we left sign-in rather than
