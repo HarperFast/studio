@@ -117,7 +117,13 @@ describe(FinishSetup, () => {
 		mutate.mockClear();
 		await createAdminUser();
 		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
-		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined });
+		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: false });
+
+		cleanup();
+		mutate.mockClear();
+		await createAdminUser({ instances: [{ id: 'ins-1', status: 'RUNNING', version: '5.4.0' }] });
+		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: true });
 	});
 
 	it('hands setup the direct URL and every id it must sign out first', async () => {

@@ -100,7 +100,9 @@ The cluster record decides, in [`sealedSetup.ts`](sealedSetup.ts): a Fabric-host
 reports 5.4.0 or later and carries the same `secretsKeyFingerprint`. The fingerprint is what proves the key exists and
 reached each host; without it, asking central manager for the key would create one and restart the members
 (`ClusterSecretsKey.js`), in the middle of setup. Anything else keeps the `tempPassword` flow above, unchanged, and a
-5.4.0 prerelease counts as below the floor. The sealed path never reads `tempPassword`.
+5.4.0 prerelease counts as below the floor. The sealed path never reads `tempPassword`. Members that could seal but do
+not all carry the key yet get their own message when there is no `tempPassword` either (`clusterKeyPending`): the key is
+on its way, not a permission problem.
 
 Every write goes through `getInstanceClient({ forceFabricConnect: true })` as `encrypted_operation`
 ([`runSealedOperation`](../../integrations/api/instance/sealedOperation.ts), over

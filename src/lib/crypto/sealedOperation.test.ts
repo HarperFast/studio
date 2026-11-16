@@ -10,8 +10,8 @@ import {
 	RESPONSE_KEY_BYTES,
 	sealOperation as referenceSealOperation,
 	sealResponse,
-} from './__tests__/harper-v5.4.0/sealedOperation.ts';
-import { decryptEnvelope, fingerprintOf, parseEnvelopeFields } from './__tests__/harper-v5.4.0/secretEnvelope.ts';
+} from './__tests__/harper-v5.4.0/sealedOperation';
+import { decryptEnvelope, fingerprintOf, parseEnvelopeFields } from './__tests__/harper-v5.4.0/secretEnvelope';
 import { ENV_ENCRYPTED_PREFIX } from './envSecret';
 import { openSealedResponse, SEALED_OPERATION_VERSION, sealOperation } from './sealedOperation';
 
@@ -95,7 +95,6 @@ describe('openSealedResponse', () => {
 		const { payload, responseKey, nonce } = await sealedByTheNode(result);
 
 		expect(await openSealedResponse(payload, responseKey, nonce)).toEqual(result);
-		// and reads it the same way the reference does
 		expect(openResponse(payload, Buffer.from(responseKey), nonce)).toEqual(result);
 	});
 

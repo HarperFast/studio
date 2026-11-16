@@ -22,6 +22,17 @@ export class SealedOperationError extends Error {
 	}
 }
 
+/** The request went out, but the answer was missing, malformed or not this request's: the operation may have run. */
+export class UnreadableSealedAnswerError extends Error {
+	operation: string;
+
+	constructor(operation: string, cause: unknown) {
+		super(`The cluster's answer to ${operation} could not be read.`, { cause });
+		this.name = 'UnreadableSealedAnswerError';
+		this.operation = operation;
+	}
+}
+
 export function isSealedRefusal(error: unknown, status: number, message: string): boolean {
 	return error instanceof SealedOperationError && error.status === status && error.message === message;
 }
@@ -73,7 +84,11 @@ export async function runSealedOperation(
 			const detail = refusal?.data as
 				| { server_time?: unknown; custody_fingerprint?: unknown; encrypted_response?: unknown }
 				| undefined;
-			if (refusal?.status === 400 && typeof detail?.server_time === 'number' && !clockRetried) {
+			if (refusal?.status === 400 && typeof detail?.server_time === 'number') {
+				if (clockRetried) {
+					clockOffsetsMs.delete(node);
+					throw error;
+				}
 				clockOffsetsMs.set(node, detail.server_time - Date.now());
 				clockRetried = true;
 				continue;
@@ -90,9 +105,14 @@ export async function runSealedOperation(
 		}
 		const payload = (data as { encrypted_response?: unknown } | null | undefined)?.encrypted_response;
 		if (!payload) {
-			throw new Error(`The cluster did not answer ${op.operation} with a sealed response.`);
+			throw new UnreadableSealedAnswerError(op.operation, new Error('The answer was not sealed.'));
 		}
-		const result = await openSealedResponse(payload, responseKey, nonce);
+		let result: SealedResult;
+		try {
+			result = await openSealedResponse(payload, responseKey, nonce);
+		} catch (error) {
+			throw new UnreadableSealedAnswerError(op.operation, error);
+		}
 		if (result.status >= 400) {
 			throw new SealedOperationError(op.operation, result);
 		}

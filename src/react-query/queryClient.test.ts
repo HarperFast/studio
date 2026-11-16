@@ -1,6 +1,6 @@
 import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
-import { SealedOperationError } from '@/integrations/api/instance/sealedOperation';
+import { SealedOperationError, UnreadableSealedAnswerError } from '@/integrations/api/instance/sealedOperation';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
 	RESTART_UNCONFIRMED_TITLE,
@@ -462,6 +462,12 @@ describe('a write that got no verdict', () => {
 				'The cluster ran drop_user but could not return its result. Check whether it took effect before you try again.',
 		});
 		expect(shouldToastOwnFailure(executed)).toBe(false);
+	});
+
+	it('includes a sealed operation whose answer could not be read', () => {
+		const unreadable = new UnreadableSealedAnswerError('drop_user', new Error('tag'));
+		expect(describeError(unreadable)).toMatchObject({ title: OUTCOME_UNKNOWN_TITLE });
+		expect(shouldToastOwnFailure(unreadable)).toBe(false);
 	});
 
 	it("describes a sealed operation's own refusal by its text, as a plain failure", () => {

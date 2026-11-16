@@ -1,18 +1,22 @@
 // @vitest-environment node
 // A fake 5.4 node built from Harper's own reference client (copied unchanged under src/lib/crypto/__tests__): it opens
 // what the helper seals and seals what the helper opens, and refuses the way `components/encryptedOperation.ts` does.
-import { sealResponse } from '@/lib/crypto/__tests__/harper-v5.4.0/sealedOperation.ts';
-import { fingerprintOf } from '@/lib/crypto/__tests__/harper-v5.4.0/secretEnvelope.ts';
-import { decryptEnvelope, parseEnvelopeFields } from '@/lib/crypto/__tests__/harper-v5.4.0/secretEnvelope.ts';
+import { sealResponse } from '@/lib/crypto/__tests__/harper-v5.4.0/sealedOperation';
+import {
+	decryptEnvelope,
+	fingerprintOf,
+	parseEnvelopeFields,
+} from '@/lib/crypto/__tests__/harper-v5.4.0/secretEnvelope';
 import { ENV_ENCRYPTED_PREFIX } from '@/lib/crypto/envSecret';
 import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	_resetClockOffsetsForTests,
 	isSealedRefusal,
 	runSealedOperation,
 	SealedOperationError,
+	UnreadableSealedAnswerError,
 } from './sealedOperation';
 
 function keyPair() {
@@ -163,6 +167,11 @@ describe(runSealedOperation, () => {
 
 		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatchObject({ response: { status: 400 } });
 		expect(node.requests).toHaveLength(2);
+
+		node.answer = answerAsNode;
+		node.clockSkewMs = 0;
+		await runSealedOperation({ instanceClient, op, key });
+		expect(node.requests).toHaveLength(3);
 	});
 
 	it("learns each node's clock on its own", async () => {
@@ -225,11 +234,23 @@ describe(runSealedOperation, () => {
 		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatch(/Failed to replicate/);
 	});
 
-	it('refuses an answer that is not sealed', async () => {
-		vi.mocked(instanceClient.post).mockResolvedValueOnce({ data: { message: 'add_user ran' } });
+	it.each([
+		['not sealed', () => ({ data: { message: 'add_user ran' } })],
+		['malformed', () => ({ data: { encrypted_response: { v: 1, iv: 'AAAA', ct: 'AAAA', tag: 'AAAA' } } })],
+		[
+			"another request's",
+			() => ({
+				data: {
+					encrypted_response: sealResponse(JSON.stringify({ status: 200, body: {} }), randomBytes(32), 'b3RoZXI='),
+				},
+			}),
+		],
+	])('reports an answer that is %s as one the operation may have run before', async (_, answer) => {
+		vi.mocked(instanceClient.post).mockImplementationOnce(async (_url, body) => {
+			answerAsNode.call(node, body as { operation?: unknown; envelope?: unknown });
+			return answer();
+		});
 
-		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toThrow(
-			'did not answer add_user with a sealed response',
-		);
+		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toBeInstanceOf(UnreadableSealedAnswerError);
 	});
 });

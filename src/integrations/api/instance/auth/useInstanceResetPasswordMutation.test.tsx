@@ -35,6 +35,7 @@ vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({
 	getInstanceUserInfo: async ({ instanceClient }: { instanceClient: AxiosInstance }) => {
 		const authorization = instanceClient.defaults.headers.Authorization;
 		if (typeof authorization === 'string' && authorization.startsWith(`Bearer ${sealedNode.tokenPrefix}`)) {
+			await sealedNode.beforeUserInfo?.();
 			return sealedNode.userInfo(authorization.slice(`Bearer ${sealedNode.tokenPrefix}`.length));
 		}
 		return authorization === 'Bearer owner-token'
@@ -125,11 +126,14 @@ class SealedNode {
 	users = new Map<string, { password?: string; superUser: boolean; active: boolean }>();
 	operations: string[] = [];
 	clients: AxiosInstance[] = [];
+	/** Runs while a token's `user_info` is in flight, once. */
+	beforeUserInfo?: () => Promise<void>;
 
 	reset() {
 		this.users = new Map([[defaultClusterUsername, { superUser: true, active: true }]]);
 		this.operations = [];
 		this.clients = [];
+		this.beforeUserInfo = undefined;
 	}
 
 	userInfo(username: string): LocalUser {
@@ -233,7 +237,7 @@ afterEach(() => {
 
 function resetPassword(
 	desiredUsername: string,
-	overrides: { sealedSetup?: { keyFingerprint: string }; tempPassword?: string } = {},
+	overrides: { sealedSetup?: { keyFingerprint: string }; tempPassword?: string; clusterKeyPending?: boolean } = {},
 ) {
 	const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } });
 	const { result } = renderHook(() => useInstanceResetPasswordMutation(), {
@@ -794,6 +798,30 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
 	});
 
+	it('keeps a connection that replaced its own while it was connecting, finishing without a user', async () => {
+		const signOut = vi.spyOn(authStore, 'signOutLocally');
+		sealedNode.beforeUserInfo = async () => {
+			sealedNode.beforeUserInfo = undefined;
+			await authStore.establishFabricConnectAuth({ id: 'clu-1', operationsUrl: CLUSTER_URL });
+		};
+
+		const { user } = await sealed(OWNER);
+
+		expect(user).toBeNull();
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(signOut.mock.calls.map(([id]) => id)).toEqual(['clu-1', 'ins-1']);
+		expect(authStore.getOperationToken('clu-1')).toBe('provisioning-token');
+		expect(authStore.getConnectionById('clu-1').user).toMatchObject({ username: defaultClusterUsername });
+	});
+
+	it('says the key is still on its way when a 5.4 cluster has no temporary password and no key on every member', async () => {
+		await expect(resetPassword(OWNER, { tempPassword: undefined, clusterKeyPending: true })).rejects.toThrow(
+			"secrets key hasn't reached every member yet",
+		);
+		await expect(resetPassword(OWNER, { tempPassword: undefined })).rejects.toThrow('may not have permission');
+		expect(onInstanceLoginSubmit).not.toHaveBeenCalled();
+	});
+
 	it('finishes signed out, after telling central manager, when the cluster cannot be reached directly', async () => {
 		runSealedOperation.mockImplementation(async (params: Parameters<SealedNode['run']>[0]) => {
 			const result = await sealedNode.run(params);
@@ -802,12 +830,13 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 				: result;
 		});
 
+		const signOut = vi.spyOn(authStore, 'signOutLocally');
 		const { user } = await sealed(OWNER);
 
 		expect(user).toBeNull();
 		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
-		// The proxy's own session would be the `local` principal's, never the admin's, so none is kept.
 		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+		expect(signOut.mock.calls.map(([id]) => id)).toEqual(['clu-1', 'ins-1']);
 		expectNothingSignedIn();
 	});
 

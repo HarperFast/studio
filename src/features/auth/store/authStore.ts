@@ -664,6 +664,7 @@ class AuthStore {
 		tokens: InstanceAuthenticationTokens | undefined,
 	): Promise<LocalUser> {
 		const signOutGeneration = this.getSignOutGeneration(id);
+		const entryGeneration = this.getConnectionGeneration(id);
 		const throwIfSignedOut = () => {
 			if (this.getSignOutGeneration(id) !== signOutGeneration) {
 				throw new SignedOutWhileConnectingError();
@@ -735,9 +736,10 @@ class AuthStore {
 			return user;
 		} catch (err) {
 			// Couldn't establish either mode — clear the half-resolved state so we retry next time. Only
-			// this resolution's own: after a sign-out, a newer one for the same id may have claimed it.
+			// this resolution's own: after a sign-out, or while this one was still minting, a newer one for the same
+			// id may have claimed it.
 			const ownsState = claimedGeneration === undefined
-				? this.getSignOutGeneration(id) === signOutGeneration
+				? this.getSignOutGeneration(id) === signOutGeneration && this.getConnectionGeneration(id) === entryGeneration
 				: this.getConnectionGeneration(id) === claimedGeneration;
 			if (ownsState) {
 				this.fabricConnectAuth.delete(id);

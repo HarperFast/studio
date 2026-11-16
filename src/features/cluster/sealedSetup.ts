@@ -1,5 +1,5 @@
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
-import { Cluster } from '@/integrations/api/api.patch';
+import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 
@@ -18,22 +18,30 @@ export interface SealedSetupCapability {
  * 5.4.0, or no fingerprint fails closed.
  */
 export function sealedSetupCapability(cluster: Cluster | undefined): SealedSetupCapability | null {
+	const live = liveMembersAbleToSeal(cluster);
+	if (!live) {
+		return null;
+	}
+	const keyFingerprint = live[0].secretsKeyFingerprint;
+	return keyFingerprint && live.every((instance) => instance.secretsKeyFingerprint === keyFingerprint)
+		? { keyFingerprint }
+		: null;
+}
+
+/** The members could seal, but central manager has not stamped one key on all of them yet. */
+export function clusterKeyPending(cluster: Cluster | undefined): boolean {
+	return !!liveMembersAbleToSeal(cluster) && sealedSetupCapability(cluster) === null;
+}
+
+function liveMembersAbleToSeal(cluster: Cluster | undefined): Instance[] | null {
 	if (!cluster || clusterIsSelfManaged(cluster)) {
 		return null;
 	}
 	const live = (cluster.instances ?? []).filter(
 		(instance) => !(instance.status && deletedClusterStatuses.includes(instance.status)),
 	);
-	const keyFingerprint = live[0]?.secretsKeyFingerprint;
-	if (
-		!keyFingerprint
-		|| !live.every((instance) =>
-			instance.secretsKeyFingerprint === keyFingerprint
-			&& !!instance.version
-			&& wasAReleasedBeforeB(SEALED_SETUP_MIN_VERSION, instance.version)
-		)
-	) {
-		return null;
-	}
-	return { keyFingerprint };
+	return live.length > 0
+			&& live.every((instance) => !!instance.version && wasAReleasedBeforeB(SEALED_SETUP_MIN_VERSION, instance.version))
+		? live
+		: null;
 }

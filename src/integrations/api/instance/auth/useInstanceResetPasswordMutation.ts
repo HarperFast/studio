@@ -26,6 +26,8 @@ interface InstanceResetPasswordParams {
 	newPassword: string;
 	tempPassword: string | undefined;
 	sealedSetup?: SealedSetupCapability;
+	/** Every live member could seal, but central manager has not stamped the cluster key on all of them yet. */
+	clusterKeyPending?: boolean;
 }
 
 interface InstanceResetPasswordResponse {
@@ -52,10 +54,15 @@ async function finishSetupWithTemporaryPassword({
 	desiredUsername,
 	newPassword,
 	tempPassword,
+	clusterKeyPending,
 }: InstanceResetPasswordParams): Promise<InstanceResetPasswordResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
-		throw new Error('You may not have permission to set the password on this cluster.');
+		throw new Error(
+			clusterKeyPending
+				? "The cluster's secrets key hasn't reached every member yet, so the admin user can't be created. Try again in a moment."
+				: 'You may not have permission to set the password on this cluster.',
+		);
 	}
 	// A connection made before setup is the provisioning account's: every step below would run as it, whatever
 	// credentials they present, and it stops working once that account is dropped.
@@ -213,9 +220,8 @@ async function finishSetupSealed(
 			await seal({ operation: 'alter_user', username: desiredUsername, password: newPassword });
 		}
 	}
-	// Minted with the typed credentials, the tokens are the admin's and nobody else's: the node checks the password
-	// and names that user, however many super users another attempt left. This is also the proof the admin signs in,
-	// taken before the account that created it goes.
+	// With the typed credentials the node names the admin, not its first stored super user; and a wrong password stops
+	// setup while the provisioning account still exists.
 	const minted =
 		(await seal({ operation: 'create_authentication_tokens', username: desiredUsername, password: newPassword }))
 			.body as { operation_token?: string; refresh_token?: string };
@@ -233,9 +239,8 @@ async function finishSetupSealed(
 	}
 	await resetPasswordUpdater(clusterId);
 
-	// Setup is done; this only connects the browser as the admin, directly or not at all: through the proxy the session
-	// would be the proxy's own principal, not the admin's. A failed connect, or a sign-out that landed meanwhile, leaves
-	// the cluster signed out.
+	// Setup is done; this only connects the browser as the admin, directly or not at all. A connect that fails has
+	// already cleared its own state, and one another connect replaced must not sign that one out.
 	if (authStore.getSignOutGeneration(clusterId) !== signOutGeneration) {
 		return { message: 'Login successful', user: null };
 	}
@@ -247,7 +252,10 @@ async function finishSetupSealed(
 		console.debug('Could not connect after setup', error instanceof Error ? error.message : error);
 		return null;
 	});
-	if (user?.username !== desiredUsername || user.role?.permission?.super_user !== true || !user.active) {
+	if (!user) {
+		return { message: 'Login successful', user: null };
+	}
+	if (user.username !== desiredUsername || user.role?.permission?.super_user !== true || !user.active) {
 		authStore.signOutLocally(clusterId);
 		return { message: 'Login successful', user: null };
 	}

@@ -180,6 +180,24 @@ describe('authStore.establishFabricConnectAuth', () => {
 			await Promise.all([joined, later]);
 		});
 
+		it('is not erased when an ordinary connect that never claimed fails afterwards', async () => {
+			let refuseMint: (error: Error) => void = () => undefined;
+			createInstanceAuthenticationTokens.mockReturnValueOnce(
+				new Promise((_resolve, reject) => {
+					refuseMint = reject;
+				}),
+			);
+			getInstanceUserInfo.mockResolvedValue(directUser);
+			const plain = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
+			await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
+
+			refuseMint(new Error('proxy down'));
+			await expect(plain).rejects.toThrow('proxy down');
+
+			expect(authStore.getOperationToken('ins-1')).toBe('setup-token');
+			expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(true);
+		});
+
 		it('does not record its user over a connection that replaced it while it was verifying', async () => {
 			let answerDirect: (value: unknown) => void = () => undefined;
 			getInstanceUserInfo.mockImplementation((

@@ -4,8 +4,7 @@
  * this client chose, so a relay sees ciphertext both ways. The wire format is harper's `utility/sealedOperation.ts`;
  * `__tests__/harper-v5.4.0/` keeps that reference unchanged, and the tests open with it what this seals.
  *
- * Sealed mode only: the whole operation is inside the envelope. Fields mode, which leaves chosen keys visible to a
- * relay, is not needed by any caller yet.
+ * Sealed mode only: the whole operation is inside the envelope.
  */
 import { ab, encryptEnvelope, fromBase64, requireSubtle, toBase64 } from './envSecret';
 
