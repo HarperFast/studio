@@ -156,6 +156,7 @@ describe('cluster list model', () => {
 		);
 		expect(model.items.map(item => item.cluster.id)).toEqual(['RUNNING', 'FAILED', 'STOPPED', 'TERMINATING']);
 		expect(model.counts).toEqual({ running: 1, failed: 1, attention: 1, other: 1 });
+		expect(model.items[3]).toMatchObject({ label: 'Terminating', category: 'other', notices: [] });
 	});
 
 	it('combines search, category and region without changing summary counts or the source', () => {

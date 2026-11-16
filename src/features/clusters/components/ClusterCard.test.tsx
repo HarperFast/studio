@@ -13,7 +13,10 @@ const state = vi.hoisted(() => ({
 	permissions: { view: true, create: true, update: true, remove: true },
 	canRunContainerOps: true,
 	copy: vi.fn(),
+	terminate: vi.fn(),
+	toast: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { success: state.toast, error: vi.fn(), dismiss: vi.fn() } }));
 vi.mock(
 	'@tanstack/react-query',
 	async importOriginal => ({
@@ -40,10 +43,16 @@ vi.mock(
 );
 vi.mock(
 	'@/features/clusters/mutations/terminateCluster',
-	() => ({ useTerminateClusterMutation: () => ({ mutate: vi.fn(), isPending: false }) }),
+	async importOriginal => ({
+		...await importOriginal<typeof import('@/features/clusters/mutations/terminateCluster')>(),
+		useTerminateClusterMutation: () => ({ mutate: state.terminate, isPending: false }),
+	}),
 );
 vi.mock('@/features/clusters/components/ClusterProgress', () => ({ ClusterProgress: () => null }));
-vi.mock('@/components/ConfirmDeletionModal', () => ({ ConfirmDeletionModal: () => null }));
+vi.mock('@/components/ConfirmDeletionModal', () => ({
+	ConfirmDeletionModal: ({ isModalOpen, deletionConfirmed }: { isModalOpen: boolean; deletionConfirmed: () => void }) =>
+		isModalOpen ? <button type="button" onClick={deletionConfirmed}>Confirm terminate</button> : null,
+}));
 vi.mock('@/features/clusters/components/ClusterContainerOpModals', () => ({ ClusterContainerOpModals: () => null }));
 vi.mock('@/features/clusters/components/SafeModeConfirmDialog', () => ({ SafeModeConfirmDialog: () => null }));
 
@@ -61,6 +70,8 @@ afterEach(() => {
 	state.permissions = { view: true, create: true, update: true, remove: true };
 	state.canRunContainerOps = true;
 	state.copy.mockClear();
+	state.terminate.mockReset();
+	state.toast.mockClear();
 });
 const cluster = (overrides: Partial<Cluster> = {}): Cluster => ({
 	id: 'clu-a',
@@ -91,6 +102,40 @@ describe('ClusterCard', () => {
 		render(<ClusterCard cluster={cluster({ status: 'UPDATING' })} />);
 		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
 			.toBe('/org-a/clu-a/scaling');
+	});
+
+	it('opens the overview of a cluster being deleted, where the delete reports, and offers no actions on it', () => {
+		render(<ClusterCard cluster={cluster({ status: 'TERMINATING' })} />);
+		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
+			.toBe('/org-a/clu-a');
+		expect(screen.getAllByText('Terminating').length).toBeGreaterThan(0);
+		expect(screen.queryByRole('button', { name: 'Cluster options' })).toBeNull();
+		cleanup();
+		state.permissions = { view: false, create: false, update: false, remove: false };
+		render(<ClusterCard cluster={cluster({ status: 'TERMINATING' })} />);
+		expect(screen.queryByRole('link')).toBeNull();
+	});
+
+	it.each([
+		['the older central manager', { id: 'clu-a', deleted: true }, 'Cluster successfully terminated.'],
+		[
+			'an admitted delete',
+			{ id: 'clu-a', workflowId: 'wf-1', status: 'TERMINATING' },
+			'Cluster termination started. It stays listed as Terminating until every instance is gone.',
+		],
+	])('toasts what %s said about the delete', async (_which, answer, description) => {
+		state.terminate.mockImplementation((_id: string, { onSuccess }: { onSuccess: (result: unknown) => void }) =>
+			onSuccess(answer)
+		);
+		render(<ClusterCard cluster={cluster()} />);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+		fireEvent.click(screen.getByRole('menuitem', { name: 'Terminate' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Confirm terminate' }));
+
+		expect(state.terminate).toHaveBeenCalledWith('clu-a', expect.anything());
+		await vi.waitFor(() =>
+			expect(state.toast).toHaveBeenCalledWith('Success', expect.objectContaining({ description }))
+		);
 	});
 
 	it('offers no progress link for other non-active statuses', () => {

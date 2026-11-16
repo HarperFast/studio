@@ -3,7 +3,6 @@ import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
-import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getOrganizationRegionsQueryOptions } from '@/features/admin/organizationRegions/queries/getOrganizationRegions';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
@@ -34,6 +33,7 @@ import {
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { regionCohortsOfPlans } from './lib/describeRegionSwap';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
+import { organizationUsesFreePlan } from './lib/organizationUsesFreePlan';
 import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
 import { RegionPlanEntry, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
@@ -142,25 +142,10 @@ export function UpsertCluster() {
 		[currentCluster, heldByWorkflow, newHarperVersions],
 	);
 
-	const alreadyUsingFree = useMemo(() => {
-		for (const orgCluster of organization?.clusters ?? []) {
-			if (
-				orgCluster.id !== cluster?.id
-				&& planTypes
-				&& !isTerminated(orgCluster.status)
-				&& !isFailed(orgCluster.status)
-				&& orgCluster.plans
-			) {
-				for (const clusterPlan of orgCluster.plans) {
-					const foundPlan = planTypes.find(p => p.id === clusterPlan.planId);
-					if (foundPlan?.priceUsd === 0 && !foundPlan.id.startsWith('self-hosted')) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}, [cluster?.id, organization?.clusters, planTypes]);
+	const alreadyUsingFree = useMemo(
+		() => organizationUsesFreePlan(organization?.clusters, planTypes, cluster?.id),
+		[cluster?.id, organization?.clusters, planTypes],
+	);
 
 	const currentRegions = useMemo(
 		() =>

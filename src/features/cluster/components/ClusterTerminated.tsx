@@ -5,13 +5,19 @@ import { Link } from '@tanstack/react-router';
 import { ArrowLeft, ServerOff } from 'lucide-react';
 
 function describeDeletion(cluster: Cluster) {
+	const removing = cluster.status === 'TERMINATING';
 	if (clusterIsSelfManaged(cluster)) {
-		return {
-			title: 'Cluster Removed',
-			detail: 'was removed from Harper Fabric, so it can no longer be managed or signed in to from here.',
-		};
+		return removing
+			? {
+				title: 'Cluster Removing',
+				detail: 'is being removed from Harper Fabric, so it can no longer be managed or signed in to from here.',
+			}
+			: {
+				title: 'Cluster Removed',
+				detail: 'was removed from Harper Fabric, so it can no longer be managed or signed in to from here.',
+			};
 	}
-	if (cluster.status === 'TERMINATING') {
+	if (removing) {
 		return { title: 'Cluster Terminating', detail: 'is being terminated, so it can no longer be signed in to.' };
 	}
 	return { title: 'Cluster Terminated', detail: 'was terminated, so there is nothing left to sign in to.' };
