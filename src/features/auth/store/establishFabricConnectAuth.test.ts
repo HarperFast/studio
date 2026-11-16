@@ -132,6 +132,86 @@ describe('authStore.establishFabricConnectAuth', () => {
 		expect(getInstanceUserInfo.mock.calls[0][0].instanceClient.defaults.baseURL).toBe(PROXY_URL);
 	});
 
+	describe('with tokens minted elsewhere', () => {
+		const tokens = { operationToken: 'setup-token', refreshToken: 'setup-refresh' };
+
+		it('connects directly with them, minting nothing', async () => {
+			getInstanceUserInfo.mockResolvedValue(directUser);
+
+			const user = await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
+
+			expect(user).toBe(directUser);
+			expect(authStore.getOperationToken('ins-1')).toBe('setup-token');
+			expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+		});
+
+		it('throws instead of falling back to the proxy, and keeps nothing resolved', async () => {
+			getInstanceUserInfo.mockRejectedValue(new Error('CORS'));
+
+			await expect(authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens })).rejects
+				.toThrow('could not be reached directly');
+
+			expect(getInstanceUserInfo).toHaveBeenCalledTimes(1);
+			expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(false);
+			expect(authStore.checkForFabricConnect('ins-1')).toBe(false);
+		});
+
+		it('neither joins nor becomes the shared in-flight connect', async () => {
+			let answerMint: (value: { operationToken: string }) => void = () => undefined;
+			createInstanceAuthenticationTokens.mockReturnValueOnce(
+				new Promise((resolve) => {
+					answerMint = resolve;
+				}),
+			);
+			getInstanceUserInfo.mockResolvedValue(directUser);
+			const plain = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
+
+			const withTokens = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
+			await expect(withTokens).resolves.toBe(directUser);
+			expect(authStore.getOperationToken('ins-1')).toBe('setup-token');
+
+			answerMint({ operationToken: 'jwt-token' });
+			await expect(plain).resolves.toBe(directUser);
+			expect(authStore.getOperationToken('ins-1')).toBe('jwt-token');
+
+			const joined = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
+			const later = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
+			expect(later).not.toBe(joined);
+			await Promise.all([joined, later]);
+		});
+
+		it('does not record its user over a connection that replaced it while it was verifying', async () => {
+			let answerDirect: (value: unknown) => void = () => undefined;
+			getInstanceUserInfo.mockImplementation((
+				{ instanceClient }: { instanceClient: { defaults: { baseURL: string; headers?: Record<string, unknown> } } },
+			) =>
+				instanceClient.defaults.headers?.Authorization === 'Bearer setup-token'
+					? new Promise((resolve) => {
+						answerDirect = resolve;
+					})
+					: Promise.resolve(proxyUser)
+			);
+			getInstanceClient.mockImplementation((
+				{ forceFabricConnect, forceOperationToken }: { forceFabricConnect?: boolean; forceOperationToken?: boolean },
+			) => ({
+				defaults: {
+					baseURL: forceFabricConnect ? PROXY_URL : DIRECT_URL,
+					headers: forceOperationToken ? { Authorization: `Bearer ${authStore.getOperationToken('ins-1')}` } : {},
+				},
+			}));
+			const withTokens = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			const plain = await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: null });
+			expect(plain).toBe(proxyUser);
+			answerDirect(directUser);
+
+			await expect(withTokens).rejects.toThrow('replaced');
+			expect(authStore.getOperationToken('ins-1')).toBeUndefined();
+			expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(true);
+		});
+	});
+
 	it('drops the in-memory token when Fabric Connect is flagged off (e.g. on logout)', async () => {
 		getInstanceUserInfo.mockResolvedValue(directUser);
 		await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });

@@ -811,6 +811,18 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 		expectNothingSignedIn();
 	});
 
+	it('leaves the admin unconnected when a sign-out lands during setup, keeping no token in a signed-out tab', async () => {
+		vi.mocked(resetPasswordUpdater).mockImplementationOnce(async () => {
+			authStore.signOutLocally('clu-1');
+		});
+
+		const { user } = await sealed(OWNER);
+
+		expect(user).toBeNull();
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(false);
+		expectNothingSignedIn();
+	});
+
 	it('refetches a key whose fingerprint is not the one the members hold, and refuses one that stays different', async () => {
 		fetchClusterKey.mockResolvedValueOnce({ ...CLUSTER_KEY, fingerprint: 'fp-0' });
 		const { user } = await sealed(OWNER);

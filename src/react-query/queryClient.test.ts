@@ -443,6 +443,13 @@ describe('a write that got no verdict', () => {
 		});
 	});
 
+	it('counts an unanswered sealed operation as a write, whatever it sealed', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'encrypted_operation', envelope: 'enc:v1:x' }))))
+			.toMatchObject({
+				title: OUTCOME_UNKNOWN_TITLE,
+			});
+	});
+
 	it('includes a sealed operation that ran but could not return its result', () => {
 		const executed = new SealedOperationError('drop_user', {
 			status: 500,

@@ -18,19 +18,14 @@ const RESPONSE_AAD_PREFIX = 'harper.encrypted_operation.response:';
 
 export type SealableOperation = Record<string, unknown> & { operation: string };
 
-export interface SealedOperationRequest {
-	operation: 'encrypted_operation';
-	envelope: string;
-}
-
-export interface SealedOperation {
-	request: SealedOperationRequest;
-	/** The key the node seals its answer with; needed once, to open that answer. */
+interface SealedOperation {
+	request: { operation: 'encrypted_operation'; envelope: string };
+	/** The key the node seals its answer with. */
 	responseKey: Uint8Array;
 	nonce: string;
 }
 
-/** What the node answered inside the sealed response: the operation's own status and body. */
+/** What the node answered inside the sealed response. */
 export interface SealedResult {
 	status: number;
 	body: unknown;
@@ -38,12 +33,11 @@ export interface SealedResult {
 	executed?: true;
 }
 
-export interface SealOperationOptions {
+interface SealOperationOptions {
 	op: SealableOperation;
 	publicKey: string;
 	/** The key's fingerprint, as the server reports it; the node refuses an envelope whose `kid` is not its own. */
 	kid: string;
-	/** Attribution for the node's log. */
 	actor?: string;
 	/** The client's clock in milliseconds; the node accepts it only within its window. */
 	now?: number;

@@ -35,8 +35,10 @@ imports stay extensionless (`from './wafRuleForm'`, `from '@/lib/stableJson'`), 
 in the repo already is. Harper's TypeStrip checklist asks for `.ts` on every import; studio is
 exempt (decided in #1994). Reviewers: don't raise a missing extension as a finding.
 
-Adding one wouldn't compile anyway: neither `tsconfig.app.json` nor `tsconfig.node.json` sets
-`allowImportingTsExtensions`, so a `.ts` specifier fails `tsc -b` with TS5097.
+`tsconfig.app.json` sets `allowImportingTsExtensions` only so that Harper's reference crypto, copied
+unchanged under `src/lib/crypto/__tests__/harper-v5.4.0/` with its own `.ts` specifier, compiles for the
+tests that cross-check against it. That is the one place a `.ts` specifier belongs; studio's own
+imports stay extensionless.
 
 ## Routing — keep `getParentRoute` and `addChildren` in lockstep
 

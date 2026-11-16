@@ -59,7 +59,7 @@ export function FinishSetup() {
 	}, [setFocus]);
 
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
-	const sealedSetup = sealedSetupCapability(cluster);
+	const sealedSetup = useMemo(() => sealedSetupCapability(cluster), [cluster]);
 	const instancesReady = allClusterInstancesRunning(cluster);
 
 	const { mutate: submitInstanceResetPassword, isPending, isSuccess } = useInstanceResetPasswordMutation();

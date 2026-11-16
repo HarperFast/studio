@@ -25,7 +25,6 @@ interface InstanceResetPasswordParams {
 	desiredUsername: string;
 	newPassword: string;
 	tempPassword: string | undefined;
-	/** Set when every live member can run sealed operations against one cluster key (`sealedSetupCapability`). */
 	sealedSetup?: SealedSetupCapability;
 }
 
@@ -169,8 +168,8 @@ async function finishSetupSealed(
 	{ clusterId, operationsUrl, signInIds, desiredUsername, newPassword }: InstanceResetPasswordParams,
 	{ keyFingerprint }: SealedSetupCapability,
 ): Promise<InstanceResetPasswordResponse> {
-	// A connection made before setup is the provisioning account's, and it stops working once that account is dropped.
 	authStore.signOutEntitiesLocally(signInIds);
+	const signOutGeneration = authStore.getSignOutGeneration(clusterId);
 	// The members hold the key by its fingerprint; a cached key with another is stale, and one that stays different
 	// after a fresh read is a cluster whose key is changing under setup.
 	let key = await queryClient.ensureQueryData(clusterKeyQuery(clusterId));
@@ -184,7 +183,8 @@ async function finishSetupSealed(
 	}
 	const instanceClient = getInstanceClient({ id: clusterId, forceFabricConnect: true });
 	const refreshKey = async () => (key = await refetchClusterKey(queryClient, clusterId));
-	const seal = (op: SealableOperation) => runSealedOperation({ instanceClient, op, key, refreshKey });
+	const seal = (op: SealableOperation) =>
+		runSealedOperation({ instanceClient, op, key, refreshKey, actor: 'Studio Finish Setup' });
 
 	if (desiredUsername === defaultClusterUsername) {
 		await seal({ operation: 'alter_user', username: desiredUsername, password: newPassword });
@@ -226,7 +226,6 @@ async function finishSetupSealed(
 		try {
 			await seal({ operation: 'drop_user', username: defaultClusterUsername });
 		} catch (err) {
-			// An earlier attempt dropped it and never told central manager.
 			if (!isSealedRefusal(err, 404, `User ${defaultClusterUsername} does not exist`)) {
 				throw err;
 			}
@@ -235,7 +234,11 @@ async function finishSetupSealed(
 	await resetPasswordUpdater(clusterId);
 
 	// Setup is done; this only connects the browser as the admin, directly or not at all: through the proxy the session
-	// would be the proxy's own principal, not the admin's. A failed connect leaves the cluster signed out.
+	// would be the proxy's own principal, not the admin's. A failed connect, or a sign-out that landed meanwhile, leaves
+	// the cluster signed out.
+	if (authStore.getSignOutGeneration(clusterId) !== signOutGeneration) {
+		return { message: 'Login successful', user: null };
+	}
 	const user = await authStore.establishFabricConnectAuth({
 		id: clusterId,
 		operationsUrl,

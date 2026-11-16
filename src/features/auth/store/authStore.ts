@@ -647,7 +647,7 @@ class AuthStore {
 			return inFlight;
 		}
 		const promise = this.resolveFabricConnectAuth(id, operationsUrl, tokens);
-		if (!inFlight) {
+		if (!inFlight && !tokens) {
 			this.fabricConnectInFlight.set(id, promise);
 		}
 		return promise.finally(() => {
@@ -675,6 +675,13 @@ class AuthStore {
 			claimedGeneration = this.getConnectionGeneration(id);
 			this.fabricConnectAuth.set(id, auth);
 		};
+		// Two resolutions can overlap once a token-backed one declines to share the in-flight connect: whichever claimed
+		// last owns the state, and the other must not record its user over it.
+		const throwIfReplaced = () => {
+			if (claimedGeneration !== undefined && this.getConnectionGeneration(id) !== claimedGeneration) {
+				throw new Error('Another connection replaced this one while it was connecting.');
+			}
+		};
 		try {
 			const { operationToken, refreshToken } = tokens ?? await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
@@ -697,11 +704,14 @@ class AuthStore {
 					// Direct connect unreachable — fall back to the proxy. Log only the message: the full
 					// axios error carries the Bearer token in error.config.headers.
 					console.debug(
-						'Fabric Connect direct connect unavailable; falling back to proxy',
+						tokens
+							? 'Fabric Connect direct connect unavailable'
+							: 'Fabric Connect direct connect unavailable; falling back to proxy',
 						directErr instanceof Error ? directErr.message : directErr,
 					);
 				}
 				throwIfSignedOut();
+				throwIfReplaced();
 				if (directUser) {
 					this.flagForFabricConnect(id, true);
 					this.setLastConnectMode(id, 'fabric');
@@ -718,6 +728,7 @@ class AuthStore {
 			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
 			const user = await getInstanceUserInfo({ instanceClient: proxyClient });
 			throwIfSignedOut();
+			throwIfReplaced();
 			this.flagForFabricConnect(id, true);
 			this.setLastConnectMode(id, 'fabric');
 			this.setUserForIdAndKey(id, operationsUrl || proxyClient.defaults.baseURL!, user);

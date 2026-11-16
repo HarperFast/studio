@@ -9,7 +9,7 @@ import { AxiosError, AxiosHeaders, type AxiosInstance } from 'axios';
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	_resetClockOffsetForTests,
+	_resetClockOffsetsForTests,
 	isSealedRefusal,
 	runSealedOperation,
 	SealedOperationError,
@@ -78,9 +78,18 @@ const node = {
 	},
 };
 
-const instanceClient = {
-	post: vi.fn(async (_url: string, body: { operation?: unknown; envelope?: unknown }) => ({ data: node.answer(body) })),
-} as unknown as AxiosInstance;
+const answerAsNode = node.answer;
+
+function clientFor(baseURL: string): AxiosInstance {
+	return {
+		defaults: { baseURL },
+		post: vi.fn(async (_url: string, body: { operation?: unknown; envelope?: unknown }) => ({
+			data: node.answer(body),
+		})),
+	} as unknown as AxiosInstance;
+}
+
+const instanceClient = clientFor('https://cm.example.com/Cluster/clu-1/operation');
 
 const op = { operation: 'add_user', username: 'owner@example.com', password: 'secret-password', role: 'super_user' };
 const key = { publicKey: custody.publicKey, fingerprint: custody.fingerprint };
@@ -90,7 +99,8 @@ beforeEach(() => {
 	node.custody = true;
 	node.execute = (inner) => ({ status: 200, body: { message: `${inner.operation} ran` } });
 	node.requests = [];
-	_resetClockOffsetForTests();
+	node.answer = answerAsNode;
+	_resetClockOffsetsForTests();
 });
 
 afterEach(() => {
@@ -153,7 +163,15 @@ describe(runSealedOperation, () => {
 
 		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatchObject({ response: { status: 400 } });
 		expect(node.requests).toHaveLength(2);
-		node.answer = skewedNode;
+	});
+
+	it("learns each node's clock on its own", async () => {
+		node.clockSkewMs = 10 * 60_000;
+		await runSealedOperation({ instanceClient, op, key });
+		expect(node.requests).toHaveLength(2);
+
+		await runSealedOperation({ instanceClient: clientFor('https://cm.example.com/Cluster/clu-2/operation'), op, key });
+		expect(node.requests).toHaveLength(4);
 	});
 
 	it('fetches the key again, once, when the envelope was sealed to another key', async () => {
@@ -183,6 +201,28 @@ describe(runSealedOperation, () => {
 
 		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatchObject({ response: { status: 503 } });
 		expect(node.requests).toHaveLength(1);
+	});
+
+	it('opens a sealed answer that arrived on a failing HTTP status', async () => {
+		vi.mocked(instanceClient.post).mockImplementationOnce(async (_url, body) => {
+			const data = answerAsNode.call(node, body as { operation?: unknown; envelope?: unknown });
+			throw refusal(409, data as unknown as Record<string, unknown>);
+		});
+		node.execute = () => ({ status: 409, body: { error: 'User owner@example.com already exists' } });
+
+		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatchObject({
+			name: 'SealedOperationError',
+			status: 409,
+		});
+	});
+
+	it('refuses a replicated write some peer refused, as the direct path does', async () => {
+		node.execute = () => ({
+			status: 200,
+			body: { message: 'added', replicated: [{ node: 'ins-2', status: 'failed', reason: 'peer down' }] },
+		});
+
+		await expect(runSealedOperation({ instanceClient, op, key })).rejects.toMatch(/Failed to replicate/);
 	});
 
 	it('refuses an answer that is not sealed', async () => {

@@ -3,11 +3,10 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 
-/** `encrypted_operation` shipped in Harper 5.4.0 (HarperFast/harper#4205). */
-export const SEALED_SETUP_MIN_VERSION = '5.4.0';
+// `encrypted_operation` shipped in Harper 5.4.0 (HarperFast/harper#4205).
+const SEALED_SETUP_MIN_VERSION = '5.4.0';
 
 export interface SealedSetupCapability {
-	/** The cluster secrets key every live member holds, by its fingerprint. */
 	keyFingerprint: string;
 }
 

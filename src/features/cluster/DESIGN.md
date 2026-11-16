@@ -70,9 +70,11 @@ non-admin on a new cluster lands on that message instead of a dead card
 
 ## Nothing connects to a cluster before its setup, and setup keeps no earlier connection
 
-Fabric Connect is whoever Harper resolves the central-manager proxy's request to, its first super user: the proxy
-forwards no credential, and Harper answers a credential-less request on its operations socket as that user. Until Finish
-Setup runs, that is the provisioning `HDB_ADMIN`, which setup then drops. A token minted for it still verifies after
+Fabric Connect is whoever Harper resolves the central-manager proxy's request to: the proxy forwards no credential, and
+Harper answers a credential-less request on its operations socket as its first super user, which until Finish Setup runs
+is the provisioning `HDB_ADMIN`, which setup then drops. From Harper 5.4 that request runs instead as a built-in
+record-less super user named `local` (HarperFast/harper#3755), before and after the drop; the sealed setup below is
+written for that. A token minted for it still verifies after
 that, but resolves to a user with no role, so every operation through it answers 403 "not authorized due to role
 restrictions". Studio recovers a token only on a 401, so the pages stay denied until a reload mints again.
 
@@ -117,8 +119,9 @@ A retry reads the cluster's state the same way: `add_user` answering "already ex
 dropped it and never sent the PATCH. The node answers a timestamp outside its window with its own clock and an
 envelope for another key with its fingerprint; each is retried once, with the offset remembered for the session and
 the key fetched again. A sealed answer that ran but could not return its result (`executed`) is reported as an unknown
-outcome, like an unanswered write, since the user was created or dropped all the same. There is no plaintext fallback:
-a node without custody (503) or a refused envelope is an error.
+outcome, like an unanswered write, since the user was created or dropped all the same; so does a node's 503, which the
+toast cannot tell from a gateway's, though a refusal before admission ran nothing and is safe to retry. There is no
+plaintext fallback: a node without custody or a refused envelope stops setup.
 
 ## An interrupted setup finishes from the admin it already created
 
