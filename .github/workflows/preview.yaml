@@ -64,6 +64,7 @@ jobs:
           while :; do
             if superseded; then exit 0; fi
             listed=1
+            # shellcheck disable=SC2016 # $authors and $login are jq variables
             run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$BUILD_WORKFLOW/runs?event=pull_request&head_sha=$SHA" \
               --jq '(env.AUTHORS | fromjson | map(ascii_downcase)) as $authors | [.workflow_runs[] | select(.head_repository.full_name == env.GITHUB_REPOSITORY and .display_title == env.BUILD_TITLE and ([.actor.login, .triggering_actor.login] | all(.[]; ascii_downcase as $login | $authors | index($login) != null)))] | max_by(.run_number) | select(.) | "\(.id) \(.status) \(.conclusion)"') || { listed=0; run=; }
             elapsed=$((SECONDS - start))
