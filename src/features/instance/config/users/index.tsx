@@ -117,6 +117,7 @@ export function ConfigUsersIndex() {
 					clusterId={clusterId}
 					closeModal={closeEditModal}
 					data={selectedUser}
+					users={localUsers}
 					isModalOpen={isEditModalOpen}
 					onUserDeleted={onUserDeleted}
 					onUserUpdated={onUserUpdated}
