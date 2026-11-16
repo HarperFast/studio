@@ -159,6 +159,18 @@ describe('EditUserModal active toggle', () => {
 		expect(await save()).not.toHaveProperty('active');
 	});
 
+	it('shows the current value when the switch appears after a re-poll', () => {
+		auth.value = { user: null };
+		const { repoll } = renderModal(alice);
+		const deactivatedElsewhere = { ...alice, active: false };
+		repoll(deactivatedElsewhere, [viewer, deactivatedElsewhere]);
+
+		auth.value = { user: viewer };
+		repoll(deactivatedElsewhere, [viewer, deactivatedElsewhere]);
+
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('false');
+	});
+
 	it('hides the switch while the signed-in user is unknown', () => {
 		auth.value = { user: null };
 		renderModal(alice);
