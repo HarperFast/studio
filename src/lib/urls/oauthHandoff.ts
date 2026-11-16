@@ -1,4 +1,3 @@
-/** The fragment query parameter `@harperfast/oauth` carries a sign-in handoff code in. */
 export const OAUTH_HANDOFF_PARAM = 'oauth_handoff';
 
 /**
@@ -22,15 +21,10 @@ export function splitOAuthHandoffCode(hash: string): { code: string | null; hash
 	return { code, hash: `${hash.slice(0, queryStart)}${rest ? `?${rest}` : ''}` };
 }
 
-/** The handoff code in the browser's current URL, if any. */
 export function readOAuthHandoffCodeFromUrl(): string | null {
 	return typeof location === 'undefined' ? null : splitOAuthHandoffCode(location.hash).code;
 }
 
-/**
- * Removes the handoff code from the browser's current URL without a navigation. The code is
- * single-use, so a reload must not present it again.
- */
 export function clearOAuthHandoffCodeFromUrl(): void {
 	if (typeof location === 'undefined' || typeof history === 'undefined') {
 		return;

@@ -39,7 +39,6 @@ export function getOAuthSignInUrl(provider: string, redirect?: string): string {
 	return redirect ? `${url}?redirect=${encodeURIComponent(redirect)}` : url;
 }
 
-/** The central-manager endpoint that turns a sign-in handoff code into this origin's session. */
 export function getOAuthHandoffUrl(): string {
 	return joinPath(import.meta.env.VITE_CENTRAL_MANAGER_API_URL || '/', 'oauth', 'handoff');
 }

@@ -38,7 +38,9 @@ jobs:
     steps:
       # GitHub starts both workflows at once, and the trust policy matches only pull_request_target
       # runs, so a workflow_run trigger cannot deploy: this job waits for the build itself. Another
-      # PR can have a run at the same commit, so the run's title has to name this one.
+      # PR can have a run at the same commit, so the run's title has to name this one. Any writer can
+      # also make a run with that title from a PR into another base branch, whose workflow they wrote,
+      # so only a run a listed user started counts.
       - name: Wait for the build of this commit
         id: build
         env:
@@ -48,6 +50,7 @@ jobs:
           # preview-build.yaml's run-name.
           BUILD_TITLE: 'Build PR Preview #${{ github.event.pull_request.number }}'
           BUILD_WORKFLOW: preview-build.yaml
+          AUTHORS: ${{ vars.HARPER_PREVIEW_AUTHORS || '[]' }}
         run: |
           short=${SHA:0:7}
           superseded() {
@@ -62,7 +65,7 @@ jobs:
             if superseded; then exit 0; fi
             listed=1
             run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$BUILD_WORKFLOW/runs?event=pull_request&head_sha=$SHA" \
-              --jq '[.workflow_runs[] | select(.head_repository.full_name == env.GITHUB_REPOSITORY and .display_title == env.BUILD_TITLE)] | max_by(.run_number) | select(.) | "\(.id) \(.status) \(.conclusion)"') || { listed=0; run=; }
+              --jq '(env.AUTHORS | fromjson | map(ascii_downcase)) as $authors | [.workflow_runs[] | select(.head_repository.full_name == env.GITHUB_REPOSITORY and .display_title == env.BUILD_TITLE and ([.actor.login, .triggering_actor.login] | all(.[]; ascii_downcase as $login | $authors | index($login) != null)))] | max_by(.run_number) | select(.) | "\(.id) \(.status) \(.conclusion)"') || { listed=0; run=; }
             elapsed=$((SECONDS - start))
             if [ -n "$run" ]; then
               read -r id status conclusion <<<"$run"
