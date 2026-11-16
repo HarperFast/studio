@@ -67,12 +67,12 @@ export function AlterUserForm({
 	});
 
 	// Follow the re-polled value until the editor touches the switch, so it never shows another admin's change
-	// undone.
+	// undone. resetField skips an unregistered field, so re-run when a hidden switch appears.
 	useEffect(() => {
 		if (!alterForm.getFieldState('active').isDirty) {
 			alterForm.resetField('active', { defaultValue: isActive });
 		}
-	}, [alterForm, isActive]);
+	}, [activeToggle, alterForm, isActive]);
 
 	// Assigning a role whose operations value Harper cannot expand takes authentication down for
 	// every user, so the form refuses rather than only warning.
