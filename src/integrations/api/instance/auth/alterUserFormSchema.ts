@@ -6,6 +6,7 @@ export const AlterUserFormSchema = z.object({
 	role: AddUserFormSchema.shape.role,
 	newPassword: AddUserFormSchema.shape.password.or(z.literal('')).optional(),
 	confirmPassword: AddUserFormSchema.shape.confirmPassword,
+	active: z.boolean(),
 })
 	.refine((data) => !data.newPassword || data.newPassword.length >= 8, {
 		error: 'Password must be at least 8 characters long.',

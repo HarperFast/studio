@@ -1,0 +1,225 @@
+/**
+ * @vitest-environment jsdom
+ */
+import type { LocalRole, LocalRolePermission, LocalUser } from '@/integrations/api/api.patch';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { alterUser, auth, instanceParams, roles } = vi.hoisted(() => ({
+	alterUser: vi.fn(),
+	auth: { value: { user: null as LocalUser | null } },
+	instanceParams: { instanceClient: {}, entityType: 'cluster' },
+	roles: { value: [] as LocalRole[] },
+}));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@tanstack/react-router')>()),
+	useParams: () => ({}),
+}));
+// The real permission hook runs, on whichever user this says is signed in to the instance.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+	useInstanceAuth: () => auth.value,
+}));
+vi.mock('@/config/useInstanceClient', () => ({
+	useInstanceClientIdParams: () => instanceParams,
+	useInstanceClientParams: () => instanceParams,
+}));
+vi.mock('@/integrations/api/instance/auth/getListRoles', () => ({
+	getListRolesQueryOptions: () => ({ queryKey: ['roles'], queryFn: async () => roles.value }),
+}));
+vi.mock('@/integrations/api/instance/auth/alterUser', () => ({
+	useAlterUser: () => ({ mutate: alterUser, isPending: false }),
+}));
+vi.mock('@/integrations/api/instance/auth/deleteUser', () => ({
+	useDeleteUserMutation: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSupported', () => ({
+	useAllowlistVersion: () => undefined,
+	useOperationsAllowlistSupported: () => undefined,
+}));
+
+import { EditUserModal } from './EditUserModal';
+
+beforeAll(() => {
+	// Radix Dialog and Select rely on DOM APIs jsdom doesn't implement.
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+	globalThis.ResizeObserver ??= class {
+		observe() {}
+		unobserve() {}
+		disconnect() {}
+	};
+});
+
+function role(id: string, permission: LocalRolePermission): LocalRole {
+	return { id, role: id, permission, __createdtime__: 0, __updatedtime__: 0 };
+}
+
+const superRole = role('super', { super_user: true });
+const plainRole = role('plain', { super_user: false });
+
+function user(username: string, active: boolean, userRole: LocalRole): LocalUser {
+	return { username, active, role: userRole, __createdtime__: 0, __updatedtime__: 0 };
+}
+
+const viewer = user('viewer', true, superRole);
+const alice = user('alice', true, plainRole);
+
+beforeEach(() => {
+	alterUser.mockReset();
+	auth.value = { user: viewer };
+	roles.value = [superRole, plainRole];
+});
+
+afterEach(cleanup);
+
+function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
+	render(
+		<QueryClientProvider client={new QueryClient()}>
+			<EditUserModal
+				isModalOpen
+				closeModal={() => {}}
+				clusterId="cluster-1"
+				data={target}
+				users={users}
+				onUserDeleted={() => {}}
+				onUserUpdated={() => {}}
+			/>
+		</QueryClientProvider>,
+	);
+}
+
+function activeSwitch() {
+	return screen.queryByRole('switch', { name: 'Active' }) as HTMLButtonElement | null;
+}
+
+async function save() {
+	await act(async () => {
+		fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+	});
+	await waitFor(() => expect(alterUser).toHaveBeenCalledTimes(1));
+	return alterUser.mock.calls[0][0] as Record<string, unknown>;
+}
+
+describe('EditUserModal active toggle', () => {
+	it('deactivates a user when a super user turns the switch off', async () => {
+		renderModal(alice);
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('true');
+
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+
+		expect(await save()).toMatchObject({ username: 'alice', active: false });
+	});
+
+	it('reactivates an inactive user', async () => {
+		const dormant = user('dormant', false, plainRole);
+		renderModal(dormant);
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('false');
+
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+
+		expect(await save()).toMatchObject({ username: 'dormant', active: true });
+	});
+
+	it('leaves active out of the request when the switch was not changed', async () => {
+		renderModal(alice);
+
+		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it('offers the switch to a role whose operations allowlist grants alter_user', () => {
+		auth.value = { user: user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] })) };
+		renderModal(alice);
+
+		expect(activeSwitch()).not.toBeNull();
+	});
+
+	it.each([
+		['a role without super_user', { super_user: false }],
+		['an allowlist that does not grant alter_user', { operations: ['list_users'] }],
+	])('hides the switch from %s', async (_, permission) => {
+		auth.value = { user: user('limited', true, role('limited', permission as LocalRolePermission)) };
+		renderModal(alice);
+
+		expect(activeSwitch()).toBeNull();
+		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it('hides the switch while the signed-in user is unknown', () => {
+		auth.value = { user: null };
+		renderModal(alice);
+
+		expect(activeSwitch()).toBeNull();
+	});
+
+	it('hides the switch on your own account', () => {
+		renderModal(viewer, [viewer, user('backup', true, superRole)]);
+
+		expect(activeSwitch()).toBeNull();
+	});
+
+	it('locks the switch on for the only active super user', async () => {
+		const delegate = user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] }));
+		const admin = user('admin', true, superRole);
+		auth.value = { user: delegate };
+		renderModal(admin, [delegate, admin, user('dormant', false, superRole)]);
+
+		expect(activeSwitch()?.disabled).toBe(true);
+		expect(screen.getByText(/only active super user/)).toBeTruthy();
+		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it('lets a super user be deactivated while another active one remains', () => {
+		const admin = user('admin', true, superRole);
+		renderModal(admin, [viewer, admin]);
+
+		expect(activeSwitch()?.disabled).toBe(false);
+	});
+});
+
+describe('EditUserModal delete section', () => {
+	function deleteTrigger() {
+		return screen.queryByRole('button', { name: 'Delete this user' });
+	}
+
+	it('starts collapsed, and opens to the confirmation form', async () => {
+		renderModal(alice);
+		expect(deleteTrigger()?.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByLabelText('Confirm Username')).toBeNull();
+
+		await act(async () => {
+			fireEvent.click(deleteTrigger()!);
+		});
+
+		expect(deleteTrigger()?.getAttribute('aria-expanded')).toBe('true');
+		expect(screen.getByLabelText('Confirm Username')).toBeTruthy();
+		expect(screen.getByText(/turn off Active instead/)).toBeTruthy();
+	});
+
+	it('does not point at the Active switch when the switch is not offered', async () => {
+		auth.value = { user: user('delegate', true, role('delegate', { operations: ['list_users', 'drop_user'] })) };
+		renderModal(alice);
+
+		await act(async () => {
+			fireEvent.click(deleteTrigger()!);
+		});
+
+		expect(screen.getByText(/permanently deletes alice's account/)).toBeTruthy();
+		expect(screen.queryByText(/turn off Active/)).toBeNull();
+	});
+
+	it('is not offered on your own account', () => {
+		renderModal(viewer, [viewer, user('backup', true, superRole)]);
+
+		expect(deleteTrigger()).toBeNull();
+	});
+});
