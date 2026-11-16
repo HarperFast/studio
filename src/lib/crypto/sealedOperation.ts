@@ -4,7 +4,9 @@
  * this client chose, so a relay sees ciphertext both ways. The wire format is harper's `utility/sealedOperation.ts`;
  * `__tests__/harper-v5.4.0/` keeps that reference unchanged, and the tests open with it what this seals.
  *
- * Sealed mode only: the whole operation is inside the envelope.
+ * Two modes, as the node offers them. `sealed` puts the whole operation inside the envelope. `fields` sends the operation
+ * as JSON text a relay can read, with chosen values replaced by sealed leaves, and binds that text to the envelope by
+ * its hash (`oph`), so a relay can record what ran but can neither read nor alter the sealed values.
  */
 import { ab, encryptEnvelope, fromBase64, requireSubtle, toBase64 } from './envSecret';
 
@@ -14,12 +16,21 @@ const NONCE_BYTES = 16;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const RESPONSE_AAD_PREFIX = 'harper.encrypted_operation.response:';
+const FIELD_AAD_PREFIX = 'harper.encrypted_operation.field:';
+const SEALED_LEAF_KEY = '$sealed';
+const DEFAULT_VISIBLE_FIELDS: readonly string[] = ['database', 'schema', 'table'];
 
 export type SealableOperation = Record<string, unknown> & { operation: string };
 
+export type SealedMode = 'sealed' | 'fields';
+
+type SealedOperationRequest =
+	| { operation: 'encrypted_operation'; envelope: string }
+	| { operation: 'encrypted_operation'; mode: 'fields'; op: string; envelope: string };
+
 interface SealedOperation {
-	request: { operation: 'encrypted_operation'; envelope: string };
-	/** The key the node seals its answer with. */
+	request: SealedOperationRequest;
+	/** The key the node seals its answer, and any sealed leaf, with. */
 	responseKey: Uint8Array;
 	nonce: string;
 }
@@ -40,23 +51,80 @@ interface SealOperationOptions {
 	actor?: string;
 	/** The client's clock in milliseconds; the node accepts it only within its window. */
 	now?: number;
+	mode?: SealedMode;
+	/** Fields mode: the top-level keys left readable besides `operation`; every other top-level value is sealed. */
+	visibleFields?: readonly string[];
 }
 
 export async function sealOperation(
-	{ op, publicKey, kid, actor, now = Date.now() }: SealOperationOptions,
+	{ op, publicKey, kid, actor, now = Date.now(), mode = 'sealed', visibleFields = DEFAULT_VISIBLE_FIELDS }:
+		SealOperationOptions,
 ): Promise<SealedOperation> {
 	const responseKey = crypto.getRandomValues(new Uint8Array(RESPONSE_KEY_BYTES));
 	const nonce = toBase64(crypto.getRandomValues(new Uint8Array(NONCE_BYTES)));
-	const header = {
+	const header: Record<string, unknown> = {
 		v: SEALED_OPERATION_VERSION,
 		rk: toBase64(responseKey),
 		nonce,
 		ts: now,
 		...(actor === undefined ? {} : { actor }),
-		op,
 	};
+	if (mode === 'sealed') {
+		header.op = op;
+		const envelope = await encryptEnvelope(JSON.stringify(header), publicKey, kid);
+		return { request: { operation: 'encrypted_operation', envelope }, responseKey, nonce };
+	}
+	const leafKey = await requireSubtle().importKey('raw', ab(responseKey), { name: 'AES-GCM' }, false, ['encrypt']);
+	const visible: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(op)) {
+		visible[key] = key === 'operation' || visibleFields.includes(key)
+			? value
+			: await sealValue(value, leafKey, nonce, '/' + pointerToken(key));
+	}
+	const opText = JSON.stringify(visible);
+	header.oph = await hashOperationText(opText);
 	const envelope = await encryptEnvelope(JSON.stringify(header), publicKey, kid);
-	return { request: { operation: 'encrypted_operation', envelope }, responseKey, nonce };
+	return { request: { operation: 'encrypted_operation', mode: 'fields', op: opText, envelope }, responseKey, nonce };
+}
+
+/** RFC 6901 reference token for one key. */
+function pointerToken(key: string): string {
+	return key.replaceAll('~', '~0').replaceAll('/', '~1');
+}
+
+async function hashOperationText(text: string): Promise<string> {
+	return toBase64(new Uint8Array(await requireSubtle().digest('SHA-256', ab(new TextEncoder().encode(text)))));
+}
+
+/** One sealed leaf: the value's JSON text under the response key, bound to its location by the additional data. */
+async function sealValue(
+	value: unknown,
+	key: CryptoKey,
+	nonce: string,
+	pointer: string,
+): Promise<{ [SEALED_LEAF_KEY]: string }> {
+	const json = JSON.stringify(value);
+	if (json === undefined) {
+		throw new TypeError(`The value at '${pointer}' has no JSON representation.`);
+	}
+	const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+	// Web Crypto appends the tag to the ciphertext, which is the leaf's iv, ciphertext, tag order once iv leads.
+	const sealed = new Uint8Array(
+		await requireSubtle().encrypt(
+			{
+				name: 'AES-GCM',
+				iv: ab(iv),
+				additionalData: ab(new TextEncoder().encode(`${FIELD_AAD_PREFIX}${nonce}:${pointer}`)),
+				tagLength: 128,
+			},
+			key,
+			ab(new TextEncoder().encode(json)),
+		),
+	);
+	const leaf = new Uint8Array(iv.length + sealed.length);
+	leaf.set(iv);
+	leaf.set(sealed, iv.length);
+	return { [SEALED_LEAF_KEY]: toBase64(leaf) };
 }
 
 /**

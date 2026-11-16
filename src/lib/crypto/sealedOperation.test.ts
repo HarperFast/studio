@@ -3,8 +3,10 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+	hashOperationText,
 	NONCE_BYTES,
 	openResponse,
+	openValue,
 	RESPONSE_KEY_BYTES,
 	sealOperation as referenceSealOperation,
 	sealResponse,
@@ -79,6 +81,84 @@ describe('sealOperation', () => {
 		);
 		expect(Object.keys(ours).sort()).toEqual(Object.keys(theirs).sort());
 		expect(ours.op).toEqual(theirs.op);
+	});
+});
+
+describe('sealOperation in fields mode', () => {
+	const visibleFields = ['role', 'active'];
+	const sealFields = (operation: Record<string, unknown> & { operation: string } = op) =>
+		sealOperation({ op: operation, publicKey: publicKeyPem, kid, mode: 'fields', visibleFields });
+
+	it('sends the operation as readable text with only the chosen keys in the clear', async () => {
+		const { request } = await sealFields();
+
+		expect(Object.keys(request)).toEqual(['operation', 'mode', 'op', 'envelope']);
+		expect(request).toMatchObject({ operation: 'encrypted_operation', mode: 'fields' });
+		const visible = JSON.parse((request as { op: string }).op);
+		expect(Object.keys(visible)).toEqual(Object.keys(op));
+		expect(visible).toMatchObject({ operation: 'add_user', role: 'super_user', active: true });
+		expect(Object.keys(visible.username)).toEqual(['$sealed']);
+		expect(Object.keys(visible.password)).toEqual(['$sealed']);
+		for (const secret of [op.username, op.password]) {
+			expect(JSON.stringify(request)).not.toContain(secret);
+		}
+	});
+
+	it("binds the text to the envelope by the reference's hash, and carries no operation in the header", async () => {
+		const { request, responseKey, nonce } = await sealFields();
+		const header = openHeader(request.envelope);
+
+		expect(header).not.toHaveProperty('op');
+		expect(header).toEqual({
+			v: SEALED_OPERATION_VERSION,
+			rk: Buffer.from(responseKey).toString('base64'),
+			nonce,
+			ts: expect.any(Number),
+			oph: hashOperationText((request as { op: string }).op),
+		});
+	});
+
+	it('seals each leaf so the reference opens it only at its own location and under its own nonce', async () => {
+		const { request, responseKey, nonce } = await sealFields();
+		const visible = JSON.parse((request as { op: string }).op);
+		const rk = Buffer.from(responseKey);
+
+		expect(openValue(visible.username.$sealed, rk, nonce, '/username')).toBe(op.username);
+		expect(openValue(visible.password.$sealed, rk, nonce, '/password')).toBe(op.password);
+		expect(() => openValue(visible.username.$sealed, rk, nonce, '/password')).toThrow();
+		const other = await sealFields();
+		expect(() => openValue(visible.password.$sealed, rk, other.nonce, '/password')).toThrow();
+	});
+
+	it('escapes a key into its JSON Pointer token the way the reference does', async () => {
+		const awkward = { operation: 'insert', 'a/b~c': { nested: [1, 'two'] } };
+		const { request, responseKey, nonce } = await sealFields(awkward);
+		const visible = JSON.parse((request as { op: string }).op);
+
+		expect(openValue(visible['a/b~c'].$sealed, Buffer.from(responseKey), nonce, '/a~1b~0c')).toEqual({
+			nested: [1, 'two'],
+		});
+	});
+
+	it('leaves the same keys readable as the reference client by default', async () => {
+		const tableOp = { operation: 'insert', database: 'data', table: 'dog', records: [{ id: 1 }] };
+		const ours = JSON.parse(
+			((await sealOperation({ op: tableOp, publicKey: publicKeyPem, kid, mode: 'fields' })).request as { op: string })
+				.op,
+		);
+		const theirs = JSON.parse(
+			referenceSealOperation({ op: tableOp, publicKey: publicKeyPem, kid, mode: 'fields' }).request.op as string,
+		);
+		const shape = (value: Record<string, unknown>) =>
+			Object.fromEntries(
+				Object.entries(value).map(([k, v]) => [k, (v as { $sealed?: string })?.$sealed ? 'sealed' : v]),
+			);
+
+		expect(shape(ours)).toEqual(shape(theirs));
+	});
+
+	it('refuses a value with no JSON form rather than sending a leaf the node cannot open', async () => {
+		await expect(sealFields({ operation: 'add_user', username: undefined })).rejects.toThrow('/username');
 	});
 });
 

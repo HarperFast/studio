@@ -1,7 +1,13 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { SecretsPublicKey } from '@/integrations/api/instance/secrets/secrets';
 import { rejectReplicationFailures, ReplicatedResponse } from '@/integrations/api/replication';
-import { openSealedResponse, SealableOperation, SealedResult, sealOperation } from '@/lib/crypto/sealedOperation';
+import {
+	openSealedResponse,
+	SealableOperation,
+	SealedMode,
+	SealedResult,
+	sealOperation,
+} from '@/lib/crypto/sealedOperation';
 import { isAxiosError } from 'axios';
 
 /** The sealed operation ran and answered a failure. */
@@ -44,6 +50,8 @@ interface RunSealedOperationParams extends InstanceClientConfig {
 	refreshKey?: () => Promise<SecretsPublicKey>;
 	/** Attribution for the node's log. */
 	actor?: string;
+	mode?: SealedMode;
+	visibleFields?: readonly string[];
 }
 
 // The node accepts a timestamp only within its window around its own clock. A refusal names that clock, and the
@@ -62,7 +70,7 @@ export function _resetClockOffsetsForTests(): void {
  * and a replicated write some peer refused as the direct path refuses it.
  */
 export async function runSealedOperation(
-	{ instanceClient, op, key, refreshKey, actor }: RunSealedOperationParams,
+	{ instanceClient, op, key, refreshKey, actor, mode, visibleFields }: RunSealedOperationParams,
 ): Promise<SealedResult> {
 	const node = instanceClient.defaults.baseURL ?? '';
 	let currentKey = key;
@@ -75,6 +83,8 @@ export async function runSealedOperation(
 			kid: currentKey.fingerprint,
 			actor,
 			now: Date.now() + (clockOffsetsMs.get(node) ?? 0),
+			mode,
+			visibleFields,
 		});
 		let data: unknown;
 		try {

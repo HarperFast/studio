@@ -660,6 +660,9 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 			{ operation: 'drop_user', username: defaultClusterUsername },
 		]);
 		expect(runSealedOperation.mock.calls[0][0]).toMatchObject({ key: CLUSTER_KEY });
+		for (const [params] of runSealedOperation.mock.calls) {
+			expect(params).toMatchObject({ mode: 'fields', visibleFields: ['role', 'active'] });
+		}
 		for (const instanceClient of sealedNode.clients) {
 			expect(instanceClient.defaults.baseURL).toContain('/Cluster/clu-1/operation');
 		}
@@ -674,6 +677,7 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 
 		expect(user?.username).toBe(defaultClusterUsername);
 		expect(sealedNode.operations).toEqual(['alter_user', 'create_authentication_tokens']);
+		expect(runSealedOperation.mock.calls.every(([params]) => params.mode === 'fields')).toBe(true);
 		expect(sealedNode.users.get(defaultClusterUsername)?.password).toBe('new-password');
 		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
 		expectNothingDirect();
@@ -693,6 +697,7 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 			'drop_user',
 		]);
 		expect(sealedNode.users.get(OWNER)?.password).toBe('new-password');
+		expect(runSealedOperation.mock.calls.every(([params]) => params.mode === 'fields')).toBe(true);
 		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
 	});
 

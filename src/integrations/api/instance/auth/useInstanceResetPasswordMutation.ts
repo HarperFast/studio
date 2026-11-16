@@ -156,6 +156,8 @@ async function finishSetupWithTemporaryPassword({
 	return loginResponse;
 }
 
+const SETUP_VISIBLE_FIELDS = ['role', 'active'];
+
 function clusterKeyQuery(clusterId: string) {
 	return secretsPublicKeyQueryOptions({
 		entityId: clusterId,
@@ -190,8 +192,17 @@ async function finishSetupSealed(
 	}
 	const instanceClient = getInstanceClient({ id: clusterId, forceFabricConnect: true });
 	const refreshKey = async () => (key = await refetchClusterKey(queryClient, clusterId));
+	// Fields mode, so central manager's proxy log records which operation ran; usernames and passwords stay sealed.
 	const seal = (op: SealableOperation) =>
-		runSealedOperation({ instanceClient, op, key, refreshKey, actor: 'Studio Finish Setup' });
+		runSealedOperation({
+			instanceClient,
+			op,
+			key,
+			refreshKey,
+			actor: 'Studio Finish Setup',
+			mode: 'fields',
+			visibleFields: SETUP_VISIBLE_FIELDS,
+		});
 
 	if (desiredUsername === defaultClusterUsername) {
 		await seal({ operation: 'alter_user', username: desiredUsername, password: newPassword });

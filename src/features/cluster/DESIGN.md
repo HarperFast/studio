@@ -107,7 +107,10 @@ on its way, not a permission problem.
 Every write goes through `getInstanceClient({ forceFabricConnect: true })` as `encrypted_operation`
 ([`runSealedOperation`](../../integrations/api/instance/sealedOperation.ts), over
 [`lib/crypto/sealedOperation.ts`](../../lib/crypto/sealedOperation.ts), whose tests open what it seals with Harper's
-own reference client, copied unchanged from v5.4.0): `add_user` (or `alter_user` when the form names `HDB_ADMIN`), then
+own reference client, copied unchanged from v5.4.0), in fields mode: central manager's proxy log shows each request's
+`operation`, `role` and `active`, so it records what setup ran, while `username` and `password` travel as sealed
+values bound to their place in the operation, and the operation text is bound to the envelope by its hash. The calls
+are `add_user` (or `alter_user` when the form names `HDB_ADMIN`), then
 `create_authentication_tokens` with the typed username and password, then `drop_user HDB_ADMIN`, then the PATCH. The
 mint comes before the drop and carries the credentials on purpose: the node checks the password and names that user,
 so the tokens are the admin's whatever other super users an earlier attempt left, and a wrong password stops setup while

@@ -1,6 +1,6 @@
 // @vitest-environment node
 // A fake 5.4 node built from Harper's reference client; it refuses the way `components/encryptedOperation.ts` does.
-import { sealResponse } from '@/lib/crypto/__tests__/harper-v5.4.0/sealedOperation';
+import { hashOperationText, openValue, sealResponse } from '@/lib/crypto/__tests__/harper-v5.4.0/sealedOperation';
 import {
 	decryptEnvelope,
 	fingerprintOf,
@@ -56,7 +56,8 @@ const node = {
 		body: { message: `${op.operation} ran` },
 	}),
 	requests: [] as unknown[],
-	answer(body: { operation?: unknown; envelope?: unknown }) {
+	opened: [] as unknown[],
+	answer(body: { operation?: unknown; envelope?: unknown; mode?: unknown; op?: unknown }) {
 		this.requests.push(body);
 		if (body.operation !== 'encrypted_operation' || typeof body.envelope !== 'string') {
 			throw refusal(400, { error: 'The request is malformed' });
@@ -76,8 +77,23 @@ const node = {
 		if (Math.abs(now - header.ts) > MAX_AGE_MS) {
 			throw refusal(400, { error: 'The sealed request is outside the accepted time window', server_time: now });
 		}
-		const result = this.execute(header.op);
-		return { encrypted_response: sealResponse(JSON.stringify(result), Buffer.from(header.rk, 'base64'), header.nonce) };
+		const responseKey = Buffer.from(header.rk, 'base64');
+		let inner = header.op;
+		if (body.mode === 'fields') {
+			if (typeof body.op !== 'string' || hashOperationText(body.op) !== header.oph) {
+				throw refusal(400, { error: 'The visible operation does not match the sealed request' });
+			}
+			inner = Object.fromEntries(
+				Object.entries(JSON.parse(body.op) as Record<string, { $sealed?: string }>).map(([field, value]) => [
+					field,
+					value?.$sealed ? openValue(value.$sealed, responseKey, header.nonce, `/${field}`) : value,
+				]),
+			);
+		}
+		this.opened.push(inner);
+		const result = this.execute(inner);
+		const encrypted_response = sealResponse(JSON.stringify(result), responseKey, header.nonce);
+		return body.mode === 'fields' ? { status: result.status, encrypted_response } : { encrypted_response };
 	},
 };
 
@@ -102,6 +118,7 @@ beforeEach(() => {
 	node.custody = true;
 	node.execute = (inner) => ({ status: 200, body: { message: `${inner.operation} ran` } });
 	node.requests = [];
+	node.opened = [];
 	node.answer = answerAsNode;
 	_resetClockOffsetsForTests();
 });
@@ -120,6 +137,33 @@ describe(runSealedOperation, () => {
 			envelope: expect.any(String),
 		});
 		expect(JSON.stringify(node.requests)).not.toContain('secret-password');
+	});
+
+	it('in fields mode, shows the relay the operation and chosen keys, and the node opens the rest', async () => {
+		const result = await runSealedOperation({
+			instanceClient,
+			op,
+			key,
+			mode: 'fields',
+			visibleFields: ['role'],
+		});
+
+		expect(result).toEqual({ status: 200, body: { message: 'add_user ran' } });
+		expect(node.opened).toEqual([op]);
+		const [sent] = node.requests as Array<{ mode: string; op: string }>;
+		expect(sent.mode).toBe('fields');
+		expect(JSON.parse(sent.op)).toMatchObject({ operation: 'add_user', role: 'super_user' });
+		expect(JSON.stringify(node.requests)).not.toContain('secret-password');
+		expect(JSON.stringify(node.requests)).not.toContain('owner@example.com');
+	});
+
+	it('in fields mode, still retries once on a clock refusal with a freshly sealed request', async () => {
+		node.clockSkewMs = 10 * 60_000;
+
+		await runSealedOperation({ instanceClient, op, key, mode: 'fields', visibleFields: ['role'] });
+
+		expect(node.requests).toHaveLength(2);
+		expect(node.opened).toEqual([op]);
 	});
 
 	it("throws the operation's own failure, with its status and body", async () => {
