@@ -7,6 +7,16 @@ import { joinPath } from '@/lib/string/paths/joinPath';
 export const checkOAuthRedirect = '/#/check-oauth';
 
 /**
+ * `checkOAuthRedirect` on the origin serving this page. The CM keeps only the path of a
+ * `redirect` on any origin it does not list in `postLoginRedirectOrigins`, so for dev Studio and
+ * production this is the same as `checkOAuthRedirect`. A listed origin (a Studio PR preview on dev)
+ * gets the sign-in handed to it with a one-time code, which `/#/check-oauth` redeems.
+ */
+export function checkOAuthRedirectUrl(origin: string = window.location.origin): string {
+	return `${origin}${checkOAuthRedirect}`;
+}
+
+/**
  * Direct link to the central-manager OAuth login endpoint for `provider` — a built-in
  * provider name (`google`, `github`) or a per-org OAuth config id (`oac-…`).
  *
@@ -27,4 +37,9 @@ export const checkOAuthRedirect = '/#/check-oauth';
 export function getOAuthSignInUrl(provider: string, redirect?: string): string {
 	const url = joinPath(import.meta.env.VITE_CENTRAL_MANAGER_API_URL || '/', 'oauth', provider, 'login');
 	return redirect ? `${url}?redirect=${encodeURIComponent(redirect)}` : url;
+}
+
+/** The central-manager endpoint that turns a sign-in handoff code into this origin's session. */
+export function getOAuthHandoffUrl(): string {
+	return joinPath(import.meta.env.VITE_CENTRAL_MANAGER_API_URL || '/', 'oauth', 'handoff');
 }

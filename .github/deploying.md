@@ -66,8 +66,9 @@ rather than branching it, which would fork every database on the node but `syste
 manager's included.
 
 A preview is a client of the dev CM from another origin, so it works only while the dev CM's
-`http.corsAccessList` allows the preview domain. Sign in with email and password there: OAuth
-sign-in belongs to the CM's origin (see AGENTS.md) and finishes on dev Studio, not on the preview.
+`http.corsAccessList` allows the preview domain. Google and GitHub sign-in finish on the CM's origin
+and reach the preview through the CM's sign-in handoff, because the dev CM lists preview origins in
+`postLoginRedirectOrigins` (see AGENTS.md). An organization's SSO still finishes on dev Studio.
 
 The cluster trusts `preview.yaml` by path, branch, event and environment, not by content, and
 `harper preview setup` checks its content only once. `src/lib/workflowPrivilege.test.ts` keeps

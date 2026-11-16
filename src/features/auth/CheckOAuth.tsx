@@ -6,6 +6,7 @@ import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearOAuthErrorParamsFromUrl } from '@/lib/urls/clearOAuthErrorParams';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { clearOAuthHandoffCodeFromUrl, readOAuthHandoffCodeFromUrl } from '@/lib/urls/oauthHandoff';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { LoaderCircle } from 'lucide-react';
@@ -13,6 +14,7 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { AuthHeading } from './components/AuthHeading';
 import { getOAuthErrorMessage, OAUTH_GENERIC_ERROR_MESSAGE } from './getOAuthErrorMessage';
+import { redeemOAuthHandoff } from './redeemOAuthHandoff';
 
 let checking: Promise<void> | null = null;
 
@@ -48,6 +50,21 @@ export function CheckOAuth() {
 					toast.error(oauthErrorMessage, { duration: 10_000 });
 					await navigate({ to: '/sign-in' });
 					return;
+				}
+
+				// A sign-in the CM hands to this origin (a Studio PR preview) arrives as a single-use code,
+				// cleared before the redeem so a reload cannot present it again. A failed redeem still
+				// checks for a session, which an earlier redeem on this page may have made.
+				const handoffCode = readOAuthHandoffCodeFromUrl();
+				if (handoffCode) {
+					try {
+						clearOAuthHandoffCodeFromUrl();
+					} catch (error) {
+						console.debug('Failed to clear the OAuth handoff code from the URL, carrying on:', error);
+					}
+					await redeemOAuthHandoff(handoffCode).catch((error) => {
+						console.debug('OAuth sign-in handoff failed, checking for a session anyway:', error);
+					});
 				}
 
 				const user = await getCurrentUser().catch(() => null);

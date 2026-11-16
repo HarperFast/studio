@@ -15,11 +15,13 @@ describe('GitHubAuthenticationButton', () => {
 		expect(screen.getByRole('link')).toBeTruthy();
 	});
 
-	it('links to the central-manager login endpoint', () => {
+	it('links to the central-manager login endpoint, returning to the serving origin', () => {
 		vi.stubEnv('VITE_CENTRAL_MANAGER_API_URL', 'https://cm.test.invalid');
 		render(<GitHubAuthenticationButton text="Sign in with GitHub" />);
 		expect(screen.getByRole('link').getAttribute('href')).toBe(
-			'https://cm.test.invalid/oauth/github/login?redirect=%2F%23%2Fcheck-oauth',
+			`https://cm.test.invalid/oauth/github/login?redirect=${
+				encodeURIComponent(`${window.location.origin}/#/check-oauth`)
+			}`,
 		);
 	});
 

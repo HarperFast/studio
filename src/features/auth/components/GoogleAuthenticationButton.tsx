@@ -1,5 +1,5 @@
 import './GoogleAuthenticationButton.css';
-import { checkOAuthRedirect, getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
+import { checkOAuthRedirectUrl, getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
 import { cx } from 'class-variance-authority';
 import { MouseEventHandler } from 'react';
 import { LastUsedBadge } from './LastUsedBadge';
@@ -24,7 +24,7 @@ export function GoogleAuthenticationButton({
 			// accepting the terms, and its handler's preventDefault only covers a plain click —
 			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
 			// keep the hrefless anchor in the tab order and announced, per the pattern in NodeLegend.
-			href={disabled ? undefined : getOAuthSignInUrl('google', checkOAuthRedirect)}
+			href={disabled ? undefined : getOAuthSignInUrl('google', checkOAuthRedirectUrl())}
 			role={disabled ? 'link' : undefined}
 			tabIndex={disabled ? 0 : undefined}
 			onClick={onClick}

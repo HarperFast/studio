@@ -45,6 +45,14 @@ vi.mock('@/lib/urls/clearUtmParams', () => ({ clearUtmParamsFromUrl }));
 const { clearOAuthErrorParamsFromUrl } = vi.hoisted(() => ({ clearOAuthErrorParamsFromUrl: vi.fn() }));
 vi.mock('@/lib/urls/clearOAuthErrorParams', () => ({ clearOAuthErrorParamsFromUrl }));
 
+const { readOAuthHandoffCodeFromUrl, clearOAuthHandoffCodeFromUrl, redeemOAuthHandoff } = vi.hoisted(() => ({
+	readOAuthHandoffCodeFromUrl: vi.fn(),
+	clearOAuthHandoffCodeFromUrl: vi.fn(),
+	redeemOAuthHandoff: vi.fn(),
+}));
+vi.mock('@/lib/urls/oauthHandoff', () => ({ readOAuthHandoffCodeFromUrl, clearOAuthHandoffCodeFromUrl }));
+vi.mock('./redeemOAuthHandoff', () => ({ redeemOAuthHandoff }));
+
 import { toast } from 'sonner';
 import { CheckOAuth } from './CheckOAuth';
 import { OAUTH_GENERIC_ERROR_MESSAGE } from './getOAuthErrorMessage';
@@ -68,6 +76,9 @@ beforeEach(() => {
 	setUserForEntity.mockClear();
 	clearUtmParamsFromUrl.mockClear();
 	clearOAuthErrorParamsFromUrl.mockClear();
+	readOAuthHandoffCodeFromUrl.mockReset().mockReturnValue(null);
+	clearOAuthHandoffCodeFromUrl.mockReset();
+	redeemOAuthHandoff.mockReset().mockResolvedValue(undefined);
 	(toast.error as ReturnType<typeof vi.fn>).mockClear();
 });
 
@@ -187,5 +198,78 @@ describe('CheckOAuth', () => {
 		);
 		expect(getCurrentUser).not.toHaveBeenCalled();
 		consoleDebug.mockRestore();
+	});
+});
+
+describe('CheckOAuth sign-in handoff', () => {
+	it('clears the code from the URL, redeems it, then signs in with the session it made', async () => {
+		stubLocationSearch('');
+		readOAuthHandoffCodeFromUrl.mockReturnValue('code-1');
+		const order: string[] = [];
+		clearOAuthHandoffCodeFromUrl.mockImplementation(() => order.push('clear'));
+		redeemOAuthHandoff.mockImplementation(async () => {
+			order.push('redeem');
+		});
+		getCurrentUser.mockImplementation(async () => {
+			order.push('getCurrentUser');
+			return { id: 'u1', email: 'user@example.com' };
+		});
+
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/default-org' }));
+		expect(redeemOAuthHandoff).toHaveBeenCalledExactlyOnceWith('code-1');
+		expect(order).toEqual(['clear', 'redeem', 'getCurrentUser']);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('still checks for a session when the redeem is refused', async () => {
+		stubLocationSearch('');
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		readOAuthHandoffCodeFromUrl.mockReturnValue('code-1');
+		redeemOAuthHandoff.mockRejectedValue(new Error('refused (400)'));
+		getCurrentUser.mockResolvedValue(null);
+
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
+		expect(getCurrentUser).toHaveBeenCalledTimes(1);
+		expect(toast.error).toHaveBeenCalledWith(OAUTH_GENERIC_ERROR_MESSAGE, { duration: 10_000 });
+		expect(consoleDebug).toHaveBeenCalledWith(
+			'OAuth sign-in handoff failed, checking for a session anyway:',
+			expect.objectContaining({ message: 'refused (400)' }),
+		);
+		consoleDebug.mockRestore();
+	});
+
+	it('still redeems when clearing the code from the URL throws', async () => {
+		stubLocationSearch('');
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		readOAuthHandoffCodeFromUrl.mockReturnValue('code-1');
+		clearOAuthHandoffCodeFromUrl.mockImplementation(() => {
+			throw new Error('history.replaceState throttled');
+		});
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/default-org' }));
+		expect(redeemOAuthHandoff).toHaveBeenCalledExactlyOnceWith('code-1');
+		consoleDebug.mockRestore();
+	});
+
+	it('redeems nothing without a code, or when the redirect carries an error', async () => {
+		stubLocationSearch('');
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+		const { unmount } = renderCheckOAuth();
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/default-org' }));
+		unmount();
+
+		stubLocationSearch('?error=auth_failed&reason=token_exchange');
+		readOAuthHandoffCodeFromUrl.mockReturnValue('code-1');
+		renderCheckOAuth();
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
+
+		expect(redeemOAuthHandoff).not.toHaveBeenCalled();
 	});
 });
