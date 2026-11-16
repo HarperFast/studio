@@ -18,7 +18,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
 	useParams: () => ({}),
 }));
-// The real permission hook runs, on whichever user this says is signed in to the instance.
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/hooks/useAuth')>()),
 	useInstanceAuth: () => auth.value,
@@ -79,19 +78,23 @@ beforeEach(() => {
 afterEach(cleanup);
 
 function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
-	render(
-		<QueryClientProvider client={new QueryClient()}>
+	const client = new QueryClient();
+	const modal = (data: LocalUser, list: LocalUser[]) => (
+		<QueryClientProvider client={client}>
 			<EditUserModal
 				isModalOpen
 				closeModal={() => {}}
 				clusterId="cluster-1"
-				data={target}
-				users={users}
+				data={data}
+				users={list}
 				onUserDeleted={() => {}}
 				onUserUpdated={() => {}}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
+	const { rerender } = render(modal(target, users));
+	// What the Users page does when list_users is re-polled while the modal is open.
+	return { repoll: (data: LocalUser, list: LocalUser[]) => rerender(modal(data, list)) };
 }
 
 function activeSwitch() {
@@ -175,6 +178,30 @@ describe('EditUserModal active toggle', () => {
 
 		expect(activeSwitch()?.disabled).toBe(true);
 		expect(screen.getByText(/only active super user/)).toBeTruthy();
+		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it('does not undo a change another admin made while the form was open', async () => {
+		const { repoll } = renderModal(alice);
+		const deactivatedElsewhere = { ...alice, active: false };
+		repoll(deactivatedElsewhere, [viewer, deactivatedElsewhere]);
+
+		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it('does not send a deactivation once the switch has become locked', async () => {
+		const delegate = user('delegate', true, role('delegate', { operations: ['list_users', 'alter_user'] }));
+		const admin = user('admin', true, superRole);
+		const backup = user('backup', true, superRole);
+		auth.value = { user: delegate };
+		const { repoll } = renderModal(admin, [delegate, admin, backup]);
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+
+		repoll(admin, [delegate, admin, { ...backup, active: false }]);
+
+		expect(activeSwitch()?.disabled).toBe(true);
 		expect(await save()).not.toHaveProperty('active');
 	});
 

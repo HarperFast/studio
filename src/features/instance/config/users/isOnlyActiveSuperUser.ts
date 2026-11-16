@@ -8,7 +8,8 @@ function isActiveSuperUser(user: LocalUser): boolean {
 /**
  * Whether deactivating this user would leave the instance with no active super user. Harper refuses that
  * change itself from v5.2.1 (`assertActiveSuperUserRemains` in `alterUser`), but earlier versions, every
- * 4.x included, apply it, so the form refuses it on all of them.
+ * 4.x included, apply it, so the form refuses it on all of them. It reads the last-polled user list, so two
+ * admins deactivating the last two super users at once can still get past it there.
  */
 export function isOnlyActiveSuperUser(users: readonly LocalUser[], username: string): boolean {
 	const target = users.find((user) => user.username === username);

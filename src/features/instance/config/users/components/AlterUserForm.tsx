@@ -35,10 +35,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-/**
- * How the form offers the user's `active` flag: not at all, as a switch, or as a switch that can't be
- * turned off because this is the instance's only active super user.
- */
 export type ActiveToggle = 'hidden' | 'editable' | 'only-active-super-user';
 
 export function AlterUserForm({
@@ -84,7 +80,9 @@ export function AlterUserForm({
 		if (formData.newPassword) {
 			alterBody.password = formData.newPassword;
 		}
-		if (formData.active !== isActive) {
+		// Against the form's own starting value: `data` is re-polled while the form is open, so another admin's
+		// change would otherwise read as this one's.
+		if (activeToggle === 'editable' && formData.active !== alterForm.formState.defaultValues?.active) {
 			alterBody.active = formData.active;
 		}
 		alterUser(
@@ -97,7 +95,7 @@ export function AlterUserForm({
 				},
 			},
 		);
-	}, [alterForm, alterUser, data.username, instanceParams, isActive, onUserUpdated]);
+	}, [activeToggle, alterForm, alterUser, data.username, instanceParams, onUserUpdated]);
 
 	return (
 		<Form {...alterForm}>
@@ -239,7 +237,8 @@ export function AlterUserForm({
 					</div>
 				</div>
 
-				<DialogFooter>
+				{/* The body scrolls, so keep Save in view when the form runs past the dialog's saved height. */}
+				<DialogFooter className="sticky bottom-0 bg-popover py-2">
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"

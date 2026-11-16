@@ -274,7 +274,6 @@ export function useInstanceConfigurationReadPermission(entityId?: EntityIds): bo
 	return checkSuperUserOperationAllowed(user?.role?.permission, 'get_configuration');
 }
 
-/** Whether this role can run `alter_user`: a super user can, and so can a role whose allowlist grants it. */
 export function useInstanceAlterUserPermission(entityId?: EntityIds): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
