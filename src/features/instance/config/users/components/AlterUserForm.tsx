@@ -30,7 +30,7 @@ import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getLi
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -65,6 +65,14 @@ export function AlterUserForm({
 			active: isActive,
 		},
 	});
+
+	// Follow the re-polled value until the editor touches the switch, so it never shows another admin's change
+	// undone.
+	useEffect(() => {
+		if (!alterForm.getFieldState('active').isDirty) {
+			alterForm.resetField('active', { defaultValue: isActive });
+		}
+	}, [alterForm, isActive]);
 
 	// Assigning a role whose operations value Harper cannot expand takes authentication down for
 	// every user, so the form refuses rather than only warning.
