@@ -2,7 +2,7 @@ import { expect, test as setup } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describeLoginRefusal, isLoginRequest } from './loginRefusal';
+import { describeLoginRefusal, describeUnreachableLogin, isLoginRequest } from './loginRefusal';
 
 // This file lives in tests/ (so the `setup` project's testMatch finds it), but
 // the auth state lives at the e2e root — one level up — to match the
@@ -44,14 +44,18 @@ setup('authenticate', async ({ page }) => {
 	// labels "Email"/"Password", submit button "Sign In".
 	await page.getByLabel('Email').fill(email);
 	await page.getByLabel('Password', { exact: true }).fill(password);
-	const loginResponse = page.waitForResponse(
-		(response) => isLoginRequest(response.request().method(), response.url()),
+	const loginRequest = page.waitForRequest(
+		(request) => isLoginRequest(request.method(), request.url()),
 		{ timeout: 30_000 },
 	);
 	await page.getByRole('button', { name: 'Sign In' }).click();
 	// Checked before the URL: an unverified account's 403 sends Studio to the verification page, which
 	// also leaves /sign-in.
-	const response = await loginResponse;
+	const request = await loginRequest;
+	const response = await request.response();
+	if (!response) {
+		throw new Error(describeUnreachableLogin(request.url(), request.failure()?.errorText));
+	}
 	if (!response.ok()) {
 		throw new Error(describeLoginRefusal(response.status(), await response.text()));
 	}
