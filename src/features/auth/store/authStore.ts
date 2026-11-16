@@ -676,10 +676,10 @@ class AuthStore {
 			claimedGeneration = this.getConnectionGeneration(id);
 			this.fabricConnectAuth.set(id, auth);
 		};
-		// Two resolutions can overlap once a token-backed one declines to share the in-flight connect: whichever claimed
-		// last owns the state, and the other must not record its user over it.
+		// Two resolutions can overlap once a token-backed one declines to share the in-flight connect. A connection
+		// claimed after this one started, or after it claimed, owns the state; this one must not overwrite it.
 		const throwIfReplaced = () => {
-			if (claimedGeneration !== undefined && this.getConnectionGeneration(id) !== claimedGeneration) {
+			if (this.getConnectionGeneration(id) !== (claimedGeneration ?? entryGeneration)) {
 				throw new Error('Another connection replaced this one while it was connecting.');
 			}
 		};
@@ -688,6 +688,7 @@ class AuthStore {
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
 			throwIfSignedOut();
+			throwIfReplaced();
 
 			// Only attempt a direct Bearer connection when we have a concrete DIRECT operations URL.
 			// Without one, getInstanceClient would fall back to the stored connection key, and if that

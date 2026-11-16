@@ -170,14 +170,16 @@ describe('authStore.establishFabricConnectAuth', () => {
 			await expect(withTokens).resolves.toBe(directUser);
 			expect(authStore.getOperationToken('ins-1')).toBe('setup-token');
 
+			// The ordinary connect's mint finishing later does not overwrite the connection made meanwhile.
 			answerMint({ operationToken: 'jwt-token' });
-			await expect(plain).resolves.toBe(directUser);
-			expect(authStore.getOperationToken('ins-1')).toBe('jwt-token');
+			await expect(plain).rejects.toThrow('replaced');
+			expect(authStore.getOperationToken('ins-1')).toBe('setup-token');
+			expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(true);
 
 			const joined = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL, tokens });
 			const later = authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
 			expect(later).not.toBe(joined);
-			await Promise.all([joined, later]);
+			await Promise.allSettled([joined, later]);
 		});
 
 		it('is not erased when an ordinary connect that never claimed fails afterwards', async () => {

@@ -35,7 +35,6 @@ interface SealedOperation {
 	nonce: string;
 }
 
-/** What the node answered inside the sealed response. */
 export interface SealedResult {
 	status: number;
 	body: unknown;
@@ -87,7 +86,6 @@ export async function sealOperation(
 	return { request: { operation: 'encrypted_operation', mode: 'fields', op: opText, envelope }, responseKey, nonce };
 }
 
-/** RFC 6901 reference token for one key. */
 function pointerToken(key: string): string {
 	return key.replaceAll('~', '~0').replaceAll('/', '~1');
 }
