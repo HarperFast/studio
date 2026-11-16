@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { allClusterInstancesRunning } from './allInstancesRunning';
 import { getClusterInfoQueryOptions, markClusterPasswordSet } from './queries/getClusterInfoQuery';
+import { sealedSetupCapability } from './sealedSetup';
 import { clusterSignInIds } from './terminatedClusterSignIns';
 
 export function FinishSetup() {
@@ -58,6 +59,7 @@ export function FinishSetup() {
 	}, [setFocus]);
 
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
+	const sealedSetup = sealedSetupCapability(cluster);
 	const instancesReady = allClusterInstancesRunning(cluster);
 
 	const { mutate: submitInstanceResetPassword, isPending, isSuccess } = useInstanceResetPasswordMutation();
@@ -77,6 +79,7 @@ export function FinishSetup() {
 			clusterId,
 			newPassword: formData.password,
 			tempPassword,
+			sealedSetup: sealedSetup ?? undefined,
 			initialUsername: defaultClusterUsername,
 			desiredUsername: formData.username,
 		}, {
@@ -114,6 +117,7 @@ export function FinishSetup() {
 		queryClient,
 		redirect,
 		router,
+		sealedSetup,
 		submitInstanceResetPassword,
 		tempPassword,
 	]);

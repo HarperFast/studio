@@ -85,6 +85,41 @@ the `Authorization` header before the session cookie. If its own login still fal
 again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
 not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
 
+## Setup on 5.4.0+ seals its writes through the proxy
+
+Harper 5.4.0 runs an operation the client sealed to the cluster's secrets key (`encrypted_operation`,
+[HarperFast/harper#4205](https://github.com/HarperFast/harper/pull/4205)), and seals the answer back, so central manager's
+Fabric Connect proxy relays ciphertext both ways. On such a cluster Finish Setup no longer needs the provisioning
+account's password, which central manager will stop writing for 5.4.0+ hosted clusters once this is deployed
+([HarperFast/central-manager#963](https://github.com/HarperFast/central-manager/pull/963)), nor a browser that can reach
+the instance directly.
+
+The cluster record decides, in [`sealedSetup.ts`](sealedSetup.ts): a Fabric-hosted cluster whose every live member
+reports 5.4.0 or later and carries the same `secretsKeyFingerprint`. The fingerprint is what proves the key exists and
+reached each host; without it, asking central manager for the key would create one and restart the members
+(`ClusterSecretsKey.js`), in the middle of setup. Anything else keeps the `tempPassword` flow above, unchanged, and a
+5.4.0 prerelease counts as below the floor. The sealed path never reads `tempPassword`.
+
+Every write goes through `getInstanceClient({ forceFabricConnect: true })` as `encrypted_operation`
+([`runSealedOperation`](../../integrations/api/instance/sealedOperation.ts), over
+[`lib/crypto/sealedOperation.ts`](../../lib/crypto/sealedOperation.ts), whose tests open what it seals with Harper's
+own reference client, copied unchanged from v5.4.0): `add_user` (or `alter_user` when the form names `HDB_ADMIN`), then
+`create_authentication_tokens` with the typed username and password, then `drop_user HDB_ADMIN`, then the PATCH. The
+mint comes before the drop and carries the credentials on purpose: the node checks the password and names that user,
+so the tokens are the admin's whatever other super users an earlier attempt left, and a wrong password stops setup while
+the provisioning account still exists. A credential-free mint would name the node's first stored super user, which
+need not be the form's. The proxy itself runs every request as Harper's record-less `local` principal, so the browser
+connects afterwards with those tokens directly or not at all (`establishFabricConnectAuth` with `tokens`): a session
+through the proxy would be `local`'s, and setup then finishes signed out rather than report it as the admin's.
+
+A retry reads the cluster's state the same way: `add_user` answering "already exists" adopts the user only if
+`list_users` reports it an active super user, and a `drop_user` answering "does not exist" means an earlier attempt
+dropped it and never sent the PATCH. The node answers a timestamp outside its window with its own clock and an
+envelope for another key with its fingerprint; each is retried once, with the offset remembered for the session and
+the key fetched again. A sealed answer that ran but could not return its result (`executed`) is reported as an unknown
+outcome, like an unanswered write, since the user was created or dropped all the same. There is no plaintext fallback:
+a node without custody (503) or a refused envelope is an error.
+
 ## An interrupted setup finishes from the admin it already created
 
 Central manager's `ResetPasswordUpdater` takes no body and only clears `resetPassword`

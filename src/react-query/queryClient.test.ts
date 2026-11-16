@@ -1,5 +1,6 @@
 import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
+import { SealedOperationError } from '@/integrations/api/instance/sealedOperation';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
 	RESTART_UNCONFIRMED_TITLE,
@@ -440,6 +441,26 @@ describe('a write that got no verdict', () => {
 			description: UNANSWERED_WRITE_MESSAGE,
 			message: UNANSWERED_WRITE_MESSAGE,
 		});
+	});
+
+	it('includes a sealed operation that ran but could not return its result', () => {
+		const executed = new SealedOperationError('drop_user', {
+			status: 500,
+			body: { error: 'serialization failed' },
+			executed: true,
+		});
+		expect(describeError(executed)).toMatchObject({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description:
+				'The cluster ran drop_user but could not return its result. Check whether it took effect before you try again.',
+		});
+		expect(shouldToastOwnFailure(executed)).toBe(false);
+	});
+
+	it("describes a sealed operation's own refusal by its text, as a plain failure", () => {
+		const refused = new SealedOperationError('add_user', { status: 409, body: { error: 'User x already exists' } });
+		expect(describeError(refused)).toMatchObject({ description: 'User x already exists' });
+		expect(shouldToastOwnFailure(refused)).toBe(true);
 	});
 
 	it('leaves a read with the same failure to the usual extraction', () => {

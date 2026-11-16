@@ -7,6 +7,7 @@ import {
 } from '@/integrations/api/cluster/clusterHeldByWorkflow';
 import { BackupJobUnreportedError } from '@/integrations/api/instance/backups/backups';
 import { describeImportJobUnconfirmed, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
+import { SealedOperationError } from '@/integrations/api/instance/sealedOperation';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
 	RESTART_UNCONFIRMED_TITLE,
@@ -47,6 +48,12 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	}
 	if (rawErr instanceof BackupJobUnreportedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
+	}
+	if (rawErr instanceof SealedOperationError && rawErr.executed) {
+		return copy(
+			OUTCOME_UNKNOWN_TITLE,
+			`The cluster ran ${rawErr.operation} but could not return its result. ${UNCONFIRMED_WRITE_ADVICE}`,
+		);
 	}
 	return undefined;
 }

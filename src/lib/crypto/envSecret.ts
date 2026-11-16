@@ -19,10 +19,21 @@ function pemToDer(pem: string): Uint8Array {
 	return bytes;
 }
 
-function toBase64(bytes: Uint8Array): string {
+export function toBase64(bytes: Uint8Array): string {
 	let s = '';
 	for (let i = 0; i < bytes.length; i++) { s += String.fromCharCode(bytes[i]); }
 	return btoa(s);
+}
+
+/** Standard base64 to bytes; undefined for text that is not base64, or not `byteLength` long. */
+export function fromBase64(value: unknown, byteLength?: number): Uint8Array | undefined {
+	if (typeof value !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) {
+		return undefined;
+	}
+	const bin = atob(value);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+	return byteLength === undefined || bytes.length === byteLength ? bytes : undefined;
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -37,7 +48,7 @@ function toHex(buffer: ArrayBuffer): string {
 
 // Web Crypto's BufferSource typing (TS 5.7+) rejects Uint8Array<ArrayBufferLike>; hand it a plain
 // ArrayBuffer copy of the bytes.
-function ab(bytes: Uint8Array): ArrayBuffer {
+export function ab(bytes: Uint8Array): ArrayBuffer {
 	// Avoid a copy when the view already spans its whole buffer (the common case here).
 	if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
 		return bytes.buffer as ArrayBuffer;
@@ -47,7 +58,7 @@ function ab(bytes: Uint8Array): ArrayBuffer {
 
 // Web Crypto's SubtleCrypto is only available in secure contexts (HTTPS or localhost). Fail with a
 // clear message rather than a cryptic `undefined` access when the app is served over plain HTTP.
-function requireSubtle(): SubtleCrypto {
+export function requireSubtle(): SubtleCrypto {
 	if (typeof crypto === 'undefined' || !crypto.subtle) {
 		throw new Error('Secret encryption requires a secure context (HTTPS or localhost).');
 	}

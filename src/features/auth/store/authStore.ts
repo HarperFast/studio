@@ -11,6 +11,7 @@ import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
 import {
 	createInstanceAuthenticationTokens,
+	type InstanceAuthenticationTokens,
 	refreshInstanceOperationToken,
 } from '@/integrations/api/instance/auth/createInstanceAuthenticationTokens';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
@@ -628,17 +629,27 @@ class AuthStore {
 	 * drop the token and fall back to routing everything through the proxy. The verified user is
 	 * recorded in the connection state either way. The JWT is held in memory only.
 	 *
-	 * Concurrent calls for the same id share one in-flight request.
+	 * `tokens` minted for one user stand in for the proxy's own mint and connect directly or not at all: setup's sealed
+	 * mint names the new admin, where on Harper 5.4+ the proxy runs as its own `local` principal, so routing through
+	 * it would not be that user's session. Such a call shares no in-flight mint, whose tokens are not these.
+	 *
+	 * Concurrent calls for the same id otherwise share one in-flight request.
 	 */
 	public establishFabricConnectAuth(
-		{ id, operationsUrl }: { id: EntityIds; operationsUrl?: string | null },
+		{ id, operationsUrl, tokens }: {
+			id: EntityIds;
+			operationsUrl?: string | null;
+			tokens?: InstanceAuthenticationTokens;
+		},
 	): Promise<LocalUser> {
 		const inFlight = this.fabricConnectInFlight.get(id);
-		if (inFlight) {
+		if (inFlight && !tokens) {
 			return inFlight;
 		}
-		const promise = this.resolveFabricConnectAuth(id, operationsUrl);
-		this.fabricConnectInFlight.set(id, promise);
+		const promise = this.resolveFabricConnectAuth(id, operationsUrl, tokens);
+		if (!inFlight) {
+			this.fabricConnectInFlight.set(id, promise);
+		}
 		return promise.finally(() => {
 			// A sign-out empties the map, so a replacement may already be registered under this id.
 			if (this.fabricConnectInFlight.get(id) === promise) {
@@ -650,6 +661,7 @@ class AuthStore {
 	private async resolveFabricConnectAuth(
 		id: EntityIds,
 		operationsUrl: string | null | undefined,
+		tokens: InstanceAuthenticationTokens | undefined,
 	): Promise<LocalUser> {
 		const signOutGeneration = this.getSignOutGeneration(id);
 		const throwIfSignedOut = () => {
@@ -664,7 +676,7 @@ class AuthStore {
 			this.fabricConnectAuth.set(id, auth);
 		};
 		try {
-			const { operationToken, refreshToken } = await createInstanceAuthenticationTokens({
+			const { operationToken, refreshToken } = tokens ?? await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
 			throwIfSignedOut();
@@ -696,6 +708,9 @@ class AuthStore {
 					this.setUserForIdAndKey(id, operationsUrl, directUser);
 					return directUser;
 				}
+			}
+			if (tokens) {
+				throw new Error('The cluster could not be reached directly, so the admin could not be connected.');
 			}
 
 			// Proxy fallback: route every operation through the central-manager proxy.
