@@ -13,6 +13,7 @@ import {
 	RESTART_UNCONFIRMED_TITLE,
 	RestartUnconfirmedError,
 } from '@/integrations/api/instance/status/restartUnconfirmed';
+import { isReadOperation } from '@/integrations/api/isReadOperation';
 import { isUnansweredWrite, OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { errorText } from '@/lib/errorText';
 import { isRestartNoise } from '@/lib/restart/restartGate';
@@ -49,13 +50,14 @@ function describeUnknownOutcome(rawErr: unknown): DescribedError | undefined {
 	if (rawErr instanceof BackupJobUnreportedError) {
 		return copy(OUTCOME_UNKNOWN_TITLE, rawErr.message);
 	}
-	if (rawErr instanceof SealedOperationError && rawErr.executed) {
+	// A sealed read that may have run is only a failed read; a sealed write that may have run is an unknown outcome.
+	if (rawErr instanceof SealedOperationError && rawErr.executed && !isReadOperation(rawErr.operation)) {
 		return copy(
 			OUTCOME_UNKNOWN_TITLE,
 			`The cluster ran ${rawErr.operation} but could not return its result. ${UNCONFIRMED_WRITE_ADVICE}`,
 		);
 	}
-	if (rawErr instanceof UnreadableSealedAnswerError) {
+	if (rawErr instanceof UnreadableSealedAnswerError && !isReadOperation(rawErr.operation)) {
 		return copy(OUTCOME_UNKNOWN_TITLE, `${rawErr.message} ${UNCONFIRMED_WRITE_ADVICE}`);
 	}
 	return undefined;

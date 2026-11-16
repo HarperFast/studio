@@ -816,7 +816,7 @@ describe('sealed setup on a 5.4.0+ cluster', () => {
 
 	it('says the key is still on its way when a 5.4 cluster has no temporary password and no key on every member', async () => {
 		await expect(resetPassword(OWNER, { tempPassword: undefined, clusterKeyPending: true })).rejects.toThrow(
-			"secrets key hasn't reached every member yet",
+			"hasn't reported every member's Harper version and secrets key yet",
 		);
 		await expect(resetPassword(OWNER, { tempPassword: undefined })).rejects.toThrow('may not have permission');
 		expect(onInstanceLoginSubmit).not.toHaveBeenCalled();

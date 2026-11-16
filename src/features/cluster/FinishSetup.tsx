@@ -91,7 +91,10 @@ export function FinishSetup() {
 						? "Admin user created. You're now signed in to your cluster."
 						: 'Admin user created. Connect to your cluster to continue.',
 				);
-				authStore.setUserForEntity(cluster!, user);
+				// Signed out, the mutation already cleared the store, and a connect that replaced setup's own must be kept.
+				if (user) {
+					authStore.setUserForEntity(cluster!, user);
+				}
 				// The mutation already told CM the password changed (resetPasswordUpdater); reflect
 				// that in the cached cluster before navigating so ClusterHome's resetPassword guard
 				// doesn't bounce us back here off a stale poll.

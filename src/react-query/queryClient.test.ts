@@ -470,6 +470,14 @@ describe('a write that got no verdict', () => {
 		expect(shouldToastOwnFailure(unreadable)).toBe(false);
 	});
 
+	it('leaves a sealed read that may have run to the usual extraction', () => {
+		const unreadable = new UnreadableSealedAnswerError('list_users', new Error('tag'));
+		expect(describeError(unreadable)).toMatchObject({ description: unreadable.message });
+		expect(shouldToastOwnFailure(unreadable)).toBe(true);
+		const executed = new SealedOperationError('list_users', { status: 500, body: {}, executed: true });
+		expect(shouldToastOwnFailure(executed)).toBe(true);
+	});
+
 	it("describes a sealed operation's own refusal by its text, as a plain failure", () => {
 		const refused = new SealedOperationError('add_user', { status: 409, body: { error: 'User x already exists' } });
 		expect(describeError(refused)).toMatchObject({ description: 'User x already exists' });

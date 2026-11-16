@@ -53,8 +53,10 @@ describe(sealedSetupCapability, () => {
 		expect(sealedSetupCapability(cluster([{ version: '5.4.0' }], 'self-hosted-free'))).toBeNull();
 	});
 
-	it('reports the key pending only where the members could seal but do not all hold one key', () => {
+	it('reports the key pending where the members could seal, or have no version yet, but do not all hold one key', () => {
 		expect(clusterKeyPending(cluster([{ version: '5.4.0', secretsKeyFingerprint: null }]))).toBe(true);
+		expect(clusterKeyPending(cluster([{ version: undefined, secretsKeyFingerprint: null }]))).toBe(true);
+		expect(clusterKeyPending(cluster([{ version: undefined }, { version: '5.4.0' }]))).toBe(true);
 		expect(clusterKeyPending(cluster([{ version: '5.4.0' }, { version: '5.4.0', secretsKeyFingerprint: 'fp-2' }])))
 			.toBe(true);
 		expect(clusterKeyPending(cluster([{ version: '5.4.0' }]))).toBe(false);

@@ -1,7 +1,5 @@
 // @vitest-environment node
-// Node env: Web Crypto (globalThis.crypto.subtle, used by the helper) and node:crypto (used by Harper's reference) are
-// both available. The reference under __tests__/harper-v5.4.0/ is the node's own client, copied unchanged from
-// HarperFast/harper at v5.4.0, so what this opens is what the node accepts and what it answers.
+// Node env: Web Crypto (the helper) and node:crypto (Harper's reference client, see __tests__/harper-v5.4.0/README.md).
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {

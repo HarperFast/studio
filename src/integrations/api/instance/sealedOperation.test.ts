@@ -1,6 +1,5 @@
 // @vitest-environment node
-// A fake 5.4 node built from Harper's own reference client (copied unchanged under src/lib/crypto/__tests__): it opens
-// what the helper seals and seals what the helper opens, and refuses the way `components/encryptedOperation.ts` does.
+// A fake 5.4 node built from Harper's reference client; it refuses the way `components/encryptedOperation.ts` does.
 import { sealResponse } from '@/lib/crypto/__tests__/harper-v5.4.0/sealedOperation';
 import {
 	decryptEnvelope,

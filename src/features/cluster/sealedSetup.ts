@@ -28,20 +28,33 @@ export function sealedSetupCapability(cluster: Cluster | undefined): SealedSetup
 		: null;
 }
 
-/** The members could seal, but central manager has not stamped one key on all of them yet. */
+/**
+ * The members could seal, or have not said yet, but the record does not carry what sealing needs: a version for every
+ * member and one key stamped on all of them. Central manager fills both in; a submit before that is not a permission
+ * problem.
+ */
 export function clusterKeyPending(cluster: Cluster | undefined): boolean {
-	return !!liveMembersAbleToSeal(cluster) && sealedSetupCapability(cluster) === null;
+	const live = liveMembers(cluster);
+	return !!live
+		&& live.every((instance) => !instance.version || wasAReleasedBeforeB(SEALED_SETUP_MIN_VERSION, instance.version))
+		&& sealedSetupCapability(cluster) === null;
 }
 
-function liveMembersAbleToSeal(cluster: Cluster | undefined): Instance[] | null {
+function liveMembers(cluster: Cluster | undefined): Instance[] | null {
 	if (!cluster || clusterIsSelfManaged(cluster)) {
 		return null;
 	}
 	const live = (cluster.instances ?? []).filter(
 		(instance) => !(instance.status && deletedClusterStatuses.includes(instance.status)),
 	);
-	return live.length > 0
-			&& live.every((instance) => !!instance.version && wasAReleasedBeforeB(SEALED_SETUP_MIN_VERSION, instance.version))
+	return live.length > 0 ? live : null;
+}
+
+function liveMembersAbleToSeal(cluster: Cluster | undefined): Instance[] | null {
+	const live = liveMembers(cluster);
+	return live?.every((instance) =>
+			!!instance.version && wasAReleasedBeforeB(SEALED_SETUP_MIN_VERSION, instance.version)
+		)
 		? live
 		: null;
 }

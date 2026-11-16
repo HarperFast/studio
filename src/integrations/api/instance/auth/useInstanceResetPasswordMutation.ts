@@ -26,7 +26,7 @@ interface InstanceResetPasswordParams {
 	newPassword: string;
 	tempPassword: string | undefined;
 	sealedSetup?: SealedSetupCapability;
-	/** Every live member could seal, but central manager has not stamped the cluster key on all of them yet. */
+	/** The members could seal, but central manager has not filled in a version and one key for all of them yet. */
 	clusterKeyPending?: boolean;
 }
 
@@ -60,7 +60,7 @@ async function finishSetupWithTemporaryPassword({
 	if (!tempPassword) {
 		throw new Error(
 			clusterKeyPending
-				? "The cluster's secrets key hasn't reached every member yet, so the admin user can't be created. Try again in a moment."
+				? "The cluster hasn't reported every member's Harper version and secrets key yet, so the admin user can't be created. Try again in a moment."
 				: 'You may not have permission to set the password on this cluster.',
 		);
 	}

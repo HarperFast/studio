@@ -99,7 +99,7 @@ describe(FinishSetup, () => {
 		await createAdminUser();
 		await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
 		expect(toastSuccess).toHaveBeenCalledWith('Admin user created. Connect to your cluster to continue.');
-		expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'clu-1' }), null);
+		expect(setUser).not.toHaveBeenCalled();
 	});
 
 	it('hands setup the sealed capability once every member runs 5.4.0 and holds the cluster key, and nothing otherwise', async () => {
@@ -115,15 +115,19 @@ describe(FinishSetup, () => {
 
 		cleanup();
 		mutate.mockClear();
-		await createAdminUser();
+		await createAdminUser({ instances: [{ id: 'ins-1', status: 'RUNNING', version: '5.3.0' }] });
 		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
 		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: false });
 
-		cleanup();
-		mutate.mockClear();
-		await createAdminUser({ instances: [{ id: 'ins-1', status: 'RUNNING', version: '5.4.0' }] });
-		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
-		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: true });
+		for (
+			const instances of [[{ id: 'ins-1', status: 'RUNNING', version: '5.4.0' }], [{ id: 'ins-1', status: 'RUNNING' }]]
+		) {
+			cleanup();
+			mutate.mockClear();
+			await createAdminUser({ instances });
+			await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+			expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: true });
+		}
 	});
 
 	it('hands setup the direct URL and every id it must sign out first', async () => {
