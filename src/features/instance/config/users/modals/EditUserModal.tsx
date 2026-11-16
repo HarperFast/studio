@@ -9,7 +9,6 @@ import { useInstanceAlterUserPermission } from '@/hooks/usePermissions';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { Trash } from 'lucide-react';
 
-// Opening the section mounts this; the body may have to scroll to show the Delete button below the fold.
 function scrollIntoViewOnMount(node: HTMLDivElement | null) {
 	node?.scrollIntoView({ block: 'nearest' });
 }
@@ -39,7 +38,6 @@ export function EditUserModal({
 	const isSelf = !isFabricConnect && auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
-	// Deactivating your own account would lock you out.
 	let activeToggle: ActiveToggle = 'hidden';
 	if (canAlterUsers && !isSelf) {
 		activeToggle = isOnlyActiveSuperUser(users, data.username) ? 'only-active-super-user' : 'editable';
@@ -48,11 +46,9 @@ export function EditUserModal({
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent resizable>
-				{/* The resizable body clips at its saved height, so this scrolls instead. */}
 				<div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
 					<AlterUserForm data={data} activeToggle={activeToggle} onUserUpdated={onUserUpdated} />
 					{canDelete && (
-						// Collapsed by default, and closing it unmounts the form, so a half-typed confirmation doesn't linger.
 						<Accordion type="single" collapsible className="border-t">
 							<AccordionItem value="delete">
 								<AccordionTrigger className="ml-auto flex-none gap-2 text-destructive">
@@ -64,7 +60,7 @@ export function EditUserModal({
 									<div ref={scrollIntoViewOnMount}>
 										<p className="text-muted-foreground">
 											This permanently deletes {data.username}'s account.
-											{activeToggle === 'editable'
+											{activeToggle === 'editable' && data.active
 												&& ' To stop them signing in but keep the account, turn off Active instead.'}
 										</p>
 										<DeleteUserForm data={data} onUserDeleted={onUserDeleted} />

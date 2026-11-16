@@ -93,7 +93,6 @@ function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
 		</QueryClientProvider>
 	);
 	const { rerender } = render(modal(target, users));
-	// What the Users page does when list_users is re-polled while the modal is open.
 	return { repoll: (data: LocalUser, list: LocalUser[]) => rerender(modal(data, list)) };
 }
 
@@ -202,6 +201,7 @@ describe('EditUserModal active toggle', () => {
 		repoll(admin, [delegate, admin, { ...backup, active: false }]);
 
 		expect(activeSwitch()?.disabled).toBe(true);
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('true');
 		expect(await save()).not.toHaveProperty('active');
 	});
 
@@ -241,6 +241,17 @@ describe('EditUserModal delete section', () => {
 		});
 
 		expect(screen.getByText(/permanently deletes alice's account/)).toBeTruthy();
+		expect(screen.queryByText(/turn off Active/)).toBeNull();
+	});
+
+	it('does not suggest turning off Active for a user who is already inactive', async () => {
+		renderModal(user('dormant', false, plainRole));
+
+		await act(async () => {
+			fireEvent.click(deleteTrigger()!);
+		});
+
+		expect(screen.getByText(/permanently deletes dormant's account/)).toBeTruthy();
 		expect(screen.queryByText(/turn off Active/)).toBeNull();
 	});
 
