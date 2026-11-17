@@ -386,6 +386,39 @@ describe('AgentAdminIndex — review regressions', () => {
 		expect(patch).not.toHaveBeenCalled();
 	});
 
+	it('keeps the baseline after an earlier successful save of the same key', async () => {
+		const client = renderPage();
+		openTab('Settings');
+		const form = await screen.findByRole('form', { name: 'Agent settings' });
+		const input = () => within(form).getByLabelText('AGENT_RUN_BUDGET_USD');
+		const serverHas = (value: number) => {
+			stored.AGENT_RUN_BUDGET_USD = value;
+			overview = {
+				...OVERVIEW,
+				settings: OVERVIEW.settings.map((row) =>
+					(row.name === 'AGENT_RUN_BUDGET_USD' ? { ...row, value } : row) as (typeof OVERVIEW.settings)[number]
+				),
+			};
+		};
+		fireEvent.change(input(), { target: { value: '2' } });
+		patch.mockImplementationOnce(async () => {
+			serverHas(2);
+			return { data: {} };
+		});
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect((input() as HTMLInputElement).value).toBe('2'));
+		await waitFor(() => expect(within(form).queryByRole('button', { name: /Save \d/ })).toBeNull());
+
+		fireEvent.change(input(), { target: { value: '10' } });
+		serverHas(10);
+		await act(() => client.refetchQueries({ queryKey: ['fabric-admin', 'agent', 'overview'] }));
+		fireEvent.change(input(), { target: { value: '100' } });
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(toastError).toHaveBeenCalled());
+		expect(patch).toHaveBeenCalledTimes(1);
+	});
+
 	it('keeps an unsaved settings edit across a tab switch', async () => {
 		renderPage();
 		openTab('Settings');
