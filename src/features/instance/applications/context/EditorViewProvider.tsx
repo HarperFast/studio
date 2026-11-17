@@ -15,6 +15,7 @@ import {
 	isRenaming,
 } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import {
 	getComponentFileQueryKey,
@@ -189,7 +190,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	// fetch their contents — decoding a large archive as text wastes bandwidth and
 	// risks choking the editor. Leave the file undefined to disable the query.
 	const isBinaryEntry = !!openedEntry && !isDirectory(openedEntry) && isBinaryFile(openedEntry.name);
-	const fileToLoad = isBinaryEntry ? undefined : pathToLoad?.split('/').slice(1).join('/');
+	const canReadFiles = useInstanceOperationPermission('get_component_file');
+	const fileToLoad = isBinaryEntry || !canReadFiles ? undefined : pathToLoad?.split('/').slice(1).join('/');
 	const { data: getComponentFileQueryData, isError: openedEntryReadFailed } = useQuery(
 		getComponentFileQueryOptions(
 			{
@@ -336,6 +338,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			openedEntryContents,
 			setOpenedEntryContents,
 			openedEntryReadFailed,
+			canReadFiles,
 
 			saveFile,
 			writeFile,
@@ -361,6 +364,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		openedEntryContents,
 		setOpenedEntryContents,
 		openedEntryReadFailed,
+		canReadFiles,
 
 		saveFile,
 		writeFile,

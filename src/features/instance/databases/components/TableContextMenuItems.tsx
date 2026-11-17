@@ -10,6 +10,7 @@ import {
 	useInstanceBrowseManagePermission,
 	useInstanceImportDataPermission,
 	useInstanceSchemaTablePermission,
+	useInstanceSchemaTableReadDenied,
 } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { setWatchedValue } from '@/lib/events/watcher';
@@ -31,6 +32,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const canManage = useInstanceBrowseManagePermission();
 	const canInsert = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canImport = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
+	const readDenied = useInstanceSchemaTableReadDenied(instanceId ?? clusterId, databaseName, tableName);
 	const { exportCsv } = useExportTableCsv();
 
 	const databaseTables = describedDatabase(instanceDatabaseMap, databaseName);
@@ -65,7 +67,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 					Import Data
 				</ContextMenuItem>
 			)}
-			<ContextMenuItem onSelect={onExport} disabled={!hasKnownPrimaryKey}>
+			<ContextMenuItem onSelect={onExport} disabled={!hasKnownPrimaryKey || readDenied}>
 				<CloudDownloadIcon />
 				Export CSV
 			</ContextMenuItem>

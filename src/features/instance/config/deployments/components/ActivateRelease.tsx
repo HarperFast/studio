@@ -25,6 +25,7 @@ import {
 	useSupportsDeploymentSSE,
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { reportDeployFailure, reportDeployOutcome } from '@/features/instance/applications/modals/reportDeployHealth';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import {
 	BranchedDatabases,
 	describeBranchedDatabases,
@@ -93,6 +94,7 @@ export function ActivateRelease({
 	const queryClient = useQueryClient();
 	const sseDeploy = useSupportsDeploymentSSE();
 	const canActivate = useStagedDeploymentsAvailable();
+	const canDeploy = useInstanceOperationPermission('deploy_component');
 	const stream = useDeploymentStream();
 	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const recordAction = useDeploymentRecordAction();
@@ -197,7 +199,7 @@ export function ActivateRelease({
 		}
 	}, [confirmable]);
 
-	if (!canActivate) {
+	if (!canActivate || !canDeploy) {
 		return null;
 	}
 

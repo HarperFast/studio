@@ -106,6 +106,13 @@ describe('TableContextMenuItems on a table with no primary key', () => {
 		renderMenu({ super_user: true });
 		expect(exportCsv().hasAttribute('data-disabled')).toBe(false);
 	});
+
+	it('disables Export on a keyed table the role cannot read, and sends nothing', () => {
+		renderMenu({ super_user: false, operations: ['describe_all', 'describe_table'] });
+		expect(exportCsv().hasAttribute('data-disabled')).toBe(true);
+		fireEvent.click(exportCsv());
+		expect(exportCsvSpy).not.toHaveBeenCalled();
+	});
 });
 
 describe('TableContextMenuItems on a table the map does not describe', () => {

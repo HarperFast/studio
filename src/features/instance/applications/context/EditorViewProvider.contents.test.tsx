@@ -21,13 +21,14 @@ import { ReactNode, startTransition, Suspense, useLayoutEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => {
-	const reads = { pending: undefined as Promise<void> | undefined };
+	const reads = { pending: undefined as Promise<void> | undefined, sent: 0 };
 	const writes = { pending: undefined as Promise<void> | undefined };
 	function instance(entityId: string) {
 		const files: Record<string, string> = {};
 		const instanceClient = {
 			post: async (_url: string, body: { operation: string; file?: string; payload?: string }) => {
 				if (body.operation === 'get_component_file') {
+					reads.sent++;
 					// As the file was when the read reached the server.
 					const message = files[body.file!];
 					await reads.pending;
@@ -61,6 +62,11 @@ vi.mock('@tanstack/react-router', () => {
 });
 
 import { EditorViewProvider } from './EditorViewProvider';
+const operationPermission = vi.hoisted(() => ({ canReadFiles: true }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) =>
+		operation !== 'get_component_file' || operationPermission.canReadFiles,
+}));
 
 const README = '# Schemas\n\nYour schemas are defined in `.graphql` files.\n';
 const SCRIPT = 'export const answer = 42;\n';
@@ -181,6 +187,22 @@ afterEach(() => {
 });
 
 describe('EditorViewProvider openedEntryContents', () => {
+	it('reads no file for a session that cannot read them, such as a read-only Fabric Connect token', async () => {
+		operationPermission.canReadFiles = false;
+		try {
+			renderProvider();
+			server.reads.sent = 0;
+			act(() => editorView.setOpenedEntry(script));
+			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+			expect(editorView.canReadFiles).toBe(false);
+			expect(server.reads.sent).toBe(0);
+			expect(editorView.openedEntryContents).toBeUndefined();
+		} finally {
+			operationPermission.canReadFiles = true;
+		}
+	});
+
 	it('never hands an entry the contents of the entry opened before it', async () => {
 		renderProvider();
 		await openEntry(schemasFolder, README);

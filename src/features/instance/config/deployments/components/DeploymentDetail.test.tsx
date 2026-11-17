@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeploymentDetail } from './DeploymentDetail';
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
 
 const post = vi.hoisted(() => vi.fn());
 const releaseTracking = vi.hoisted(() => ({ available: false }));

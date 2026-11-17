@@ -102,6 +102,10 @@ vi.mock('@/features/instance/applications/components/TextEditorView', async () =
 
 import { EditorViewProvider } from '../../context/EditorViewProvider';
 import { ContentViewer } from '../ContentViewer';
+const schemaWrites = vi.hoisted(() => ({ denied: false }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !(schemaWrites.denied && operation === 'set_component_file'),
+}));
 
 const README = '# Schemas\n\nYour schemas are defined in `.graphql` files within this `schemas` directory.\n';
 const DOG = 'type Dog @table @export {\n\tid: ID @primaryKey\n}\n';
@@ -241,6 +245,19 @@ describe('SchemaEditorView: a schema file only ever holds its own contents (#192
 			file: 'schemas/thing.graphql',
 			payload: 'type Thing @table(database: "punch") @export @sealed {\n\tid: ID @primaryKey\n}\n',
 		});
+	});
+
+	it('offers no Add table to a session that cannot write component files', async () => {
+		schemaWrites.denied = true;
+		try {
+			renderEditor();
+			await openEntry(schemasFolder, /Your schemas are defined in/);
+			await openEntry(newSchema, 'No tables yet.');
+
+			expect(screen.queryByRole('button', { name: /add table/i })).toBeNull();
+		} finally {
+			schemaWrites.denied = false;
+		}
 	});
 
 	it('opens an existing schema without dirtying it', async () => {

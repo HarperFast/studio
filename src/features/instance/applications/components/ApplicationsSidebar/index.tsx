@@ -6,6 +6,7 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { confirmOverwrite } from '@/features/instance/applications/modals/confirmOverwrite';
 import { useGlobalShortcutKeys } from '@/features/instance/applications/shortcuts';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useListener } from '@/lib/events/listener';
 import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
 import { joinPath } from '@/lib/string/paths/joinPath';
@@ -36,6 +37,10 @@ export function ApplicationsSidebar() {
 	} = useEditorView();
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
+	const canReadFiles = useInstanceOperationPermission('get_component_file');
+	const canWriteFiles = useInstanceOperationPermission('set_component_file');
+	const canDropFiles = useInstanceOperationPermission('drop_component');
+	const canMove = canReadFiles && canWriteFiles && canDropFiles;
 	useGlobalShortcutKeys();
 
 	// Move DOM focus into the tree after a modal closes (e.g. adding a directory, or
@@ -124,7 +129,7 @@ export function ApplicationsSidebar() {
 		<div ref={treeScrollRef} className="app-tree-scroll h-full overflow-auto pr-1.5 pb-18">
 			<FileTreeContextMenu items={items}>
 				<ControlledTreeEnvironment
-					canDragAndDrop={true}
+					canDragAndDrop={canMove}
 					canDropOnFolder={true}
 					canDropOnNonFolder={false}
 					canReorderItems={false}
@@ -147,7 +152,7 @@ export function ApplicationsSidebar() {
 				</ControlledTreeEnvironment>
 			</FileTreeContextMenu>
 
-			<DropTarget />
+			{canWriteFiles && <DropTarget />}
 		</div>
 	);
 }

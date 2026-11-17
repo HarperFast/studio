@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { authStore } from '@/features/auth/store/authStore';
-import type { Cluster } from '@/integrations/api/api.patch';
+import type { Cluster, User } from '@/integrations/api/api.patch';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let permissions = { update: false } as { update: boolean };
@@ -8,6 +8,9 @@ vi.mock('@/hooks/usePermissions', () => ({
 	getOrganizationClusterPermissions: () => permissions,
 	getOrganizationClusterInstancePermissions: () => permissions,
 }));
+
+const toastError = vi.fn();
+vi.mock('sonner', () => ({ toast: { error: (...args: unknown[]) => toastError(...args) } }));
 
 const { checkClusterInstanceAuthenticationBeforeLoad } = await import('./instanceLayoutRoute');
 
@@ -30,7 +33,15 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	toastError.mockClear();
 });
+
+const readOnlyStaffAuth = {
+	OverallAppSignIn: {
+		isLoading: false,
+		user: { fabricRole: 'fabric_readonly', staffPermissions: ['cluster:read', 'cluster:connectReadOnly'] } as User,
+	},
+};
 
 describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 	it('re-establishes on reload (flag set, not resolved) and returns without redirecting', async () => {
@@ -180,5 +191,51 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: {} }, params: PARAMS }),
 		).resolves.toBeUndefined();
 		expect(establishSpy).not.toHaveBeenCalled();
+	});
+
+	it('connects a read-only staff caller who cannot manage the cluster', async () => {
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: readOnlyStaffAuth }, params: PARAMS }),
+		).resolves.toBeUndefined();
+		expect(establishSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('tells a read-only caller why connecting failed, since they have no sign-in to fall back on', async () => {
+		establishSpy.mockRejectedValue(new Error('Read-only Fabric Connect requires Harper 5.3.0 or later'));
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: readOnlyStaffAuth }, params: PARAMS }),
+		).rejects.toMatchObject({ options: { to: expect.stringContaining('/sign-in') } });
+		expect(toastError).toHaveBeenCalledTimes(1);
+	});
+
+	it('stays quiet about a failed connect for a manager, who can sign in instead', async () => {
+		permissions = { update: true };
+		establishSpy.mockRejectedValue(new Error('unreachable'));
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: overallAuthReady }, params: PARAMS }),
+		).rejects.toMatchObject({ options: { to: expect.stringContaining('/sign-in') } });
+		expect(toastError).not.toHaveBeenCalled();
+	});
+
+	it('tells a read-only caller why reconnecting failed after a reload, too', async () => {
+		(authStore.checkForFabricConnect as ReturnType<typeof vi.fn>).mockReturnValue(true);
+		establishSpy.mockRejectedValue(new Error('instance unreachable'));
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: readOnlyStaffAuth }, params: PARAMS }),
+		).rejects.toMatchObject({ options: { to: expect.stringContaining('/sign-in') } });
+		expect(establishSpy).toHaveBeenCalledTimes(1);
+		expect(toastError).toHaveBeenCalledTimes(1);
+	});
+
+	it('says nothing when the caller signed out while connecting', async () => {
+		establishSpy.mockRejectedValue(Object.assign(new Error('signed out'), { name: 'SignedOutWhileConnectingError' }));
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: readOnlyStaffAuth }, params: PARAMS }),
+		).rejects.toBeTruthy();
+		expect(toastError).not.toHaveBeenCalled();
 	});
 });

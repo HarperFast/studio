@@ -11,9 +11,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ payloadBranches: { value: false } }));
 
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceBrowseManagePermission: () => true }));
 vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	usePayloadBranchedDatabasesAvailable: () => mocks.payloadBranches.value,
+}));
+const { denied } = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !denied.has(operation),
 }));
 
 import { useEntryActions } from './useEntryActions';
@@ -55,6 +58,43 @@ describe('useEntryActions', () => {
 		const { result } = renderHook(() => useEntryActions(undefined));
 
 		expect(result.current.canDeleteEntry).toBe(false);
+	});
+
+	it.each(
+		[
+			['canDownload', 'package_component'],
+			['canEditFile', 'get_component_file'],
+			['canEditFile', 'set_component_file'],
+			['canRename', 'get_component_file'],
+			['canRename', 'set_component_file'],
+			['canRename', 'drop_component'],
+			['canAddEntries', 'set_component_file'],
+			['canAddTable', 'set_component_file'],
+			['canDeleteEntry', 'drop_component'],
+		] as const,
+	)('withholds %s without %s', (action, operation) => {
+		const app = { name: 'anvils', path: 'anvils', project: 'anvils', entries: [] };
+		const entry = action === 'canDownload' || action === 'canDeleteEntry'
+			? app
+			: { name: 'schema.graphql', path: 'anvils/schema.graphql', project: 'anvils' };
+
+		expect(renderHook(() => useEntryActions(entry)).result.current[action]).toBe(true);
+		denied.add(operation);
+		try {
+			expect(renderHook(() => useEntryActions(entry)).result.current[action]).toBe(false);
+		} finally {
+			denied.clear();
+		}
+	});
+
+	it('withholds redeploy without deploy_component', () => {
+		const imported = packageRoot('git+https://git@github.com/acme/widgets.git#semver:v1.0.0');
+		denied.add('deploy_component');
+		try {
+			expect(renderHook(() => useEntryActions(imported)).result.current.canRedeploy).toBe(false);
+		} finally {
+			denied.clear();
+		}
 	});
 });
 

@@ -19,7 +19,8 @@ import { FullTextIndexChange, fullTextIndexChanges } from '@/features/instance/a
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
 import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
-import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { instanceModelNames, supportsModels } from '@/integrations/api/instance/models/models';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -67,7 +68,7 @@ function LoadedSchemaEditorView({
 }) {
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
-	const canManage = useInstanceBrowseManagePermission();
+	const canManage = useInstanceOperationPermission('set_component_file');
 	const { data: registrationInfo } = useQuery(getHarperVersionProbeOptions(instanceParams));
 	// Only a super user can read the settings that hold the model names; otherwise they are typed.
 	const isSuperUser = useInstanceManagePermission();

@@ -14,7 +14,7 @@ import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSet
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
 import { useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
-import { useInstanceAuth } from '@/hooks/useAuth';
+import { useInstanceAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceManagePermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
@@ -23,6 +23,7 @@ import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInsta
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import {
@@ -96,6 +97,7 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 	const navigate = useNavigate();
 	const { user, isLoading } = useInstanceAuth(cluster.id);
 	const [isConnecting, setIsConnecting] = useState(false);
+	const canFabricConnect = useStaffPermission('cluster:connectReadOnly') || update;
 
 	const clusterHost = cluster.domains?.[0]?.domain || cluster.fqdn || '';
 	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
@@ -115,12 +117,21 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 				operationsUrl: getOperationsUrlForCluster(cluster),
 			});
 			await router.invalidate();
-		} catch {
-			toast.error('Could not connect to this cluster through Fabric Connect.');
+		} catch (err) {
+			if ((err as Error)?.name === 'SignedOutWhileConnectingError') {
+				return;
+			}
+			if (update) {
+				toast.error('Could not connect to this cluster through Fabric Connect.');
+			} else {
+				// A read-only caller has no sign-in to fall back on, so it needs the reason.
+				const { title, description } = describeError(err);
+				toast.error(`Read-only access unavailable: ${title}`, { description });
+			}
 		} finally {
 			setIsConnecting(false);
 		}
-	}, [cluster, router]);
+	}, [cluster, router, update]);
 
 	const onDirectSignIn = useCallback(() => {
 		authStore.setUserForEntity(cluster, null);
@@ -257,7 +268,7 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 					<div>
 						<h2 className="text-sm font-medium text-foreground mb-3">Connect to this cluster</h2>
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-							{update && !clusterIsSelfManaged(cluster) && (
+							{canFabricConnect && !clusterIsSelfManaged(cluster) && (
 								<ConnectOption
 									icon={Zap}
 									title="Fabric Connect"

@@ -46,11 +46,13 @@ import { useExportTableCsv } from '@/features/instance/databases/hooks/useExport
 import { EditTableRowModal, RecordNavigation } from '@/features/instance/databases/modals/EditTableRowModal';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
+import { useInstanceOperationAccess } from '@/hooks/useInstanceOperationPermission';
 import {
 	useInstanceBrowseManagePermission,
 	useInstanceImportCapabilities,
 	useInstanceImportDataPermission,
 	useInstanceSchemaTablePermission,
+	useInstanceSchemaTableReadDenied,
 	useInstanceTablePutPermission,
 } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
@@ -159,6 +161,7 @@ export function DatabaseTableView({
 	const { toggled: onlyIfCached, toggle: toggleOnlyCached } = useToggler(true);
 
 	const isStaffInstanceOperator = useStaffPermission('instance:update');
+	const canReadRecords = !useInstanceSchemaTableReadDenied(instanceId ?? clusterId, databaseName, tableName);
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canImportData = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const importCapabilities = useInstanceImportCapabilities();
@@ -195,9 +198,11 @@ export function DatabaseTableView({
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
 	// Newer Harper servers omit relationship attributes from describe entirely; the component
 	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
-	const { data: schemaRelationshipMap, isLoading: schemaRelationshipsLoading } = useQuery(
-		getSchemaRelationshipsQueryOptions(instanceParams),
+	const schemaFilesAccess = useInstanceOperationAccess('get_component_file');
+	const { data: schemaRelationshipMap, isLoading: schemaRelationshipsQueryLoading } = useQuery(
+		getSchemaRelationshipsQueryOptions({ ...instanceParams, enabled: schemaFilesAccess === true }),
 	);
+	const schemaRelationshipsLoading = schemaRelationshipsQueryLoading || schemaFilesAccess === undefined;
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
@@ -531,7 +536,7 @@ export function DatabaseTableView({
 	// Full list
 	const searchByValueParams = {
 		...instanceParams,
-		enabled: !useFilteredList && !!primaryKey,
+		enabled: canReadRecords && !useFilteredList && !!primaryKey,
 		databaseName,
 		tableName,
 		searchAttribute: primaryKey,
@@ -549,7 +554,7 @@ export function DatabaseTableView({
 	// Filtered list
 	const searchByConditionsParams = {
 		...instanceParams,
-		enabled: useFilteredList && !!primaryKey,
+		enabled: canReadRecords && useFilteredList && !!primaryKey,
 		databaseName,
 		tableName,
 		conditions: appliedSearchConditions,
@@ -1161,7 +1166,10 @@ export function DatabaseTableView({
 									Import Data
 								</DropdownMenuItem>
 							)}
-							<DropdownMenuItem onSelect={onExportCSVClicked} disabled={isExportingCSV || !hasKnownPrimaryKey}>
+							<DropdownMenuItem
+								onSelect={onExportCSVClicked}
+								disabled={isExportingCSV || !hasKnownPrimaryKey || !canReadRecords}
+							>
 								<CloudDownloadIcon />
 								Export CSV
 							</DropdownMenuItem>
@@ -1218,25 +1226,31 @@ export function DatabaseTableView({
 
 			<TableView<Record<string, unknown>>
 				primaryKey={primaryKey}
-				data={hasPrimaryKey ? pageRows : NO_ROWS}
-				emptyState={
-					<EmptyResultSet
-						tableName={tableName}
-						hasPrimaryKey={hasPrimaryKey}
-						isFiltered={useFilteredList}
-						isPastFirstPage={pageIndex > 0}
-						recordCount={totalRecords}
-						canImportFile={canImportFile}
-						canImportUrl={canImportUrl}
-						canSeedSample={canSeedSample}
-						canSeedRandom={canSeedRandom}
-						canAddRecords={canAddRecords}
-						onImport={onImportOwnDataClicked}
-						onSeed={onSeedDataClicked}
-						onAddRecords={onAddClicked}
-						onClearFilters={clearFilters}
-					/>
-				}
+				data={hasPrimaryKey && canReadRecords ? pageRows : NO_ROWS}
+				emptyState={canReadRecords
+					? (
+						<EmptyResultSet
+							tableName={tableName}
+							hasPrimaryKey={hasPrimaryKey}
+							isFiltered={useFilteredList}
+							isPastFirstPage={pageIndex > 0}
+							recordCount={totalRecords}
+							canImportFile={canImportFile}
+							canImportUrl={canImportUrl}
+							canSeedSample={canSeedSample}
+							canSeedRandom={canSeedRandom}
+							canAddRecords={canAddRecords}
+							onImport={onImportOwnDataClicked}
+							onSeed={onSeedDataClicked}
+							onAddRecords={onAddClicked}
+							onClearFilters={clearFilters}
+						/>
+					)
+					: (
+						<p className="p-6 text-center text-sm text-muted-foreground">
+							This connection can describe the table but not read its records.
+						</p>
+					)}
 				isFetching={isFetching}
 				filtersToggled={filtersToggled}
 				columns={dataTableColumns}

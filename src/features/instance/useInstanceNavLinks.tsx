@@ -1,6 +1,9 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useNavigationVisibility, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
+import { checkInstanceOperationAllowed } from '@/hooks/checkOperationPermission';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -35,7 +38,12 @@ export interface InstanceNavLink {
 export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]; tucked: InstanceNavLink[] } {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
-	const statusAvailable = supportsGetStatus(version) && canManage;
+	const permission = useInstanceAuth(useInstanceClientIdParams().entityId).user?.role?.permission;
+	const canRun = (operation: string) => checkInstanceOperationAllowed(permission, operation, version) === true;
+	const canBrowseComponents = canRun('get_components');
+	const canReadLogs = canRun('read_log');
+	const canListDeployments = wasAReleasedBeforeB('5.1.0', version) && canRun('list_deployments');
+	const statusAvailable = supportsGetStatus(version) && canRun('get_status');
 	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
 	const extensionTabs = useVisibleExtensionPages('tab');
 	const extensionConfigEntries = useVisibleExtensionPages('config');
@@ -43,7 +51,7 @@ export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]
 
 	return useMemo(() => {
 		const all = [
-			canManage && {
+			canBrowseComponents && {
 				key: 'applications',
 				// In cluster context the bare index is the cluster home, so Applications lives at /apps.
 				// Instance and local modes keep Applications at their index.
@@ -72,13 +80,13 @@ export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]
 				name: 'Operations',
 				icon: <SquareTerminalIcon className="inline-block" />,
 			},
-			canManage && statusAvailable && {
+			statusAvailable && {
 				key: 'status',
 				to: buildAbsoluteLinkToPage(params, 'status'),
 				icon: <GaugeIcon className="inline-block" />,
 				name: 'Status',
 			},
-			canManage && {
+			canReadLogs && {
 				key: 'logs',
 				to: buildAbsoluteLinkToPage(params, 'logs'),
 				icon: <NotepadTextIcon className="inline-block" />,
@@ -91,9 +99,8 @@ export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]
 				icon: <ExtensionIcon name={page.icon} className="inline-block" />,
 				name: page.name,
 			})),
-			// Config is a super-user page, except that a component can add an entry a lesser role may open;
-			// then Config holds just those entries for them.
-			(canManage || extensionConfigEntries.length > 0) && {
+			// Config is a super-user page, except for the entries a lesser role may open.
+			(canManage || canListDeployments || extensionConfigEntries.length > 0) && {
 				key: 'config',
 				to: buildAbsoluteLinkToPage(params, 'config'),
 				icon: <SettingsIcon className="inline-block" />,
@@ -104,5 +111,16 @@ export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]
 			links: all.filter((link) => visibilityOf(link.key) === 'visible'),
 			tucked: all.filter((link) => visibilityOf(link.key) === 'tucked'),
 		};
-	}, [canManage, params, apisAvailable, statusAvailable, extensionTabs, extensionConfigEntries.length, visibilityOf]);
+	}, [
+		canManage,
+		canBrowseComponents,
+		canReadLogs,
+		canListDeployments,
+		params,
+		apisAvailable,
+		statusAvailable,
+		extensionTabs,
+		extensionConfigEntries.length,
+		visibilityOf,
+	]);
 }

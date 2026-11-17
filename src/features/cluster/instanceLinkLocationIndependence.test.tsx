@@ -13,9 +13,14 @@ import {
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: undefined, isLoading: false }) }));
+const access = vi.hoisted(() => ({ update: true, readOnlyConnect: false }));
+
+vi.mock('@/hooks/useAuth', () => ({
+	useInstanceAuth: () => ({ user: undefined, isLoading: false }),
+	useStaffPermission: () => access.readOnlyConnect,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
-	useOrganizationClusterInstancePermissions: () => ({ update: true }),
+	useOrganizationClusterInstancePermissions: () => ({ update: access.update }),
 	useContainerOpsPermission: () => true,
 }));
 vi.mock('@/config/useInstanceClient', () => ({
@@ -80,7 +85,33 @@ async function renderedHrefs(path: string, component: () => React.ReactNode) {
 	return screen.getAllByRole('link').map(link => link.getAttribute('href'));
 }
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	access.update = true;
+	access.readOnlyConnect = false;
+});
+
+describe.each([
+	['row buttons', Cell],
+	['row menu', Menu],
+])('instance %s for a viewer without update rights', (_name, component) => {
+	it('link to Fabric Connect for staff who may connect read-only', async () => {
+		access.update = false;
+		access.readOnlyConnect = true;
+		const hrefs = await renderedHrefs('/org-a/clu-b/instances', component);
+
+		expect(hrefs).toContain(INSTANCE_HREF);
+		expect(hrefs).toContain(SIGN_IN_HREF);
+	});
+
+	it('link only to the direct sign-in for anyone else', async () => {
+		access.update = false;
+		const hrefs = await renderedHrefs('/org-a/clu-b/instances', component);
+
+		expect(hrefs).not.toContain(INSTANCE_HREF);
+		expect(hrefs).toContain(SIGN_IN_HREF);
+	});
+});
 
 describe.each([
 	['row buttons', Cell],

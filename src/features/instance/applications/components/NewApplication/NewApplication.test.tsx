@@ -96,8 +96,22 @@ async function switchTo(tab: RegExp) {
 }
 
 describe('NewApplication', () => {
+	it('opens on Import, without Templates, for a role that can deploy but not add a component', async () => {
+		render(<NewApplication canCreateFromTemplate={false} canImport />);
+
+		expect(screen.queryByRole('tab', { name: /Templates/ })).toBeNull();
+		await waitFor(() => expect(screen.getByRole('button', { name: /Import Application/ })).toBeTruthy());
+	});
+
+	it('offers no Import to a role that can add but not deploy a component', () => {
+		render(<NewApplication canCreateFromTemplate canImport={false} />);
+
+		expect(screen.queryByRole('tab', { name: /Import/ })).toBeNull();
+		expect(screen.getByRole('button', { name: /Create from Template/ })).toBeTruthy();
+	});
+
 	it('keeps Import disabled on every visit while the repository is empty', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await waitFor(() => expect(button(/Create from Template/).disabled).toBe(false));
 
 		for (const visit of [1, 2]) {
@@ -109,7 +123,7 @@ describe('NewApplication', () => {
 	});
 
 	it('enables the CLI steps after leaving an empty import', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await switchTo(/Import/);
 		await waitFor(() => expect(button(/Import Application/).disabled).toBe(true));
 
@@ -120,7 +134,7 @@ describe('NewApplication', () => {
 	});
 
 	it('does not flag the untouched repository URL when arriving with an invalid name', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await act(async () => {
 			fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'my app' } });
 		});
@@ -132,7 +146,7 @@ describe('NewApplication', () => {
 	});
 
 	it('stops the application name at the 75 characters the form accepts, and says so there', () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		const name = screen.getByLabelText('Name') as HTMLInputElement;
 		expect(name.maxLength).toBe(75);
 
@@ -141,7 +155,7 @@ describe('NewApplication', () => {
 	});
 
 	it('explains a refused application name when Enter is pressed in it', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await act(async () => {
 			fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'my app' } });
 		});
@@ -156,7 +170,7 @@ describe('NewApplication', () => {
 		['a space', 'my app', 'Can only contain letters, numbers, dashes and underscores.'],
 		['a name already in use', 'taken-app', 'That application name is already in use!'],
 	])('explains why an application name with %s is refused once the field is left', async (_, name, message) => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await act(async () => {
 			fireEvent.change(screen.getByLabelText('Name'), { target: { value: name } });
 		});
@@ -175,7 +189,7 @@ describe('NewApplication', () => {
 		const queryClient = new QueryClient();
 		const ui = () => (
 			<QueryClientProvider client={queryClient}>
-				<NewApplication />
+				<NewApplication canCreateFromTemplate canImport />
 			</QueryClientProvider>
 		);
 		const rendered = render(ui());
@@ -213,7 +227,7 @@ describe('NewApplication', () => {
 			title: 'Failed to import acme',
 			message: 'This repository has no package.json in its root folder.',
 		};
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 
 		await switchTo(/Import/);
 
@@ -228,7 +242,7 @@ describe('NewApplication', () => {
 			title: 'Failed to import acme',
 			message: 'Failed to deploy private repository ssh://github.com/acme/widgets.git: SSH access failed.',
 		};
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 
 		await switchTo(/Import/);
 
@@ -242,7 +256,7 @@ describe('NewApplication', () => {
 			message: 'Not every node staged it',
 			deploymentId: 'd1',
 		};
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 
 		await switchTo(/Import/);
 
@@ -253,7 +267,7 @@ describe('NewApplication', () => {
 
 	it('sends the chosen template to the CLI tab, and keeps following the choice there', async () => {
 		importState.ciDeploy = true;
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await act(async () => {
 			fireEvent.click(document.getElementById('vue')!);
 		});
@@ -274,7 +288,7 @@ describe('NewApplication', () => {
 	});
 
 	it('passes no template to a CLI tab opened directly', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await act(async () => {
 			fireEvent.click(document.getElementById('vue')!);
 		});
@@ -284,22 +298,22 @@ describe('NewApplication', () => {
 	});
 
 	it('mentions GitHub only on a cluster that takes deploys from it, and nothing until that is known', () => {
-		const rendered = render(<NewApplication />);
+		const rendered = render(<NewApplication canCreateFromTemplate canImport />);
 		expect(screen.queryByRole('button', { name: 'Create it with the Harper CLI' })).toBeNull();
 		expect(screen.getByText(/or deploy with Harper CLI/)).toBeTruthy();
 
 		importState.ciDeploy = false;
-		rendered.rerender(<NewApplication />);
+		rendered.rerender(<NewApplication canCreateFromTemplate canImport />);
 		expect(screen.getByText('Want it in a repository of your own?')).toBeTruthy();
 		expect(screen.queryByText(/deploys from GitHub/)).toBeNull();
 
 		importState.ciDeploy = true;
-		rendered.rerender(<NewApplication />);
+		rendered.rerender(<NewApplication canCreateFromTemplate canImport />);
 		expect(screen.getByText(/create a project with the Harper CLI that deploys from GitHub/)).toBeTruthy();
 	});
 
 	it('offers Deploy from GitHub for the name the import will use', async () => {
-		render(<NewApplication />);
+		render(<NewApplication canCreateFromTemplate canImport />);
 		await switchTo(/Import/);
 		expect(screen.getByText('Hint for acme')).toBeTruthy();
 		await act(async () => {

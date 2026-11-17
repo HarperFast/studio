@@ -1,6 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useReleaseTrackingAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { getReleasesQueryOptions } from '@/integrations/api/instance/deployments/listReleases';
 import { isTerminalDeploymentStatus, ListDeploymentsResponse } from '@/integrations/api/instance/deployments/types';
@@ -47,7 +48,8 @@ const newestRecordQuery = (instanceParams: InstanceClientIdConfig, project: stri
  */
 export function useComponentReleases(project: string | undefined) {
 	const instanceParams = useInstanceClientIdParams();
-	const supported = useReleaseTrackingAvailable() && !!project;
+	const canListReleases = useInstanceOperationPermission('list_releases');
+	const supported = useReleaseTrackingAvailable() && !!project && canListReleases;
 	const { data: newest, error: newestError } = useQuery(newestRecordQuery(instanceParams, project, supported));
 	const generation = newest && recordsGeneration(newest);
 	const { data, error, status, isPlaceholderData, fetchStatus } = useQuery(

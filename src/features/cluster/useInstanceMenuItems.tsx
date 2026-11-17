@@ -6,7 +6,7 @@ import { containerActionsForStatus } from '@/features/cluster/containerActionsFo
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
-import { useInstanceAuth } from '@/hooks/useAuth';
+import { useInstanceAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceContainerOps } from '@/hooks/useInstanceContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
@@ -59,6 +59,7 @@ export function useInstanceMenuItems(
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update: canManage } = useOrganizationClusterInstancePermissions();
+	const canReadOnlyConnect = useStaffPermission('cluster:connectReadOnly');
 	const canRunContainerOps = useContainerOpsPermission();
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
@@ -122,7 +123,7 @@ export function useInstanceMenuItems(
 			icon: <LogOutIcon />,
 			label: 'Direct Sign Out',
 		},
-		hasAuth && !isDirectlyLoggedIn && canManage && !isSelfManaged && {
+		hasAuth && !isDirectlyLoggedIn && (canManage || canReadOnlyConnect) && !isSelfManaged && {
 			key: 'fabric-connect',
 			to: instanceHref,
 			icon: <ServerIcon className="text-green" />,

@@ -3,7 +3,7 @@ import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
-import { useInstanceAuth } from '@/hooks/useAuth';
+import { useInstanceAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -22,6 +22,7 @@ export function InstanceLogInCell(
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update } = useOrganizationClusterInstancePermissions();
+	const canFabricConnect = useStaffPermission('cluster:connectReadOnly') || update;
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const onSignOutClick = useCallback(async () => {
@@ -45,7 +46,7 @@ export function InstanceLogInCell(
 	if (!instanceUser || isFabricConnect) {
 		return (
 			<span className="flex gap-4">
-				{update && !isSelfManaged && (
+				{canFabricConnect && !isSelfManaged && (
 					<Link
 						to={instanceHref}
 						className="text-sm"
@@ -61,7 +62,7 @@ export function InstanceLogInCell(
 					aria-label={`Sign in to ${instance.name} instance`}
 					title={`Sign in to ${instance.name} instance`}
 				>
-					<Button variant={update ? 'defaultOutline' : 'positiveOutline'}>Direct Sign In</Button>
+					<Button variant={canFabricConnect ? 'defaultOutline' : 'positiveOutline'}>Direct Sign In</Button>
 				</Link>
 			</span>
 		);
