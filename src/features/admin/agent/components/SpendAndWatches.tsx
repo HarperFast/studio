@@ -1,6 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AgentOverview, AgentWatch, agentWatchesQueryOptions } from '@/features/admin/agent/agentAdminApi';
+import {
+	AgentOverview,
+	AgentWatch,
+	agentWatchesQueryOptions,
+	WATCH_MAX_PAGE,
+} from '@/features/admin/agent/agentAdminApi';
 import { formatUsd, LoadFailed } from '@/features/admin/agent/components/AgentBits';
 import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/WorkflowBits';
 import { useQuery } from '@tanstack/react-query';
@@ -136,7 +141,16 @@ export function WatchesPanel() {
 							{error && <RefreshFailed error={error} />}
 							{data.length === 0
 								? <p className="text-sm text-muted-foreground">No watch is open.</p>
-								: <WatchTable watches={data} />}
+								: (
+									<>
+										{data.length >= WATCH_MAX_PAGE && (
+											<p className="mb-2 text-sm text-muted-foreground">
+												Showing the first {WATCH_MAX_PAGE} open watches, firing ones first.
+											</p>
+										)}
+										<WatchTable watches={data} />
+									</>
+								)}
 						</>
 					)}
 			</div>

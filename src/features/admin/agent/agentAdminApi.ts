@@ -10,7 +10,7 @@ import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export const RUN_STATUSES = ['pending', 'running', 'completed', 'error', 'cancelled', 'expired'] as const;
+const RUN_STATUSES = ['pending', 'running', 'completed', 'error', 'cancelled', 'expired'] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
 const OPEN_RUN_STATUSES: readonly string[] = ['pending', 'running'];
 export const PAST_RUN_STATUSES = ['completed', 'error', 'cancelled', 'expired'] as const;
@@ -145,9 +145,11 @@ export interface RunFilters {
 }
 
 export const RUN_PAGE_SIZE = 50;
+/** Contract: watches page at most 500 rows; the page asks for one full page and says when it is full. */
+export const WATCH_MAX_PAGE = 500;
 /** The server's largest page; the open-run list asks for all of it, since it is not paged. */
 export const RUN_MAX_PAGE = 200;
-/** Contract: a page may end at most 2,000 rows in; past that the server answers 400. */
+/** Contract (central-manager#1201): "`end` at most 2,000 (`400` beyond: narrow the range instead of paging deeper)". */
 export const RUN_MAX_END = 2_000;
 
 export const runPageSize = (filters: Pick<RunFilters, 'status'>) =>
@@ -225,7 +227,7 @@ export async function getAgentOverview(): Promise<AgentOverview> {
 }
 
 export async function getAgentWatches(): Promise<AgentWatch[]> {
-	const { data } = await apiClient.get('/Admin/AgentWatch/' as '/Admin/Region/');
+	const { data } = await apiClient.get(`/Admin/AgentWatch/?limit(0,${WATCH_MAX_PAGE})` as '/Admin/Region/');
 	if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of watches.'); }
 	return (data as unknown[]).filter((row): row is AgentWatch => isObject(row) && typeof row.id === 'string');
 }
@@ -282,6 +284,9 @@ export function agentOverviewQueryOptions() {
 		queryFn: getAgentOverview,
 		retry: false,
 		meta: { quietErrors: true },
+		// Besides the refetch on an open run's arrival or exit, so a run that starts and ends between two polls still lands.
+		refetchIntervalInBackground: false,
+		refetchInterval: pollUnlessForbidden(SLOW_POLL_MS),
 	});
 }
 

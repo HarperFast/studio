@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { SettingChange, useSaveAgentSettingsMutation } from '@/features/admin/agent/agentAdminApi';
 import { parseConfigValue } from '@/features/admin/configuration/index';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
-import { describeError } from '@/react-query/queryClient';
+import { shouldToastOwnFailure } from '@/react-query/queryClient';
 import { LockIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -32,7 +32,7 @@ function draftOf(value: unknown): string | boolean {
 	}
 }
 
-export type ParsedDraft = { ok: true; value: unknown } | { ok: false; error: string };
+type ParsedDraft = { ok: true; value: unknown } | { ok: false; error: string };
 
 export function parseDraft(kind: Kind, draft: string | boolean): ParsedDraft {
 	if (kind === 'boolean') { return { ok: true, value: draft === true }; }
@@ -175,6 +175,8 @@ export function AgentSettingsForm(
 	const { drafts, setDrafts, save: { mutate, isPending, error, reset } } = editor;
 	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
 	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
+	// Failures toast through the global handler; an unanswered one is only "outcome unknown", never someone else's edit.
+	const lastSaveUnanswered = !!error && !shouldToastOwnFailure(error);
 
 	if (settings.length === 0) {
 		return <p className="text-sm text-muted-foreground">Central manager lists no agent settings.</p>;
@@ -241,7 +243,9 @@ export function AgentSettingsForm(
 											)}
 										{movedUnder.includes(entry.name) && (
 											<span className="text-xs text-yellow-600 dark:text-yellow-400">
-												Changed by someone else since you started editing. Discard to see the current value.
+												{lastSaveUnanswered
+													? 'Your last save got no answer and may have landed. Discard to see the current value.'
+													: 'Changed by someone else since you started editing. Discard to see the current value.'}
 											</span>
 										)}
 										{errors[entry.name] && <span className="text-xs text-destructive">{errors[entry.name]}</span>}
@@ -278,7 +282,6 @@ export function AgentSettingsForm(
 							Discard
 						</Button>
 					)}
-					{error && <span role="alert" className="text-sm text-destructive">{describeError(error).message}</span>}
 				</div>
 			)}
 		</form>
