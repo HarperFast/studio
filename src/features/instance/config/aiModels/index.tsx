@@ -9,7 +9,6 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import {
-	FABRIC_KEEPS_CUSTOMER_MODELS,
 	isRecord,
 	MODEL_KINDS,
 	ModelKind,
@@ -115,8 +114,6 @@ function AiModelsPage() {
 		? clusterFailed
 			? "Studio couldn't read this cluster, so it can't tell which models are Fabric's. Reload to change models here."
 			: undefined
-		: onFabric && !FABRIC_KEEPS_CUSTOMER_MODELS
-		? "Adding your own models isn't available on Fabric yet."
 		: !supportsModelsWrite(version)
 		? `Adding and changing models here needs Harper 5.4 or later. This ${targetNoun} runs ${version}.`
 			+ (onFabric ? '' : " On this version, set them in the models section of the instance's config file.")

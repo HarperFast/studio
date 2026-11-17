@@ -62,13 +62,20 @@ tells them apart by what Fabric writes:
 Off Fabric (Local Studio, a self-managed cluster) nothing is managed. Until the cluster has loaded,
 no entry can be told apart, so nothing is offered for change.
 
-## Why adding is off on Fabric
+## Fabric shares the block with the customer
 
-Host manager makes the whole `models` block equal to Fabric's on every setup pass
-(`ensureModelsConfigFile`, host-manager `src/helpers/modelsConfigFile.js`), so a customer's entry
-is gone at the next one. HarperFast/host-manager#279 changes that. Until it runs on every Fabric
-host, `FABRIC_KEEPS_CUSTOMER_MODELS` in `models.ts` stays `false` and the page offers no add, edit
-or remove there. Flip it when the fix is deployed; nothing else changes.
+On each setup pass host manager merges Fabric's entries into the block, one `kind.name` at a time,
+and leaves every other entry alone (`mergeFabricEntries`, host-manager
+`src/helpers/modelsConfigFile.js`, since HarperFast/host-manager#363). So a model added here is
+still there after the next pass, and the page offers add, edit and remove on Fabric.
+
+- A name Fabric uses is Fabric's. Whatever sits under it is replaced at the next pass, so the save
+  refuses those names (below) instead of writing an entry that would not last.
+- Host manager takes out only an entry it wrote itself, and only while the entry still reads as it
+  wrote it. A customer's entry is never removed.
+
+Host manager touches the block from Harper 5.3 (`MODELS_HOT_RELOAD_MIN_VERSION`) and Studio writes it
+from 5.4, so every instance Studio writes to is one host manager merges on.
 
 ## A save is a read-modify-write on each instance
 
