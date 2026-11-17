@@ -147,7 +147,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
 }
 
 test('a run moves from Active to Past runs when it finishes, without a reload', async ({ page }) => {
-	const state = { active: [activeRun] as unknown[], past: [activeRun, pastRun] as unknown[] };
+	// Past runs starts without the open run, so only the refetch Active triggers can bring it there inside 30 s.
+	const state = { active: [activeRun] as unknown[], past: [pastRun] as unknown[] };
 	await mockCentralManager(page, state);
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await page.goto('/#/admin/agent');
@@ -165,7 +166,6 @@ test('a run moves from Active to Past runs when it finishes, without a reload', 
 	state.active = [];
 	state.past = [finished, pastRun];
 
-	// The active list polls every 5 s; the past list is refetched as soon as the run leaves it.
 	await expect(active.getByText('No run is in progress.')).toBeVisible({ timeout: 10_000 });
 	await expect(past.getByText('arn-live')).toBeVisible({ timeout: 5_000 });
 	await expect(past.getByText('healthy')).toBeVisible();

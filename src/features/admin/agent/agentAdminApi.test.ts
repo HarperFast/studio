@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
@@ -8,8 +9,10 @@ import {
 	getAgentOverview,
 	getRun,
 	getRuns,
+	invalidateRunLists,
 	runDetailQueryOptions,
 	runListInterval,
+	runListQueryOptions,
 	runListQueryString,
 	runPath,
 	RunSummary,
@@ -80,9 +83,34 @@ describe('runListInterval', () => {
 		expect(runListInterval({ range: { kind: 'default' }, status: 'active' }, [])).toBe(FAST_POLL_MS);
 	});
 
+	it('polls every 30 s for a view that hides open runs, since it never shows one', () => {
+		expect(runListInterval({ range: { kind: 'default' } }, [run('running')], true)).toBe(SLOW_POLL_MS);
+	});
+
 	it('polls every 30 s otherwise, including before the first answer', () => {
 		expect(runListInterval({ range: { kind: 'default' } }, [run('completed'), run('error')])).toBe(SLOW_POLL_MS);
 		expect(runListInterval({ range: { kind: 'default' }, verdict: 'down' }, undefined)).toBe(SLOW_POLL_MS);
+	});
+});
+
+describe('run list paging', () => {
+	it('asks for the largest page for open runs, which are not paged', () => {
+		expect(runListQueryString({ range: { kind: 'default' }, status: 'active' }, 0, NOW)).toBe(
+			'status=active&limit(0,200)',
+		);
+	});
+});
+
+describe('invalidateRunLists', () => {
+	it('can leave out the open-run list whose own poll saw the change', async () => {
+		const client = new QueryClient();
+		const active = runListQueryOptions({ range: { kind: 'default' }, status: 'active' }).queryKey;
+		const past = runListQueryOptions({ range: { kind: 'default' } }).queryKey;
+		client.setQueryData(active, []);
+		client.setQueryData(past, []);
+		await invalidateRunLists(client, { exceptActive: true });
+		expect(client.getQueryState(active)?.isInvalidated).toBe(false);
+		expect(client.getQueryState(past)?.isInvalidated).toBe(true);
 	});
 });
 
@@ -125,6 +153,11 @@ describe('runDetailQueryOptions polling', () => {
 		(runDetailQueryOptions('arn-1').refetchInterval as (query: unknown) => number | false)({
 			state: { data, error: null },
 		});
+
+	it('stops polling a run the server does not have', () => {
+		const refetchInterval = runDetailQueryOptions('arn-x').refetchInterval as (query: unknown) => number | false;
+		expect(refetchInterval({ state: { data: undefined, error: { response: { status: 404 } } } })).toBe(false);
+	});
 
 	it('re-reads every 5 s until the run is terminal', () => {
 		expect(interval(undefined)).toBe(FAST_POLL_MS);

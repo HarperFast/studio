@@ -5,6 +5,7 @@ import { apiClient } from '@/config/apiClient';
 import { updateConfiguration } from '@/features/admin/configuration/mutations/useUpdateConfiguration';
 import { configurationQueryKey } from '@/features/admin/configuration/queries/getConfiguration';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
+import { errorStatus } from '@/lib/errorStatus';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -144,8 +145,13 @@ export interface RunFilters {
 }
 
 export const RUN_PAGE_SIZE = 50;
-/** Rows past this cannot be paged to: the server answers 400 and asks for a narrower range. */
+/** The server's largest page; the open-run list asks for all of it, since it is not paged. */
+export const RUN_MAX_PAGE = 200;
+/** Contract: a page may end at most 2,000 rows in; past that the server answers 400. */
 export const RUN_MAX_END = 2_000;
+
+export const runPageSize = (filters: Pick<RunFilters, 'status'>) =>
+	filters.status === 'active' ? RUN_MAX_PAGE : RUN_PAGE_SIZE;
 
 export const isOpenRun = (run: Pick<RunSummary, 'status'>) => OPEN_RUN_STATUSES.includes(run.status);
 
@@ -178,7 +184,7 @@ export function runListQueryString(filters: RunFilters, start: number, now = Dat
 		set('from', range.from);
 		set('to', range.to);
 	}
-	params.push(`limit(${start},${start + RUN_PAGE_SIZE})`);
+	params.push(`limit(${start},${start + runPageSize(filters)})`);
 	return params.join('&');
 }
 
@@ -233,9 +239,10 @@ export const FAST_POLL_MS = 5_000;
 export const SLOW_POLL_MS = 30_000;
 const WATCH_POLL_MS = 60_000;
 
-/** The list's poll interval for its last answer. */
-export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefined): number {
-	return filters.status === 'active' || rows?.some(isOpenRun) ? FAST_POLL_MS : SLOW_POLL_MS;
+/** The list's poll interval for its last answer. A view that hides open runs never shows one, so it polls slowly. */
+export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefined, hidesOpenRuns = false): number {
+	if (filters.status === 'active') { return FAST_POLL_MS; }
+	return !hidesOpenRuns && rows?.some(isOpenRun) ? FAST_POLL_MS : SLOW_POLL_MS;
 }
 
 /**
@@ -243,14 +250,14 @@ export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefi
  * run that left the filter. React Query renders only the current key's answer, so a reply for filters the user has
  * since changed is never shown.
  */
-export function runListQueryOptions(filters: RunFilters, start = 0) {
+export function runListQueryOptions(filters: RunFilters, start = 0, { hidesOpenRuns = false } = {}) {
 	return queryOptions({
 		queryKey: [...runListPrefix, filters, start],
 		queryFn: () => getRuns(filters, start),
 		retry: false,
 		meta: { quietErrors: true },
 		refetchIntervalInBackground: false,
-		refetchInterval: (query) => pollUnlessForbidden(runListInterval(filters, query.state.data))(query),
+		refetchInterval: (query) => pollUnlessForbidden(runListInterval(filters, query.state.data, hidesOpenRuns))(query),
 	});
 }
 
@@ -263,7 +270,8 @@ export function runDetailQueryOptions(id: string) {
 		refetchIntervalInBackground: false,
 		refetchInterval: (query) => {
 			const run = query.state.data;
-			return run && !isOpenRun(run) ? false : pollUnlessForbidden(FAST_POLL_MS)(query);
+			if ((run && !isOpenRun(run)) || errorStatus(query.state.error) === 404) { return false; }
+			return pollUnlessForbidden(FAST_POLL_MS)(query);
 		},
 	});
 }
@@ -288,9 +296,14 @@ export function agentWatchesQueryOptions() {
 	});
 }
 
-/** Refetch every run list after something that changes runs or spend; the overview is the caller's call. */
-export function invalidateRunLists(queryClient: ReturnType<typeof useQueryClient>) {
-	return queryClient.invalidateQueries({ queryKey: runListPrefix });
+const isActiveListKey = (key: readonly unknown[]) => (key[3] as Partial<RunFilters> | undefined)?.status === 'active';
+
+/** Refetch run lists after something that changes runs; `exceptActive` when the active list's own poll saw it. */
+export function invalidateRunLists(queryClient: ReturnType<typeof useQueryClient>, { exceptActive = false } = {}) {
+	return queryClient.invalidateQueries({
+		queryKey: runListPrefix,
+		predicate: (query) => !(exceptActive && isActiveListKey(query.queryKey)),
+	});
 }
 
 /** Cancel needs agent:run. Every settle refetches, since an unanswered cancel may have landed. */
@@ -302,8 +315,15 @@ export function useCancelRunMutation() {
 			const { data } = await apiClient.delete(runPath(id) as '/Cluster/{id}');
 			return data as unknown as { id: string; status: string };
 		},
-		onSuccess: (result, id) =>
-			toast.success(`Run ${result?.status === 'cancelled' ? 'cancelled' : 'already finished'}`, { description: id }),
+		onSuccess: (result, id) => {
+			const status = result?.status;
+			const message = status === 'cancelled'
+				? 'Run cancelled'
+				: status && !OPEN_RUN_STATUSES.includes(status)
+				? `Run had already finished (${status})`
+				: 'Cancel requested; the run stops shortly';
+			toast.success(message, { description: id });
+		},
 		onSettled: (_data, _error, id) => {
 			void invalidateRunLists(queryClient);
 			void queryClient.invalidateQueries({ queryKey: [...agentQueryPrefix, 'run', id] });

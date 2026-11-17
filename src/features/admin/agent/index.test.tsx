@@ -297,3 +297,57 @@ describe('AgentAdminIndex — settings', () => {
 		expect(within(form).queryByRole('button', { name: /Save/ })).toBeNull();
 	});
 });
+
+describe('AgentAdminIndex — review regressions', () => {
+	it('refuses a stale draft after someone else changed the key, even once the page has refetched', async () => {
+		const client = renderPage();
+		openTab('Settings');
+		const form = await screen.findByRole('form', { name: 'Agent settings' });
+		fireEvent.change(within(form).getByLabelText('AGENT_RUN_BUDGET_USD'), { target: { value: '2' } });
+
+		stored.AGENT_RUN_BUDGET_USD = 5;
+		overview = {
+			...OVERVIEW,
+			settings: OVERVIEW.settings.map((row) =>
+				(row.name === 'AGENT_RUN_BUDGET_USD' ? { ...row, value: 5 } : row) as (typeof OVERVIEW.settings)[number]
+			),
+		};
+		await act(() => client.refetchQueries({ queryKey: ['fabric-admin', 'agent', 'overview'] }));
+		expect(await within(form).findByText(/Changed by someone else since you started editing/)).toBeTruthy();
+		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2');
+
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		expect(await within(form).findByText(/AGENT_RUN_BUDGET_USD was changed by someone else/)).toBeTruthy();
+		expect(patch).not.toHaveBeenCalled();
+	});
+
+	it('keeps an unsaved settings edit across a tab switch', async () => {
+		renderPage();
+		openTab('Settings');
+		let form = await screen.findByRole('form', { name: 'Agent settings' });
+		fireEvent.change(within(form).getByLabelText('AGENT_RUN_BUDGET_USD'), { target: { value: '3' } });
+		openTab('Watches');
+		await screen.findByRole('region', { name: 'Watches' });
+		openTab('Settings');
+		form = await screen.findByRole('form', { name: 'Agent settings' });
+		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('3');
+		expect(within(form).getByRole('button', { name: 'Save 1 change' })).toBeTruthy();
+	});
+
+	it('refetches spend when a run finishes while another tab is showing', async () => {
+		const client = renderPage();
+		await screen.findByText('arn-active');
+		openTab('Watches');
+		await screen.findByRole('region', { name: 'Watches' });
+		const overviewReads = () => get.mock.calls.filter(([url]) => url === '/Admin/AgentOverview/').length;
+		const before = overviewReads();
+
+		activeRuns = [];
+		await act(() =>
+			client.refetchQueries({
+				queryKey: ['fabric-admin', 'agent', 'runs', { range: { kind: 'default' }, status: 'active' }],
+			})
+		);
+		await waitFor(() => expect(overviewReads()).toBeGreaterThan(before));
+	});
+});

@@ -8,6 +8,7 @@ import {
 	isOpenRun,
 	PAST_RUN_STATUSES,
 	RUN_MAX_END,
+	RUN_MAX_PAGE,
 	RUN_PAGE_SIZE,
 	RunFilters,
 	runListQueryOptions,
@@ -58,24 +59,30 @@ function ClusterCell({ run }: { run: Pick<RunSummary, 'clusterId' | 'organizatio
 	);
 }
 
+export const activeRunsQueryOptions = () => runListQueryOptions(ACTIVE_FILTERS);
+
 /**
- * Open runs, every 5 s. A run that appears or leaves this list is new or newly finished, which is when spend and the
- * past list change, so both are refetched then rather than waiting for their own timers.
+ * Polls the open runs for the whole page, whichever tab is showing. A run that appears or leaves the list is new or
+ * newly finished, which is when spend and the past list change, so both are refetched then rather than on their timers.
  */
-export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
+export function useActiveRunChanges() {
 	const queryClient = useQueryClient();
-	const { data, error, isLoading } = useQuery(runListQueryOptions(ACTIVE_FILTERS));
+	const { data } = useQuery(activeRunsQueryOptions());
 	const previous = useRef<string | null>(null);
 	const ids = data ? data.map((run) => run.id).sort().join(',') : null;
 
 	useEffect(() => {
 		if (ids === null) { return; }
 		if (previous.current !== null && previous.current !== ids) {
-			void invalidateRunLists(queryClient);
+			void invalidateRunLists(queryClient, { exceptActive: true });
 			void queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey });
 		}
 		previous.current = ids;
 	}, [ids, queryClient]);
+}
+
+export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
+	const { data, error, isLoading } = useQuery(activeRunsQueryOptions());
 
 	return (
 		<section aria-label="Active runs">
@@ -88,6 +95,11 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 					: (
 						<>
 							{error && <RefreshFailed error={error} />}
+							{data.length >= RUN_MAX_PAGE && (
+								<p className="mb-2 text-sm text-muted-foreground">
+									Showing the newest {RUN_MAX_PAGE} open runs; older open runs are not listed.
+								</p>
+							)}
 							{data.length === 0
 								? <p className="text-sm text-muted-foreground">No run is in progress.</p>
 								: (
@@ -203,7 +215,6 @@ export function PastRuns() {
 		organizationId: debouncedOrganization || undefined,
 	}), [rangeChoice, fromDay, toDay, status, triggerKind, verdict, debouncedCluster, debouncedOrganization]);
 
-	// A new filter starts from the first page.
 	const filterKey = JSON.stringify(filters);
 	const [pagedKey, setPagedKey] = useState(filterKey);
 	if (pagedKey !== filterKey) {
@@ -211,7 +222,7 @@ export function PastRuns() {
 		setStart(0);
 	}
 
-	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start));
+	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start, { hidesOpenRuns: true }));
 	const rows = data?.filter((run) => !isOpenRun(run)) ?? [];
 	const hasNext = data !== undefined && data.length === RUN_PAGE_SIZE && start + 2 * RUN_PAGE_SIZE <= RUN_MAX_END;
 
@@ -350,9 +361,11 @@ export function PastRuns() {
 						<Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setStart(start + RUN_PAGE_SIZE)}>
 							Older
 						</Button>
-						<span className="text-xs text-muted-foreground">
-							Rows {start + 1}–{start + (data?.length ?? 0)}
-						</span>
+						{!!data?.length && (
+							<span className="text-xs text-muted-foreground">
+								Rows {start + 1}–{start + data.length}
+							</span>
+						)}
 					</div>
 				)}
 			</div>
