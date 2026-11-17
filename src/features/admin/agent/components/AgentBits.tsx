@@ -53,7 +53,6 @@ export function formatUsd(value: number | null | undefined): string {
 	return `$${value.toFixed(value !== 0 && Math.abs(value) < 0.1 ? 4 : 2)}`;
 }
 
-/** Settled spend once known; while the run holds a reservation only, that, marked as such. */
 export function runCostLabel(run: Pick<RunSummary, 'cost'>): string {
 	const cost = run.cost;
 	if (!cost) { return '—'; }

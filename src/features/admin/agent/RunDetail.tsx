@@ -147,7 +147,6 @@ function FindingView({ finding }: { finding: Finding }) {
 	);
 }
 
-/** The run's own blind spots and the finding's, once each. */
 function blindSpotsOf(run: RunDetail): string[] {
 	return [...new Set([...(run.blindSpots ?? []), ...(run.finding?.blindSpots ?? [])])];
 }
@@ -204,7 +203,7 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 							<span className="font-mono text-xs">{trigger.ref}</span>
 						</DetailRow>
 					)}
-					{trigger.windowMinutes && <DetailRow label="Window">{trigger.windowMinutes} minutes</DetailRow>}
+					{trigger.windowMinutes != null && <DetailRow label="Window">{trigger.windowMinutes} minutes</DetailRow>}
 					{trigger.by && <DetailRow label="By">{trigger.by}</DetailRow>}
 					{trigger.reason && <DetailRow label="Reason">{trigger.reason}</DetailRow>}
 				</dl>

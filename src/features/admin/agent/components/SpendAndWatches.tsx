@@ -16,7 +16,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 	);
 }
 
-/** Month-to-date spend per role against its monthly budget, and the per-run cap. */
 export function SpendPanel({ overview }: { overview: AgentOverview }) {
 	return (
 		<section aria-label="Spend" className="mt-6">

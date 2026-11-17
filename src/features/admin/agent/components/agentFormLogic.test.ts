@@ -5,7 +5,12 @@ vi.mock('@/config/apiClient', () => ({ apiClient: {} }));
 
 import { rangeFor } from '@/features/admin/agent/components/Activity';
 import { formatDuration, formatUsd, runCostLabel, runDuration } from '@/features/admin/agent/components/AgentBits';
-import { changedSettings, parseDraft, settingGroup } from '@/features/admin/agent/components/AgentSettingsForm';
+import {
+	changedSettings,
+	parseDraft,
+	settingGroup,
+	startDraft,
+} from '@/features/admin/agent/components/AgentSettingsForm';
 import { switchedOffReason } from '@/features/admin/agent/index';
 
 const entry = (name: string, value: unknown) => ({ name, value, description: 'd', superUserOnly: false });
@@ -28,9 +33,9 @@ describe('settings form logic', () => {
 			entry('AGENT_SLACK_CHANNEL', 'a'),
 		];
 		const { changes, errors } = changedSettings(settings, {
-			AGENT_ENABLED: true,
-			AGENT_RUN_BUDGET_USD: '1',
-			AGENT_SLACK_CHANNEL: 'b',
+			AGENT_ENABLED: { text: true, expected: false },
+			AGENT_RUN_BUDGET_USD: { text: '1', expected: 1 },
+			AGENT_SLACK_CHANNEL: { text: 'b', expected: 'a' },
 		});
 		expect(changes).toEqual([
 			{ name: 'AGENT_ENABLED', value: true, expected: false },
@@ -40,9 +45,21 @@ describe('settings form logic', () => {
 	});
 
 	it('holds back an unparseable draft as an error', () => {
-		const { changes, errors } = changedSettings([entry('AGENT_RUN_BUDGET_USD', 1)], { AGENT_RUN_BUDGET_USD: 'x' });
+		const { changes, errors } = changedSettings([entry('AGENT_RUN_BUDGET_USD', 1)], {
+			AGENT_RUN_BUDGET_USD: { text: 'x', expected: 1 },
+		});
 		expect(changes).toEqual([]);
 		expect(errors).toEqual({ AGENT_RUN_BUDGET_USD: 'Enter a number.' });
+	});
+
+	// A refetch after someone else's save must not move the baseline, or the stale draft would overwrite their value.
+	it('keeps the value an edit started from when the row changes underneath it', () => {
+		const draft = startDraft(entry('AGENT_RUN_BUDGET_USD', 1), '2');
+		const { changes, movedUnder } = changedSettings([entry('AGENT_RUN_BUDGET_USD', 5)], {
+			AGENT_RUN_BUDGET_USD: draft,
+		});
+		expect(changes).toEqual([{ name: 'AGENT_RUN_BUDGET_USD', value: 2, expected: 1 }]);
+		expect(movedUnder).toEqual(['AGENT_RUN_BUDGET_USD']);
 	});
 
 	it('groups by what the name says, with anything unrecognized in Other', () => {

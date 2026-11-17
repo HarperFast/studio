@@ -1,14 +1,14 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { agentOverviewQueryOptions } from '@/features/admin/agent/agentAdminApi';
-import { ActiveRuns, PastRuns } from '@/features/admin/agent/components/Activity';
+import { ActiveRuns, PastRuns, useActiveRunChanges } from '@/features/admin/agent/components/Activity';
 import { LoadFailed } from '@/features/admin/agent/components/AgentBits';
-import { AgentSettingsForm } from '@/features/admin/agent/components/AgentSettingsForm';
+import { AgentSettingsForm, SettingDrafts } from '@/features/admin/agent/components/AgentSettingsForm';
 import { SpendPanel, WatchesPanel } from '@/features/admin/agent/components/SpendAndWatches';
 import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-/** What is switched off, from the overview: the global switch, or every role's own. */
 export function switchedOffReason(
 	overview: { agentEnabled: boolean; roles: Array<{ role: string; enabled: boolean }> },
 ) {
@@ -28,6 +28,8 @@ export function AgentAdminIndex() {
 	const isCoreSuperUser = user !== null && 'fabricRole' in user && user.fabricRole === 'super_user';
 	const overview = useQuery(agentOverviewQueryOptions());
 	const offReason = overview.data ? switchedOffReason(overview.data) : null;
+	const [drafts, setDrafts] = useState<SettingDrafts>({});
+	useActiveRunChanges();
 
 	return (
 		<div>
@@ -76,6 +78,8 @@ export function AgentAdminIndex() {
 								settings={overview.data.settings}
 								canWrite={canWriteConfig}
 								isCoreSuperUser={isCoreSuperUser}
+								drafts={drafts}
+								setDrafts={setDrafts}
 							/>
 						)
 						: <LoadFailed what="settings" error={overview.error} />}

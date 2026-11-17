@@ -8,7 +8,7 @@ import { parseConfigValue } from '@/features/admin/configuration/index';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { LockIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Dispatch, SetStateAction } from 'react';
 
 type Kind = 'boolean' | 'number' | 'string' | 'json';
 
@@ -19,7 +19,6 @@ function kindOf(value: unknown): Kind {
 	return 'json';
 }
 
-/** The text a draft starts from; a boolean's draft is the value itself. */
 function draftOf(value: unknown): string | boolean {
 	switch (kindOf(value)) {
 		case 'boolean':
@@ -35,7 +34,6 @@ function draftOf(value: unknown): string | boolean {
 
 export type ParsedDraft = { ok: true; value: unknown } | { ok: false; error: string };
 
-/** Read a draft back as the value its row's current type expects. */
 export function parseDraft(kind: Kind, draft: string | boolean): ParsedDraft {
 	if (kind === 'boolean') { return { ok: true, value: draft === true }; }
 	const text = String(draft);
@@ -62,35 +60,52 @@ const GROUP_ORDER = ['Switches', 'Budgets', 'Other', 'Slack', 'Data sources'];
 const isMissingRow = (entry: AdminConfigurationEntry) =>
 	entry.value === null && (entry.description === null || entry.description === undefined);
 
-/** The changed keys only, each carrying the value it was read with, so a concurrent edit is refused, not overwritten. */
+/** An edit in progress, pinned to the value it started from so a refetch never moves the concurrent-edit baseline. */
+export interface SettingDraft {
+	text: string | boolean;
+	expected: unknown;
+}
+export type SettingDrafts = Record<string, SettingDraft>;
+
+export function startDraft(entry: AdminConfigurationEntry, text: string | boolean): SettingDraft {
+	return { text, expected: entry.value ?? null };
+}
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** The changed keys only, each carrying the value its edit started from, so a concurrent edit is refused, not overwritten. */
 export function changedSettings(
 	settings: AdminConfigurationEntry[],
-	drafts: Record<string, string | boolean>,
-): { changes: SettingChange[]; errors: Record<string, string> } {
+	drafts: SettingDrafts,
+): { changes: SettingChange[]; errors: Record<string, string>; movedUnder: string[] } {
 	const changes: SettingChange[] = [];
 	const errors: Record<string, string> = {};
+	const movedUnder: string[] = [];
 	for (const entry of settings) {
-		if (!(entry.name in drafts)) { continue; }
-		const parsed = parseDraft(kindOf(entry.value), drafts[entry.name]);
+		const draft = drafts[entry.name];
+		if (!draft) { continue; }
+		if (!sameJson(entry.value, draft.expected)) { movedUnder.push(entry.name); }
+		const parsed = parseDraft(kindOf(draft.expected), draft.text);
 		if (!parsed.ok) {
 			errors[entry.name] = parsed.error;
-		} else if (JSON.stringify(parsed.value) !== JSON.stringify(entry.value ?? null)) {
-			changes.push({ name: entry.name, value: parsed.value, expected: entry.value ?? null });
+		} else if (!sameJson(parsed.value, draft.expected)) {
+			changes.push({ name: entry.name, value: parsed.value, expected: draft.expected });
 		}
 	}
-	return { changes, errors };
+	return { changes, errors, movedUnder };
 }
 
 function SettingControl(
-	{ entry, draft, disabled, onChange }: {
+	{ entry, kind, draft, disabled, onChange }: {
 		entry: AdminConfigurationEntry;
+		kind: Kind;
 		draft: string | boolean;
 		disabled: boolean;
 		onChange: (draft: string | boolean) => void;
 	},
 ) {
 	const label = entry.name;
-	switch (kindOf(entry.value)) {
+	switch (kind) {
 		case 'boolean':
 			return <Switch checked={draft === true} disabled={disabled} aria-label={label} onCheckedChange={onChange} />;
 		case 'number':
@@ -135,15 +150,18 @@ function SettingControl(
  * time, under its rules: config:write to edit at all, and a super-user-only key only for the core super user.
  */
 export function AgentSettingsForm(
-	{ settings, canWrite, isCoreSuperUser }: {
+	{ settings, canWrite, isCoreSuperUser, drafts, setDrafts }: {
 		settings: AdminConfigurationEntry[];
 		canWrite: boolean;
 		isCoreSuperUser: boolean;
+		/** Held by the page, so switching tabs mid-edit keeps the edit. */
+		drafts: SettingDrafts;
+		setDrafts: Dispatch<SetStateAction<SettingDrafts>>;
 	},
 ) {
-	const [drafts, setDrafts] = useState<Record<string, string | boolean>>({});
 	const { mutate, isPending, error } = useSaveAgentSettingsMutation();
-	const { changes, errors } = changedSettings(settings, drafts);
+	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
+	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
 
 	if (settings.length === 0) {
 		return <p className="text-sm text-muted-foreground">Central manager lists no agent settings.</p>;
@@ -171,7 +189,7 @@ export function AgentSettingsForm(
 			aria-label="Agent settings"
 			onSubmit={(event) => {
 				event.preventDefault();
-				save();
+				if (canSave) { save(); }
 			}}
 		>
 			{!canWrite && (
@@ -185,7 +203,7 @@ export function AgentSettingsForm(
 							{entries.map((entry) => {
 								const missing = isMissingRow(entry);
 								const editable = canWrite && !missing && (!entry.superUserOnly || isCoreSuperUser);
-								const draft = drafts[entry.name] ?? draftOf(entry.value);
+								const draft = drafts[entry.name];
 								return (
 									<div key={entry.name} className="flex flex-col gap-1.5">
 										<span className="inline-flex items-center gap-2 font-mono text-sm">
@@ -206,11 +224,21 @@ export function AgentSettingsForm(
 											: (
 												<SettingControl
 													entry={entry}
-													draft={draft}
+													kind={kindOf(draft ? draft.expected : entry.value)}
+													draft={draft ? draft.text : draftOf(entry.value)}
 													disabled={!editable || isPending}
-													onChange={(next) => setDrafts((current) => ({ ...current, [entry.name]: next }))}
+													onChange={(next) =>
+														setDrafts((current) => ({
+															...current,
+															[entry.name]: { ...(current[entry.name] ?? startDraft(entry, next)), text: next },
+														}))}
 												/>
 											)}
+										{movedUnder.includes(entry.name) && (
+											<span className="text-xs text-yellow-600 dark:text-yellow-400">
+												Changed by someone else since you started editing. Discard to see the current value.
+											</span>
+										)}
 										{errors[entry.name] && <span className="text-xs text-destructive">{errors[entry.name]}</span>}
 									</div>
 								);
@@ -224,7 +252,7 @@ export function AgentSettingsForm(
 					<Button
 						type="submit"
 						variant="submit"
-						disabled={isPending || changes.length === 0 || Object.keys(errors).length > 0}
+						disabled={!canSave}
 					>
 						{isPending
 							? 'Saving…'
