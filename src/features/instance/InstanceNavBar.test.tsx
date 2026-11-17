@@ -124,7 +124,6 @@ describe('InstanceNavBar fitting its bar', () => {
 		const every = shownTabs();
 		unmount();
 
-		// A bar with room for five tabs.
 		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
 			return this.querySelectorAll('a').length * 100;
 		});

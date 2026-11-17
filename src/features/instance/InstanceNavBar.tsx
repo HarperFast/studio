@@ -163,7 +163,6 @@ function MoreMenu({ tucked, label }: { tucked: InstanceNavLink[]; label: boolean
 		link.activeOptions?.exact ? pathname === link.to : isAtOrUnder(pathname, link.to)
 	);
 	return (
-		// Not modal, for the same reason as the folded crumbs' menu in Breadcrumbs.
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<button
