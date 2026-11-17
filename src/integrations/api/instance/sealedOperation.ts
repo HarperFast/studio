@@ -28,7 +28,7 @@ export class SealedOperationError extends Error {
 	}
 }
 
-/** The request went out, but the answer was missing, malformed or not this request's: the operation may have run. */
+/** The request went out, but the answer was missing, malformed or not this request's: a write may have run. */
 export class UnreadableSealedAnswerError extends Error {
 	operation: string;
 

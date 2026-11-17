@@ -123,10 +123,11 @@ A retry reads the cluster's state the same way: `add_user` answering "already ex
 `list_users` reports it an active super user, and a `drop_user` answering "does not exist" means an earlier attempt
 dropped it and never sent the PATCH. The node answers a timestamp outside its window with its own clock and an
 envelope for another key with its fingerprint; each is retried once, with the offset remembered for the session and
-the key fetched again. A sealed answer that ran but could not return its result (`executed`) is reported as an unknown
-outcome, like an unanswered write, since the user was created or dropped all the same; so does a node's 503, which the
-toast cannot tell from a gateway's, though a refusal before admission ran nothing and is safe to retry. There is no
-plaintext fallback: a node without custody or a refused envelope stops setup.
+the key fetched again. A sealed write that ran but could not return its result (`executed`), or whose answer could not
+be read, is reported as an unknown outcome, like an unanswered write, since the user may have been created or dropped
+all the same; a sealed read in that state (`list_users`) is only a failed read. A node's 503 also reads as an unknown
+outcome, since the toast cannot tell it from a gateway's, though a refusal before admission ran nothing and is safe to
+retry. There is no plaintext fallback: a node without custody or a refused envelope stops setup.
 
 ## An interrupted setup finishes from the admin it already created
 
