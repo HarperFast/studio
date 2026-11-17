@@ -52,8 +52,17 @@ interface NavBarProps {
 interface NavBarLayout {
 	labels: boolean;
 	collapse: number;
-	/** Tabs before the last one that move into More. */
 	overflow: number;
+}
+
+/** About four letters and an ellipsis: narrower than this, the last crumb no longer says where you are. */
+const LAST_CRUMB_FLOOR_PX = 40;
+
+function barOverflows(bar: HTMLElement): boolean {
+	const lastCrumb = bar.querySelector<HTMLElement>('[data-last-crumb]');
+	const truncatedPastFloor = !!lastCrumb && lastCrumb.clientWidth < LAST_CRUMB_FLOOR_PX
+		&& lastCrumb.scrollWidth > lastCrumb.clientWidth;
+	return bar.scrollWidth > bar.clientWidth || truncatedPastFloor;
 }
 
 /**
@@ -87,10 +96,11 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 	const resetKey = [
 		pathname,
 		trail.map((crumb) => crumb.label).join('/'),
-		links.map((link) => link.key).join(),
+		links.map((link) => `${link.key}=${link.name}`).join(),
+		tucked.map((link) => link.key).join(),
 		restartRequired,
 	].join('\n');
-	const { labels, collapse, overflow } = layouts[useFitLevel(barRef, layouts.length, resetKey)];
+	const { labels, collapse, overflow } = layouts[useFitLevel(barRef, layouts.length, resetKey, barOverflows)];
 	const lastCrumbOnly = !labels && collapse === Math.max(trail.length - 1, 0);
 	const cut = links.length - 1 - overflow;
 	const shown = overflow > 0 ? [...links.slice(0, cut), links[links.length - 1]] : links;
@@ -108,9 +118,8 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 				trail={trail}
 				restartRequired={restartRequired}
 				collapse={collapse}
-				// Natural width while the bar measures what fits. Once only the last crumb is left it may truncate, down
-				// to a floor that keeps a few letters, and tabs move into More only past that floor.
-				className={cn('max-w-none sm:max-w-none', lastCrumbOnly ? 'min-w-40' : 'shrink-0')}
+				// Natural width while the bar measures what fits; only the last crumb ever truncates.
+				className={cn('max-w-none sm:max-w-none', lastCrumbOnly ? 'min-w-0' : 'shrink-0')}
 			/>
 			<div className="flex shrink-0 space-x-2">
 				{shown.map(({ key, shortName, ...link }) => {

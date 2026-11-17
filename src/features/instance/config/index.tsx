@@ -208,7 +208,6 @@ interface MobileConfigNavItem {
 	exact?: boolean;
 }
 
-/** Below `md`, the same shape `SubNavRail` gives the org, cluster and admin sections. */
 function MobileConfigNavBar({ params, entries, showOverview, atIndex }: {
 	params: {
 		clusterId?: string;

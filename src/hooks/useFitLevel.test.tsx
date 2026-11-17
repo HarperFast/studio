@@ -4,13 +4,12 @@ import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFitLevel } from './useFitLevel';
 
-// The content's width at each layout, richest first, and the room the element has.
 const WIDTHS = [500, 400, 300, 200];
-const layout = { room: 350 };
+const layout = { room: 350, growth: 0 };
 
-function Bar({ resetKey = 'a' }: { resetKey?: string }) {
+function Bar({ resetKey = 'a', overflows }: { resetKey?: string; overflows?: (element: HTMLElement) => boolean }) {
 	const ref = useRef<HTMLDivElement>(null);
-	const level = useFitLevel(ref, WIDTHS.length, resetKey);
+	const level = useFitLevel(ref, WIDTHS.length, resetKey, overflows);
 	return <div ref={ref} data-testid="bar" data-level={level} />;
 }
 
@@ -28,7 +27,7 @@ class FakeResizeObserver {
 
 beforeEach(() => {
 	vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
-		return WIDTHS[Number(this.dataset.level)] ?? 0;
+		return (WIDTHS[Number(this.dataset.level)] ?? 0) + layout.growth;
 	});
 	vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => layout.room);
 });
@@ -38,6 +37,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	layout.room = 350;
+	layout.growth = 0;
 	FakeResizeObserver.callback = undefined;
 });
 
@@ -50,6 +50,11 @@ describe('useFitLevel', () => {
 	it('stops at the last layout when none fits', () => {
 		layout.room = 100;
 		const { container } = render(<Bar />);
+		expect(levelShown(container)).toBe(3);
+	});
+
+	it('steps on for whatever the caller counts as not fitting', () => {
+		const { container } = render(<Bar overflows={() => true} />);
 		expect(levelShown(container)).toBe(3);
 	});
 
@@ -70,6 +75,16 @@ describe('useFitLevel', () => {
 		expect(levelShown(container)).toBe(1);
 
 		layout.room = 250;
+		act(() => FakeResizeObserver.callback?.());
+		expect(levelShown(container)).toBe(3);
+	});
+
+	it('steps on when its content grows in place, with no render and no change of width', () => {
+		vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+		const { container } = render(<Bar />);
+		expect(levelShown(container)).toBe(2);
+
+		layout.growth = 100;
 		act(() => FakeResizeObserver.callback?.());
 		expect(levelShown(container)).toBe(3);
 	});

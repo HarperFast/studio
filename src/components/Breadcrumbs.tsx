@@ -38,7 +38,6 @@ export function useBreadcrumbTrail(): Breadcrumb[] {
 
 interface BreadcrumbsProps {
 	restartRequired?: boolean;
-	/** Leading crumbs to fold behind "…"; the last crumb always shows. */
 	collapse?: number;
 	className?: string;
 }
@@ -71,12 +70,13 @@ export function BreadcrumbList({ trail, restartRequired, collapse = 0, className
 					<FoldedCrumbs crumbs={folded} />
 				</>
 			)}
-			{shown.map(({ path, label, title }) => (
+			{shown.map(({ path, label, title }, index) => (
 				<Fragment key={path}>
 					<CrumbSeparator />
 					<Link
 						to={path}
 						title={title}
+						data-last-crumb={index === shown.length - 1 || undefined}
 						className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 					>
 						{label}
@@ -86,7 +86,7 @@ export function BreadcrumbList({ trail, restartRequired, collapse = 0, className
 			{restartRequired && (
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<div className="text-xs italic text-muted-foreground">
+						<div className="shrink-0 whitespace-nowrap text-xs italic text-muted-foreground">
 							* Restart <span className="hidden lg:inline-block">Requested</span>
 						</div>
 					</TooltipTrigger>

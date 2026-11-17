@@ -18,7 +18,9 @@ vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => 
 vi.mock('@/components/Breadcrumbs', () => ({
 	Breadcrumbs: () => null,
 	BreadcrumbList: ({ collapse, className }: { collapse?: number; className?: string }) => (
-		<div data-testid="crumbs" data-collapse={collapse ?? 0} className={className} />
+		<div data-testid="crumbs" data-collapse={collapse ?? 0} className={className}>
+			<span data-last-crumb>Databases</span>
+		</div>
 	),
 	useBreadcrumbTrail: () => [
 		{ path: '/org-1', label: 'Org' },
@@ -133,11 +135,23 @@ describe('InstanceNavBar fitting its bar', () => {
 		expect(screen.getAllByRole('link', { name: 'Databases' })[0].textContent).toBe('');
 		expect(screen.getAllByRole('link', { name: 'Applications' })[0].textContent).toBe('Apps');
 		expect(desktopCrumbs().getAttribute('data-collapse')).toBe('2');
-		expect(desktopCrumbs().className).toContain('min-w-40');
+		expect(desktopCrumbs().className).toContain('min-w-0');
 
 		fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false });
 		const moved = within(screen.getByRole('menu')).getAllByRole('link').map((link) => link.textContent);
 		expect(moved).toEqual(every.slice(4, -1));
+	});
+
+	it('counts a last crumb cut to fewer than a few letters as not fitting, though the bar itself does not overflow', () => {
+		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
+			return this.hasAttribute('data-last-crumb') ? 90 : 0;
+		});
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function(this: HTMLElement) {
+			return this.hasAttribute('data-last-crumb') ? 30 : 500;
+		});
+		render(<InstanceNavBar />);
+		expect(shownTabs()).toEqual(['Config']);
+		expect(screen.getByRole('button', { name: 'More' })).toBeTruthy();
 	});
 });
 
