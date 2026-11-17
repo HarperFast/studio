@@ -298,7 +298,9 @@ export function PastRuns() {
 							{rows.length === 0
 								? (
 									<p className="text-sm text-muted-foreground">
-										{start === 0 ? 'No finished run matches these filters.' : 'No finished run on this page.'}
+										{start === 0 && !hasNext
+											? 'No finished run matches these filters.'
+											: 'No finished run on this page.'}
 									</p>
 								)
 								: (

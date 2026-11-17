@@ -8,7 +8,7 @@ import { parseConfigValue } from '@/features/admin/configuration/index';
 import { AdminConfigurationEntry } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { LockIcon } from 'lucide-react';
-import { Dispatch, SetStateAction } from 'react';
+import { useState } from 'react';
 
 type Kind = 'boolean' | 'number' | 'string' | 'json';
 
@@ -146,20 +146,33 @@ function SettingControl(
 }
 
 /**
+ * Drafts and the save, held by the page rather than the form: the Settings tab unmounts when another tab is shown,
+ * and a save that settles after that must still clear the drafts it saved.
+ */
+export function useAgentSettingsEditor() {
+	const [drafts, setDrafts] = useState<SettingDrafts>({});
+	const save = useSaveAgentSettingsMutation({
+		// A refused key keeps its draft so the operator sees what did not land.
+		onSettledKeys: (saved) =>
+			setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([name]) => !saved.includes(name)))),
+	});
+	return { drafts, setDrafts, save };
+}
+export type AgentSettingsEditor = ReturnType<typeof useAgentSettingsEditor>;
+
+/**
  * The agent's Configuration rows as one form. Saves go through Admin → Configuration's write, one changed key at a
  * time, under its rules: config:write to edit at all, and a super-user-only key only for the core super user.
  */
 export function AgentSettingsForm(
-	{ settings, canWrite, isCoreSuperUser, drafts, setDrafts }: {
+	{ settings, canWrite, isCoreSuperUser, editor }: {
 		settings: AdminConfigurationEntry[];
 		canWrite: boolean;
 		isCoreSuperUser: boolean;
-		/** Held by the page, so switching tabs mid-edit keeps the edit. */
-		drafts: SettingDrafts;
-		setDrafts: Dispatch<SetStateAction<SettingDrafts>>;
+		editor: AgentSettingsEditor;
 	},
 ) {
-	const { mutate, isPending, error } = useSaveAgentSettingsMutation();
+	const { drafts, setDrafts, save: { mutate, isPending, error, reset } } = editor;
 	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
 	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
 
@@ -174,15 +187,7 @@ export function AgentSettingsForm(
 	}
 	const ordered = [...groups.entries()].sort(([a], [b]) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
 
-	const save = () => {
-		mutate(changes, {
-			// Saved keys drop their drafts; a refused one keeps its draft so the operator can see what didn't land.
-			onSettled: (saved, failure) => {
-				const done = saved ?? (failure as { saved?: string[] } | null)?.saved ?? [];
-				setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([name]) => !done.includes(name))));
-			},
-		});
-	};
+	const save = () => mutate(changes);
 
 	return (
 		<form
@@ -265,7 +270,10 @@ export function AgentSettingsForm(
 							type="button"
 							variant="outline"
 							disabled={isPending}
-							onClick={() => setDrafts({})}
+							onClick={() => {
+								setDrafts({});
+								reset();
+							}}
 						>
 							Discard
 						</Button>

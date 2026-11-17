@@ -355,14 +355,16 @@ export async function saveAgentSettings(changes: SettingChange[]): Promise<strin
 	return saved;
 }
 
-export function useSaveAgentSettingsMutation() {
+/** `onSettledKeys` gets the keys that were saved, on success and on a partial failure alike. */
+export function useSaveAgentSettingsMutation({ onSettledKeys }: { onSettledKeys?: (saved: string[]) => void } = {}) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		networkMode: 'always',
 		mutationFn: saveAgentSettings,
 		onSuccess: (saved) =>
 			toast.success(saved.length === 1 ? `${saved[0]} updated` : `${saved.length} settings updated`),
-		onSettled: () => {
+		onSettled: (saved, failure) => {
+			onSettledKeys?.(saved ?? (failure as { saved?: string[] } | null)?.saved ?? []);
 			void queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey });
 			void queryClient.invalidateQueries({ queryKey: configurationQueryKey });
 		},
