@@ -5,6 +5,7 @@ import { ActiveRuns, PastRuns, useActiveRunChanges } from '@/features/admin/agen
 import { LoadFailed } from '@/features/admin/agent/components/AgentBits';
 import { AgentSettingsForm, useAgentSettingsEditor } from '@/features/admin/agent/components/AgentSettingsForm';
 import { SpendPanel, WatchesPanel } from '@/features/admin/agent/components/SpendAndWatches';
+import { RefreshFailed } from '@/features/admin/workflows/components/WorkflowBits';
 import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 
@@ -48,7 +49,16 @@ export function AgentAdminIndex() {
 			{overview.isLoading
 				? <p className="mt-6 text-sm text-muted-foreground">Loading spend…</p>
 				: overview.data
-				? <SpendPanel overview={overview.data} />
+				? (
+					<>
+						{overview.error && (
+							<div className="mt-6">
+								<RefreshFailed error={overview.error} />
+							</div>
+						)}
+						<SpendPanel overview={overview.data} />
+					</>
+				)
 				: (
 					<div className="mt-6">
 						<LoadFailed what="spend" error={overview.error} />

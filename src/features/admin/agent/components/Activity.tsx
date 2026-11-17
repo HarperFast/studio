@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+	activeRunsQueryOptions,
 	agentOverviewQueryKey,
 	invalidateRunLists,
 	PAST_RUN_STATUSES,
@@ -35,7 +36,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const ACTIVE_FILTERS: RunFilters = { range: { kind: 'default' }, status: 'active' };
 const ALL = 'all';
 
 function RunLink({ run }: { run: Pick<RunSummary, 'id'> }) {
@@ -50,17 +50,18 @@ function RunLink({ run }: { run: Pick<RunSummary, 'id'> }) {
 	);
 }
 
-const activeRunsQueryOptions = () => runListQueryOptions(ACTIVE_FILTERS);
-
 /**
  * Polls the open runs for the whole page, whichever tab is showing. A run that appears or leaves the list is new or
  * newly finished, which is when spend and the past list change, so both are refetched then rather than on their timers.
  */
 export function useActiveRunChanges() {
 	const queryClient = useQueryClient();
-	const { data } = useQuery(activeRunsQueryOptions());
+	// Only the set of ids, so a poll that changes nothing but a stage does not re-render the page.
+	const { data: ids = null } = useQuery({
+		...activeRunsQueryOptions(),
+		select: (rows) => rows.map((run) => run.id).sort().join(','),
+	});
 	const previous = useRef<string | null>(null);
-	const ids = data ? data.map((run) => run.id).sort().join(',') : null;
 
 	useEffect(() => {
 		if (ids === null) { return; }

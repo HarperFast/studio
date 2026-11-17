@@ -262,6 +262,15 @@ describe('AgentAdminIndex — spend and switched off', () => {
 		expect(within(spend).getByText(/17 runs this month/)).toBeTruthy();
 	});
 
+	it('says so when a spend refresh fails, keeping the last answer', async () => {
+		const client = renderPage();
+		expect(await screen.findByText('$3.42 of $200.00')).toBeTruthy();
+		overview = [] as unknown as typeof OVERVIEW;
+		await act(() => client.refetchQueries({ queryKey: ['fabric-admin', 'agent', 'overview'] }));
+		expect(await screen.findByText(/Couldn't refresh from central manager/)).toBeTruthy();
+		expect(screen.getByText('$3.42 of $200.00')).toBeTruthy();
+	});
+
 	it('says the agent is switched off', async () => {
 		overview = { ...OVERVIEW, agentEnabled: false };
 		renderPage();

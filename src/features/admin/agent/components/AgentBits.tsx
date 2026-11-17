@@ -53,11 +53,15 @@ export function formatUsd(value: number | null | undefined): string {
 	return `$${value.toFixed(value !== 0 && Math.abs(value) < 0.1 ? 4 : 2)}`;
 }
 
-export function runCostLabel(run: Pick<RunSummary, 'cost'>): string {
+export function runCostLabel(run: Pick<RunSummary, 'cost' | 'status'>): string {
 	const cost = run.cost;
 	if (!cost) { return '—'; }
 	if (cost.spendKnown) { return formatUsd(cost.spentUsd); }
-	return cost.reservedUsd ? `${formatUsd(cost.reservedUsd)} reserved` : '—';
+	if (!cost.reservedUsd) { return '—'; }
+	// A finished run no longer holds its reservation; it only bounds a spend that was never reported.
+	return isOpenRun(run)
+		? `${formatUsd(cost.reservedUsd)} reserved`
+		: `unreported (up to ${formatUsd(cost.reservedUsd)})`;
 }
 
 export function formatDuration(ms: number): string {
