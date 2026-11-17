@@ -106,10 +106,12 @@ describe('range choice', () => {
 });
 
 describe('run display helpers', () => {
-	it('shows settled spend once known, else the reservation', () => {
-		expect(runCostLabel({ cost: { spentUsd: 0.42, spendKnown: true } })).toBe('$0.42');
-		expect(runCostLabel({ cost: { reservedUsd: 1, spentUsd: 0, spendKnown: false } })).toBe('$1.00 reserved');
-		expect(runCostLabel({ cost: null })).toBe('—');
+	it('shows settled spend once known, the reservation while open, and an unreported bound once finished', () => {
+		expect(runCostLabel({ status: 'completed', cost: { spentUsd: 0.42, spendKnown: true } })).toBe('$0.42');
+		const unreported = { reservedUsd: 1, spentUsd: 0, spendKnown: false };
+		expect(runCostLabel({ status: 'running', cost: unreported })).toBe('$1.00 reserved');
+		expect(runCostLabel({ status: 'error', cost: unreported })).toBe('unreported (up to $1.00)');
+		expect(runCostLabel({ status: 'completed', cost: null })).toBe('—');
 		expect(formatUsd(0.0123)).toBe('$0.0123');
 	});
 

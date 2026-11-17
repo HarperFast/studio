@@ -5,7 +5,6 @@ import { EvidenceEntry, Finding, RunDetail, runDetailQueryOptions } from '@/feat
 import {
 	CancelRunButton,
 	formatDuration,
-	formatUsd,
 	LoadFailed,
 	runCostLabel,
 	runDuration,
@@ -173,11 +172,6 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 				<DetailRow label="Duration">{runDuration(run)}</DetailRow>
 				<DetailRow label="Cost">
 					{runCostLabel(run)}
-					{run.cost?.spendKnown === false && run.finishedAt && (
-						<div className="text-xs text-muted-foreground">
-							Spend not reported; up to {formatUsd(run.cost.reservedUsd)}
-						</div>
-					)}
 				</DetailRow>
 				<DetailRow label="Started by">{run.startedBy ?? '—'}</DetailRow>
 				<DetailRow label="Deadline">

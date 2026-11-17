@@ -5,6 +5,7 @@ const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 
 import {
+	activeRunsQueryOptions,
 	FAST_POLL_MS,
 	getAgentOverview,
 	getRun,
@@ -96,9 +97,17 @@ describe('runListInterval', () => {
 });
 
 describe('run list paging', () => {
-	it('asks for the largest page for open runs, which are not paged', () => {
-		expect(runListQueryString({ range: { kind: 'default' }, status: 'active' }, 0, NOW)).toBe(
+	it('asks for the largest page for the top open-run list only; other views page at 50', () => {
+		expect(activeRunsQueryOptions().queryKey.at(-1)).toBe(200);
+		expect(runListQueryOptions({ range: { kind: 'default' }, status: 'active' }).queryKey.at(-1)).toBe(50);
+		expect(runListQueryString({ range: { kind: 'default' }, status: 'active' }, 0, NOW, 200)).toBe(
 			'status=active&limit(0,200)',
+		);
+	});
+
+	it('sends no range for open runs, which the server answers whatever their age', () => {
+		expect(runListQueryString({ range: { kind: 'last', hours: 24 }, status: 'active' }, 0, NOW)).toBe(
+			'status=active&limit(0,50)',
 		);
 	});
 });
@@ -106,12 +115,15 @@ describe('run list paging', () => {
 describe('invalidateRunLists', () => {
 	it('can leave out the open-run list whose own poll saw the change', async () => {
 		const client = new QueryClient();
-		const active = runListQueryOptions({ range: { kind: 'default' }, status: 'active' }).queryKey;
+		const active = activeRunsQueryOptions().queryKey;
+		const pastOpen = runListQueryOptions({ range: { kind: 'default' }, status: 'active' }).queryKey;
 		const past = runListQueryOptions({ range: { kind: 'default' } }).queryKey;
 		client.setQueryData(active, []);
 		client.setQueryData(past, []);
+		client.setQueryData(pastOpen, []);
 		await invalidateRunLists(client, { exceptActive: true });
 		expect(client.getQueryState(active)?.isInvalidated).toBe(false);
+		expect(client.getQueryState(pastOpen)?.isInvalidated).toBe(true);
 		expect(client.getQueryState(past)?.isInvalidated).toBe(true);
 	});
 });

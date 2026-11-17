@@ -156,12 +156,10 @@ export interface RunFilters {
 export const RUN_PAGE_SIZE = 50;
 /** Contract: watches page at most 500 rows; the page asks for one full page and says when it is full. */
 export const WATCH_MAX_PAGE = 500;
-/** The server's largest page; the open-run list asks for all of it, since it is not paged. */
+/** The server's largest page; the top open-run list asks for all of it, since it is not paged. */
 export const RUN_MAX_PAGE = 200;
 /** Contract (central-manager#1201): "`end` at most 2,000 (`400` beyond: narrow the range instead of paging deeper)". */
 export const RUN_MAX_END = 2_000;
-
-const runPageSize = (filters: Pick<RunFilters, 'status'>) => filters.status === 'active' ? RUN_MAX_PAGE : RUN_PAGE_SIZE;
 
 export const isOpenRun = (run: Pick<RunSummary, 'status'>) => OPEN_RUN_STATUSES.includes(run.status);
 
@@ -176,7 +174,12 @@ export function runPath(id: string): string {
  * the window ending now; with `from` alone the server ends the range at now (contract: "to never defaults past now").
  * `between` dates are whole UTC days, `to` exclusive.
  */
-export function runListQueryString(filters: RunFilters, start: number, now = Date.now()): string {
+export function runListQueryString(
+	filters: RunFilters,
+	start: number,
+	now = Date.now(),
+	pageSize = RUN_PAGE_SIZE,
+): string {
 	const params: string[] = [];
 	const set = (name: string, value: string | undefined) => {
 		const trimmed = value?.trim();
@@ -187,22 +190,25 @@ export function runListQueryString(filters: RunFilters, start: number, now = Dat
 	set('verdict', filters.verdict);
 	set('clusterId', filters.clusterId);
 	set('organizationId', filters.organizationId);
-	const { range } = filters;
+	// The server answers every open run whatever its age; a range would hide the old ones.
+	const range: RunRange = filters.status === 'active' ? { kind: 'default' } : filters.range;
 	if (range.kind === 'last') {
 		set('from', new Date(now - range.hours * 3_600_000).toISOString());
 	} else if (range.kind === 'between') {
 		set('from', range.from);
 		set('to', range.to);
 	}
-	params.push(`limit(${start},${start + runPageSize(filters)})`);
+	params.push(`limit(${start},${start + pageSize})`);
 	return params.join('&');
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export async function getRuns(filters: RunFilters, start: number): Promise<RunSummary[]> {
-	const { data } = await apiClient.get(`${RUN_BASE}?${runListQueryString(filters, start)}` as '/Admin/Region/');
+export async function getRuns(filters: RunFilters, start: number, pageSize = RUN_PAGE_SIZE): Promise<RunSummary[]> {
+	const { data } = await apiClient.get(
+		`${RUN_BASE}?${runListQueryString(filters, start, Date.now(), pageSize)}` as '/Admin/Region/',
+	);
 	if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of runs.'); }
 	return (data as unknown[]).filter((row): row is RunSummary => isObject(row) && typeof row.id === 'string');
 }
@@ -259,10 +265,10 @@ export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefi
  * run that left the filter. React Query renders only the current key's answer, so a reply for filters the user has
  * since changed is never shown.
  */
-export function runListQueryOptions(filters: RunFilters, start = 0) {
+export function runListQueryOptions(filters: RunFilters, start = 0, pageSize = RUN_PAGE_SIZE) {
 	return queryOptions({
-		queryKey: [...runListPrefix, filters, start],
-		queryFn: () => getRuns(filters, start),
+		queryKey: [...runListPrefix, filters, start, pageSize],
+		queryFn: () => getRuns(filters, start, pageSize),
 		retry: false,
 		meta: { quietErrors: true },
 		refetchIntervalInBackground: false,
@@ -308,7 +314,12 @@ export function agentWatchesQueryOptions() {
 	});
 }
 
-const isActiveListKey = (key: readonly unknown[]) => (key[3] as Partial<RunFilters> | undefined)?.status === 'active';
+const ACTIVE_FILTERS: RunFilters = { range: { kind: 'default' }, status: 'active' };
+
+/** The page's top open-run list: one unpaged request for the server's largest page. */
+export const activeRunsQueryOptions = () => runListQueryOptions(ACTIVE_FILTERS, 0, RUN_MAX_PAGE);
+
+const isActiveListKey = (key: readonly unknown[]) => key[5] === RUN_MAX_PAGE;
 
 /** Refetch run lists after something that changes runs; `exceptActive` when the active list's own poll saw it. */
 export function invalidateRunLists(queryClient: ReturnType<typeof useQueryClient>, { exceptActive = false } = {}) {
