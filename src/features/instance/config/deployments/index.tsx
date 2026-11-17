@@ -142,7 +142,7 @@ export function ConfigDeploymentsIndex() {
 	if (!canListDeployments) {
 		return (
 			<div className="p-2 text-sm text-muted-foreground">
-				Viewing deployments requires super-user permissions on this instance.
+				Viewing deployments requires the <code>list_deployments</code> operation on this instance.
 			</div>
 		);
 	}
