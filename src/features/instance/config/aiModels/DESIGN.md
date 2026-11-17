@@ -92,9 +92,10 @@ own token. Fanning one instance's block out would put its Fabric entries on ever
   is written anywhere.
 - An entry Fabric manages is never written over, whatever the page thought. On a cluster route the
   managed names are the union over its instances: the save writes every instance, so a name Fabric
-  holds on any of them is refused up front, not part-way. A cluster save also adds the names in the
-  cluster read it plans its targets from (`fabricKeysNow`), since central manager may have started
-  routing one after the page loaded and a cluster save has no stale check to catch it.
+  holds on any of them is refused up front, not part-way. The save also adds the names central
+  manager routes at save time (`fabricKeysNow`): from the cluster read that plans a cluster save's
+  targets, or, on a Fabric instance route, from one made for that instance alone. Central manager
+  may have started routing a name after the page loaded, before host manager has written it.
 - A target whose version isn't known beforehand (the instance of an instance route, or a member
   central manager has no version for) is asked before anything is written.
 - With one target, the entry must still be what the page loaded, or the save is refused as stale.

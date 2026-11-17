@@ -1,5 +1,6 @@
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import {
 	ModelKind,
@@ -40,13 +41,22 @@ interface SaveTarget {
 interface SavePlan {
 	targets: SaveTarget[];
 	notRunning: number;
-	/** The names central manager routes on this cluster, as it answers now. Absent on an instance route. */
+	/** The names central manager routes to these targets, as it answers now. */
 	fabricKeysNow?: ReadonlySet<string>;
 }
 
-async function planTargets(params: InstanceClientIdConfig & InstanceTypeConfig): Promise<SavePlan> {
+async function planTargets(
+	params: InstanceClientIdConfig & InstanceTypeConfig,
+	fabricClusterId: string | undefined,
+): Promise<SavePlan> {
 	if (params.entityType !== 'cluster') {
-		return { targets: [{ instanceClient: params.instanceClient, label: 'This instance' }], notRunning: 0 };
+		const cluster = fabricClusterId ? await getClusterInfo(fabricClusterId) : undefined;
+		return {
+			targets: [{ instanceClient: params.instanceClient, label: 'This instance' }],
+			notRunning: 0,
+			fabricKeysNow: cluster
+				&& fabricModelKeys(cluster.instances?.filter((instance) => instance.id === params.entityId)),
+		};
 	}
 	const { allInstances, targets } = await getClusterRestartTargets(params.entityId);
 	const live = allInstances.filter((instance) =>
@@ -79,10 +89,10 @@ export async function saveModelChange(
 	params: InstanceClientIdConfig & InstanceTypeConfig,
 	change: ModelChange,
 	fabricKeys: ReadonlySet<string> | undefined,
+	clusterId?: string,
 ): Promise<ModelSaveOutcome> {
-	const { targets, notRunning, fabricKeysNow } = await planTargets(params);
-	// Central manager may have started routing a name since the page loaded, and a cluster save has
-	// no stale check to notice. Off Fabric `fabricKeys` is absent, and stays absent.
+	const { targets, notRunning, fabricKeysNow } = await planTargets(params, fabricKeys ? clusterId : undefined);
+	// Central manager may have started routing a name since the page loaded.
 	const managedKeys = fabricKeys && fabricKeysNow ? new Set([...fabricKeys, ...fabricKeysNow]) : fabricKeys;
 	if (targets.length === 0) {
 		throw new ModelSaveError('No running instance was found to save to, so nothing was changed.');
