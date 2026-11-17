@@ -35,6 +35,8 @@ const pastRun = {
 	...activeRun,
 	id: 'arn-done',
 	clusterId: 'clu-done',
+	clusterName: 'checkout-prod',
+	organizationName: 'Example Co',
 	status: 'completed',
 	stage: 'finished',
 	verdict: 'degraded',
@@ -105,7 +107,12 @@ async function mockCentralManager(page: Page, state: { active: unknown[]; past: 
 	await page.route(/\/Admin\/AgentWatch\/\?/, (route) => route.fulfill({ json: [] }));
 	await page.route(
 		/\/Admin\/Investigation\/\?/,
-		(route) => route.fulfill({ json: route.request().url().includes('status=active') ? state.active : state.past }),
+		(route) => {
+			const url = route.request().url();
+			if (url.includes('status=active')) { return route.fulfill({ json: state.active }); }
+			if (url.includes('status=terminal')) { return route.fulfill({ json: state.past }); }
+			return route.fulfill({ status: 400, json: { error: 'unexpected run list request' } });
+		},
 	);
 	await page.route('**/Admin/Investigation/arn-done', (route) => route.fulfill({ json: pastDetail }));
 	await page.routeWebSocket('**/*', (socket) => socket.close());
@@ -115,7 +122,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 	test(
 		`agent activity and run detail read well on desktop and mobile in ${colorScheme} mode`,
 		async ({ page }, testInfo) => {
-			await mockCentralManager(page, { active: [activeRun], past: [activeRun, pastRun] });
+			await mockCentralManager(page, { active: [activeRun], past: [pastRun] });
 			await page.emulateMedia({ colorScheme });
 			await page.setViewportSize({ width: 1440, height: 1000 });
 			await page.goto('/#/admin/agent');
@@ -128,6 +135,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 			await expect(past.getByText('arn-done')).toBeVisible();
 			await expect(past.getByText('arn-live')).toHaveCount(0);
 			await expect(past.getByText('$0.27')).toBeVisible();
+			await expect(past.getByText('checkout-prod')).toBeVisible();
 			await page.screenshot({ path: testInfo.outputPath(`agent-activity-${colorScheme}.png`), fullPage: true });
 
 			await past.getByRole('link', { name: 'arn-done' }).click();

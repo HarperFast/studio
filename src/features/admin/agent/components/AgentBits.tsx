@@ -100,3 +100,33 @@ export function LoadFailed({ what, error }: { what: string; error: unknown }) {
 		</p>
 	);
 }
+
+function NamedId({ name, id }: { name?: string | null; id?: string | null }) {
+	if (!id) { return null; }
+	if (!name) { return <span className="font-mono text-xs">{id}</span>; }
+	return (
+		<span className="flex flex-col">
+			<span className="text-sm">{name}</span>
+			<span className="font-mono text-xs text-muted-foreground">{id}</span>
+		</span>
+	);
+}
+
+/** Names when central manager sends them, ids otherwise (a deleted cluster or organization answers no name). */
+export function ScopeCell(
+	{ row }: {
+		row: {
+			clusterId: string;
+			clusterName?: string | null;
+			organizationId?: string | null;
+			organizationName?: string | null;
+		};
+	},
+) {
+	return (
+		<div className="flex flex-col gap-1">
+			<NamedId name={row.clusterName} id={row.clusterId} />
+			<NamedId name={row.organizationName} id={row.organizationId} />
+		</div>
+	);
+}

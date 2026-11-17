@@ -5,7 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
 	agentOverviewQueryKey,
 	invalidateRunLists,
-	isOpenRun,
 	PAST_RUN_STATUSES,
 	RUN_MAX_END,
 	RUN_MAX_PAGE,
@@ -25,6 +24,7 @@ import {
 	runCostLabel,
 	runDuration,
 	RunStatusBadge,
+	ScopeCell,
 	stageLabel,
 	triggerLabel,
 	VerdictBadge,
@@ -47,15 +47,6 @@ function RunLink({ run }: { run: Pick<RunSummary, 'id'> }) {
 		>
 			{run.id}
 		</Link>
-	);
-}
-
-function ClusterCell({ run }: { run: Pick<RunSummary, 'clusterId' | 'organizationId'> }) {
-	return (
-		<div className="flex flex-col font-mono text-xs">
-			<span>{run.clusterId}</span>
-			{run.organizationId && <span className="text-muted-foreground">{run.organizationId}</span>}
-		</div>
 	);
 }
 
@@ -98,7 +89,7 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 							{data.length >= RUN_MAX_PAGE && (
 								<p className="mb-2 text-sm text-muted-foreground">
 									Showing the newest {RUN_MAX_PAGE}{' '}
-									open runs. Filter Past runs by cluster or organization to find an older one.
+									open runs. To find an older one, set Past runs to Open and filter by cluster or organization.
 								</p>
 							)}
 							{data.length === 0
@@ -123,7 +114,7 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 															<RunLink run={run} />
 														</TableCell>
 														<TableCell>
-															<ClusterCell run={run} />
+															<ScopeCell row={run} />
 														</TableCell>
 														<TableCell>{triggerLabel(run.triggerKind)}</TableCell>
 														<TableCell className="text-xs">
@@ -190,15 +181,29 @@ function FilterSelect<T extends string>(
 	);
 }
 
-/**
- * A page can hold fewer rows than were asked for when open runs are left out; only the server's row count decides
- * whether there is a next page.
- */
+type StatusChoice = 'terminal' | (typeof PAST_RUN_STATUSES)[number] | 'active';
+
+function StatusSelect({ value, onChange }: { value: StatusChoice; onChange: (value: StatusChoice) => void }) {
+	return (
+		<Select value={value} onValueChange={(next) => onChange(next as StatusChoice)}>
+			<SelectTrigger aria-label="Status" className="w-44">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value="terminal">Any finished status</SelectItem>
+				{PAST_RUN_STATUSES.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+				<SelectItem value="active">Open (any age)</SelectItem>
+			</SelectContent>
+		</Select>
+	);
+}
+
+/** Finished runs by default (`status=terminal`), filtered and paged by the server; a short page is the last. */
 export function PastRuns() {
 	const [rangeChoice, setRangeChoice] = useState<RangeChoice>('default');
 	const [fromDay, setFromDay] = useState('');
 	const [toDay, setToDay] = useState('');
-	const [status, setStatus] = useState<(typeof PAST_RUN_STATUSES)[number] | typeof ALL>(ALL);
+	const [status, setStatus] = useState<StatusChoice>('terminal');
 	const [triggerKind, setTriggerKind] = useState<TriggerKind | typeof ALL>(ALL);
 	const [verdict, setVerdict] = useState<Verdict | typeof ALL>(ALL);
 	const [clusterId, setClusterId] = useState('');
@@ -209,7 +214,7 @@ export function PastRuns() {
 
 	const filters = useMemo<RunFilters>(() => ({
 		range: rangeFor(rangeChoice, fromDay, toDay),
-		status: status === ALL ? undefined : status,
+		status,
 		triggerKind: triggerKind === ALL ? undefined : triggerKind,
 		verdict: verdict === ALL ? undefined : verdict,
 		clusterId: debouncedCluster || undefined,
@@ -223,10 +228,8 @@ export function PastRuns() {
 		setStart(0);
 	}
 
-	// A cluster or organization filter shows its open runs too, so one past Active's cap can still be found.
-	const hidesOpenRuns = !filters.clusterId && !filters.organizationId;
-	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start, { hidesOpenRuns }));
-	const rows = hidesOpenRuns ? data?.filter((run) => !isOpenRun(run)) ?? [] : data ?? [];
+	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start));
+	const rows = data ?? [];
 	const hasNext = data !== undefined && data.length === RUN_PAGE_SIZE && start + 2 * RUN_PAGE_SIZE <= RUN_MAX_END;
 
 	return (
@@ -262,7 +265,7 @@ export function PastRuns() {
 						/>
 					</>
 				)}
-				<FilterSelect label="Status" value={status} onChange={setStatus} options={PAST_RUN_STATUSES} />
+				<StatusSelect value={status} onChange={setStatus} />
 				<FilterSelect
 					label="Trigger"
 					value={triggerKind}
@@ -301,9 +304,7 @@ export function PastRuns() {
 							{rows.length === 0
 								? (
 									<p className="text-sm text-muted-foreground">
-										{start === 0 && !hasNext
-											? 'No finished run matches these filters.'
-											: 'No finished run on this page.'}
+										{start === 0 ? 'No run matches these filters.' : 'No run on this page.'}
 									</p>
 								)
 								: (
@@ -331,7 +332,7 @@ export function PastRuns() {
 															<Timestamp value={run.createdAt} />
 														</TableCell>
 														<TableCell>
-															<ClusterCell run={run} />
+															<ScopeCell row={run} />
 														</TableCell>
 														<TableCell>{triggerLabel(run.triggerKind)}</TableCell>
 														<TableCell>
