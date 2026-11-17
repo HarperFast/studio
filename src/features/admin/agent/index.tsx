@@ -3,11 +3,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { agentOverviewQueryOptions } from '@/features/admin/agent/agentAdminApi';
 import { ActiveRuns, PastRuns, useActiveRunChanges } from '@/features/admin/agent/components/Activity';
 import { LoadFailed } from '@/features/admin/agent/components/AgentBits';
-import { AgentSettingsForm, SettingDrafts } from '@/features/admin/agent/components/AgentSettingsForm';
+import { AgentSettingsForm, useAgentSettingsEditor } from '@/features/admin/agent/components/AgentSettingsForm';
 import { SpendPanel, WatchesPanel } from '@/features/admin/agent/components/SpendAndWatches';
 import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 
 export function switchedOffReason(
 	overview: { agentEnabled: boolean; roles: Array<{ role: string; enabled: boolean }> },
@@ -28,7 +27,7 @@ export function AgentAdminIndex() {
 	const isCoreSuperUser = user !== null && 'fabricRole' in user && user.fabricRole === 'super_user';
 	const overview = useQuery(agentOverviewQueryOptions());
 	const offReason = overview.data ? switchedOffReason(overview.data) : null;
-	const [drafts, setDrafts] = useState<SettingDrafts>({});
+	const settingsEditor = useAgentSettingsEditor();
 	useActiveRunChanges();
 
 	return (
@@ -78,8 +77,7 @@ export function AgentAdminIndex() {
 								settings={overview.data.settings}
 								canWrite={canWriteConfig}
 								isCoreSuperUser={isCoreSuperUser}
-								drafts={drafts}
-								setDrafts={setDrafts}
+								editor={settingsEditor}
 							/>
 						)
 						: <LoadFailed what="settings" error={overview.error} />}

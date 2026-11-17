@@ -350,4 +350,38 @@ describe('AgentAdminIndex — review regressions', () => {
 		);
 		await waitFor(() => expect(overviewReads()).toBeGreaterThan(before));
 	});
+
+	it('clears the drafts a save wrote even when it settles after the Settings tab was left', async () => {
+		let land: () => void = () => {};
+		patch.mockImplementation(() =>
+			new Promise((resolve) => {
+				land = () => resolve({ data: {} });
+			})
+		);
+		renderPage();
+		openTab('Settings');
+		let form = await screen.findByRole('form', { name: 'Agent settings' });
+		fireEvent.change(within(form).getByLabelText('AGENT_RUN_BUDGET_USD'), { target: { value: '2' } });
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+
+		openTab('Watches');
+		await screen.findByRole('region', { name: 'Watches' });
+		stored.AGENT_RUN_BUDGET_USD = 2;
+		overview = {
+			...OVERVIEW,
+			settings: OVERVIEW.settings.map((row) =>
+				(row.name === 'AGENT_RUN_BUDGET_USD' ? { ...row, value: 2 } : row) as (typeof OVERVIEW.settings)[number]
+			),
+		};
+		await act(async () => land());
+
+		openTab('Settings');
+		form = await screen.findByRole('form', { name: 'Agent settings' });
+		await waitFor(() =>
+			expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2')
+		);
+		expect(within(form).queryByText(/Changed by someone else/)).toBeNull();
+		expect(within(form).queryByRole('button', { name: /Save \d/ })).toBeNull();
+	});
 });
