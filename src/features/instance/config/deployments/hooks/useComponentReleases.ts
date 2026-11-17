@@ -1,7 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useReleaseTrackingAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
-import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
+import { useInstanceOperationAccess } from '@/hooks/useInstanceOperationPermission';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { getReleasesQueryOptions } from '@/integrations/api/instance/deployments/listReleases';
 import { isTerminalDeploymentStatus, ListDeploymentsResponse } from '@/integrations/api/instance/deployments/types';
@@ -15,9 +15,13 @@ import {
 	summarizeReleases,
 } from '../functions/releaseCoverage';
 
-/** `unsupported`: older than Harper 5.4.0-alpha.1, or its version is not known yet, so nothing can be asked. */
+/**
+ * `unsupported`: older than Harper 5.4.0-alpha.1, or its version is not known yet, so nothing can be asked. `denied`:
+ * this role may not run `list_releases`, so nothing that needs its answer is offered.
+ */
 type ComponentReleasesState =
 	| { kind: 'unsupported' }
+	| { kind: 'denied' }
 	/** `previous`: the answer being replaced, for display only. */
 	| { kind: 'checking'; previous?: ReleasesSummary }
 	| { kind: 'unreadable'; message: string }
@@ -48,8 +52,9 @@ const newestRecordQuery = (instanceParams: InstanceClientIdConfig, project: stri
  */
 export function useComponentReleases(project: string | undefined) {
 	const instanceParams = useInstanceClientIdParams();
-	const canListReleases = useInstanceOperationPermission('list_releases');
-	const supported = useReleaseTrackingAvailable() && !!project && canListReleases;
+	const tracked = useReleaseTrackingAvailable() && !!project;
+	const canListReleases = useInstanceOperationAccess('list_releases');
+	const supported = tracked && canListReleases === true;
 	const { data: newest, error: newestError } = useQuery(newestRecordQuery(instanceParams, project, supported));
 	const generation = newest && recordsGeneration(newest);
 	const { data, error, status, isPlaceholderData, fetchStatus } = useQuery(
@@ -61,8 +66,14 @@ export function useComponentReleases(project: string | undefined) {
 		}),
 	);
 	const state = useMemo<ComponentReleasesState>(() => {
-		if (!supported) {
+		if (!tracked) {
 			return { kind: 'unsupported' };
+		}
+		if (canListReleases === false) {
+			return { kind: 'denied' };
+		}
+		if (!supported) {
+			return { kind: 'checking' };
 		}
 		if (status === 'error') {
 			return { kind: 'unreadable', message: describeError(error).message };
@@ -75,7 +86,7 @@ export function useComponentReleases(project: string | undefined) {
 		return summary && status === 'success' && !isPlaceholderData && fetchStatus === 'idle'
 			? { kind: 'ready', summary }
 			: { kind: 'checking', previous: summary };
-	}, [supported, data, error, status, isPlaceholderData, fetchStatus, newestError, project]);
+	}, [tracked, canListReleases, supported, data, error, status, isPlaceholderData, fetchStatus, newestError, project]);
 	return { state };
 }
 
@@ -145,6 +156,7 @@ export function useRecheckRelease(project: string, releaseId: string): () => Pro
 
 export type ReleaseCheck =
 	| { kind: 'unsupported' }
+	| { kind: 'denied' }
 	| { kind: 'checking' }
 	| { kind: 'unreadable'; message: string }
 	| ReleaseAvailability;

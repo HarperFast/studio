@@ -52,9 +52,11 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 export async function checkClusterInstanceAuthenticationBeforeLoad({
 	context,
 	params,
+	preload = false,
 }: {
 	context: { authentication: Record<string, AuthenticatedConnection>; cluster?: Cluster };
 	params: { organizationId: string; clusterId: string; instanceId?: string };
+	preload?: boolean;
 }) {
 	redirectAwayFromDeletedCluster({ context, params });
 	// Until setup, Fabric Connect would connect as the provisioning account, which Finish Setup drops. The overview
@@ -72,7 +74,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 		attemptedEstablish = true;
 		const reloadingUser = (context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined)?.user;
 		const readOnly = !!reloadingUser && connectionAccess(reloadingUser, params).readOnly;
-		if (await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly)) {
+		if (await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly && !preload)) {
 			return;
 		}
 	}
@@ -106,7 +108,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	const { update, readOnly } = connectionAccess(overallAuth.user, params);
 	if (
 		!attemptedEstablish && (update || readOnly)
-		&& await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly)
+		&& await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId, readOnly && !preload)
 	) {
 		return;
 	}
@@ -129,7 +131,7 @@ function connectionAccess(
 
 /**
  * A read-only caller has no instance credentials to fall back on, so its failure is shown rather than
- * left to the sign-in redirect.
+ * left to the sign-in redirect, unless a hover preload caused it: the click that follows tries again.
  */
 async function tryEstablishFabricConnect(
 	entityId: string,

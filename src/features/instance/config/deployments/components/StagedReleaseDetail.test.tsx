@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
 	mutateAsync: vi.fn(),
+	canListReleases: true,
 }));
 vi.mock('@/config/useInstanceClient', () => {
 	const params = { entityId: 'clu-a', entityType: 'cluster', instanceClient: { post: state.post } };
@@ -49,7 +50,10 @@ vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }));
 
 import { StagedReleaseDetail } from './StagedReleaseDetail';
-vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationPermission: () => true }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: () => true,
+	useInstanceOperationAccess: (operation: string) => operation !== 'list_releases' || state.canListReleases,
+}));
 
 const STAGED_ID = '4ac92da3-d8a0-423e-b145-5df107957dd4';
 const ACTIVATION_ID = '5c12b89e-1111-4000-8000-000000000001';
@@ -85,6 +89,7 @@ afterEach(() => {
 	cleanup();
 	state.history = [];
 	state.releases = undefined;
+	state.canListReleases = true;
 	state.post.mockClear();
 	state.mutateAsync.mockReset();
 });
@@ -330,6 +335,15 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 		expect(screen.queryByText('Activate this release of hello?')).toBeNull();
 		expect(state.mutateAsync).not.toHaveBeenCalled();
+	});
+
+	it('offers no activation to a role that may not ask the nodes, though the records would allow one', async () => {
+		state.canListReleases = false;
+		state.releases = { nodes: [] };
+		renderDetail([staged]);
+		expect(await screen.findByText(/^Staged: built and installed, but not live\.$/)).toBeTruthy();
+		expect(activationButton()).toBeNull();
+		expect(state.post).not.toHaveBeenCalledWith('/', expect.objectContaining({ operation: 'list_releases' }));
 	});
 
 	it("shows, but refuses, the activation when the nodes can't be asked", async () => {

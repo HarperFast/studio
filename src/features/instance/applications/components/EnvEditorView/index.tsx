@@ -75,7 +75,6 @@ export function EnvEditorView() {
 
 	const editable = !!openedEntry && !openedEntry.package;
 	const canManage = editable && (isProtected ? canSetEnvValue : canWriteFile);
-	// Delete is offered inside the edit dialog, which only a manager can open.
 	const canDelete = canManage && (isProtected ? canDeleteEnvValue : canWriteFile);
 
 	/*

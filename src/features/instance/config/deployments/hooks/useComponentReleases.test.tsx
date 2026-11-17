@@ -19,7 +19,7 @@ vi.mock('@/features/instance/applications/hooks/useSupportsDeploymentSSE', () =>
 	useReleaseTrackingAvailable: () => true,
 }));
 vi.mock('@/hooks/useInstanceOperationPermission', () => ({
-	useInstanceOperationPermission: (operation: string) => operation !== 'list_releases' || state.canListReleases,
+	useInstanceOperationAccess: (operation: string) => operation !== 'list_releases' || state.canListReleases,
 }));
 
 import { useComponentReleases, useRecheckRelease, useReleaseCheck, useRetryReleases } from './useComponentReleases';
@@ -91,7 +91,7 @@ describe('useComponentReleases', () => {
 				<Panel />
 			</QueryClientProvider>,
 		);
-		expect(screen.getByTestId('panel').textContent).toBe('unsupported');
+		expect(screen.getByTestId('panel').textContent).toBe('denied');
 		await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
 		expect(state.post).not.toHaveBeenCalled();
 	});

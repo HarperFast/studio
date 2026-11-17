@@ -9,6 +9,11 @@ describe('releaseOffer', () => {
 		expect(releaseOffer({ kind: 'unsupported' }, fromRecords, false)).toMatchObject({ offer: false });
 	});
 
+	it('offers nothing to a role that may not ask the nodes, records or not', () => {
+		expect(releaseOffer({ kind: 'denied' }, fromRecords, true)).toMatchObject({ offer: false, disabled: true });
+		expect(releaseOffer({ kind: 'denied' }, fromRecords, false)).toMatchObject({ offer: false, disabled: true });
+	});
+
 	it('enables nothing once asking the nodes failed, records or not', () => {
 		const unreadable = { kind: 'unreadable' as const, message: 'x' };
 		expect(releaseOffer(unreadable, fromRecords, true)).toEqual({ ...fromRecords, disabled: true });

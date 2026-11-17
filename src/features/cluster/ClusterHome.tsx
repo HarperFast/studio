@@ -124,7 +124,6 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 			if (update) {
 				toast.error('Could not connect to this cluster through Fabric Connect.');
 			} else {
-				// A read-only caller has no sign-in to fall back on, so it needs the reason.
 				const { title, description } = describeError(err);
 				toast.error(`Read-only access unavailable: ${title}`, { description });
 			}

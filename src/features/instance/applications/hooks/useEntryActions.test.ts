@@ -106,6 +106,16 @@ describe('canChangePrivateCopy', () => {
 		expect(renderHook(() => useEntryActions(appRoot)).result.current.canChangePrivateCopy).toBe(true);
 	});
 
+	it.each(['deploy_component', 'package_component'])('is not offered without %s, which saving it runs', (operation) => {
+		mocks.payloadBranches.value = true;
+		denied.add(operation);
+		try {
+			expect(renderHook(() => useEntryActions(appRoot)).result.current.canChangePrivateCopy).toBe(false);
+		} finally {
+			denied.clear();
+		}
+	});
+
 	it('is not offered on a package, a directory inside an application, or before Harper supports it', () => {
 		mocks.payloadBranches.value = true;
 		expect(renderHook(() => useEntryActions(packageRoot('npm:status-check'))).result.current.canChangePrivateCopy)

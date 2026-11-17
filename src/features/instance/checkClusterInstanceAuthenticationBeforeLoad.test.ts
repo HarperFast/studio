@@ -209,6 +209,21 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 		expect(toastError).toHaveBeenCalledTimes(1);
 	});
 
+	it('keeps a hover preload quiet, and tells the click that follows once', async () => {
+		establishSpy.mockRejectedValue(new Error('instance unreachable'));
+		const run = (preload: boolean) =>
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: readOnlyStaffAuth },
+				params: PARAMS,
+				preload,
+			});
+
+		await expect(run(true)).rejects.toBeTruthy();
+		expect(toastError).not.toHaveBeenCalled();
+		await expect(run(false)).rejects.toBeTruthy();
+		expect(toastError).toHaveBeenCalledTimes(1);
+	});
+
 	it('stays quiet about a failed connect for a manager, who can sign in instead', async () => {
 		permissions = { update: true };
 		establishSpy.mockRejectedValue(new Error('unreachable'));

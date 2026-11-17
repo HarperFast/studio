@@ -49,7 +49,7 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	const canDownload = isApplicationRoot && canPackage;
 	const canRedeploy = isReadOnlyPackage && !isProtected && canDeploy;
 	const canChangePrivateCopy = isApplicationRoot && !isReadOnlyPackage && !isProtected && payloadBranchesAvailable
-		&& canDeploy;
+		&& canDeploy && canPackage;
 
 	return {
 		canEditFile,

@@ -22,6 +22,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('@/hooks/useInstanceOperationPermission', () => ({
 	useInstanceOperationPermission: (operation: string) => operation !== 'list_releases' || state.canListReleases,
+	useInstanceOperationAccess: (operation: string) => operation !== 'list_releases' || state.canListReleases,
 }));
 vi.mock('./hooks/useComponentReleases', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./hooks/useComponentReleases')>()),

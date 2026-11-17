@@ -182,7 +182,8 @@ export function checkImportDataOperationsAllowed(permission: LocalRolePermission
  * `operations` allowlist that grants it on this version. Unlike {@link checkAnyOperationAllowed}, no
  * allowlist means no: these surfaces were super_user-only before allowlists existed, and an unprovable
  * grant must not show a page whose first request is refused. `undefined` while the user, or for an
- * allowlist the version, is still loading; a `null` version could not be read.
+ * allowlist the version, is still loading; a `null` version could not be read, and allows only what
+ * every version allows.
  */
 export function checkInstanceOperationAllowed(
 	permission: LocalRolePermission | undefined,
@@ -202,7 +203,6 @@ export function checkInstanceOperationAllowed(
 	if (version === undefined) {
 		return undefined;
 	}
-	// A version that could not be read still allows what every version allows.
 	const bands = version ? [resolveGrantBand(version)] : GRANT_BANDS;
 	return bands.every((band) => effectiveOperations(allowlist, band).has(operation));
 }

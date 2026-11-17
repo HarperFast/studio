@@ -99,7 +99,6 @@ export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]
 				icon: <ExtensionIcon name={page.icon} className="inline-block" />,
 				name: page.name,
 			})),
-			// Config is a super-user page, except for the entries a lesser role may open.
 			(canManage || canListDeployments || extensionConfigEntries.length > 0) && {
 				key: 'config',
 				to: buildAbsoluteLinkToPage(params, 'config'),
