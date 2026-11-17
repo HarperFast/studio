@@ -6,7 +6,7 @@ import {
 	agentWatchesQueryOptions,
 	WATCH_MAX_PAGE,
 } from '@/features/admin/agent/agentAdminApi';
-import { formatUsd, LoadFailed } from '@/features/admin/agent/components/AgentBits';
+import { formatUsd, LoadFailed, ScopeCell } from '@/features/admin/agent/components/AgentBits';
 import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/WorkflowBits';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -65,7 +65,9 @@ function watchValue(value: unknown): string {
 function WatchRow({ watch }: { watch: AgentWatch }) {
 	return (
 		<TableRow>
-			<TableCell className="font-mono text-xs">{watch.clusterId}</TableCell>
+			<TableCell>
+				<ScopeCell row={watch} />
+			</TableCell>
 			<TableCell>
 				<div className="flex flex-col">
 					<span className="font-mono text-xs">{watch.key}</span>

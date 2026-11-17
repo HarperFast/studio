@@ -79,6 +79,9 @@ const WATCH = {
 	lastValue: 1,
 	lastEvaluatedAt: '2026-11-17T10:15:00.000Z',
 	expiresAt: '2026-12-01T10:00:00.000Z',
+	clusterName: 'billing-api',
+	organizationId: 'org-1',
+	organizationName: 'Shared Co',
 };
 
 let activeRuns: unknown[];
@@ -101,7 +104,7 @@ beforeAll(() => {
 beforeEach(() => {
 	granted = new Set(['agent:read', 'agent:run', 'config:write']);
 	activeRuns = [ACTIVE_RUN];
-	pastAnswer = async () => ({ data: [ACTIVE_RUN, PAST_RUN] });
+	pastAnswer = async () => ({ data: [PAST_RUN] });
 	overview = OVERVIEW;
 	stored = { AGENT_ENABLED: true, AGENT_RUN_BUDGET_USD: 1 };
 	get.mockReset();
@@ -170,7 +173,7 @@ describe('AgentAdminIndex — activity', () => {
 		expect(within(active).queryByRole('button', { name: /Cancel/ })).toBeNull();
 	});
 
-	it('lists past runs with verdict, duration and cost, leaving open runs to Active', async () => {
+	it('lists finished runs, asked for with status=terminal, with verdict, duration and cost', async () => {
 		renderPage();
 		const past = await screen.findByRole('region', { name: 'Past runs' });
 		await within(past).findByText('arn-past');
@@ -178,7 +181,7 @@ describe('AgentAdminIndex — activity', () => {
 		expect(within(past).getByText('degraded')).toBeTruthy();
 		expect(within(past).getByText('42s')).toBeTruthy();
 		expect(within(past).getByText('$0.42')).toBeTruthy();
-		expect(pastUrls()[0]).toBe('/Admin/Investigation/?limit(0,50)');
+		expect(pastUrls()[0]).toBe('/Admin/Investigation/?status=terminal&limit(0,50)');
 	});
 
 	it('says so when nothing is running and no run matches', async () => {
@@ -186,7 +189,7 @@ describe('AgentAdminIndex — activity', () => {
 		pastAnswer = async () => ({ data: [] });
 		renderPage();
 		expect(await screen.findByText('No run is in progress.')).toBeTruthy();
-		expect(await screen.findByText('No finished run matches these filters.')).toBeTruthy();
+		expect(await screen.findByText('No run matches these filters.')).toBeTruthy();
 	});
 
 	it("shows the server's narrow-the-range refusal", async () => {
@@ -211,17 +214,19 @@ describe('AgentAdminIndex — activity', () => {
 		fireEvent.change(within(past).getByLabelText('Cluster id'), { target: { value: 'clu-2' } });
 		fireEvent.change(within(past).getByLabelText('Organization id'), { target: { value: 'org-1' } });
 		await waitFor(() =>
-			expect(pastUrls()).toContain('/Admin/Investigation/?clusterId=clu-2&organizationId=org-1&limit(0,50)')
+			expect(pastUrls()).toContain(
+				'/Admin/Investigation/?status=terminal&clusterId=clu-2&organizationId=org-1&limit(0,50)',
+			)
 		);
 	});
 
-	it('shows open runs in Past runs once filtered by cluster, so one past the Active cap can be found', async () => {
+	it('shows cluster and organization names with their ids, and the id alone when the name is gone', async () => {
+		pastAnswer = async () => ({ data: [{ ...PAST_RUN, clusterName: 'checkout-prod', organizationName: null }] });
 		renderPage();
 		const past = await screen.findByRole('region', { name: 'Past runs' });
-		await within(past).findByText('arn-past');
-		expect(within(past).queryByText('arn-active')).toBeNull();
-		fireEvent.change(within(past).getByLabelText('Cluster id'), { target: { value: 'clu-1' } });
-		expect(await within(past).findByText('arn-active')).toBeTruthy();
+		expect(await within(past).findByText('checkout-prod')).toBeTruthy();
+		expect(within(past).getByText('clu-2')).toBeTruthy();
+		expect(within(past).getByText('org-1')).toBeTruthy();
 	});
 
 	it('refetches the past list and spend as soon as a run leaves Active', async () => {
@@ -278,7 +283,9 @@ describe('AgentAdminIndex — watches', () => {
 		const watches = await screen.findByRole('region', { name: 'Watches' });
 		await within(watches).findByText('replication_peers_connected');
 		expect(within(watches).getByText('firing')).toBeTruthy();
+		expect(within(watches).getByText('billing-api')).toBeTruthy();
 		expect(within(watches).getByText('clu-2')).toBeTruthy();
+		expect(within(watches).getByText('Shared Co')).toBeTruthy();
 	});
 });
 

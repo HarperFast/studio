@@ -67,6 +67,12 @@ describe('runListQueryString', () => {
 		expect(query).toBe(`from=${encodeURIComponent('2026-11-16T12:00:00.000Z')}&limit(0,50)`);
 	});
 
+	it('asks for every finished status with status=terminal, filtered on the server', () => {
+		expect(runListQueryString({ range: { kind: 'default' }, status: 'terminal' }, 0, NOW)).toBe(
+			'status=terminal&limit(0,50)',
+		);
+	});
+
 	it('sends both days of an explicit range', () => {
 		const query = runListQueryString({ range: { kind: 'between', from: '2026-11-01', to: '2026-11-08' } }, 0, NOW);
 		expect(query).toBe('from=2026-11-01&to=2026-11-08&limit(0,50)');
@@ -81,10 +87,6 @@ describe('runListInterval', () => {
 
 	it('polls every 5 s for the status=active view even when it is empty', () => {
 		expect(runListInterval({ range: { kind: 'default' }, status: 'active' }, [])).toBe(FAST_POLL_MS);
-	});
-
-	it('polls every 30 s for a view that hides open runs, since it never shows one', () => {
-		expect(runListInterval({ range: { kind: 'default' } }, [run('running')], true)).toBe(SLOW_POLL_MS);
 	});
 
 	it('polls every 30 s otherwise, including before the first answer', () => {

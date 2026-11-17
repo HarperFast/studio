@@ -14,6 +14,8 @@ const RUN_STATUSES = ['pending', 'running', 'completed', 'error', 'cancelled', '
 export type RunStatus = (typeof RUN_STATUSES)[number];
 const OPEN_RUN_STATUSES: readonly string[] = ['pending', 'running'];
 export const PAST_RUN_STATUSES = ['completed', 'error', 'cancelled', 'expired'] as const;
+/** Contract v4: `terminal` is every finished status, filtered on the server; `active` is pending or running. */
+export type RunStatusFilter = RunStatus | 'active' | 'terminal';
 
 export const TRIGGER_KINDS = ['manual', 'failed_operation', 'version_upgrade', 'bulk_upgrade'] as const;
 export type TriggerKind = (typeof TRIGGER_KINDS)[number];
@@ -44,6 +46,9 @@ export interface RunSummary {
 	id: string;
 	clusterId: string;
 	organizationId?: string | null;
+	/** Contract v4; null when the cluster or organization is gone. */
+	clusterName?: string | null;
+	organizationName?: string | null;
 	role: string;
 	triggerKind: string;
 	trigger?: RunTrigger | null;
@@ -94,6 +99,10 @@ export interface AgentWatch {
 	id: string;
 	runId?: string | null;
 	clusterId: string;
+	/** Null when the row is gone. */
+	clusterName?: string | null;
+	organizationId?: string | null;
+	organizationName?: string | null;
 	kind: 'status_key' | 'log_message' | 'metric' | string;
 	key: string;
 	threshold?: number | null;
@@ -137,7 +146,7 @@ export type RunRange =
 
 export interface RunFilters {
 	range: RunRange;
-	status?: RunStatus | 'active';
+	status?: RunStatusFilter;
 	triggerKind?: TriggerKind;
 	verdict?: Verdict;
 	clusterId?: string;
@@ -240,10 +249,9 @@ export const FAST_POLL_MS = 5_000;
 export const SLOW_POLL_MS = 30_000;
 const WATCH_POLL_MS = 60_000;
 
-/** The list's poll interval for its last answer. A view that hides open runs never shows one, so it polls slowly. */
-export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefined, hidesOpenRuns = false): number {
-	if (filters.status === 'active') { return FAST_POLL_MS; }
-	return !hidesOpenRuns && rows?.some(isOpenRun) ? FAST_POLL_MS : SLOW_POLL_MS;
+/** The list's poll interval for its last answer. */
+export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefined): number {
+	return filters.status === 'active' || rows?.some(isOpenRun) ? FAST_POLL_MS : SLOW_POLL_MS;
 }
 
 /**
@@ -251,14 +259,14 @@ export function runListInterval(filters: RunFilters, rows: RunSummary[] | undefi
  * run that left the filter. React Query renders only the current key's answer, so a reply for filters the user has
  * since changed is never shown.
  */
-export function runListQueryOptions(filters: RunFilters, start = 0, { hidesOpenRuns = false } = {}) {
+export function runListQueryOptions(filters: RunFilters, start = 0) {
 	return queryOptions({
 		queryKey: [...runListPrefix, filters, start],
 		queryFn: () => getRuns(filters, start),
 		retry: false,
 		meta: { quietErrors: true },
 		refetchIntervalInBackground: false,
-		refetchInterval: (query) => pollUnlessForbidden(runListInterval(filters, query.state.data, hidesOpenRuns))(query),
+		refetchInterval: (query) => pollUnlessForbidden(runListInterval(filters, query.state.data))(query),
 	});
 }
 
