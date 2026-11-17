@@ -19,7 +19,6 @@ const { state, remove, toast } = vi.hoisted(() => ({
 		entityId: 'clu-1',
 		params: { clusterId: 'clu-1' } as { clusterId?: string; instanceId?: string },
 		local: false,
-		fabricKeepsCustomerModels: false,
 	},
 	remove: { mutate: vi.fn(), isPending: false },
 	toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -56,12 +55,6 @@ vi.mock('@/config/constants', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/config/constants')>()),
 	get isLocalStudio() {
 		return state.local;
-	},
-}));
-vi.mock('@/integrations/api/instance/models/models', async (importOriginal) => ({
-	...(await importOriginal<typeof import('@/integrations/api/instance/models/models')>()),
-	get FABRIC_KEEPS_CUSTOMER_MODELS() {
-		return state.fabricKeepsCustomerModels;
 	},
 }));
 vi.mock('./ModelsApiCard', () => ({
@@ -107,7 +100,6 @@ beforeEach(() => {
 		entityId: 'clu-1',
 		params: { clusterId: 'clu-1' },
 		local: false,
-		fabricKeepsCustomerModels: false,
 	});
 	remove.mutate.mockReset();
 	remove.isPending = false;
@@ -225,24 +217,25 @@ describe('on Fabric', () => {
 		);
 	});
 
-	it('offers no way to add, edit or remove while host manager still replaces the list', () => {
-		render(<ConfigAiModelsIndex />);
-		expect(screen.getByText("Adding your own models isn't available on Fabric yet.")).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Add Model' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
-	});
-
-	it("once Fabric keeps customer entries, offers them for the customer's own models only", () => {
-		state.fabricKeepsCustomerModels = true;
+	it("offers add, edit and remove for the customer's own models only", () => {
 		render(<ConfigAiModelsIndex />);
 		expect(screen.getByRole('button', { name: 'Add Model' })).toBeTruthy();
 		expect(within(screen.getByLabelText('embedding model default')).queryByRole('button')).toBeNull();
-		expect(within(screen.getByLabelText('generative model mine')).getByRole('button', { name: 'Edit' })).toBeTruthy();
+		const mine = within(screen.getByLabelText('generative model mine'));
+		expect(mine.getByRole('button', { name: 'Edit' })).toBeTruthy();
+		expect(mine.getByRole('button', { name: 'Remove' })).toBeTruthy();
+	});
+
+	it('needs Harper 5.4, and names no config file, which a Fabric customer cannot reach', () => {
+		state.version = '5.3.6';
+		render(<ConfigAiModelsIndex />);
+		expect(screen.getByText('Adding and changing models here needs Harper 5.4 or later. This cluster runs 5.3.6.'))
+			.toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Add Model' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
 	});
 
 	it('offers nothing for change until it knows where the instance runs', () => {
-		state.fabricKeepsCustomerModels = true;
 		state.cluster = undefined;
 		render(<ConfigAiModelsIndex />);
 		expect(screen.queryByRole('button', { name: 'Add Model' })).toBeNull();

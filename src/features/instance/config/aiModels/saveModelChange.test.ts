@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fabricModelKeys } from './modelEntries';
 import { ModelSaveError, saveModelChange } from './saveModelChange';
 
-const { cluster } = vi.hoisted(() => ({
-	cluster: { allInstances: [] as unknown[], targets: [] as unknown[] },
-}));
+const { cluster, readCluster } = vi.hoisted(() => {
+	const cluster = { allInstances: [] as unknown[], targets: [] as unknown[] };
+	return { cluster, readCluster: vi.fn(async () => ({ instances: cluster.allInstances })) };
+});
 vi.mock('@/hooks/getClusterRestartTargets', () => ({ getClusterRestartTargets: async () => cluster }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({ getClusterInfo: readCluster }));
 
 type Body = { operation: string; models?: unknown; replicated?: unknown };
 
@@ -41,6 +43,7 @@ const mine = { backend: 'ollama', model: 'llama3.2' };
 beforeEach(() => {
 	cluster.allInstances = [];
 	cluster.targets = [];
+	readCluster.mockClear();
 });
 
 describe('saving to one instance', () => {
@@ -93,6 +96,27 @@ describe('saving to one instance', () => {
 			).rejects.toThrow(/Fabric manages the embedding model 'default'/);
 		}
 		expect(node.writes).toEqual([]);
+	});
+
+	it('on Fabric, refuses a name central manager started routing to this instance after the page loaded', async () => {
+		const node = instance({});
+		cluster.allInstances = [
+			{ id: 'ins-1', modelsConfig: { embedding: { default: {} } } },
+			{ id: 'ins-2', modelsConfig: { generative: { other: {} } } },
+		];
+		await expect(
+			saveModelChange(single(node), { kind: 'embedding', name: 'default', entry: mine }, new Set(), 'clu-1'),
+		).rejects.toThrow(/Fabric manages the embedding model 'default'/);
+		expect(node.writes).toEqual([]);
+		// Another instance's Fabric names are not this one's.
+		await saveModelChange(single(node), { kind: 'generative', name: 'other', entry: mine }, new Set(), 'clu-1');
+		expect(node.config.models).toEqual({ generative: { other: mine } });
+	});
+
+	it('off Fabric, never reads the cluster for one instance', async () => {
+		const node = instance({});
+		await saveModelChange(single(node), { kind: 'generative', name: 'mine', entry: mine }, undefined, 'clu-1');
+		expect(readCluster).not.toHaveBeenCalled();
 	});
 
 	it('removes an entry, and writes nothing when it is already gone', async () => {
@@ -152,6 +176,24 @@ describe('saving to a cluster', () => {
 		for (const write of [...east.writes, ...west.writes]) {
 			expect(Object.hasOwn(write, 'replicated')).toBe(false);
 		}
+	});
+
+	it('refuses a name central manager started routing after the page loaded, before any write', async () => {
+		const east = instance({});
+		const west = instance({ models: { embedding: { default: { backend: 'openai', baseUrl: 'https://hub/v1' } } } });
+		members(east, west);
+		(cluster.allInstances[1] as { modelsConfig?: unknown }).modelsConfig = { embedding: { default: {} } };
+		await expect(saveModelChange(params, { kind: 'embedding', name: 'default', entry: mine }, new Set()))
+			.rejects.toThrow(/Fabric manages the embedding model 'default'/);
+		expect([...east.writes, ...west.writes]).toEqual([]);
+	});
+
+	it('off Fabric, marks nothing as managed whatever the cluster read holds', async () => {
+		const node = instance({});
+		members(node);
+		(cluster.allInstances[0] as { modelsConfig?: unknown }).modelsConfig = { embedding: { default: {} } };
+		const outcome = await saveModelChange(params, { kind: 'embedding', name: 'default', entry: mine }, undefined);
+		expect(outcome).toEqual({ saved: 1, notRunning: 0 });
 	});
 
 	it('brings an instance that was behind level, instead of refusing it as changed', async () => {

@@ -1,5 +1,6 @@
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getClusterRestartTargets } from '@/hooks/getClusterRestartTargets';
 import {
 	ModelKind,
@@ -13,7 +14,7 @@ import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { stableJson } from '@/lib/stableJson';
 import { describeError } from '@/react-query/queryClient';
 import type { AxiosInstance } from 'axios';
-import { isFabricManaged, KIND_LABELS, storedEntry, withModelEntry } from './modelEntries';
+import { fabricModelKeys, isFabricManaged, KIND_LABELS, storedEntry, withModelEntry } from './modelEntries';
 
 export interface ModelChange {
 	kind: ModelKind;
@@ -37,11 +38,25 @@ interface SaveTarget {
 	version?: string;
 }
 
+interface SavePlan {
+	targets: SaveTarget[];
+	notRunning: number;
+	/** The names central manager routes to these targets, as it answers now. */
+	fabricKeysNow?: ReadonlySet<string>;
+}
+
 async function planTargets(
 	params: InstanceClientIdConfig & InstanceTypeConfig,
-): Promise<{ targets: SaveTarget[]; notRunning: number }> {
+	fabricClusterId: string | undefined,
+): Promise<SavePlan> {
 	if (params.entityType !== 'cluster') {
-		return { targets: [{ instanceClient: params.instanceClient, label: 'This instance' }], notRunning: 0 };
+		const cluster = fabricClusterId ? await getClusterInfo(fabricClusterId) : undefined;
+		return {
+			targets: [{ instanceClient: params.instanceClient, label: 'This instance' }],
+			notRunning: 0,
+			fabricKeysNow: cluster
+				&& fabricModelKeys(cluster.instances?.filter((instance) => instance.id === params.entityId)),
+		};
 	}
 	const { allInstances, targets } = await getClusterRestartTargets(params.entityId);
 	const live = allInstances.filter((instance) =>
@@ -54,6 +69,7 @@ async function planTargets(
 			version: instance.version,
 		})),
 		notRunning: live.length - targets.length,
+		fabricKeysNow: fabricModelKeys(allInstances),
 	};
 }
 
@@ -73,8 +89,11 @@ export async function saveModelChange(
 	params: InstanceClientIdConfig & InstanceTypeConfig,
 	change: ModelChange,
 	fabricKeys: ReadonlySet<string> | undefined,
+	clusterId?: string,
 ): Promise<ModelSaveOutcome> {
-	const { targets, notRunning } = await planTargets(params);
+	const { targets, notRunning, fabricKeysNow } = await planTargets(params, fabricKeys ? clusterId : undefined);
+	// Central manager may have started routing a name since the page loaded.
+	const managedKeys = fabricKeys && fabricKeysNow ? new Set([...fabricKeys, ...fabricKeysNow]) : fabricKeys;
 	if (targets.length === 0) {
 		throw new ModelSaveError('No running instance was found to save to, so nothing was changed.');
 	}
@@ -94,7 +113,7 @@ export async function saveModelChange(
 		try {
 			const block = readModelsBlock(await readConfiguration(target));
 			const current = storedEntry(block, change.kind, change.name);
-			if (isFabricManaged(change.kind, change.name, current, fabricKeys)) {
+			if (isFabricManaged(change.kind, change.name, current, managedKeys)) {
 				throw new ModelSaveError(`Fabric manages the ${described}, so it can't be changed here.`);
 			}
 			// With one instance, what the page loaded is what this instance held: a difference means

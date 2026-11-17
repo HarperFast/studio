@@ -8,6 +8,7 @@ import { ModelSaveError } from './saveModelChange';
 import { useSaveModelChange } from './useSaveModelChange';
 
 const { save } = vi.hoisted(() => ({ save: vi.fn() }));
+vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ clusterId: 'clu-1' }) }));
 vi.mock('./saveModelChange', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./saveModelChange')>()),
 	saveModelChange: save,
@@ -45,12 +46,12 @@ beforeEach(() => {
 afterEach(() => reported.mockRestore());
 
 describe('useSaveModelChange', () => {
-	it('saves what the form built, to the entity the page is on, with the names Fabric manages', async () => {
+	it('saves what the form built, to the entity the page is on, with the names Fabric manages and its cluster', async () => {
 		save.mockResolvedValue({ saved: 2, notRunning: 0 });
 		const { client, invalidate, result } = setup();
 		act(() => result.current.mutate({ params, change, fabricKeys }));
 		await waitFor(() => expect(result.current.isSuccess).toBe(true));
-		expect(save).toHaveBeenCalledWith(params, change, fabricKeys);
+		expect(save).toHaveBeenCalledWith(params, change, fabricKeys, 'clu-1');
 		expect(result.current.data).toEqual({ saved: 2, notRunning: 0 });
 		expect(invalidate).toHaveBeenCalledWith({ queryKey: ['get_configuration', 'clu-1'] });
 		expect(client.getMutationCache().getAll()[0].options.meta).toEqual({ skipGlobalErrorToast: true });

@@ -23,13 +23,6 @@ export const supportsModelsGateway = (version: string | undefined) => atLeast(MO
 export const supportsDecisionModels = (version: string | undefined) => atLeast(DECISION_MODELS_MIN_VERSION, version);
 export const supportsModelsWrite = (version: string | undefined) => atLeast(MODELS_WRITE_MIN_VERSION, version);
 
-/**
- * Whether Fabric keeps a customer's own entries. Until HarperFast/host-manager#279 is deployed, host
- * manager replaces the whole block on its next pass, so a model added from Studio would vanish.
- * Turn this on once that fix runs on every Fabric host.
- */
-export const FABRIC_KEEPS_CUSTOMER_MODELS: boolean = false;
-
 export const MODEL_KINDS = ['embedding', 'generative', 'decision'] as const;
 export type ModelKind = typeof MODEL_KINDS[number];
 

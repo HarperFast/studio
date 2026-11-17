@@ -1,5 +1,6 @@
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import { ModelChange, ModelSaveError, saveModelChange } from './saveModelChange';
 
 interface SaveModelChangeArgs {
@@ -16,8 +17,10 @@ interface SaveModelChangeArgs {
  */
 export function useSaveModelChange() {
 	const queryClient = useQueryClient();
+	const { clusterId }: { clusterId?: string } = useParams({ strict: false });
 	return useMutation({
-		mutationFn: ({ params, change, fabricKeys }: SaveModelChangeArgs) => saveModelChange(params, change, fabricKeys),
+		mutationFn: ({ params, change, fabricKeys }: SaveModelChangeArgs) =>
+			saveModelChange(params, change, fabricKeys, clusterId),
 		meta: { skipGlobalErrorToast: true },
 		onError: (error) => {
 			if (!(error instanceof ModelSaveError)) {
