@@ -180,7 +180,9 @@ export function AgentSettingsForm(
 		editor: AgentSettingsEditor;
 	},
 ) {
-	const { drafts, setDrafts, save: { mutate, isPending, error, reset } } = editor;
+	const { drafts, setDrafts, save: { mutate, isPending, error, reset, variables } } = editor;
+	// Only a key this form sent may restart from the server's value; a draft that merely matches it keeps its baseline.
+	const submitted = new Set((variables ?? []).map((change) => change.name));
 	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
 	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
 	// Failures toast through the global handler; an unanswered one is only "outcome unknown", never someone else's edit.
@@ -246,7 +248,8 @@ export function AgentSettingsForm(
 														setDrafts((current) => ({
 															...current,
 															[entry.name]: {
-																...(current[entry.name] && !isSettled(current[entry.name], entry)
+																...(current[entry.name]
+																		&& !(submitted.has(entry.name) && isSettled(current[entry.name], entry))
 																	? current[entry.name]
 																	: startDraft(entry, next)),
 																text: next,

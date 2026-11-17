@@ -363,6 +363,29 @@ describe('AgentAdminIndex — review regressions', () => {
 		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2');
 	});
 
+	it('keeps the baseline when a draft only happens to match a value someone else saved', async () => {
+		const client = renderPage();
+		openTab('Settings');
+		const form = await screen.findByRole('form', { name: 'Agent settings' });
+		const input = () => within(form).getByLabelText('AGENT_RUN_BUDGET_USD');
+		fireEvent.change(input(), { target: { value: '10' } });
+
+		stored.AGENT_RUN_BUDGET_USD = 10;
+		overview = {
+			...OVERVIEW,
+			settings: OVERVIEW.settings.map((row) =>
+				(row.name === 'AGENT_RUN_BUDGET_USD' ? { ...row, value: 10 } : row) as (typeof OVERVIEW.settings)[number]
+			),
+		};
+		await act(() => client.refetchQueries({ queryKey: ['fabric-admin', 'agent', 'overview'] }));
+		fireEvent.change(input(), { target: { value: '100' } });
+
+		expect(await within(form).findByText(/Changed by someone else since you started editing/)).toBeTruthy();
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(toastError).toHaveBeenCalled());
+		expect(patch).not.toHaveBeenCalled();
+	});
+
 	it('keeps an unsaved settings edit across a tab switch', async () => {
 		renderPage();
 		openTab('Settings');
