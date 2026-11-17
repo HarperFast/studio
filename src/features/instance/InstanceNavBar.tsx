@@ -1,4 +1,4 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Breadcrumbs, useBreadcrumbTrail } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useFitLevel } from '@/hooks/useFitLevel';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useLocation } from '@tanstack/react-router';
 import { EllipsisIcon, Menu } from 'lucide-react';
+import { useRef } from 'react';
 
 const activeLinkProps = {
 	className: 'text-primary font-semibold bg-primary/10 rounded-md dark:text-white dark:bg-white/10',
@@ -47,70 +49,105 @@ interface NavBarProps {
 	restartRequired: boolean;
 }
 
+export interface NavBarLayout {
+	/** Tabs show their names; otherwise icons, with the name in a tooltip. */
+	labels: boolean;
+	/** Leading crumbs folded behind "…". */
+	collapse: number;
+}
+
+/**
+ * What the bar gives up, in order, when it is short of room: first the leading crumb (the organization), then the
+ * tab names, then one more crumb at a time down to the last. The tabs never shrink, so a tab never slides out of
+ * view; where even the last layout is too wide, its crumbs truncate.
+ */
+export function navBarLayouts(crumbs: number): NavBarLayout[] {
+	const foldable = Math.max(crumbs - 1, 0);
+	return [
+		{ labels: true, collapse: 0 },
+		...(foldable > 0 ? [{ labels: true, collapse: 1 }] : []),
+		...Array.from({ length: foldable + 1 }, (_, collapse) => ({ labels: false, collapse })),
+	];
+}
+
 function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
+	const barRef = useRef<HTMLDivElement>(null);
+	const { pathname } = useLocation();
+	const layouts = navBarLayouts(useBreadcrumbTrail().length);
+	const level = useFitLevel(barRef, layouts.length, `${pathname} ${links.map((link) => link.key).join()}`);
+	const { labels, collapse } = layouts[level];
+	const lastResort = level === layouts.length - 1;
+
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
-		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
-		// until xl, where the full word labels fit.
-		<div className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between h-full text-sm text-foreground">
-			<Breadcrumbs restartRequired={restartRequired} />
-			<div className="flex space-x-2">
+		// layouts). Touch-only devices can't hover those tooltips, so they stay on the hamburger
+		// until xl.
+		<div
+			ref={barRef}
+			className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between gap-4 h-full overflow-hidden text-sm text-foreground"
+		>
+			<Breadcrumbs
+				restartRequired={restartRequired}
+				collapse={collapse}
+				// Natural width while the bar measures what fits; only the last resort lets crumbs truncate.
+				className={cn('max-w-none sm:max-w-none', lastResort ? 'min-w-0' : 'shrink-0')}
+			/>
+			<div className="flex shrink-0 space-x-2">
 				{links.map(({ key, shortName, ...link }) => {
 					const linkElement = (
 						<Link
 							key={key}
-							// The label is display:none below xl, so give the link a stable accessible name
-							// (the tooltip only wires aria-describedby, a description, not a name).
+							// The name may be an icon's tooltip, which wires only aria-describedby, so name the link itself.
 							aria-label={link.name}
-							className="p-2 text-center text-muted-foreground hover:text-foreground"
+							className="p-2 text-center whitespace-nowrap text-muted-foreground hover:text-foreground"
 							activeProps={activeLinkProps}
 							{...link}
 						>
 							{link.icon}
-							<span className="hidden xl:inline-block ml-1">{link.name}</span>
-							{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
+							{labels
+								? <span className="ml-1">{link.name}</span>
+								: shortName && <span className="ml-1">{shortName}</span>}
 						</Link>
 					);
 
-					// Links with a shortName always show a text label, so a tooltip would be
-					// redundant. Only the icon-only links (no shortName, hidden name below xl)
-					// need one, and it's suppressed at xl+ where the full name is visible.
-					if (shortName) {
+					// A tab showing words needs no tooltip; only a bare icon does.
+					if (labels || shortName) {
 						return linkElement;
 					}
 
 					return (
 						<Tooltip key={key}>
 							<TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-							<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
+							<TooltipContent side="bottom">{link.name}</TooltipContent>
 						</Tooltip>
 					);
 				})}
-				{tucked.length > 0 && <MoreMenu tucked={tucked} />}
+				{tucked.length > 0 && <MoreMenu tucked={tucked} label={labels} />}
 			</div>
 		</div>
 	);
 }
 
-function MoreMenu({ tucked }: { tucked: InstanceNavLink[] }) {
+function MoreMenu({ tucked, label }: { tucked: InstanceNavLink[]; label: boolean }) {
 	const { pathname } = useLocation();
 	// The trigger carries the active style when the open page is one of these, so the nav still says where you are.
 	const active = tucked.some((link) =>
 		link.activeOptions?.exact ? pathname === link.to : isAtOrUnder(pathname, link.to)
 	);
 	return (
-		<DropdownMenu>
+		// Not modal, like the folded crumbs: hiding the page's scrollbar would widen the bar and re-fit it under the menu.
+		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
 					aria-label="More"
 					className={cn(
-						'p-2 text-center text-muted-foreground hover:text-foreground',
+						'p-2 text-center whitespace-nowrap text-muted-foreground hover:text-foreground',
 						active && activeLinkProps.className,
 					)}
 				>
 					<EllipsisIcon className="inline-block" />
-					<span className="hidden xl:inline-block ml-1">More</span>
+					{label && <span className="ml-1">More</span>}
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">

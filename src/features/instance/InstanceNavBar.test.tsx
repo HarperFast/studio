@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
+import { InstanceNavBar, navBarLayouts } from '@/features/instance/InstanceNavBar';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -15,7 +15,16 @@ const { permission, studio } = vi.hoisted(() => ({
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => permission.canManage }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => ({}) }));
-vi.mock('@/components/Breadcrumbs', () => ({ Breadcrumbs: () => null }));
+vi.mock('@/components/Breadcrumbs', () => ({
+	Breadcrumbs: ({ collapse, className }: { collapse?: number; className?: string }) => (
+		<div data-testid="crumbs" data-collapse={collapse ?? 0} className={className} />
+	),
+	useBreadcrumbTrail: () => [
+		{ path: '/org-1', label: 'Org' },
+		{ path: '/org-1/clu-1', label: 'Cluster' },
+		{ path: '/org-1/clu-1/instance/ins-1/databases', label: 'Databases' },
+	],
+}));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 	useNavigationVisibility: () => (key: string) => studio.navigation[key] ?? 'visible',
 	useVisibleExtensionPages: (placement: 'tab' | 'config') => placement === 'tab' ? studio.tabs : studio.configEntries,
@@ -65,6 +74,47 @@ describe('InstanceNavBar', () => {
 
 		expect(screen.queryByRole('link', { name: 'Operations' })).toBeNull();
 		expect(screen.getByRole('link', { name: 'Databases' })).toBeTruthy();
+	});
+});
+
+describe('navBarLayouts', () => {
+	it('folds the first crumb, then drops the tab names, then folds the rest down to the last crumb', () => {
+		expect(navBarLayouts(3)).toEqual([
+			{ labels: true, collapse: 0 },
+			{ labels: true, collapse: 1 },
+			{ labels: false, collapse: 0 },
+			{ labels: false, collapse: 1 },
+			{ labels: false, collapse: 2 },
+		]);
+	});
+
+	it('only drops the tab names where there is a single crumb or none', () => {
+		const namesThenIcons = [{ labels: true, collapse: 0 }, { labels: false, collapse: 0 }];
+		expect(navBarLayouts(1)).toEqual(namesThenIcons);
+		expect(navBarLayouts(0)).toEqual(namesThenIcons);
+	});
+});
+
+describe('InstanceNavBar fitting its bar', () => {
+	const desktopCrumbs = () => screen.getAllByTestId('crumbs')[0];
+
+	afterEach(() => vi.restoreAllMocks());
+
+	it('names every tab and keeps every crumb at natural width while they fit', () => {
+		render(<InstanceNavBar />);
+		expect(screen.getAllByRole('link', { name: 'Databases' })[0].textContent).toBe('Databases');
+		expect(desktopCrumbs().getAttribute('data-collapse')).toBe('0');
+		expect(desktopCrumbs().className).toContain('shrink-0');
+	});
+
+	it('falls back to icons, folds all but the last crumb, and lets it truncate when nothing fits', () => {
+		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(1000);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500);
+		render(<InstanceNavBar />);
+		expect(screen.getAllByRole('link', { name: 'Databases' })[0].textContent).toBe('');
+		expect(screen.getAllByRole('link', { name: 'Applications' })[0].textContent).toBe('Apps');
+		expect(desktopCrumbs().getAttribute('data-collapse')).toBe('2');
+		expect(desktopCrumbs().className).toContain('min-w-0');
 	});
 });
 

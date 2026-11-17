@@ -8,17 +8,21 @@ import {
 	createRouter,
 	RouterProvider,
 } from '@tanstack/react-router';
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 afterEach(cleanup);
 
 const DEPLOYMENT_ID = '4ac92da3-d8a0-423e-b145-5df107957dd4';
 
 // A real router, so the crumbs come from the match the page is actually on.
-function renderAt(path: string, url: string, queryClient = new QueryClient()) {
+function renderAt(path: string, url: string, queryClient = new QueryClient(), collapse?: number) {
 	const rootRoute = createRootRoute();
-	const page = createRoute({ getParentRoute: () => rootRoute, path, component: () => <Breadcrumbs /> });
+	const page = createRoute({
+		getParentRoute: () => rootRoute,
+		path,
+		component: () => <Breadcrumbs collapse={collapse} />,
+	});
 	const router = createRouter({
 		routeTree: rootRoute.addChildren([page]),
 		history: createMemoryHistory({ initialEntries: [url] }),
@@ -47,6 +51,53 @@ describe('Breadcrumbs', () => {
 		renderAt('$organizationId/$clusterId/config/users/$username', '/org-a/clu-a/config/users/hdb_admin');
 		expect(await screen.findByRole('link', { name: 'hdb_admin' })).toBeTruthy();
 		expect(screen.queryByText('Hdb Admin')).toBeNull();
+	});
+});
+
+describe('Breadcrumbs short of room', () => {
+	beforeAll(() => {
+		// Radix menus need these in jsdom (see AGENTS.md, "Testing Radix menus in jsdom").
+		Element.prototype.hasPointerCapture = () => false;
+		Element.prototype.setPointerCapture = () => {};
+		Element.prototype.releasePointerCapture = () => {};
+		Element.prototype.scrollIntoView = () => {};
+		window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent;
+	});
+
+	const USERS_PAGE = [
+		'$organizationId/$clusterId/config/users/$username',
+		'/org-a/clu-a/config/users/hdb_admin',
+	] as const;
+
+	it('folds the leading crumbs behind a menu that still links to each of them', async () => {
+		renderAt(...USERS_PAGE, new QueryClient(), 2);
+		expect(await screen.findByRole('link', { name: 'hdb_admin' })).toBeTruthy();
+		expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+			'Home',
+			'Config',
+			'Users',
+			'hdb_admin',
+		]);
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Show the rest of the path' }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		const folded = screen.getAllByRole('menuitem');
+		expect(folded.map((item) => item.textContent)).toEqual(['Org', 'Cluster']);
+		expect(folded.map((item) => item.getAttribute('href'))).toEqual(['/org-a', '/org-a/clu-a']);
+	});
+
+	it('always shows the last crumb, however many it is asked to fold', async () => {
+		renderAt(...USERS_PAGE, new QueryClient(), 99);
+		expect(await screen.findByRole('link', { name: 'hdb_admin' })).toBeTruthy();
+		expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'hdb_admin']);
+	});
+
+	it('has no menu while nothing is folded', async () => {
+		renderAt(...USERS_PAGE);
+		expect(await screen.findByRole('link', { name: 'Org' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Show the rest of the path' })).toBeNull();
 	});
 });
 
