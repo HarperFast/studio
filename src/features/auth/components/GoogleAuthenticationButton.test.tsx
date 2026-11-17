@@ -20,11 +20,13 @@ describe('GoogleAuthenticationButton', () => {
 		expect(screen.queryByText('Last used')).toBeNull();
 	});
 
-	it('links to the central-manager login endpoint', () => {
+	it('links to the central-manager login endpoint, returning to the serving origin', () => {
 		vi.stubEnv('VITE_CENTRAL_MANAGER_API_URL', 'https://cm.test.invalid');
 		render(<GoogleAuthenticationButton text="Sign in with Google" />);
 		expect(screen.getByRole('link').getAttribute('href')).toBe(
-			'https://cm.test.invalid/oauth/google/login?redirect=%2F%23%2Fcheck-oauth',
+			`https://cm.test.invalid/oauth/google/login?redirect=${
+				encodeURIComponent(`${window.location.origin}/#/check-oauth`)
+			}`,
 		);
 	});
 

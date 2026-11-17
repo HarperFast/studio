@@ -236,6 +236,14 @@ provider only accepts the redirect URI registered for that origin, and the callb
 session cookie there. So build these links with `getOAuthSignInUrl()`, which is absolute against
 `VITE_CENTRAL_MANAGER_API_URL` — the same source of truth `apiClient` uses.
 
+A sign-in can still finish on another origin. The Google and GitHub buttons pass
+`checkOAuthRedirectUrl()`, the serving origin's `/#/check-oauth`, as an absolute `redirect`. The CM
+keeps only its path unless that origin is in its `postLoginRedirectOrigins` (on dev, Studio PR
+previews: central-manager#1128). Then it hands the sign-in over with a single-use `oauth_handoff`
+code in the fragment, which `CheckOAuth` redeems at `POST /oauth/handoff` from the page itself:
+Harper names the session cookie after the request's `Origin`, so only that request can create the
+page's session.
+
 An origin-relative `href="/oauth/google/login"` looks equivalent and is not. It satisfies the
 invariant only where the CM happens to serve Studio (the deployed builds); under `pnpm dev`, or
 from a Harper instance serving the bundle, the request hits a server with no `oauth` resource and
