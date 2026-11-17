@@ -13,7 +13,7 @@ import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { stableJson } from '@/lib/stableJson';
 import { describeError } from '@/react-query/queryClient';
 import type { AxiosInstance } from 'axios';
-import { isFabricManaged, KIND_LABELS, storedEntry, withModelEntry } from './modelEntries';
+import { fabricModelKeys, isFabricManaged, KIND_LABELS, storedEntry, withModelEntry } from './modelEntries';
 
 export interface ModelChange {
 	kind: ModelKind;
@@ -37,9 +37,14 @@ interface SaveTarget {
 	version?: string;
 }
 
-async function planTargets(
-	params: InstanceClientIdConfig & InstanceTypeConfig,
-): Promise<{ targets: SaveTarget[]; notRunning: number }> {
+interface SavePlan {
+	targets: SaveTarget[];
+	notRunning: number;
+	/** The names central manager routes on this cluster, as it answers now. Absent on an instance route. */
+	fabricKeysNow?: ReadonlySet<string>;
+}
+
+async function planTargets(params: InstanceClientIdConfig & InstanceTypeConfig): Promise<SavePlan> {
 	if (params.entityType !== 'cluster') {
 		return { targets: [{ instanceClient: params.instanceClient, label: 'This instance' }], notRunning: 0 };
 	}
@@ -54,6 +59,7 @@ async function planTargets(
 			version: instance.version,
 		})),
 		notRunning: live.length - targets.length,
+		fabricKeysNow: fabricModelKeys(allInstances),
 	};
 }
 
@@ -74,7 +80,10 @@ export async function saveModelChange(
 	change: ModelChange,
 	fabricKeys: ReadonlySet<string> | undefined,
 ): Promise<ModelSaveOutcome> {
-	const { targets, notRunning } = await planTargets(params);
+	const { targets, notRunning, fabricKeysNow } = await planTargets(params);
+	// Central manager may have started routing a name since the page loaded, and a cluster save has
+	// no stale check to notice. Off Fabric `fabricKeys` is absent, and stays absent.
+	const managedKeys = fabricKeys && fabricKeysNow ? new Set([...fabricKeys, ...fabricKeysNow]) : fabricKeys;
 	if (targets.length === 0) {
 		throw new ModelSaveError('No running instance was found to save to, so nothing was changed.');
 	}
@@ -94,7 +103,7 @@ export async function saveModelChange(
 		try {
 			const block = readModelsBlock(await readConfiguration(target));
 			const current = storedEntry(block, change.kind, change.name);
-			if (isFabricManaged(change.kind, change.name, current, fabricKeys)) {
+			if (isFabricManaged(change.kind, change.name, current, managedKeys)) {
 				throw new ModelSaveError(`Fabric manages the ${described}, so it can't be changed here.`);
 			}
 			// With one instance, what the page loaded is what this instance held: a difference means

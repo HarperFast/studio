@@ -154,6 +154,24 @@ describe('saving to a cluster', () => {
 		}
 	});
 
+	it('refuses a name central manager started routing after the page loaded, before any write', async () => {
+		const east = instance({});
+		const west = instance({ models: { embedding: { default: { backend: 'openai', baseUrl: 'https://hub/v1' } } } });
+		members(east, west);
+		(cluster.allInstances[1] as { modelsConfig?: unknown }).modelsConfig = { embedding: { default: {} } };
+		await expect(saveModelChange(params, { kind: 'embedding', name: 'default', entry: mine }, new Set()))
+			.rejects.toThrow(/Fabric manages the embedding model 'default'/);
+		expect([...east.writes, ...west.writes]).toEqual([]);
+	});
+
+	it('off Fabric, marks nothing as managed whatever the cluster read holds', async () => {
+		const node = instance({});
+		members(node);
+		(cluster.allInstances[0] as { modelsConfig?: unknown }).modelsConfig = { embedding: { default: {} } };
+		const outcome = await saveModelChange(params, { kind: 'embedding', name: 'default', entry: mine }, undefined);
+		expect(outcome).toEqual({ saved: 1, notRunning: 0 });
+	});
+
 	it('brings an instance that was behind level, instead of refusing it as changed', async () => {
 		const current = instance({ models: { generative: { mine } } });
 		const behind = instance({ models: { generative: { mine: { backend: 'ollama', model: 'older' } } } });
