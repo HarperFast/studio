@@ -1,4 +1,12 @@
 import { Loading } from '@/components/Loading';
+import { Button } from '@/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdownMenu';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
@@ -20,11 +28,12 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, Outlet, useLoaderData, useLocation, useParams } from '@tanstack/react-router';
+import { Link, Navigate, Outlet, useLoaderData, useLocation, useMatchRoute, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
 	CalendarClockIcon,
+	ChevronDownIcon,
 	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
@@ -39,7 +48,7 @@ import {
 	UsersIcon,
 	WorkflowIcon,
 } from 'lucide-react';
-import { ReactNode, Suspense } from 'react';
+import { Fragment, ReactNode, Suspense } from 'react';
 
 interface ConfigMenuEntry {
 	name: string;
@@ -149,7 +158,7 @@ export function ConfigIndex() {
 		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36))-var(--notification-banner-height))]">
 			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
 				<DesktopConfigNavBar params={params} showOverview={canManage}>{children}</DesktopConfigNavBar>
-				<MobileConfigNavBar params={params} showOverview={canManage}>{children}</MobileConfigNavBar>
+				<MobileConfigNavBar params={params} showOverview={canManage} entries={entries} atIndex={atIndex} />
 			</section>
 			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 md:pt-4">
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
@@ -192,31 +201,76 @@ function DesktopConfigNavBar({ params, children, showOverview }: {
 	);
 }
 
-function MobileConfigNavBar({ params, children, showOverview }: {
+interface MobileConfigNavItem {
+	name: string;
+	to: string;
+	icon: ReactNode;
+	exact?: boolean;
+}
+
+/**
+ * Below `md` the sidebar has no room, and a row of every page (sixteen on a current release, plus any a
+ * component adds) scrolled the whole page sideways. A button naming the current page opens the full list
+ * instead, the same shape `SubNavRail` gives the org, cluster and admin sections.
+ */
+function MobileConfigNavBar({ params, entries, showOverview, atIndex }: {
 	params: {
 		clusterId?: string;
 		instanceId?: string;
 		organizationId?: string;
 	};
-	children: ReactNode;
+	entries: ConfigMenuEntry[];
 	showOverview: boolean;
+	atIndex: boolean;
 }) {
+	const matchRoute = useMatchRoute();
+	const overview: MobileConfigNavItem | undefined = showOverview
+		? { name: 'Overview', to: buildAbsoluteLinkToPage(params, 'config'), icon: <PieChartIcon />, exact: true }
+		: undefined;
+	const pages: MobileConfigNavItem[] = entries.map((entry) => ({
+		name: entry.name,
+		to: buildAbsoluteLinkToPage(params, entry.page),
+		icon: entry.icon,
+	}));
+	const items = overview ? [overview, ...pages] : pages;
+	if (items.length === 0) {
+		return null;
+	}
+	// A page by prefix, as its Link decides it is active, so a role's or a deployment's own page names it.
+	// The Overview by `atIndex`: an exact `matchRoute` misses the `config/` the router also sends there.
+	const current = (atIndex ? overview : undefined)
+		?? pages.find((page) => matchRoute({ to: page.to, fuzzy: true, includeSearch: false }));
+
 	return (
-		<ul className="flex space-x-2 md:hidden py-2 px-4">
-			{showOverview && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config')}
-						className={sharedClasses}
-						activeOptions={{ exact: true }}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<PieChartIcon className="hidden md:inline-block" /> <span className="ms-3">Overview</span>
-					</Link>
-				</li>
-			)}
-			{children}
-		</ul>
+		<nav aria-label="Config pages" className="md:hidden px-4 py-2">
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button variant="outline" className="w-full justify-between">
+						<span className="flex min-w-0 items-center gap-2">
+							{current?.icon}
+							<span className="truncate">{current?.name ?? 'Choose a page'}</span>
+						</span>
+						<ChevronDownIcon />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width)">
+					{items.map((item) => (
+						<Fragment key={item.to}>
+							<DropdownMenuItem asChild>
+								<Link
+									to={item.to}
+									activeOptions={{ exact: !!item.exact }}
+									className="data-[status=active]:bg-accent data-[status=active]:font-medium"
+								>
+									{item.icon}
+									{item.name}
+								</Link>
+							</DropdownMenuItem>
+							{item === overview && pages.length > 0 && <DropdownMenuSeparator />}
+						</Fragment>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</nav>
 	);
 }
