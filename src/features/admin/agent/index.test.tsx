@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,10 +14,13 @@ vi.mock('@/hooks/useAuth', () => ({
 	useCloudAuth: () => ({ user: { fabricRole: 'fabric_admin' }, isLoading: false }),
 }));
 vi.mock('@/hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }));
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError, success: vi.fn(), dismiss: vi.fn() }) }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 
+import { mutationErrorHandler } from '@/react-query/queryClient';
 import { AgentAdminIndex } from './index';
 
 const ACTIVE_RUN = {
@@ -104,6 +107,7 @@ beforeEach(() => {
 	get.mockReset();
 	patch.mockReset();
 	del.mockReset();
+	toastError.mockReset();
 	get.mockImplementation(async (url: string) => {
 		if (url === '/Admin/AgentOverview/') { return { data: overview }; }
 		if (url === '/Admin/AgentWatch/?limit(0,500)') { return { data: [WATCH] }; }
@@ -121,7 +125,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 function renderPage() {
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	// The production mutation handler, so a refused save's toast is part of what is tested.
+	const client = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
+	});
 	render(
 		<QueryClientProvider client={client}>
 			<AgentAdminIndex />
@@ -329,7 +337,12 @@ describe('AgentAdminIndex — review regressions', () => {
 		await waitFor(() =>
 			expect(get.mock.calls.some(([url]) => url === '/Admin/Configuration/AGENT_RUN_BUDGET_USD')).toBe(true)
 		);
-		await waitFor(() => expect(within(form).getByRole('button', { name: 'Save 1 change' })).toBeTruthy());
+		await waitFor(() =>
+			expect(toastError).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.objectContaining({ description: expect.stringContaining('was changed by someone else') }),
+			)
+		);
 		expect(patch).not.toHaveBeenCalled();
 		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2');
 	});

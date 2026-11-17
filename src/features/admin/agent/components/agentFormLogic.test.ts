@@ -62,6 +62,15 @@ describe('settings form logic', () => {
 		expect(movedUnder).toEqual(['AGENT_RUN_BUDGET_USD']);
 	});
 
+	it('settles a draft the server already holds, as after a save that landed without an answer', () => {
+		const draft = startDraft(entry('AGENT_RUN_BUDGET_USD', 1), '2');
+		const { changes, movedUnder } = changedSettings([entry('AGENT_RUN_BUDGET_USD', 2)], {
+			AGENT_RUN_BUDGET_USD: draft,
+		});
+		expect(changes).toEqual([]);
+		expect(movedUnder).toEqual([]);
+	});
+
 	it('groups by what the name says, with anything unrecognized in Other', () => {
 		expect(settingGroup('AGENT_ENABLED')).toBe('Switches');
 		expect(settingGroup('AGENT_ROLE_INVESTIGATOR_ENABLED')).toBe('Switches');

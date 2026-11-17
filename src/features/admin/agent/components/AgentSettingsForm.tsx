@@ -84,8 +84,10 @@ export function changedSettings(
 	for (const entry of settings) {
 		const draft = drafts[entry.name];
 		if (!draft) { continue; }
-		if (!sameJson(entry.value, draft.expected)) { movedUnder.push(entry.name); }
 		const parsed = parseDraft(kindOf(draft.expected), draft.text);
+		// Already what the server holds (a save that landed without an answer): nothing to send, nothing to flag.
+		if (parsed.ok && sameJson(parsed.value, entry.value)) { continue; }
+		if (!sameJson(entry.value, draft.expected)) { movedUnder.push(entry.name); }
 		if (!parsed.ok) {
 			errors[entry.name] = parsed.error;
 		} else if (!sameJson(parsed.value, draft.expected)) {
@@ -176,7 +178,7 @@ export function AgentSettingsForm(
 	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
 	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
 	// Failures toast through the global handler; an unanswered one is only "outcome unknown", never someone else's edit.
-	const lastSaveUnanswered = !!error && !shouldToastOwnFailure(error);
+	const unansweredKey = error && !shouldToastOwnFailure(error) ? (error as { failed?: string }).failed : undefined;
 
 	if (settings.length === 0) {
 		return <p className="text-sm text-muted-foreground">Central manager lists no agent settings.</p>;
@@ -243,7 +245,7 @@ export function AgentSettingsForm(
 											)}
 										{movedUnder.includes(entry.name) && (
 											<span className="text-xs text-yellow-600 dark:text-yellow-400">
-												{lastSaveUnanswered
+												{unansweredKey === entry.name
 													? 'Your last save got no answer and may have landed. Discard to see the current value.'
 													: 'Changed by someone else since you started editing. Discard to see the current value.'}
 											</span>
