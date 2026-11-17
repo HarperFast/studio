@@ -59,7 +59,7 @@ function ClusterCell({ run }: { run: Pick<RunSummary, 'clusterId' | 'organizatio
 	);
 }
 
-export const activeRunsQueryOptions = () => runListQueryOptions(ACTIVE_FILTERS);
+const activeRunsQueryOptions = () => runListQueryOptions(ACTIVE_FILTERS);
 
 /**
  * Polls the open runs for the whole page, whichever tab is showing. A run that appears or leaves the list is new or
@@ -97,7 +97,8 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 							{error && <RefreshFailed error={error} />}
 							{data.length >= RUN_MAX_PAGE && (
 								<p className="mb-2 text-sm text-muted-foreground">
-									Showing the newest {RUN_MAX_PAGE} open runs; older open runs are not listed.
+									Showing the newest {RUN_MAX_PAGE}{' '}
+									open runs. Filter Past runs by cluster or organization to find an older one.
 								</p>
 							)}
 							{data.length === 0
@@ -190,8 +191,8 @@ function FilterSelect<T extends string>(
 }
 
 /**
- * Finished runs, filtered and paged by the server. Open runs on the page are left out here because Active shows them,
- * so a page can hold fewer rows than were asked for; only the server's row count decides whether there is a next page.
+ * A page can hold fewer rows than were asked for when open runs are left out; only the server's row count decides
+ * whether there is a next page.
  */
 export function PastRuns() {
 	const [rangeChoice, setRangeChoice] = useState<RangeChoice>('default');
@@ -222,8 +223,10 @@ export function PastRuns() {
 		setStart(0);
 	}
 
-	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start, { hidesOpenRuns: true }));
-	const rows = data?.filter((run) => !isOpenRun(run)) ?? [];
+	// A cluster or organization filter shows its open runs too, so one past Active's cap can still be found.
+	const hidesOpenRuns = !filters.clusterId && !filters.organizationId;
+	const { data, error, isLoading } = useQuery(runListQueryOptions(filters, start, { hidesOpenRuns }));
+	const rows = hidesOpenRuns ? data?.filter((run) => !isOpenRun(run)) ?? [] : data ?? [];
 	const hasNext = data !== undefined && data.length === RUN_PAGE_SIZE && start + 2 * RUN_PAGE_SIZE <= RUN_MAX_END;
 
 	return (

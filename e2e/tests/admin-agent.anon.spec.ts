@@ -102,7 +102,7 @@ async function mockCentralManager(page: Page, state: { active: unknown[]; past: 
 	);
 	await page.route('**/User/current', (route) => route.fulfill({ json: staff }));
 	await page.route('**/Admin/AgentOverview/', (route) => route.fulfill({ json: overview }));
-	await page.route('**/Admin/AgentWatch/', (route) => route.fulfill({ json: [] }));
+	await page.route(/\/Admin\/AgentWatch\/\?/, (route) => route.fulfill({ json: [] }));
 	await page.route(
 		/\/Admin\/Investigation\/\?/,
 		(route) => route.fulfill({ json: route.request().url().includes('status=active') ? state.active : state.past }),

@@ -32,7 +32,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** Text is rendered only once asked for: a brief can be hundreds of KiB, and the page re-renders on every poll. */
-export function ExpandableText({ label, text }: { label: string; text?: string | null }) {
+function ExpandableText({ label, text }: { label: string; text?: string | null }) {
 	const [open, setOpen] = useState(false);
 	if (!text) { return <span className="text-xs text-muted-foreground">No text kept.</span>; }
 	return (

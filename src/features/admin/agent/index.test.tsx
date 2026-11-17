@@ -106,7 +106,7 @@ beforeEach(() => {
 	del.mockReset();
 	get.mockImplementation(async (url: string) => {
 		if (url === '/Admin/AgentOverview/') { return { data: overview }; }
-		if (url === '/Admin/AgentWatch/') { return { data: [WATCH] }; }
+		if (url === '/Admin/AgentWatch/?limit(0,500)') { return { data: [WATCH] }; }
 		if (url.startsWith('/Admin/Investigation/?status=active')) { return { data: activeRuns }; }
 		if (url.startsWith('/Admin/Investigation/?')) { return pastAnswer(); }
 		if (url.startsWith('/Admin/Configuration/')) {
@@ -205,6 +205,15 @@ describe('AgentAdminIndex — activity', () => {
 		await waitFor(() =>
 			expect(pastUrls()).toContain('/Admin/Investigation/?clusterId=clu-2&organizationId=org-1&limit(0,50)')
 		);
+	});
+
+	it('shows open runs in Past runs once filtered by cluster, so one past the Active cap can be found', async () => {
+		renderPage();
+		const past = await screen.findByRole('region', { name: 'Past runs' });
+		await within(past).findByText('arn-past');
+		expect(within(past).queryByText('arn-active')).toBeNull();
+		fireEvent.change(within(past).getByLabelText('Cluster id'), { target: { value: 'clu-1' } });
+		expect(await within(past).findByText('arn-active')).toBeTruthy();
 	});
 
 	it('refetches the past list and spend as soon as a run leaves Active', async () => {
@@ -317,8 +326,12 @@ describe('AgentAdminIndex — review regressions', () => {
 		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2');
 
 		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
-		expect(await within(form).findByText(/AGENT_RUN_BUDGET_USD was changed by someone else/)).toBeTruthy();
+		await waitFor(() =>
+			expect(get.mock.calls.some(([url]) => url === '/Admin/Configuration/AGENT_RUN_BUDGET_USD')).toBe(true)
+		);
+		await waitFor(() => expect(within(form).getByRole('button', { name: 'Save 1 change' })).toBeTruthy());
 		expect(patch).not.toHaveBeenCalled();
+		expect((within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement).value).toBe('2');
 	});
 
 	it('keeps an unsaved settings edit across a tab switch', async () => {
