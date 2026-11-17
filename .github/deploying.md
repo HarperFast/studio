@@ -57,7 +57,9 @@ central manager, and without `VITE_TELEMETRY_ENABLED`, so it reports nothing to 
 uploads `web/` as an artifact. `preview.yaml` runs from `stage`, waits for that build, writes its
 own `config.yaml` serving `web/` with Harper's static plugin, and deploys the result as `hdbms-pr-<N>`.
 The deploy template is not used, so a template change is not exercised by its PR's preview, and an
-unknown path gets Harper's plain 404 rather than Studio's page.
+unknown path gets Harper's plain 404 rather than Studio's page. When the build fails, takes over 30
+minutes, or doesn't start within 10, the deploy job fails; re-run it once a build of that commit
+succeeds.
 
 That a preview runs no server code is what makes it safe to host beside the central manager: a
 preview is a worker thread in the cluster's own Harper process, not a sandbox. It is also why

@@ -23,9 +23,10 @@ concurrency:
 jobs:
   build:
     name: Build PR Preview
-    # The same users as preview.yaml's deploy job: nobody else's build would be used.
+    # The same condition as preview.yaml's deploy job: no other build would be used.
     if: >-
-      github.event.pull_request.head.repo.full_name == github.repository
+      vars.HARPER_PREVIEW_TARGET != ''
+      && github.event.pull_request.head.repo.full_name == github.repository
       && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.event.pull_request.user.login)
       && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.actor)
     runs-on: ubuntu-latest

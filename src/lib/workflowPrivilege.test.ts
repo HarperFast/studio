@@ -103,9 +103,11 @@ describe('workflow privilege boundary', () => {
 
 /**
  * The cluster's trust policy pins `preview.yaml`'s path, not its content, and `harper preview setup`
- * checks the content only once. A `run:` step that executes the downloaded artifact is not caught.
+ * checks the content only once. Once an artifact is downloaded, only deploy-action may run, so no
+ * later step can execute what the PR built.
  */
 const FORK_GUARD = 'github.event.pull_request.head.repo.full_name == github.repository';
+const ARTIFACT_CONSUMER = 'HarperFast/deploy-action@';
 
 function isMapping(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -159,6 +161,7 @@ function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
 			problems.push(`${name}: steps is not a list`);
 			continue;
 		}
+		let downloaded = false;
 		for (const step of steps) {
 			if (!isMapping(step)) {
 				problems.push(`${name}: a step is not a mapping`);
@@ -168,6 +171,10 @@ function pullRequestTargetProblems(doc: Record<string, unknown>): string[] {
 			if (uses.startsWith('actions/checkout@') || uses.startsWith('./')) {
 				problems.push(`${name}: uses ${uses}`);
 			}
+			if (downloaded && !uses.startsWith(ARTIFACT_CONSUMER)) {
+				problems.push(`${name}: runs ${uses || 'a run step'} after downloading an artifact`);
+			}
+			if (uses.startsWith('actions/download-artifact@')) { downloaded = true; }
 		}
 	}
 	return problems;
@@ -209,6 +216,14 @@ describe('pull_request_target workflows run no PR code', () => {
 		['a job that is not a mapping', job('')],
 		['steps that are not a list', job(`${guarded}    steps:\n      uses: actions/checkout@v7\n`)],
 		['a step that is not a mapping', job(`${guarded}    steps:\n      - actions/checkout@v7\n`)],
+		[
+			'a run step after a download',
+			job(`${guarded}    steps:\n      - uses: actions/download-artifact@v8\n      - run: node site/web/x.js\n`),
+		],
+		[
+			'another action after a download',
+			job(`${guarded}    steps:\n      - uses: actions/download-artifact@v8\n      - uses: actions/github-script@v8\n`),
+		],
 	])('flags %s', (_label, raw) => {
 		expect(pullRequestTargetProblems(parse(raw))).not.toEqual([]);
 	});
@@ -226,6 +241,13 @@ describe('pull_request_target workflows run no PR code', () => {
 		],
 	])('passes %s on a job that only calls a pinned action', (_label, condition) => {
 		const raw = job(`${condition}    steps:\n      - uses: HarperFast/deploy-action@0000000\n`);
+		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);
+	});
+
+	it('passes a run step before a download, and deploy-action after it', () => {
+		const raw = job(
+			`${guarded}    steps:\n      - run: echo hi > site/config.yaml\n      - uses: actions/download-artifact@v8\n      - uses: ${ARTIFACT_CONSUMER}0000000\n`,
+		);
 		expect(pullRequestTargetProblems(parse(raw))).toEqual([]);
 	});
 });

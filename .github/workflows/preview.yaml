@@ -21,6 +21,7 @@ jobs:
     # GitHub logins; unset, nobody gets a preview.
     if: >-
       github.event.action != 'closed'
+      && vars.HARPER_PREVIEW_TARGET != ''
       && github.event.pull_request.head.repo.full_name == github.repository
       && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.event.pull_request.user.login)
       && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.actor)
@@ -77,20 +78,34 @@ jobs:
                   exit 0
                 fi
                 if superseded; then exit 0; fi
-                echo "::error::The build of $short ended $conclusion: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
+                echo "::error::The build of $short ended $conclusion: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id. If a re-run of it succeeds, re-run this job to deploy it."
                 exit 1
               fi
             # A failed listing is not evidence that no run started.
             elif [ "$listed" = 1 ] && [ "$elapsed" -ge 600 ]; then
-              echo "::error::No $BUILD_WORKFLOW run for $short started in 10 minutes. GitHub starts no pull_request run while a PR has merge conflicts."
+              echo "::error::No $BUILD_WORKFLOW run for $short started in 10 minutes. GitHub starts no pull_request run while a PR has merge conflicts. If one starts later, re-run this job once it succeeds."
               exit 1
             fi
             if [ "$elapsed" -ge 1800 ]; then
-              echo "::error::The build of $short did not finish in 30 minutes."
+              echo "::error::The build of $short did not finish in 30 minutes. Re-run this job once it succeeds."
               exit 1
             fi
             sleep 20
           done
+
+      # Written here, outside the artifact, so the PR controls only files the static plugin serves. It
+      # comes first: once the artifact is here, only deploy-action runs. download-artifact keeps every
+      # file inside `path`.
+      - name: Serve the build as a Harper application
+        if: steps.build.outputs.run-id != ''
+        run: |
+          mkdir -p site
+          cat > site/config.yaml << 'EOF'
+          static:
+            files: 'web/**'
+            urlPath: '/'
+            index: true
+          EOF
 
       - name: Download the build
         if: steps.build.outputs.run-id != ''
@@ -100,17 +115,6 @@ jobs:
           path: site/web
           run-id: ${{ steps.build.outputs.run-id }}
           github-token: ${{ github.token }}
-
-      # Written here, outside the artifact, so the PR controls only files the static plugin serves.
-      - name: Serve the build as a Harper application
-        if: steps.build.outputs.run-id != ''
-        run: |
-          cat > site/config.yaml << 'EOF'
-          static:
-            files: 'web/**'
-            urlPath: '/'
-            index: true
-          EOF
 
       - if: steps.build.outputs.run-id != ''
         uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
@@ -134,10 +138,9 @@ jobs:
       deployments: write
     steps:
       # Gated here, not on the job: `harper preview setup` can only verify that cleanup runs on close
-      # when the job's `if:` has nothing else in it. The author alone, so whoever merges, cleans up.
-      - if: >-
-          vars.HARPER_PREVIEW_TARGET != ''
-          && contains(fromJSON(vars.HARPER_PREVIEW_AUTHORS || '[]'), github.event.pull_request.user.login)
+      # when the job's `if:` has nothing else in it. Not on the author list, so a preview still goes
+      # when its author leaves the list; dropping a preview that doesn't exist does nothing.
+      - if: vars.HARPER_PREVIEW_TARGET != ''
         uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
         with:
           target: ${{ vars.HARPER_PREVIEW_TARGET }}
