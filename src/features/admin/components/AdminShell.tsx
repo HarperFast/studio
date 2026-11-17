@@ -4,6 +4,7 @@ import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
 import {
 	BellIcon,
+	BotIcon,
 	GlobeIcon,
 	KeyRoundIcon,
 	ServerIcon,
@@ -42,6 +43,8 @@ const items: Array<
 		permission: 'workflow:read',
 		needsPermissionsField: true,
 	},
+	// A central manager that predates staffPermissions predates the agent endpoints too.
+	{ to: '/admin/agent', label: 'Agent', icon: BotIcon, permission: 'agent:read', needsPermissionsField: true },
 	// Gated on deactivation's permission, which keeps the page fabric_admin-only; the details lookup needs both reads.
 	{
 		to: '/admin/users',

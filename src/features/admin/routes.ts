@@ -98,6 +98,20 @@ const workflowDetailRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/workflows/WorkflowDetail'), 'WorkflowDetailPage'),
 });
 
+const agentRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'agent',
+	head: () => ({ meta: [{ title: 'Agent — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/agent/index'), 'AgentAdminIndex'),
+});
+
+const agentRunRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'agent/$runId',
+	head: () => ({ meta: [{ title: 'Agent run — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/agent/RunDetail'), 'RunDetailPage'),
+});
+
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
 export const adminRoutes = [
 	adminIndexRoute,
@@ -110,4 +124,6 @@ export const adminRoutes = [
 	apiTokenRoute,
 	workflowsRoute,
 	workflowDetailRoute,
+	agentRoute,
+	agentRunRoute,
 ];
