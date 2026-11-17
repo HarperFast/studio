@@ -1,4 +1,4 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { BreadcrumbList, Breadcrumbs, useBreadcrumbTrail } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useFitLevel } from '@/hooks/useFitLevel';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/cn';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useLocation } from '@tanstack/react-router';
 import { EllipsisIcon, Menu } from 'lucide-react';
+import { useRef } from 'react';
 
 const activeLinkProps = {
 	className: 'text-primary font-semibold bg-primary/10 rounded-md dark:text-white dark:bg-white/10',
@@ -47,70 +49,132 @@ interface NavBarProps {
 	restartRequired: boolean;
 }
 
+interface NavBarLayout {
+	labels: boolean;
+	collapse: number;
+	overflow: number;
+}
+
+/** About four letters and an ellipsis: narrower than this, the last crumb no longer says where you are. */
+const LAST_CRUMB_FLOOR_PX = 40;
+
+function barOverflows(bar: HTMLElement): boolean {
+	const lastCrumb = bar.querySelector<HTMLElement>('[data-last-crumb]');
+	const truncatedPastFloor = !!lastCrumb && lastCrumb.clientWidth < LAST_CRUMB_FLOOR_PX
+		&& lastCrumb.scrollWidth > lastCrumb.clientWidth;
+	return bar.scrollWidth > bar.clientWidth || truncatedPastFloor;
+}
+
+/**
+ * The order the bar gives things up when short of room: the leading crumb, then the tab names, then one more crumb
+ * at a time until only the last is left, which may then truncate; and last, the tabs before the last tab move into
+ * More, nearest first. A crumb, once folded, stays folded, so an open "…" menu is never unmounted by a step.
+ */
+export function navBarLayouts(crumbs: number, tabs: number): NavBarLayout[] {
+	const foldable = Math.max(crumbs - 1, 0);
+	const firstIconCollapse = Math.min(foldable, 1);
+	return [
+		{ labels: true, collapse: 0, overflow: 0 },
+		...(foldable > 0 ? [{ labels: true, collapse: 1, overflow: 0 }] : []),
+		...Array.from(
+			{ length: foldable - firstIconCollapse + 1 },
+			(_, step) => ({ labels: false, collapse: firstIconCollapse + step, overflow: 0 }),
+		),
+		...Array.from({ length: Math.max(tabs - 1, 0) }, (_, step) => ({
+			labels: false,
+			collapse: foldable,
+			overflow: step + 1,
+		})),
+	];
+}
+
 function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
+	const barRef = useRef<HTMLDivElement>(null);
+	const { pathname } = useLocation();
+	const trail = useBreadcrumbTrail();
+	const layouts = navBarLayouts(trail.length, links.length);
+	const resetKey = [
+		pathname,
+		trail.map((crumb) => crumb.label).join('/'),
+		links.map((link) => `${link.key}=${link.name}`).join(),
+		tucked.map((link) => link.key).join(),
+		restartRequired,
+	].join('\n');
+	const { labels, collapse, overflow } = layouts[useFitLevel(barRef, layouts.length, resetKey, barOverflows)];
+	const lastCrumbOnly = !labels && collapse === Math.max(trail.length - 1, 0);
+	const cut = links.length - 1 - overflow;
+	const shown = overflow > 0 ? [...links.slice(0, cut), links[links.length - 1]] : links;
+	const moved = overflow > 0 ? links.slice(cut, links.length - 1) : [];
+
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
-		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
-		// until xl, where the full word labels fit.
-		<div className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between h-full text-sm text-foreground">
-			<Breadcrumbs restartRequired={restartRequired} />
-			<div className="flex space-x-2">
-				{links.map(({ key, shortName, ...link }) => {
+		// layouts). Touch-only devices can't hover those tooltips, so they stay on the hamburger
+		// until xl.
+		<div
+			ref={barRef}
+			className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between gap-4 h-full overflow-hidden text-sm text-foreground"
+		>
+			<BreadcrumbList
+				trail={trail}
+				restartRequired={restartRequired}
+				collapse={collapse}
+				// Natural width while the bar measures what fits; only the last crumb ever truncates.
+				className={cn('max-w-none sm:max-w-none', lastCrumbOnly ? 'min-w-0' : 'shrink-0')}
+			/>
+			<div className="flex shrink-0 space-x-2">
+				{shown.map(({ key, shortName, ...link }) => {
 					const linkElement = (
 						<Link
 							key={key}
-							// The label is display:none below xl, so give the link a stable accessible name
-							// (the tooltip only wires aria-describedby, a description, not a name).
+							// The name may be an icon's tooltip, which wires only aria-describedby, so name the link itself.
 							aria-label={link.name}
-							className="p-2 text-center text-muted-foreground hover:text-foreground"
+							className="p-2 text-center whitespace-nowrap text-muted-foreground hover:text-foreground"
 							activeProps={activeLinkProps}
 							{...link}
 						>
 							{link.icon}
-							<span className="hidden xl:inline-block ml-1">{link.name}</span>
-							{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
+							{labels
+								? <span className="ml-1">{link.name}</span>
+								: shortName && <span className="ml-1">{shortName}</span>}
 						</Link>
 					);
 
-					// Links with a shortName always show a text label, so a tooltip would be
-					// redundant. Only the icon-only links (no shortName, hidden name below xl)
-					// need one, and it's suppressed at xl+ where the full name is visible.
-					if (shortName) {
+					if (labels || shortName) {
 						return linkElement;
 					}
 
 					return (
 						<Tooltip key={key}>
 							<TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-							<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
+							<TooltipContent side="bottom">{link.name}</TooltipContent>
 						</Tooltip>
 					);
 				})}
-				{tucked.length > 0 && <MoreMenu tucked={tucked} />}
+				{moved.length + tucked.length > 0 && <MoreMenu tucked={[...moved, ...tucked]} label={labels} />}
 			</div>
 		</div>
 	);
 }
 
-function MoreMenu({ tucked }: { tucked: InstanceNavLink[] }) {
+function MoreMenu({ tucked, label }: { tucked: InstanceNavLink[]; label: boolean }) {
 	const { pathname } = useLocation();
 	// The trigger carries the active style when the open page is one of these, so the nav still says where you are.
 	const active = tucked.some((link) =>
 		link.activeOptions?.exact ? pathname === link.to : isAtOrUnder(pathname, link.to)
 	);
 	return (
-		<DropdownMenu>
+		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
 					aria-label="More"
 					className={cn(
-						'p-2 text-center text-muted-foreground hover:text-foreground',
+						'p-2 text-center whitespace-nowrap text-muted-foreground hover:text-foreground',
 						active && activeLinkProps.className,
 					)}
 				>
 					<EllipsisIcon className="inline-block" />
-					<span className="hidden xl:inline-block ml-1">More</span>
+					{label && <span className="ml-1">More</span>}
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">

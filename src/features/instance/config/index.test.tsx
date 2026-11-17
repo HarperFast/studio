@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { ConfigIndex } from '@/features/instance/config/index';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,11 +22,21 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 	useQuery: () => ({ data: undefined }),
 }));
 vi.mock('@tanstack/react-router', () => ({
-	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
+	// Keeps the role and handlers a menu item's Slot hands its Link; drops the router-only props.
+	Link: ({ to, children, activeOptions: _a, activeProps: _p, inactiveProps: _i, ...anchor }: {
+		to: string;
+		children: ReactNode;
+		activeOptions?: unknown;
+		activeProps?: unknown;
+		inactiveProps?: unknown;
+	}) => <a href={to} {...anchor}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
 	Outlet: () => <div data-testid="outlet" />,
 	useLoaderData: () => ({ version: viewer.version }),
 	useLocation: () => ({ pathname: route.pathname }),
+	// Like the router's: an exact match misses a trailing slash.
+	useMatchRoute: () => ({ to, fuzzy }: { to: string; fuzzy?: boolean }) =>
+		route.pathname === to || (!!fuzzy && route.pathname.startsWith(`${to}/`)),
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 }));
 
@@ -91,5 +101,55 @@ describe('ConfigIndex', () => {
 		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';
 		render(<ConfigIndex />);
 		expect(screen.queryByText('AI Models')).toBeNull();
+	});
+});
+
+describe('ConfigIndex on a small screen', () => {
+	const smallScreenNav = () => screen.getByRole('navigation', { name: 'Config pages' });
+	const openMenu = () => {
+		fireEvent.pointerDown(within(smallScreenNav()).getByRole('button'), { button: 0, ctrlKey: false });
+		return screen.getAllByRole('menuitem');
+	};
+
+	it('shows one button naming the current page rather than a row of every page', () => {
+		viewer.canManage = true;
+		route.pathname = '/org-1/clu-1/config/roles/cluster_user';
+		render(<ConfigIndex />);
+		expect(within(smallScreenNav()).queryAllByRole('link')).toEqual([]);
+		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Roles');
+	});
+
+	it.each(['/org-1/clu-1/config', '/org-1/clu-1/config/'])('names the Overview at %s', (pathname) => {
+		viewer.canManage = true;
+		route.pathname = pathname;
+		render(<ConfigIndex />);
+		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Overview');
+	});
+
+	it('opens to the Overview and then every page, each a link to it', () => {
+		viewer.canManage = true;
+		route.pathname = '/org-1/clu-1/config/users';
+		render(<ConfigIndex />);
+		const items = openMenu();
+		expect(items[0].textContent).toBe('Overview');
+		expect(items[0].getAttribute('href')).toBe('/org-1/clu-1/config');
+		const names = items.map((item) => item.textContent);
+		expect(names).toContain('Pre-rendering');
+		expect(names.slice(1)).toEqual(names.slice(1).sort((a, b) => a!.localeCompare(b!)));
+		expect(items.find((item) => item.textContent === 'Users')?.getAttribute('href')).toBe('/org-1/clu-1/config/users');
+	});
+
+	it("lists only a lesser role's component pages, without the Overview", () => {
+		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';
+		render(<ConfigIndex />);
+		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Pre-rendering');
+		expect(openMenu().map((item) => item.textContent)).toEqual(['Pre-rendering']);
+	});
+
+	it('leaves the button out when there is no page to offer', () => {
+		entries.pages = [];
+		route.pathname = '/org-1/clu-1/config/users';
+		render(<ConfigIndex />);
+		expect(screen.queryByRole('navigation', { name: 'Config pages' })).toBeNull();
 	});
 });
