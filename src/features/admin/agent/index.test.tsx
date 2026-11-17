@@ -419,6 +419,43 @@ describe('AgentAdminIndex — review regressions', () => {
 		expect(patch).toHaveBeenCalledTimes(1);
 	});
 
+	it('after an unanswered save, keeps the baseline for a value this form never sent', async () => {
+		const client = renderPage();
+		openTab('Settings');
+		const form = await screen.findByRole('form', { name: 'Agent settings' });
+		const input = () => within(form).getByLabelText('AGENT_RUN_BUDGET_USD');
+		const serverHas = (value: number) => {
+			stored.AGENT_RUN_BUDGET_USD = value;
+			overview = {
+				...OVERVIEW,
+				settings: OVERVIEW.settings.map((row) =>
+					(row.name === 'AGENT_RUN_BUDGET_USD' ? { ...row, value } : row) as (typeof OVERVIEW.settings)[number]
+				),
+			};
+		};
+		fireEvent.change(input(), { target: { value: '2' } });
+		patch.mockImplementationOnce(async () => {
+			throw Object.assign(new Error('timeout of 60000ms exceeded'), {
+				isAxiosError: true,
+				code: 'ECONNABORTED',
+				config: { method: 'patch', url: '/Admin/Configuration/AGENT_RUN_BUDGET_USD' },
+			});
+		});
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(String(toastError.mock.calls[0]?.[0])).toMatch(/unknown/i));
+		await waitFor(() => expect(within(form).getByRole('button', { name: 'Save 1 change' })).toBeTruthy());
+
+		fireEvent.change(input(), { target: { value: '7' } });
+		serverHas(7);
+		await act(() => client.refetchQueries({ queryKey: ['fabric-admin', 'agent', 'overview'] }));
+		fireEvent.change(input(), { target: { value: '70' } });
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		// Settled either way: a refusal toasts, an overwrite PATCHes.
+		await waitFor(() => expect(toastError.mock.calls.length + patch.mock.calls.length).toBeGreaterThanOrEqual(3));
+		expect(patch).toHaveBeenCalledTimes(1);
+	});
+
 	it('keeps an unsaved settings edit across a tab switch', async () => {
 		renderPage();
 		openTab('Settings');

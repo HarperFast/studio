@@ -180,13 +180,16 @@ export function AgentSettingsForm(
 		editor: AgentSettingsEditor;
 	},
 ) {
-	const { drafts, setDrafts, save: { mutate, isPending, error, reset } } = editor;
+	const { drafts, setDrafts, save: { mutate, isPending, error, reset, variables } } = editor;
 	const { changes, errors, movedUnder } = changedSettings(settings, drafts);
 	const canSave = canWrite && !isPending && changes.length > 0 && Object.keys(errors).length === 0;
 	// Failures toast through the global handler; an unanswered one is only "outcome unknown", never someone else's edit.
 	const unansweredKey = error && !shouldToastOwnFailure(error) ? (error as { failed?: string }).failed : undefined;
-	// Only that key may restart from the server's value, since its save may have landed. A draft that merely matches a
-	// value someone else saved keeps its baseline, so the next save is refused rather than overwriting theirs.
+	// A draft restarts from the server's value only when the server holds exactly what that unanswered save sent; a
+	// draft that merely matches a value someone else saved keeps its baseline, so the next save is refused.
+	const sentUnanswered = unansweredKey ? variables?.find((change) => change.name === unansweredKey) : undefined;
+	const landed = (entry: AdminConfigurationEntry) =>
+		sentUnanswered?.name === entry.name && sameJson(sentUnanswered.value, entry.value);
 
 	if (settings.length === 0) {
 		return <p className="text-sm text-muted-foreground">Central manager lists no agent settings.</p>;
@@ -249,7 +252,7 @@ export function AgentSettingsForm(
 															...current,
 															[entry.name]: {
 																...(current[entry.name]
-																		&& !(unansweredKey === entry.name && isSettled(current[entry.name], entry))
+																		&& !landed(entry)
 																	? current[entry.name]
 																	: startDraft(entry, next)),
 																text: next,
