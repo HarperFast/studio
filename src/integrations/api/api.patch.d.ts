@@ -69,7 +69,9 @@ export type StaffPermission =
 	| 'workflow:read'
 	| 'workflow:manage'
 	| 'chat:read'
-	| 'chat:write';
+	| 'chat:write'
+	| 'agent:read'
+	| 'agent:run';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;

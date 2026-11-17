@@ -54,6 +54,13 @@ The `/apis` route is a **custom, in-house API explorer** ([`src/features/instanc
 - **The role picker cannot see the owner's role.** Nothing central manager exposes says which staff role another account holds (a `fabricRole` on `Admin/User` is a central manager follow-up), so the form offers every staff role and leaves "no wider than the owner's" to the server's 403. That refusal names the owner's role, so `roleRefusalMessage` puts it under the role field; the mint mutation opts out of the global toast and the form toasts every other failure itself.
 - **Visibility is a permission, not a role name.** The rail shows the page to `apiToken:self` (every staff role holds it, so an owner who cannot mint still sees and revokes their own tokens); the mint form is gated on `apiToken:create`. The role-name fallback for an API without `staffPermissions` never reaches the page, since such a central manager predates the token API it drives. `super_user` stays carved out: it may password-login, and a token is a staff credential it cannot mint.
 
+## Admin Agent (the investigation agent's runs, spend, watches and settings)
+
+[`src/features/admin/agent/`](src/features/admin/agent/) reads central manager's `/Admin/Investigation`, `/Admin/AgentOverview` and `/Admin/AgentWatch`; [`agentAdminApi.ts`](src/features/admin/agent/agentAdminApi.ts) is the only file that knows their shapes (contract: HarperFast/central-manager#1201).
+
+- **A poll replaces the page; it never merges.** There is no subscription or change cursor: each list query re-sends its request (`runListQueryOptions`) and React Query swaps in the answer, which is what drops a run that left the filter. Cadence is `runListInterval`: 5 s while an open run is shown or the view is `status=active`, else 30 s. A run that appears in or leaves Active refetches the past list and spend at once (`ActiveRuns`); spend changes only then.
+- **Settings save through Admin → Configuration's write.** `saveAgentSettings` calls `updateConfiguration` once per changed key, so its changed-since-opened check and central manager's per-key rules apply unchanged; the two pages cannot drift. Which keys exist is the server's list, never hard-coded here.
+
 ## Cloud authentication presentation
 
 All cloud authentication routes use `AuthLayout`; keep form submission, validation, OAuth targets, and error handling in the existing route components/hooks. `AuthInput` keeps `FormControl` directly around the input so label/error associations and React Hook Form refs reach the DOM. React 19 passes `ref` through props; browser tests verify first-invalid-field focus. Password selectors must use an exact label match because the reveal button also has “password” in its accessible name.
