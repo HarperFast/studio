@@ -152,8 +152,7 @@ export const RUN_MAX_PAGE = 200;
 /** Contract (central-manager#1201): "`end` at most 2,000 (`400` beyond: narrow the range instead of paging deeper)". */
 export const RUN_MAX_END = 2_000;
 
-export const runPageSize = (filters: Pick<RunFilters, 'status'>) =>
-	filters.status === 'active' ? RUN_MAX_PAGE : RUN_PAGE_SIZE;
+const runPageSize = (filters: Pick<RunFilters, 'status'>) => filters.status === 'active' ? RUN_MAX_PAGE : RUN_PAGE_SIZE;
 
 export const isOpenRun = (run: Pick<RunSummary, 'status'>) => OPEN_RUN_STATUSES.includes(run.status);
 
@@ -226,13 +225,13 @@ export async function getAgentOverview(): Promise<AgentOverview> {
 	};
 }
 
-export async function getAgentWatches(): Promise<AgentWatch[]> {
+async function getAgentWatches(): Promise<AgentWatch[]> {
 	const { data } = await apiClient.get(`/Admin/AgentWatch/?limit(0,${WATCH_MAX_PAGE})` as '/Admin/Region/');
 	if (!Array.isArray(data)) { throw new Error('Central manager did not answer with a list of watches.'); }
 	return (data as unknown[]).filter((row): row is AgentWatch => isObject(row) && typeof row.id === 'string');
 }
 
-export const agentQueryPrefix = ['fabric-admin', 'agent'] as const;
+const agentQueryPrefix = ['fabric-admin', 'agent'] as const;
 const runListPrefix = [...agentQueryPrefix, 'runs'] as const;
 export const agentOverviewQueryKey = [...agentQueryPrefix, 'overview'] as const;
 
@@ -353,7 +352,7 @@ export async function saveAgentSettings(changes: SettingChange[]): Promise<strin
 		try {
 			await updateConfiguration(change);
 		} catch (error) {
-			throw Object.assign(error instanceof Error ? error : new Error(String(error)), { saved });
+			throw Object.assign(error instanceof Error ? error : new Error(String(error)), { saved, failed: change.name });
 		}
 		saved.push(change.name);
 	}
