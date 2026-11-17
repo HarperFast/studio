@@ -15,7 +15,6 @@ interface RouteNames {
 	cluster?: Cluster;
 }
 
-/** The crumbs after Home for the page the router is on. */
 export function useBreadcrumbTrail(): Breadcrumb[] {
 	const location = useLocation();
 	const { organization, instance, cluster }: RouteNames = useRouteContext({ strict: false });
@@ -37,18 +36,23 @@ export function useBreadcrumbTrail(): Breadcrumb[] {
 		}), [pathname, routePath, params, cluster?.name, instance?.name, organization?.name, extensionName]);
 }
 
-/**
- * Home and the trail to the current page. `collapse` folds that many leading crumbs into a menu behind "…" for a bar
- * short of room; the last crumb always shows.
- */
-export function Breadcrumbs({ restartRequired, collapse = 0, className }: {
+interface BreadcrumbsProps {
 	restartRequired?: boolean;
+	/** Leading crumbs to fold behind "…"; the last crumb always shows. */
 	collapse?: number;
 	className?: string;
+}
+
+export function Breadcrumbs(props: BreadcrumbsProps) {
+	return <BreadcrumbList trail={useBreadcrumbTrail()} {...props} />;
+}
+
+/** For a caller that already holds the trail, so it is worked out once. */
+export function BreadcrumbList({ trail, restartRequired, collapse = 0, className }: BreadcrumbsProps & {
+	trail: Breadcrumb[];
 }) {
 	const { instance }: RouteNames = useRouteContext({ strict: false });
 	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
-	const trail = useBreadcrumbTrail();
 	const folded = trail.slice(0, Math.min(collapse, trail.length - 1));
 	const shown = trail.slice(folded.length);
 

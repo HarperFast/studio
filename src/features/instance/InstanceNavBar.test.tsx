@@ -16,7 +16,8 @@ const { permission, studio } = vi.hoisted(() => ({
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => permission.canManage }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => ({}) }));
 vi.mock('@/components/Breadcrumbs', () => ({
-	Breadcrumbs: ({ collapse, className }: { collapse?: number; className?: string }) => (
+	Breadcrumbs: () => null,
+	BreadcrumbList: ({ collapse, className }: { collapse?: number; className?: string }) => (
 		<div data-testid="crumbs" data-collapse={collapse ?? 0} className={className} />
 	),
 	useBreadcrumbTrail: () => [
@@ -78,25 +79,33 @@ describe('InstanceNavBar', () => {
 });
 
 describe('navBarLayouts', () => {
-	it('folds the first crumb, then drops the tab names, then folds the rest down to the last crumb', () => {
-		expect(navBarLayouts(3)).toEqual([
-			{ labels: true, collapse: 0 },
-			{ labels: true, collapse: 1 },
-			{ labels: false, collapse: 0 },
-			{ labels: false, collapse: 1 },
-			{ labels: false, collapse: 2 },
+	it('folds the first crumb, drops the tab names, folds the rest down to the last crumb, then moves tabs', () => {
+		expect(navBarLayouts(3, 4)).toEqual([
+			{ labels: true, collapse: 0, overflow: 0 },
+			{ labels: true, collapse: 1, overflow: 0 },
+			{ labels: false, collapse: 1, overflow: 0 },
+			{ labels: false, collapse: 2, overflow: 0 },
+			{ labels: false, collapse: 2, overflow: 1 },
+			{ labels: false, collapse: 2, overflow: 2 },
+			{ labels: false, collapse: 2, overflow: 3 },
 		]);
 	});
 
-	it('only drops the tab names where there is a single crumb or none', () => {
-		const namesThenIcons = [{ labels: true, collapse: 0 }, { labels: false, collapse: 0 }];
-		expect(navBarLayouts(1)).toEqual(namesThenIcons);
-		expect(navBarLayouts(0)).toEqual(namesThenIcons);
+	it('never unfolds a crumb it has folded', () => {
+		const collapses = navBarLayouts(5, 6).map((layout) => layout.collapse);
+		expect(collapses).toEqual([...collapses].sort((a, b) => a - b));
+	});
+
+	it('only drops the tab names where there is a single crumb or none, and keeps a lone tab', () => {
+		const namesThenIcons = [{ labels: true, collapse: 0, overflow: 0 }, { labels: false, collapse: 0, overflow: 0 }];
+		expect(navBarLayouts(1, 1)).toEqual(namesThenIcons);
+		expect(navBarLayouts(0, 0)).toEqual(namesThenIcons);
 	});
 });
 
 describe('InstanceNavBar fitting its bar', () => {
 	const desktopCrumbs = () => screen.getAllByTestId('crumbs')[0];
+	const shownTabs = () => screen.getAllByRole('link').map((link) => link.getAttribute('aria-label'));
 
 	afterEach(() => vi.restoreAllMocks());
 
@@ -105,16 +114,30 @@ describe('InstanceNavBar fitting its bar', () => {
 		expect(screen.getAllByRole('link', { name: 'Databases' })[0].textContent).toBe('Databases');
 		expect(desktopCrumbs().getAttribute('data-collapse')).toBe('0');
 		expect(desktopCrumbs().className).toContain('shrink-0');
+		expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
 	});
 
-	it('falls back to icons, folds all but the last crumb, and lets it truncate when nothing fits', () => {
-		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(1000);
+	it('moves the tabs nearest the last one into More, keeping the last tab, once nothing else is left to give', () => {
+		const { unmount } = render(<InstanceNavBar />);
+		const every = shownTabs();
+		unmount();
+
+		// A bar with room for five tabs.
+		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
+			return this.querySelectorAll('a').length * 100;
+		});
 		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500);
 		render(<InstanceNavBar />);
+
+		expect(shownTabs()).toEqual([...every.slice(0, 4), every.at(-1)]);
 		expect(screen.getAllByRole('link', { name: 'Databases' })[0].textContent).toBe('');
 		expect(screen.getAllByRole('link', { name: 'Applications' })[0].textContent).toBe('Apps');
 		expect(desktopCrumbs().getAttribute('data-collapse')).toBe('2');
-		expect(desktopCrumbs().className).toContain('min-w-0');
+		expect(desktopCrumbs().className).toContain('min-w-40');
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false });
+		const moved = within(screen.getByRole('menu')).getAllByRole('link').map((link) => link.textContent);
+		expect(moved).toEqual(every.slice(4, -1));
 	});
 });
 

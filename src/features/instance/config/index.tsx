@@ -208,11 +208,7 @@ interface MobileConfigNavItem {
 	exact?: boolean;
 }
 
-/**
- * Below `md` the sidebar has no room, and a row of every page (sixteen on a current release, plus any a
- * component adds) scrolled the whole page sideways. A button naming the current page opens the full list
- * instead, the same shape `SubNavRail` gives the org, cluster and admin sections.
- */
+/** Below `md`, the same shape `SubNavRail` gives the org, cluster and admin sections. */
 function MobileConfigNavBar({ params, entries, showOverview, atIndex }: {
 	params: {
 		clusterId?: string;

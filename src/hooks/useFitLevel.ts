@@ -4,8 +4,8 @@ import { flushSync } from 'react-dom';
 /**
  * Which of `count` layouts, richest first, lets `ref`'s content fit its width. Each render that overflows moves one
  * step on before the browser paints. A wider element or a new `resetKey` starts again from the first; a narrower one
- * steps on from where it is. Only overflow moves it on, so content that grows (a name that loads late) is caught at
- * once, while content that shrinks waits for the next reset.
+ * steps on from where it is. Content that shrinks without either never moves it back, so `resetKey` must change with
+ * anything that can shrink the content.
  */
 export function useFitLevel(ref: RefObject<HTMLElement | null>, count: number, resetKey: string): number {
 	const [fit, setFit] = useState({ level: 0, resetKey });
@@ -28,11 +28,12 @@ export function useFitLevel(ref: RefObject<HTMLElement | null>, count: number, r
 		}
 		let width = element.clientWidth;
 		const observer = new ResizeObserver(() => {
-			const wider = element.clientWidth > width;
-			if (element.clientWidth === width) {
+			const previous = width;
+			width = element.clientWidth;
+			const wider = width > previous;
+			if (!wider && (width === previous || element.scrollWidth <= width)) {
 				return;
 			}
-			width = element.clientWidth;
 			// Synchronously, so the steps down run before the next paint rather than flashing a layout that overflows.
 			flushSync(() => setFit((current) => ({ ...current, level: wider ? 0 : current.level })));
 		});

@@ -1,4 +1,4 @@
-import { Breadcrumbs, useBreadcrumbTrail } from '@/components/Breadcrumbs';
+import { BreadcrumbList, Breadcrumbs, useBreadcrumbTrail } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -49,34 +49,52 @@ interface NavBarProps {
 	restartRequired: boolean;
 }
 
-export interface NavBarLayout {
-	/** Tabs show their names; otherwise icons, with the name in a tooltip. */
+interface NavBarLayout {
 	labels: boolean;
-	/** Leading crumbs folded behind "…". */
 	collapse: number;
+	/** Tabs before the last one that move into More. */
+	overflow: number;
 }
 
 /**
- * What the bar gives up, in order, when it is short of room: first the leading crumb (the organization), then the
- * tab names, then one more crumb at a time down to the last. The tabs never shrink, so a tab never slides out of
- * view; where even the last layout is too wide, its crumbs truncate.
+ * The order the bar gives things up when short of room: the leading crumb, then the tab names, then one more crumb
+ * at a time until only the last is left, which may then truncate; and last, the tabs before the last tab move into
+ * More, nearest first. A crumb, once folded, stays folded, so an open "…" menu is never unmounted by a step.
  */
-export function navBarLayouts(crumbs: number): NavBarLayout[] {
+export function navBarLayouts(crumbs: number, tabs: number): NavBarLayout[] {
 	const foldable = Math.max(crumbs - 1, 0);
+	const firstIconCollapse = Math.min(foldable, 1);
 	return [
-		{ labels: true, collapse: 0 },
-		...(foldable > 0 ? [{ labels: true, collapse: 1 }] : []),
-		...Array.from({ length: foldable + 1 }, (_, collapse) => ({ labels: false, collapse })),
+		{ labels: true, collapse: 0, overflow: 0 },
+		...(foldable > 0 ? [{ labels: true, collapse: 1, overflow: 0 }] : []),
+		...Array.from(
+			{ length: foldable - firstIconCollapse + 1 },
+			(_, step) => ({ labels: false, collapse: firstIconCollapse + step, overflow: 0 }),
+		),
+		...Array.from({ length: Math.max(tabs - 1, 0) }, (_, step) => ({
+			labels: false,
+			collapse: foldable,
+			overflow: step + 1,
+		})),
 	];
 }
 
 function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) {
 	const barRef = useRef<HTMLDivElement>(null);
 	const { pathname } = useLocation();
-	const layouts = navBarLayouts(useBreadcrumbTrail().length);
-	const level = useFitLevel(barRef, layouts.length, `${pathname} ${links.map((link) => link.key).join()}`);
-	const { labels, collapse } = layouts[level];
-	const lastResort = level === layouts.length - 1;
+	const trail = useBreadcrumbTrail();
+	const layouts = navBarLayouts(trail.length, links.length);
+	const resetKey = [
+		pathname,
+		trail.map((crumb) => crumb.label).join('/'),
+		links.map((link) => link.key).join(),
+		restartRequired,
+	].join('\n');
+	const { labels, collapse, overflow } = layouts[useFitLevel(barRef, layouts.length, resetKey)];
+	const lastCrumbOnly = !labels && collapse === Math.max(trail.length - 1, 0);
+	const cut = links.length - 1 - overflow;
+	const shown = overflow > 0 ? [...links.slice(0, cut), links[links.length - 1]] : links;
+	const moved = overflow > 0 ? links.slice(cut, links.length - 1) : [];
 
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
@@ -86,14 +104,16 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 			ref={barRef}
 			className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between gap-4 h-full overflow-hidden text-sm text-foreground"
 		>
-			<Breadcrumbs
+			<BreadcrumbList
+				trail={trail}
 				restartRequired={restartRequired}
 				collapse={collapse}
-				// Natural width while the bar measures what fits; only the last resort lets crumbs truncate.
-				className={cn('max-w-none sm:max-w-none', lastResort ? 'min-w-0' : 'shrink-0')}
+				// Natural width while the bar measures what fits. Once only the last crumb is left it may truncate, down
+				// to a floor that keeps a few letters, and tabs move into More only past that floor.
+				className={cn('max-w-none sm:max-w-none', lastCrumbOnly ? 'min-w-40' : 'shrink-0')}
 			/>
 			<div className="flex shrink-0 space-x-2">
-				{links.map(({ key, shortName, ...link }) => {
+				{shown.map(({ key, shortName, ...link }) => {
 					const linkElement = (
 						<Link
 							key={key}
@@ -110,7 +130,6 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 						</Link>
 					);
 
-					// A tab showing words needs no tooltip; only a bare icon does.
 					if (labels || shortName) {
 						return linkElement;
 					}
@@ -122,7 +141,7 @@ function DesktopInstanceNavBar({ links, tucked, restartRequired }: NavBarProps) 
 						</Tooltip>
 					);
 				})}
-				{tucked.length > 0 && <MoreMenu tucked={tucked} label={labels} />}
+				{moved.length + tucked.length > 0 && <MoreMenu tucked={[...moved, ...tucked]} label={labels} />}
 			</div>
 		</div>
 	);
@@ -135,7 +154,7 @@ function MoreMenu({ tucked, label }: { tucked: InstanceNavLink[]; label: boolean
 		link.activeOptions?.exact ? pathname === link.to : isAtOrUnder(pathname, link.to)
 	);
 	return (
-		// Not modal, like the folded crumbs: hiding the page's scrollbar would widen the bar and re-fit it under the menu.
+		// Not modal, for the same reason as the folded crumbs' menu in Breadcrumbs.
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<button
