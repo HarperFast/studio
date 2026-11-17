@@ -7,6 +7,7 @@ import { rangeFor } from '@/features/admin/agent/components/Activity';
 import { formatDuration, formatUsd, runCostLabel, runDuration } from '@/features/admin/agent/components/AgentBits';
 import {
 	changedSettings,
+	isSettled,
 	parseDraft,
 	settingGroup,
 	startDraft,
@@ -69,6 +70,12 @@ describe('settings form logic', () => {
 		});
 		expect(changes).toEqual([]);
 		expect(movedUnder).toEqual([]);
+	});
+
+	it('starts a new edit of a settled draft from the value the server now holds', () => {
+		const settled = startDraft(entry('AGENT_RUN_BUDGET_USD', 1), '2');
+		expect(isSettled(settled, entry('AGENT_RUN_BUDGET_USD', 2))).toBe(true);
+		expect(isSettled(settled, entry('AGENT_RUN_BUDGET_USD', 5))).toBe(false);
 	});
 
 	it('groups by what the name says, with anything unrecognized in Other', () => {

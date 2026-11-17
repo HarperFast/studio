@@ -73,6 +73,12 @@ export function startDraft(entry: AdminConfigurationEntry, text: string | boolea
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
+/** The server already holds what the draft says, so a further edit starts over from the server's value. */
+export function isSettled(draft: SettingDraft, entry: AdminConfigurationEntry): boolean {
+	const parsed = parseDraft(kindOf(draft.expected), draft.text);
+	return parsed.ok && sameJson(parsed.value, entry.value);
+}
+
 /** The changed keys only, each carrying the value its edit started from, so a concurrent edit is refused, not overwritten. */
 export function changedSettings(
 	settings: AdminConfigurationEntry[],
@@ -84,9 +90,9 @@ export function changedSettings(
 	for (const entry of settings) {
 		const draft = drafts[entry.name];
 		if (!draft) { continue; }
+		// A save that landed without an answer: nothing to send, nothing to flag.
+		if (isSettled(draft, entry)) { continue; }
 		const parsed = parseDraft(kindOf(draft.expected), draft.text);
-		// Already what the server holds (a save that landed without an answer): nothing to send, nothing to flag.
-		if (parsed.ok && sameJson(parsed.value, entry.value)) { continue; }
 		if (!sameJson(entry.value, draft.expected)) { movedUnder.push(entry.name); }
 		if (!parsed.ok) {
 			errors[entry.name] = parsed.error;
@@ -239,7 +245,12 @@ export function AgentSettingsForm(
 													onChange={(next) =>
 														setDrafts((current) => ({
 															...current,
-															[entry.name]: { ...(current[entry.name] ?? startDraft(entry, next)), text: next },
+															[entry.name]: {
+																...(current[entry.name] && !isSettled(current[entry.name], entry)
+																	? current[entry.name]
+																	: startDraft(entry, next)),
+																text: next,
+															},
 														}))}
 												/>
 											)}
