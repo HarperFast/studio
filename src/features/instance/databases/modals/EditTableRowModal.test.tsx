@@ -185,6 +185,20 @@ describe('EditTableRowModal', () => {
 		expect(screen.getByRole('button', { name: /Delete Record/i })).toBeTruthy();
 	});
 
+	it('offers Find Similar only when the parent has a vector to search by', () => {
+		const onFindSimilar = vi.fn();
+		const { rerender } = renderModal();
+		expect(screen.queryByRole('button', { name: /Find Similar/i })).toBeNull();
+		rerender(modal({ onFindSimilar }));
+		fireEvent.click(screen.getByRole('button', { name: /Find Similar/i }));
+		expect(onFindSimilar).toHaveBeenCalledOnce();
+	});
+
+	it('shows a vector on one line rather than one number per line', () => {
+		renderAddressableModal({ data: [{ id: 'a', embedding: [0.25, -1.5e-7, 3] }] });
+		expect((screen.getByTestId('editor') as HTMLTextAreaElement).value).toContain('"embedding": [0.25, -1.5e-7, 3]');
+	});
+
 	it('edits with the worker-free JSON language, so no language worker can OOM', () => {
 		renderModal();
 		expect(screen.getByTestId('editor').getAttribute('data-language')).toBe(WORKER_FREE_JSON_LANGUAGE_ID);

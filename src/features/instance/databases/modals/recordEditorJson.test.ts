@@ -1,6 +1,6 @@
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { describe, expect, it } from 'vitest';
-import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
+import { describeRecordJsonError, formatRecordJson, tryParseRecordJson } from './recordEditorJson';
 
 describe('tryParseRecordJson', () => {
 	it('returns an error rather than throwing for malformed JSON', () => {
@@ -85,5 +85,79 @@ describe('describeRecordJsonError', () => {
 	it('falls back to the reason alone when the engine reported no position', () => {
 		expect(describeRecordJsonError({ message: 'Unexpected end of JSON input' }))
 			.toBe('Unexpected end of JSON input');
+	});
+});
+
+describe('formatRecordJson', () => {
+	// The contract is JSON.stringify's own (which writes -0 as 0), not the value's.
+	const roundTrips = (value: unknown) =>
+		expect(JSON.parse(formatRecordJson(value))).toEqual(JSON.parse(JSON.stringify(value)));
+
+	it('puts an array of numbers on one line, and indents everything else as JSON.stringify does', () => {
+		const records = [{ id: 'a', embedding: [0.1, -2, 3], tags: ['x', 'y'], nested: { at: [1] } }];
+		expect(formatRecordJson(records)).toBe(
+			[
+				'[',
+				'    {',
+				'        "id": "a",',
+				'        "embedding": [0.1, -2, 3],',
+				'        "tags": [',
+				'            "x",',
+				'            "y"',
+				'        ],',
+				'        "nested": {',
+				'            "at": [1]',
+				'        }',
+				'    }',
+				']',
+			].join('\n'),
+		);
+		roundTrips(records);
+	});
+
+	it('keeps every number exactly, in the form JSON.stringify writes it', () => {
+		const embedding = [1.1e-7, 1e21, -0, 0, -1.5e-300, 123456789.123, Number.MAX_SAFE_INTEGER, Number.MIN_VALUE];
+		const formatted = formatRecordJson([{ embedding }]);
+		expect(formatted).toContain(
+			'"embedding": [1.1e-7, 1e+21, 0, 0, -1.5e-300, 123456789.123, 9007199254740991, 5e-324]',
+		);
+		roundTrips([{ embedding }]);
+	});
+
+	it('leaves alone an array that holds anything but numbers, nested arrays included', () => {
+		const records = [{ mixed: [1, 'two', 3], withNull: [1, null], matrix: [[1, 2], [3, 4]], empty: [] }];
+		const formatted = formatRecordJson(records);
+		expect(formatted).toContain('"mixed": [\n            1,\n            "two",\n            3\n        ]');
+		expect(formatted).toContain('"withNull": [\n            1,\n            null\n        ]');
+		// Each row of a matrix is an array of numbers, so the rows fold and the matrix doesn't.
+		expect(formatted).toContain('"matrix": [\n            [1, 2],\n            [3, 4]\n        ]');
+		expect(formatted).toContain('"empty": []');
+		roundTrips(records);
+	});
+
+	it('never rewrites a string, or a key, that holds brackets and numbers', () => {
+		const records = [{
+			'a[1,2]': 'see [1,2] and [3,\t4]',
+			quoted: 'ends with a [',
+			numbers: [5, 6],
+			closing: '] 7, 8 [',
+			'k]': [9],
+		}];
+		const formatted = formatRecordJson(records);
+		expect(formatted).toContain('"a[1,2]": "see [1,2] and [3,\\t4]"');
+		expect(formatted).toContain('"quoted": "ends with a ["');
+		expect(formatted).toContain('"numbers": [5, 6]');
+		expect(formatted).toContain('"closing": "] 7, 8 ["');
+		expect(formatted).toContain('"k]": [9]');
+		roundTrips(records);
+	});
+
+	it('stays linear on a long vector that turns out not to be all numbers', () => {
+		const almost = [...Array.from({ length: 20_000 }, (_, index) => index / 7), null];
+		const started = performance.now();
+		const formatted = formatRecordJson([{ almost }]);
+		expect(performance.now() - started).toBeLessThan(500);
+		expect(formatted.split('\n').length).toBeGreaterThan(20_000);
+		roundTrips([{ almost }]);
 	});
 });
