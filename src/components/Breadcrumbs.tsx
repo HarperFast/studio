@@ -39,6 +39,7 @@ export function useBreadcrumbTrail(): Breadcrumb[] {
 interface BreadcrumbsProps {
 	restartRequired?: boolean;
 	collapse?: number;
+	keepPath?: string;
 	className?: string;
 }
 
@@ -47,42 +48,49 @@ export function Breadcrumbs(props: BreadcrumbsProps) {
 }
 
 /** For a caller that already holds the trail, so it is worked out once. */
-export function BreadcrumbList({ trail, restartRequired, collapse = 0, className }: BreadcrumbsProps & {
+export function BreadcrumbList({ trail, restartRequired, collapse = 0, keepPath, className }: BreadcrumbsProps & {
 	trail: Breadcrumb[];
 }) {
 	const { instance }: RouteNames = useRouteContext({ strict: false });
 	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
-	const folded = trail.slice(0, Math.min(collapse, trail.length - 1));
-	const shown = trail.slice(folded.length);
+	const keptCrumb = keepPath ? trail.find(crumb => crumb.path === keepPath) : undefined;
+	const folded = keptCrumb
+		? trail.filter(crumb => crumb !== keptCrumb)
+		: trail.slice(0, Math.min(collapse, trail.length - 1));
+	const shown = keptCrumb ? [keptCrumb] : trail.slice(folded.length);
+	const foldedMenu = folded.length > 0
+		? (
+			<>
+				<CrumbSeparator />
+				<FoldedCrumbs crumbs={folded} label={keptCrumb ? 'Show other breadcrumbs' : 'Show the rest of the path'} />
+			</>
+		)
+		: null;
 
 	return (
 		<div
 			role="list"
 			className={cn('flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]', className)}
 		>
-			<Link to="/" className="shrink-0">
+			<Link to="/" className="shrink-0" activeOptions={{ exact: true, includeSearch: false }}>
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
 				<span className="sr-only">Home</span>
 			</Link>
-			{folded.length > 0 && (
-				<>
-					<CrumbSeparator />
-					<FoldedCrumbs crumbs={folded} />
-				</>
-			)}
-			{shown.map(({ path, label, title }, index) => (
+			{!keptCrumb && foldedMenu}
+			{shown.map(({ path, label, title }) => (
 				<Fragment key={path}>
 					<CrumbSeparator />
 					<Link
 						to={path}
-						title={title}
-						data-last-crumb={index === shown.length - 1 || undefined}
+						title={title ?? label}
+						activeOptions={{ exact: true, includeSearch: false }}
 						className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 					>
 						{label}
 					</Link>
 				</Fragment>
 			))}
+			{keptCrumb && foldedMenu}
 			{restartRequired && (
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -108,7 +116,7 @@ function CrumbSeparator() {
 	);
 }
 
-function FoldedCrumbs({ crumbs }: { crumbs: Breadcrumb[] }) {
+function FoldedCrumbs({ crumbs, label }: { crumbs: Breadcrumb[]; label: string }) {
 	return (
 		// Not modal: a modal menu hides the page's scrollbar, which widens the bar it sits in, and a bar fitting itself
 		// to the new width can unfold this very menu out from under the pointer.
@@ -116,7 +124,7 @@ function FoldedCrumbs({ crumbs }: { crumbs: Breadcrumb[] }) {
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					aria-label="Show the rest of the path"
+					aria-label={label}
 					className="shrink-0 rounded-md px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
 				>
 					<EllipsisIcon aria-hidden="true" className="size-5" />
@@ -125,7 +133,7 @@ function FoldedCrumbs({ crumbs }: { crumbs: Breadcrumb[] }) {
 			<DropdownMenuContent align="start">
 				{crumbs.map(({ path, label, title }) => (
 					<DropdownMenuItem key={path} asChild>
-						<Link to={path} title={title}>{label}</Link>
+						<Link to={path} title={title} activeOptions={{ exact: true, includeSearch: false }}>{label}</Link>
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

@@ -1,15 +1,98 @@
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { isDeletedCluster } from '@/config/clusterStatuses';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { useConfigNavigation } from '@/features/instance/config/useConfigNavigation';
+import { useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
+import { useInstanceAuth } from '@/hooks/useAuth';
+import { getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import type { Organization, User } from '@/integrations/api/api.patch';
-import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
-import { Building2, Search, Server } from 'lucide-react';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMatches, useNavigate, useParams } from '@tanstack/react-router';
+import { Building2, FileTextIcon, Search, Server } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { buildSearchTargets, filterSearchTargets, loadSearchOrganizations, type SearchTarget } from './searchModel';
+import {
+	buildPageSearchTargets,
+	buildSearchTargets,
+	filterSearchTargets,
+	loadSearchOrganizations,
+	type SearchTarget,
+} from './searchModel';
 
-export function SearchDialog(
-	{ user, onClose, restoreFocus }: { user: User; onClose: () => void; restoreFocus: () => void },
+interface SearchDialogProps {
+	user: User;
+	onClose: () => void;
+	restoreFocus: () => void;
+}
+
+export function SearchDialog(props: SearchDialogProps) {
+	const { organizationId, clusterId, instanceId } = useParams({ strict: false });
+	const hasConnectionRoute = useMatches({
+		select: matches => matches.at(-1)?.context.hasStudioConnection === true,
+	});
+	if (
+		hasConnectionRoute && organizationId && clusterId
+		&& getOrganizationClusterPermissions(props.user, organizationId, clusterId).view
+		&& getOrganizationTargets(props.user).some(target => target.id === organizationId && !target.locked)
+	) {
+		return (
+			<ScopedSearchDialog
+				key={instanceId ?? clusterId}
+				clusterId={clusterId}
+				instanceId={instanceId}
+				organizationId={organizationId}
+				{...props}
+			/>
+		);
+	}
+	return <SearchDialogContent {...props} />;
+}
+
+function ScopedSearchDialog(
+	{ organizationId, clusterId, instanceId, ...props }: SearchDialogProps & {
+		organizationId: string;
+		clusterId: string;
+		instanceId?: string;
+	},
+) {
+	const { user: instanceUser } = useInstanceAuth(instanceId ?? clusterId);
+	const { data: cluster } = useQuery({ ...getClusterInfoQueryOptions(clusterId, false), enabled: false });
+	return instanceUser && !isDeletedCluster(cluster) && !cluster?.resetPassword
+		? <ConnectedSearchDialog organizationId={organizationId} {...props} />
+		: <SearchDialogContent {...props} />;
+}
+
+function ConnectedSearchDialog({ organizationId, ...props }: SearchDialogProps & { organizationId: string }) {
+	const instance = useInstanceClientIdParams();
+	const { data: registration } = useQuery({ ...getRegistrationInfoQueryOptions(instance), enabled: false });
+	const version = registration?.version ?? '';
+	const { links, tucked } = useInstanceNavLinks(version);
+	const { groups } = useConfigNavigation(version);
+	const pageTargets = useMemo(() => {
+		const tabs = [...links, ...tucked];
+		const section = instance.entityType === 'cluster' ? 'Cluster page' : 'Instance page';
+		const pages = tabs.filter(tab => tab.key !== 'config').map(({ name, to }) => ({ name, to, hierarchy: section }));
+		const configPages = tabs.some(tab => tab.key === 'config')
+			? groups.flatMap(({ label, entries }) =>
+				entries.map(({ name, to, exact, keywords }) => ({
+					name: exact ? 'Config Overview' : name,
+					to,
+					hierarchy: label ? `Config › ${label}` : 'Config',
+					keywords,
+				}))
+			)
+			: [];
+		return buildPageSearchTargets([...pages, ...configPages], organizationId);
+	}, [groups, instance.entityType, links, organizationId, tucked]);
+
+	return <SearchDialogContent {...props} pageTargets={pageTargets} />;
+}
+
+function SearchDialogContent(
+	{ user, onClose, restoreFocus, pageTargets }: SearchDialogProps & { pageTargets?: SearchTarget[] },
 ) {
 	const client = useQueryClient();
 	const navigate = useNavigate();
@@ -50,7 +133,8 @@ export function SearchDialog(
 			cancelled = true;
 		};
 	}, [client, membershipIds, attempt]);
-	const targets = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
+	const locations = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
+	const targets = useMemo(() => pageTargets ? [...pageTargets, ...locations] : locations, [pageTargets, locations]);
 	const matches = useMemo(() => filterSearchTargets(targets, search, organizationId), [
 		targets,
 		search,
@@ -80,19 +164,27 @@ export function SearchDialog(
 				}}
 			>
 				<div className="border-b border-border px-5 pt-5 pb-4">
-					<DialogTitle className="pr-8">Search your organizations</DialogTitle>
-					<DialogDescription className="mt-2 text-xs">Jump to an organization or cluster by name.</DialogDescription>
+					<DialogTitle className="pr-8">{pageTargets ? 'Search Studio' : 'Search your organizations'}</DialogTitle>
+					<DialogDescription className="mt-2 text-xs">
+						{pageTargets
+							? 'Jump to a page in this connection, an organization, or a cluster.'
+							: 'Jump to an organization or cluster by name.'}
+					</DialogDescription>
 					<div className="mt-4 flex items-center gap-3">
 						<Search className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
 						<input
 							autoFocus
 							role="combobox"
-							aria-label="Search organizations and clusters"
+							aria-label={pageTargets
+								? 'Search pages, organizations, and clusters'
+								: 'Search organizations and clusters'}
 							aria-expanded="true"
 							aria-autocomplete="list"
 							aria-controls={listId}
 							aria-activedescendant={results.length && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-							placeholder="Search organizations or clusters…"
+							placeholder={pageTargets
+								? 'Search pages, organizations, or clusters…'
+								: 'Search organizations or clusters…'}
 							value={search}
 							onChange={event => {
 								setSearch(event.target.value);
@@ -129,7 +221,7 @@ export function SearchDialog(
 					className="max-h-[45vh] overflow-y-auto p-2"
 				>
 					{results.map((target, index) => {
-						const Icon = target.kind === 'Organization' ? Building2 : Server;
+						const Icon = target.kind === 'Page' ? FileTextIcon : target.kind === 'Organization' ? Building2 : Server;
 						return (
 							<div
 								key={target.key}
@@ -149,7 +241,11 @@ export function SearchDialog(
 								<span className="min-w-0 flex-1">
 									<span className="block truncate text-sm font-medium text-foreground">{target.name}</span>
 									<span className="block truncate text-xs">
-										{target.kind === 'Cluster' ? `Cluster · ${target.organizationName}` : 'Organization'}
+										{target.kind === 'Page'
+											? target.hierarchy
+											: target.kind === 'Cluster'
+											? `Cluster · ${target.organizationName}`
+											: 'Organization'}
 									</span>
 								</span>
 								<span className="text-xs opacity-50" aria-hidden="true">↵</span>
@@ -162,6 +258,8 @@ export function SearchDialog(
 						? 'Loading cluster names…'
 						: results.length
 						? `Showing ${results.length} of ${matches.length} results`
+						: pageTargets
+						? 'No matching pages, organizations, or clusters.'
 						: memberships.length
 						? 'No matching organizations or clusters.'
 						: 'No organizations available to search.'}

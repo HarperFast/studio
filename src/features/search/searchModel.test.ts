@@ -2,7 +2,12 @@
 import type { Organization, User } from '@/integrations/api/api.patch';
 import { describe, expect, it, vi } from 'vitest';
 import { isSearchShortcut } from './GlobalSearch';
-import { buildSearchTargets, filterSearchTargets, loadSearchOrganizations } from './searchModel';
+import {
+	buildPageSearchTargets,
+	buildSearchTargets,
+	filterSearchTargets,
+	loadSearchOrganizations,
+} from './searchModel';
 
 const role = (
 	organizationName: string,
@@ -70,6 +75,30 @@ describe('search targets', () => {
 		};
 		expect(filterSearchTargets([...targets, exact], 'Prod', 'a')[0].key).toBe('exact');
 	});
+	it('finds a connected page by its label, Config hierarchy, and domain aliases', () => {
+		const pages = buildPageSearchTargets([{
+			name: 'Domains',
+			to: '/a/cluster-a/config/domains',
+			hierarchy: 'Config › Infrastructure',
+			keywords: ['domain name', 'example.test'],
+		}, {
+			name: 'Applications',
+			to: '/a/cluster-a/apps',
+			hierarchy: 'Cluster page',
+		}], 'a');
+		const organizations = buildSearchTargets(user, new Map([['a', organization('a')]]));
+		const targets = [...organizations, ...pages];
+
+		for (const query of ['domain', 'domain name', 'example.test', 'config infrastructure']) {
+			expect(filterSearchTargets(targets, query).map(target => target.to)).toEqual(['/a/cluster-a/config/domains']);
+		}
+		expect(filterSearchTargets(targets, '').slice(0, 2).map(target => target.name)).toEqual([
+			'Domains',
+			'Applications',
+		]);
+		expect(filterSearchTargets(organizations, 'domain name')).toEqual([]);
+	});
+
 	it('supports missing clusters and missing organization names', () => {
 		const anonymousName = { ...user, roles: { a: role('') } };
 		expect(buildSearchTargets(anonymousName, new Map([['a', { id: 'a' } as Organization]]))[0].name).toBe('a');

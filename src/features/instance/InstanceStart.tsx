@@ -4,8 +4,9 @@ import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/ins
 import { useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import type { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { Link, Navigate, useParams } from '@tanstack/react-router';
+import { Link, Navigate, useLoaderData, useParams } from '@tanstack/react-router';
 import { EyeOffIcon } from 'lucide-react';
 
 /**
@@ -17,7 +18,8 @@ export function InstanceStart() {
 	const params: { organizationId?: string; instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(params.instanceId ?? params.clusterId);
 	const { configuration, isPending } = useStudioConfiguration();
-	const { links, tucked } = useInstanceNavLinks();
+	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const { links, tucked } = useInstanceNavLinks(version);
 	const configPages = useVisibleExtensionPages('config');
 
 	if (!user || isPending) {

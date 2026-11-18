@@ -30,6 +30,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 				getParentRoute: () => clusterLayoutRoute,
 				id: '_instanceLayout',
 				component: InstanceLayout,
+				context: () => ({ hasStudioConnection: true }),
 				beforeLoad: checkClusterInstanceAuthenticationBeforeLoad,
 				loader: registrationInfoLoader,
 			});
@@ -38,6 +39,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 				getParentRoute: () => clusterLayoutRoute,
 				path: 'instance/$instanceId',
 				component: InstanceLayout,
+				context: () => ({ hasStudioConnection: true }),
 				beforeLoad: checkClusterInstanceAuthenticationBeforeLoad,
 				loader: registrationInfoLoader,
 			});

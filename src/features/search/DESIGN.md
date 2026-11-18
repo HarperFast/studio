@@ -6,6 +6,8 @@ Organization names come from unlocked current memberships. Cluster names come fr
 
 Search errors on observer-free queries are reported through console.error, with one inline partial-results notice instead of per-organization toasts. Queries with page observers keep their normal global error presentation even if search initiated the shared fetch. Failed retry results remove any old local snapshot. The dialog limits rendering to 40 results and shows match counts and loading status. Very large membership sets take longer to finish their first load; a future server projection could reduce that cost but requires a coordinated CM API change.
 
-Search ranking prioritizes exact names, full prefixes, word prefixes, name substrings, then parent-organization context. Current-organization affinity breaks ties after relevance. Empty search puts organizations before clusters, with the current organization first; the result limit is applied only after ranking.
+Connected page results use the same link and group hooks as the instance and Config navigation. The dialog only mounts those hooks inside the signed-in Studio layout for the current entity, so it never indexes pages from organizations or clusters the viewer has left. Domain names come from the current cluster record.
+
+Search ranking prioritizes exact names, full prefixes, word prefixes, name substrings, then parent-organization context. Page shortcuts win ties at the same relevance. Current-organization affinity breaks the remaining ties. Empty search lists connected pages in navigation order, then organizations, then clusters. The current organization leads its group; the result limit is applied only after ranking.
 
 Explicit selection is keyed by target. If progressive results push that key beyond the 40 visible rows, no option is active and Enter does not navigate. ArrowDown/ArrowUp reselect the first/last visible row; changing the search text restores the normal first-result default.

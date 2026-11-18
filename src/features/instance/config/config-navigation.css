@@ -1,0 +1,47 @@
+.config-shell {
+	container: config-layout / inline-size;
+}
+
+.config-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1rem;
+	padding: 1rem;
+	min-height: calc(100dvh - 8rem - var(--notification-banner-height));
+}
+
+.config-layout[data-has-navigation="true"] {
+	grid-template-rows: auto 1fr;
+}
+
+.config-navigation-sidebar {
+	display: none;
+}
+
+@container config-layout (min-width: 56rem) {
+	.config-layout {
+		gap: 2rem;
+		padding: 1.5rem 3rem;
+	}
+
+	.config-layout[data-has-navigation="true"] {
+		grid-template-columns: 15rem minmax(0, 1fr);
+		grid-template-rows: 1fr;
+	}
+
+	.config-navigation-sidebar {
+		display: block;
+		align-self: start;
+		position: sticky;
+		top: 9.5rem;
+		max-height: max(4rem, calc(100dvh - 11rem - var(--notification-banner-height)));
+		overflow-y: auto;
+		padding: 0.25rem 1rem 0.25rem 0.25rem;
+		margin: -0.25rem;
+		border-inline-end: 1px solid var(--border);
+	}
+
+	.config-navigation-compact {
+		display: none;
+	}
+}

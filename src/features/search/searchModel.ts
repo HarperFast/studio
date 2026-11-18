@@ -5,13 +5,43 @@ import type { Organization, User } from '@/integrations/api/api.patch';
 export interface SearchTarget {
 	key: string;
 	name: string;
-	kind: 'Organization' | 'Cluster';
+	kind: 'Organization' | 'Cluster' | 'Page';
+	hierarchy?: string;
+	navigationOrder?: number;
 	organizationName: string;
 	organizationId: string;
 	to: string;
 	searchName: string;
 	searchText: string;
 	searchWords: string[];
+}
+
+type UnindexedTarget = Omit<SearchTarget, 'searchName' | 'searchText' | 'searchWords'>;
+
+interface SearchPage {
+	name: string;
+	to: string;
+	hierarchy: string;
+	keywords?: readonly string[];
+}
+
+function indexTarget(target: UnindexedTarget, keywords: readonly string[] = []): SearchTarget {
+	const searchName = target.name.toLocaleLowerCase();
+	return {
+		...target,
+		searchName,
+		searchText: [target.name, target.organizationName, target.hierarchy, ...keywords].join(' ').toLocaleLowerCase(),
+		searchWords: searchName.split(/\s+/),
+	};
+}
+
+export function buildPageSearchTargets(pages: readonly SearchPage[], organizationId: string): SearchTarget[] {
+	return pages.map(({ name, to, hierarchy, keywords }, navigationOrder) =>
+		indexTarget(
+			{ key: `page:${to}`, name, to, hierarchy, navigationOrder, kind: 'Page', organizationId, organizationName: '' },
+			keywords,
+		)
+	);
 }
 
 export function buildSearchTargets(user: User, organizations: ReadonlyMap<string, Organization>): SearchTarget[] {
@@ -38,12 +68,7 @@ export function buildSearchTargets(user: User, organizations: ReadonlyMap<string
 				to: `/${target.id}/${cluster.id}`,
 			})),
 		];
-	}).map(target => ({
-		...target,
-		searchName: target.name.toLocaleLowerCase(),
-		searchText: `${target.name} ${target.organizationName}`.toLocaleLowerCase(),
-		searchWords: target.name.toLocaleLowerCase().split(/\s+/),
-	}));
+	}).map(target => indexTarget(target));
 }
 
 export function filterSearchTargets(targets: readonly SearchTarget[], search: string, currentOrganizationId?: string) {
@@ -53,7 +78,7 @@ export function filterSearchTargets(targets: readonly SearchTarget[], search: st
 		const name = target.searchName;
 		if (!terms.every(term => target.searchText.includes(term))) { return []; }
 		const rank = !query
-			? (target.kind === 'Organization' ? 0 : 1)
+			? (target.kind === 'Page' ? 0 : target.kind === 'Organization' ? 1 : 2)
 			: name === query
 			? 0
 			: name.startsWith(query)
@@ -66,6 +91,8 @@ export function filterSearchTargets(targets: readonly SearchTarget[], search: st
 		return [{ target, rank }];
 	}).sort((a, b) =>
 		a.rank - b.rank
+		|| Number(b.target.kind === 'Page') - Number(a.target.kind === 'Page')
+		|| (!query ? (a.target.navigationOrder ?? 0) - (b.target.navigationOrder ?? 0) : 0)
 		|| Number(b.target.organizationId === currentOrganizationId)
 			- Number(a.target.organizationId === currentOrganizationId)
 		|| Number(b.target.kind === 'Organization') - Number(a.target.kind === 'Organization')

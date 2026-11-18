@@ -40,8 +40,7 @@ unchanged.
 
 ## Pages
 
-- **Placement**: `tab` (after the built-in tabs, before Config) or `config` (the Config menu, sorted with
-  the built-in entries). A lesser role with a Config entry gets Config with just those entries.
+- **Placement**: `tab` (after the built-in tabs, before Config) or `config` (the Components group in the Config navigation). A lesser role with a Config entry gets Config with just those entries.
 - **Identity**: a key may hold `@` and `/` (a plugin's scoped npm name) and is at most 128 characters,
   so a navigation entry can always name it. A link encodes it as one route segment
   (`extensionPagePath`). Pages that would share a name in one placement get their app's name after it,
