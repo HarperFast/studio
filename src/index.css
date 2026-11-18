@@ -400,7 +400,6 @@
 	margin-bottom: 22px;
 }
 
-/* The note the instance config editor writes after a setting Fabric manages. */
 .harper-config-note {
 	opacity: 0.6;
 	font-style: italic;

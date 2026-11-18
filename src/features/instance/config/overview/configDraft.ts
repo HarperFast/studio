@@ -6,9 +6,7 @@ export type ConfigObject = Record<string, unknown>;
 
 export interface ConfigChange {
 	path: readonly string[];
-	/** `undefined` when the setting was not in the config. */
 	before: unknown;
-	/** `undefined` when the setting was removed. */
 	after: unknown;
 }
 
@@ -64,6 +62,7 @@ export function setIn(config: ConfigObject, path: readonly string[], value: unkn
  * included) as a whole. A section added or removed whole lists each of its settings.
  */
 export function listConfigChanges(before: unknown, after: unknown, path: readonly string[] = []): ConfigChange[] {
+	if (before === after) { return []; }
 	const beforeIsSection = isPlainObject(before) || (before === undefined && isPlainObject(after));
 	const afterIsSection = isPlainObject(after) || (after === undefined && isPlainObject(before));
 	if (beforeIsSection && afterIsSection) {
@@ -104,8 +103,9 @@ export function storedByHarper(value: unknown): unknown {
 export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase: ConfigObject): ConfigObject {
 	return listConfigChanges(oldBase, draft).reduce((rebased, change) => {
 		// An edit Harper stored as another type (`"3600"` as 3600) has landed, though it reads back differently.
-		if (sameConfigValue(getIn(newBase, change.path), storedByHarper(change.after))) { return rebased; }
-		return setIn(rebased, change.path, change.after);
+		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
+		const landed = sent.every(leaf => sameConfigValue(getIn(newBase, leaf.path), storedByHarper(leaf.after)));
+		return landed ? rebased : setIn(rebased, change.path, change.after);
 	}, newBase);
 }
 
@@ -119,6 +119,10 @@ function holdsRestrictedSettings(path: readonly string[]) {
 		current = current[part];
 	}
 	return isPlainObject(current) || current === 'blocked_except_databases';
+}
+
+function holdsEmptyObject(value: unknown): boolean {
+	return isPlainObject(value) && (Object.keys(value).length === 0 || Object.values(value).some(holdsEmptyObject));
 }
 
 function refusalFor(
@@ -146,7 +150,7 @@ export function findRefusedChanges(changes: readonly ConfigChange[], context: Fa
 		if (refusal) {
 			return [{ ...change, ...refusal }];
 		}
-		if (sent.length === 0) {
+		if (sent.length === 0 || (isPlainObject(change.after) && holdsEmptyObject(change.after))) {
 			// `set_configuration` takes settings one by one, so an empty object would send nothing and still restart.
 			return [{
 				...change,

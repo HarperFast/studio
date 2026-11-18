@@ -120,6 +120,11 @@ describe('storedByHarper, as harper castConfigValue stores what it is sent', () 
 		expect(rebased).toEqual({ a: { t: 3600 } });
 		expect(rebaseDraft({ a: { t: '1d' } }, { a: { t: '3600' } }, { a: { t: '2d' } })).toEqual({ a: { t: '3600' } });
 	});
+
+	it('sees it inside an object that replaced a value too, setting by setting', () => {
+		const landed = rebaseDraft({ a: 1 }, { a: { t: '3600' } }, { a: { t: 3600 } });
+		expect(listConfigChanges({ a: { t: 3600 } }, landed)).toEqual([]);
+	});
 });
 
 describe('toSetConfigurationParams', () => {
@@ -191,6 +196,8 @@ describe('findRefusedChanges', () => {
 			.toMatchObject([{ reason: 'empty' }]);
 		expect(listConfigChanges({}, { mcp: {} })).toEqual([]);
 		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: { ca: {} } }], LOCAL))
+			.toMatchObject([{ reason: 'empty' }]);
+		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: { ca: 'a', extra: {} } }], LOCAL))
 			.toMatchObject([{ reason: 'empty' }]);
 	});
 

@@ -59,6 +59,6 @@ removal silently and reported success.
 An object that replaced a value is sent setting by setting, so each of those settings is what gets checked.
 
 Harper stores what it is sent through `castConfigValue` (`config/configUtils.ts`): `"3600"` becomes the number 3600.
-The editors send text as typed, and `rebaseDraft` counts an edit as landed when the refetch holds what Harper would
+The editors send text as typed (a field that only takes a number sends one), and `rebaseDraft` counts an edit as landed when the refetch holds what Harper would
 have stored for it (`storedByHarper`). Without that, the refetch reads as a change that never goes away. Casting in
 the form instead would put values like `{}` or `null` into a text field that can no longer show them.

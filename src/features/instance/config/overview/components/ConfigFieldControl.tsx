@@ -50,7 +50,7 @@ function formatText(field: ConfigFieldDef, value: unknown): string {
 }
 
 function parseEmpty(field: ConfigFieldDef, before: unknown): Parsed {
-	if (before === undefined) { return { value: undefined }; }
+	if (before === undefined || before === '') { return { value: before }; }
 	if (field.kind === 'stringList') {
 		// A list with no origins in it, Harper's `[null]` included, is what an empty box shows: clearing it restores it.
 		if (Array.isArray(before) && !before.some(item => typeof item === 'string')) { return { value: before }; }
@@ -158,7 +158,6 @@ export function ConfigFieldControl(props: ConfigFieldControlProps) {
 				checked={checked}
 				disabled={disabled}
 				aria-describedby={describedBy}
-				// Switched back to what Harper does unset, an unset setting goes back to unset.
 				onCheckedChange={next => onChange(before === undefined && next === byDefault ? undefined : next)}
 			/>
 		);
@@ -166,7 +165,6 @@ export function ConfigFieldControl(props: ConfigFieldControlProps) {
 	if (field.kind === 'enum') {
 		const options = [...(field.enumValues ?? [])];
 		if (typeof value === 'string' && !options.includes(value)) { options.unshift(value); }
-		// Offered while unset, and after picking a value for a setting that was unset, so it can go back.
 		const offersNotSet = typeof value !== 'string' || before === undefined;
 		return (
 			<Select

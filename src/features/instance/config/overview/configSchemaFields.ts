@@ -62,7 +62,6 @@ const SECTION_LABELS: Record<string, string> = {
 	localStudio: 'Local Studio',
 };
 
-/** The most often changed first; anything not named keeps the schema's order, after these. */
 const SECTION_ORDER = ['logging', 'http', 'operationsApi', 'authentication', 'mqtt', 'analytics', 'agent', 'status'];
 
 const WORDS: Record<string, string> = {
@@ -103,7 +102,6 @@ export function humanizeConfigKey(key: string): string {
 	return [first === first.toLowerCase() ? first[0].toUpperCase() + first.slice(1) : first, ...rest].join(' ');
 }
 
-/** Splits a closing `Default: X` sentence off a schema description, so the form can show the default on its own. */
 export function splitHarperDefault(description: string | undefined): { description?: string; harperDefault?: string } {
 	if (!description) { return {}; }
 	const match = /^(.*?)\s*\bDefault: (.+)$/s.exec(description);

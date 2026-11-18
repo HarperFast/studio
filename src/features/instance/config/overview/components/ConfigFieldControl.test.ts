@@ -36,6 +36,7 @@ describe('parseConfigFieldText', () => {
 		expect(parseConfigFieldText(field('number'), '', undefined)).toEqual({ value: undefined });
 		expect(parseConfigFieldText(field('number', { nullable: true }), '', 5)).toEqual({ value: null });
 		expect(parseConfigFieldText(field('number'), '', 5)).toEqual({ error: 'Enter a number.' });
+		expect(parseConfigFieldText(field('string', { nullable: true }), '', '')).toEqual({ value: '' });
 	});
 
 	it("puts Harper's [null] list back when the box is cleared", () => {

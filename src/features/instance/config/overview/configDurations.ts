@@ -62,7 +62,6 @@ function read(reader: DurationReader, written: unknown): { amount: number; unit:
 }
 
 export interface ConfigDuration {
-	/** `3 days`; undefined when Harper can't read the value as a duration. */
 	words?: string;
 }
 
@@ -70,7 +69,6 @@ export function isDurationSetting(path: readonly string[]): boolean {
 	return Object.hasOwn(DURATION_SETTINGS, path.join('.'));
 }
 
-/** Undefined for a setting that isn't a duration, or a value with nothing to say (unset, null). */
 export function describeConfigDuration(path: readonly string[], value: unknown): ConfigDuration | undefined {
 	const reader = DURATION_SETTINGS[path.join('.')];
 	if (!reader || value === undefined || value === null) { return undefined; }
@@ -80,7 +78,6 @@ export function describeConfigDuration(path: readonly string[], value: unknown):
 	return { words: `${amount} ${unit}${amount === 1 ? '' : 's'}` };
 }
 
-/** `3d (3 days)`, or the value alone when it isn't a duration Harper can read. */
 export function withDurationWords(path: readonly string[], value: unknown, formatted: string): string {
 	const words = describeConfigDuration(path, value)?.words;
 	return words && words !== formatted ? `${formatted} (${words})` : formatted;
