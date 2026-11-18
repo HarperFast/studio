@@ -230,14 +230,24 @@ describe('findRefusedChanges', () => {
 			.toMatchObject([{ reason: 'removed' }]);
 	});
 
-	it('refuses a root key whose underscores spell a setting Harper would set', () => {
-		expect(findRefusedChanges([{ path: ['http_keepAliveTimeout'], before: undefined, after: 5 }], HOSTED))
-			.toMatchObject([{ reason: 'fabric' }]);
-		expect(findRefusedChanges([{ path: ['HTTP_KEEPALIVETIMEOUT'], before: undefined, after: 5 }], HOSTED))
-			.toMatchObject([{ reason: 'fabric' }]);
-		expect(findRefusedChanges([{ path: ['threads_count'], before: undefined, after: 1 }], LOCAL))
+	it("refuses a key with '_' in it, which set_configuration can't address", () => {
+		for (const path of [['http_keepAliveTimeout'], ['my_app', 'enabled'], ['REPLICATION_DATABASES']]) {
+			expect(findRefusedChanges([{ path, before: undefined, after: 5 }], LOCAL)).toMatchObject([{
+				reason: 'underscore',
+			}]);
+		}
+		expect(findRefusedChanges([{ path: ['my'], before: undefined, after: { a_b: 1 } }], LOCAL))
+			.toMatchObject([{ reason: 'underscore' }]);
+	});
+
+	it('matches restricted and Fabric settings without regard to case, as Harper does', () => {
+		expect(findRefusedChanges([{ path: ['ROOTPATH'], before: undefined, after: '/x' }], LOCAL))
 			.toMatchObject([{ reason: 'studio' }]);
-		expect(findRefusedChanges([{ path: ['my_app', 'enabled'], before: undefined, after: true }], HOSTED)).toEqual([]);
+		expect(findRefusedChanges([{ path: ['LOGGING', 'ROOT'], before: undefined, after: '/x' }], LOCAL))
+			.toMatchObject([{ reason: 'studio' }]);
+		expect(findRefusedChanges([{ path: ['HTTP', 'KEEPALIVETIMEOUT'], before: undefined, after: 5 }], HOSTED))
+			.toMatchObject([{ reason: 'fabric' }]);
+		expect(findRefusedChanges([{ path: ['Replication', 'Databases'], before: '*', after: ['a'] }], LOCAL)).toEqual([]);
 	});
 
 	it('lets an ordinary change through', () => {

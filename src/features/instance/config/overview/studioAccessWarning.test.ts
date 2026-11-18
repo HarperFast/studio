@@ -39,15 +39,11 @@ describe('describeStudioAccessWarnings', () => {
 		const dropped = { http: { corsAccessList: ['https://other.example'] }, operationsApi: { network: { cors: true } } };
 		expect(describeStudioAccessWarnings(dropped, listConfigChanges(inherits, dropped), ORIGIN))
 			.toEqual([expect.stringContaining('no longer includes')]);
-		const noSection = { http: { corsAccessList: ['https://other.example'] } };
-		expect(
-			describeStudioAccessWarnings(
-				noSection,
-				listConfigChanges({ http: { corsAccessList: [ORIGIN] } }, noSection),
-				ORIGIN,
-			),
-		)
-			.toEqual([]);
+		// Studio hides the section when nothing in it is shown, but Harper's default config always has it.
+		const hidden = { http: { corsAccessList: ['https://other.example'] } };
+		const fromDefault = { http: { corsAccessList: [ORIGIN] } };
+		expect(describeStudioAccessWarnings(hidden, listConfigChanges(fromDefault, hidden), ORIGIN))
+			.toEqual([expect.stringContaining('no longer includes')]);
 	});
 
 	it('stays quiet when Studio still gets in, or the list was not touched', () => {

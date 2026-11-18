@@ -1,5 +1,5 @@
 import { stableJson } from '@/lib/stableJson';
-import { isHiddenConfigPath, isRestrictedConfigPath, RESTRICTED_CONFIG } from './configRestrictions';
+import { holdsRestrictedSettings, isRestrictedConfigPath } from './configRestrictions';
 import { describeFabricSetSetting, type FabricContext, fabricSetSettingFor } from './fabricManagedConfig';
 
 export type ConfigObject = Record<string, unknown>;
@@ -11,7 +11,7 @@ export interface ConfigChange {
 }
 
 interface RefusedChange extends ConfigChange {
-	reason: 'removed' | 'empty' | 'studio' | 'fabric';
+	reason: 'removed' | 'empty' | 'underscore' | 'studio' | 'fabric';
 	message: string;
 }
 
@@ -120,18 +120,6 @@ export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase:
 	}, newBase);
 }
 
-/** Whether `path` names a section that holds restricted settings, so replacing it whole replaces them too. */
-function holdsRestrictedSettings(path: readonly string[]) {
-	let current: unknown = RESTRICTED_CONFIG;
-	for (const part of path) {
-		if (!isPlainObject(current) || !Object.hasOwn(current, part)) {
-			return false;
-		}
-		current = current[part];
-	}
-	return isPlainObject(current) || current === 'blocked_except_databases';
-}
-
 function holdsEmptyObject(value: unknown): boolean {
 	return isPlainObject(value) && (Object.keys(value).length === 0 || Object.values(value).some(holdsEmptyObject));
 }
@@ -140,15 +128,20 @@ function refusalFor(
 	change: ConfigChange,
 	context: FabricContext,
 ): Pick<RefusedChange, 'reason' | 'message'> | undefined {
-	// Harper reads `_` in a key as nesting, so a root key `http_keepAliveTimeout` sets `http.keepAliveTimeout`.
-	const spelled = change.path.flatMap(part => part.split('_'));
-	const fabric = fabricSetSettingFor(spelled, context, { includeChildren: true });
+	// `set_configuration` names a setting by its path joined with `_`, and Harper splits the name back on every `_`, so
+	// a key with one in it can't be addressed: `my_app.enabled` would land at `my.app.enabled`.
+	if (change.path.some(part => part.includes('_'))) {
+		return {
+			reason: 'underscore',
+			message: "Harper reads '_' in a setting's name as nesting, so Studio can't save a key with one in it.",
+		};
+	}
+	const fabric = fabricSetSettingFor(change.path, context, { includeChildren: true });
 	if (fabric) {
 		return { reason: 'fabric', message: describeFabricSetSetting(fabric) };
 	}
 	if (
 		isRestrictedConfigPath(change.path.join('.'), change.after, change.before)
-		|| (spelled.length > change.path.length && isHiddenConfigPath(spelled))
 		|| (holdsRestrictedSettings(change.path) && !isPlainObject(change.after))
 	) {
 		return { reason: 'studio', message: 'Studio does not change this setting.' };

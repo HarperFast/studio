@@ -1,4 +1,4 @@
-import { type ConfigChange, type ConfigObject, getIn, isPlainObject } from './configDraft';
+import { type ConfigChange, type ConfigObject, getIn } from './configDraft';
 
 /** Harper's single-label wildcard origin, `https://*.example.com` (harper `utility/corsAccessList.ts`). */
 const WILDCARD_ORIGIN = /^([a-z][a-z0-9+.-]*:\/\/)\*(\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?)$/i;
@@ -26,11 +26,11 @@ function touches(changes: readonly ConfigChange[], path: readonly string[]) {
 	return changes.some(change => path.every((part, i) => change.path[i] === part) && change.path.length === path.length);
 }
 
-// Harper fills `operationsApi.network` from `http` when that section exists (`flattenConfig`, harper
-// `config/configUtils.ts`).
+// Harper fills `operationsApi.network` from `http` (`flattenConfig`, harper `config/configUtils.ts`), and its default
+// config always has that section (`static/defaultConfig.yaml`), even where Studio hides all of it.
 function effective(draft: ConfigObject, path: readonly string[]): { value: unknown; path: readonly string[] } {
 	const own = getIn(draft, path);
-	if (own !== undefined || !isPlainObject(getIn(draft, path.slice(0, -1)))) { return { value: own, path }; }
+	if (own !== undefined) { return { value: own, path }; }
 	const inherited = ['http', path[path.length - 1]];
 	return { value: getIn(draft, inherited), path: inherited };
 }

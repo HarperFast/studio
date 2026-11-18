@@ -42,44 +42,35 @@ export const RESTRICTED_CONFIG: Record<string, any> = {
 	localStudio: 'allowed',
 };
 
-export function isRestrictedConfigPath(path: string, value: any, originalValue: any): boolean {
-	// If value hasn't changed, it's not "blocked" from staying the same
-	if (JSON.stringify(value) === JSON.stringify(originalValue)) {
-		return false;
-	}
+const HIDDEN = Symbol('hidden');
 
-	const parts = path.split('.');
-	let current: any = RESTRICTED_CONFIG;
-
-	for (let i = 0; i < parts.length; i++) {
-		const part = parts[i];
-		if (current === 'blocked') { return true; }
-		if (current === 'blocked_except_databases') {
-			return part !== 'databases';
-		}
-		if (typeof current === 'object' && current !== null && part in current) {
-			current = current[part];
-		} else {
-			// Not in RESTRICTED_CONFIG, so it's allowed
-			return false;
-		}
-	}
-
-	return current === 'blocked';
-}
-
-export function isHiddenConfigPath(path: readonly string[]): boolean {
-	let current: any = RESTRICTED_CONFIG;
+// Harper looks a setting up without regard to case (`CONFIG_PARAM_MAP`, harper `utility/hdbTerms.ts`), so this does too.
+function restrictionAt(path: readonly string[]): unknown {
+	let current: unknown = RESTRICTED_CONFIG;
 	for (const part of path) {
-		if (current === 'blocked') { return true; }
-		if (current === 'blocked_except_databases') { return part !== 'databases'; }
+		if (current === 'blocked') { return HIDDEN; }
+		if (current === 'blocked_except_databases') { return part.toLowerCase() === 'databases' ? undefined : HIDDEN; }
 		const key = typeof current === 'object' && current !== null
 			? Object.keys(current).find(candidate => candidate.toLowerCase() === part.toLowerCase())
 			: undefined;
-		if (key === undefined) { return false; }
-		current = current[key];
+		if (key === undefined) { return undefined; }
+		current = (current as Record<string, unknown>)[key];
 	}
-	return current === 'blocked';
+	return current === 'blocked' ? HIDDEN : current;
+}
+
+export function isHiddenConfigPath(path: readonly string[]): boolean {
+	return restrictionAt(path) === HIDDEN;
+}
+
+export function isRestrictedConfigPath(path: string, value: any, originalValue: any): boolean {
+	return JSON.stringify(value) !== JSON.stringify(originalValue) && isHiddenConfigPath(path.split('.'));
+}
+
+/** Whether `path` names a section that holds restricted settings, so replacing it whole replaces them too. */
+export function holdsRestrictedSettings(path: readonly string[]): boolean {
+	const node = restrictionAt(path);
+	return node === 'blocked_except_databases' || (typeof node === 'object' && node !== null);
 }
 
 export function omitRestrictedFields(obj: any, schema: any = RESTRICTED_CONFIG): any {
