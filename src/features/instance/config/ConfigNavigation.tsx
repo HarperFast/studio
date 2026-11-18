@@ -18,6 +18,7 @@ interface ConfigMenuEntry {
 	to: string;
 	icon: ReactNode;
 	exact?: boolean;
+	keywords?: string[];
 }
 
 export interface ConfigMenuGroup {

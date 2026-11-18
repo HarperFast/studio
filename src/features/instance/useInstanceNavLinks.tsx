@@ -2,12 +2,11 @@ import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useNavigationVisibility, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { useLoaderData, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import {
 	DatabaseIcon,
 	GaugeIcon,
@@ -33,10 +32,9 @@ export interface InstanceNavLink {
  * into the bar itself and the More menu. A hidden tab is left out of both but still opens from a link —
  * hiding focuses the UI, it doesn't restrict anything.
  */
-export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: InstanceNavLink[] } {
+export function useInstanceNavLinks(version: string): { links: InstanceNavLink[]; tucked: InstanceNavLink[] } {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const statusAvailable = supportsGetStatus(version) && canManage;
 	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
 	const extensionTabs = useVisibleExtensionPages('tab');

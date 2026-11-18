@@ -27,7 +27,7 @@ export function InstanceNavBar() {
 	const statusAvailable = supportsGetStatus(version) && canManage;
 	const instanceParams = useInstanceClientIdParams();
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
-	const { links, tucked } = useInstanceNavLinks();
+	const { links, tucked } = useInstanceNavLinks(version);
 	const trail = useBreadcrumbTrail();
 	const { clusterId, instanceId } = useParams({ strict: false });
 	const entityCrumb = trail[instanceId ? 2 : clusterId ? 1 : 0];
