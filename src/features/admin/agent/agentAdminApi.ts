@@ -386,10 +386,13 @@ export function useSaveAgentSettingsMutation({ onSettledKeys }: { onSettledKeys?
 		mutationFn: saveAgentSettings,
 		onSuccess: (saved) =>
 			toast.success(saved.length === 1 ? `${saved[0]} updated` : `${saved.length} settings updated`),
-		onSettled: (saved, failure) => {
+		// Awaited, so the save stays pending until the form holds the saved values and an edit cannot start from old ones.
+		onSettled: async (saved, failure) => {
+			await Promise.allSettled([
+				queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey }),
+				queryClient.invalidateQueries({ queryKey: configurationQueryKey }),
+			]);
 			onSettledKeys?.(saved ?? (failure as { saved?: string[] } | null)?.saved ?? []);
-			void queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey });
-			void queryClient.invalidateQueries({ queryKey: configurationQueryKey });
 		},
 	});
 }
