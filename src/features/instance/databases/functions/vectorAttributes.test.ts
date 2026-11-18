@@ -70,6 +70,7 @@ describe('summarizeNumberArray', () => {
 		expect(summarizeNumberArray([1, 2, 3, 4, 5, 6, 7, 8])).toBeUndefined();
 		expect(summarizeNumberArray([1, 2, 3, 4, 5, 6, 7, 8, 'nine'])).toBeUndefined();
 		expect(summarizeNumberArray({ length: 20 })).toBeUndefined();
+		expect(summarizeNumberArray([Number.NaN, 1, 2, 3, 4, 5, 6, 7, 8])).toBeUndefined();
 	});
 
 	it('leads with the count, then the first three numbers to four significant digits', () => {

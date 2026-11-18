@@ -49,7 +49,6 @@ export function isVector(value: unknown): value is number[] {
 		&& value.every(item => typeof item === 'number' && Number.isFinite(item));
 }
 
-/** A stored record to find the neighbours of, with each of its vectors by attribute. */
 export interface SimilarRecordsSeed {
 	key: unknown;
 	vectors: ReadonlyMap<string, number[]>;
@@ -87,12 +86,16 @@ const SHOWN = 3;
  * numbers. The count leads, so a narrow column cuts the numbers rather than how many there are.
  */
 export function summarizeNumberArray(value: unknown): string | undefined {
-	if (!Array.isArray(value) || value.length <= SUMMARIZED_AFTER || !value.every(item => typeof item === 'number')) {
+	if (
+		!Array.isArray(value) || value.length <= SUMMARIZED_AFTER
+		|| !value.every(item => typeof item === 'number' && Number.isFinite(item))
+	) {
 		return undefined;
 	}
-	return `${value.length} numbers: [${value.slice(0, SHOWN).map(formatComponent).join(', ')}, …]`;
+	return `${value.length} numbers: [${value.slice(0, SHOWN).map(formatNumber).join(', ')}, …]`;
 }
 
-function formatComponent(value: number): string {
+/** Four significant digits, whatever the locale, and integers whole. */
+export function formatNumber(value: number): string {
 	return Number.isInteger(value) ? String(value) : String(Number(value.toPrecision(4)));
 }

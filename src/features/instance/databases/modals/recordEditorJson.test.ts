@@ -1,5 +1,5 @@
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { describeRecordJsonError, formatRecordJson, tryParseRecordJson } from './recordEditorJson';
 
 describe('tryParseRecordJson', () => {
@@ -150,6 +150,14 @@ describe('formatRecordJson', () => {
 		expect(formatted).toContain('"closing": "] 7, 8 ["');
 		expect(formatted).toContain('"k]": [9]');
 		roundTrips(records);
+	});
+
+	it('never splits a match that doesn’t start like a list of numbers, such as the whole record', () => {
+		const split = vi.spyOn(String.prototype, 'split');
+		const record = [{ id: '1', body: 'word, '.repeat(50_000), tags: ['a, b', 'c'] }];
+		expect(formatRecordJson(record)).toBe(JSON.stringify(record, null, 4));
+		expect(split).not.toHaveBeenCalled();
+		split.mockRestore();
 	});
 
 	it('stays linear on a long vector that turns out not to be all numbers', () => {

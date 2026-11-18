@@ -364,7 +364,14 @@ export function EditTableRowModal({
 								</Button>
 							)}
 							{onFindSimilar && (
-								<Button variant="ghost" type="button" autoFocus={false} onClick={onFindSimilar}>
+								<Button
+									variant="ghost"
+									type="button"
+									autoFocus={false}
+									onClick={onFindSimilar}
+									// The record a write in flight changes or deletes is no seed to search from.
+									disabled={isWritePending}
+								>
 									<ScanSearchIcon /> Find Similar
 								</Button>
 							)}

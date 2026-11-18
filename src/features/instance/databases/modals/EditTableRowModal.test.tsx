@@ -194,6 +194,14 @@ describe('EditTableRowModal', () => {
 		expect(onFindSimilar).toHaveBeenCalledOnce();
 	});
 
+	it.each([
+		['a save', { isUpdateTableRecordsPending: true }],
+		['a delete', { isDeleteTableRecordsPending: true }],
+	])('disables Find Similar while %s is in flight', (_, pending) => {
+		renderModal({ onFindSimilar: vi.fn(), ...pending });
+		expect((screen.getByRole('button', { name: /Find Similar/i }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it('shows a vector on one line rather than one number per line', () => {
 		renderAddressableModal({ data: [{ id: 'a', embedding: [0.25, -1.5e-7, 3] }] });
 		expect((screen.getByTestId('editor') as HTMLTextAreaElement).value).toContain('"embedding": [0.25, -1.5e-7, 3]');

@@ -6,9 +6,6 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
-// The table view against a real React Query, with only the transport and the record editor stubbed:
-// Find Similar is offered for the stored record the editor loaded, and searches from its vector.
-
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
 	const search = {};

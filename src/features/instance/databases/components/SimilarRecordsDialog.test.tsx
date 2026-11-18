@@ -74,7 +74,7 @@ function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED
 		queryCache: new QueryCache({ onError: queryErrorHandler }),
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
-	render(
+	const view = (shown: typeof SEED | undefined) => (
 		<QueryClientProvider client={client}>
 			<SimilarRecordsDialog
 				open
@@ -84,10 +84,12 @@ function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED
 				table={DOC}
 				primaryKey="id"
 				vectors={vectorAttributes(DOC)}
-				seed={seed}
+				seed={shown}
 			/>
-		</QueryClientProvider>,
+		</QueryClientProvider>
 	);
+	const { rerender } = render(view(seed));
+	return { rerender: (next: typeof SEED) => rerender(view(next)) };
 }
 
 const searches = () => server.requests.filter(request => request.operation === 'search_by_value');
@@ -159,6 +161,19 @@ describe('SimilarRecordsDialog', () => {
 		});
 		expect(results().map(item => item.textContent)).toEqual([expect.stringContaining('dog')]);
 		expect(screen.getByText(/using euclidean distance/)).toBeTruthy();
+	});
+
+	it('searches afresh for another record, without showing the first one’s results under it', async () => {
+		const { rerender } = renderDialog();
+		await screen.findByRole('region', { name: 'Results' });
+		server.answer = () => [{ $distance: 0.3, id: 'a', title: 'cat' }];
+		await act(async () => {
+			rerender({ key: 'c', vectors: new Map([['embedding', [0, 0, 1, 0]]]) });
+		});
+		expect(await screen.findByText('distance 0.3')).toBeTruthy();
+		expect(screen.queryByText('kitten')).toBeNull();
+		expect(searches().at(-1)).toMatchObject({ sort: { attribute: 'embedding', target: [0, 0, 1, 0] } });
+		expect(screen.getByText('c', { selector: 'code' })).toBeTruthy();
 	});
 
 	it('offers only the vectors the record has', async () => {

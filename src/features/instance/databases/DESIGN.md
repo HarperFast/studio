@@ -231,4 +231,4 @@ with the field's `@embed` model (HarperFast/harper#1277). The `/v1/embeddings` A
 `inputType` and leaves text unchanged (harper `resources/models/DESIGN.md`), so Studio would have to know each
 model's query prefix, which models like nomic-embed-text need for good recall.
 
-An HNSW column takes no sort or filter in the grid (`isHnswIndexed`): Harper refuses both without a target.
+The grid offers no sort or filter on an HNSW column (`isHnswIndexed`): Harper refuses both without a target. A hand-written deep link can still name one, and the grid then shows Harper's refusal.

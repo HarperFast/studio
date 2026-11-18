@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { reportSearchFailure, SearchFailureAlert } from '@/features/instance/databases/components/SearchFailureAlert';
 import {
+	formatNumber,
 	previewAttributes,
 	SimilarRecordsSeed,
 	VectorAttribute,
@@ -49,9 +50,10 @@ export function SimilarRecordsDialog({
 						The records in <code>{tableName}</code> whose stored vector is nearest this one’s.
 					</DialogDescription>
 				</DialogHeader>
-				{/* Mounted only while open, so each opening searches from the record it was opened on. */}
+				{/* Mounted only while open, and anew for each seed, so a search is always from the record shown. */}
 				{open && seed && searchable.length > 0 && (
 					<SimilarRecords
+						key={JSON.stringify(seed.key)}
 						databaseName={databaseName}
 						tableName={tableName}
 						table={table}
@@ -213,7 +215,7 @@ function Preview({ hit, attributes }: { hit: NearestRecord; attributes: string[]
 
 function formatDistance(distance: unknown): string {
 	return typeof distance === 'number' && Number.isFinite(distance)
-		? distance.toLocaleString(undefined, { maximumSignificantDigits: 4 })
+		? formatNumber(distance)
 		: 'unknown';
 }
 
