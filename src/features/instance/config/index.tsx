@@ -11,7 +11,6 @@ export function ConfigIndex() {
 	const { pathname } = useLocation();
 	const { groups, configPath, firstExtension, canManage } = useConfigNavigation(version);
 
-	// The Config Overview requires manage permission. Component-only viewers land on their first entry.
 	const atIndex = pathname.replace(/\/+$/, '') === configPath;
 	if (!canManage && firstExtension && atIndex) {
 		return <Navigate to={firstExtension} replace />;

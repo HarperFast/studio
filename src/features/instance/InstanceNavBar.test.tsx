@@ -16,10 +16,13 @@ const { permission, studio } = vi.hoisted(() => ({
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => permission.canManage }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => ({}) }));
 vi.mock('@/components/Breadcrumbs', () => ({
-	BreadcrumbList: () => null,
+	BreadcrumbList: ({ collapse, keepPath }: { collapse?: number; keepPath?: string }) => (
+		<div data-testid="crumbs" data-collapse={collapse} data-keep-path={keepPath} />
+	),
 	useBreadcrumbTrail: () => [
 		{ path: '/org-1', label: 'Org' },
 		{ path: '/org-1/clu-1', label: 'Cluster' },
+		{ path: '/org-1/clu-1/instance/ins-1', label: 'Instance' },
 		{ path: '/org-1/clu-1/instance/ins-1/databases', label: 'Databases' },
 	],
 }));
@@ -61,6 +64,18 @@ afterEach(() => {
 });
 
 describe('InstanceNavBar', () => {
+	it('keeps the instance breadcrumb when the full path and the leading fold exceed the available width', () => {
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(350);
+		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
+			const trail = this.querySelector('[data-testid="crumbs"]');
+			return trail?.hasAttribute('data-keep-path') ? 300 : trail?.hasAttribute('data-collapse') ? 400 : 450;
+		});
+
+		render(<InstanceNavBar />);
+
+		expect(screen.getByTestId('crumbs').getAttribute('data-keep-path')).toBe('/org-1/clu-1/instance/ins-1');
+	});
+
 	it('offers the operations console to a super user', () => {
 		permission.canManage = true;
 		render(<InstanceNavBar />);

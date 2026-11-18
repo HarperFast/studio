@@ -61,7 +61,6 @@ export function InstanceNavBar() {
 		const update = () => {
 			const width = barElement.getBoundingClientRect().width;
 			if (width > 0) {
-				// Reserve at least a third of the bar for the breadcrumbs.
 				setCompact(linksElement.getBoundingClientRect().width > (width * 2) / 3);
 			}
 		};

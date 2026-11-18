@@ -18,7 +18,7 @@ export interface SearchTarget {
 
 type UnindexedTarget = Omit<SearchTarget, 'searchName' | 'searchText' | 'searchWords'>;
 
-export interface SearchPage {
+interface SearchPage {
 	name: string;
 	to: string;
 	hierarchy: string;

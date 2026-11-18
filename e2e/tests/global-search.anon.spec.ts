@@ -223,7 +223,14 @@ test('finds Config pages and domain names only inside the connected cluster', as
 		return route.fulfill({ json: responses[operation] ?? [] });
 	});
 
+	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/#/a/' + clusterId + '/config/roles');
+	const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumbs' });
+	await expect(breadcrumbs.getByRole('button', { name: 'Show other breadcrumbs' })).toBeVisible();
+	const entity = breadcrumbs.getByRole('link', { name: 'Search cluster', exact: true });
+	await expect(entity).toBeVisible();
+	expect(await entity.evaluate(link => link.getBoundingClientRect().width)).toBeGreaterThanOrEqual(40);
+
 	const search = page.getByRole('button', { name: 'Search Studio' });
 	await search.click();
 	const scoped = page.getByRole('combobox', { name: 'Search pages, organizations, and clusters' });
