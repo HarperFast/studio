@@ -1,15 +1,8 @@
 import { Loading } from '@/components/Loading';
-import { Button } from '@/components/ui/button';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdownMenu';
 import { isLocalStudio } from '@/config/constants';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { anyMemberSupportsBackups } from '@/features/instance/config/backups/backupNodes';
+import { type ConfigMenuGroup, ConfigNavigation } from '@/features/instance/config/ConfigNavigation';
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
@@ -28,12 +21,11 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, Outlet, useLoaderData, useLocation, useMatchRoute, useParams } from '@tanstack/react-router';
+import { Navigate, Outlet, useLoaderData, useLocation, useParams } from '@tanstack/react-router';
 import {
 	BadgeCheckIcon,
 	BrickWallFireIcon,
 	CalendarClockIcon,
-	ChevronDownIcon,
 	DatabaseBackupIcon,
 	GitPullRequestIcon,
 	GlobeIcon,
@@ -48,18 +40,8 @@ import {
 	UsersIcon,
 	WorkflowIcon,
 } from 'lucide-react';
-import { Fragment, ReactNode, Suspense } from 'react';
-
-interface ConfigMenuEntry {
-	name: string;
-	/** Relative to the entity, e.g. `config/roles`. */
-	page: string;
-	icon: ReactNode;
-}
-
-const sharedClasses = 'flex items-center p-2 rounded-lg group';
-const inactiveProps = { className: 'text-foreground hover:bg-accent dark:text-white dark:hover:bg-gray-700' };
-const activeProps = { className: 'text-black bg-white pointer-events-none cursor-default' };
+import { Suspense } from 'react';
+import './config-navigation.css';
 
 export function ConfigIndex() {
 	const params: {
@@ -93,179 +75,80 @@ export function ConfigIndex() {
 	const backupsSupported = supportsBackups(version)
 		|| (!params.instanceId && anyMemberSupportsBackups(cluster?.instances));
 
-	// Overview lives at the top (rendered by the nav bars below). Everything else — the built-in entries and
-	// any a cluster's components add — is sorted by name, so a component's entry lands where a reader
-	// expects it rather than at the end.
-	const extensionEntries = useVisibleExtensionPages('config');
-	const entries: ConfigMenuEntry[] = [
+	const configPath = buildAbsoluteLinkToPage(params, 'config');
+	const to = (page: string) => buildAbsoluteLinkToPage(params, `config/${page}`);
+	const extensionEntries = useVisibleExtensionPages('config')
+		.map((extension) => ({
+			name: extension.name,
+			to: buildAbsoluteLinkToPage(params, extensionPagePath(extension)),
+			icon: <ExtensionIcon name={extension.icon} />,
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+	const groups: ConfigMenuGroup[] = [
 		...(canManage
 			? [
-				modelsSupported && { name: 'AI Models', page: 'config/ai-models', icon: <SparklesIcon /> },
-				backupsSupported && { name: 'Backups', page: 'config/backups', icon: <DatabaseBackupIcon /> },
-				certsAvailable && { name: 'Certificates', page: 'config/certificates', icon: <ShieldCheckIcon /> },
-				deployFromGitHubSupported
-				&& { name: 'Deploy from GitHub', page: 'config/deploy-from-github', icon: <WorkflowIcon /> },
-				deploymentsAvailable && { name: 'Deployments', page: 'config/deployments', icon: <RocketIcon /> },
-				!isLocalStudio && !isSelfManaged && { name: 'Domains', page: 'config/domains', icon: <GlobeIcon /> },
-				wafSupported && { name: 'Firewall', page: 'config/firewall', icon: <BrickWallFireIcon /> },
-				mcpSupported && { name: 'MCP Server', page: 'config/mcp', icon: <PlugIcon /> },
-				previewsSupported && { name: 'Previews', page: 'config/previews', icon: <GitPullRequestIcon /> },
-				{ name: 'Roles', page: 'config/roles', icon: <HandshakeIcon /> },
-				scheduledJobsSupported
-				&& { name: 'Scheduled Jobs', page: 'config/scheduled-jobs', icon: <CalendarClockIcon /> },
-				// Secrets (the replicated hdb_secret store): any instance or cluster on a supported version — key
-				// custody may be file-based (self-hosted) or injected (Fabric). Manage-gated like every built-in
-				// entry; the secret operations are additionally super_user-only server-side, so a deep-link by a
-				// lesser role lists nothing.
-				secretsSupported && { name: 'Secrets', page: 'config/secrets', icon: <LockIcon /> },
-				certsAvailable && { name: 'SSH Keys', page: 'config/ssh-keys', icon: <KeyIcon /> },
-				trustPoliciesSupported && { name: 'Trust Policies', page: 'config/trust-policies', icon: <BadgeCheckIcon /> },
-				{ name: 'Users', page: 'config/users', icon: <UsersIcon /> },
-			].filter(excludeFalsy)
+				{ entries: [{ name: 'Overview', to: configPath, icon: <PieChartIcon />, exact: true }] },
+				{
+					label: 'Infrastructure',
+					entries: [
+						!isLocalStudio && !isSelfManaged && { name: 'Domains', to: to('domains'), icon: <GlobeIcon /> },
+						certsAvailable && { name: 'Certificates', to: to('certificates'), icon: <ShieldCheckIcon /> },
+						backupsSupported && { name: 'Backups', to: to('backups'), icon: <DatabaseBackupIcon /> },
+					].filter(excludeFalsy),
+				},
+				{
+					label: 'Access & security',
+					entries: [
+						{ name: 'Users', to: to('users'), icon: <UsersIcon /> },
+						{ name: 'Roles', to: to('roles'), icon: <HandshakeIcon /> },
+						certsAvailable && { name: 'SSH Keys', to: to('ssh-keys'), icon: <KeyIcon /> },
+						secretsSupported && { name: 'Secrets', to: to('secrets'), icon: <LockIcon /> },
+						trustPoliciesSupported && { name: 'Trust Policies', to: to('trust-policies'), icon: <BadgeCheckIcon /> },
+						wafSupported && { name: 'Firewall', to: to('firewall'), icon: <BrickWallFireIcon /> },
+					].filter(excludeFalsy),
+				},
+				{
+					label: 'Deployments & automation',
+					entries: [
+						deploymentsAvailable && { name: 'Deployments', to: to('deployments'), icon: <RocketIcon /> },
+						deployFromGitHubSupported
+						&& { name: 'Deploy from GitHub', to: to('deploy-from-github'), icon: <WorkflowIcon /> },
+						previewsSupported && { name: 'Previews', to: to('previews'), icon: <GitPullRequestIcon /> },
+						scheduledJobsSupported
+						&& { name: 'Scheduled Jobs', to: to('scheduled-jobs'), icon: <CalendarClockIcon /> },
+					].filter(excludeFalsy),
+				},
+				{
+					label: 'AI & integrations',
+					entries: [
+						modelsSupported && { name: 'AI Models', to: to('ai-models'), icon: <SparklesIcon /> },
+						mcpSupported && { name: 'MCP Server', to: to('mcp'), icon: <PlugIcon /> },
+					].filter(excludeFalsy),
+				},
+			]
 			: []),
-		...extensionEntries.map((extension) => ({
-			name: extension.name,
-			page: extensionPagePath(extension),
-			icon: <ExtensionIcon name={extension.icon} />,
-		})),
-	].sort((a, b) => a.name.localeCompare(b.name));
+		{ label: 'Components', entries: extensionEntries },
+	].filter(({ entries }) => entries.length > 0);
 
-	const children = entries.length > 0 && (
-		<>
-			{entries.map((entry) => (
-				<li key={entry.page}>
-					<Link
-						to={buildAbsoluteLinkToPage(params, entry.page)}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
+	// The Config Overview requires manage permission. Component-only viewers land on their first entry.
+	const atIndex = pathname.replace(/\/+$/, '') === configPath;
+	if (!canManage && extensionEntries.length > 0 && atIndex) {
+		return <Navigate to={extensionEntries[0].to} replace />;
+	}
+
+	return (
+		<div className="config-shell">
+			<div className="config-layout" data-has-navigation={groups.length > 0}>
+				{groups.length > 0 && <ConfigNavigation groups={groups} atIndex={atIndex} />}
+				<div className="min-w-0">
+					<Suspense
+						fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}
 					>
-						<span className="hidden md:inline-flex">{entry.icon}</span> <span className="ms-3">{entry.name}</span>
-					</Link>
-				</li>
-			))}
-		</>
-	);
-
-	// A lesser role reaches Config only for a component's entry, and the Overview is a super-user page, so
-	// the index opens their first entry instead. The router matches `config/` to the same index.
-	const atIndex = pathname.replace(/\/+$/, '') === buildAbsoluteLinkToPage(params, 'config');
-	if (!canManage && entries.length > 0 && atIndex) {
-		return <Navigate to={buildAbsoluteLinkToPage(params, entries[0].page)} replace />;
-	}
-
-	return (
-		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36))-var(--notification-banner-height))]">
-			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
-				<DesktopConfigNavBar params={params} showOverview={canManage}>{children}</DesktopConfigNavBar>
-				<MobileConfigNavBar params={params} showOverview={canManage} entries={entries} atIndex={atIndex} />
-			</section>
-			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 md:pt-4">
-				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-					<Outlet />
-				</Suspense>
-			</section>
+						<Outlet />
+					</Suspense>
+				</div>
+			</div>
 		</div>
-	);
-}
-
-function DesktopConfigNavBar({ params, children, showOverview }: {
-	params: {
-		clusterId?: string;
-		instanceId?: string;
-		organizationId?: string;
-	};
-	children: ReactNode;
-	showOverview: boolean;
-}) {
-	return (
-		<div className="hidden md:block pl-4 pt-4">
-			{showOverview && (
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'config')}
-					className={sharedClasses}
-					activeOptions={{ exact: true }}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<PieChartIcon className="hidden md:inline-block" /> <span className="ms-3">Overview</span>
-				</Link>
-			)}
-
-			{children && (
-				<ul className={showOverview ? 'border-t border-gray-700 pt-4 mt-4 space-y-2' : 'space-y-2'}>
-					{children}
-				</ul>
-			)}
-		</div>
-	);
-}
-
-interface MobileConfigNavItem {
-	name: string;
-	to: string;
-	icon: ReactNode;
-	exact?: boolean;
-}
-
-function MobileConfigNavBar({ params, entries, showOverview, atIndex }: {
-	params: {
-		clusterId?: string;
-		instanceId?: string;
-		organizationId?: string;
-	};
-	entries: ConfigMenuEntry[];
-	showOverview: boolean;
-	atIndex: boolean;
-}) {
-	const matchRoute = useMatchRoute();
-	const overview: MobileConfigNavItem | undefined = showOverview
-		? { name: 'Overview', to: buildAbsoluteLinkToPage(params, 'config'), icon: <PieChartIcon />, exact: true }
-		: undefined;
-	const pages: MobileConfigNavItem[] = entries.map((entry) => ({
-		name: entry.name,
-		to: buildAbsoluteLinkToPage(params, entry.page),
-		icon: entry.icon,
-	}));
-	const items = overview ? [overview, ...pages] : pages;
-	if (items.length === 0) {
-		return null;
-	}
-	// A page by prefix, as its Link decides it is active, so a role's or a deployment's own page names it.
-	// The Overview by `atIndex`: an exact `matchRoute` misses the `config/` the router also sends there.
-	const current = (atIndex ? overview : undefined)
-		?? pages.find((page) => matchRoute({ to: page.to, fuzzy: true, includeSearch: false }));
-
-	return (
-		<nav aria-label="Config pages" className="md:hidden px-4 py-2">
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button variant="outline" className="w-full justify-between">
-						<span className="flex min-w-0 items-center gap-2">
-							{current?.icon}
-							<span className="truncate">{current?.name ?? 'Choose a page'}</span>
-						</span>
-						<ChevronDownIcon />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width)">
-					{items.map((item) => (
-						<Fragment key={item.to}>
-							<DropdownMenuItem asChild>
-								<Link
-									to={item.to}
-									activeOptions={{ exact: !!item.exact }}
-									className="data-[status=active]:bg-accent data-[status=active]:font-medium"
-								>
-									{item.icon}
-									{item.name}
-								</Link>
-							</DropdownMenuItem>
-							{item === overview && pages.length > 0 && <DropdownMenuSeparator />}
-						</Fragment>
-					))}
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</nav>
 	);
 }

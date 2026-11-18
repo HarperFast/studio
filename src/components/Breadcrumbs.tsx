@@ -47,20 +47,24 @@ export function Breadcrumbs(props: BreadcrumbsProps) {
 }
 
 /** For a caller that already holds the trail, so it is worked out once. */
-export function BreadcrumbList({ trail, restartRequired, collapse = 0, className }: BreadcrumbsProps & {
+export function BreadcrumbList({ trail, restartRequired, collapse = 0, keepPath, className }: BreadcrumbsProps & {
 	trail: Breadcrumb[];
+	keepPath?: string;
 }) {
 	const { instance }: RouteNames = useRouteContext({ strict: false });
 	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
-	const folded = trail.slice(0, Math.min(collapse, trail.length - 1));
-	const shown = trail.slice(folded.length);
+	const keptCrumb = keepPath ? trail.find(crumb => crumb.path === keepPath) : undefined;
+	const folded = keptCrumb
+		? trail.filter(crumb => crumb !== keptCrumb)
+		: trail.slice(0, Math.min(collapse, trail.length - 1));
+	const shown = keptCrumb ? [keptCrumb] : trail.slice(folded.length);
 
 	return (
 		<div
 			role="list"
 			className={cn('flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]', className)}
 		>
-			<Link to="/" className="shrink-0">
+			<Link to="/" className="shrink-0" activeOptions={{ exact: true, includeSearch: false }}>
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
 				<span className="sr-only">Home</span>
 			</Link>
@@ -75,7 +79,8 @@ export function BreadcrumbList({ trail, restartRequired, collapse = 0, className
 					<CrumbSeparator />
 					<Link
 						to={path}
-						title={title}
+						title={title ?? label}
+						activeOptions={{ exact: true, includeSearch: false }}
 						data-last-crumb={index === shown.length - 1 || undefined}
 						className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 					>
@@ -125,7 +130,7 @@ function FoldedCrumbs({ crumbs }: { crumbs: Breadcrumb[] }) {
 			<DropdownMenuContent align="start">
 				{crumbs.map(({ path, label, title }) => (
 					<DropdownMenuItem key={path} asChild>
-						<Link to={path} title={title}>{label}</Link>
+						<Link to={path} title={title} activeOptions={{ exact: true, includeSearch: false }}>{label}</Link>
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

@@ -34,9 +34,8 @@ vi.mock('@tanstack/react-router', () => ({
 	Outlet: () => <div data-testid="outlet" />,
 	useLoaderData: () => ({ version: viewer.version }),
 	useLocation: () => ({ pathname: route.pathname }),
-	// Like the router's: an exact match misses a trailing slash.
 	useMatchRoute: () => ({ to, fuzzy }: { to: string; fuzzy?: boolean }) =>
-		route.pathname === to || (!!fuzzy && route.pathname.startsWith(`${to}/`)),
+		route.pathname === to || (!!fuzzy && route.pathname.startsWith(`${to}/`)) ? {} : false,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 }));
 
@@ -105,7 +104,7 @@ describe('ConfigIndex', () => {
 });
 
 describe('ConfigIndex on a small screen', () => {
-	const smallScreenNav = () => screen.getByRole('navigation', { name: 'Config pages' });
+	const smallScreenNav = () => screen.getByRole('navigation', { name: 'Configuration page picker' });
 	const openMenu = () => {
 		fireEvent.pointerDown(within(smallScreenNav()).getByRole('button'), { button: 0, ctrlKey: false });
 		return screen.getAllByRole('menuitem');
@@ -116,17 +115,17 @@ describe('ConfigIndex on a small screen', () => {
 		route.pathname = '/org-1/clu-1/config/roles/cluster_user';
 		render(<ConfigIndex />);
 		expect(within(smallScreenNav()).queryAllByRole('link')).toEqual([]);
-		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Roles');
+		expect(within(smallScreenNav()).getByRole('button', { name: 'Configuration Roles' })).toBeTruthy();
 	});
 
 	it.each(['/org-1/clu-1/config', '/org-1/clu-1/config/'])('names the Overview at %s', (pathname) => {
 		viewer.canManage = true;
 		route.pathname = pathname;
 		render(<ConfigIndex />);
-		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Overview');
+		expect(within(smallScreenNav()).getByRole('button', { name: 'Configuration Overview' })).toBeTruthy();
 	});
 
-	it('opens to the Overview and then every page, each a link to it', () => {
+	it('opens to the Overview and then the same groups as the sidebar', () => {
 		viewer.canManage = true;
 		route.pathname = '/org-1/clu-1/config/users';
 		render(<ConfigIndex />);
@@ -135,14 +134,20 @@ describe('ConfigIndex on a small screen', () => {
 		expect(items[0].getAttribute('href')).toBe('/org-1/clu-1/config');
 		const names = items.map((item) => item.textContent);
 		expect(names).toContain('Pre-rendering');
-		expect(names.slice(1)).toEqual(names.slice(1).sort((a, b) => a!.localeCompare(b!)));
+		const access = screen.getByRole('group', { name: 'Access & security' });
+		expect(within(access).getByRole('menuitem', { name: 'Users' })).toBeTruthy();
+		const sidebar = screen.getByRole('navigation', { name: 'Configuration pages' });
+		const accessLinks = within(within(sidebar).getByRole('list', { name: 'Access & security' })).getAllByRole('link');
+		expect(accessLinks.map(item => item.textContent)).toEqual(
+			within(access).getAllByRole('menuitem').map(item => item.textContent),
+		);
 		expect(items.find((item) => item.textContent === 'Users')?.getAttribute('href')).toBe('/org-1/clu-1/config/users');
 	});
 
 	it("lists only a lesser role's component pages, without the Overview", () => {
 		route.pathname = '/org-1/clu-1/config/ext/harper-prerender.prerendering';
 		render(<ConfigIndex />);
-		expect(within(smallScreenNav()).getByRole('button').textContent).toBe('Pre-rendering');
+		expect(within(smallScreenNav()).getByRole('button', { name: 'Configuration Pre-rendering' })).toBeTruthy();
 		expect(openMenu().map((item) => item.textContent)).toEqual(['Pre-rendering']);
 	});
 
@@ -150,6 +155,6 @@ describe('ConfigIndex on a small screen', () => {
 		entries.pages = [];
 		route.pathname = '/org-1/clu-1/config/users';
 		render(<ConfigIndex />);
-		expect(screen.queryByRole('navigation', { name: 'Config pages' })).toBeNull();
+		expect(screen.queryByRole('navigation', { name: 'Configuration page picker' })).toBeNull();
 	});
 });

@@ -24,7 +24,6 @@ export interface InstanceNavLink {
 	key: string;
 	to: string;
 	name: string;
-	shortName?: string;
 	icon: ReactNode;
 	activeOptions?: { exact: boolean };
 }
@@ -55,7 +54,6 @@ export function useInstanceNavLinks(): { links: InstanceNavLink[]; tucked: Insta
 					: buildAbsoluteLinkToPage(params),
 				activeOptions: { exact: true },
 				name: 'Applications',
-				shortName: 'Apps',
 				icon: <PackageIcon className="inline-block" />,
 			},
 			{
