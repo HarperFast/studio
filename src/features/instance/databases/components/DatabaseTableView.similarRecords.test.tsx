@@ -3,15 +3,17 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
+const route = vi.hoisted(() => ({ search: {} as { filters?: Record<string, string> } }));
+
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
-	const search = {};
 	return {
 		useParams: () => params,
-		useSearch: () => search,
+		useSearch: () => route.search,
 		Link: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
 	};
 });
@@ -104,7 +106,9 @@ beforeAll(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 	server.requests = [];
+	route.search = {};
 });
 
 async function openTheRecord() {
@@ -148,5 +152,23 @@ describe('DatabaseTableView similar records', { timeout: 30_000 }, () => {
 		server.stored = { id: 'b', title: 'kitten' };
 		const editor = await openTheRecord();
 		expect(within(editor).queryByRole('button', { name: 'Find Similar' })).toBeNull();
+	});
+});
+
+describe('DatabaseTableView deep-linked vector filter', { timeout: 30_000 }, () => {
+	it('says a vector can’t be filtered, and sends no search Harper would refuse', async () => {
+		const toastError = vi.spyOn(toast, 'error');
+		route.search = { filters: { embedding: '0.9' } };
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="vec" tableName="Doc" />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() =>
+			expect(toastError).toHaveBeenCalledWith(
+				"embedding is a vector, which can't be filtered",
+				expect.objectContaining({ description: expect.stringContaining('Find Similar') }),
+			), { timeout: 10_000 });
+		expect(server.requests.some(request => request.operation === 'search_by_conditions')).toBe(false);
 	});
 });

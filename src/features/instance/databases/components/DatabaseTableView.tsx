@@ -43,6 +43,7 @@ import {
 } from '@/features/instance/databases/functions/relationshipAttributes';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import {
+	isHnswIndexed,
 	SimilarRecordsSeed,
 	similarRecordsSeed,
 	vectorAttributes,
@@ -347,6 +348,16 @@ export function DatabaseTableView({
 	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
 	// without the user agreeing to read the whole table.
 	const applySearchConditions = useCallback((conditions: SearchCondition[], formValues: FilterValues) => {
+		// The grid offers no filter on an HNSW column, but a deep link can still name one.
+		const vector = conditions.find(({ search_attribute: name }) =>
+			typeof name === 'string' && Object.hasOwn(attributesMap, name) && isHnswIndexed(attributesMap[name].indexed)
+		);
+		if (vector) {
+			toast.error(`${vector.search_attribute} is a vector, which can't be filtered`, {
+				description: 'Harper searches a vector only by distance. Open a record and use Find Similar instead.',
+			});
+			return false;
+		}
 		const scans = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
 		if (scans.length) {
 			setPendingConfirmation({ kind: 'fullScan', context: confirmationContext, conditions, scans, formValues });
