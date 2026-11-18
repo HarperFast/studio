@@ -15,6 +15,7 @@ import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormS
 import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { appRedirectTarget } from '@/lib/urls/postSignInRedirect';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
@@ -94,13 +95,10 @@ export function FinishSetup() {
 				void router.invalidate();
 				const home = buildAbsoluteLinkToPage({ organizationId: cluster!.organizationId, clusterId });
 				await navigate({
-					to: redirect?.startsWith('/')
-						? redirect
+					to: appRedirectTarget(redirect)
 						// A cluster created for a preset goes straight on to installing it, now that someone
 						// who can is signed in. Signed out, its home offers the setup once they connect.
-						: user && preset
-						? `${home}/setup`
-						: home,
+						?? (user && preset ? `${home}/setup` : home),
 				});
 			},
 		});

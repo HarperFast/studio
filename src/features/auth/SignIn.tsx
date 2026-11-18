@@ -5,9 +5,11 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
+import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { AuthInput } from './components/AuthInput';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
@@ -21,7 +23,8 @@ const rememberControlClassName =
 	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
-	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const { me: formPersistenceEmail, redirect } = useSearch({ strict: false });
+	const carriedSearch = useMemo(() => redirectSearch(redirect), [redirect]);
 	const prefillEmail = usePrefillEmail();
 
 	const methods = useForm({
@@ -86,7 +89,9 @@ export function SignIn() {
 						Sign In <ArrowRight aria-hidden="true" />
 					</Button>
 					<div className="sign-in-recovery">
-						<Link to="/forgot-password" state={{ prefillEmail: email }}>Forgot password?</Link>
+						<Link to="/forgot-password" search={carriedSearch} state={{ prefillEmail: email }}>
+							Forgot password?
+						</Link>
 					</div>
 				</form>
 			</Form>
@@ -101,17 +106,22 @@ export function SignIn() {
 					compact
 					lastUsed={lastUsed === 'google'}
 					onClick={() => recordMethod('google')}
+					redirect={carriedSearch?.redirect}
 				/>
 				<GitHubAuthenticationButton
 					text="Sign in with GitHub"
 					compact
 					lastUsed={lastUsed === 'github'}
 					onClick={() => recordMethod('github')}
+					redirect={carriedSearch?.redirect}
 				/>
 			</div>
 
 			<p className="sign-in-signup">
-				Don’t have an account? <Link to="/sign-up" state={{ prefillEmail: email }}>Sign up for free</Link>
+				Don’t have an account?{' '}
+				<Link to="/sign-up" search={carriedSearch} state={{ prefillEmail: email }}>
+					Sign up for free
+				</Link>
 			</p>
 
 			{remember

@@ -1,5 +1,6 @@
 import { defaultInstanceRoute } from '@/config/constants';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import { guardedAppSignIn } from '@/router/guardedAppSignIn';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
@@ -27,9 +28,14 @@ const signInRoute = createRoute({
 	beforeLoad: ({ context, location }) => {
 		const user = guardedAppSignIn(context)?.user;
 		if (user) {
-			const search: Record<string, string> = location?.search;
-			const defaultRoute = getDefaultSignedInCloudRouteForUser(user);
-			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : defaultRoute });
+			const search: Record<string, unknown> = location?.search;
+			const target = postSignInRedirect(search?.redirect);
+			if (target?.kind === 'server') {
+				// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land
+				// on a sign-in page that sends the user straight on again.
+				throw redirect({ href: target.href, reloadDocument: true });
+			}
+			throw redirect({ to: target?.to ?? getDefaultSignedInCloudRouteForUser(user) });
 		}
 	},
 });
@@ -41,8 +47,8 @@ const localSignInRoute = createRoute({
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location }) => {
 		if (guardedAppSignIn(context)?.user) {
-			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : defaultInstanceRoute });
+			const search: Record<string, unknown> = location?.search;
+			throw redirect({ to: appRedirectTarget(search?.redirect) ?? defaultInstanceRoute });
 		}
 	},
 });

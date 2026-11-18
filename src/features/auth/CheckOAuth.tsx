@@ -7,6 +7,7 @@ import { clearOAuthErrorParamsFromUrl } from '@/lib/urls/clearOAuthErrorParams';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { clearOAuthHandoffCodeFromUrl, readOAuthHandoffCodeFromUrl } from '@/lib/urls/oauthHandoff';
+import { followServerRedirect, postSignInRedirect, redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { LoaderCircle } from 'lucide-react';
@@ -23,6 +24,7 @@ export function CheckOAuth() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
+	const signInSearch = redirectSearch(redirect);
 
 	useEffect(() => {
 		if (checking) {
@@ -48,7 +50,7 @@ export function CheckOAuth() {
 
 				if (oauthErrorMessage) {
 					toast.error(oauthErrorMessage, { duration: 10_000 });
-					await navigate({ to: '/sign-in' });
+					await navigate({ to: '/sign-in', search: signInSearch });
 					return;
 				}
 
@@ -72,23 +74,31 @@ export function CheckOAuth() {
 					toast.error(OAUTH_GENERIC_ERROR_MESSAGE, {
 						duration: 10_000,
 					});
-					await navigate({ to: '/sign-in' });
+					await navigate({ to: '/sign-in', search: signInSearch });
 				} else {
 					authStore.setUserForEntity(OverallAppSignIn, user);
-					clearUtmParamsFromUrl();
 					const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-
-					loginSuccessDatadogAction(user);
-
-					const company = parseCompanyFromEmail(user.email);
-					reoClient?.identify?.({
-						username: user.email,
-						type: 'email',
-						...(company ? { company } : {}),
-					});
+					// A throttled `replaceState` or a broken analytics script must not strand a signed-in user here.
+					try {
+						clearUtmParamsFromUrl();
+						loginSuccessDatadogAction(user);
+						const company = parseCompanyFromEmail(user.email);
+						reoClient?.identify?.({
+							username: user.email,
+							type: 'email',
+							...(company ? { company } : {}),
+						});
+					} catch (error) {
+						console.debug('Sign-in bookkeeping failed, carrying on:', error);
+					}
 					await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+					const target = postSignInRedirect(redirect);
+					if (target?.kind === 'server') {
+						followServerRedirect(target.href);
+						return;
+					}
 					await router.invalidate();
-					await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+					await navigate({ to: target?.to ?? defaultCloudRoute });
 				}
 			} finally {
 				checking = null;
@@ -110,6 +120,7 @@ export function CheckOAuth() {
 				<Link
 					className="text-sm"
 					to="/sign-in"
+					search={signInSearch}
 				>
 					Try signing in again
 				</Link>

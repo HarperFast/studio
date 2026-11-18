@@ -2,6 +2,7 @@ import { isDeletedCluster } from '@/config/clusterStatuses';
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
+import { appRedirectTarget } from '@/lib/urls/postSignInRedirect';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { ClusterHome } from './ClusterHome';
 import { clusterLayoutRoute } from './clusterLayoutRoute';
@@ -79,10 +80,7 @@ export function redirectAwayFromSignInIfConnected(
 	}
 	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
 	if (authStore.getConnectionById(params.clusterId).user && !isFabricConnect) {
-		const redirectTo = location?.search?.redirect;
-		throw redirect({
-			to: redirectTo?.startsWith('/') ? redirectTo : defaultInstanceRouteUpOne,
-		});
+		throw redirect({ to: appRedirectTarget(location?.search?.redirect) ?? defaultInstanceRouteUpOne });
 	}
 }
 
@@ -100,10 +98,7 @@ export function redirectAwayFromInstanceSignInIfConnected(
 	// flag must not suppress the redirect for an instance that is directly connected in its own right.
 	const isFabricConnect = authStore.checkForFabricConnect(params.instanceId);
 	if (authStore.getConnectionById(params.instanceId).user && !isFabricConnect) {
-		const redirectTo = location?.search?.redirect;
-		throw redirect({
-			to: redirectTo?.startsWith('/') ? redirectTo : defaultInstanceRouteUpOne,
-		});
+		throw redirect({ to: appRedirectTarget(location?.search?.redirect) ?? defaultInstanceRouteUpOne });
 	}
 }
 

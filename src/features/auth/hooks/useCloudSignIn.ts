@@ -12,6 +12,7 @@ import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { followServerRedirect, postSignInRedirect, redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
@@ -52,14 +53,20 @@ export function useCompleteCloudSignIn() {
 		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
 			return false;
 		}
+		const target = postSignInRedirect(redirect);
+		if (target?.kind === 'server') {
+			followServerRedirect(target.href);
+			return true;
+		}
 		void router.invalidate();
-		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+		await navigate({ to: target?.to ?? defaultCloudRoute });
 		return true;
 	}, [navigate, queryClient, redirect, router]);
 }
 
 export function useCloudSignIn() {
 	const navigate = useNavigate();
+	const { redirect } = useSearch({ strict: false });
 	const completeSignIn = useCompleteCloudSignIn();
 	const [submitError, setSubmitError] = useState<string>();
 
@@ -87,13 +94,17 @@ export function useCloudSignIn() {
 								description: `We sent a new verification link to ${formData.email}.`,
 							}),
 					});
-					void navigate({ to: '/verifying', state: { prefillEmail: formData.email } });
+					void navigate({
+						to: '/verifying',
+						search: redirectSearch(redirect),
+						state: { prefillEmail: formData.email },
+					});
 					return;
 				}
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [completeSignIn, navigate, resendEmailVerification, submitLoginData]);
+	}, [completeSignIn, navigate, redirect, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,

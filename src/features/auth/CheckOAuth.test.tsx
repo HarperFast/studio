@@ -2,19 +2,22 @@
  * @vitest-environment jsdom
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { navigate, routerInvalidate } = vi.hoisted(() => ({
+const { navigate, routerInvalidate, hashSearch } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	routerInvalidate: vi.fn(),
+	hashSearch: { current: {} as Record<string, unknown> },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => ({ invalidate: routerInvalidate }),
-	useSearch: () => ({}),
-	Link: ({ children }: PropsWithChildren) => <a>{children}</a>,
+	useSearch: () => hashSearch.current,
+	Link: ({ children, search }: PropsWithChildren<{ search?: { redirect?: string } }>) => (
+		<a data-redirect={search?.redirect}>{children}</a>
+	),
 }));
 
 vi.mock('sonner', () => ({
@@ -65,11 +68,15 @@ function renderCheckOAuth() {
 	return render(<CheckOAuth />, { wrapper });
 }
 
+const replace = vi.fn();
+
 function stubLocationSearch(search: string) {
-	vi.stubGlobal('location', { ...window.location, search });
+	vi.stubGlobal('location', { ...window.location, search, replace });
 }
 
 beforeEach(() => {
+	hashSearch.current = {};
+	replace.mockReset();
 	getCurrentUser.mockReset();
 	navigate.mockClear();
 	routerInvalidate.mockClear();
@@ -198,6 +205,81 @@ describe('CheckOAuth', () => {
 		);
 		expect(getCurrentUser).not.toHaveBeenCalled();
 		consoleDebug.mockRestore();
+	});
+});
+
+describe('CheckOAuth redirect', () => {
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+
+	it('replaces this page with the MCP authorization once the session is confirmed', async () => {
+		stubLocationSearch('');
+		hashSearch.current = { redirect: mcpAuthorize };
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+		renderCheckOAuth();
+
+		await waitFor(() => expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize));
+		expect(setUserForEntity).toHaveBeenCalledWith('OverallAppSignIn', { id: 'u1', email: 'user@example.com' });
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('still follows it when the sign-in bookkeeping throws', async () => {
+		stubLocationSearch('');
+		hashSearch.current = { redirect: mcpAuthorize };
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		clearUtmParamsFromUrl.mockImplementationOnce(() => {
+			throw new Error('history.replaceState throttled');
+		});
+		renderCheckOAuth();
+
+		await waitFor(() => expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize));
+		expect(consoleDebug).toHaveBeenCalledWith('Sign-in bookkeeping failed, carrying on:', expect.any(Error));
+		consoleDebug.mockRestore();
+	});
+
+	it('navigates to an in-app redirect', async () => {
+		stubLocationSearch('');
+		hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/org-1/clu-1/usage' }));
+		expect(replace).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['another host', 'https://evil.example/oauth/mcp/authorize'],
+		['a protocol-relative host', '//evil.example/oauth/mcp/authorize'],
+		['another server path', '/oauth/google/login'],
+	])('never leaves the app for %s', async (_label, redirect) => {
+		stubLocationSearch('');
+		hashSearch.current = { redirect };
+		getCurrentUser.mockResolvedValue({ id: 'u1', email: 'user@example.com' });
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+		expect(replace).not.toHaveBeenCalled();
+		expect(navigate.mock.calls[0][0].to).toMatch(/^\/(?!\/)/);
+	});
+
+	it('keeps the redirect on the way back to the sign-in page after a failed sign-in', async () => {
+		stubLocationSearch('?error=access_denied&reason=email_not_verified');
+		hashSearch.current = { redirect: mcpAuthorize };
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', search: { redirect: mcpAuthorize } }));
+		expect(replace).not.toHaveBeenCalled();
+		expect(screen.getByText('Try signing in again').closest('a')?.dataset.redirect).toBe(mcpAuthorize);
+	});
+
+	it('keeps it when no session came back either', async () => {
+		stubLocationSearch('');
+		hashSearch.current = { redirect: mcpAuthorize };
+		getCurrentUser.mockResolvedValue(null);
+		renderCheckOAuth();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', search: { redirect: mcpAuthorize } }));
+		expect(replace).not.toHaveBeenCalled();
 	});
 });
 

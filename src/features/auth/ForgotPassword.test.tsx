@@ -10,18 +10,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate, historyState } = vi.hoisted(() => ({
+const { navigate, historyState, hashSearch } = vi.hoisted(() => ({
+	hashSearch: { current: {} as Record<string, unknown> },
 	navigate: vi.fn(),
 	historyState: {} as { prefillEmail?: string },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
-	useSearch: () => ({}),
+	useSearch: () => hashSearch.current,
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children, to, state }: PropsWithChildren<{ to?: string; state?: { prefillEmail?: string } }>) => (
-		<a href={to} data-prefill-email={state?.prefillEmail}>{children}</a>
-	),
+	Link: ({ children, to, search, state }: PropsWithChildren<
+		{ to?: string; search?: { redirect?: string }; state?: { prefillEmail?: string } }
+	>) => <a href={to} data-redirect={search?.redirect} data-prefill-email={state?.prefillEmail}>{children}</a>,
 }));
 
 vi.mock('sonner', () => ({
@@ -125,6 +126,40 @@ describe('ForgotPassword — prefill', () => {
 		await waitFor(() =>
 			expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: 'ada@example.com' } })
 		);
+	});
+});
+
+describe('ForgotPassword — redirect', () => {
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+
+	afterEach(() => {
+		hashSearch.current = {};
+	});
+
+	it("keeps the sign-in page's redirect on the ways back", async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		const { container, getByRole } = renderForm();
+
+		for (const name of ['Sign in to your account', 'Sign up for free']) {
+			expect(getByRole('link', { name }).dataset.redirect).toBe(mcpAuthorize);
+		}
+		await submitWith(container, 'ada@example.com');
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({
+				to: '/sign-in',
+				search: { redirect: mcpAuthorize },
+				state: { prefillEmail: 'ada@example.com' },
+			})
+		);
+	});
+
+	it('carries none it would not follow', () => {
+		hashSearch.current = { redirect: 'https://evil.example/oauth/mcp/authorize' };
+		const { getByRole } = renderForm();
+
+		expect(getByRole('link', { name: 'Sign in to your account' }).dataset.redirect).toBeUndefined();
 	});
 });
 

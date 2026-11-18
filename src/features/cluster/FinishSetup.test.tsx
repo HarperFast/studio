@@ -16,6 +16,7 @@ vi.mock('@/config/constants', async (importOriginal) => ({
 }));
 
 const navigate = vi.fn();
+const hashSearch: { current: Record<string, unknown> } = { current: {} };
 vi.mock('@tanstack/react-router', () => {
 	const router = { invalidate: vi.fn() };
 	return {
@@ -23,7 +24,7 @@ vi.mock('@tanstack/react-router', () => {
 		useNavigate: () => navigate,
 		useParams: () => ({ clusterId: 'clu-1' }),
 		useRouter: () => router,
-		useSearch: () => ({}),
+		useSearch: () => hashSearch.current,
 	};
 });
 vi.mock('@/components/Breadcrumbs', () => ({ Breadcrumbs: () => null }));
@@ -66,6 +67,7 @@ afterEach(() => {
 	toastSuccess.mockReset();
 	mutate.mockClear();
 	navigate.mockClear();
+	hashSearch.current = {};
 	localStorage.clear();
 	resetPendingPresetSetupsForTests();
 });
@@ -120,6 +122,19 @@ describe(FinishSetup, () => {
 
 		beforeEach(() => {
 			vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
+		});
+
+		it('goes on to an in-app redirect', async () => {
+			hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+			await createAdminUser();
+			expect(await destination()).toBe('/org-1/clu-1/usage');
+		});
+
+		// The router decodes `?redirect=1` to a number and a repeated key to an array, neither of which is a path.
+		it.each([1, ['/a', '/b']])('lands on the home for a redirect of %j', async (redirect) => {
+			hashSearch.current = { redirect };
+			await createAdminUser();
+			expect(await destination()).toBe('/org-1/clu-1');
 		});
 
 		it('goes on to set up the preset central-manager records', async () => {
