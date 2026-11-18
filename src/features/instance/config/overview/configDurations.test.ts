@@ -48,6 +48,7 @@ describe('describeConfigDuration, for the token timeouts Harper hands to jsonweb
 
 	it("says when jsonwebtoken can't read it", () => {
 		expect(describeConfigDuration(['authentication', 'refreshTokenTimeout'], 'a month')).toEqual({});
+		expect(describeConfigDuration(['authentication', 'refreshTokenTimeout'], '')).toEqual({});
 	});
 });
 

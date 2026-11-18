@@ -68,7 +68,6 @@ export function isRestrictedConfigPath(path: string, value: any, originalValue: 
 	return current === 'blocked';
 }
 
-/** Whether `omitRestrictedFields` drops this setting, so neither editor ever shows it. */
 export function isHiddenConfigPath(path: readonly string[]): boolean {
 	let current: any = RESTRICTED_CONFIG;
 	for (const part of path) {

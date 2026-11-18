@@ -5,12 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
 import { useEffect, useRef, useState } from 'react';
 import { sameConfigValue } from '../configDraft';
+import { isDurationSetting } from '../configDurations';
 import type { ConfigFieldDef } from '../configSchemaFields';
 
 interface ConfigFieldControlProps {
 	field: ConfigFieldDef;
 	value: unknown;
-	/** The value before this edit, which decides what clearing a field means. */
 	before: unknown;
 	disabled: boolean;
 	invalid: boolean;
@@ -30,7 +30,7 @@ export function fitsConfigField(field: ConfigFieldDef, value: unknown): boolean 
 			return typeof value === 'string';
 		case 'string':
 		case 'stringOrNumber':
-			// Harper stores text that reads as a number or a boolean as one (`castHarperText`).
+			// Harper stores text that reads as a number or a boolean as one (`storedByHarper`).
 			return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 		case 'integer':
 		case 'number':
@@ -39,25 +39,6 @@ export function fitsConfigField(field: ConfigFieldDef, value: unknown): boolean 
 			// Harper's own default is `[null]`, and a null entry allows nothing (harper `utility/corsAccessList.ts`).
 			return Array.isArray(value) && value.every(item => typeof item === 'string' || item === null);
 	}
-}
-
-/**
- * What Harper stores for text it is sent, so the draft holds what the refetch will return: `castConfigValue`, harper
- * `config/configUtils.ts` (`is-number` then `parseFloat`, booleans, `undefined`/`null`, JSON-looking text).
- */
-export function castHarperText(text: string): unknown {
-	if (text !== '' && Number.isFinite(Number(text))) { return Number.parseFloat(text); }
-	const lower = text.toLowerCase();
-	if (lower === 'true' || lower === 'false') { return lower === 'true'; }
-	if (lower === 'undefined' || text === 'null' || text === 'NULL') { return null; }
-	if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']'))) {
-		try {
-			return JSON.parse(text);
-		} catch {
-			return text;
-		}
-	}
-	return text;
 }
 
 function formatText(field: ConfigFieldDef, value: unknown): string {
@@ -76,6 +57,8 @@ function parseEmpty(field: ConfigFieldDef, before: unknown): Parsed {
 		return { value: Array.isArray(before) || !field.nullable ? [] : null };
 	}
 	if (field.nullable) { return { value: null }; }
+	// An empty duration is one Harper can't read, which for a token timeout means no token can be issued.
+	if (isDurationSetting(field.path)) { return { error: 'Enter a duration, such as 1d.' }; }
 	if (field.kind === 'string') { return { value: '' }; }
 	return { error: field.kind === 'stringOrNumber' ? 'Enter a value.' : 'Enter a number.' };
 }
@@ -87,7 +70,10 @@ export function parseConfigFieldText(field: ConfigFieldDef, text: string, before
 		return items.length === 0 ? parseEmpty(field, before) : { value: items };
 	}
 	if (trimmed === '') { return parseEmpty(field, before); }
-	if (field.kind === 'string' || field.kind === 'stringOrNumber') { return { value: castHarperText(trimmed) }; }
+	if (field.kind === 'string') { return { value: trimmed }; }
+	if (field.kind === 'stringOrNumber') {
+		return { value: Number.isFinite(Number(trimmed)) ? Number.parseFloat(trimmed) : trimmed };
+	}
 	const number = Number(trimmed);
 	if (!Number.isFinite(number)) { return { error: 'Enter a number.' }; }
 	if (field.kind === 'integer' && !Number.isInteger(number)) { return { error: 'Enter a whole number.' }; }
@@ -164,14 +150,16 @@ const NOT_SET = '__not-set__';
 export function ConfigFieldControl(props: ConfigFieldControlProps) {
 	const { field, value, before, disabled, describedBy, onChange } = props;
 	if (field.kind === 'boolean') {
-		const checked = typeof value === 'boolean' ? value : field.harperDefault === 'true';
+		const byDefault = field.harperDefault === 'true';
+		const checked = typeof value === 'boolean' ? value : byDefault;
 		return (
 			<Switch
 				id={field.id}
 				checked={checked}
 				disabled={disabled}
 				aria-describedby={describedBy}
-				onCheckedChange={next => onChange(next)}
+				// Switched back to what Harper does unset, an unset setting goes back to unset.
+				onCheckedChange={next => onChange(before === undefined && next === byDefault ? undefined : next)}
 			/>
 		);
 	}

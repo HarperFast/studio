@@ -81,11 +81,32 @@ export function listConfigChanges(before: unknown, after: unknown, path: readonl
 	return sameConfigValue(before, after) ? [] : [{ path, before, after }];
 }
 
+/**
+ * What Harper stores for a value it is sent: `castConfigValue`, harper `config/configUtils.ts` (`is-number` then
+ * `parseFloat`, booleans, `undefined`/`null`, JSON-looking text). Anything but a string is stored as sent.
+ */
+export function storedByHarper(value: unknown): unknown {
+	if (typeof value !== 'string') { return value; }
+	if (value.trim() !== '' && Number.isFinite(Number(value))) { return Number.parseFloat(value); }
+	const lower = value.toLowerCase();
+	if (lower === 'true' || lower === 'false') { return lower === 'true'; }
+	if (lower === 'undefined' || value === 'null' || value === 'NULL') { return null; }
+	if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+		try {
+			return JSON.parse(value);
+		} catch {
+			return value;
+		}
+	}
+	return value;
+}
+
 export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase: ConfigObject): ConfigObject {
-	return listConfigChanges(oldBase, draft).reduce(
-		(rebased, change) => setIn(rebased, change.path, change.after),
-		newBase,
-	);
+	return listConfigChanges(oldBase, draft).reduce((rebased, change) => {
+		// An edit Harper stored as another type (`"3600"` as 3600) has landed, though it reads back differently.
+		if (sameConfigValue(getIn(newBase, change.path), storedByHarper(change.after))) { return rebased; }
+		return setIn(rebased, change.path, change.after);
+	}, newBase);
 }
 
 /** Whether `path` names a section that holds restricted settings, so replacing it whole replaces them too. */
@@ -100,20 +121,32 @@ function holdsRestrictedSettings(path: readonly string[]) {
 	return isPlainObject(current) || current === 'blocked_except_databases';
 }
 
+function refusalFor(
+	change: ConfigChange,
+	context: FabricContext,
+): Pick<RefusedChange, 'reason' | 'message'> | undefined {
+	const fabric = fabricSetSettingFor(change.path, context, { includeChildren: true });
+	if (fabric) {
+		return { reason: 'fabric', message: describeFabricSetSetting(fabric) };
+	}
+	if (
+		isRestrictedConfigPath(change.path.join('.'), change.after, change.before)
+		|| (holdsRestrictedSettings(change.path) && !isPlainObject(change.after))
+	) {
+		return { reason: 'studio', message: 'Studio does not change this setting.' };
+	}
+	return undefined;
+}
+
 export function findRefusedChanges(changes: readonly ConfigChange[], context: FabricContext): RefusedChange[] {
 	return changes.flatMap((change): RefusedChange[] => {
-		const fabric = fabricSetSettingFor(change.path, context, { includeChildren: true });
-		if (fabric) {
-			return [{ ...change, reason: 'fabric', message: describeFabricSetSetting(fabric) }];
+		// An object that replaced a value is sent setting by setting, so each of those is checked.
+		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
+		const refusal = sent.map(leaf => refusalFor(leaf, context)).find(Boolean);
+		if (refusal) {
+			return [{ ...change, ...refusal }];
 		}
-		const dotted = change.path.join('.');
-		if (
-			isRestrictedConfigPath(dotted, change.after, change.before)
-			|| (holdsRestrictedSettings(change.path) && !isPlainObject(change.after))
-		) {
-			return [{ ...change, reason: 'studio', message: 'Studio does not change this setting.' }];
-		}
-		if (isPlainObject(change.after) && Object.keys(change.after).length === 0) {
+		if (sent.length === 0) {
 			// `set_configuration` takes settings one by one, so an empty object would send nothing and still restart.
 			return [{
 				...change,

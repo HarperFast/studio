@@ -13,7 +13,6 @@ export interface ConfigFieldDef {
 	id: string;
 	label: string;
 	description?: string;
-	/** Harper's own default, as its schema states it. */
 	harperDefault?: string;
 	kind: ConfigFieldKind;
 	nullable: boolean;

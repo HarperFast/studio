@@ -66,10 +66,14 @@ export interface ConfigDuration {
 	words?: string;
 }
 
+export function isDurationSetting(path: readonly string[]): boolean {
+	return Object.hasOwn(DURATION_SETTINGS, path.join('.'));
+}
+
 /** Undefined for a setting that isn't a duration, or a value with nothing to say (unset, null). */
 export function describeConfigDuration(path: readonly string[], value: unknown): ConfigDuration | undefined {
 	const reader = DURATION_SETTINGS[path.join('.')];
-	if (!reader || value === undefined || value === null || value === '') { return undefined; }
+	if (!reader || value === undefined || value === null) { return undefined; }
 	const duration = read(reader, value);
 	if (!duration) { return {}; }
 	const { amount, unit } = duration;

@@ -1,35 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import type { ConfigFieldDef } from '../configSchemaFields';
-import { castHarperText, fitsConfigField, parseConfigFieldText } from './ConfigFieldControl';
+import { fitsConfigField, parseConfigFieldText } from './ConfigFieldControl';
 
 function field(kind: ConfigFieldDef['kind'], overrides: Partial<ConfigFieldDef> = {}): ConfigFieldDef {
 	return { path: ['x'], id: 'config-x', label: 'X', kind, nullable: false, ...overrides };
 }
-
-describe('castHarperText, as harper castConfigValue stores text', () => {
-	it.each([
-		['3600', 3600],
-		['1.5', 1.5],
-		['true', true],
-		['FALSE', false],
-		['undefined', null],
-		['null', null],
-		['["a"]', ['a']],
-		['[a]', '[a]'],
-		['3d', '3d'],
-	])('%s → %j', (text, stored) => {
-		expect(castHarperText(text)).toEqual(stored);
-	});
-});
 
 describe('parseConfigFieldText', () => {
 	it('trims text, so a stray space does not change how Harper reads a duration', () => {
 		expect(parseConfigFieldText(field('string'), ' 3d ', '1d')).toEqual({ value: '3d' });
 	});
 
-	it('sends text the way Harper will store it, so a save does not come back as a change', () => {
-		expect(parseConfigFieldText(field('string'), '3600', '1d')).toEqual({ value: 3600 });
+	it('sends text as typed, and shows a value Harper stored as another type', () => {
+		expect(parseConfigFieldText(field('string'), '3600', '1d')).toEqual({ value: '3600' });
+		expect(parseConfigFieldText(field('string'), '{}', undefined)).toEqual({ value: '{}' });
 		expect(fitsConfigField(field('string'), 3600)).toBe(true);
+		expect(parseConfigFieldText(field('stringOrNumber'), '30', '3d')).toEqual({ value: 30 });
+		expect(parseConfigFieldText(field('stringOrNumber'), '0x10', '3d')).toEqual({ value: 0 });
+	});
+
+	it("won't clear a duration Harper can't then read", () => {
+		const timeout = field('string', { path: ['authentication', 'operationTokenTimeout'] });
+		expect(parseConfigFieldText(timeout, '', '1d')).toEqual({ error: 'Enter a duration, such as 1d.' });
+		expect(parseConfigFieldText(timeout, '', undefined)).toEqual({ value: undefined });
 	});
 
 	it('checks numbers against the schema', () => {

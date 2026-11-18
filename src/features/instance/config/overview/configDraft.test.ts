@@ -5,6 +5,7 @@ import {
 	listConfigChanges,
 	rebaseDraft,
 	setIn,
+	storedByHarper,
 	toSetConfigurationParams,
 } from './configDraft';
 
@@ -96,6 +97,31 @@ describe('rebaseDraft', () => {
 	});
 });
 
+describe('storedByHarper, as harper castConfigValue stores what it is sent', () => {
+	it.each([
+		['3600', 3600],
+		['0x10', 0],
+		['1.5', 1.5],
+		['true', true],
+		['FALSE', false],
+		['undefined', null],
+		['null', null],
+		['["a"]', ['a']],
+		['[a]', '[a]'],
+		['3d', '3d'],
+		['', ''],
+		[42, 42],
+	])('%j → %j', (sent, stored) => {
+		expect(storedByHarper(sent)).toEqual(stored);
+	});
+
+	it('lets a rebase see an edit Harper stored as another type as landed', () => {
+		const rebased = rebaseDraft({ a: { t: '1d' } }, { a: { t: '3600' } }, { a: { t: 3600 } });
+		expect(rebased).toEqual({ a: { t: 3600 } });
+		expect(rebaseDraft({ a: { t: '1d' } }, { a: { t: '3600' } }, { a: { t: '2d' } })).toEqual({ a: { t: '3600' } });
+	});
+});
+
 describe('toSetConfigurationParams', () => {
 	it('joins each path with underscores, as set_configuration names settings', () => {
 		const changes = listConfigChanges(
@@ -164,6 +190,17 @@ describe('findRefusedChanges', () => {
 		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: {} }], LOCAL))
 			.toMatchObject([{ reason: 'empty' }]);
 		expect(listConfigChanges({}, { mcp: {} })).toEqual([]);
+		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: { ca: {} } }], LOCAL))
+			.toMatchObject([{ reason: 'empty' }]);
+	});
+
+	it('checks each setting of an object that replaced a value, since each one is sent', () => {
+		expect(findRefusedChanges([{ path: ['logging'], before: false, after: { root: '/x' } }], LOCAL))
+			.toMatchObject([{ reason: 'studio' }]);
+		expect(findRefusedChanges([{ path: ['http'], before: 5, after: { keepAliveTimeout: 1 } }], HOSTED))
+			.toMatchObject([{ reason: 'fabric' }]);
+		expect(findRefusedChanges([{ path: ['analytics'], before: true, after: { aggregatePeriod: 30 } }], HOSTED))
+			.toEqual([]);
 	});
 
 	it("refuses a removal, which set_configuration can't make", () => {

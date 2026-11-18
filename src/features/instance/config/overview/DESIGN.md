@@ -56,9 +56,9 @@ operation can't remove a setting, and an empty object flattens to no field at al
 (`findRefusedChanges`) rather than sent as a save that writes nothing and still restarts. The old editor dropped a
 removal silently and reported success.
 
-A text field sends what Harper would store for that text (`castHarperText`, mirroring `castConfigValue` in
-`config/configUtils.ts`): `3600` goes as a number. Sending the string would come back from the refetch as a number
-and read as a change that never goes away.
+An object that replaced a value is sent setting by setting, so each of those settings is what gets checked.
 
-Harper's own refusal (a 400, or a 409 when an environment variable defines the setting, `config/configUtils.ts`)
-reaches the page through `useRollingConfigUpdate`'s `onRefused`, and the edit is kept so it can be fixed.
+Harper stores what it is sent through `castConfigValue` (`config/configUtils.ts`): `"3600"` becomes the number 3600.
+The editors send text as typed, and `rebaseDraft` counts an edit as landed when the refetch holds what Harper would
+have stored for it (`storedByHarper`). Without that, the refetch reads as a change that never goes away. Casting in
+the form instead would put values like `{}` or `null` into a text field that can no longer show them.

@@ -23,13 +23,11 @@ interface ConfigFormProps {
 	context: FabricContext;
 	disabled: boolean;
 	errors: Readonly<Record<string, string>>;
-	/** Bumped to drop what every field holds as typed, as on Discard. */
 	generation: number;
 	onChange: (path: readonly string[], value: unknown) => void;
 	onError: (path: readonly string[], message: string | undefined) => void;
 }
 
-/** With `path`, a duration also says how Harper reads it: `3d (3 days)`. */
 export function formatConfigValue(value: unknown, path?: readonly string[]): string {
 	if (value === undefined) { return 'not set'; }
 	const formatted = typeof value === 'string' ? (value === '' ? '""' : value) : JSON.stringify(value);

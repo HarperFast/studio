@@ -332,6 +332,16 @@ describe('ConfigOverviewIndex forms', () => {
 		expect((screen.getByRole('tab', { name: 'Form' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
+	it('puts an unset switch back to unset when it is switched back', async () => {
+		renderPage();
+		await openSection('HTTP');
+		fireEvent.click(screen.getByRole('switch', { name: 'HTTP/2' }));
+		expect(screen.getByRole('button', { name: 'Review & Save (1)' })).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('switch', { name: 'HTTP/2' }));
+		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+	});
+
 	it('puts every setting back on Discard', async () => {
 		renderPage();
 		await openSection('HTTP');
