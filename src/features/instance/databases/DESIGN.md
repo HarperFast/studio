@@ -231,4 +231,4 @@ with the field's `@embed` model (HarperFast/harper#1277). The `/v1/embeddings` A
 `inputType` and leaves text unchanged (harper `resources/models/DESIGN.md`), so Studio would have to know each
 model's query prefix, which models like nomic-embed-text need for good recall.
 
-The grid offers no sort or filter on an HNSW column (`isHnswIndexed`): Harper refuses both without a target. A deep link can still name one, so `applySearchConditions` refuses it with a toast rather than send a search Harper would refuse.
+The grid offers no sort or filter on an HNSW column (`isHnswIndexed`): Harper refuses both without a target. Nor does a relationship filter offer a related table's vector as a sub-property. A deep link can still name either, so `applySearchConditions` refuses it with a toast (`vectorFilterAttribute`) rather than send a search Harper would refuse.

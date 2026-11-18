@@ -1,4 +1,7 @@
-import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
+import { ownEntry } from '@/features/instance/databases/functions/describedTable';
+import type { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
+import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
+import type { SearchCondition } from '@/integrations/api/instance/database/getSearchByConditions';
 
 export interface VectorAttribute {
 	attribute: string;
@@ -14,6 +17,37 @@ export interface VectorAttribute {
  */
 export function isHnswIndexed(indexed: InstanceAttribute['indexed']): boolean {
 	return typeof indexed === 'object' && indexed !== null && (indexed as { type?: unknown }).type === 'HNSW';
+}
+
+/**
+ * The first condition's attribute, as `column` or `column.subProperty`, that is an HNSW attribute here or on
+ * the related table it joins to. The grid offers no such filter, but a deep link or typed `.subProperty` can.
+ */
+export function vectorFilterAttribute(
+	conditions: readonly Pick<SearchCondition, 'search_attribute'>[],
+	attributesMap: Readonly<Record<string, InstanceAttribute>>,
+	relationshipInfoMap: Readonly<Record<string, RelationshipAttributeInfo>>,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): string | undefined {
+	for (const { search_attribute: path } of conditions) {
+		const [name, subProperty] = Array.isArray(path) ? path : [path];
+		if (subProperty === undefined) {
+			if (Object.hasOwn(attributesMap, name) && isHnswIndexed(attributesMap[name].indexed)) {
+				return name;
+			}
+			continue;
+		}
+		const relatedTableName = Object.hasOwn(relationshipInfoMap, name)
+			? relationshipInfoMap[name].relatedTableName
+			: undefined;
+		const relatedTable = relatedTableName ? ownEntry(databaseTables, relatedTableName) : undefined;
+		if (
+			relatedTable?.attributes?.some(({ attribute, indexed }) => attribute === subProperty && isHnswIndexed(indexed))
+		) {
+			return `${name}.${subProperty}`;
+		}
+	}
+	return undefined;
 }
 
 export function vectorAttributes(table: InstanceTable | undefined): VectorAttribute[] {

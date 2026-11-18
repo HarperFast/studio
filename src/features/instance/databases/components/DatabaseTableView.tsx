@@ -43,10 +43,10 @@ import {
 } from '@/features/instance/databases/functions/relationshipAttributes';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import {
-	isHnswIndexed,
 	SimilarRecordsSeed,
 	similarRecordsSeed,
 	vectorAttributes,
+	vectorFilterAttribute,
 } from '@/features/instance/databases/functions/vectorAttributes';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import { EditTableRowModal, RecordNavigation } from '@/features/instance/databases/modals/EditTableRowModal';
@@ -348,12 +348,9 @@ export function DatabaseTableView({
 	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
 	// without the user agreeing to read the whole table.
 	const applySearchConditions = useCallback((conditions: SearchCondition[], formValues: FilterValues) => {
-		// The grid offers no filter on an HNSW column, but a deep link can still name one.
-		const vector = conditions.find(({ search_attribute: name }) =>
-			typeof name === 'string' && Object.hasOwn(attributesMap, name) && isHnswIndexed(attributesMap[name].indexed)
-		);
+		const vector = vectorFilterAttribute(conditions, attributesMap, relationshipInfoMap, databaseTables);
 		if (vector) {
-			toast.error(`${vector.search_attribute} is a vector, which can't be filtered`, {
+			toast.error(`${vector} is a vector, which can't be filtered`, {
 				description: 'Harper searches a vector only by distance. Open a record and use Find Similar instead.',
 			});
 			return false;
@@ -365,7 +362,7 @@ export function DatabaseTableView({
 		}
 		commitSearchConditions(conditions, false, formValues);
 		return true;
-	}, [attributesMap, relationshipInfoMap, confirmationContext, commitSearchConditions]);
+	}, [attributesMap, relationshipInfoMap, databaseTables, confirmationContext, commitSearchConditions]);
 
 	const applyFilters = useCallback(() => {
 		applySearchConditions(translateFilterValues(columnFiltersValues), columnFiltersValues);

@@ -1,5 +1,6 @@
 import { InstanceTable } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
+import { getRelationshipInfoMap } from './relationshipAttributes';
 import {
 	isHnswIndexed,
 	isVector,
@@ -7,6 +8,7 @@ import {
 	similarRecordsSeed,
 	summarizeNumberArray,
 	vectorAttributes,
+	vectorFilterAttribute,
 } from './vectorAttributes';
 
 /** `describe_table` from a real Harper 5.4.1, plus an `@embed` field as 5.1+ describes it. */
@@ -115,5 +117,52 @@ describe('similarRecordsSeed', () => {
 		expect(similarRecordsSeed([{ id: null, embedding: [1] }], 'id', vectors)).toBeUndefined();
 		expect(similarRecordsSeed([{ id: 'a', embedding: [] }], 'id', vectors)).toBeUndefined();
 		expect(similarRecordsSeed([{ id: 'a', embedding: [1] }], 'id', [])).toBeUndefined();
+	});
+});
+
+describe('vectorFilterAttribute and the related table’s vectors', () => {
+	// Albums.tracks joins to Tracks, whose `embedding` is an HNSW vector (as Harper 4.7 describes a to-many).
+	const tracks = {
+		schema: 'data',
+		name: 'Tracks',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'title', type: 'String' },
+			{ attribute: 'embedding', type: 'array', elements: 'Float', indexed: { type: 'HNSW', distance: 'cosine' } },
+		],
+	} as InstanceTable;
+	const albums = {
+		schema: 'data',
+		name: 'Albums',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'cover', type: 'array', elements: 'Float', indexed: { type: 'HNSW' } },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'tracks', type: 'array', elements: 'Tracks' },
+		],
+	} as InstanceTable;
+	const tables = { Albums: albums, Tracks: tracks };
+	const attributesMap = Object.fromEntries(albums.attributes.map(attribute => [attribute.attribute, attribute]));
+	const relationships = getRelationshipInfoMap(albums, tables);
+
+	it('names a filter on the table’s own vector, or on the related table’s', () => {
+		const find = (path: string | string[]) =>
+			vectorFilterAttribute(
+				[{ search_attribute: 'name' }, { search_attribute: path }],
+				attributesMap,
+				relationships,
+				tables,
+			);
+		expect(find('cover')).toBe('cover');
+		expect(find(['tracks', 'embedding'])).toBe('tracks.embedding');
+		expect(find(['tracks', 'title'])).toBeUndefined();
+		expect(find('name')).toBeUndefined();
+		expect(find('toString')).toBeUndefined();
+	});
+
+	it('leaves the related vector out of the sub-properties a filter can join through', () => {
+		expect(relationships.tracks.relatedAttributes.map(({ attribute }) => attribute)).toEqual(['id', 'title']);
 	});
 });
