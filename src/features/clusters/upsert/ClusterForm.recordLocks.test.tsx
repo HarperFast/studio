@@ -138,6 +138,17 @@ describe('ClusterForm — record locks on create', () => {
 		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: true }));
 	});
 
+	it('keeps the explanation in a tooltip behind the info button', async () => {
+		renderForm({}, { harperVersions: versions('5.3.0') });
+		expect(screen.queryByText(/lock a record across every instance/)).toBeNull();
+
+		await act(async () => {
+			fireEvent.focus(screen.getByRole('button', { name: 'What are cluster-wide record locks?' }));
+		});
+
+		expect((await screen.findAllByText(/lock a record across every instance/)).length).toBeGreaterThan(0);
+	});
+
 	it('leaves recordLocks out when the box is not ticked', async () => {
 		renderForm({}, { harperVersions: versions('5.3.0') });
 		expect(recordLocksBox()).toBeTruthy();
