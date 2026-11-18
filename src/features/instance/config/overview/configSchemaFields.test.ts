@@ -52,6 +52,11 @@ describe("buildConfigSections from Harper's schema", () => {
 		expect(sections.find(section => section.key === 'operationsApi')?.label).toBe('Operations API');
 	});
 
+	it("gives Harper's real default where its schema states another", () => {
+		expect(field('authentication.refreshTokenTimeout')?.harperDefault).toBe('30d');
+		expect(field('authentication.operationTokenTimeout')?.harperDefault).toBe('1d');
+	});
+
 	it('reads settings that come from shared definitions', () => {
 		expect(field('http.logging.level')).toMatchObject({ kind: 'enum' });
 		expect(field('http.logging.timing')).toMatchObject({ kind: 'boolean' });

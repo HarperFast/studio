@@ -7,9 +7,7 @@ import { locateJsonPaths } from '../jsonPathRanges';
 
 export interface ConfigEditorMarker {
 	path: string;
-	/** Written after the setting, in the editor itself. */
 	label: string;
-	/** Shown on hover, as Markdown. */
 	message: string;
 }
 
@@ -71,7 +69,6 @@ export function RawConfigEditor({ value, onChange, markers, readOnly = false }: 
 			);
 		};
 		mark();
-		// Re-marked on every edit, so a setting typed in or moved is marked where it now is.
 		const subscription = model.onDidChangeContent(mark);
 		return () => {
 			subscription.dispose();

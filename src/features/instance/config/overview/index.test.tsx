@@ -37,6 +37,39 @@ vi.mock('@/features/instance/config/overview/harper-config/configMonaco', () => 
 	configureHarperConfigEditor: () => Promise.resolve(),
 	HARPER_CONFIG_MODEL_PATH: 'harper-config.json',
 }));
+// A native <select> for the Radix one, whose portal listbox jsdom does not open. It takes the trigger's id, so the
+// field's <label> still names it.
+vi.mock('@/components/ui/select', async () => {
+	const { Children, isValidElement } = await import('react');
+	interface StubProps {
+		value?: string;
+		onValueChange?: (value: string) => void;
+		disabled?: boolean;
+		children?: import('react').ReactNode;
+		id?: string;
+		'aria-describedby'?: string;
+	}
+	const SelectTrigger = (_props: StubProps) => null;
+	const SelectContent = ({ children }: StubProps) => <>{children}</>;
+	const SelectItem = ({ value, children }: StubProps) => <option value={value}>{children}</option>;
+	const Select = ({ value, onValueChange, disabled, children }: StubProps) => {
+		const parts = Children.toArray(children).filter(isValidElement);
+		const trigger = parts.find(part => part.type === SelectTrigger)?.props as StubProps | undefined;
+		const content = parts.find(part => part.type === SelectContent)?.props as StubProps | undefined;
+		return (
+			<select
+				id={trigger?.id}
+				aria-describedby={trigger?.['aria-describedby']}
+				value={value}
+				disabled={disabled}
+				onChange={event => onValueChange?.(event.target.value)}
+			>
+				{content?.children}
+			</select>
+		);
+	};
+	return { Select, SelectTrigger, SelectContent, SelectItem, SelectValue: () => null };
+});
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'vs-dark' }));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => false }));
 vi.mock('@/lib/monaco/MonacoEditor', () => ({
@@ -245,6 +278,33 @@ describe('ConfigOverviewIndex forms', () => {
 		expect(screen.queryByText('Enter a number.')).toBeNull();
 		const sent = await reviewAndSave();
 		expect(sent[0]).toEqual({ operation: 'set_configuration', authentication_cacheTTL: 60000 });
+	});
+
+	it("drops a field's error when the field goes, so it can't block a save from another section", async () => {
+		renderPage();
+		await openSection('Authentication');
+		fireEvent.change(screen.getByRole('textbox', { name: 'Cache TTL' }), { target: { value: 'soon' } });
+		expect(screen.getByText('Enter a number.')).toBeTruthy();
+
+		await openSection('HTTP');
+		fireEvent.click(screen.getByRole('switch', { name: 'CORS' }));
+		expect((screen.getByRole('button', { name: 'Review & Save (1)' }) as HTMLButtonElement).disabled).toBe(false);
+
+		await openSection('Authentication');
+		expect((screen.getByRole('textbox', { name: 'Cache TTL' }) as HTMLInputElement).value).toBe('30000');
+		expect(screen.queryByText('Enter a number.')).toBeNull();
+	});
+
+	it('lets an unset choice go back to unset after one is picked', async () => {
+		renderPage();
+		await openSection('HTTP');
+		const level = () => screen.getAllByRole('combobox', { name: 'Level' })[0] as HTMLSelectElement;
+		fireEvent.change(level(), { target: { value: 'debug' } });
+		expect(screen.getByRole('button', { name: 'Review & Save (1)' })).toBeTruthy();
+
+		const notSet = [...level().options].find(option => option.text.startsWith('Not set'))!;
+		fireEvent.change(level(), { target: { value: notSet.value } });
+		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
 	});
 
 	it('carries a form change into Advanced JSON and back', async () => {

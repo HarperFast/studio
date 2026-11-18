@@ -1,10 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
-import { stableJson } from '@/lib/stableJson';
 import { LockIcon, SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { type ConfigObject, getIn, listConfigChanges } from '../configDraft';
+import { type ConfigChange, type ConfigObject, getIn, sameConfigValue } from '../configDraft';
 import { describeConfigDuration, withDurationWords } from '../configDurations';
 import type { ConfigFieldDef, ConfigGroupDef, ConfigSectionDef } from '../configSchemaFields';
 import {
@@ -20,6 +19,7 @@ interface ConfigFormProps {
 	sections: readonly ConfigSectionDef[];
 	base: ConfigObject;
 	draft: ConfigObject;
+	changes: readonly ConfigChange[];
 	context: FabricContext;
 	disabled: boolean;
 	errors: Readonly<Record<string, string>>;
@@ -27,10 +27,6 @@ interface ConfigFormProps {
 	generation: number;
 	onChange: (path: readonly string[], value: unknown) => void;
 	onError: (path: readonly string[], message: string | undefined) => void;
-}
-
-function sameValue(a: unknown, b: unknown) {
-	return a === undefined || b === undefined ? a === b : stableJson(a) === stableJson(b);
 }
 
 /** With `path`, a duration also says how Harper reads it: `3d (3 days)`. */
@@ -51,7 +47,7 @@ function ConfigFieldRow({ field, base, draft, context, disabled, errors, onChang
 	const before = getIn(base, field.path);
 	const fabricSet = fabricSetSettingFor(field.path, context);
 	const fabricDefault = fabricSet ? undefined : fabricDefaultFor(field.path, context);
-	const changed = !sameValue(value, before);
+	const changed = !sameConfigValue(value, before);
 	const error = errors[field.path.join('.')];
 	const noteId = `${field.id}-note`;
 	const fits = fitsConfigField(field, value);
@@ -149,13 +145,13 @@ export function ConfigForm({ sections, ...props }: ConfigFormProps) {
 	const normalizedQuery = query.trim().toLowerCase();
 	const section = sections.find(candidate => candidate.key === selected) ?? sections[0];
 
-	const changeCounts = useMemo(
-		() =>
-			Object.fromEntries(
-				sections.map(({ key }) => [key, listConfigChanges(getIn(props.base, [key]), getIn(props.draft, [key])).length]),
-			),
-		[sections, props.base, props.draft],
-	);
+	const changeCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		for (const change of props.changes) {
+			counts[change.path[0]] = (counts[change.path[0]] ?? 0) + 1;
+		}
+		return counts;
+	}, [props.changes]);
 
 	const results = useMemo(() => {
 		if (!normalizedQuery) { return []; }

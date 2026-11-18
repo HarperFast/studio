@@ -24,7 +24,6 @@ export interface ConfigFieldDef {
 
 export interface ConfigGroupDef {
 	path: readonly string[];
-	/** Undefined for the section's own settings. */
 	label?: string;
 	description?: string;
 	fields: ConfigFieldDef[];
@@ -89,7 +88,6 @@ const WORDS: Record<string, string> = {
 	v8: 'V8',
 };
 
-/** `corsAccessList` → `CORS access list`. */
 export function humanizeConfigKey(key: string): string {
 	const words = key
 		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -117,6 +115,12 @@ export function splitHarperDefault(description: string | undefined): { descripti
 	const harperDefault = match[2].replace(/\.$/, '').replace(/^'(.*)'$/, '$1').trim();
 	return { description: match[1] || undefined, harperDefault };
 }
+
+/** Defaults Harper's schema states wrongly, with what Harper uses. */
+const DEFAULT_CORRECTIONS: Record<string, string> = {
+	// The schema says 1d; harper `static/defaultConfig.yaml` and `security/tokenAuthentication.ts` use 30d.
+	'authentication.refreshTokenTimeout': '30d',
+};
 
 function describeSchemaDefault(value: unknown): string | undefined {
 	if (value === undefined) { return undefined; }
@@ -227,7 +231,8 @@ export function buildConfigSections(schema: unknown): ConfigSectionDef[] {
 				id: `config-${childPath.join('-')}`,
 				label: humanizeConfigKey(key),
 				description,
-				harperDefault: describeSchemaDefault(child.default) ?? harperDefault,
+				harperDefault: DEFAULT_CORRECTIONS[childPath.join('.')] ?? describeSchemaDefault(child.default)
+					?? harperDefault,
 				minimum: child.minimum,
 				maximum: child.maximum,
 				...kind,

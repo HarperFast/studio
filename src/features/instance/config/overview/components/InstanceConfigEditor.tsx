@@ -11,7 +11,7 @@ import { getConfigurationQueryOptions } from '@/integrations/api/instance/status
 import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircleIcon, LockIcon, SaveIcon, Undo2Icon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	type ConfigObject,
 	findRefusedChanges,
@@ -90,6 +90,8 @@ export function InstanceConfigEditor(
 	const [formGeneration, setFormGeneration] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
 	const [refusal, setRefusal] = useState<string | null>(null);
+	const draftRef = useRef(draft);
+	draftRef.current = draft;
 
 	// A refetch (after a save, or someone else's) moves the base; the edits are carried over onto it. While the JSON
 	// doesn't parse there is no draft to carry, so that waits until it does.
@@ -97,14 +99,15 @@ export function InstanceConfigEditor(
 		if (!baseline || baseline === base || jsonError) {
 			return;
 		}
-		const next = base && draft ? rebaseDraft(base, draft, baseline) : baseline;
+		const current = draftRef.current;
+		const next = base && current ? rebaseDraft(base, current, baseline) : baseline;
 		setBase(baseline);
 		setDraft(next);
 		setJsonText(current => {
 			const parsed = parseConfigJson(current);
 			return parsed.config && listConfigChanges(parsed.config, next).length === 0 ? current : toJson(next);
 		});
-	}, [baseline, base, draft, jsonError]);
+	}, [baseline, base, jsonError]);
 
 	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate({
 		// Any key here may be one Harper's main thread reads only at startup (`operationsApi`, `mcp`, `authentication`).
@@ -169,7 +172,6 @@ export function InstanceConfigEditor(
 
 	const handleModeChange = useCallback((next: string) => {
 		if (next === 'json') {
-			// Kept as typed when it already says the same, so switching back and forth doesn't reformat it.
 			setJsonText(current => {
 				const parsed = parseConfigJson(current);
 				return parsed.config && draft && listConfigChanges(parsed.config, draft).length === 0
@@ -177,8 +179,6 @@ export function InstanceConfigEditor(
 					: toJson(draft ?? {});
 			});
 		}
-		// The form re-reads every field from the draft when it comes back, so a half-typed value's error goes with it.
-		setFieldErrors({});
 		setMode(next as Mode);
 	}, [draft]);
 
@@ -299,6 +299,7 @@ export function InstanceConfigEditor(
 								generation={formGeneration}
 								base={base}
 								draft={draft}
+								changes={changes}
 								context={context}
 								disabled={isSaving}
 								errors={fieldErrors}

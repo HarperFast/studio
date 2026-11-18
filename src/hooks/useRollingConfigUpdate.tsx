@@ -42,6 +42,13 @@ interface RollingConfigUpdateResponse {
 const MAY_BE_PENDING =
 	'Instances that were not restarted may already have the new configuration saved, and will apply it the next time they restart.';
 
+// 400 is a setting Harper rejects; 409 one an environment variable defines (`Cannot set …: HARPER_SET_CONFIG defines it`,
+// harper `config/configUtils.ts`).
+function describeRefusal(error: unknown): string | undefined {
+	const status = isAxiosError(error) ? error.response?.status : undefined;
+	return status === 400 || status === 409 ? describeError(error).message : undefined;
+}
+
 interface RestartTarget {
 	entityId: string;
 	instanceClient: AxiosInstance;
@@ -227,10 +234,8 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
-					// 400 is a setting Harper rejects; 409 one an environment variable defines (`Cannot set …: HARPER_SET_CONFIG
-					// defines it`, harper `config/configUtils.ts`).
-					if (writing && isAxiosError(error) && (error.response?.status === 400 || error.response?.status === 409)) {
-						refusal ??= describeError(error).message;
+					if (writing) {
+						refusal ??= describeRefusal(error);
 					}
 					if (unanswered && restartSent) {
 						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
@@ -276,7 +281,10 @@ export function useRollingConfigUpdate(
 						...params,
 						replicated: true,
 						instanceClient,
-					}).then(acknowledgedReplicationNodes, () => new Set<string>());
+					}).then(acknowledgedReplicationNodes, error => {
+						refusal ??= describeRefusal(error);
+						return new Set<string>();
+					});
 				}
 			}
 
@@ -307,7 +315,7 @@ export function useRollingConfigUpdate(
 						onClick: () => toast.dismiss(),
 					},
 				});
-			} else if (allInstances.length > 0 && allInstances.length === instancesRestarted) {
+			} else if (allInstances.length > 0 && allInstances.length === instancesRestarted && !refusal) {
 				onRestartedSuccessfully?.();
 				toast.success('Success', {
 					id: toastId,

@@ -2,9 +2,7 @@ import { findNodeAtLocation, parseTree } from 'jsonc-parser';
 
 export interface JsonPathRange {
 	path: string;
-	/** Where the property starts: its key. */
 	offset: number;
-	/** Through the end of its value. */
 	length: number;
 }
 

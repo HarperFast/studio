@@ -450,6 +450,30 @@ describe('useRollingConfigUpdate outcome reporting', () => {
 		expect(options?.description).toContain(`Harper refused the change: ${message}`);
 	});
 
+	it('reports a refused fan-out write instead of calling the save a success', async () => {
+		useCluster([instance('ins-a', '5.3.0'), instance('ins-b', '5.3.0')]);
+		const message = "Unable to update config, unrecognized config parameter: 'logging_level'";
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (changes.replicated) {
+				throw new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+					status: 400,
+					data: { error: message },
+				} as never);
+			}
+			return { message: 'ok' };
+		});
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toContain('replicate ins-b');
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(message);
+		expect(toast.success).not.toHaveBeenCalled();
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain(`Harper refused the change: ${message}`);
+	});
+
 	it('hands no refusal to the page when the write was accepted', async () => {
 		useCluster([instance('ins-a', '5.4.0')]);
 		const onRefused = vi.fn();

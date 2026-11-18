@@ -13,7 +13,7 @@ export interface ConfigChange {
 }
 
 export interface RefusedChange extends ConfigChange {
-	reason: 'removed' | 'studio' | 'fabric';
+	reason: 'removed' | 'empty' | 'studio' | 'fabric';
 	message: string;
 }
 
@@ -21,9 +21,9 @@ export function isPlainObject(value: unknown): value is ConfigObject {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function sameValue(a: unknown, b: unknown) {
+export function sameConfigValue(a: unknown, b: unknown): boolean {
 	// `stableJson` writes `undefined` as `null`, and an absent setting is not a null one.
-	if (a === undefined || b === undefined) {
+	if (a === b || a === undefined || b === undefined) {
 		return a === b;
 	}
 	return stableJson(a) === stableJson(b);
@@ -40,7 +40,6 @@ export function getIn(config: unknown, path: readonly string[]): unknown {
 	return current;
 }
 
-/** A copy of `config` with `path` set to `value`, or removed when `value` is `undefined`. */
 export function setIn(config: ConfigObject, path: readonly string[], value: unknown): ConfigObject {
 	if (path.length === 0) {
 		return isPlainObject(value) ? value : config;
@@ -79,10 +78,9 @@ export function listConfigChanges(before: unknown, after: unknown, path: readonl
 			)
 		);
 	}
-	return sameValue(before, after) ? [] : [{ path, before, after }];
+	return sameConfigValue(before, after) ? [] : [{ path, before, after }];
 }
 
-/** `listConfigChanges` from `oldBase` to `draft`, applied to `newBase`: the edits survive a refetch. */
 export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase: ConfigObject): ConfigObject {
 	return listConfigChanges(oldBase, draft).reduce(
 		(rebased, change) => setIn(rebased, change.path, change.after),
@@ -115,6 +113,14 @@ export function findRefusedChanges(changes: readonly ConfigChange[], context: Fa
 		) {
 			return [{ ...change, reason: 'studio', message: 'Studio does not change this setting.' }];
 		}
+		if (isPlainObject(change.after) && Object.keys(change.after).length === 0) {
+			// `set_configuration` takes settings one by one, so an empty object would send nothing and still restart.
+			return [{
+				...change,
+				reason: 'empty',
+				message: "Studio can't save an empty object. Give it a setting, or put it back.",
+			}];
+		}
 		if (change.after === undefined) {
 			return [{
 				...change,
@@ -126,7 +132,6 @@ export function findRefusedChanges(changes: readonly ConfigChange[], context: Fa
 	});
 }
 
-/** The `set_configuration` fields for `changes`: each path joined with `_`, as Harper names them. */
 export function toSetConfigurationParams(changes: readonly ConfigChange[]): Record<string, unknown> {
 	const params: Record<string, unknown> = {};
 	const add = (path: readonly string[], value: unknown) => {

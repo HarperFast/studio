@@ -12,9 +12,7 @@ export type FabricSetSource = 'HARPER_SET_CONFIG' | 'environment';
 export interface FabricSetSetting {
 	path: string;
 	source: FabricSetSource;
-	/** The environment variable, for `source: 'environment'`. */
 	variable?: string;
-	/** Only on Harper below this version. */
 	belowVersion?: string;
 	note?: string;
 }
@@ -24,7 +22,6 @@ export interface FabricDefaultSetting {
 	value?: unknown;
 	/** Said instead of `value` when the value differs per instance. */
 	valueDescription?: string;
-	/** Only on Harper at or above this version. */
 	minVersion?: string;
 	note?: string;
 }
@@ -100,7 +97,6 @@ const FABRIC_DEFAULTS: FabricDefaultSetting[] = [
 export interface FabricContext {
 	/** False in Local Studio and on a self-managed cluster, where host manager sets nothing. */
 	hosted: boolean;
-	/** Harper's version, when known. */
 	version?: string;
 }
 
@@ -154,7 +150,6 @@ export function fabricDefaultFor(
 	);
 }
 
-/** Every setting Fabric sets that applies to `context`, for marking them in the raw editor. */
 export function fabricSetSettings(context: FabricContext): FabricSetSetting[] {
 	return context.hosted ? FABRIC_SET.filter(setting => fabricSetSettingFor(setting.path, context) === setting) : [];
 }

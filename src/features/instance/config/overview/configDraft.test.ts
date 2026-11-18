@@ -160,6 +160,12 @@ describe('findRefusedChanges', () => {
 			.toEqual([]);
 	});
 
+	it('refuses an empty object, which set_configuration would get as nothing', () => {
+		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: {} }], LOCAL))
+			.toMatchObject([{ reason: 'empty' }]);
+		expect(listConfigChanges({}, { mcp: {} })).toEqual([]);
+	});
+
 	it("refuses a removal, which set_configuration can't make", () => {
 		expect(findRefusedChanges([{ path: ['logging', 'level'], before: 'warn', after: undefined }], LOCAL))
 			.toMatchObject([{ reason: 'removed' }]);

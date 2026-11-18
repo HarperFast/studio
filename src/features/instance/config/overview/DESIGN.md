@@ -52,8 +52,13 @@ say that `3 days` means 3 seconds.
 ## What a save sends
 
 One `set_configuration` field per changed leaf, its path joined with `_` (`toSetConfigurationParams`). That
-operation can't remove a setting, so a removal made in Advanced JSON is refused rather than dropped silently, which
-is what the old editor did while reporting success.
+operation can't remove a setting, and an empty object flattens to no field at all, so both are refused
+(`findRefusedChanges`) rather than sent as a save that writes nothing and still restarts. The old editor dropped a
+removal silently and reported success.
+
+A text field sends what Harper would store for that text (`castHarperText`, mirroring `castConfigValue` in
+`config/configUtils.ts`): `3600` goes as a number. Sending the string would come back from the refetch as a number
+and read as a change that never goes away.
 
 Harper's own refusal (a 400, or a 409 when an environment variable defines the setting, `config/configUtils.ts`)
 reaches the page through `useRollingConfigUpdate`'s `onRefused`, and the edit is kept so it can be fixed.

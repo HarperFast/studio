@@ -1,9 +1,10 @@
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
-import { stableJson } from '@/lib/stableJson';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { sameConfigValue } from '../configDraft';
 import type { ConfigFieldDef } from '../configSchemaFields';
 
 interface ConfigFieldControlProps {
@@ -20,24 +21,43 @@ interface ConfigFieldControlProps {
 
 type Parsed = { value: unknown; error?: undefined } | { value?: undefined; error: string };
 
-/** Whether `value` is one the field's control can show; anything else stays in the JSON editor. */
 export function fitsConfigField(field: ConfigFieldDef, value: unknown): boolean {
 	if (value === undefined || (value === null && field.nullable)) { return true; }
 	switch (field.kind) {
 		case 'boolean':
 			return typeof value === 'boolean';
 		case 'enum':
-		case 'string':
 			return typeof value === 'string';
+		case 'string':
+		case 'stringOrNumber':
+			// Harper stores text that reads as a number or a boolean as one (`castHarperText`).
+			return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 		case 'integer':
 		case 'number':
 			return typeof value === 'number';
-		case 'stringOrNumber':
-			return typeof value === 'string' || typeof value === 'number';
 		case 'stringList':
 			// Harper's own default is `[null]`, and a null entry allows nothing (harper `utility/corsAccessList.ts`).
 			return Array.isArray(value) && value.every(item => typeof item === 'string' || item === null);
 	}
+}
+
+/**
+ * What Harper stores for text it is sent, so the draft holds what the refetch will return: `castConfigValue`, harper
+ * `config/configUtils.ts` (`is-number` then `parseFloat`, booleans, `undefined`/`null`, JSON-looking text).
+ */
+export function castHarperText(text: string): unknown {
+	if (text !== '' && Number.isFinite(Number(text))) { return Number.parseFloat(text); }
+	const lower = text.toLowerCase();
+	if (lower === 'true' || lower === 'false') { return lower === 'true'; }
+	if (lower === 'undefined' || text === 'null' || text === 'NULL') { return null; }
+	if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']'))) {
+		try {
+			return JSON.parse(text);
+		} catch {
+			return text;
+		}
+	}
+	return text;
 }
 
 function formatText(field: ConfigFieldDef, value: unknown): string {
@@ -48,12 +68,11 @@ function formatText(field: ConfigFieldDef, value: unknown): string {
 	return String(value);
 }
 
-const NUMERIC = /^-?\d+(?:\.\d+)?$/;
-
-/** What clearing the field means: back to unset if it was, otherwise null where Harper takes one. */
 function parseEmpty(field: ConfigFieldDef, before: unknown): Parsed {
 	if (before === undefined) { return { value: undefined }; }
 	if (field.kind === 'stringList') {
+		// A list with no origins in it, Harper's `[null]` included, is what an empty box shows: clearing it restores it.
+		if (Array.isArray(before) && !before.some(item => typeof item === 'string')) { return { value: before }; }
 		return { value: Array.isArray(before) || !field.nullable ? [] : null };
 	}
 	if (field.nullable) { return { value: null }; }
@@ -68,8 +87,7 @@ export function parseConfigFieldText(field: ConfigFieldDef, text: string, before
 		return items.length === 0 ? parseEmpty(field, before) : { value: items };
 	}
 	if (trimmed === '') { return parseEmpty(field, before); }
-	if (field.kind === 'string') { return { value: text }; }
-	if (field.kind === 'stringOrNumber') { return { value: NUMERIC.test(trimmed) ? Number(trimmed) : trimmed }; }
+	if (field.kind === 'string' || field.kind === 'stringOrNumber') { return { value: castHarperText(trimmed) }; }
 	const number = Number(trimmed);
 	if (!Number.isFinite(number)) { return { error: 'Enter a number.' }; }
 	if (field.kind === 'integer' && !Number.isInteger(number)) { return { error: 'Enter a whole number.' }; }
@@ -78,34 +96,35 @@ export function parseConfigFieldText(field: ConfigFieldDef, text: string, before
 	return { value: number };
 }
 
-function sameValue(a: unknown, b: unknown) {
-	return a === undefined || b === undefined ? a === b : stableJson(a) === stableJson(b);
-}
-
 function TextControl(
 	{ field, value, before, disabled, invalid, describedBy, onChange, onError }: ConfigFieldControlProps,
 ) {
 	const [text, setText] = useState(() => formatText(field, value));
 	const [shown, setShown] = useState(value);
-	if (!sameValue(shown, value)) {
-		// Changed from outside (the JSON editor, a discard, a refetch): show it, unless it is what the text already says.
+	if (!sameConfigValue(shown, value)) {
 		setShown(value);
 		const parsed = parseConfigFieldText(field, text, before);
-		if (parsed.error !== undefined || !sameValue(parsed.value, value)) {
+		if (parsed.error !== undefined || !sameConfigValue(parsed.value, value)) {
 			setText(formatText(field, value));
 		}
 	}
 
+	// The error follows the text on screen, and goes when the field does, so it never outlives what it describes.
+	const error = parseConfigFieldText(field, text, before).error;
+	const onErrorRef = useRef(onError);
+	onErrorRef.current = onError;
+	useEffect(() => {
+		onErrorRef.current(error);
+	}, [error]);
+	useEffect(() => () => onErrorRef.current(undefined), []);
+
 	const handleText = (next: string) => {
 		setText(next);
 		const parsed = parseConfigFieldText(field, next, before);
-		if (parsed.error !== undefined) {
-			onError(parsed.error);
-			return;
+		if (parsed.error === undefined) {
+			setShown(parsed.value);
+			onChange(parsed.value);
 		}
-		onError(undefined);
-		setShown(parsed.value);
-		onChange(parsed.value);
 	};
 
 	const placeholder = value === undefined && field.harperDefault ? field.harperDefault : undefined;
@@ -139,10 +158,11 @@ function TextControl(
 	);
 }
 
-const NOT_SET = '';
+/** Radix Select reserves the empty string. */
+const NOT_SET = '__not-set__';
 
 export function ConfigFieldControl(props: ConfigFieldControlProps) {
-	const { field, value, disabled, describedBy, onChange } = props;
+	const { field, value, before, disabled, describedBy, onChange } = props;
 	if (field.kind === 'boolean') {
 		const checked = typeof value === 'boolean' ? value : field.harperDefault === 'true';
 		return (
@@ -158,22 +178,26 @@ export function ConfigFieldControl(props: ConfigFieldControlProps) {
 	if (field.kind === 'enum') {
 		const options = [...(field.enumValues ?? [])];
 		if (typeof value === 'string' && !options.includes(value)) { options.unshift(value); }
+		// Offered while unset, and after picking a value for a setting that was unset, so it can go back.
+		const offersNotSet = typeof value !== 'string' || before === undefined;
 		return (
-			<select
-				id={field.id}
-				disabled={disabled}
-				aria-describedby={describedBy}
-				className="border-input h-9 w-full rounded-md border bg-white px-3 text-sm text-foreground dark:bg-grey-700 dark:text-white disabled:cursor-not-allowed disabled:opacity-50"
+			<Select
 				value={typeof value === 'string' ? value : NOT_SET}
-				onChange={event => onChange(event.target.value === NOT_SET ? undefined : event.target.value)}
+				disabled={disabled}
+				onValueChange={next => onChange(next === NOT_SET ? undefined : next)}
 			>
-				{typeof value !== 'string' && (
-					<option value={NOT_SET}>
-						Not set{field.harperDefault ? ` (Harper uses ${field.harperDefault})` : ''}
-					</option>
-				)}
-				{options.map(option => <option key={option} value={option}>{option}</option>)}
-			</select>
+				<SelectTrigger id={field.id} aria-describedby={describedBy} className="w-full">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{offersNotSet && (
+						<SelectItem value={NOT_SET}>
+							Not set{field.harperDefault ? ` (Harper uses ${field.harperDefault})` : ''}
+						</SelectItem>
+					)}
+					{options.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+				</SelectContent>
+			</Select>
 		);
 	}
 	return <TextControl {...props} />;
