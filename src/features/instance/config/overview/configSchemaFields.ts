@@ -6,7 +6,7 @@ import { isHiddenConfigPath } from './configRestrictions';
  * Anything else (a value that is either a boolean or an object, a list of objects) stays in the JSON editor.
  */
 
-export type ConfigFieldKind = 'boolean' | 'enum' | 'integer' | 'number' | 'string' | 'stringOrNumber' | 'stringList';
+type ConfigFieldKind = 'boolean' | 'enum' | 'integer' | 'number' | 'string' | 'stringOrNumber' | 'stringList';
 
 export interface ConfigFieldDef {
 	path: readonly string[];

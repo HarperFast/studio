@@ -1,3 +1,5 @@
+import { storedByHarper } from './configDraft';
+
 /**
  * Says a duration setting in words, the way Harper reads it. Harper has two readers with different units, so each
  * setting is listed with its own:
@@ -45,10 +47,9 @@ function msPackageUnit(word: string | undefined): Unit {
 	return 'year';
 }
 
-const NUMERIC = /^-?\d+(?:\.\d+)?$/;
-
 function read(reader: DurationReader, written: unknown): { amount: number; unit: Unit } | undefined {
-	const value = typeof written === 'string' && NUMERIC.test(written) ? Number(written) : written;
+	const stored = storedByHarper(written);
+	const value = typeof stored === 'number' ? stored : written;
 	if (typeof value === 'number') {
 		return Number.isFinite(value) ? { amount: value, unit: 'second' } : undefined;
 	}
@@ -61,7 +62,7 @@ function read(reader: DurationReader, written: unknown): { amount: number; unit:
 	return match ? { amount: Number.parseFloat(match[1]), unit: msPackageUnit(match[2]) } : undefined;
 }
 
-export interface ConfigDuration {
+interface ConfigDuration {
 	words?: string;
 }
 

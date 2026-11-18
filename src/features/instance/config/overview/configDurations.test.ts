@@ -41,6 +41,8 @@ describe('describeConfigDuration, for the token timeouts Harper hands to jsonweb
 		['1y', '1 year'],
 		// set_configuration casts a numeric string to a number, and jsonwebtoken takes a number as seconds.
 		['60', '60 seconds'],
+		['.5', '0.5 seconds'],
+		['1e3', '1000 seconds'],
 		[3600, '3600 seconds'],
 	])('reads %s as %s', (value, expected) => {
 		expect(words('authentication.operationTokenTimeout', value)).toBe(expected);

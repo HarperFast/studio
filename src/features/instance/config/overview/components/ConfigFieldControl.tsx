@@ -95,7 +95,6 @@ function TextControl(
 		}
 	}
 
-	// The error follows the text on screen, and goes when the field does, so it never outlives what it describes.
 	const error = parseConfigFieldText(field, text, before).error;
 	const onErrorRef = useRef(onError);
 	onErrorRef.current = onError;

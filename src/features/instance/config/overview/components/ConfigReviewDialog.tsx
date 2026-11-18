@@ -66,7 +66,9 @@ export function ConfigReviewDialog(
 				))}
 				<AlertDialogFooter>
 					<AlertDialogCancel>Keep editing</AlertDialogCancel>
-					<AlertDialogAction disabled={saving} onClick={onConfirm}>Save &amp; Restart</AlertDialogAction>
+					<AlertDialogAction disabled={saving || changes.length === 0} onClick={onConfirm}>
+						Save &amp; Restart
+					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>

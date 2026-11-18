@@ -1,5 +1,5 @@
 import { stableJson } from '@/lib/stableJson';
-import { isRestrictedConfigPath, RESTRICTED_CONFIG } from './configRestrictions';
+import { isHiddenConfigPath, isRestrictedConfigPath, RESTRICTED_CONFIG } from './configRestrictions';
 import { describeFabricSetSetting, type FabricContext, fabricSetSettingFor } from './fabricManagedConfig';
 
 export type ConfigObject = Record<string, unknown>;
@@ -10,7 +10,7 @@ export interface ConfigChange {
 	after: unknown;
 }
 
-export interface RefusedChange extends ConfigChange {
+interface RefusedChange extends ConfigChange {
 	reason: 'removed' | 'empty' | 'studio' | 'fabric';
 	message: string;
 }
@@ -53,7 +53,13 @@ export function setIn(config: ConfigObject, path: readonly string[], value: unkn
 		return next;
 	}
 	const child = Object.hasOwn(config, head) && isPlainObject(config[head]) ? config[head] : {};
-	next[head] = setIn(child, rest, value);
+	const updated = setIn(child, rest, value);
+	// Clearing a setting takes the sections it emptied with it, rather than leaving `{}` behind.
+	if (value === undefined && Object.keys(updated).length === 0) {
+		delete next[head];
+	} else {
+		next[head] = updated;
+	}
 	return next;
 }
 
@@ -66,6 +72,10 @@ export function listConfigChanges(before: unknown, after: unknown, path: readonl
 	const beforeIsSection = isPlainObject(before) || (before === undefined && isPlainObject(after));
 	const afterIsSection = isPlainObject(after) || (after === undefined && isPlainObject(before));
 	if (beforeIsSection && afterIsSection) {
+		if (before === undefined && path.length > 0 && Object.keys(after as ConfigObject).length === 0) {
+			// Listed so it can be refused: an empty object added on its own would otherwise vanish without a word.
+			return [{ path, before, after }];
+		}
 		const beforeObject = isPlainObject(before) ? before : {};
 		const afterObject = isPlainObject(after) ? after : {};
 		const keys = new Set([...Object.keys(beforeObject), ...Object.keys(afterObject)]);
@@ -130,12 +140,15 @@ function refusalFor(
 	change: ConfigChange,
 	context: FabricContext,
 ): Pick<RefusedChange, 'reason' | 'message'> | undefined {
-	const fabric = fabricSetSettingFor(change.path, context, { includeChildren: true });
+	// Harper reads `_` in a key as nesting, so a root key `http_keepAliveTimeout` sets `http.keepAliveTimeout`.
+	const spelled = change.path.flatMap(part => part.split('_'));
+	const fabric = fabricSetSettingFor(spelled, context, { includeChildren: true });
 	if (fabric) {
 		return { reason: 'fabric', message: describeFabricSetSetting(fabric) };
 	}
 	if (
 		isRestrictedConfigPath(change.path.join('.'), change.after, change.before)
+		|| (spelled.length > change.path.length && isHiddenConfigPath(spelled))
 		|| (holdsRestrictedSettings(change.path) && !isPlainObject(change.after))
 	) {
 		return { reason: 'studio', message: 'Studio does not change this setting.' };
@@ -145,7 +158,6 @@ function refusalFor(
 
 export function findRefusedChanges(changes: readonly ConfigChange[], context: FabricContext): RefusedChange[] {
 	return changes.flatMap((change): RefusedChange[] => {
-		// An object that replaced a value is sent setting by setting, so each of those is checked.
 		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
 		const refusal = sent.map(leaf => refusalFor(leaf, context)).find(Boolean);
 		if (refusal) {

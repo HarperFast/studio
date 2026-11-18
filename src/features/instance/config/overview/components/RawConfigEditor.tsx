@@ -69,8 +69,14 @@ export function RawConfigEditor({ value, onChange, markers, readOnly = false }: 
 			);
 		};
 		mark();
-		const subscription = model.onDidChangeContent(mark);
+		// Parsing the document is the costly part, so it waits for a pause in typing.
+		let pending: ReturnType<typeof setTimeout> | undefined;
+		const subscription = model.onDidChangeContent(() => {
+			clearTimeout(pending);
+			pending = setTimeout(mark, 150);
+		});
 		return () => {
+			clearTimeout(pending);
 			subscription.dispose();
 			decorations.clear();
 		};

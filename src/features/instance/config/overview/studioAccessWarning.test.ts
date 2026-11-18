@@ -34,6 +34,22 @@ describe('describeStudioAccessWarnings', () => {
 			.toEqual([expect.stringContaining('turns off CORS')]);
 	});
 
+	it('follows a list the operations API takes from http', () => {
+		const inherits = { http: { corsAccessList: [ORIGIN] }, operationsApi: { network: { cors: true } } };
+		const dropped = { http: { corsAccessList: ['https://other.example'] }, operationsApi: { network: { cors: true } } };
+		expect(describeStudioAccessWarnings(dropped, listConfigChanges(inherits, dropped), ORIGIN))
+			.toEqual([expect.stringContaining('no longer includes')]);
+		const noSection = { http: { corsAccessList: ['https://other.example'] } };
+		expect(
+			describeStudioAccessWarnings(
+				noSection,
+				listConfigChanges({ http: { corsAccessList: [ORIGIN] } }, noSection),
+				ORIGIN,
+			),
+		)
+			.toEqual([]);
+	});
+
 	it('stays quiet when Studio still gets in, or the list was not touched', () => {
 		expect(warn({ operationsApi: { network: { cors: true, corsAccessList: ['*'] } } })).toEqual([]);
 		expect(describeStudioAccessWarnings(

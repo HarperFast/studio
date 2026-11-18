@@ -7,9 +7,9 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  */
 
 /** How Fabric puts a value back. Both run at every start, so a change made with `set_configuration` doesn't last. */
-export type FabricSetSource = 'HARPER_SET_CONFIG' | 'environment';
+type FabricSetSource = 'HARPER_SET_CONFIG' | 'environment';
 
-export interface FabricSetSetting {
+interface FabricSetSetting {
 	path: string;
 	source: FabricSetSource;
 	variable?: string;
@@ -17,7 +17,7 @@ export interface FabricSetSetting {
 	note?: string;
 }
 
-export interface FabricDefaultSetting {
+interface FabricDefaultSetting {
 	path: string;
 	value?: unknown;
 	/** Said instead of `value` when the value differs per instance. */
@@ -108,8 +108,9 @@ function splitPath(path: string | readonly string[]): readonly string[] {
 	return typeof path === 'string' ? path.split('.') : path;
 }
 
+// Harper looks a setting up without regard to case (`CONFIG_PARAM_MAP`, harper `utility/hdbTerms.ts`).
 function startsWith(path: readonly string[], prefix: readonly string[]) {
-	return prefix.length <= path.length && prefix.every((part, i) => part === path[i]);
+	return prefix.length <= path.length && prefix.every((part, i) => part.toLowerCase() === path[i].toLowerCase());
 }
 
 /**

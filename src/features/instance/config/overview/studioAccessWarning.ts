@@ -1,4 +1,4 @@
-import { type ConfigChange, type ConfigObject, getIn } from './configDraft';
+import { type ConfigChange, type ConfigObject, getIn, isPlainObject } from './configDraft';
 
 /** Harper's single-label wildcard origin, `https://*.example.com` (harper `utility/corsAccessList.ts`). */
 const WILDCARD_ORIGIN = /^([a-z][a-z0-9+.-]*:\/\/)\*(\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?)$/i;
@@ -26,6 +26,15 @@ function touches(changes: readonly ConfigChange[], path: readonly string[]) {
 	return changes.some(change => path.every((part, i) => change.path[i] === part) && change.path.length === path.length);
 }
 
+// Harper fills `operationsApi.network` from `http` when that section exists (`flattenConfig`, harper
+// `config/configUtils.ts`).
+function effective(draft: ConfigObject, path: readonly string[]): { value: unknown; path: readonly string[] } {
+	const own = getIn(draft, path);
+	if (own !== undefined || !isPlainObject(getIn(draft, path.slice(0, -1)))) { return { value: own, path }; }
+	const inherited = ['http', path[path.length - 1]];
+	return { value: getIn(draft, inherited), path: inherited };
+}
+
 /**
  * A warning when the change would stop the operations API answering Studio's own origin. Studio reaches an instance
  * either through central manager or straight at the instance, and only the second needs CORS, so this warns rather
@@ -36,15 +45,16 @@ export function describeStudioAccessWarnings(
 	changes: readonly ConfigChange[],
 	origin: string,
 ): string[] {
-	if (!touches(changes, CORS) && !touches(changes, CORS_ACCESS_LIST)) {
+	const cors = effective(draft, CORS);
+	const accessList = effective(draft, CORS_ACCESS_LIST);
+	if (!touches(changes, cors.path) && !touches(changes, accessList.path)) {
 		return [];
 	}
 	const consequence = 'If Studio connects to the instance directly, it loses access after the restart.';
-	if (getIn(draft, CORS) === false) {
+	if (cors.value === false) {
 		return [`This turns off CORS for the operations API. ${consequence}`];
 	}
-	const accessList = getIn(draft, CORS_ACCESS_LIST);
-	if (accessList === undefined || corsAccessListAllows(accessList, origin)) {
+	if (accessList.value === undefined || corsAccessListAllows(accessList.value, origin)) {
 		return [];
 	}
 	return [`The operations API's CORS access list no longer includes ${origin}, where this Studio runs. ${consequence}`];

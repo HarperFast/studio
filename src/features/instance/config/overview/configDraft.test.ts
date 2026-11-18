@@ -25,6 +25,12 @@ describe('getIn / setIn', () => {
 		expect(setIn({}, ['mcp', 'operations', 'enabled'], true)).toEqual({ mcp: { operations: { enabled: true } } });
 	});
 
+	it('takes the sections a removal empties with it', () => {
+		expect(setIn({ http: { logging: { level: 'debug' } } }, ['http', 'logging', 'level'], undefined)).toEqual({});
+		expect(setIn({ http: { cors: true, logging: { level: 'debug' } } }, ['http', 'logging', 'level'], undefined))
+			.toEqual({ http: { cors: true } });
+	});
+
 	it('removes a setting set to undefined', () => {
 		expect(setIn({ logging: { level: 'warn', file: true } }, ['logging', 'level'], undefined)).toEqual({
 			logging: { file: true },
@@ -198,7 +204,12 @@ describe('findRefusedChanges', () => {
 	it('refuses an empty object, which set_configuration would get as nothing', () => {
 		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: {} }], LOCAL))
 			.toMatchObject([{ reason: 'empty' }]);
-		expect(listConfigChanges({}, { mcp: {} })).toEqual([]);
+		expect(findRefusedChanges(listConfigChanges({}, { mcp: {} }), LOCAL)).toMatchObject([{
+			path: ['mcp'],
+			reason: 'empty',
+		}]);
+		expect(findRefusedChanges(listConfigChanges({ http: {} }, { http: { extra: {} } }), LOCAL))
+			.toMatchObject([{ path: ['http', 'extra'], reason: 'empty' }]);
 		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: { ca: {} } }], LOCAL))
 			.toMatchObject([{ reason: 'empty' }]);
 		expect(findRefusedChanges([{ path: ['http', 'mtls'], before: false, after: { ca: 'a', extra: {} } }], LOCAL))
@@ -217,6 +228,16 @@ describe('findRefusedChanges', () => {
 	it("refuses a removal, which set_configuration can't make", () => {
 		expect(findRefusedChanges([{ path: ['logging', 'level'], before: 'warn', after: undefined }], LOCAL))
 			.toMatchObject([{ reason: 'removed' }]);
+	});
+
+	it('refuses a root key whose underscores spell a setting Harper would set', () => {
+		expect(findRefusedChanges([{ path: ['http_keepAliveTimeout'], before: undefined, after: 5 }], HOSTED))
+			.toMatchObject([{ reason: 'fabric' }]);
+		expect(findRefusedChanges([{ path: ['HTTP_KEEPALIVETIMEOUT'], before: undefined, after: 5 }], HOSTED))
+			.toMatchObject([{ reason: 'fabric' }]);
+		expect(findRefusedChanges([{ path: ['threads_count'], before: undefined, after: 1 }], LOCAL))
+			.toMatchObject([{ reason: 'studio' }]);
+		expect(findRefusedChanges([{ path: ['my_app', 'enabled'], before: undefined, after: true }], HOSTED)).toEqual([]);
 	});
 
 	it('lets an ordinary change through', () => {

@@ -194,9 +194,11 @@ export function InstanceConfigEditor(
 
 	const handleConfirm = useCallback(() => {
 		setReviewing(false);
+		// A refetch can land the edits while the dialog is open: with nothing left to send, a save would only restart.
+		if (!canReview) { return; }
 		setRefusal(null);
 		onConfigUpdate(toSetConfigurationParams(changes));
-	}, [changes, onConfigUpdate]);
+	}, [canReview, changes, onConfigUpdate]);
 
 	return (
 		<Tabs value={mode} onValueChange={handleModeChange} className="flex grow flex-col gap-3">

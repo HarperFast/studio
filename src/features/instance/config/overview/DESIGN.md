@@ -56,7 +56,8 @@ operation can't remove a setting, and an empty object flattens to no field at al
 (`findRefusedChanges`) rather than sent as a save that writes nothing and still restarts. The old editor dropped a
 removal silently and reported success.
 
-An object that replaced a value is sent setting by setting, so each of those settings is what gets checked.
+An object that replaced a value is sent setting by setting, so each of those settings is what gets checked. Harper also reads `_` in a key as nesting and ignores case (`CONFIG_PARAM_MAP`), so a root key like
+`http_keepAliveTimeout` is checked as the setting it spells.
 
 Harper stores what it is sent through `castConfigValue` (`config/configUtils.ts`): `"3600"` becomes the number 3600.
 The editors send text as typed (a field that only takes a number sends one), and `rebaseDraft` counts an edit as landed when the refetch holds what Harper would

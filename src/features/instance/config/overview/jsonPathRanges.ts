@@ -1,6 +1,6 @@
 import { findNodeAtLocation, parseTree } from 'jsonc-parser';
 
-export interface JsonPathRange {
+interface JsonPathRange {
 	path: string;
 	offset: number;
 	length: number;

@@ -73,8 +73,11 @@ export function isHiddenConfigPath(path: readonly string[]): boolean {
 	for (const part of path) {
 		if (current === 'blocked') { return true; }
 		if (current === 'blocked_except_databases') { return part !== 'databases'; }
-		if (typeof current !== 'object' || current === null || !Object.hasOwn(current, part)) { return false; }
-		current = current[part];
+		const key = typeof current === 'object' && current !== null
+			? Object.keys(current).find(candidate => candidate.toLowerCase() === part.toLowerCase())
+			: undefined;
+		if (key === undefined) { return false; }
+		current = current[key];
 	}
 	return current === 'blocked';
 }
