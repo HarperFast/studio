@@ -399,3 +399,9 @@
 .tsqd-open-btn-container {
 	margin-bottom: 22px;
 }
+
+/* Notes the instance config editor writes after a setting Fabric manages (see RawConfigEditor). */
+.harper-config-note {
+	opacity: 0.6;
+	font-style: italic;
+}

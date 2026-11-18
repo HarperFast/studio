@@ -432,6 +432,33 @@ describe('useRollingConfigUpdate outcome reporting', () => {
 		);
 	});
 
+	it('hands the refusal to the page, and names one an environment variable causes', async () => {
+		useCluster([instance('ins-a', '5.4.0')]);
+		const message = 'Cannot set studio_landing: HARPER_SET_CONFIG defines it. Change that variable first.';
+		vi.mocked(setConfiguration).mockRejectedValue(
+			new AxiosError('Request failed with status code 409', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+				status: 409,
+				data: { error: message },
+			} as never),
+		);
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(message);
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain(`Harper refused the change: ${message}`);
+	});
+
+	it('hands no refusal to the page when the write was accepted', async () => {
+		useCluster([instance('ins-a', '5.4.0')]);
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).not.toHaveBeenCalled();
+	});
+
 	it('names no refusal for a write that failed for another reason', async () => {
 		useCluster([instance('ins-a', '5.3.6')]);
 		vi.mocked(setConfiguration).mockRejectedValue(

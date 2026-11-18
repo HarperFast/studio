@@ -30,6 +30,8 @@ interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
 	/** `restart_service` leaves Harper's main thread running, so settings it reads only at startup need `restart`. */
 	restartOperation?: 'restart_service' | 'restart';
+	/** Called with Harper's own reason when an instance refused the write, so a page can show it beside the edit. */
+	onRefused?: (message: string) => void;
 }
 
 interface RollingConfigUpdateResponse {
@@ -75,7 +77,7 @@ async function planRollingConfigUpdate(
 }
 
 export function useRollingConfigUpdate(
-	{ onRestartedSuccessfully, restartOperation = 'restart_service' }: RollingConfigUpdateParams = {},
+	{ onRestartedSuccessfully, restartOperation = 'restart_service', onRefused }: RollingConfigUpdateParams = {},
 ): RollingConfigUpdateResponse {
 	const operationsParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -225,7 +227,9 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
-					if (writing && isAxiosError(error) && error.response?.status === 400) {
+					// 400 is a setting Harper rejects; 409 one an environment variable defines (`Cannot set …: HARPER_SET_CONFIG
+					// defines it`, harper `config/configUtils.ts`).
+					if (writing && isAxiosError(error) && (error.response?.status === 400 || error.response?.status === 409)) {
 						refusal ??= describeError(error).message;
 					}
 					if (unanswered && restartSent) {
@@ -276,6 +280,9 @@ export function useRollingConfigUpdate(
 				}
 			}
 
+			if (refusal) {
+				onRefused?.(refusal);
+			}
 			const uncertain = describeUncertainRollingOutcome({
 				total: allInstances.length,
 				confirmed: instancesRestarted,
@@ -343,7 +350,7 @@ export function useRollingConfigUpdate(
 			setIsPending(false);
 			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
-	}, [operationsParams, onRestartedSuccessfully, queryClient, restartOperation]);
+	}, [operationsParams, onRestartedSuccessfully, onRefused, queryClient, restartOperation]);
 
 	return {
 		onConfigUpdate,

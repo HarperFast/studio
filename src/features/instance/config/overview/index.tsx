@@ -1,41 +1,31 @@
 import { ApplyLicensesButton } from '@/components/ApplyLicensesButton';
 import { RestartButton } from '@/components/RestartButton';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
 import { ClusterDomainsList } from '@/features/instance/config/overview/components/ClusterDomainsList';
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
+import { InstanceConfigEditor } from '@/features/instance/config/overview/components/InstanceConfigEditor';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
-import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import {
 	APIDirectoryEntry,
 	APIFileEntry,
 	getComponentsQueryOptions,
 } from '@/integrations/api/instance/applications/getComponents';
-import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import {
 	getRegistrationInfoQueryOptions,
 	RegistrationInfoResponse,
 } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
-import { Editor } from '@/lib/monaco/MonacoEditor';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { useLoaderData, useParams } from '@tanstack/react-router';
-import { AlertCircleIcon, EditIcon, SaveIcon, XIcon } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { flattenConfig, getChangedFields, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
-import { configureHarperConfigEditor, HARPER_CONFIG_MODEL_PATH } from './harper-config/configMonaco';
+import { ReactNode, useMemo } from 'react';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -64,9 +54,6 @@ export function ConfigOverviewIndex() {
 	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
-	const { data: configurationInfo, isLoading: loadingConfig } = useQuery(
-		getConfigurationQueryOptions(instanceParams),
-	);
 	const canManage = useInstanceManagePermission();
 	const { data: components, isLoading: loadingComponents } = useQuery(
 		getComponentsQueryOptions({ ...instanceParams, enabled: canManage }),
@@ -88,98 +75,6 @@ export function ConfigOverviewIndex() {
 		traverse(components);
 		return maxMtime || null;
 	}, [components]);
-
-	const sanitizedConfigInfo = useMemo(() => {
-		if (!configurationInfo) { return null; }
-		return omitRestrictedFields(configurationInfo);
-	}, [configurationInfo]);
-
-	const monacoTheme = useMonacoTheme();
-	const [isEditing, setIsEditing] = useState(false);
-	const [editedConfig, setEditedConfig] = useState<string>('');
-	const [jsonError, setJsonError] = useState<string | null>(null);
-	const [restrictedError, setRestrictedError] = useState<string[]>([]);
-
-	// Any key here may be one Harper's main thread reads only at startup (`operationsApi`, `mcp`, `authentication`).
-	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate({ restartOperation: 'restart' });
-
-	useEffect(() => {
-		if (sanitizedConfigInfo && !isEditing) {
-			setEditedConfig(JSON.stringify(sanitizedConfigInfo, null, 4));
-			setJsonError(null);
-			setRestrictedError([]);
-		}
-	}, [sanitizedConfigInfo, isEditing]);
-
-	const handleEditorChange = useCallback((value: string | undefined) => {
-		setEditedConfig(value || '');
-		if (value) {
-			try {
-				const parsed = JSON.parse(value);
-				setJsonError(null);
-
-				const blockedFields: string[] = [];
-				const checkBlocked = (obj: any, orig: any, path = '') => {
-					for (const key in obj) {
-						const currentPath = path ? `${path}.${key}` : key;
-						const val = obj[key];
-						const origVal = orig?.[key];
-
-						if (isRestrictedConfigPath(currentPath, val, origVal)) {
-							blockedFields.push(currentPath);
-						} else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-							checkBlocked(val, origVal, currentPath);
-						}
-					}
-					// Also check for deleted keys if they were blocked
-					for (const key in orig) {
-						const currentPath = path ? `${path}.${key}` : key;
-						if (!(key in obj)) {
-							if (isRestrictedConfigPath(currentPath, undefined, orig[key])) {
-								blockedFields.push(currentPath);
-							}
-						}
-					}
-				};
-
-				if (sanitizedConfigInfo) {
-					checkBlocked(parsed, sanitizedConfigInfo);
-				}
-				setRestrictedError(blockedFields);
-			} catch (e: any) {
-				setJsonError(e.message);
-				setRestrictedError([]);
-			}
-		}
-	}, [configurationInfo]);
-
-	const handleEditorDidMount = useCallback<OnMount>(() => {
-		// Registers the config JSON Schema; deliberately not awaited (`OnMount` is
-		// sync, and the editor is usable while the schema lands a microtask later).
-		// Catch rather than leave it floating: the dynamic import can reject when a
-		// hashed chunk is gone after a redeploy, and an unhandled rejection would say
-		// nothing about which editor lost its schema. Recovery for that case is
-		// already global (`vite:preloadError` → `reportPossibleStaleDeploy`); this
-		// only reports the degradation — config editing still works, without
-		// validation or key autocomplete.
-		configureHarperConfigEditor().catch((error: unknown) => {
-			console.error('Failed to register the Harper config JSON Schema:', error);
-		});
-	}, []);
-
-	const handleSave = useCallback(() => {
-		if (jsonError || restrictedError.length > 0) { return; }
-		try {
-			const parsed = JSON.parse(editedConfig);
-			const changedFields = getChangedFields(sanitizedConfigInfo, parsed);
-			const flattened = flattenConfig(changedFields);
-
-			onConfigUpdate(flattened);
-			setIsEditing(false);
-		} catch (e: any) {
-			setJsonError(e.message);
-		}
-	}, [editedConfig, jsonError, onConfigUpdate, sanitizedConfigInfo, restrictedError.length]);
 
 	const newLicenses = useMemo(() => {
 		if (isLocalStudio) {
@@ -250,87 +145,12 @@ export function ConfigOverviewIndex() {
 					</CloudStudioOverview>
 				)}
 
-			<div className="flex-none flex items-center justify-between mb-2">
-				<div>
-					<h3 className="font-bold text-sm/6">Instance Config {isEditing ? '(editing)' : '(read only)'}</h3>
-					{!instanceId && !isLocalStudio && (
-						<p className="text-muted-foreground italic text-sm">
-							You are viewing the config for one instance in your cluster, based on what the load balancer selected for
-							you.
-						</p>
-					)}
-				</div>
-				<div className="flex items-center gap-2 pr-4">
-					{!isEditing
-						? (
-							<Button size="sm" onClick={() => setIsEditing(true)}>
-								<EditIcon className="w-4 h-4 mr-1" /> Edit
-							</Button>
-						)
-						: (
-							<>
-								<Button type="button" size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
-									<XIcon className="w-4 h-4 mr-1" /> Cancel
-								</Button>
-								<Button
-									size="sm"
-									disabled={!!jsonError || restrictedError.length > 0 || isSaving}
-									onClick={handleSave}
-								>
-									<SaveIcon className="w-4 h-4 mr-1" /> {isSaving ? 'Saving...' : 'Save & Restart'}
-								</Button>
-							</>
-						)}
-				</div>
-			</div>
-
-			{jsonError && (
-				<Alert variant="destructive" className="mb-4">
-					<AlertCircleIcon className="h-4 w-4" />
-					<AlertTitle>Invalid JSON</AlertTitle>
-					<AlertDescription>{jsonError}</AlertDescription>
-				</Alert>
-			)}
-
-			{restrictedError.length > 0 && (
-				<Alert variant="destructive" className="mb-4">
-					<AlertCircleIcon className="h-4 w-4" />
-					<AlertTitle>Restricted Configuration</AlertTitle>
-					<AlertDescription>
-						The following fields cannot be modified via Studio:
-						<ul className="list-disc ml-4 mt-2">
-							{restrictedError.map(field => (
-								<li key={field}>
-									<code>{field}</code>
-								</li>
-							))}
-						</ul>
-					</AlertDescription>
-				</Alert>
-			)}
-
-			<div className="grow">
-				{!loadingConfig
-					? (
-						<Editor
-							className="w-full min-h-full h-96"
-							path={HARPER_CONFIG_MODEL_PATH}
-							language="json"
-							theme={monacoTheme}
-							onMount={handleEditorDidMount}
-							options={{ readOnly: !isEditing, scrollBeyondLastLine: false }}
-							value={isEditing ? editedConfig : JSON.stringify(sanitizedConfigInfo, null, 4)}
-							onChange={handleEditorChange}
-						/>
-					)
-					: (
-						<>
-							<TextLoadingSkeleton className="w-full" />
-							<TextLoadingSkeleton className="w-full" />
-							<TextLoadingSkeleton className="w-1/2" />
-						</>
-					)}
-			</div>
+			<InstanceConfigEditor
+				targetNoun={targetNoun}
+				clusterInfo={clusterInfo}
+				version={version ?? registrationInfo?.version}
+				readsOneInstanceOfMany={!instanceId && !isLocalStudio}
+			/>
 		</div>
 	);
 }

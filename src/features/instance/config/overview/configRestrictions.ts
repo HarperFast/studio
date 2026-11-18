@@ -68,6 +68,18 @@ export function isRestrictedConfigPath(path: string, value: any, originalValue: 
 	return current === 'blocked';
 }
 
+/** Whether `omitRestrictedFields` drops this setting, so neither editor ever shows it. */
+export function isHiddenConfigPath(path: readonly string[]): boolean {
+	let current: any = RESTRICTED_CONFIG;
+	for (const part of path) {
+		if (current === 'blocked') { return true; }
+		if (current === 'blocked_except_databases') { return part !== 'databases'; }
+		if (typeof current !== 'object' || current === null || !Object.hasOwn(current, part)) { return false; }
+		current = current[part];
+	}
+	return current === 'blocked';
+}
+
 export function omitRestrictedFields(obj: any, schema: any = RESTRICTED_CONFIG): any {
 	if (typeof obj !== 'object' || obj === null) { return obj; }
 
@@ -91,51 +103,6 @@ export function omitRestrictedFields(obj: any, schema: any = RESTRICTED_CONFIG):
 			}
 		} else {
 			(result as any)[key] = value;
-		}
-	}
-
-	return result;
-}
-
-export function getChangedFields(original: any, edited: any): any {
-	if (typeof original !== 'object' || original === null || typeof edited !== 'object' || edited === null) {
-		return JSON.stringify(original) !== JSON.stringify(edited) ? edited : undefined;
-	}
-
-	const changes: any = {};
-	const allKeys = new Set([...Object.keys(original), ...Object.keys(edited)]);
-
-	for (const key of allKeys) {
-		const val1 = original[key];
-		const val2 = edited[key];
-
-		if (
-			val1 !== null && typeof val1 === 'object' && val2 !== null && typeof val2 === 'object' && !Array.isArray(val1)
-			&& !Array.isArray(val2)
-		) {
-			const nestedChanges = getChangedFields(val1, val2);
-			if (Object.keys(nestedChanges).length > 0) {
-				changes[key] = nestedChanges;
-			}
-		} else if (JSON.stringify(val1) !== JSON.stringify(val2)) {
-			changes[key] = val2;
-		}
-	}
-
-	return changes;
-}
-
-export function flattenConfig(obj: any, prefix = ''): Record<string, any> {
-	const result: Record<string, any> = {};
-
-	for (const key in obj) {
-		const value = obj[key];
-		const newKey = prefix ? `${prefix}_${key}` : key;
-
-		if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-			Object.assign(result, flattenConfig(value, newKey));
-		} else {
-			result[newKey] = value;
 		}
 	}
 
