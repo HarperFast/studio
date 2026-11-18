@@ -20,7 +20,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 - [`src/features/instance/config/roles/DESIGN.md`](src/features/instance/config/roles/DESIGN.md) — why the role editor's JSON text is the only source of truth, what forces the JSON view, and what Save changes on purpose.
 - [`src/features/instance/config/scheduledJobs/DESIGN.md`](src/features/instance/config/scheduledJobs/DESIGN.md) — why a job's last run comes from `system.hdb_scheduler_state` only from 5.4.0-beta.1 and from Harper's log before it, where Harper's own load error is and isn't logged, how Studio checks a job the way Harper does, and how an edit keeps the rest of the config file.
 - [`src/features/instance/config/waf/DESIGN.md`](src/features/instance/config/waf/DESIGN.md) — who may manage the firewall and why a cluster super user is enough, why its mode can be set but not shown, and what a rule edit must carry over that the form can't show.
-- [`src/router/DESIGN.md`](src/router/DESIGN.md) — why a failed route load is reported and shown only by its route, and why a preload still toasts.
+- [`src/router/DESIGN.md`](src/router/DESIGN.md) — why a failed route load is reported and shown only by its route, why a preload still toasts, and which routes other systems link to and so must never move without a redirect.
 
 - [`docs/status-redesign.md`](docs/status-redesign.md) — port of analytics-viz visualizations + spec system into the instance Status tab. Covers: 8-tab IA, the data-path adapter (no SQL — `get_analytics` only), the Jobs tab's own poll and permission gate, bucket-by-window clamps, chart-surface CSS tokens, feature-flag rollback, testing strategy. Read before touching `src/features/instance/status/**`.
 

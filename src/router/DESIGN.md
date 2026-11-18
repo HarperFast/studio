@@ -27,3 +27,19 @@
   queries in parallel and both failed, the boundary that renders reports one and the other is lost.
   Every loader today reads the same registration-info query. A caller that catches the rejection
   instead of letting it reach the route also takes on reporting it.
+
+# Router — routes other systems link to
+
+- **A route in [`stableRoutes.ts`](stableRoutes.ts) is a public URL, not an implementation detail.**
+  Central-manager links people to these: the Harper Fabric MCP connector's tool results
+  (`src/lib/studioLinks.js`), its emails, and its OAuth plugin's sign-in. Those links are already in agents'
+  answers and people's inboxes, so a rename sends every one of them to a dead page. Adding an entry is fine;
+  changing or removing one never is. To move a page, add the new path, keep the old one as a route whose
+  `beforeLoad` throws `redirect` to it, and change central-manager's link builders in the same release. The old
+  entry stays in the list: a redirect route has no page of its own, so its check in
+  [`stableRoutes.test.ts`](__tests__/stableRoutes.test.ts) changes to where `router.load()` lands, as
+  [`signedInSignInRedirect.test.ts`](__tests__/signedInSignInRedirect.test.ts) does. Rewriting the entry to the new
+  path would leave the old link unpinned.
+- **Moving a page under a different layout is safe; changing its path is not.** The test pins the URL and
+  the component it lands on, not the route tree in between, so a new pathless layout passes and a renamed
+  segment fails.
