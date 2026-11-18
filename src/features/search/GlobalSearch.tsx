@@ -99,7 +99,7 @@ export function GlobalSearchTrigger() {
 		<button
 			type="button"
 			onClick={show}
-			aria-label="Search organizations and clusters"
+			aria-label="Search Studio"
 			className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-primary/20 bg-card/30 p-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 		>
 			<Search className="size-4" aria-hidden="true" />

@@ -7,6 +7,7 @@ export interface SearchTarget {
 	name: string;
 	kind: 'Organization' | 'Cluster' | 'Page';
 	hierarchy?: string;
+	navigationOrder?: number;
 	organizationName: string;
 	organizationId: string;
 	to: string;
@@ -35,9 +36,9 @@ function indexTarget(target: UnindexedTarget, keywords: readonly string[] = []):
 }
 
 export function buildPageSearchTargets(pages: readonly SearchPage[], organizationId: string): SearchTarget[] {
-	return pages.map(({ name, to, hierarchy, keywords }) =>
+	return pages.map(({ name, to, hierarchy, keywords }, navigationOrder) =>
 		indexTarget(
-			{ key: `page:${to}`, name, to, hierarchy, kind: 'Page', organizationId, organizationName: '' },
+			{ key: `page:${to}`, name, to, hierarchy, navigationOrder, kind: 'Page', organizationId, organizationName: '' },
 			keywords,
 		)
 	);
@@ -91,6 +92,7 @@ export function filterSearchTargets(targets: readonly SearchTarget[], search: st
 	}).sort((a, b) =>
 		a.rank - b.rank
 		|| Number(b.target.kind === 'Page') - Number(a.target.kind === 'Page')
+		|| (!query ? (a.target.navigationOrder ?? 0) - (b.target.navigationOrder ?? 0) : 0)
 		|| Number(b.target.organizationId === currentOrganizationId)
 			- Number(a.target.organizationId === currentOrganizationId)
 		|| Number(b.target.kind === 'Organization') - Number(a.target.kind === 'Organization')

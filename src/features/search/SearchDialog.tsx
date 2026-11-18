@@ -9,9 +9,9 @@ import { getOrganizationTargets } from '@/features/organizations/lib/organizatio
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import type { Organization, User } from '@/integrations/api/api.patch';
-import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useMatches, useNavigate, useParams } from '@tanstack/react-router';
 import { Building2, FileTextIcon, Search, Server } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
@@ -30,16 +30,19 @@ interface SearchDialogProps {
 
 export function SearchDialog(props: SearchDialogProps) {
 	const { organizationId, clusterId, instanceId } = useParams({ strict: false });
-	const { user: instanceUser } = useInstanceAuth();
-	const { data: cluster } = useQuery({ ...getClusterInfoQueryOptions(clusterId, false), enabled: false });
+	const hasConnectionRoute = useMatches({
+		select: matches => matches.at(-1)?.context.hasStudioConnection === true,
+	});
 	if (
-		organizationId && clusterId && instanceUser && !isDeletedCluster(cluster) && !cluster?.resetPassword
+		hasConnectionRoute && organizationId && clusterId
 		&& getOrganizationClusterPermissions(props.user, organizationId, clusterId).view
 		&& getOrganizationTargets(props.user).some(target => target.id === organizationId && !target.locked)
 	) {
 		return (
-			<ConnectedSearchDialog
+			<ScopedSearchDialog
 				key={instanceId ?? clusterId}
+				clusterId={clusterId}
+				instanceId={instanceId}
 				organizationId={organizationId}
 				{...props}
 			/>
@@ -48,30 +51,42 @@ export function SearchDialog(props: SearchDialogProps) {
 	return <SearchDialogContent {...props} />;
 }
 
+function ScopedSearchDialog(
+	{ organizationId, clusterId, instanceId, ...props }: SearchDialogProps & {
+		organizationId: string;
+		clusterId: string;
+		instanceId?: string;
+	},
+) {
+	const { user: instanceUser } = useInstanceAuth(instanceId ?? clusterId);
+	const { data: cluster } = useQuery({ ...getClusterInfoQueryOptions(clusterId, false), enabled: false });
+	return instanceUser && !isDeletedCluster(cluster) && !cluster?.resetPassword
+		? <ConnectedSearchDialog organizationId={organizationId} {...props} />
+		: <SearchDialogContent {...props} />;
+}
+
 function ConnectedSearchDialog({ organizationId, ...props }: SearchDialogProps & { organizationId: string }) {
 	const instance = useInstanceClientIdParams();
-	const { data: registration } = useQuery(getHarperVersionProbeOptions(instance));
+	const { data: registration } = useQuery({ ...getRegistrationInfoQueryOptions(instance), enabled: false });
 	const version = registration?.version ?? '';
 	const { links, tucked } = useInstanceNavLinks(version);
 	const { groups } = useConfigNavigation(version);
-	const tabs = [...links, ...tucked];
-	const section = instance.entityType === 'cluster' ? 'Cluster page' : 'Instance page';
-	const pages = tabs.map(({ name, to }) => ({ name, to, hierarchy: section }));
-	const configPages = groups.flatMap(({ label, entries }) =>
-		entries.map(({ name, to, exact, keywords }) => ({
-			name: exact ? 'Config Overview' : name,
-			to,
-			hierarchy: label ? `Config › ${label}` : 'Config',
-			keywords,
-		}))
-	);
-	const linkedConfig = tabs.find(tab => tab.key === 'config');
-	const pageTargets = buildPageSearchTargets(
-		linkedConfig
-			? [...pages.filter(page => !configPages.some(config => config.to === page.to)), ...configPages]
-			: pages,
-		organizationId,
-	);
+	const pageTargets = useMemo(() => {
+		const tabs = [...links, ...tucked];
+		const section = instance.entityType === 'cluster' ? 'Cluster page' : 'Instance page';
+		const pages = tabs.filter(tab => tab.key !== 'config').map(({ name, to }) => ({ name, to, hierarchy: section }));
+		const configPages = tabs.some(tab => tab.key === 'config')
+			? groups.flatMap(({ label, entries }) =>
+				entries.map(({ name, to, exact, keywords }) => ({
+					name: exact ? 'Config Overview' : name,
+					to,
+					hierarchy: label ? `Config › ${label}` : 'Config',
+					keywords,
+				}))
+			)
+			: [];
+		return buildPageSearchTargets([...pages, ...configPages], organizationId);
+	}, [groups, instance.entityType, links, organizationId, tucked]);
 
 	return <SearchDialogContent {...props} pageTargets={pageTargets} />;
 }
@@ -118,9 +133,9 @@ function SearchDialogContent(
 			cancelled = true;
 		};
 	}, [client, membershipIds, attempt]);
-	const targets = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
-	const matches = useMemo(() => filterSearchTargets([...(pageTargets ?? []), ...targets], search, organizationId), [
-		pageTargets,
+	const locations = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
+	const targets = useMemo(() => pageTargets ? [...pageTargets, ...locations] : locations, [pageTargets, locations]);
+	const matches = useMemo(() => filterSearchTargets(targets, search, organizationId), [
 		targets,
 		search,
 		organizationId,

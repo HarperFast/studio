@@ -16,12 +16,17 @@ afterEach(cleanup);
 const DEPLOYMENT_ID = '4ac92da3-d8a0-423e-b145-5df107957dd4';
 
 // A real router, so the crumbs come from the match the page is actually on.
-function renderAt(path: string, url: string, queryClient = new QueryClient(), collapse?: number) {
+function renderAt(
+	path: string,
+	url: string,
+	queryClient = new QueryClient(),
+	props?: Parameters<typeof Breadcrumbs>[0],
+) {
 	const rootRoute = createRootRoute();
 	const page = createRoute({
 		getParentRoute: () => rootRoute,
 		path,
-		component: () => <Breadcrumbs collapse={collapse} />,
+		component: () => <Breadcrumbs {...props} />,
 	});
 	const router = createRouter({
 		routeTree: rootRoute.addChildren([page]),
@@ -70,7 +75,7 @@ describe('Breadcrumbs short of room', () => {
 	] as const;
 
 	it('folds the leading crumbs behind a menu that still links to each of them', async () => {
-		renderAt(...USERS_PAGE, new QueryClient(), 2);
+		renderAt(...USERS_PAGE, new QueryClient(), { collapse: 2 });
 		expect(await screen.findByRole('link', { name: 'hdb_admin' })).toBeTruthy();
 		expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
 			'Home',
@@ -89,9 +94,26 @@ describe('Breadcrumbs short of room', () => {
 	});
 
 	it('always shows the last crumb, however many it is asked to fold', async () => {
-		renderAt(...USERS_PAGE, new QueryClient(), 99);
+		renderAt(...USERS_PAGE, new QueryClient(), { collapse: 99 });
 		expect(await screen.findByRole('link', { name: 'hdb_admin' })).toBeTruthy();
 		expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'hdb_admin']);
+	});
+
+	it('keeps the entity link and preserves the rest of the trail in a separate menu', async () => {
+		renderAt(...USERS_PAGE, new QueryClient(), { keepPath: '/org-a/clu-a' });
+		const cluster = await screen.findByRole('link', { name: 'Cluster' });
+		expect(cluster.getAttribute('href')).toBe('/org-a/clu-a');
+		expect(screen.getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'Cluster']);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Show other breadcrumbs' }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([
+			'Org',
+			'Config',
+			'Users',
+			'hdb_admin',
+		]);
 	});
 
 	it('has no menu while nothing is folded', async () => {

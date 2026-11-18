@@ -12,10 +12,12 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useFitLevel } from '@/hooks/useFitLevel';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { cn } from '@/lib/cn';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useMatchRoute, useParams } from '@tanstack/react-router';
 import { CheckIcon, ChevronDownIcon, EllipsisIcon, MenuIcon } from 'lucide-react';
@@ -29,8 +31,21 @@ export function InstanceNavBar() {
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const { links, tucked } = useInstanceNavLinks(version);
 	const trail = useBreadcrumbTrail();
-	const { clusterId, instanceId } = useParams({ strict: false });
-	const entityCrumb = trail[instanceId ? 2 : clusterId ? 1 : 0];
+	const params = useParams({ strict: false });
+	const entityPath = params.clusterId ? buildAbsoluteLinkToPage(params) : trail[0]?.path;
+	const crumbRegion = useRef<HTMLElement>(null);
+	const crumbLayouts = [
+		{},
+		...(trail.length > 2 ? [{ collapse: 1 }] : []),
+		...(entityPath && trail.length > 1 ? [{ keepPath: entityPath }] : []),
+	];
+	const crumbLayout = crumbLayouts[
+		useFitLevel(
+			crumbRegion,
+			crumbLayouts.length,
+			JSON.stringify([trail, statusData?.restartRequired]),
+		)
+	];
 	const matchRoute = useMatchRoute();
 	const bar = useRef<HTMLDivElement>(null);
 	const inlineLinks = useRef<HTMLDivElement>(null);
@@ -66,17 +81,15 @@ export function InstanceNavBar() {
 
 	return (
 		<div ref={bar} className="relative flex h-full min-w-0 items-center justify-between gap-2 text-foreground">
-			<nav aria-label="Breadcrumbs" className="@container/breadcrumbs min-w-0 flex-1">
+			<nav ref={crumbRegion} aria-label="Breadcrumbs" className="min-w-0 flex-1">
 				<BreadcrumbList
 					trail={trail}
+					{...crumbLayout}
 					restartRequired={statusData?.restartRequired}
-					className="max-w-none sm:max-w-none @max-[20rem]/breadcrumbs:hidden"
-				/>
-				<BreadcrumbList
-					trail={trail}
-					keepPath={entityCrumb?.path}
-					restartRequired={statusData?.restartRequired}
-					className="hidden max-w-none gap-1 space-x-0 sm:max-w-none xl:space-x-0 @max-[20rem]/breadcrumbs:flex [&>svg]:size-3"
+					className={cn(
+						'max-w-none sm:max-w-none',
+						crumbLayout.keepPath ? 'gap-1 space-x-0 xl:space-x-0 [&>svg]:size-3' : '[&>a]:shrink-0',
+					)}
 				/>
 			</nav>
 			<nav aria-label="Studio sections" className={compact ? 'min-w-0 max-w-1/2' : undefined}>

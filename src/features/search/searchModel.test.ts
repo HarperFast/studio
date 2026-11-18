@@ -92,7 +92,10 @@ describe('search targets', () => {
 		for (const query of ['domain', 'domain name', 'example.test', 'config infrastructure']) {
 			expect(filterSearchTargets(targets, query).map(target => target.to)).toEqual(['/a/cluster-a/config/domains']);
 		}
-		expect(filterSearchTargets(targets, '')[0].kind).toBe('Page');
+		expect(filterSearchTargets(targets, '').slice(0, 2).map(target => target.name)).toEqual([
+			'Domains',
+			'Applications',
+		]);
 		expect(filterSearchTargets(organizations, 'domain name')).toEqual([]);
 	});
 

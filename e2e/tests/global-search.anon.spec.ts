@@ -71,7 +71,7 @@ test('finds unvisited clusters, reuses snapshots, and navigates with the keyboar
 	await expect(page.getByRole('option').nth(1)).toContainText('Beta');
 	await expect(page.getByRole('option', { name: /Locked/ })).toHaveCount(0);
 	await input.press('Escape');
-	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	await page.getByRole('button', { name: 'Search Studio' }).click();
 	await input.fill('production beta');
 	await expect(page.getByRole('option')).toHaveCount(1);
 	expect(requests.filter(url => url.endsWith('/b'))).toHaveLength(1);
@@ -91,7 +91,7 @@ test('keeps partial results usable and retries a failed organization without dup
 				json: { id: 'b', name: 'Beta', clusters: [{ id: 'cluster-b', name: 'Recovered', status: 'RUNNING' }] },
 			}));
 	await page.goto('/#/a');
-	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	await page.getByRole('button', { name: 'Search Studio' }).click();
 	await expect(page.getByText('Some organizations could not be loaded.', { exact: false })).toBeVisible();
 	await expect(page.locator('[data-sonner-toast][data-type=error]')).toHaveCount(0);
 	await expect(page.getByRole('option', { name: /Alpha/ }).first()).toBeVisible();
@@ -106,7 +106,7 @@ test('preserves editable shortcuts and restores trigger focus on a narrow screen
 	await page.getByRole('textbox', { name: 'Search clusters', exact: true }).focus();
 	await page.keyboard.press('Control+k');
 	await expect(page.getByRole('dialog')).toHaveCount(0);
-	const trigger = page.getByRole('button', { name: 'Search organizations and clusters' });
+	const trigger = page.getByRole('button', { name: 'Search Studio' });
 	await trigger.click();
 	await expect(page.getByRole('combobox', { name: 'Search organizations and clusters' })).toBeFocused();
 	await page.keyboard.press('Escape');
@@ -126,7 +126,7 @@ test('retains a chosen result when a higher-ranked match arrives later', async (
 		});
 	});
 	await page.goto('/#/a');
-	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	await page.getByRole('button', { name: 'Search Studio' }).click();
 	const input = page.getByRole('combobox', { name: 'Search organizations and clusters' });
 	await input.fill('prod');
 	await expect(page.getByRole('option')).toHaveCount(1);
@@ -157,7 +157,7 @@ test('clears a chosen result displaced beyond the visible limit before Enter can
 		});
 	});
 	await page.goto('/#/a');
-	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	await page.getByRole('button', { name: 'Search Studio' }).click();
 	const input = page.getByRole('combobox', { name: 'Search organizations and clusters' });
 	await input.fill('prod');
 	await expect(page.getByRole('option')).toHaveCount(1);
@@ -185,10 +185,59 @@ test('keeps the dashboard usable when the search bundle cannot load', async ({ p
 		route => route.abort(),
 	);
 	await page.goto('/#/a');
-	const trigger = page.getByRole('button', { name: 'Search organizations and clusters' });
+	const trigger = page.getByRole('button', { name: 'Search Studio' });
 	await trigger.click();
 	await expect(page.getByRole('alert')).toContainText('Search couldn’t load');
 	await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Close', exact: true }).click();
 	await expect(trigger).toBeFocused();
+});
+
+test('finds Config pages and domain names only inside the connected cluster', async ({ page }) => {
+	const clusterId = 'clu-search';
+	const hostname = 'customer.example.test';
+	await page.addInitScript(({ clusterId }) => {
+		localStorage.setItem('Studio:PotentiallyAuthenticated:' + clusterId, location.origin + '/search-test-operations');
+		localStorage.setItem('Studio:ExtensionsPrototype', JSON.stringify({ enabled: false, panelOpen: false }));
+	}, { clusterId });
+	await page.route('**/Cluster/' + clusterId, route =>
+		route.fulfill({
+			json: {
+				id: clusterId,
+				name: 'Search cluster',
+				organizationId: 'a',
+				status: 'RUNNING',
+				domains: [{ domain: hostname }],
+				instances: [],
+			},
+		}));
+	await page.route('**/search-test-operations/**', route => {
+		const operation = route.request().postDataJSON()?.operation;
+		const responses: Record<string, unknown> = {
+			user_info: { username: 'admin', role: { permission: { super_user: true } } },
+			registration_info: { version: '5.4.0' },
+			get_studio_configuration: { navigation: {}, pages: [] },
+			get_status: { restartRequired: false },
+			list_roles: [],
+		};
+		return route.fulfill({ json: responses[operation] ?? [] });
+	});
+
+	await page.goto('/#/a/' + clusterId + '/config/roles');
+	const search = page.getByRole('button', { name: 'Search Studio' });
+	await search.click();
+	const scoped = page.getByRole('combobox', { name: 'Search pages, organizations, and clusters' });
+	const domains = page.getByRole('option', { name: 'Domains Config › Infrastructure' });
+	for (const term of ['domain name', hostname]) {
+		await scoped.fill(term);
+		await expect(domains).toBeVisible();
+	}
+	await scoped.press('Enter');
+	await expect(page).toHaveURL(/#\/a\/clu-search\/config\/domains$/);
+
+	await page.goto('/#/a/' + clusterId + '/instances');
+	await search.click();
+	const global = page.getByRole('combobox', { name: 'Search organizations and clusters' });
+	await global.fill('domain name');
+	await expect(domains).toHaveCount(0);
 });
