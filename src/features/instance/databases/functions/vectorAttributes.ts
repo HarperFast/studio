@@ -54,7 +54,6 @@ export interface SimilarRecordsSeed {
 	vectors: ReadonlyMap<string, number[]>;
 }
 
-/** The seed for the one record the editor loaded, when it has a key and a vector to search by. */
 export function similarRecordsSeed(
 	records: readonly Record<string, unknown>[] | undefined,
 	primaryKey: string,

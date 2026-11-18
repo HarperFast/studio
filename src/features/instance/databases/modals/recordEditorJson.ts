@@ -44,7 +44,7 @@ export function formatRecordJson(value: unknown): string {
 		FLAT_ARRAY,
 		(match, items: string) =>
 			items.includes('\n') && NUMBER_LIST.test(items)
-				? `[${items.split(',').map(item => item.trim()).join(', ')}]`
+				? `[${items.trim().replace(/\s*,\s*/g, ', ')}]`
 				: match,
 	);
 }

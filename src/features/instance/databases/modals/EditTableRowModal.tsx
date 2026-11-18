@@ -100,7 +100,6 @@ export function EditTableRowModal({
 	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
-	/** Set when the stored record has a vector to search by: opens the records nearest it. */
 	onFindSimilar?: () => void;
 }) {
 	const monacoTheme = useMonacoTheme();
