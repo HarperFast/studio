@@ -104,7 +104,8 @@ export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase:
 	return listConfigChanges(oldBase, draft).reduce((rebased, change) => {
 		// An edit Harper stored as another type (`"3600"` as 3600) has landed, though it reads back differently.
 		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
-		const landed = sent.every(leaf => sameConfigValue(getIn(newBase, leaf.path), storedByHarper(leaf.after)));
+		const landed = sent.length > 0
+			&& sent.every(leaf => sameConfigValue(getIn(newBase, leaf.path), storedByHarper(leaf.after)));
 		return landed ? rebased : setIn(rebased, change.path, change.after);
 	}, newBase);
 }

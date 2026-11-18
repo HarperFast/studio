@@ -11,7 +11,7 @@ describe('parseConfigFieldText', () => {
 		expect(parseConfigFieldText(field('string'), ' 3d ', '1d')).toEqual({ value: '3d' });
 	});
 
-	it('sends text as typed, and shows a value Harper stored as another type', () => {
+	it('sends text as typed and a number as Harper reads it, and shows a value Harper stored as another type', () => {
 		expect(parseConfigFieldText(field('string'), '3600', '1d')).toEqual({ value: '3600' });
 		expect(parseConfigFieldText(field('string'), '{}', undefined)).toEqual({ value: '{}' });
 		expect(fitsConfigField(field('string'), 3600)).toBe(true);

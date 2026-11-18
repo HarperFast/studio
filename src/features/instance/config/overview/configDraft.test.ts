@@ -121,6 +121,10 @@ describe('storedByHarper, as harper castConfigValue stores what it is sent', () 
 		expect(rebaseDraft({ a: { t: '1d' } }, { a: { t: '3600' } }, { a: { t: '2d' } })).toEqual({ a: { t: '3600' } });
 	});
 
+	it('keeps an unsaved edit to an object with no settings', () => {
+		expect(rebaseDraft({ a: 1 }, { a: {} }, { a: 1, b: 2 })).toEqual({ a: {}, b: 2 });
+	});
+
 	it('sees it inside an object that replaced a value too, setting by setting', () => {
 		const landed = rebaseDraft({ a: 1 }, { a: { t: '3600' } }, { a: { t: 3600 } });
 		expect(listConfigChanges({ a: { t: 3600 } }, landed)).toEqual([]);
