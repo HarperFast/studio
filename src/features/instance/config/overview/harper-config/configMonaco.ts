@@ -10,13 +10,9 @@
  * untouched by this global registration.
  *
  * Source of truth: node_modules/harper/config-root.schema.json, copied to
- * ./configRootSchema.json. The `harper` package only exposes `.` via its
- * exports map, so we can't import the schema file directly; refresh the copy
- * when the bundled harper version changes its config schema.
+ * ./configRootSchema.json (see ./harperConfigSchema.ts).
  */
-import configRootSchemaRaw from './configRootSchema.json?raw';
-
-const configRootSchema = JSON.parse(configRootSchemaRaw);
+import { configRootSchema } from './harperConfigSchema';
 
 /**
  * Model path (URI) for the config editor. Pass this as the `<Editor path>` prop

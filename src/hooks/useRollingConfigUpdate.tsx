@@ -30,15 +30,25 @@ interface RollingConfigUpdateParams {
 	onRestartedSuccessfully?: () => void;
 	/** `restart_service` leaves Harper's main thread running, so settings it reads only at startup need `restart`. */
 	restartOperation?: 'restart_service' | 'restart';
+	/** Called with Harper's own reason when an instance refused the write, so a page can show it beside the edit. */
+	onRefused?: (message: string) => void;
 }
 
 interface RollingConfigUpdateResponse {
-	onConfigUpdate: (params: Record<string, unknown>) => void;
+	/** Settles once the attempt is over, whatever its outcome; `onRestartedSuccessfully` says it reached every instance. */
+	onConfigUpdate: (params: Record<string, unknown>) => Promise<void>;
 	isPending: boolean;
 }
 
 const MAY_BE_PENDING =
 	'Instances that were not restarted may already have the new configuration saved, and will apply it the next time they restart.';
+
+// 400 is a setting Harper rejects; 409 one an environment variable defines (`Cannot set …: HARPER_SET_CONFIG defines it`,
+// harper `config/configUtils.ts`).
+function describeRefusal(error: unknown): string | undefined {
+	const status = isAxiosError(error) ? error.response?.status : undefined;
+	return status === 400 || status === 409 ? describeError(error).message : undefined;
+}
 
 interface RestartTarget {
 	entityId: string;
@@ -75,7 +85,7 @@ async function planRollingConfigUpdate(
 }
 
 export function useRollingConfigUpdate(
-	{ onRestartedSuccessfully, restartOperation = 'restart_service' }: RollingConfigUpdateParams = {},
+	{ onRestartedSuccessfully, restartOperation = 'restart_service', onRefused }: RollingConfigUpdateParams = {},
 ): RollingConfigUpdateResponse {
 	const operationsParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -225,8 +235,8 @@ export function useRollingConfigUpdate(
 					const unanswered = isUnansweredWrite(error);
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
-					if (writing && isAxiosError(error) && error.response?.status === 400) {
-						refusal ??= describeError(error).message;
+					if (writing) {
+						refusal ??= describeRefusal(error);
 					}
 					if (unanswered && restartSent) {
 						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
@@ -272,10 +282,16 @@ export function useRollingConfigUpdate(
 						...params,
 						replicated: true,
 						instanceClient,
-					}).then(acknowledgedReplicationNodes, () => new Set<string>());
+					}).then(acknowledgedReplicationNodes, error => {
+						refusal ??= describeRefusal(error);
+						return new Set<string>();
+					});
 				}
 			}
 
+			if (refusal) {
+				onRefused?.(refusal);
+			}
 			const uncertain = describeUncertainRollingOutcome({
 				total: allInstances.length,
 				confirmed: instancesRestarted,
@@ -300,7 +316,7 @@ export function useRollingConfigUpdate(
 						onClick: () => toast.dismiss(),
 					},
 				});
-			} else if (allInstances.length > 0 && allInstances.length === instancesRestarted) {
+			} else if (allInstances.length > 0 && allInstances.length === instancesRestarted && !refusal) {
 				onRestartedSuccessfully?.();
 				toast.success('Success', {
 					id: toastId,
@@ -343,7 +359,7 @@ export function useRollingConfigUpdate(
 			setIsPending(false);
 			void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 		}
-	}, [operationsParams, onRestartedSuccessfully, queryClient, restartOperation]);
+	}, [operationsParams, onRestartedSuccessfully, onRefused, queryClient, restartOperation]);
 
 	return {
 		onConfigUpdate,
