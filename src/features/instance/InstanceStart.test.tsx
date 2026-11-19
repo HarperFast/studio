@@ -23,7 +23,11 @@ const { studio, permission, route } = vi.hoisted(() => ({
 	route: { params: {} as Record<string, string> },
 }));
 
-vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: { username: 'admin' } }) }));
+vi.mock('@/hooks/useAuth', () => ({
+	useInstanceAuth: () => ({
+		user: { username: 'admin', role: { permission: { super_user: permission.canManage } } },
+	}),
+}));
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => permission.canManage }));
 vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 	useStudioConfiguration: () => ({

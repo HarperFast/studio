@@ -52,6 +52,11 @@ vi.mock('@/integrations/api/instance/applications/deployComponent', () => ({
 vi.mock('sonner', () => ({ toast: { warning: state.warning } }));
 
 import { ActivateRelease, activationMutationKey } from './ActivateRelease';
+const operationPermission = vi.hoisted(() => ({ canDeploy: true }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) =>
+		operation !== 'deploy_component' || operationPermission.canDeploy,
+}));
 
 const staged = {
 	deployment_id: 'a1b2c3d4-0000-4000-8000-000000000001',
@@ -281,6 +286,13 @@ describe('ActivateRelease', () => {
 		confirm();
 		expect(await screen.findByText(UNANSWERED_WRITE_MESSAGE)).toBeTruthy();
 		expect(state.reportDeployFailure).toHaveBeenCalledWith('web', unanswered, 'activate', { action: undefined });
+	});
+
+	it('offers nothing to a session that cannot deploy, such as a read-only Fabric Connect token', () => {
+		operationPermission.canDeploy = false;
+		renderButton();
+		expect(screen.queryByRole('button', { name: /Activate|Roll back/ })).toBeNull();
+		operationPermission.canDeploy = true;
 	});
 
 	it('offers nothing where staging is not known to exist', () => {

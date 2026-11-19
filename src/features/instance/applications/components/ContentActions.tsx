@@ -22,7 +22,7 @@ import {
 } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { useDeployFromGitHubProject } from '@/features/instance/config/deployFromGitHub/useDeployFromGitHubAvailable';
 import { usePreviewsProject } from '@/features/instance/config/previews/usePreviewsAvailable';
-import { useInstanceBrowseManagePermission, useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
@@ -87,11 +87,11 @@ export function ContentActions({
 	const { openedEntryContents, openedEntry, isSavingFile, isSavingAnyFile, restrictPackageModification } =
 		useEditorView();
 	const { content: updatedFileContent } = useEditorFileContent(openedEntry?.path);
-	const canManageBrowseInstance = useInstanceBrowseManagePermission();
-	const canManageInstance = useInstanceManagePermission();
+	const canRestart = useInstanceOperationPermission('restart_service');
+	const canListDeployments = useInstanceOperationPermission('list_deployments');
 	const deploymentsAvailable = useDeploymentsAvailable();
 	const stagingAvailable = useStagedDeploymentsAvailable();
-	const canViewDeployments = canManageInstance && deploymentsAvailable;
+	const canViewDeployments = canListDeployments && deploymentsAvailable;
 	const navigate = useNavigate();
 	const routeParams: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({
 		strict: false,
@@ -168,7 +168,7 @@ export function ContentActions({
 	const deploymentsProject = canViewDeployments && openedEntry?.project ? openedEntry.project : undefined;
 	const previewsProject = usePreviewsProject(openedEntry?.project);
 	const deployFromGitHubProject = useDeployFromGitHubProject(openedEntry?.project);
-	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy || !!deploymentsProject
+	const showApplicationMenu = canDownload || canRestart || canRedeploy || canChangePrivateCopy || !!deploymentsProject
 		|| !!previewsProject || !!deployFromGitHubProject;
 	// The "File" menu acts on whatever is selected, so name it for that thing.
 	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
@@ -410,7 +410,7 @@ export function ContentActions({
 										Download Application
 									</DropdownMenuItem>
 								)}
-								{canManageBrowseInstance && (
+								{canRestart && (
 									<DropdownMenuItem
 										onSelect={onRestartClick}
 										disabled={!fileIsClean || isSavingAnyFile || isRestartPending}
@@ -420,9 +420,7 @@ export function ContentActions({
 										Restart
 									</DropdownMenuItem>
 								)}
-								{(canDownload || canManageBrowseInstance) && (canRedeploy || canChangePrivateCopy) && (
-									<DropdownMenuSeparator />
-								)}
+								{(canDownload || canRestart) && (canRedeploy || canChangePrivateCopy) && <DropdownMenuSeparator />}
 								{canRedeploy && (
 									<DropdownMenuItem onSelect={onRedeployClick}>
 										<PackageIcon />

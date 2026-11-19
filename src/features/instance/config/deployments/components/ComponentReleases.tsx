@@ -32,7 +32,7 @@ export function ComponentReleasesPanel({ project }: { project: string }) {
 	const { state } = useComponentReleases(project);
 	const retry = useRetryReleases();
 
-	if (state.kind === 'unsupported') {
+	if (state.kind === 'unsupported' || state.kind === 'denied') {
 		return null;
 	}
 	return (

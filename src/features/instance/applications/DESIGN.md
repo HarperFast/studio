@@ -137,7 +137,8 @@ one that could not answer, disables it and is named with the reason the record c
 
 Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
 and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,
-when `list_releases` fails nothing is enabled, a stage included: retention prunes stages too, without a record. A
+when `list_releases` fails nothing is enabled, a stage included, and a role that may not run it is offered no activation
+(`denied`, not `unsupported`): retention prunes stages too, without a record. A
 failed deploy is offered wherever some node holds it, since it may be live on the node that received it.
 `list_releases` is never polled or refetched on focus, since every node walks each kept release's tree to size it.
 `useComponentReleases` asks again when the component's newest record starts, ends, or reaches another node, not at each

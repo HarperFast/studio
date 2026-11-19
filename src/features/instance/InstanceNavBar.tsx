@@ -1,5 +1,6 @@
 import { BreadcrumbList, useBreadcrumbTrail } from '@/components/Breadcrumbs';
 import { navigationActiveProps, navigationInactiveProps, navigationLinkClasses } from '@/components/navigationStyles';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -11,9 +12,12 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { isScopedOperationToken } from '@/features/auth/scopedOperationToken';
+import { authStore } from '@/features/auth/store/authStore';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { checkInstanceOperationAllowed } from '@/hooks/checkOperationPermission';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { useFitLevel } from '@/hooks/useFitLevel';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { cn } from '@/lib/cn';
@@ -21,15 +25,18 @@ import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useMatchRoute, useParams } from '@tanstack/react-router';
 import { CheckIcon, ChevronDownIcon, EllipsisIcon, MenuIcon } from 'lucide-react';
-import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export function InstanceNavBar() {
-	const canManage = useInstanceManagePermission();
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const statusAvailable = supportsGetStatus(version) && canManage;
 	const instanceParams = useInstanceClientIdParams();
+	const permission = useInstanceAuth(instanceParams.entityId).user?.role?.permission;
+	const statusAvailable = supportsGetStatus(version)
+		&& checkInstanceOperationAllowed(permission, 'get_status', version) === true;
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const { links, tucked } = useInstanceNavLinks(version);
+	const operationToken = authStore.getOperationToken(instanceParams.entityId);
+	const readOnly = useMemo(() => isScopedOperationToken(operationToken), [operationToken]);
 	const trail = useBreadcrumbTrail();
 	const params = useParams({ strict: false });
 	const entityPath = params.clusterId ? buildAbsoluteLinkToPage(params) : trail[0]?.path;
@@ -43,7 +50,7 @@ export function InstanceNavBar() {
 		useFitLevel(
 			crumbRegion,
 			crumbLayouts.length,
-			JSON.stringify([trail, statusData?.restartRequired]),
+			JSON.stringify([trail, statusData?.restartRequired, readOnly]),
 		)
 	];
 	const matchRoute = useMatchRoute();
@@ -91,6 +98,7 @@ export function InstanceNavBar() {
 					)}
 				/>
 			</nav>
+			{readOnly && <ReadOnlyBadge />}
 			<nav aria-label="Studio sections" className={compact ? 'min-w-0 max-w-1/2' : undefined}>
 				<div
 					className={compact ? 'pointer-events-none invisible absolute inset-0 overflow-clip' : undefined}
@@ -201,5 +209,13 @@ function SectionLabel({ icon, children, truncate }: { icon: ReactNode; children:
 				{children}
 			</span>
 		</>
+	);
+}
+
+function ReadOnlyBadge() {
+	return (
+		<Badge variant="secondary" className="shrink-0" title="Connected with a read-only token: changes are not available">
+			Read-only
+		</Badge>
 	);
 }

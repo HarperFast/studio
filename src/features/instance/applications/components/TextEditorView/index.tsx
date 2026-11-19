@@ -7,8 +7,8 @@ import { useCodeNavigation } from '@/features/instance/applications/hooks/useCod
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReplacementCount } from '@/features/instance/applications/lib/editorPathState';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import {
 	getComponentFileQueryKey,
 	type GetComponentFileResponse,
@@ -101,7 +101,7 @@ export function TextEditorView() {
 	}, []);
 
 	const monacoTheme = useMonacoTheme();
-	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	const canWriteFiles = useInstanceOperationPermission('set_component_file');
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
 	useCodeNavigation(mounted?.[0]);
 
@@ -211,15 +211,15 @@ export function TextEditorView() {
 	}, [instanceParams.entityId, openedPath, replacement, mounted, fileContent, contentsBehind]);
 
 	useEffect(() => {
-		if (mounted && canManageBrowseInstance && !openedEntry?.package && !restrictPackageModification) {
+		if (mounted && canWriteFiles && !openedEntry?.package && !restrictPackageModification) {
 			return registerWithEditor(mounted);
 		}
-	}, [mounted, canManageBrowseInstance, openedEntry, restrictPackageModification]);
+	}, [mounted, canWriteFiles, openedEntry, restrictPackageModification]);
 
 	useListener(
 		'SaveFile',
 		() => {
-			if (openedEntry && updatedFileContent !== undefined) {
+			if (canWriteFiles && openedEntry && updatedFileContent !== undefined) {
 				saveFile({
 					...instanceParams,
 					file: openedEntry.path.split('/').slice(1).join('/'),
@@ -228,7 +228,7 @@ export function TextEditorView() {
 				});
 			}
 		},
-		[openedEntry, instanceParams, updatedFileContent, saveFile],
+		[canWriteFiles, openedEntry, instanceParams, updatedFileContent, saveFile],
 	);
 
 	useListener(
@@ -270,7 +270,7 @@ export function TextEditorView() {
 		}
 	}, [mounted]);
 
-	const readOnly = !openedEntry || isSavingFile || !!openedEntry.package || !canManageBrowseInstance
+	const readOnly = !openedEntry || isSavingFile || !!openedEntry.package || !canWriteFiles
 		|| fileContent === undefined || contentsBehind;
 	// Set on commit, before the library's effects can fire the handler, so a render React throws away
 	// never reaches it.

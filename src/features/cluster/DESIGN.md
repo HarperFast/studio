@@ -85,6 +85,20 @@ the `Authorization` header before the session cookie. If its own login still fal
 again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
 not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
 
+## A read-only connection is direct only, and its allowlist comes from its token
+
+Staff with `cluster:connectReadOnly` and no update right connect through a second kind of Fabric Connect: central
+manager mints a scoped token (`sub: scoped-operation`, one hour, no refresh token) whose inline role allows only reads,
+and proxies nothing else for them. So the session must reach the instance directly, and `establishFabricConnectAuth`
+([`authStore.ts`](../auth/store/authStore.ts)) refuses the proxy fallback for such a token (`isScopedOperationToken`)
+rather than routing every operation through a proxy that refuses each one.
+
+Harper's `user_info` names no role for the token's holder: it looks the role up by id, and a scoped token's role exists
+only in the token. Studio therefore takes the allowlist from the token's claims (`withScopedTokenRole`,
+[`scopedOperationToken.ts`](../auth/scopedOperationToken.ts)), on connect and on reload. Without it every operation gate
+reads "no allowlist" and hides every page. The claims are read, not verified: they only decide what Studio shows, and the
+instance enforces the scope it signed.
+
 ## An interrupted setup finishes from the admin it already created
 
 Central manager's `ResetPasswordUpdater` takes no body and only clears `resetPassword`
