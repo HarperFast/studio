@@ -4,8 +4,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('@tanstack/react-router', () => ({
-	useNavigate: () => vi.fn(),
+	useNavigate: () => navigate,
 	useSearch: () => ({ token: 'reset-token' }),
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), dismiss: vi.fn() } }));
@@ -28,6 +29,15 @@ async function submitNewPassword(value: string) {
 }
 
 describe('ResetPassword', () => {
+	it('sends the user to sign in as the finish of an emailed flow', async () => {
+		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: () => void }) => onSuccess());
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { finishesEmailedLink: true } });
+	});
+
 	// maxlength would silently clamp a pasted password, leaving the password manager holding one that never worked.
 	it('lets an over-long password be typed in full and explains the limit instead', async () => {
 		render(<ResetPassword />);

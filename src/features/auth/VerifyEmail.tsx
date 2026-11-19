@@ -7,6 +7,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { User } from '@/integrations/api/api.patch';
+import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +31,7 @@ import {
 	VerifyEmailRequest,
 	VerifyEmailResponse,
 } from './hooks/useVerifyEmail';
+import { readSignInRedirect } from './pendingSignInRedirect';
 import { clearSignUpBrowserProof, readNewestSignUpBrowserProof, readSignUpBrowserProofFor } from './signUpBrowserProof';
 
 // Claims no outcome: each of these can follow a verify that landed (`unansweredWrite.ts`).
@@ -380,21 +382,36 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 	}
 }
 
-function SignInLinks({ email }: { email: string | undefined }) {
+/**
+ * `finishesFlow` once the email is verified: the sign-in then finishes this flow. Forgot password carries the target the
+ * sign-up kept on, so a reset doesn't drop it.
+ */
+function SignInLinks({ email, finishesFlow = false }: { email: string | undefined; finishesFlow?: boolean }) {
 	const state = email ? { prefillEmail: email } : undefined;
 	return (
 		<div className="auth-links">
-			<Link className="text-sm" to="/sign-in" state={state}>Back to sign in</Link>
-			<Link className="text-sm" to="/forgot-password" state={state}>Forgot password?</Link>
+			<Link
+				className="text-sm"
+				to="/sign-in"
+				search={finishesFlow ? keptSearch(email) : undefined}
+				state={finishesFlow ? { ...state, finishesEmailedLink: true } : state}
+			>
+				Back to sign in
+			</Link>
+			<Link className="text-sm" to="/forgot-password" search={keptSearch(email)} state={state}>Forgot password?</Link>
 		</div>
 	);
+}
+
+function keptSearch(email: string | undefined) {
+	return email ? redirectSearch(readSignInRedirect(email)?.redirect) : undefined;
 }
 
 function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined }) {
 	return (
 		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
 			<VerifiedCopy {...props} />
-			<SignInLinks email={props.email} />
+			<SignInLinks email={props.email} finishesFlow />
 		</div>
 	);
 }
@@ -426,12 +443,18 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 				type="button"
 				variant="submit"
 				className="sign-in-submit"
-				onClick={() => void navigate({ to: '/sign-in', state: { prefillEmail: email } })}
+				onClick={() =>
+					void navigate({
+						to: '/sign-in',
+						// As `?redirect=`, so a Google or GitHub sign-in from there carries it through `/#/check-oauth` too.
+						search: keptSearch(email),
+						state: { prefillEmail: email, finishesEmailedLink: true },
+					})}
 			>
 				Sign In
 			</Button>
 			<div className="auth-links">
-				<Link className="text-sm" to="/forgot-password" state={{ prefillEmail: email }}>
+				<Link className="text-sm" to="/forgot-password" search={keptSearch(email)} state={{ prefillEmail: email }}>
 					Forgot password?
 				</Link>
 			</div>
@@ -493,7 +516,7 @@ export function VerifyEmail() {
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
 	const { mutate: logIn } = useLoginMutation();
-	const completeSignIn = useCompleteCloudSignIn();
+	const completeSignIn = useCompleteCloudSignIn({ followKept: true });
 	const submittedToken = useRef<string | undefined>(undefined);
 	// Bumped by every submit and every change of link, so a late answer can tell it has been superseded.
 	const attempt = useRef(0);

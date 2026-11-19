@@ -4,6 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { readSignInRedirect, useFinishesEmailedLink } from '@/features/auth/pendingSignInRedirect';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,8 +25,8 @@ const rememberControlClassName =
 
 export function SignIn() {
 	const { me: formPersistenceEmail, redirect } = useSearch({ strict: false });
-	const carriedSearch = useMemo(() => redirectSearch(redirect), [redirect]);
 	const prefillEmail = usePrefillEmail();
+	const finishesEmailedLink = useFinishesEmailedLink();
 
 	const methods = useForm({
 		resolver: zodResolver(EmailSignInSchema),
@@ -36,6 +37,9 @@ export function SignIn() {
 	});
 	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
+	// After a reset this page has no `?redirect=`: Google, GitHub and Forgot password take the target kept for the address.
+	const kept = finishesEmailedLink && email ? readSignInRedirect(email)?.redirect : undefined;
+	const carriedSearch = useMemo(() => redirectSearch(redirect) ?? redirectSearch(kept), [redirect, kept]);
 
 	const { submitForm, isPending, submitError, clearSubmitError } = useCloudSignIn();
 	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();

@@ -57,6 +57,7 @@ import {
 	clearCaptchaFailures,
 	useCaptchaChallenge,
 } from './hooks/useCaptchaChallenge';
+import { keepSignInRedirect, readSignInRedirect } from './pendingSignInRedirect';
 
 const captchaRejection = { isAxiosError: true, response: { status: 403, data: 'Verification failed' } } as AxiosError;
 const serverError = { isAxiosError: true, response: { status: 500 } } as AxiosError;
@@ -134,6 +135,55 @@ describe('ForgotPassword — redirect', () => {
 
 	afterEach(() => {
 		hashSearch.current = {};
+		localStorage.clear();
+	});
+
+	it('keeps the target for the emailed link before the request is sent', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		captchaState.configured = false;
+		post.mockReturnValue(new Promise(() => {}));
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('forgets an earlier target for the address once a request without one goes through', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() => expect(readSignInRedirect('ada@example.com')).toBeUndefined());
+	});
+
+	it('keeps its own target once the request goes through', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: 'If an account exists with this email...' });
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/sign-in' })));
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('leaves it when a request without one is refused', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		captchaState.configured = false;
+		post.mockRejectedValue(serverError);
+		const { container } = renderForm();
+
+		await submitWith(container, 'ada@example.com');
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
 	});
 
 	it("keeps the sign-in page's redirect on the ways back", async () => {

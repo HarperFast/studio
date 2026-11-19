@@ -61,6 +61,7 @@ import {
 } from './describeAuthFailure';
 import { OFFLINE_MESSAGE } from './failFastOffline';
 import { CHALLENGE_FAILED, clearCaptchaFailures, useCaptchaChallenge } from './hooks/useCaptchaChallenge';
+import { keepSignInRedirect, readSignInRedirect } from './pendingSignInRedirect';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
@@ -687,6 +688,51 @@ describe('SignUp — redirect', () => {
 
 	afterEach(() => {
 		hashSearch.current = {};
+		localStorage.clear();
+	});
+
+	it('keeps the target for the emailed link before the sign-up is sent', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockReturnValue(new Promise(() => {}));
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('forgets an earlier target for the address once a request without one goes through', async () => {
+		keepSignInRedirect('taken@example.com', mcpAuthorize);
+		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(readSignInRedirect('taken@example.com')).toBeUndefined());
+	});
+
+	it('keeps its own target once the sign-up goes through', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/verifying' })));
+		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('leaves it when a request without one is refused', async () => {
+		keepSignInRedirect('taken@example.com', mcpAuthorize);
+		post.mockRejectedValue(axiosError(409, { error: 'Email already in use' }));
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
 	});
 
 	it('hands the redirect to Google, GitHub and the sign-in link', () => {

@@ -50,7 +50,7 @@ export function ResetPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					navigate({ to: '/sign-in' });
+					navigate({ to: '/sign-in', state: { finishesEmailedLink: true } });
 				},
 			},
 		);

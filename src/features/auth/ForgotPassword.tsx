@@ -4,6 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { forgetSignInRedirect, keepSignInRedirect } from '@/features/auth/pendingSignInRedirect';
 import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,8 +55,13 @@ export function ForgotPassword() {
 	const submitForm = async (formData: z.infer<typeof ForgotPasswordSchema>) => {
 		setSubmitError(undefined);
 		const captchaToken = await captcha.getToken();
+		// Before the request, which can send the reset email even if this page is gone by its answer.
+		keepSignInRedirect(formData.email, redirect);
 		submitForgotPasswordData({ ...formData, captchaToken }, {
 			onSuccess: (message) => {
+				if (!carriedSearch) {
+					forgetSignInRedirect(formData.email);
+				}
 				toast.success('Success', {
 					description: `${message}`,
 					action: {
