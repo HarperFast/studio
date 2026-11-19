@@ -20,7 +20,6 @@ import {
 	describeGrantReminder,
 	type ExpirySeverity,
 	HOBBYIST_UPGRADE,
-	isConversionApplying,
 	isStartBlocked,
 } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
@@ -491,7 +490,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 									className={cn(STATUS_PILL, PILL_TONE[expiry.severity])}
 									title={expiry.detail ?? expiry.title}
 								>
-									{isConversionApplying(cluster) && <Loader2 className="animate-spin" />}
+									{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
 									{expiry.badgeLabel}
 								</Badge>
 								{expiry.endsOn && <span className={PILL_DATE}>{expiry.endsOn}</span>}

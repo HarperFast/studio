@@ -271,8 +271,6 @@ describe('ClusterCard — container actions once the plan has ended', () => {
 	});
 });
 
-// A purchased grant stays live through non-payment, so the plan rule alone would offer a Start that
-// central manager refuses with a 402.
 describe('ClusterCard — stopped over a failed payment', () => {
 	const purchased = { isActive: true, status: 'ACTIVE', source: 'purchased' } as Cluster['grant'];
 	const paymentStopped = cluster({
@@ -295,5 +293,10 @@ describe('ClusterCard — stopped over a failed payment', () => {
 		const items = screen.getAllByRole('menuitem').map(node => (node.textContent ?? '').trim());
 		expect(items).not.toContain('Start');
 		expect(items).not.toContain('Start in safe mode');
+	});
+
+	it('does not spin the payment pill while a conversion is marked as applying', () => {
+		render(<ClusterCard cluster={{ ...paymentStopped, conversionState: 'APPLYING' }} />);
+		expect(screen.getByText('Payment failed').querySelector('.animate-spin')).toBeNull();
 	});
 });

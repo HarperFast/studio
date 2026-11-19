@@ -23,9 +23,11 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 }));
 vi.mock('@/features/cluster/components/ClusterUsageCard', () => ({ ClusterUsageCard: () => null }));
 vi.mock('@/features/clusters/components/ClusterStateMenu', () => ({ ClusterStateMenu: () => null }));
-vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: null, isLoading: false }) }));
+const useInstanceAuth = vi.fn(() => ({ user: null, isLoading: false }));
+vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => useInstanceAuth() }));
+const permissions = { view: true, update: true };
 vi.mock('@/hooks/usePermissions', () => ({
-	useOrganizationClusterPermissions: () => ({ view: true, update: true }),
+	useOrganizationClusterPermissions: () => permissions,
 }));
 
 let cluster: Cluster;
@@ -39,7 +41,11 @@ vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
 
 import { ClusterHome } from './ClusterHome';
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	useInstanceAuth.mockClear();
+	permissions.update = true;
+});
 
 async function renderHome(state: Cluster) {
 	cluster = state;
@@ -86,17 +92,28 @@ describe(ClusterHome, () => {
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
 	});
 
-	// QA: a payment-stopped cluster that never finished setup was sent to "spinning up", which it is not.
-	it('keeps a stopped cluster whose start is refused off the starting-up page', async () => {
-		await renderHome({
-			...base,
-			status: 'STOPPED',
-			resetPassword: true,
-			suspendedReason: 'PAYMENT_FAILED',
-			grant: { isActive: true, source: 'purchased' } as Cluster['grant'],
-		});
+	const paymentStoppedPendingSetup = {
+		...base,
+		status: 'STOPPED',
+		resetPassword: true,
+		suspendedReason: 'PAYMENT_FAILED',
+		grant: { isActive: true, source: 'purchased' } as Cluster['grant'],
+	};
+
+	it('keeps a stopped cluster whose start is refused off the setup pages, with nothing to connect', async () => {
+		await renderHome(paymentStoppedPendingSetup);
 		expect(screen.queryByText(/redirected to/)).toBeNull();
 		expect(screen.getByRole('heading', { name: 'prod-east' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Fabric Connect' })).toBeNull();
+		expect(useInstanceAuth).not.toHaveBeenCalled();
+	});
+
+	it('still shows Pending Owner Setup to a view-only member of such a cluster', async () => {
+		permissions.update = false;
+		await renderHome(paymentStoppedPendingSetup);
+		expect(screen.getByRole('heading', { name: 'Pending Owner Setup' })).toBeTruthy();
+		expect(useInstanceAuth).not.toHaveBeenCalled();
 	});
 
 	it('still holds an ordinary stopped cluster with setup pending on starting-up', async () => {

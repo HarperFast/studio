@@ -142,11 +142,9 @@ describe('ClusterExpiryBanner', () => {
 			expect(alert.textContent).toContain('This cluster was stopped because a payment failed');
 			expect(alert.textContent).toContain('starts again automatically');
 			expect(paymentLink()?.getAttribute('href')).toBe('/#/org-test/billing');
-			// Choosing a plan does not lift a payment stop.
 			expect(upgradeLink()).toBeNull();
 		});
 
-		// The billing page refuses anyone without organization update, so it is not offered to them.
 		it('tells anyone who cannot manage billing to ask an admin', async () => {
 			orgPermissions.update = false;
 			await renderBanner(paymentStopped());

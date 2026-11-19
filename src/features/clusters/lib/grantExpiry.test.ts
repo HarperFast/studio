@@ -330,8 +330,6 @@ describe('describeGrantExpiry', () => {
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
 	});
 
-	// A purchased grant stays live through non-payment, so the stop has to be told from the
-	// suspension, not the grant — and no plan choice lifts it.
 	it('says a payment stopped the cluster although its grant is live', () => {
 		const paid = grant({ source: 'purchased', expiryPolicy: null, endsAt: null });
 		const result = describeGrantExpiry({
@@ -355,7 +353,6 @@ describe('describeGrantExpiry', () => {
 		expect(describeGrantReminder({ grant: paid, suspendedReason: 'PAYMENT_FAILED' }, NOW)).toBeNull();
 	});
 
-	// Central manager only marks a cluster the customer had already stopped, and leaves it stopped once paid.
 	it('promises no automatic start for a cluster the customer had stopped', () => {
 		const result = describeGrantExpiry({
 			grant: grant({ source: 'purchased' }),
@@ -366,6 +363,13 @@ describe('describeGrantExpiry', () => {
 		expect(result?.detail).toBe(
 			'Its data is kept. Update the payment method, and you can start the cluster again once the payment goes through.',
 		);
+	});
+
+	it('says nothing about a payment for a cluster that is gone', () => {
+		const paid = grant({ source: 'purchased', expiryPolicy: null, endsAt: null });
+		const gone = { grant: paid, suspendedReason: 'PAYMENT_FAILED', lastContainerActionBy: 'unpaid-invoices' };
+		expect(describeGrantExpiry({ ...gone, status: 'TERMINATED' }, NOW)).toBeNull();
+		expect(describeGrantExpiry({ ...gone, status: 'FAILED', terminatedAt: daysFromNow(-1) }, NOW)).toBeNull();
 	});
 
 	it('reports a payment stop ahead of a failed conversion, and without a grant', () => {

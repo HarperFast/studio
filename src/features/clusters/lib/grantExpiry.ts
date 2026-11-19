@@ -1,3 +1,4 @@
+import { isDeletedCluster } from '@/config/clusterStatuses';
 import { Cluster, ClusterGrant, ExpiryStage } from '@/integrations/api/api.patch';
 
 /**
@@ -55,17 +56,9 @@ export function isExpiryWarning(description: GrantExpiryDescription | null): boo
 }
 
 /**
- * Whether a start would be refused. Mirrors central-manager's `clusterStartBlockedReason`, which
- * gates on the cluster carrying a `suspendedReason` with no live grant — NOT on the grant alone —
- * or on an overdue invoice, which no grant overrides.
- *
- * Gating UI on "the grant lapsed" instead was wrong in both directions: it hid the container group
- * from a cluster the customer had stopped themselves whose grant later lapsed (a start the server
- * would have accepted), and permanently from one whose grant was revoked, since the expiry runner
- * skips revoked grants and so never writes `suspendedReason`.
- *
- * Studio can't see invoices, so the payment half reads the reason central manager stamps when it
- * stops a cluster over one, and clears once the invoice is paid.
+ * Whether central-manager's `clusterStartBlockedReason` would refuse a start: a suspension with no live
+ * grant, or a payment suspension, which no grant lifts. Never "the grant lapsed" alone: a revoked
+ * grant is never suspended, and a customer-stopped cluster whose grant lapsed may still start.
  */
 export function isStartBlocked(
 	cluster: Pick<Cluster, 'grant' | 'suspendedReason'>,
@@ -191,18 +184,19 @@ export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
  * one the runner hasn't staged yet.
  */
 export function describeGrantExpiry(
-	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy'>,
+	cluster: Pick<
+		Cluster,
+		'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy' | 'terminatedAt'
+	>,
 	now: number = Date.now(),
 ): GrantExpiryDescription | null {
-	// First, and whatever the grant says: a purchased grant stays live through non-payment, and no plan
-	// choice lifts this stop — paying the invoice does. A plan that also ended reads PLAN_ENDED instead.
-	if (cluster.suspendedReason === 'PAYMENT_FAILED') {
+	// Before the grant: a purchased grant stays live through non-payment, and only paying lifts this stop.
+	if (cluster.suspendedReason === 'PAYMENT_FAILED' && !isDeletedCluster(cluster)) {
 		return {
 			stage: 'PAYMENT_FAILED',
 			severity: 'critical',
 			badgeLabel: 'Payment failed',
 			title: 'This cluster was stopped because a payment failed',
-			// A cluster the customer had already stopped is only marked, and stays stopped once paid.
 			detail: cluster.lastContainerActionBy === UNPAID_INVOICE_ACTOR
 				? 'Its data is kept. Update the payment method, and the cluster starts again automatically once the payment goes through.'
 				: 'Its data is kept. Update the payment method, and you can start the cluster again once the payment goes through.',
@@ -357,7 +351,10 @@ export interface GrantReminder {
  * terms and gets no reminder.
  */
 export function describeGrantReminder(
-	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy'>,
+	cluster: Pick<
+		Cluster,
+		'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy' | 'terminatedAt'
+	>,
 	now: number = Date.now(),
 ): GrantReminder | null {
 	const grant = cluster.grant;
