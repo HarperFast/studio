@@ -307,7 +307,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				</div>
 			</div>
 			<div
-				className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
+				className="flex min-h-8 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
 				aria-live="polite"
 			>
 				<span>
@@ -316,6 +316,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					{isLive && !inspection.paused && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
 					{!!logFilters.until && ' · Fixed time range (Live unavailable)'}
 				</span>
+				{inspection.paused && !isLive && <span>Paused for inspection · Refresh to update</span>}
 				{inspection.paused && isLive && (
 					<Button size="sm" variant="defaultOutline" onClick={resume} disabled={!!logFilters.until}>
 						<PlayIcon />
@@ -332,9 +333,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					Could not load logs. <Button size="sm" variant="defaultOutline" onClick={refresh}>Retry</Button>
 				</div>
 			)}
-			{inspection.paused && !isLive && (
-				<Button size="sm" variant="defaultOutline" onClick={refresh}>Refresh view</Button>
-			)}
+
 			{savedView && (
 				<div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
 					<Button size="sm" variant="defaultOutline" onClick={back}>

@@ -117,7 +117,7 @@ describe('logs explorer interactions', () => {
 		rerender(<LogsExplorer params={params} />);
 		expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
 		expect(screen.queryByText('focus refetch arrival')).toBeNull();
-		fireEvent.click(screen.getByRole('button', { name: 'Refresh view' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
 	});
 
