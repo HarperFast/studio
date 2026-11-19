@@ -73,7 +73,7 @@ function memberOrganizationPermissions(user: User | null, orgId: string): UR {
 
 /**
  * Central manager reads billing for an org admin or `billing:read` (`Invoice.allowRead`) and changes the card for an
- * org admin or `billing:write` (`Payment`, `StripeAccount`). Members keep the org-update rule these pages always used.
+ * org admin or `billing:write` (`Payment`, `StripeAccount`).
  */
 export function useOrganizationBillingPermissions(orgId?: string): BillingPermissions {
 	const { user } = useCloudAuth();

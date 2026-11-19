@@ -87,8 +87,7 @@ export function ClusterHome() {
 				</ClusterHomeShell>
 			);
 		}
-		// Not starting, so neither setup page applies, and nothing connects before setup: the layout's
-		// banner says why it is down.
+		// Nothing connects before setup.
 		if (cluster.status === 'STOPPED' && isStartBlocked(cluster)) {
 			return (
 				<ClusterHomeShell>
