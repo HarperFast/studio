@@ -29,6 +29,7 @@ export interface UseInstanceLogsResult {
 	refetch: () => Promise<unknown>;
 	/** `'streaming'` over SSE, `'polling'` on the 5s fallback, `'idle'` when not live. */
 	transport: LogTransport;
+	error: unknown;
 }
 
 /** Fall back to Harper's own `read_log` default when the user clears the limit field. */
@@ -158,7 +159,7 @@ export function useInstanceLogs(
 		const snapshot = query.data ?? [];
 		// Merge whenever there are streamed entries — including after Live is toggled off — so the
 		// tail the user was watching stays on screen instead of snapping back to the older snapshot.
-		return stream.entries.length === 0 ? snapshot : mergeReadLogs(snapshot, stream.entries, limit);
+		return mergeReadLogs(snapshot, stream.entries, limit);
 	}, [query.data, stream.entries, limit]);
 
 	const transport: LogTransport = useSSE ? 'streaming' : live ? 'polling' : 'idle';
@@ -169,5 +170,6 @@ export function useInstanceLogs(
 		isFetching: query.isFetching,
 		refetch: () => query.refetch(),
 		transport,
+		error: query.error,
 	};
 }

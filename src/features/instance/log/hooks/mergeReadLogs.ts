@@ -1,12 +1,15 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 
-/**
- * Identity of a log line, so the buffered snapshot and the live tail can overlap safely.
- * Fields are joined with a delimiter unlikely to collide so no combination of field
- * contents is mistaken for a different line.
- */
-function logKey(entry: ReadLogItem): string {
-	return [entry.timestamp, entry.node ?? '', entry.thread ?? '', entry.level, entry.message].join('|');
+const keys = new WeakMap<ReadLogItem, string>();
+
+/** Shared identity across snapshots, live replay, and expanded rows. */
+export function logKey(entry: ReadLogItem): string {
+	let key = keys.get(entry);
+	if (key === undefined) {
+		key = JSON.stringify([entry.timestamp, entry.node ?? '', entry.thread ?? '', entry.level, entry.message]);
+		keys.set(entry, key);
+	}
+	return key;
 }
 
 /**
