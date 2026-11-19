@@ -20,7 +20,7 @@ const { studio, permission, route } = vi.hoisted(() => ({
 		pages: [] as Page[],
 	},
 	permission: { canManage: true },
-	route: { params: {} as Record<string, string> },
+	route: { params: {} as Record<string, string>, loaderData: { version: '5.4.0' } as { version: string } | undefined },
 }));
 
 vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: { username: 'admin' } }) }));
@@ -37,7 +37,7 @@ vi.mock('@/features/instance/extensions/useStudioExtensions', () => ({
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
-	useLoaderData: () => ({ version: '5.4.0' }),
+	useLoaderData: () => route.loaderData,
 	useParams: () => route.params,
 }));
 
@@ -63,9 +63,18 @@ afterEach(() => {
 	studio.pages = [];
 	permission.canManage = true;
 	route.params = {};
+	route.loaderData = { version: '5.4.0' };
 });
 
 describe('InstanceStart', () => {
+	it('waits, rather than crashing, through a render whose route has no loader data yet', () => {
+		route.params = cluster;
+		route.loaderData = undefined;
+		render(<InstanceStart />);
+		expect(screen.getByText('Opening…')).toBeTruthy();
+		expect(screen.queryByTestId('navigate')).toBeNull();
+	});
+
 	it("lands on a component's tab", () => {
 		route.params = cluster;
 		studio.pages = [{ ...prerendering, key: 'harper-redirects.redirects', placement: 'tab' }];

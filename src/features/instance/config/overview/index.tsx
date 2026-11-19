@@ -12,6 +12,7 @@ import { HarperVersion } from '@/features/instance/config/overview/components/Ha
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
@@ -21,17 +22,14 @@ import {
 	getComponentsQueryOptions,
 } from '@/integrations/api/instance/applications/getComponents';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
-import {
-	getRegistrationInfoQueryOptions,
-	RegistrationInfoResponse,
-} from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { useLoaderData, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { AlertCircleIcon, EditIcon, SaveIcon, XIcon } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { flattenConfig, getChangedFields, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
@@ -53,8 +51,8 @@ export function ConfigOverviewIndex() {
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const checkUsageLicenses = !isLocalStudio && wasAReleasedBeforeB('4.7.0-alpha.1', version);
+	const version = useLoadedInstanceVersion();
+	const checkUsageLicenses = !isLocalStudio && version !== undefined && wasAReleasedBeforeB('4.7.0-alpha.1', version);
 
 	const { data: appliedLicenses } = useQuery(
 		getUsageLicensesQueryOptions(instanceParams, checkUsageLicenses),

@@ -1,13 +1,19 @@
 import { Loading } from '@/components/Loading';
 import { ConfigNavigation } from '@/features/instance/config/ConfigNavigation';
 import { useConfigNavigation } from '@/features/instance/config/useConfigNavigation';
-import type { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
-import { Navigate, Outlet, useLoaderData, useLocation } from '@tanstack/react-router';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
+import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import './config-navigation.css';
 
 export function ConfigIndex() {
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const version = useLoadedInstanceVersion();
+	return version === undefined
+		? <Loading className="flex flex-col items-center justify-center py-24" text="Loading..." />
+		: <ConfigShell version={version} />;
+}
+
+function ConfigShell({ version }: { version: string }) {
 	const { pathname } = useLocation();
 	const { groups, configPath, firstExtension, canManage } = useConfigNavigation(version);
 

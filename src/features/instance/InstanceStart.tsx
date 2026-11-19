@@ -2,11 +2,11 @@ import { Loading } from '@/components/Loading';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useStudioConfiguration, useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
 import { useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import type { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { Link, Navigate, useLoaderData, useParams } from '@tanstack/react-router';
+import { Link, Navigate, useParams } from '@tanstack/react-router';
 import { EyeOffIcon } from 'lucide-react';
 
 /**
@@ -15,15 +15,23 @@ import { EyeOffIcon } from 'lucide-react';
  * configuration, so a focused cluster never flashes Applications first.
  */
 export function InstanceStart() {
+	const version = useLoadedInstanceVersion();
+	return version === undefined ? <Opening /> : <InstanceStartFor version={version} />;
+}
+
+function Opening() {
+	return <Loading className="flex flex-col items-center justify-center py-24" text="Opening…" />;
+}
+
+function InstanceStartFor({ version }: { version: string }) {
 	const params: { organizationId?: string; instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(params.instanceId ?? params.clusterId);
 	const { configuration, isPending } = useStudioConfiguration();
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const { links, tucked } = useInstanceNavLinks(version);
 	const configPages = useVisibleExtensionPages('config');
 
 	if (!user || isPending) {
-		return <Loading className="flex flex-col items-center justify-center py-24" text="Opening…" />;
+		return <Opening />;
 	}
 	// Only a tab the nav offers: a hidden landing would loop back here through the index it hides.
 	const reachable = [...links, ...tucked];
