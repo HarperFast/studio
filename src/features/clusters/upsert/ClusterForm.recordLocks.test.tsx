@@ -26,6 +26,18 @@ vi.mock('sonner', () => ({
 	toast: { success: vi.fn(), error: vi.fn(), message: vi.fn(() => 'saving'), dismiss: vi.fn(), warning: vi.fn() },
 }));
 
+vi.mock('./ClusterBilling', () => ({
+	ClusterBilling: ({ onGoBackToDetails, onSaveStateForBillingRedirect }: {
+		onGoBackToDetails: () => void;
+		onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	}) => (
+		<div>
+			<button type="button" onClick={() => onSaveStateForBillingRedirect(true)}>Save draft for Stripe</button>
+			<button type="button" onClick={onGoBackToDetails}>Back to Details</button>
+		</div>
+	),
+}));
+
 import type { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterForm } from './ClusterForm';
 import type { UpsertClusterSchemaType } from './upsertClusterSchema';
@@ -40,6 +52,14 @@ const plans = [
 		deploymentDescription: 'Colocated',
 		performanceDescription: 'Free tier',
 		priceUsd: 0,
+		allowedRegionIds: ['us-small'],
+	},
+	{
+		id: 'paid',
+		deploymentType: 'colocated',
+		deploymentDescription: 'Colocated',
+		performanceDescription: 'Paid tier',
+		priceUsd: 100,
 		allowedRegionIds: ['us-small'],
 	},
 	{ id: 'self-hosted', deploymentDescription: 'Self-Hosted', performanceDescription: 'Bring your own', priceUsd: 0 },
@@ -65,11 +85,13 @@ function versions(...list: string[]): HarperVersionsResponse {
 
 function renderForm(
 	defaultValues: Partial<UpsertClusterSchemaType>,
-	{ clusterId, mode, harperVersions, recordLocksOn }: {
+	{ clusterId, mode, harperVersions, recordLocksOn, setSavedClusterState = vi.fn(), startOffOnBilling = false }: {
 		clusterId?: string;
 		mode?: 'version';
 		harperVersions: HarperVersionsResponse;
 		recordLocksOn?: boolean;
+		setSavedClusterState?: ReturnType<typeof vi.fn>;
+		startOffOnBilling?: boolean;
 	},
 ) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -105,13 +127,13 @@ function renderForm(
 				recordLocksOn={locksOn}
 				regionLocationsColocated={regions}
 				regionLocationsDedicated={regions}
-				setSavedClusterState={vi.fn()}
-				startOffOnBilling={false}
+				setSavedClusterState={setSavedClusterState}
+				startOffOnBilling={startOffOnBilling}
 			/>
 		</QueryClientProvider>
 	);
 	const view = render(ui(recordLocksOn));
-	return { ...view, setRecordLocksOn: (locksOn: boolean) => view.rerender(ui(locksOn)) };
+	return { ...view, setRecordLocksOn: (locksOn: boolean) => view.rerender(ui(locksOn)), setSavedClusterState };
 }
 
 const recordLocksBox = () => screen.queryByRole<HTMLInputElement>('checkbox', { name: 'Cluster-wide record locks' });
@@ -245,6 +267,59 @@ describe('ClusterForm — record locks on create', () => {
 		expect(recordLocksBox()?.checked).toBe(false);
 
 		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+	});
+
+	it('leaves recordLocks unset in a billing draft while untouched so restoring still follows version changes', async () => {
+		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
+		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
+		const first = renderForm(
+			{ version: '5.4.0', performanceDescription: 'Paid tier' },
+			{ harperVersions: versions('5.4.0', '5.3.0'), setSavedClusterState },
+		);
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		const next = screen.getByRole<HTMLButtonElement>('button', { name: /Confirm Payment Details/ });
+		await waitFor(() => expect(next.disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(next);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
+		});
+		const draft = savedDrafts.at(-1)!;
+		expect(draft.recordLocks).toBeUndefined();
+		first.unmount();
+
+		renderForm(draft, { harperVersions: versions('5.4.0', '5.3.0'), startOffOnBilling: true });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Back to Details' }));
+		});
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+	});
+
+	it('persists an explicit user choice in a billing draft when touched before Stripe redirect', async () => {
+		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
+		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
+		renderForm(
+			{ version: '5.4.0', performanceDescription: 'Paid tier' },
+			{ harperVersions: versions('5.4.0', '5.3.0'), setSavedClusterState },
+		);
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		const next = screen.getByRole<HTMLButtonElement>('button', { name: /Confirm Payment Details/ });
+		await waitFor(() => expect(next.disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(next);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
+		});
+		expect(savedDrafts.at(-1)?.recordLocks).toBe(false);
 	});
 
 	it('offers nothing below 5.3.0, and drops a ticked box carried from a failed cluster', async () => {

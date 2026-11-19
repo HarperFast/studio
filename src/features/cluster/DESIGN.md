@@ -258,10 +258,9 @@ The setting goes in a PUT of its own: central manager answers 400 when `name`, `
 `generateDomainCerts` ride along. `skipGtmWait` may: the confirmation offers it as "Immediate restart", as the version
 update does, and central manager then restarts each member without draining it first. On create, `recordLocks` rides
 with the rest as an explicit `true` or `false` for a Fabric-hosted cluster on 5.3.0+, and is left out for self-hosted
-clusters and versions below 5.3.0 so a box touched before switching away never becomes a 400. Sending `false` matters
-from 5.4.0 onward, where central manager turns record locks on by default unless the request says `false`; the checkbox
-therefore starts checked for 5.4.0+ (`defaultsRecordLocksOn`) and resets to the version's default when crossing the 5.4
-boundary until the user changes it. While record locks are on, the version picker disables versions below 5.3.0, which
+clusters and versions below 5.3.0 so a box touched before switching away never becomes a 400. Sending `false` matters from 5.4.0 onward, where central manager turns record locks on by default unless the request
+says `false`; the checkbox therefore starts checked for 5.4.0+ (`defaultsRecordLocksOn`) and resets to the version's
+default when crossing the 5.4 boundary until the user changes it (or Try Again loads a failed cluster's stored choice). While record locks are on, the version picker disables versions below 5.3.0, which
 central manager would refuse.
 
 Nothing here can see whether a member runs the LMDB storage engine, where `lock()` doesn't work at all; central manager

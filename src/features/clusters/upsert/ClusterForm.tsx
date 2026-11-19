@@ -683,7 +683,18 @@ export function ClusterForm({
 	}, [mode, executeChangesToCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
-		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
+		if (!redirecting) {
+			setSavedClusterState(null);
+			return;
+		}
+		const values = form.getValues();
+		setSavedClusterState({
+			clusterId,
+			...values,
+			// Leave untouched defaults unset so a draft restored after Stripe still follows version changes.
+			recordLocks: recordLocksTouched.current ? values.recordLocks : undefined,
+			skipToBilling: true,
+		});
 	}, [clusterId, form, setSavedClusterState]);
 
 	const onGoBackToDetails = useCallback(() => {

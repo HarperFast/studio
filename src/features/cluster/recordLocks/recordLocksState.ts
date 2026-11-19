@@ -11,7 +11,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 export const RECORD_LOCKS_MIN_VERSION = '5.3.0';
 
 /** Harper version from which Fabric-hosted cluster creation defaults record locks on. */
-export const RECORD_LOCKS_DEFAULT_ON_VERSION = '5.4.0';
+const RECORD_LOCKS_DEFAULT_ON_VERSION = '5.4.0';
 
 // `semver.valid` with default options: it trims, takes a leading `v` but not `=`, and rejects leading
 // zeros in numeric parts and numeric prerelease identifiers. Studio's own parser accepts all of those.
