@@ -72,7 +72,7 @@ afterEach(() => {
 	resetPendingPresetSetupsForTests();
 });
 
-async function createAdminUser(fields: { preset?: string } = {}) {
+async function createAdminUser(fields: { preset?: string; instances?: unknown[] } = {}) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	client.setQueryData(['clu-1'], { ...cluster, ...fields });
 	render(
@@ -101,7 +101,35 @@ describe(FinishSetup, () => {
 		await createAdminUser();
 		await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
 		expect(toastSuccess).toHaveBeenCalledWith('Admin user created. Connect to your cluster to continue.');
-		expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'clu-1' }), null);
+		expect(setUser).not.toHaveBeenCalled();
+	});
+
+	it('hands setup the sealed capability once every member runs 5.4.0 and holds the cluster key, and nothing otherwise', async () => {
+		vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
+		await createAdminUser({
+			instances: [
+				{ id: 'ins-1', status: 'RUNNING', version: '5.4.0', secretsKeyFingerprint: 'fp-1' },
+				{ id: 'ins-2', status: 'RUNNING', version: '5.4.1', secretsKeyFingerprint: 'fp-1' },
+			],
+		});
+		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: { keyFingerprint: 'fp-1' } });
+
+		cleanup();
+		mutate.mockClear();
+		await createAdminUser({ instances: [{ id: 'ins-1', status: 'RUNNING', version: '5.3.0' }] });
+		await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+		expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: false });
+
+		for (
+			const instances of [[{ id: 'ins-1', status: 'RUNNING', version: '5.4.0' }], [{ id: 'ins-1', status: 'RUNNING' }]]
+		) {
+			cleanup();
+			mutate.mockClear();
+			await createAdminUser({ instances });
+			await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+			expect(mutate.mock.calls[0][0]).toMatchObject({ sealedSetup: undefined, clusterKeyPending: true });
+		}
 	});
 
 	it('hands setup the direct URL and every id it must sign out first', async () => {

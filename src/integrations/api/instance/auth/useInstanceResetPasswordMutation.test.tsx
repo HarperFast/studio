@@ -32,13 +32,35 @@ vi.mock('@/integrations/api/instance/auth/createInstanceAuthenticationTokens', (
 }));
 let ownerIsSuperUser = true;
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({
-	getInstanceUserInfo: async ({ instanceClient }: { instanceClient: AxiosInstance }) =>
-		instanceClient.defaults.headers.Authorization === 'Bearer owner-token'
+	getInstanceUserInfo: async ({ instanceClient }: { instanceClient: AxiosInstance }) => {
+		const authorization = instanceClient.defaults.headers.Authorization;
+		if (typeof authorization === 'string' && authorization.startsWith(`Bearer ${sealedNode.tokenPrefix}`)) {
+			await sealedNode.beforeUserInfo?.();
+			return sealedNode.userInfo(authorization.slice(`Bearer ${sealedNode.tokenPrefix}`.length));
+		}
+		return authorization === 'Bearer owner-token'
 			? localUser(OWNER, ownerIsSuperUser)
-			: localUser(defaultClusterUsername),
+			: localUser(defaultClusterUsername);
+	},
+}));
+
+// The sealed path: what a 5.4 node answers inside the envelope, and the key central manager holds for the cluster.
+const runSealedOperation = vi.fn();
+vi.mock('@/integrations/api/instance/sealedOperation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/integrations/api/instance/sealedOperation')>()),
+	runSealedOperation: (...args: unknown[]) => runSealedOperation(...args),
+}));
+const fetchClusterKey = vi.fn();
+vi.mock('@/integrations/api/instance/secrets/secrets', () => ({
+	secretsPublicKeyQueryOptions: (params: { entityId: string; managedClusterId?: string }) => ({
+		queryKey: [params.entityId, 'get_secrets_public_key', params.managedClusterId ?? 'node'],
+		queryFn: () => fetchClusterKey(params),
+		retry: false,
+	}),
 }));
 
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
+import { SealedOperationError } from '@/integrations/api/instance/sealedOperation';
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
 import { onDeleteUser } from './deleteUser';
@@ -49,10 +71,11 @@ import { useInstanceResetPasswordMutation } from './useInstanceResetPasswordMuta
 const OWNER = 'owner@example.com';
 const CLUSTER_URL = 'https://clu-1.example.com:9925/';
 const INSTANCE_URL = 'https://ins-1.example.com:9925/';
+const CLUSTER_KEY = { publicKey: '-----BEGIN PUBLIC KEY-----\nMIIB\n-----END PUBLIC KEY-----\n', fingerprint: 'fp-1' };
 
-function localUser(username: string, superUser = true): LocalUser {
+function localUser(username: string, superUser = true, active = true): LocalUser {
 	return {
-		active: true,
+		active,
 		username,
 		role: {
 			id: 'r1',
@@ -66,8 +89,8 @@ function localUser(username: string, superUser = true): LocalUser {
 	};
 }
 
-/** A failed operations request as axios rejects it; no `status` is a network error. */
-function failedRequest(status?: number, operation = 'login') {
+/** A failed request as axios rejects it; no `status` is a network error. */
+function failedRequest(status?: number, operation = 'login', data?: Record<string, unknown>) {
 	const config = { data: JSON.stringify({ operation }), headers: new AxiosHeaders() };
 	if (status === undefined) {
 		return new AxiosError('Network Error', AxiosError.ERR_NETWORK, config);
@@ -75,7 +98,7 @@ function failedRequest(status?: number, operation = 'login') {
 	return new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_REQUEST, config, undefined, {
 		status,
 		statusText: '',
-		data: { error: status === 401 ? 'Login failed' : 'Unavailable' },
+		data: data ?? { error: status === 401 ? 'Login failed' : 'Unavailable' },
 		headers: {},
 		config,
 	});
@@ -94,10 +117,105 @@ function conflict(error: string) {
 	});
 }
 
+/**
+ * A 5.4 node as the sealed path sees it. Every proxied request runs as the record-less `local` super user; a token
+ * mint with credentials checks them and names that user, and one without names the first active stored super user.
+ */
+class SealedNode {
+	readonly tokenPrefix = 'token:';
+	users = new Map<string, { password?: string; superUser: boolean; active: boolean }>();
+	operations: string[] = [];
+	clients: AxiosInstance[] = [];
+	/** Runs while a token's `user_info` is in flight, once. */
+	beforeUserInfo?: () => Promise<void>;
+
+	reset() {
+		this.users = new Map([[defaultClusterUsername, { superUser: true, active: true }]]);
+		this.operations = [];
+		this.clients = [];
+		this.beforeUserInfo = undefined;
+	}
+
+	userInfo(username: string): LocalUser {
+		const user = this.users.get(username);
+		if (!user) {
+			throw failedRequest(401, 'user_info');
+		}
+		return localUser(username, user.superUser, user.active);
+	}
+
+	async run(
+		{ op, instanceClient }: { op: Record<string, unknown> & { operation: string }; instanceClient: AxiosInstance },
+	) {
+		this.operations.push(op.operation);
+		this.clients.push(instanceClient);
+		const result = this.execute(op);
+		if (result.status >= 400) {
+			throw new SealedOperationError(op.operation, result);
+		}
+		return result;
+	}
+
+	execute(op: Record<string, unknown> & { operation: string }): { status: number; body: unknown } {
+		const username = op.username as string;
+		switch (op.operation) {
+			case 'add_user':
+				if (this.users.has(username)) {
+					return { status: 409, body: { error: `User ${username} already exists` } };
+				}
+				this.users.set(username, {
+					password: op.password as string,
+					superUser: op.role === 'super_user',
+					active: true,
+				});
+				return { status: 200, body: { message: `${username} successfully added` } };
+			case 'alter_user': {
+				const user = this.users.get(username);
+				if (!user) {
+					return { status: 404, body: { error: `User ${username} does not exist` } };
+				}
+				user.password = op.password as string;
+				return { status: 200, body: { message: 'updated' } };
+			}
+			case 'drop_user':
+				if (!this.users.delete(username)) {
+					return { status: 404, body: { error: `User ${username} does not exist` } };
+				}
+				return { status: 200, body: { message: `${username} successfully deleted` } };
+			case 'list_users':
+				return {
+					status: 200,
+					body: [...this.users].map(([name, { superUser, active }]) => localUser(name, superUser, active)),
+				};
+			case 'create_authentication_tokens': {
+				const named = username ? this.users.get(username) : undefined;
+				if (username && (!named || named.password !== op.password)) {
+					return { status: 401, body: { error: 'Invalid credentials' } };
+				}
+				const subject = username || [...this.users].find(([, user]) => user.superUser && user.active)?.[0];
+				if (!subject) {
+					return { status: 409, body: { error: 'No stored super user to mint a token for' } };
+				}
+				return {
+					status: 200,
+					body: { operation_token: this.tokenPrefix + subject, refresh_token: 'refresh:' + subject },
+				};
+			}
+			default:
+				return { status: 400, body: { error: `${op.operation} cannot be sealed` } };
+		}
+	}
+}
+
+const sealedNode = new SealedNode();
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	provisioningAccountDropped = false;
 	ownerIsSuperUser = true;
+	sealedNode.reset();
+	fetchClusterKey.mockResolvedValue(CLUSTER_KEY);
+	runSealedOperation.mockImplementation((params: Parameters<SealedNode['run']>[0]) => sealedNode.run(params));
 	onInstanceLoginSubmit.mockReset();
 	onInstanceLoginSubmit.mockImplementation(async ({ username }: { username: string }) => ({
 		message: 'Login successful',
@@ -117,8 +235,11 @@ afterEach(() => {
 	localStorage.clear();
 });
 
-function resetPassword(desiredUsername: string) {
-	const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+function resetPassword(
+	desiredUsername: string,
+	overrides: { sealedSetup?: { keyFingerprint: string }; tempPassword?: string; clusterKeyPending?: boolean } = {},
+) {
+	const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } });
 	const { result } = renderHook(() => useInstanceResetPasswordMutation(), {
 		wrapper: ({ children }: { children: ReactNode }) => (
 			<QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -132,6 +253,7 @@ function resetPassword(desiredUsername: string) {
 		desiredUsername,
 		newPassword: 'new-password',
 		tempPassword: 'temp-password',
+		...overrides,
 	});
 }
 
@@ -500,5 +622,267 @@ describe('an interrupted setup: the setup account is gone, the admin exists, and
 		expect(onInstanceLoginSubmit).toHaveBeenCalledTimes(1);
 		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
 		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+	});
+});
+
+describe('sealed setup on a 5.4.0+ cluster', () => {
+	const SEALED = { sealedSetup: { keyFingerprint: 'fp-1' }, tempPassword: undefined };
+	const sealed = (desiredUsername: string) => resetPassword(desiredUsername, SEALED);
+
+	function expectNothingDirect() {
+		expect(onInstanceLoginSubmit).not.toHaveBeenCalled();
+		expect(onAddUserSubmit).not.toHaveBeenCalled();
+		expect(onAlterUser).not.toHaveBeenCalled();
+		expect(onDeleteUser).not.toHaveBeenCalled();
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+	}
+
+	function expectNothingSignedIn() {
+		expect(authStore.getOperationToken('clu-1')).toBeUndefined();
+		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
+		expect(authStore.getConnectionById('clu-1').user).toBeNull();
+	}
+
+	it("seals the admin, proves its sign-in with the admin's own tokens, drops the provisioning account, tells central manager, then connects", async () => {
+		const { user } = await sealed(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(sealedNode.operations).toEqual(['add_user', 'create_authentication_tokens', 'drop_user']);
+		expect(vi.mocked(resetPasswordUpdater).mock.invocationCallOrder[0]).toBeGreaterThan(
+			runSealedOperation.mock.invocationCallOrder.at(-1)!,
+		);
+		expect(fetchClusterKey).toHaveBeenCalledWith(
+			expect.objectContaining({ entityId: 'clu-1', managedClusterId: 'clu-1' }),
+		);
+		expect(runSealedOperation.mock.calls.map(([{ op }]) => op)).toEqual([
+			{ operation: 'add_user', username: OWNER, password: 'new-password', role: 'super_user', active: true },
+			{ operation: 'create_authentication_tokens', username: OWNER, password: 'new-password' },
+			{ operation: 'drop_user', username: defaultClusterUsername },
+		]);
+		expect(runSealedOperation.mock.calls[0][0]).toMatchObject({ key: CLUSTER_KEY });
+		for (const [params] of runSealedOperation.mock.calls) {
+			expect(params).toMatchObject({ mode: 'fields', visibleFields: ['role', 'active'] });
+		}
+		for (const instanceClient of sealedNode.clients) {
+			expect(instanceClient.defaults.baseURL).toContain('/Cluster/clu-1/operation');
+		}
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(false);
+		expect(authStore.getOperationToken('clu-1')).toBe(`token:${OWNER}`);
+		expect(authStore.getConnectionById('clu-1').user).toMatchObject({ username: OWNER });
+		expectNothingDirect();
+	});
+
+	it('sets the password of the provisioning account instead when the form names it, and drops nothing', async () => {
+		const { user } = await sealed(defaultClusterUsername);
+
+		expect(user?.username).toBe(defaultClusterUsername);
+		expect(sealedNode.operations).toEqual(['alter_user', 'create_authentication_tokens']);
+		expect(runSealedOperation.mock.calls.every(([params]) => params.mode === 'fields')).toBe(true);
+		expect(sealedNode.users.get(defaultClusterUsername)?.password).toBe('new-password');
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expectNothingDirect();
+	});
+
+	it('adopts an admin an earlier attempt created, once it is an active super user', async () => {
+		sealedNode.users.set(OWNER, { password: 'first-password', superUser: true, active: true });
+
+		const { user } = await sealed(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(sealedNode.operations).toEqual([
+			'add_user',
+			'list_users',
+			'alter_user',
+			'create_authentication_tokens',
+			'drop_user',
+		]);
+		expect(sealedNode.users.get(OWNER)?.password).toBe('new-password');
+		expect(runSealedOperation.mock.calls.every(([params]) => params.mode === 'fields')).toBe(true);
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		['not a super user', { superUser: false, active: true }],
+		['inactive', { superUser: true, active: false }],
+	])('refuses, changing nothing, when the user that exists is %s', async (_, state) => {
+		sealedNode.users.set(OWNER, { password: 'first-password', ...state });
+
+		await expect(sealed(OWNER)).rejects.toThrow("already exists on this cluster but isn't an active super user");
+
+		expect(sealedNode.operations).toEqual(['add_user', 'list_users']);
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(true);
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+	});
+
+	it('finishes when an earlier attempt already dropped the provisioning account and never told central manager', async () => {
+		sealedNode.users.delete(defaultClusterUsername);
+		sealedNode.users.set(OWNER, { password: 'first-password', superUser: true, active: true });
+
+		const { user } = await sealed(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(sealedNode.operations).toEqual([
+			'add_user',
+			'list_users',
+			'alter_user',
+			'create_authentication_tokens',
+			'drop_user',
+		]);
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+	});
+
+	it("mints for the form's admin and no other super user another attempt may have left", async () => {
+		sealedNode.users.set('alice@example.com', { password: 'alice', superUser: true, active: true });
+
+		const { user } = await sealed(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(authStore.getOperationToken('clu-1')).toBe(`token:${OWNER}`);
+	});
+
+	it.each([
+		[
+			'the node holds no custody',
+			() =>
+				runSealedOperation.mockRejectedValueOnce(
+					failedRequest(503, 'encrypted_operation', { error: 'secrets custody is not initialized on this node' }),
+				),
+		],
+		[
+			'the envelope is refused',
+			() =>
+				runSealedOperation.mockRejectedValueOnce(
+					failedRequest(400, 'encrypted_operation', { error: 'The envelope could not be decrypted' }),
+				),
+		],
+	])(
+		'surfaces the refusal, changes nothing, and never falls back to a plaintext request when %s',
+		async (_, arrange) => {
+			arrange();
+
+			await expect(sealed(OWNER)).rejects.toThrow();
+
+			expect(sealedNode.users.has(defaultClusterUsername)).toBe(true);
+			expect(resetPasswordUpdater).not.toHaveBeenCalled();
+			expectNothingSignedIn();
+			expectNothingDirect();
+		},
+	);
+
+	it('does not drop the provisioning account when the admin cannot sign in', async () => {
+		runSealedOperation.mockImplementation(async (params: Parameters<SealedNode['run']>[0]) => {
+			if (params.op.operation === 'create_authentication_tokens') {
+				throw new SealedOperationError(params.op.operation, { status: 401, body: { error: 'Invalid credentials' } });
+			}
+			return sealedNode.run(params);
+		});
+
+		await expect(sealed(OWNER)).rejects.toThrow('Invalid credentials');
+
+		expect(sealedNode.operations).toEqual(['add_user']);
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(true);
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+	});
+
+	it('surfaces a drop that fails and sends no PATCH, so a retry can finish', async () => {
+		runSealedOperation.mockImplementation(async (params: Parameters<SealedNode['run']>[0]) => {
+			if (params.op.operation === 'drop_user') {
+				throw failedRequest(502, 'encrypted_operation', { error: 'Bad gateway' });
+			}
+			return sealedNode.run(params);
+		});
+
+		await expect(sealed(OWNER)).rejects.toThrow();
+		expect(resetPasswordUpdater).not.toHaveBeenCalled();
+
+		runSealedOperation.mockImplementation((params: Parameters<SealedNode['run']>[0]) => sealedNode.run(params));
+		const { user } = await sealed(OWNER);
+
+		expect(user?.username).toBe(OWNER);
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(false);
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps a connection that replaced its own while it was connecting, finishing without a user', async () => {
+		const signOut = vi.spyOn(authStore, 'signOutLocally');
+		sealedNode.beforeUserInfo = async () => {
+			sealedNode.beforeUserInfo = undefined;
+			await authStore.establishFabricConnectAuth({ id: 'clu-1', operationsUrl: CLUSTER_URL });
+		};
+
+		const { user } = await sealed(OWNER);
+
+		expect(user).toBeNull();
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(signOut.mock.calls.map(([id]) => id)).toEqual(['clu-1', 'ins-1']);
+		expect(authStore.getOperationToken('clu-1')).toBe('provisioning-token');
+		expect(authStore.getConnectionById('clu-1').user).toMatchObject({ username: defaultClusterUsername });
+	});
+
+	it('says the key is still on its way when a 5.4 cluster has no temporary password and no key on every member', async () => {
+		await expect(resetPassword(OWNER, { tempPassword: undefined, clusterKeyPending: true })).rejects.toThrow(
+			"hasn't reported every member's Harper version and secrets key yet",
+		);
+		await expect(resetPassword(OWNER, { tempPassword: undefined })).rejects.toThrow('may not have permission');
+		expect(onInstanceLoginSubmit).not.toHaveBeenCalled();
+	});
+
+	it('finishes signed out, after telling central manager, when the cluster cannot be reached directly', async () => {
+		runSealedOperation.mockImplementation(async (params: Parameters<SealedNode['run']>[0]) => {
+			const result = await sealedNode.run(params);
+			return params.op.operation === 'create_authentication_tokens'
+				? { ...result, body: { operation_token: 'token:unreachable', refresh_token: 'r' } }
+				: result;
+		});
+
+		const signOut = vi.spyOn(authStore, 'signOutLocally');
+		const { user } = await sealed(OWNER);
+
+		expect(user).toBeNull();
+		expect(resetPasswordUpdater).toHaveBeenCalledTimes(1);
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+		expect(signOut.mock.calls.map(([id]) => id)).toEqual(['clu-1', 'ins-1']);
+		expectNothingSignedIn();
+	});
+
+	it('leaves the admin unconnected when a sign-out lands during setup, keeping no token in a signed-out tab', async () => {
+		vi.mocked(resetPasswordUpdater).mockImplementationOnce(async () => {
+			authStore.signOutLocally('clu-1');
+		});
+
+		const { user } = await sealed(OWNER);
+
+		expect(user).toBeNull();
+		expect(sealedNode.users.has(defaultClusterUsername)).toBe(false);
+		expectNothingSignedIn();
+	});
+
+	it('refetches a key whose fingerprint is not the one the members hold, and refuses one that stays different', async () => {
+		fetchClusterKey.mockResolvedValueOnce({ ...CLUSTER_KEY, fingerprint: 'fp-0' });
+		const { user } = await sealed(OWNER);
+		expect(user?.username).toBe(OWNER);
+		expect(fetchClusterKey).toHaveBeenCalledTimes(2);
+
+		sealedNode.reset();
+		fetchClusterKey.mockResolvedValue({ ...CLUSTER_KEY, fingerprint: 'fp-0' });
+		await expect(sealed(OWNER)).rejects.toThrow('not the one its members hold');
+		expect(sealedNode.operations).toEqual([]);
+	});
+
+	it('surfaces a failure to fetch the key rather than falling back to the temporary password', async () => {
+		const outage = failedRequest(503, 'get_secrets_public_key');
+		fetchClusterKey.mockRejectedValueOnce(outage);
+
+		await expect(sealed(OWNER)).rejects.toBe(outage);
+
+		expect(runSealedOperation).not.toHaveBeenCalled();
+		expectNothingDirect();
+	});
+
+	it('never looks for the key, or seals anything, below 5.4.0', async () => {
+		await resetPassword(OWNER);
+
+		expect(fetchClusterKey).not.toHaveBeenCalled();
+		expect(runSealedOperation).not.toHaveBeenCalled();
 	});
 });

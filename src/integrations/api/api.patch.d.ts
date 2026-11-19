@@ -418,6 +418,9 @@ export interface Instance extends Omit<SchemaHdbInstance, 'cluster' | 'instanceF
 	// The `models` entries central manager set up for the instance, with each token masked. Returned by
 	// the CM but not yet in the generated OpenAPI schema.
 	modelsConfig?: unknown;
+	// The fingerprint of the cluster secrets key central manager delivered to the instance's host, stamped when the
+	// key exists. Returned by the CM but not yet in the generated OpenAPI schema.
+	secretsKeyFingerprint?: string;
 }
 
 export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {

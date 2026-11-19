@@ -1,5 +1,6 @@
 import { UnconfirmedWriteError } from '@/features/instance/extensions/dataSource';
 import { ImportJobError, ImportJobUnconfirmedError } from '@/integrations/api/instance/database/getJob';
+import { SealedOperationError, UnreadableSealedAnswerError } from '@/integrations/api/instance/sealedOperation';
 import {
 	RESTART_UNCONFIRMED_MESSAGE,
 	RESTART_UNCONFIRMED_TITLE,
@@ -440,6 +441,47 @@ describe('a write that got no verdict', () => {
 			description: UNANSWERED_WRITE_MESSAGE,
 			message: UNANSWERED_WRITE_MESSAGE,
 		});
+	});
+
+	it('counts an unanswered sealed operation as a write, whatever it sealed', () => {
+		expect(describeError(gatewayTimeout(sent({ operation: 'encrypted_operation', envelope: 'enc:v1:x' }))))
+			.toMatchObject({
+				title: OUTCOME_UNKNOWN_TITLE,
+			});
+	});
+
+	it('includes a sealed operation that ran but could not return its result', () => {
+		const executed = new SealedOperationError('drop_user', {
+			status: 500,
+			body: { error: 'serialization failed' },
+			executed: true,
+		});
+		expect(describeError(executed)).toMatchObject({
+			title: OUTCOME_UNKNOWN_TITLE,
+			description:
+				'The cluster ran drop_user but could not return its result. Check whether it took effect before you try again.',
+		});
+		expect(shouldToastOwnFailure(executed)).toBe(false);
+	});
+
+	it('includes a sealed operation whose answer could not be read', () => {
+		const unreadable = new UnreadableSealedAnswerError('drop_user', new Error('tag'));
+		expect(describeError(unreadable)).toMatchObject({ title: OUTCOME_UNKNOWN_TITLE });
+		expect(shouldToastOwnFailure(unreadable)).toBe(false);
+	});
+
+	it('leaves a sealed read that may have run to the usual extraction', () => {
+		const unreadable = new UnreadableSealedAnswerError('list_users', new Error('tag'));
+		expect(describeError(unreadable)).toMatchObject({ description: unreadable.message });
+		expect(shouldToastOwnFailure(unreadable)).toBe(true);
+		const executed = new SealedOperationError('list_users', { status: 500, body: {}, executed: true });
+		expect(shouldToastOwnFailure(executed)).toBe(true);
+	});
+
+	it("describes a sealed operation's own refusal by its text, as a plain failure", () => {
+		const refused = new SealedOperationError('add_user', { status: 409, body: { error: 'User x already exists' } });
+		expect(describeError(refused)).toMatchObject({ description: 'User x already exists' });
+		expect(shouldToastOwnFailure(refused)).toBe(true);
 	});
 
 	it('leaves a read with the same failure to the usual extraction', () => {

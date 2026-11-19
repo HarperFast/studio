@@ -2,9 +2,13 @@ import { defaultClusterUsername } from '@/config/constants';
 import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
+import { SealedSetupCapability } from '@/features/cluster/sealedSetup';
 import { LocalUser } from '@/integrations/api/api.patch';
+import { isSealedRefusal, runSealedOperation } from '@/integrations/api/instance/sealedOperation';
+import { SecretsPublicKey, secretsPublicKeyQueryOptions } from '@/integrations/api/instance/secrets/secrets';
 import { operationOf } from '@/integrations/api/isReadOperation';
-import { useMutation } from '@tanstack/react-query';
+import { SealableOperation } from '@/lib/crypto/sealedOperation';
+import { QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
 import { type AxiosInstance, isAxiosError } from 'axios';
 import { onAddUserSubmit } from './addUser';
 import { onAlterUser } from './alterUser';
@@ -21,6 +25,9 @@ interface InstanceResetPasswordParams {
 	desiredUsername: string;
 	newPassword: string;
 	tempPassword: string | undefined;
+	sealedSetup?: SealedSetupCapability;
+	/** The members could seal, but central manager has not filled in a version and one key for all of them yet. */
+	clusterKeyPending?: boolean;
 }
 
 interface InstanceResetPasswordResponse {
@@ -29,7 +36,17 @@ interface InstanceResetPasswordResponse {
 	user: LocalUser | null;
 }
 
-async function onInstanceResetPassword({
+async function onInstanceResetPassword(
+	queryClient: QueryClient,
+	params: InstanceResetPasswordParams,
+): Promise<InstanceResetPasswordResponse> {
+	if (params.sealedSetup) {
+		return finishSetupSealed(queryClient, params, params.sealedSetup);
+	}
+	return finishSetupWithTemporaryPassword(params);
+}
+
+async function finishSetupWithTemporaryPassword({
 	clusterId,
 	operationsUrl,
 	signInIds,
@@ -37,10 +54,15 @@ async function onInstanceResetPassword({
 	desiredUsername,
 	newPassword,
 	tempPassword,
+	clusterKeyPending,
 }: InstanceResetPasswordParams): Promise<InstanceResetPasswordResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
-		throw new Error('You may not have permission to set the password on this cluster.');
+		throw new Error(
+			clusterKeyPending
+				? "The cluster hasn't reported every member's Harper version and secrets key yet, so the admin user can't be created. Try again in a moment."
+				: 'You may not have permission to set the password on this cluster.',
+		);
 	}
 	// A connection made before setup is the provisioning account's: every step below would run as it, whatever
 	// credentials they present, and it stops working once that account is dropped.
@@ -132,6 +154,123 @@ async function onInstanceResetPassword({
 		return { message: loginResponse.message, user };
 	}
 	return loginResponse;
+}
+
+const SETUP_VISIBLE_FIELDS = ['role', 'active'];
+
+function clusterKeyQuery(clusterId: string) {
+	return secretsPublicKeyQueryOptions({
+		entityId: clusterId,
+		instanceClient: getInstanceClient({ id: clusterId, forceFabricConnect: true }),
+		managedClusterId: clusterId,
+	});
+}
+
+async function refetchClusterKey(queryClient: QueryClient, clusterId: string): Promise<SecretsPublicKey> {
+	queryClient.removeQueries({ queryKey: clusterKeyQuery(clusterId).queryKey });
+	return queryClient.ensureQueryData(clusterKeyQuery(clusterId));
+}
+
+/** See "Setup on 5.4.0+ seals its writes through the proxy" in `src/features/cluster/DESIGN.md`. */
+async function finishSetupSealed(
+	queryClient: QueryClient,
+	{ clusterId, operationsUrl, signInIds, desiredUsername, newPassword }: InstanceResetPasswordParams,
+	{ keyFingerprint }: SealedSetupCapability,
+): Promise<InstanceResetPasswordResponse> {
+	authStore.signOutEntitiesLocally(signInIds);
+	const signOutGeneration = authStore.getSignOutGeneration(clusterId);
+	// The members hold the key by its fingerprint; a cached key with another is stale, and one that stays different
+	// after a fresh read is a cluster whose key is changing under setup.
+	let key = await queryClient.ensureQueryData(clusterKeyQuery(clusterId));
+	if (key.fingerprint !== keyFingerprint) {
+		key = await refetchClusterKey(queryClient, clusterId);
+		if (key.fingerprint !== keyFingerprint) {
+			throw new Error(
+				"Couldn't finish setup: central manager's key for this cluster is not the one its members hold. Try again in a moment.",
+			);
+		}
+	}
+	const instanceClient = getInstanceClient({ id: clusterId, forceFabricConnect: true });
+	const refreshKey = async () => (key = await refetchClusterKey(queryClient, clusterId));
+	// Fields mode, so central manager's proxy log records which operation ran; usernames and passwords stay sealed.
+	const seal = (op: SealableOperation) =>
+		runSealedOperation({
+			instanceClient,
+			op,
+			key,
+			refreshKey,
+			actor: 'Studio Finish Setup',
+			mode: 'fields',
+			visibleFields: SETUP_VISIBLE_FIELDS,
+		});
+
+	if (desiredUsername === defaultClusterUsername) {
+		await seal({ operation: 'alter_user', username: desiredUsername, password: newPassword });
+	} else {
+		try {
+			await seal({
+				operation: 'add_user',
+				username: desiredUsername,
+				password: newPassword,
+				role: 'super_user',
+				active: true,
+			});
+		} catch (err) {
+			if (!isSealedRefusal(err, 409, `User ${desiredUsername} already exists`)) {
+				throw err;
+			}
+			// An earlier attempt created the admin and stopped before the drop: adopt it, as the direct flow does. The
+			// password set below does not activate a user, so an inactive one could never sign in afterwards.
+			const users = (await seal({ operation: 'list_users' })).body as LocalUser[];
+			const existing = users.find((user) => user.username === desiredUsername);
+			if (existing?.role?.permission?.super_user !== true || !existing.active) {
+				throw new Error(
+					`Couldn't finish setup: "${desiredUsername}" already exists on this cluster but isn't an active super user. Choose another username.`,
+				);
+			}
+			await seal({ operation: 'alter_user', username: desiredUsername, password: newPassword });
+		}
+	}
+	// With the typed credentials the node names the admin, not its first stored super user; and a wrong password stops
+	// setup while the provisioning account still exists.
+	const minted =
+		(await seal({ operation: 'create_authentication_tokens', username: desiredUsername, password: newPassword }))
+			.body as { operation_token?: string; refresh_token?: string };
+	if (!minted?.operation_token) {
+		throw new Error("Couldn't finish setup: the cluster did not return a token for the new admin.");
+	}
+	if (desiredUsername !== defaultClusterUsername) {
+		try {
+			await seal({ operation: 'drop_user', username: defaultClusterUsername });
+		} catch (err) {
+			if (!isSealedRefusal(err, 404, `User ${defaultClusterUsername} does not exist`)) {
+				throw err;
+			}
+		}
+	}
+	await resetPasswordUpdater(clusterId);
+
+	// Setup is done; this only connects the browser as the admin, directly or not at all. A connect that fails has
+	// already cleared its own state, and one another connect replaced must not sign that one out.
+	if (authStore.getSignOutGeneration(clusterId) !== signOutGeneration) {
+		return { message: 'Login successful', user: null };
+	}
+	const user = await authStore.establishFabricConnectAuth({
+		id: clusterId,
+		operationsUrl,
+		tokens: { operationToken: minted.operation_token, refreshToken: minted.refresh_token },
+	}).catch((error: unknown) => {
+		console.debug('Could not connect after setup', error instanceof Error ? error.message : error);
+		return null;
+	});
+	if (!user) {
+		return { message: 'Login successful', user: null };
+	}
+	if (user.username !== desiredUsername || user.role?.permission?.super_user !== true || !user.active) {
+		authStore.signOutLocally(clusterId);
+		return { message: 'Login successful', user: null };
+	}
+	return { message: 'Login successful', user };
 }
 
 function isLoginRefused(error: unknown): boolean {
@@ -274,7 +413,8 @@ async function finishInterruptedSetup({
 }
 
 export function useInstanceResetPasswordMutation() {
+	const queryClient = useQueryClient();
 	return useMutation<InstanceResetPasswordResponse, Error, InstanceResetPasswordParams>({
-		mutationFn: onInstanceResetPassword,
+		mutationFn: (params) => onInstanceResetPassword(queryClient, params),
 	});
 }

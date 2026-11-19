@@ -21,7 +21,8 @@
 		"**/*-lock.json",
 		"pnpm-lock.yaml",
 		"src/assets/**",
-		"src/integrations/api/api.gen.d.ts"
+		"src/integrations/api/api.gen.d.ts",
+		"src/lib/crypto/__tests__/harper-v5.4.0/**"
 	],
 	"plugins": [
 		"https://plugins.dprint.dev/typescript-0.95.13.wasm",
