@@ -55,6 +55,7 @@ export type StaffPermission =
 	| 'cluster:connectReadOnly'
 	| 'instance:read'
 	| 'instance:update'
+	| 'billing:read'
 	| 'billing:write'
 	| 'config:read'
 	| 'config:write'

@@ -16,6 +16,7 @@ vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => true }));
 vi.mock('@/hooks/usePermissions', () => ({
 	useOrganizationPermissions: () => ({ update: true, remove: true }),
 	useOrganizationRolePermissions: () => ({ view: true }),
+	useOrganizationBillingPermissions: () => ({ view: true, manage: true }),
 }));
 vi.mock('@/hooks/useCopyToClipboard', () => ({ useCopyToClipboard: () => [() => {}] }));
 vi.mock('@/features/organization/modals/AddCouponModal', () => ({ AddCouponModal: () => null }));

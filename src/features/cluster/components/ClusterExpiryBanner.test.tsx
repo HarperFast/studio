@@ -8,12 +8,13 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterExpiryBanner } from './ClusterExpiryBanner';
 
-const orgPermissions = { update: true };
-vi.mock('@/hooks/usePermissions', () => ({ useOrganizationPermissions: () => orgPermissions }));
+const billingPermissions = { view: true, manage: true };
+vi.mock('@/hooks/usePermissions', () => ({ useOrganizationBillingPermissions: () => billingPermissions }));
 
 afterEach(() => {
 	cleanup();
-	orgPermissions.update = true;
+	billingPermissions.view = true;
+	billingPermissions.manage = true;
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -146,7 +147,7 @@ describe('ClusterExpiryBanner', () => {
 		});
 
 		it('tells anyone who cannot manage billing to ask an admin', async () => {
-			orgPermissions.update = false;
+			billingPermissions.manage = false;
 			await renderBanner(paymentStopped());
 			expect(screen.getByRole('alert').textContent).toContain(
 				'Ask an organization admin to update the payment method.',

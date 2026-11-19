@@ -5,7 +5,11 @@ import { EntityContextMenu, type EntityMenuItem, renderEntityMenuItems } from '@
 import { AddCouponModal } from '@/features/organization/modals/AddCouponModal';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import {
+	useOrganizationBillingPermissions,
+	useOrganizationPermissions,
+	useOrganizationRolePermissions,
+} from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
@@ -38,7 +42,7 @@ export function OrgCard({
 	const orgHref = buildAbsoluteLinkToPage(orgIds);
 	const [copyId] = useCopyToClipboard(organizationId);
 	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
-	const showBilling = canUpdateOrganization;
+	const { view: showBilling } = useOrganizationBillingPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const canAddCoupon = useStaffPermission('billing:write');
 

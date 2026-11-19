@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { useOrganizationBillingPermissions } from '@/hooks/usePermissions';
 import { billedThroughStripe, isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import {
 	translateStripePaymentMethodStatusToText,
@@ -22,7 +22,7 @@ interface PaymentMethodsDisplayProps {
 export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	const { onSaveStateForBillingRedirect, onReplacingPaymentMethod } = props ?? {};
 	const { organizationId } = useParams({ strict: false });
-	const { update } = useOrganizationPermissions(organizationId);
+	const { manage } = useOrganizationBillingPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const paymentMethod = billing?.paymentMethod;
@@ -45,7 +45,7 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	// A contract bills an unrestricted organization's clusters, and the page stays as it always was until
 	// one of them is on paid terms; from then on its card is managed here like anyone else's.
 	const contracted = isUnrestrictedOrgType(organization?.type);
-	if (contracted && (!billedThroughStripe(organization) || (!paymentMethod && !update))) {
+	if (contracted && (!billedThroughStripe(organization) || (!paymentMethod && !manage))) {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this page.
@@ -81,7 +81,7 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 						)
 						: null}
 				</div>
-				{update && (
+				{manage && (
 					<div className="mt-2 mb-6">
 						<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
 							Replace Payment Method
@@ -92,7 +92,7 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		);
 	}
 
-	if (!update) {
+	if (!manage) {
 		return (
 			<div>
 				This org doesn't have a payment method, and you don't have access to add one. Please contact your administrator.

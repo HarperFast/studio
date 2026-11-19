@@ -6,6 +6,7 @@ import {
 	canManageServiceAccounts,
 	getChatPermission,
 	getContainerOpsPermission,
+	getOrganizationBillingPermissions,
 	getOrganizationClusterInstancePermissions,
 	getOrganizationClusterPermissions,
 } from './usePermissions';
@@ -186,5 +187,33 @@ describe('canManageServiceAccounts', () => {
 			.toBe(
 				false,
 			);
+	});
+});
+
+describe('getOrganizationBillingPermissions', () => {
+	const fabricStaff = staff(['org:read', 'billing:read', 'billing:write']);
+
+	it('opens the billing pages and the card to billing:write staff without org:update', () => {
+		expect(getOrganizationBillingPermissions(fabricStaff, ORG)).toEqual({ view: true, manage: true });
+	});
+
+	it('shows billing:read staff the pages but not the card controls', () => {
+		expect(getOrganizationBillingPermissions(staff(['org:read', 'billing:read']), ORG)).toEqual({
+			view: true,
+			manage: false,
+		});
+	});
+
+	it('keeps staff org:update in both', () => {
+		expect(getOrganizationBillingPermissions(staff(['org:update']), ORG)).toEqual({ view: true, manage: true });
+	});
+
+	it('keeps the org-update rule for members, and refuses a member without it', () => {
+		const roles = (update: boolean) =>
+			({ [ORG]: { permission: null, organization: { update, delete: false } } }) as unknown as User['roles'];
+		const member = (update: boolean) =>
+			({ fabricRole: 'least_privileged', staffPermissions: [], roles: roles(update) }) as unknown as User;
+		expect(getOrganizationBillingPermissions(member(true), ORG)).toEqual({ view: true, manage: true });
+		expect(getOrganizationBillingPermissions(member(false), ORG)).toEqual({ view: false, manage: false });
 	});
 });
