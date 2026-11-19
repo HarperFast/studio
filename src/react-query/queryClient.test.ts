@@ -265,6 +265,24 @@ describe('errorHandler', () => {
 		);
 	});
 
+	// The code is the error class central manager threw, which names nothing a customer can act on.
+	it('titles a 402 as a payment problem rather than by its error class', () => {
+		const message = 'This cluster was stopped because a payment failed. Update the payment method to start it again.';
+		const axiosError = {
+			response: {
+				status: 402,
+				data: { type: 'error:ClientError', code: 'ClientError', title: message, status: 402 },
+			},
+		} as AxiosError<ProblemDetails>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'Payment required',
+			expect.objectContaining({ description: message }),
+		);
+	});
+
 	it('appends the RFC 9457 detail to the description when present', () => {
 		const axiosError = {
 			response: {
