@@ -35,7 +35,7 @@ const signInRoute = createRoute({
 				// on a sign-in page that sends the user straight on again.
 				throw redirect({ href: target.href, reloadDocument: true });
 			}
-			throw redirect({ to: target?.to ?? getDefaultSignedInCloudRouteForUser(user) });
+			throw redirect(target ? { href: target.to } : { to: getDefaultSignedInCloudRouteForUser(user) });
 		}
 	},
 });
@@ -48,7 +48,11 @@ const localSignInRoute = createRoute({
 	beforeLoad: ({ context, location }) => {
 		if (guardedAppSignIn(context)?.user) {
 			const search: Record<string, unknown> = location?.search;
-			throw redirect({ to: appRedirectTarget(search?.redirect) ?? defaultInstanceRoute });
+			const target = appRedirectTarget(search?.redirect);
+			if (target) {
+				throw redirect({ href: target });
+			}
+			throw redirect({ to: defaultInstanceRoute });
 		}
 	},
 });

@@ -68,6 +68,21 @@ export function postSignInRedirectParam(redirect: unknown): string | undefined {
 	return target?.kind === 'server' ? target.href : target?.to;
 }
 
+/**
+ * The `redirect` from the fragment's own query (`#/check-oauth?redirect=…`), for the page the oauth plugin lands on.
+ * Not the router's search: the plugin puts `error` and `reason` before the `#`, and the hash history appends that query
+ * to the fragment's, so the last fragment param reads `state=s?error=access_denied`.
+ */
+export function redirectFromFragment(hash: string): string | undefined {
+	const queryStart = hash.indexOf('?');
+	if (queryStart === -1) {
+		return undefined;
+	}
+	const queryEnd = hash.indexOf('#', queryStart);
+	return new URLSearchParams(hash.slice(queryStart + 1, queryEnd === -1 ? undefined : queryEnd)).get('redirect')
+		?? undefined;
+}
+
 export function redirectSearch(redirect: unknown): { redirect: string } | undefined {
 	const param = postSignInRedirectParam(redirect);
 	return param === undefined ? undefined : { redirect: param };

@@ -36,6 +36,7 @@ vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 import { apiClient } from '@/config/apiClient';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import type { User } from '@/integrations/api/api.patch';
+import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { mutationErrorHandler, queryClient as appQueryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from '../describeAuthFailure';
@@ -318,14 +319,42 @@ describe('useCompleteCloudSignIn — redirect', () => {
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(ADA);
 	});
 
-	it('navigates to an in-app redirect', async () => {
-		hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+	// As `href`: `to` is a pathname, whose normalization turns the query's `https://` into `https:/`.
+	it('navigates to an in-app redirect, keeping its own query', async () => {
+		const deploy = '/org-1/clu-1/config/deploy-from-github?repository=https://github.com/Acme/shop.git';
+		hashSearch.current = { redirect: deploy };
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 
 		await act(() => result.current(ADA));
 
-		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/org-1/clu-1/usage' });
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: deploy });
 		expect(replace).not.toHaveBeenCalled();
+	});
+
+	it('follows the redirect its page hands it over the page search', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&state=s';
+		hashSearch.current = { redirect: `${mcpAuthorize}?error=access_denied` };
+		const { result } = renderHook(() => useCompleteCloudSignIn({ redirect: mcpAuthorize }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+	});
+
+	it('still follows it when the sign-in bookkeeping throws', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&state=s';
+		hashSearch.current = { redirect: mcpAuthorize };
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		vi.mocked(loginSuccessDatadogAction).mockImplementationOnce(() => {
+			throw new Error('analytics script failed');
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(consoleDebug).toHaveBeenCalledWith('Sign-in bookkeeping failed, carrying on:', expect.any(Error));
+		consoleDebug.mockRestore();
 	});
 
 	it.each([
@@ -340,6 +369,6 @@ describe('useCompleteCloudSignIn — redirect', () => {
 
 		expect(replace).not.toHaveBeenCalled();
 		expect(navigate).toHaveBeenCalledTimes(1);
-		expect(navigate.mock.calls[0][0].to).not.toBe(redirect);
+		expect(navigate.mock.calls[0][0]).toEqual({ to: expect.not.stringContaining('evil') });
 	});
 });

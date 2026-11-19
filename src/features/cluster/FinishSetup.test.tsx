@@ -117,17 +117,19 @@ describe(FinishSetup, () => {
 	describe('once the admin user is created', () => {
 		const destination = async () => {
 			await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
-			return navigate.mock.calls[0][0].to;
+			const { href, to } = navigate.mock.calls[0][0];
+			return href ?? to;
 		};
 
 		beforeEach(() => {
 			vi.spyOn(authStore, 'setUserForEntity').mockImplementation(() => undefined);
 		});
 
-		it('goes on to an in-app redirect', async () => {
-			hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+		it('goes on to an in-app redirect, keeping its query', async () => {
+			hashSearch.current = { redirect: '/org-1/clu-1/usage?tab=storage' };
 			await createAdminUser();
-			expect(await destination()).toBe('/org-1/clu-1/usage');
+			expect(await destination()).toBe('/org-1/clu-1/usage?tab=storage');
+			expect(navigate.mock.calls[0][0]).toEqual({ href: '/org-1/clu-1/usage?tab=storage' });
 		});
 
 		// The router decodes `?redirect=1` to a number and a repeated key to an array, neither of which is a path.

@@ -94,12 +94,14 @@ export function FinishSetup() {
 				await markClusterPasswordSet(queryClient, clusterId);
 				void router.invalidate();
 				const home = buildAbsoluteLinkToPage({ organizationId: cluster!.organizationId, clusterId });
-				await navigate({
-					to: appRedirectTarget(redirect)
+				const target = appRedirectTarget(redirect);
+				await navigate(
+					target
+						? { href: target }
 						// A cluster created for a preset goes straight on to installing it, now that someone
 						// who can is signed in. Signed out, its home offers the setup once they connect.
-						?? (user && preset ? `${home}/setup` : home),
-				});
+						: { to: user && preset ? `${home}/setup` : home },
+				);
 			},
 		});
 	}, [

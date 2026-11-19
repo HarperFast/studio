@@ -80,7 +80,11 @@ export function redirectAwayFromSignInIfConnected(
 	}
 	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
 	if (authStore.getConnectionById(params.clusterId).user && !isFabricConnect) {
-		throw redirect({ to: appRedirectTarget(location?.search?.redirect) ?? defaultInstanceRouteUpOne });
+		const target = appRedirectTarget(location?.search?.redirect);
+		if (target) {
+			throw redirect({ href: target });
+		}
+		throw redirect({ to: defaultInstanceRouteUpOne });
 	}
 }
 
@@ -98,7 +102,11 @@ export function redirectAwayFromInstanceSignInIfConnected(
 	// flag must not suppress the redirect for an instance that is directly connected in its own right.
 	const isFabricConnect = authStore.checkForFabricConnect(params.instanceId);
 	if (authStore.getConnectionById(params.instanceId).user && !isFabricConnect) {
-		throw redirect({ to: appRedirectTarget(location?.search?.redirect) ?? defaultInstanceRouteUpOne });
+		const target = appRedirectTarget(location?.search?.redirect);
+		if (target) {
+			throw redirect({ href: target });
+		}
+		throw redirect({ to: defaultInstanceRouteUpOne });
 	}
 }
 

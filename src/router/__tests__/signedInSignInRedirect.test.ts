@@ -54,6 +54,15 @@ describe('the sign-in page for a user who is already signed in', () => {
 		expect(assign).not.toHaveBeenCalled();
 	});
 
+	// `to` would read the query as part of the path and turn `https://` into `https:/`.
+	it("keeps an in-app redirect's own query", async () => {
+		const router = signInWith('/new-org?from=https://github.com/Acme/shop.git');
+		await router.load();
+
+		await vi.waitFor(() => expect(router.state.location.pathname).toBe('/new-org'));
+		expect(router.state.location.search).toEqual({ from: 'https://github.com/Acme/shop.git' });
+	});
+
 	it.each([
 		['another host', 'https://evil.example/oauth/mcp/authorize'],
 		['a protocol-relative host', '//evil.example/oauth/mcp/authorize'],

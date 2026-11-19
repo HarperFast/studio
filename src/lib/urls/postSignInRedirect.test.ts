@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { appRedirectTarget, postSignInRedirect, postSignInRedirectParam, redirectSearch } from './postSignInRedirect';
+import {
+	appRedirectTarget,
+	postSignInRedirect,
+	postSignInRedirectParam,
+	redirectFromFragment,
+	redirectSearch,
+} from './postSignInRedirect';
 
 // The return path central-manager's oauth plugin builds (`authorizeReturnPath`, `lib/mcp/sessionLogin.js`), as
 // TanStack Router hands it over once it has decoded `?redirect=` a single time.
@@ -109,6 +115,25 @@ describe('appRedirectTarget', () => {
 		['the authorize path, which only a Fabric sign-in follows', '/oauth/mcp/authorize?x=1'],
 	])('refuses %s', (_label, redirect) => {
 		expect(appRedirectTarget(redirect)).toBeUndefined();
+	});
+});
+
+describe('redirectFromFragment', () => {
+	const encoded = encodeURIComponent(MCP_AUTHORIZE);
+
+	it("reads redirect from the fragment's own query", () => {
+		expect(redirectFromFragment(`#/check-oauth?redirect=${encoded}`)).toBe(MCP_AUTHORIZE);
+		expect(redirectFromFragment(`#/check-oauth?redirect=${encoded}&oauth_handoff=code-1`)).toBe(MCP_AUTHORIZE);
+	});
+
+	it('stops at a second #', () => {
+		expect(redirectFromFragment(`#/check-oauth?redirect=${encoded}#section`)).toBe(MCP_AUTHORIZE);
+	});
+
+	it('finds none without one', () => {
+		expect(redirectFromFragment('#/check-oauth')).toBeUndefined();
+		expect(redirectFromFragment('#/check-oauth?oauth_handoff=code-1')).toBeUndefined();
+		expect(redirectFromFragment('')).toBeUndefined();
 	});
 });
 

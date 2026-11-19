@@ -46,9 +46,10 @@ export function useClusterInstanceSignIn({
 					}
 					authStore.setUserForEntity(entity, user);
 					void router.invalidate();
-					await navigate({
-						to: appRedirectTarget(redirect) ?? (isLocalStudio ? defaultInstanceRoute : defaultInstanceRouteUpOne),
-					});
+					const target = appRedirectTarget(redirect);
+					await (target
+						? navigate({ href: target })
+						: navigate({ to: isLocalStudio ? defaultInstanceRoute : defaultInstanceRouteUpOne }));
 				},
 			},
 		);

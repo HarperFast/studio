@@ -20,12 +20,16 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
-/** Resolves false when a sign-out landed before it could navigate. */
-export function useCompleteCloudSignIn() {
+/**
+ * Resolves false when a sign-out landed before it could navigate. `redirect` defaults to the page's search; a page whose
+ * search the router cannot read cleanly passes its own.
+ */
+export function useCompleteCloudSignIn(options?: { redirect: unknown }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
-	const { redirect } = useSearch({ strict: false });
+	const search = useSearch({ strict: false });
+	const redirect = options ? options.redirect : search.redirect;
 
 	return useCallback(async (user: User): Promise<boolean> => {
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
@@ -59,7 +63,8 @@ export function useCompleteCloudSignIn() {
 			return true;
 		}
 		void router.invalidate();
-		await navigate({ to: target?.to ?? defaultCloudRoute });
+		// `href`, not `to`: a target keeps its own query, which `to` would normalize as part of the path.
+		await navigate(target ? { href: target.to } : { to: defaultCloudRoute });
 		return true;
 	}, [navigate, queryClient, redirect, router]);
 }
