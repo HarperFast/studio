@@ -167,6 +167,13 @@ describe('ClusterForm — record locks on create', () => {
 		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
 	});
 
+	it('starts checked on a 5.4.0 prerelease at or above central manager auto-enable floor', async () => {
+		renderForm({ version: '5.4.0-beta.1' }, { harperVersions: versions('5.4.0-beta.1', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0-beta.1', recordLocks: true }));
+	});
+
 	it('sends recordLocks: false when unchecked on Harper 5.4.0+', async () => {
 		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
 		expect(recordLocksBox()?.checked).toBe(true);
@@ -262,14 +269,18 @@ describe('ClusterForm — record locks on create', () => {
 		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: true }));
 	});
 
-	it('keeps an explicit false default on 5.4.0 (e.g. restored draft or Try Again)', async () => {
+	it('keeps a seeded false default on 5.4.0 without treating it as a user touch across version switches', async () => {
 		renderForm({ version: '5.4.0', recordLocks: false }, { harperVersions: versions('5.4.0', '5.3.0') });
 		expect(recordLocksBox()?.checked).toBe(false);
 
-		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+		await selectVersion('5.4.0', '5.3.0');
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
 	});
 
-	it('leaves recordLocks unset in a billing draft while untouched so restoring still follows version changes', async () => {
+	it('does not treat a restored billing draft as touched, so switching version still updates the default', async () => {
 		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
 		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
 		const first = renderForm(
@@ -287,7 +298,6 @@ describe('ClusterForm — record locks on create', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
 		});
 		const draft = savedDrafts.at(-1)!;
-		expect(draft.recordLocks).toBeUndefined();
 		first.unmount();
 
 		renderForm(draft, { harperVersions: versions('5.4.0', '5.3.0'), startOffOnBilling: true });
@@ -300,10 +310,10 @@ describe('ClusterForm — record locks on create', () => {
 		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
 	});
 
-	it('persists an explicit user choice in a billing draft when touched before Stripe redirect', async () => {
+	it('preserves a false value across a Stripe billing draft while version stays unchanged', async () => {
 		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
 		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
-		renderForm(
+		const first = renderForm(
 			{ version: '5.4.0', performanceDescription: 'Paid tier' },
 			{ harperVersions: versions('5.4.0', '5.3.0'), setSavedClusterState },
 		);
@@ -319,7 +329,15 @@ describe('ClusterForm — record locks on create', () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
 		});
-		expect(savedDrafts.at(-1)?.recordLocks).toBe(false);
+		const draft = savedDrafts.at(-1)!;
+		expect(draft.recordLocks).toBe(false);
+		first.unmount();
+
+		renderForm(draft, { harperVersions: versions('5.4.0', '5.3.0'), startOffOnBilling: true });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Back to Details' }));
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
 	});
 
 	it('offers nothing below 5.3.0, and drops a ticked box carried from a failed cluster', async () => {

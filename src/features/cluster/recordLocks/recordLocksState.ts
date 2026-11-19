@@ -10,8 +10,12 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  */
 export const RECORD_LOCKS_MIN_VERSION = '5.3.0';
 
-/** Harper version from which Fabric-hosted cluster creation defaults record locks on. */
-const RECORD_LOCKS_DEFAULT_ON_VERSION = '5.4.0';
+/**
+ * Central manager's auto-enable floor (`RECORD_LOCKS_AUTO_MIN_VERSION` / `autoEnablesRecordLocks` in
+ * its `src/lib/recordLockHomes.js`): the first 5.4 build with fenced applies, so 5.4.0 alphas and betas
+ * default on.
+ */
+const RECORD_LOCKS_AUTO_MIN_VERSION = '5.4.0-alpha.1';
 
 // `semver.valid` with default options: it trims, takes a leading `v` but not `=`, and rejects leading
 // zeros in numeric parts and numeric prerelease identifiers. Studio's own parser accepts all of those.
@@ -42,7 +46,7 @@ export function supportsRecordLocks(version: string | null | undefined): boolean
 }
 
 export function defaultsRecordLocksOn(version: string | null | undefined): boolean {
-	return versionAtLeast(version, RECORD_LOCKS_DEFAULT_ON_VERSION);
+	return versionAtLeast(version, RECORD_LOCKS_AUTO_MIN_VERSION);
 }
 
 /** Members that still belong to the cluster, as central manager's `isTerminalInstanceState` counts them. */

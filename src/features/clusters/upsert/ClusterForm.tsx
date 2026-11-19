@@ -333,7 +333,7 @@ export function ClusterForm({
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
 
-	const recordLocksTouched = useRef(defaultValues.recordLocks !== undefined);
+	const recordLocksTouched = useRef(false);
 	const previousRecordLocksDefault = useRef(defaultsRecordLocksOn(defaultValues.version));
 	const onRecordLocksUserChange = useCallback(() => {
 		recordLocksTouched.current = true;
@@ -635,8 +635,8 @@ export function ClusterForm({
 				organizationId,
 				regionPlans: plans,
 				// Only where central manager accepts it: a box touched before switching to self-hosted or an
-				// older version stays in the form, hidden, and must not turn into a 400. When accepted, send
-				// both true and false explicitly so unchecking overrides central manager's 5.4+ default.
+				// older version stays in the form, hidden, and must not turn into a 400. Explicit false
+				// overrides central manager's 5.4+ default.
 				...(!isSelfManaged && supportsRecordLocks(formData.version)
 					? { recordLocks: Boolean(formData.recordLocks) }
 					: {}),
@@ -683,18 +683,7 @@ export function ClusterForm({
 	}, [mode, executeChangesToCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
-		if (!redirecting) {
-			setSavedClusterState(null);
-			return;
-		}
-		const values = form.getValues();
-		setSavedClusterState({
-			clusterId,
-			...values,
-			// Leave untouched defaults unset so a draft restored after Stripe still follows version changes.
-			recordLocks: recordLocksTouched.current ? values.recordLocks : undefined,
-			skipToBilling: true,
-		});
+		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
 	}, [clusterId, form, setSavedClusterState]);
 
 	const onGoBackToDetails = useCallback(() => {
