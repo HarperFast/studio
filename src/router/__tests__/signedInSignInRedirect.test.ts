@@ -13,16 +13,19 @@ const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=
 const replace = vi.fn();
 const assign = vi.fn();
 
-function signInWith(redirect: string) {
-	const router = createRouter({
+function open(path: string) {
+	return createRouter({
 		routeTree: rootRouteTree,
-		history: createMemoryHistory({ initialEntries: [`/sign-in?redirect=${encodeURIComponent(redirect)}`] }),
+		history: createMemoryHistory({ initialEntries: [path] }),
 		context: {
 			queryClient: new QueryClient(),
 			authentication: { [OverallAppSignIn]: { isLoading: false, user } } as never,
 		},
 	});
-	return router;
+}
+
+function signInWith(redirect: string) {
+	return open(`/sign-in?redirect=${encodeURIComponent(redirect)}`);
 }
 
 beforeEach(() => {
@@ -74,5 +77,34 @@ describe('the sign-in page for a user who is already signed in', () => {
 		await vi.waitFor(() => expect(router.state.location.pathname).not.toBe('/sign-in'));
 		expect(replace).not.toHaveBeenCalled();
 		expect(assign).not.toHaveBeenCalled();
+	});
+});
+
+describe('the sign-up page for a user who is already signed in', () => {
+	it('loads the MCP authorization in place of the sign-up page', async () => {
+		const router = open(`/sign-up?redirect=${encodeURIComponent(mcpAuthorize)}`);
+		await router.load();
+
+		await vi.waitFor(() => expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize));
+	});
+
+	it('navigates to an in-app redirect, keeping its query', async () => {
+		const router = open(`/sign-up?redirect=${encodeURIComponent('/new-org?from=https://github.com/Acme/shop.git')}`);
+		await router.load();
+
+		await vi.waitFor(() => expect(router.state.location.pathname).toBe('/new-org'));
+		expect(router.state.location.search).toEqual({ from: 'https://github.com/Acme/shop.git' });
+	});
+
+	it.each([
+		['no redirect', '/sign-up'],
+		['a redirect it would not follow', `/sign-up?redirect=${encodeURIComponent('//evil.example')}`],
+	])('stays on the form for %s', async (_label, path) => {
+		const router = open(path);
+		await router.load();
+
+		expect(router.state.location.pathname).toBe('/sign-up');
+		expect(router.state.matches.at(-1)?.routeId).toMatch(/sign-up$/);
+		expect(replace).not.toHaveBeenCalled();
 	});
 });
