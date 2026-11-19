@@ -13,10 +13,12 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertCircleIcon, LockIcon, SaveIcon, Undo2Icon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+	type ConfigChange,
 	type ConfigObject,
 	findRefusedChanges,
 	isPlainObject,
 	listConfigChanges,
+	mergeConfigChanges,
 	rebaseDraft,
 	setIn,
 	toSetConfigurationParams,
@@ -90,6 +92,10 @@ export function InstanceConfigEditor(
 	const [formGeneration, setFormGeneration] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
 	const [refusal, setRefusal] = useState<string | null>(null);
+	// What the last save sent, while it hasn't been confirmed on every instance: the load balancer's refetch can show
+	// one member's new value while another refused or was skipped, so a landed edit there proves nothing about the rest.
+	const [unconfirmed, setUnconfirmed] = useState<readonly ConfigChange[]>([]);
+	const confirmedRef = useRef(false);
 	const draftRef = useRef(draft);
 	draftRef.current = draft;
 
@@ -109,17 +115,22 @@ export function InstanceConfigEditor(
 		});
 	}, [baseline, base, jsonError]);
 
+	const handleConfirmed = useCallback(() => {
+		confirmedRef.current = true;
+	}, []);
 	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate({
+		onRestartedSuccessfully: handleConfirmed,
 		// Any key here may be one Harper's main thread reads only at startup (`operationsApi`, `mcp`, `authentication`).
 		restartOperation: 'restart',
 		onRefused: setRefusal,
 	});
 
 	const changes = useMemo(() => (base && draft ? listConfigChanges(base, draft) : []), [base, draft]);
-	const refused = useMemo(() => findRefusedChanges(changes, context), [changes, context]);
+	const pending = useMemo(() => mergeConfigChanges(unconfirmed, changes), [unconfirmed, changes]);
+	const refused = useMemo(() => findRefusedChanges(pending, context), [pending, context]);
 	const hasFieldErrors = Object.keys(fieldErrors).length > 0;
-	const dirty = changes.length > 0 || jsonError !== null || hasFieldErrors;
-	const canReview = changes.length > 0 && !jsonError && !hasFieldErrors && refused.length === 0 && !isSaving;
+	const dirty = pending.length > 0 || jsonError !== null || hasFieldErrors;
+	const canReview = pending.length > 0 && !jsonError && !hasFieldErrors && refused.length === 0 && !isSaving;
 
 	const markers = useMemo<ConfigEditorMarker[]>(() => [
 		...fabricSetSettings(context).map(setting => ({
@@ -140,8 +151,8 @@ export function InstanceConfigEditor(
 		? 'Saving writes the changes to each instance in the cluster and restarts the instances one at a time.'
 		: 'Saving writes the changes to this instance and restarts it.';
 	const warnings = useMemo(
-		() => (!isLocalStudio && draft ? describeStudioAccessWarnings(draft, changes, window.location.origin) : []),
-		[draft, changes],
+		() => (!isLocalStudio && draft ? describeStudioAccessWarnings(draft, pending, window.location.origin) : []),
+		[draft, pending],
 	);
 
 	const handleFieldChange = useCallback((path: readonly string[], value: unknown) => {
@@ -189,6 +200,7 @@ export function InstanceConfigEditor(
 		setJsonError(null);
 		setFieldErrors({});
 		setRefusal(null);
+		setUnconfirmed([]);
 		setFormGeneration(generation => generation + 1);
 	}, [base]);
 
@@ -197,8 +209,12 @@ export function InstanceConfigEditor(
 		// A refetch can land the edits while the dialog is open: with nothing left to send, a save would only restart.
 		if (!canReview) { return; }
 		setRefusal(null);
-		onConfigUpdate(toSetConfigurationParams(changes));
-	}, [canReview, changes, onConfigUpdate]);
+		const sending = pending;
+		confirmedRef.current = false;
+		void onConfigUpdate(toSetConfigurationParams(sending)).then(() => {
+			setUnconfirmed(confirmedRef.current ? [] : sending);
+		});
+	}, [canReview, pending, onConfigUpdate]);
 
 	return (
 		<Tabs value={mode} onValueChange={handleModeChange} className="flex grow flex-col gap-3">
@@ -238,10 +254,20 @@ export function InstanceConfigEditor(
 					)}
 					<Button size="sm" disabled={!canReview} onClick={() => setReviewing(true)}>
 						<SaveIcon className="w-4 h-4 mr-1" />
-						{isSaving ? 'Saving...' : changes.length > 0 ? `Review & Save (${changes.length})` : 'Review & Save'}
+						{isSaving ? 'Saving...' : pending.length > 0 ? `Review & Save (${pending.length})` : 'Review & Save'}
 					</Button>
 				</div>
 			</div>
+
+			{unconfirmed.length > 0 && !refusal && !isSaving && (
+				<Alert variant="warning">
+					<AlertCircleIcon className="h-4 w-4" />
+					<AlertTitle>The last save didn't finish on every instance</AlertTitle>
+					<AlertDescription>
+						Review & Save sends those settings again, to every instance. Discard drops them.
+					</AlertDescription>
+				</Alert>
+			)}
 
 			{refusal && (
 				<Alert variant="destructive">
@@ -318,7 +344,7 @@ export function InstanceConfigEditor(
 			<ConfigReviewDialog
 				open={reviewing}
 				onOpenChange={setReviewing}
-				changes={changes}
+				changes={pending}
 				restartNote={restartNote}
 				warnings={warnings}
 				saving={isSaving}

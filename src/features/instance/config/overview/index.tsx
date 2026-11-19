@@ -145,7 +145,9 @@ export function ConfigOverviewIndex() {
 					</CloudStudioOverview>
 				)}
 
+			{/* Keyed on the entity, so a draft never carries over to another instance or cluster's config. */}
 			<InstanceConfigEditor
+				key={instanceParams.entityId}
 				targetNoun={targetNoun}
 				clusterInfo={clusterInfo}
 				version={version ?? registrationInfo?.version}

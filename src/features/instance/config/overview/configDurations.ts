@@ -70,6 +70,17 @@ export function isDurationSetting(path: readonly string[]): boolean {
 	return Object.hasOwn(DURATION_SETTINGS, path.join('.'));
 }
 
+/**
+ * Why a token timeout can't be saved: Harper doesn't validate these and hands them to jsonwebtoken's `expiresIn`, which
+ * throws on one it can't read, so no token could be issued or refreshed after the restart.
+ */
+export function unreadableDurationMessage(path: readonly string[], value: unknown): string | undefined {
+	if (DURATION_SETTINGS[path.join('.')] !== 'ms' || value === undefined || value === null) { return undefined; }
+	return read('ms', value)
+		? undefined
+		: "Harper hands this to jsonwebtoken, which can't read it as a duration, so no token could be issued. Use a number of seconds, or text like 1d or 12h.";
+}
+
 export function describeConfigDuration(path: readonly string[], value: unknown): ConfigDuration | undefined {
 	const reader = DURATION_SETTINGS[path.join('.')];
 	if (!reader || value === undefined || value === null) { return undefined; }

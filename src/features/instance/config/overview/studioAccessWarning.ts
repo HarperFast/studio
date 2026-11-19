@@ -36,7 +36,17 @@ function effective(draft: ConfigObject, path: readonly string[]): { value: unkno
 }
 
 /**
- * A warning when the change would stop the operations API answering Studio's own origin. Studio reaches an instance
+ * The operations server's own rule (`getCORSOpts`, harper `server/operationsServer.ts`): no list, an empty one, or
+ * one that starts with null or '*' registers CORS with `origin: true`, which answers every origin.
+ */
+function allowsEveryOrigin(list: unknown): boolean {
+	if (typeof list === 'string') { return list === '' || list.startsWith('*'); }
+	return !Array.isArray(list) || list.length === 0 || list[0] === null || list[0] === '*';
+}
+
+/**
+ * A warning when the change would stop the operations API answering Studio's own origin, or would open it to every
+ * origin by clearing a list that limited it. Studio reaches an instance
  * either through central manager or straight at the instance, and only the second needs CORS, so this warns rather
  * than refuses.
  */
@@ -54,7 +64,14 @@ export function describeStudioAccessWarnings(
 	if (cors.value === false) {
 		return [`This turns off CORS for the operations API. ${consequence}`];
 	}
-	if (accessList.value === undefined || corsAccessListAllows(accessList.value, origin)) {
+	if (allowsEveryOrigin(accessList.value)) {
+		const before = changes.find(change => change.path.join('.') === accessList.path.join('.'))?.before;
+		const wildcard = Array.isArray(accessList.value) ? accessList.value[0] === '*' : accessList.value === '*';
+		return !wildcard && before !== undefined && !allowsEveryOrigin(before)
+			? [`With this list empty, the operations API answers requests from every origin, not only the ones it listed.`]
+			: [];
+	}
+	if (corsAccessListAllows(accessList.value, origin)) {
 		return [];
 	}
 	return [`The operations API's CORS access list no longer includes ${origin}, where this Studio runs. ${consequence}`];

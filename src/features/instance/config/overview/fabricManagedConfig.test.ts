@@ -41,7 +41,7 @@ describe('fabricSetSettingFor', () => {
 		expect(fabricSetSettingFor(path, HOSTED)?.source).toBe(source);
 	});
 
-	it.each(['logging.level', 'logging.external.level', 'http.cors', 'http.corsAccessList', 'agent.enabled'])(
+	it.each(['logging.level', 'logging.external.level', 'http.cors', 'http.corsAccessList', 'agent.maxTurns'])(
 		'leaves %s to the customer',
 		path => {
 			expect(fabricSetSettingFor(path, HOSTED)).toBeUndefined();
@@ -69,6 +69,13 @@ describe('fabricSetSettingFor', () => {
 		expect(fabricSetSettingFor('models.generative', { hosted: true, version: '5.3.0' })).toBeUndefined();
 	});
 
+	it("locks agent.enabled on Fabric, since a host may force it off and the file value can't say whether it did", () => {
+		const agent = fabricSetSettingFor('agent.enabled', HOSTED)!;
+		expect(describeFabricSetSetting(agent)).toContain('Studio can');
+		expect(fabricDefaultFor('agent.enabled', HOSTED)).toBeUndefined();
+		expect(fabricSetSettingFor('agent.enabled', { hosted: false })).toBeUndefined();
+	});
+
 	it('names the environment variable in its reason', () => {
 		expect(describeFabricSetSetting(fabricSetSettingFor('http.keepAliveTimeout', HOSTED)!)).toBe(
 			'Fabric sets this every time the instance starts (through the HTTP_KEEPALIVETIMEOUT environment variable), so a change here would be undone at the next restart.',
@@ -86,9 +93,9 @@ describe('fabricDefaultFor', () => {
 	});
 
 	it("names the agent's and the firewall's only on 5.2 and later, and not on an unknown version", () => {
-		expect(fabricDefaultFor('agent.enabled', { hosted: true, version: '5.1.9' })).toBeUndefined();
-		expect(fabricDefaultFor('agent.enabled', { hosted: true, version: '5.2.0-beta.1' })).toBeUndefined();
-		expect(fabricDefaultFor('agent.enabled', { hosted: true })).toBeUndefined();
+		expect(fabricDefaultFor('agent.maxTurns', { hosted: true, version: '5.1.9' })).toBeUndefined();
+		expect(fabricDefaultFor('agent.maxTurns', { hosted: true, version: '5.2.0-beta.1' })).toBeUndefined();
+		expect(fabricDefaultFor('agent.maxTurns', { hosted: true })).toBeUndefined();
 		expect(fabricDefaultFor('waf.enabled', { hosted: true, version: '5.2.0' })?.value).toBe(true);
 		expect(fabricDefaultSettings({ hosted: true, version: '5.1.9' }).map(setting => setting.path)).toEqual([
 			'logging.external.level',

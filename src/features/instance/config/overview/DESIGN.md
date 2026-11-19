@@ -26,6 +26,9 @@ Host-manager also writes `threads.v8Flags` (constrained runtime) and `replicatio
 shard,shards}` into `HARPER_SET_CONFIG` per instance. They are not listed because Studio already hides all of
 `threads` and `replication` except `replication.databases` ([`configRestrictions.ts`](configRestrictions.ts)).
 
+`agent.enabled` is locked on Fabric too, though host manager sets it only on a host that turns the built-in agent off
+(`helpers/agentConfig.js`): the file value can't tell that host's `false` from a customer's, so Studio doesn't guess.
+
 Off Fabric (Local Studio, a self-managed cluster) the list doesn't apply. While the cluster is still loading it is
 treated as hosted, so nothing is briefly offered that Fabric would undo.
 
@@ -49,6 +52,9 @@ timeouts go to jsonwebtoken (`security/tokenAuthentication.ts`), whose `ms` pack
 A generic "humanize `3d`" would mislabel one or the other, and reading the way Harper does is what lets the form
 say that `3 days` means 3 seconds.
 
+A token timeout jsonwebtoken can't read is refused (`unreadableDurationMessage`): Harper doesn't validate these and
+hands them to `expiresIn`, which throws, so no token could be issued after the restart.
+
 ## What a save sends
 
 One `set_configuration` field per changed leaf, its path joined with `_` (`toSetConfigurationParams`). That
@@ -63,3 +69,19 @@ Harper stores what it is sent through `castConfigValue` (`config/configUtils.ts`
 The editors send text as typed (a field that only takes a number sends one), and `rebaseDraft` counts an edit as landed when the refetch holds what Harper would
 have stored for it (`storedByHarper`). Without that, the refetch reads as a change that never goes away. Casting in
 the form instead would put values like `{}` or `null` into a text field that can no longer show them.
+
+`studio.navigation` is sent whole (`WHOLE_SETTINGS` in `configDraft.ts`): Harper takes `studio_navigation` only as the
+complete map, as the preset writer (`features/clusters/presets/runPresetSetup.ts`) does.
+
+## A refetch can't confirm a cluster save
+
+The config shown is one member's, whichever the load balancer picked, so an edit that reads back as saved proves only
+that member has it. Until `useRollingConfigUpdate` reports every instance restarted (`onRestartedSuccessfully`), the
+editor keeps what it sent as `unconfirmed` and offers to send it again. The editor is keyed on the entity
+(`index.tsx`), so a draft never follows the page to another instance or cluster.
+
+## The lockout warning follows the operations server
+
+Harper's operations server registers CORS with `origin: true` for no list, an empty one, or one that starts with `null`
+or `*` (`getCORSOpts`, `server/operationsServer.ts`), so clearing a list opens the API to every origin rather than
+closing it. `describeStudioAccessWarnings` mirrors that, and warns about the opening instead of a lockout.

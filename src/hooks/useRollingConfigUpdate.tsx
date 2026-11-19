@@ -35,7 +35,8 @@ interface RollingConfigUpdateParams {
 }
 
 interface RollingConfigUpdateResponse {
-	onConfigUpdate: (params: Record<string, unknown>) => void;
+	/** Settles once the attempt is over, whatever its outcome; `onRestartedSuccessfully` says it reached every instance. */
+	onConfigUpdate: (params: Record<string, unknown>) => Promise<void>;
 	isPending: boolean;
 }
 

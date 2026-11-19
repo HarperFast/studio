@@ -14,7 +14,8 @@ interface FabricSetSetting {
 	source: FabricSetSource;
 	variable?: string;
 	belowVersion?: string;
-	note?: string;
+	/** Said instead of the usual reason, where Fabric sets the setting only on some hosts. */
+	reason?: string;
 }
 
 interface FabricDefaultSetting {
@@ -23,7 +24,6 @@ interface FabricDefaultSetting {
 	/** Said instead of `value` when the value differs per instance. */
 	valueDescription?: string;
 	minVersion?: string;
-	note?: string;
 }
 
 const SET_CONFIG: FabricSetSetting[] = [
@@ -72,20 +72,25 @@ const ENVIRONMENT: FabricSetSetting[] = (
 const VERSION_GATED_SET: FabricSetSetting[] = [
 	// From 5.3 host manager merges its entries into the file instead, and leaves the customer's alone.
 	{ path: 'models', source: 'HARPER_SET_CONFIG', belowVersion: '5.3.0' },
+	// A host that turns the built-in agent off writes `enabled: false` here (host-manager `helpers/agentConfig.js`), and
+	// the file value alone can't tell that from a customer's own choice, so Studio leaves it alone on Fabric.
+	{
+		path: 'agent.enabled',
+		source: 'HARPER_SET_CONFIG',
+		reason:
+			"Some Fabric hosts turn the built-in agent off every time an instance starts, and Studio can't tell which, so it doesn't change this setting on Fabric.",
+	},
 ];
 
 const FABRIC_SET: FabricSetSetting[] = [...SET_CONFIG, ...ENVIRONMENT, ...VERSION_GATED_SET];
 
 const FABRIC_CORS_DEFAULT = "Harper Fabric's and Studio's addresses";
-const AGENT_HOST_NOTE =
-	'A host can turn the built-in agent off for every instance on it, and then Fabric sets this to false at every start.';
 
 const FABRIC_DEFAULTS: FabricDefaultSetting[] = [
 	{ path: 'logging.external.level', value: 'info' },
 	{ path: 'logging.external.console', value: true },
 	{ path: 'http.corsAccessList', valueDescription: FABRIC_CORS_DEFAULT },
 	{ path: 'operationsApi.network.corsAccessList', valueDescription: FABRIC_CORS_DEFAULT },
-	{ path: 'agent.enabled', value: true, minVersion: '5.2.0', note: AGENT_HOST_NOTE },
 	{ path: 'agent.autoApprove', value: false, minVersion: '5.2.0' },
 	{ path: 'agent.allowDestructive', value: false, minVersion: '5.2.0' },
 	{ path: 'agent.maxTurns', value: 12, minVersion: '5.2.0' },
@@ -160,6 +165,7 @@ export function fabricDefaultSettings(context: FabricContext): FabricDefaultSett
 }
 
 export function describeFabricSetSetting(setting: FabricSetSetting): string {
+	if (setting.reason) { return setting.reason; }
 	const how = setting.source === 'environment'
 		? `the ${setting.variable} environment variable`
 		: 'HARPER_SET_CONFIG';
@@ -168,7 +174,5 @@ export function describeFabricSetSetting(setting: FabricSetSetting): string {
 
 export function describeFabricDefault(setting: FabricDefaultSetting): string {
 	const value = setting.valueDescription ?? JSON.stringify(setting.value);
-	return `Fabric starts this at ${value}. You can change it, and your value is kept.${
-		setting.note ? ` ${setting.note}` : ''
-	}`;
+	return `Fabric starts this at ${value}. You can change it, and your value is kept.`;
 }

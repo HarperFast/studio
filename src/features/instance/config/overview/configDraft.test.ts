@@ -3,6 +3,7 @@ import {
 	findRefusedChanges,
 	getIn,
 	listConfigChanges,
+	mergeConfigChanges,
 	rebaseDraft,
 	setIn,
 	storedByHarper,
@@ -137,6 +138,32 @@ describe('storedByHarper, as harper castConfigValue stores what it is sent', () 
 	});
 });
 
+describe('mergeConfigChanges', () => {
+	it('keeps earlier settings and lets a later edit of the same one win', () => {
+		const earlier = [{ path: ['a'], before: 1, after: 2 }, { path: ['b'], before: 1, after: 2 }];
+		const later = [{ path: ['b'], before: 2, after: 3 }];
+		expect(mergeConfigChanges(earlier, later)).toEqual([earlier[0], later[0]]);
+	});
+});
+
+describe('studio.navigation, which Harper takes only whole', () => {
+	const before = { studio: { navigation: { applications: 'visible', logs: 'tucked' } } };
+	const after = { studio: { navigation: { applications: 'hidden', logs: 'tucked' } } };
+
+	it('is one change, sent as the complete map', () => {
+		const changes = listConfigChanges(before, after);
+		expect(changes).toEqual([{
+			path: ['studio', 'navigation'],
+			before: before.studio.navigation,
+			after: after.studio.navigation,
+		}]);
+		expect(toSetConfigurationParams(changes)).toEqual({
+			studio_navigation: { applications: 'hidden', logs: 'tucked' },
+		});
+		expect(findRefusedChanges(changes, LOCAL)).toEqual([]);
+	});
+});
+
 describe('toSetConfigurationParams', () => {
 	it('joins each path with underscores, as set_configuration names settings', () => {
 		const changes = listConfigChanges(
@@ -248,6 +275,20 @@ describe('findRefusedChanges', () => {
 		expect(findRefusedChanges([{ path: ['HTTP', 'KEEPALIVETIMEOUT'], before: undefined, after: 5 }], HOSTED))
 			.toMatchObject([{ reason: 'fabric' }]);
 		expect(findRefusedChanges([{ path: ['Replication', 'Databases'], before: '*', after: ['a'] }], LOCAL)).toEqual([]);
+	});
+
+	it("refuses a token timeout jsonwebtoken can't read, from either editor", () => {
+		const timeout = (after: unknown) => [{ path: ['authentication', 'operationTokenTimeout'], before: '1d', after }];
+		expect(findRefusedChanges(timeout('soon'), LOCAL)).toMatchObject([{ reason: 'duration' }]);
+		expect(
+			findRefusedChanges([{ path: ['authentication'], before: 1, after: { refreshTokenTimeout: 'a month' } }], LOCAL),
+		)
+			.toMatchObject([{ reason: 'duration' }]);
+		expect(findRefusedChanges(timeout('12h'), LOCAL)).toEqual([]);
+		expect(findRefusedChanges(timeout(3600), LOCAL)).toEqual([]);
+		expect(findRefusedChanges([{ path: ['logging', 'auditRetention'], before: '3d', after: 'soon' }], LOCAL)).toEqual(
+			[],
+		);
 	});
 
 	it('lets an ordinary change through', () => {

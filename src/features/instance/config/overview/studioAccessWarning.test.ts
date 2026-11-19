@@ -46,6 +46,13 @@ describe('describeStudioAccessWarnings', () => {
 			.toEqual([expect.stringContaining('no longer includes')]);
 	});
 
+	it('warns that an emptied list answers every origin, as the operations server treats it', () => {
+		for (const cleared of [[], [null]]) {
+			expect(warn({ operationsApi: { network: { cors: true, corsAccessList: cleared as never } } }))
+				.toEqual([expect.stringContaining('every origin')]);
+		}
+	});
+
 	it('stays quiet when Studio still gets in, or the list was not touched', () => {
 		expect(warn({ operationsApi: { network: { cors: true, corsAccessList: ['*'] } } })).toEqual([]);
 		expect(describeStudioAccessWarnings(

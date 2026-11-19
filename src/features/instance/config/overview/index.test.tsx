@@ -8,7 +8,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 const { post, page } = vi.hoisted(() => ({
 	post: vi.fn(),
-	page: { local: true, cluster: undefined as unknown, config: {} as Record<string, unknown> },
+	page: { local: true, cluster: undefined as unknown, config: {} as Record<string, unknown>, entityId: 'ins-1' },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -22,7 +22,7 @@ vi.mock('@/config/constants', async (importOriginal) => ({
 	},
 }));
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ entityType: 'instance', entityId: 'ins-1', instanceClient: { post } }),
+	useInstanceClientIdParams: () => ({ entityType: 'instance', entityId: page.entityId, instanceClient: { post } }),
 }));
 vi.mock('@/components/RestartButton', () => ({ RestartButton: () => null }));
 vi.mock('@/components/ApplyLicensesButton', () => ({ ApplyLicensesButton: () => null }));
@@ -105,7 +105,10 @@ vi.mock('@/integrations/api/instance/applications/getComponents', () => ({
 	getComponentsQueryOptions: () => ({ queryKey: ['test', 'components'], queryFn: () => null, enabled: false }),
 }));
 vi.mock('@/integrations/api/instance/status/getConfiguration', () => ({
-	getConfigurationQueryOptions: () => ({ queryKey: ['get_configuration', 'ins-1'], queryFn: () => page.config }),
+	getConfigurationQueryOptions: ({ entityId }: { entityId: string }) => ({
+		queryKey: ['get_configuration', entityId],
+		queryFn: () => page.config,
+	}),
 }));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({
 	getInstanceUserInfo: vi.fn().mockResolvedValue({ username: 'admin' }),
@@ -134,6 +137,7 @@ beforeEach(() => {
 	page.local = true;
 	page.cluster = undefined;
 	page.config = structuredClone(CONFIG);
+	page.entityId = 'ins-1';
 	post.mockResolvedValue({ data: { message: 'ok' } });
 });
 
@@ -340,6 +344,62 @@ describe('ConfigOverviewIndex forms', () => {
 
 		fireEvent.click(screen.getByRole('switch', { name: 'HTTP/2' }));
 		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+	});
+
+	it('starts a fresh draft when the page moves to another instance', async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const page$ = () => (
+			<QueryClientProvider client={client}>
+				<ConfigOverviewIndex />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(page$());
+		await openSection('Logging');
+		fireEvent.change(screen.getAllByRole('combobox', { name: 'Level' })[0], { target: { value: 'debug' } });
+		expect(screen.getByRole('button', { name: 'Review & Save (1)' })).toBeTruthy();
+
+		page.entityId = 'ins-2';
+		rerender(page$());
+		await openSection('Logging');
+		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+		expect((screen.getAllByRole('combobox', { name: 'Level' })[0] as HTMLSelectElement).value).toBe('warn');
+	});
+
+	it("keeps a save that didn't finish on every instance ready to send again, though the refetch shows it", async () => {
+		let restartFails = true;
+		post.mockImplementation(async (_url: string, body: Record<string, unknown>) => {
+			if (body.operation === 'set_configuration' && typeof body.logging_level === 'string') {
+				const logging = page.config.logging as Record<string, unknown>;
+				page.config = { ...page.config, logging: { ...logging, level: body.logging_level } };
+			}
+			if (body.operation === 'restart' && restartFails) { throw new Error('restart failed'); }
+			return { data: { message: 'ok' } };
+		});
+		renderPage();
+		await openSection('Logging');
+		fireEvent.change(screen.getAllByRole('combobox', { name: 'Level' })[0], { target: { value: 'debug' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Review & Save (1)' }));
+		fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Save & Restart' }));
+
+		expect(await screen.findByText("The last save didn't finish on every instance")).toBeTruthy();
+		await waitFor(() =>
+			expect((screen.getAllByRole('combobox', { name: 'Level' })[0] as HTMLSelectElement).value).toBe('debug')
+		);
+		expect(screen.getByRole('button', { name: 'Review & Save (1)' })).toBeTruthy();
+
+		restartFails = false;
+		fireEvent.click(screen.getByRole('button', { name: 'Review & Save (1)' }));
+		const dialog = await screen.findByRole('alertdialog');
+		expect(within(dialog).getByText('logging.level')).toBeTruthy();
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Save & Restart' }));
+		await waitFor(() => expect(toast.success).toHaveBeenCalled());
+		await waitFor(() => expect(screen.queryByText("The last save didn't finish on every instance")).toBeNull());
+		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+		const writes = post.mock.calls.map(([, body]) => body).filter(body => body.operation === 'set_configuration');
+		expect(writes).toEqual([
+			{ operation: 'set_configuration', logging_level: 'debug' },
+			{ operation: 'set_configuration', logging_level: 'debug' },
+		]);
 	});
 
 	it('puts every setting back on Discard', async () => {

@@ -1,4 +1,5 @@
 import { stableJson } from '@/lib/stableJson';
+import { unreadableDurationMessage } from './configDurations';
 import { holdsRestrictedSettings, isRestrictedConfigPath } from './configRestrictions';
 import { describeFabricSetSetting, type FabricContext, fabricSetSettingFor } from './fabricManagedConfig';
 
@@ -11,8 +12,18 @@ export interface ConfigChange {
 }
 
 interface RefusedChange extends ConfigChange {
-	reason: 'removed' | 'empty' | 'underscore' | 'studio' | 'fabric';
+	reason: 'removed' | 'empty' | 'underscore' | 'duration' | 'studio' | 'fabric';
 	message: string;
+}
+
+// Settings Harper takes only whole: `studio_navigation` replaces the cluster's map (see the preset writer,
+// `features/clusters/presets/runPresetSetup.ts`), so one entry of it can't be sent on its own.
+const WHOLE_SETTINGS = [['studio', 'navigation']];
+
+function isWholeSetting(path: readonly string[]) {
+	return WHOLE_SETTINGS.some(whole =>
+		whole.length === path.length && whole.every((part, i) => part.toLowerCase() === path[i].toLowerCase())
+	);
 }
 
 export function isPlainObject(value: unknown): value is ConfigObject {
@@ -69,6 +80,9 @@ export function setIn(config: ConfigObject, path: readonly string[], value: unkn
  */
 export function listConfigChanges(before: unknown, after: unknown, path: readonly string[] = []): ConfigChange[] {
 	if (before === after) { return []; }
+	if (isWholeSetting(path)) {
+		return sameConfigValue(before, after) ? [] : [{ path, before, after }];
+	}
 	const beforeIsSection = isPlainObject(before) || (before === undefined && isPlainObject(after));
 	const afterIsSection = isPlainObject(after) || (after === undefined && isPlainObject(before));
 	if (beforeIsSection && afterIsSection) {
@@ -110,10 +124,26 @@ export function storedByHarper(value: unknown): unknown {
 	return value;
 }
 
+/** The settings `change` is sent as: an object that replaced a value goes setting by setting. */
+function sentSettings(change: ConfigChange): ConfigChange[] {
+	return isPlainObject(change.after) && !isWholeSetting(change.path)
+		? listConfigChanges(undefined, change.after, change.path)
+		: [change];
+}
+
+/** `earlier` with `later` laid over it, path by path: a newer edit of a setting replaces an older one. */
+export function mergeConfigChanges(earlier: readonly ConfigChange[], later: readonly ConfigChange[]): ConfigChange[] {
+	const byPath = new Map<string, ConfigChange>();
+	for (const change of [...earlier, ...later]) {
+		byPath.set(change.path.join('\u0000'), change);
+	}
+	return [...byPath.values()];
+}
+
 export function rebaseDraft(oldBase: ConfigObject, draft: ConfigObject, newBase: ConfigObject): ConfigObject {
 	return listConfigChanges(oldBase, draft).reduce((rebased, change) => {
 		// An edit Harper stored as another type (`"3600"` as 3600) has landed, though it reads back differently.
-		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
+		const sent = sentSettings(change);
 		const landed = sent.length > 0
 			&& sent.every(leaf => sameConfigValue(getIn(newBase, leaf.path), storedByHarper(leaf.after)));
 		return landed ? rebased : setIn(rebased, change.path, change.after);
@@ -151,12 +181,19 @@ function refusalFor(
 
 export function findRefusedChanges(changes: readonly ConfigChange[], context: FabricContext): RefusedChange[] {
 	return changes.flatMap((change): RefusedChange[] => {
-		const sent = isPlainObject(change.after) ? listConfigChanges(undefined, change.after, change.path) : [change];
+		const sent = sentSettings(change);
 		const refusal = sent.map(leaf => refusalFor(leaf, context)).find(Boolean);
 		if (refusal) {
 			return [{ ...change, ...refusal }];
 		}
-		if (sent.length === 0 || (isPlainObject(change.after) && holdsEmptyObject(change.after))) {
+		const unreadable = sent.map(leaf => unreadableDurationMessage(leaf.path, leaf.after)).find(Boolean);
+		if (unreadable) {
+			return [{ ...change, reason: 'duration', message: unreadable }];
+		}
+		if (
+			sent.length === 0
+			|| (isPlainObject(change.after) && !isWholeSetting(change.path) && holdsEmptyObject(change.after))
+		) {
 			// `set_configuration` takes settings one by one, so an empty object would send nothing and still restart.
 			return [{
 				...change,
@@ -178,7 +215,7 @@ export function findRefusedChanges(changes: readonly ConfigChange[], context: Fa
 export function toSetConfigurationParams(changes: readonly ConfigChange[]): Record<string, unknown> {
 	const params: Record<string, unknown> = {};
 	const add = (path: readonly string[], value: unknown) => {
-		if (isPlainObject(value)) {
+		if (isPlainObject(value) && !isWholeSetting(path)) {
 			for (const [key, child] of Object.entries(value)) {
 				add([...path, key], child);
 			}
