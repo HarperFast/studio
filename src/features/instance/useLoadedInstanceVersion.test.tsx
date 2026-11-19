@@ -16,12 +16,6 @@ afterEach(() => {
 	cleanup();
 });
 
-async function settle() {
-	await act(async () => {
-		await new Promise((resolve) => setTimeout(resolve, 50));
-	});
-}
-
 // The instance layout and the child routes under it share one loader and one query, as `registrationInfoLoader`
 // does, so a failure there fails both and the layout's error component shows.
 function renderInstanceRoutes() {
@@ -69,19 +63,17 @@ function renderInstanceRoutes() {
 describe('useLoadedInstanceVersion', () => {
 	it('carries a child route through the render without loader data that follows a recovered layout load', async () => {
 		const { router, server, childVersions } = renderInstanceRoutes();
-		await settle();
-		expect(screen.getByText('layout failed')).toBeTruthy();
+		expect(await screen.findByText('layout failed')).toBeTruthy();
 
 		server.reachable = true;
 		await act(async () => {
 			await router.invalidate();
 		});
-		await settle();
+		expect(await screen.findByText('version 5.4.0')).toBeTruthy();
 
 		// The router's own behaviour this hook exists for: if it stops rendering the child without loader data, the
 		// guard in the routes that use this hook can go.
 		expect(childVersions).toContain(undefined);
 		expect(screen.queryByText(/start failed/)).toBeNull();
-		expect(screen.getByText('version 5.4.0')).toBeTruthy();
 	});
 });
