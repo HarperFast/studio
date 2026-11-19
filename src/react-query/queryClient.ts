@@ -80,7 +80,11 @@ export function describeError(rawErr: unknown): DescribedError {
 			// became { code, title, detail? }. Map code → toast title and title (+ detail) →
 			// description. The title is a plain sentence that may itself contain colons
 			// ("Plan not found: plan-123"), so skip the "Title: detail" split below.
-			if (typeof data.code === 'string' && data.code) {
+			// A 402's code is the server's error class ("ClientError"), and every 402 central manager
+			// sends is about payment, so the status names it better.
+			if (axiosWrappedErr.response.status === 402) {
+				errorTitle = 'Payment required';
+			} else if (typeof data.code === 'string' && data.code) {
 				errorTitle = data.code;
 			}
 			const detail = errorText(data.detail);
