@@ -13,7 +13,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { ColumnDef, studioTableFeatures } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState, flexRender, useTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
-import { Fragment, memo, Ref, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { LogDetails } from './components/LogDetails';
 import { logKey } from './hooks/mergeReadLogs';
 import { LogFilters } from './logView';
@@ -86,7 +86,18 @@ const columns: ColumnDef<ReadLogItem>[] = [
 ];
 
 export const LogsDataTable = memo(function LogsDataTable(
-	{ data, source, onInspect, onViewContext, containerRef, reversed, onReverse, selectedKey }: {
+	{
+		data,
+		source,
+		onInspect,
+		onViewContext,
+		containerRef,
+		reversed,
+		onReverse,
+		selectedKey,
+		expandedKeys,
+		onExpandedChange,
+	}: {
 		data: ReadLogItem[];
 		source: LogFilters['log_name'];
 		onInspect: () => void;
@@ -95,9 +106,10 @@ export const LogsDataTable = memo(function LogsDataTable(
 		reversed: boolean;
 		onReverse: () => void;
 		selectedKey?: string;
+		expandedKeys: ReadonlySet<string>;
+		onExpandedChange: Dispatch<SetStateAction<Set<string>>>;
 	},
 ) {
-	const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
 	const [storedSizing, setStoredSizing] = useLocalStorage<unknown>(LocalStorageKeys.LogsColumnSizing, {});
 	const [storedVisibility, setStoredVisibility] = useLocalStorage<unknown>(LocalStorageKeys.LogsColumnVisibility, {
 		tags: false,
@@ -139,7 +151,6 @@ export const LogsDataTable = memo(function LogsDataTable(
 	}, [rowIds]);
 	const selectionId = selectedKey ? rowIds.get(selectedKey) : undefined;
 	const id = useId();
-	const appliedSelection = useRef<string | undefined>(undefined);
 	const table = useTable({
 		features: studioTableFeatures,
 		data,
@@ -154,32 +165,16 @@ export const LogsDataTable = memo(function LogsDataTable(
 		onColumnVisibilityChange: value =>
 			setStoredVisibility(typeof value === 'function' ? value(columnVisibility) : value),
 	});
-	const keys = useMemo(() => new Set(rowIds.values()), [rowIds]);
-	useEffect(() => {
-		const selectionToAdd = selectionId && selectionId !== appliedSelection.current
-			? selectionId
-			: undefined;
-		setExpanded(current => {
-			const next = new Set([...current].filter(key => keys.has(key)));
-			if (selectionToAdd) { next.add(selectionToAdd); }
-			return next.size === current.size && [...next].every(key => current.has(key)) ? current : next;
-		});
-		if (selectionToAdd) {
-			appliedSelection.current = selectionToAdd;
-			onInspect();
-		}
-		if (!selectedKey) { appliedSelection.current = undefined; }
-	}, [keys, selectedKey, selectionId, onInspect]);
-
 	const toggle = (key: string) => {
-		if (!expanded.has(key)) { onInspect(); }
-		setExpanded(current => {
+		if (!expandedKeys.has(key)) { onInspect(); }
+		onExpandedChange(current => {
 			const next = new Set(current);
 			if (next.has(key)) { next.delete(key); }
 			else { next.add(key); }
 			return next;
 		});
 	};
+
 	return (
 		<div className="min-w-0 rounded-md border border-border bg-card">
 			<div className="flex items-center justify-between border-b border-border px-3 py-1">
@@ -246,7 +241,8 @@ export const LogsDataTable = memo(function LogsDataTable(
 				</TableHeader>
 				<TableBody>
 					{table.getRowModel().rows.map((row, index) => {
-						const open = expanded.has(row.id);
+						const eventKey = logKey(row.original);
+						const open = expandedKeys.has(eventKey);
 						const detailId = `${id}-detail-${index}`;
 						return (
 							<Fragment key={row.id}>
@@ -262,11 +258,11 @@ export const LogsDataTable = memo(function LogsDataTable(
 										if (
 											(event.target as HTMLElement).closest('button, a, input') || window.getSelection()?.toString()
 										) { return; }
-										toggle(row.id);
+										toggle(eventKey);
 									}}
 								>
 									{row.getVisibleCells().map(cell => (
-										<TableCell key={cell.id} className="overflow-hidden px-2 py-2.5">
+										<TableCell key={cell.id} data-col-id={cell.column.id} className="overflow-hidden px-2 py-2.5">
 											{cell.column.id === 'expand'
 												? (
 													<button
@@ -275,7 +271,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 														aria-label={`${open ? 'Collapse' : 'Expand'} log ${index + 1}`}
 														aria-expanded={open}
 														aria-controls={open ? detailId : undefined}
-														onClick={() => toggle(row.id)}
+														onClick={() => toggle(eventKey)}
 													>
 														<ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />
 													</button>

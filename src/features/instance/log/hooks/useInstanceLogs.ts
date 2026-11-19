@@ -5,7 +5,7 @@ import { streamReadLog } from '@/integrations/api/instance/status/streamReadLog'
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { z } from 'zod';
-import { mergeReadLogs } from './mergeReadLogs';
+import { LIVE_LOG_BUFFER_FLOOR, mergeReadLogs } from './mergeReadLogs';
 import { INITIAL_STREAM_STATE, streamReducer } from './streamReducer';
 import { useSupportsLogSSE } from './useSupportsLogSSE';
 
@@ -20,6 +20,7 @@ export interface UseInstanceLogsParams {
 	replicated: boolean;
 	/** The "Live" toggle. Off → one fetch + manual refresh; on → SSE tail, else 5s polling. */
 	live: boolean;
+	contextTimestamp?: string;
 }
 
 export interface UseInstanceLogsResult {
@@ -34,12 +35,6 @@ export interface UseInstanceLogsResult {
 
 /** Fall back to Harper's own `read_log` default when the user clears the limit field. */
 const DEFAULT_LIMIT = 1000;
-/**
- * Floor on retained live entries so a long-running tail can't grow state unbounded. The actual
- * cap is `max(this, limit)` so a user asking for more than this still sees a contiguous tail
- * (a smaller cap would silently drop the oldest live entries with no backfill while streaming).
- */
-const MAX_LIVE_ENTRIES = 2000;
 /** Batch streamed entries into at most one render per this interval (a chatty tail safety net). */
 const FLUSH_INTERVAL_MS = 250;
 
@@ -48,8 +43,9 @@ function parseLimit(limit: LogFilters['limit']): number {
 }
 
 /** Stable identity for the filter set, so effects restart only when the requested slice changes. */
-function filtersKey(logFilters: LogFilters, replicated: boolean): string {
+function filtersKey(logFilters: LogFilters, replicated: boolean, contextTimestamp?: string): string {
 	return JSON.stringify([
+		contextTimestamp,
 		logFilters.relative_minutes,
 		logFilters.limit,
 		logFilters.level,
@@ -71,26 +67,27 @@ function filtersKey(logFilters: LogFilters, replicated: boolean): string {
  * table never flickers when the transport switches.
  */
 export function useInstanceLogs(
-	{ params, logFilters, replicated, live }: UseInstanceLogsParams,
+	{ params, logFilters, replicated, live, contextTimestamp }: UseInstanceLogsParams,
 ): UseInstanceLogsResult {
 	const supportsSSE = useSupportsLogSSE();
 	const [stream, dispatch] = useReducer(streamReducer, INITIAL_STREAM_STATE);
 
-	const useSSE = live && supportsSSE && !stream.fellBack;
-	const key = filtersKey(logFilters, replicated);
+	const useSSE = live && !contextTimestamp && supportsSSE && !stream.fellBack;
+	const key = filtersKey(logFilters, replicated, contextTimestamp);
 	const limit = parseLimit(logFilters.limit);
 	// Retain at least `limit` live entries so a user asking for a large slice still sees a
 	// contiguous tail rather than the oldest streamed lines silently dropping (polling is off
 	// while streaming, so there is no backfill to close such a gap).
-	const retainCap = Math.max(MAX_LIVE_ENTRIES, limit);
+	const retainCap = Math.max(LIVE_LOG_BUFFER_FLOOR, limit);
 
 	const query = useQuery(
 		getReadLogQueryOptions({
 			...params,
 			logFilters,
 			replicated,
+			contextTimestamp,
 			// Poll only when live and NOT streaming: the SSE tail carries live updates itself.
-			isAutoRefreshEnabled: live && !useSSE,
+			isAutoRefreshEnabled: live && !contextTimestamp && !useSSE,
 		}),
 	);
 
@@ -159,11 +156,15 @@ export function useInstanceLogs(
 	const logs = useMemo(() => {
 		const snapshot = query.data ?? [];
 		const merged = mergeReadLogs(snapshot, stream.entries, limit);
-		const cutoff = logFilters.relative_minutes ? Date.now() - Number(logFilters.relative_minutes) * 60000 : -Infinity;
-		return merged.filter(entry => Date.parse(entry.timestamp) >= cutoff);
-	}, [query.data, stream.entries, limit, logFilters.relative_minutes]);
+		if (!logFilters.relative_minutes || contextTimestamp) { return merged; }
+		const cutoff = Date.now() - Number(logFilters.relative_minutes) * 60000;
+		return merged.filter(entry => {
+			const time = Date.parse(entry.timestamp);
+			return Number.isNaN(time) || time >= cutoff;
+		});
+	}, [query.data, stream.entries, limit, logFilters.relative_minutes, contextTimestamp]);
 
-	const transport: LogTransport = useSSE ? 'streaming' : live ? 'polling' : 'idle';
+	const transport: LogTransport = useSSE ? 'streaming' : live && !contextTimestamp ? 'polling' : 'idle';
 
 	return {
 		logs,

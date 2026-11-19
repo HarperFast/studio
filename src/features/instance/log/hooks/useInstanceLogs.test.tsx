@@ -43,3 +43,36 @@ it('uses the same duplicate identity on initial load and polling without leaking
 	expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'read_log', replicated: true }));
 	client.clear();
 });
+
+it('retains malformed timestamps on latest and relative views instead of silently discarding diagnostics', async () => {
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const base: ReadLogItem = {
+		level: 'info',
+		message: 'recent',
+		node: '',
+		thread: 'main/0',
+		timestamp: new Date().toISOString(),
+		tags: [],
+	};
+	const invalid = { ...base, message: 'malformed timestamp', timestamp: 'not-a-date' };
+	const expired = { ...base, message: 'expired', timestamp: new Date(Date.now() - 3600000).toISOString() };
+	const params = {
+		entityId: 'timestamps',
+		entityType: 'instance',
+		instanceClient: { post: vi.fn().mockResolvedValue({ data: [base, invalid, expired] }) },
+	} as unknown as UseInstanceLogsParams['params'];
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	const { result, rerender } = renderHook(
+		({ filters }) => useInstanceLogs({ params, live: false, replicated: false, logFilters: filters }),
+		{ wrapper, initialProps: { filters: DEFAULT_LOG_FILTERS } },
+	);
+	await waitFor(() => expect(result.current.logs).toContainEqual(invalid));
+	expect(result.current.logs).toContainEqual(expired);
+	rerender({ filters: { ...DEFAULT_LOG_FILTERS, relative_minutes: '15' } });
+	await waitFor(() => expect(result.current.logs).toContainEqual(invalid));
+	expect(result.current.logs).toContainEqual(base);
+	expect(result.current.logs).not.toContainEqual(expired);
+	client.clear();
+});

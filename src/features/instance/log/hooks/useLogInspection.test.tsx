@@ -56,4 +56,7 @@ it('counts arrivals only in the selected loaded-result facets', () => {
 	expect(result.current.pending).toBe(0);
 	rerender({ logs: [{ ...entry('visible'), node: 'node-a' }, { ...entry('hidden'), node: 'node-b' }, ...original] });
 	expect(result.current.pending).toBe(1);
+	rerender({ logs: [{ ...entry('visible'), node: 'node-a' }, { ...entry('hidden'), node: 'node-b' }] });
+	expect(result.current.pending).toBe(1);
+	expect(result.current.saturated).toBe(true);
 });

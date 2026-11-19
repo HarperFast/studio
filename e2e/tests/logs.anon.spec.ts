@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { rememberAppSignIn } from './signInMarkers';
 
-function log(message: string, offset = 0, node = 'node-a') {
+function log(message: string, offset = 0, node = 'node-a.us-east-1.example.test') {
 	return {
 		level: 'error',
 		timestamp: new Date(Date.now() + offset).toISOString(),
@@ -131,18 +131,25 @@ test(
 		await linkedPage.close();
 		await page.bringToFront();
 
-		await page.getByRole('button', { name: 'View surrounding logs' }).click();
+		await page.getByRole('button', { name: 'Expand log 2', exact: true }).click();
+		await page.getByRole('button', { name: 'View surrounding logs' }).first().click();
 		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
 		await expect(page.getByText('Other node event', { exact: true })).toHaveCount(0);
-		expect(requests.at(-1)).toMatchObject({ limit: 1000, order: 'desc' });
+		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
+		expect(requests.slice(-2).map(body => body.order).sort()).toEqual(['asc', 'desc']);
+		expect(requests.slice(-2).every(body => body.limit === 500)).toBe(true);
 		expect(requests.at(-1)?.level).toBeUndefined();
 		expect(requests.at(-1)?.filter).toBeUndefined();
 		await page.getByRole('button', { name: 'Back to previous view' }).click();
-		await expect(page.getByText('Other node event', { exact: true })).toBeVisible();
+		await expect(page.getByText('Other node event', { exact: true }).first()).toBeVisible();
+		await expect(page.getByLabel('Full log message')).toHaveCount(2);
 		await page.getByRole('button', { name: 'Columns' }).click();
 		await page.getByRole('menuitemcheckbox', { name: 'Tags' }).click();
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('columnheader', { name: 'Tags' })).toBeVisible();
+		const nodeHeader = page.getByRole('columnheader', { name: 'Node' });
+		await nodeHeader.locator('[class*="cursor-col-resize"]').dblclick();
+		expect((await nodeHeader.boundingBox())!.width).toBeGreaterThan(100);
 		const header = page.getByRole('columnheader', { name: 'Message' });
 		const before = (await header.boundingBox())!.width;
 		const grip = header.locator('[class*="cursor-col-resize"]');

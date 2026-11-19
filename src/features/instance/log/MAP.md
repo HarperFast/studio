@@ -1,7 +1,7 @@
 # Logs
 
-- `index.tsx` → `Logs` scopes the view to the entity and validated link; `LogsExplorer` owns filters, live following, and reversible surrounding-log navigation.
-- `LogsDataTable.tsx` → stable row expansion, column visibility and resizing, timestamp order.
+- `index.tsx` → `Logs` scopes the view to the entity and validated link; `LogsExplorer` owns filters, expanded entries, live following, and reversible surrounding-log navigation.
+- `LogsDataTable.tsx` → controlled expansion and bounded short row IDs, column visibility and resizing, timestamp order.
 - `components/LogDetails.tsx` → selectable full message, metadata, guarded copy actions, context action.
 - `components/DownloadLogsMenu.tsx`, `lib/exportLogs.ts` → existing Text/JSON exports for the visible slice.
 - `components/LogsFiltersForm.tsx` → server-side source, limit, severity and absolute-date controls.
@@ -12,3 +12,5 @@
 - `hooks/mergeReadLogs.ts` → cached tuple identity and newest-first bounded merge.
 - `hooks/streamReducer.ts`, `hooks/useSupportsLogSSE.ts` → stream buffering and direct-connection capability.
 - Interaction coverage: `Logs.test.tsx`, `hooks/useLogInspection.test.tsx`, `hooks/useInstanceLogs.test.tsx`, and `e2e/tests/logs.anon.spec.ts`.
+
+- `src/integrations/api/instance/status/getReadLog.ts` → request-time relative bounds and two bounded before/after context reads.

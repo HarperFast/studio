@@ -21,22 +21,23 @@ export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '
 	const snapshot = pinned?.key === queryKey ? pinned.logs : null;
 	const visible = snapshot ?? logs;
 	const known = useMemo(() => new Set(snapshot?.map(logKey)), [snapshot]);
-	const pending = useMemo(() => {
-		if (!snapshot) { return 0; }
-		return logs.reduce(
-			(count, log) =>
-				count
-				+ Number(
-					!known.has(logKey(log)) && (node === '*' || (log.node || '') === node)
-						&& (thread === '*' || (log.thread || '') === thread),
-				),
-			0,
-		);
+	const arrivals = useMemo(() => {
+		if (!snapshot) { return { pending: 0, saturated: false }; }
+		let pending = 0;
+		let overlap = false;
+		for (const log of logs) {
+			const fresh = !known.has(logKey(log));
+			overlap ||= !fresh;
+			if (
+				fresh && (node === '*' || (log.node || '') === node) && (thread === '*' || (log.thread || '') === thread)
+			) { pending++; }
+		}
+		return { pending, saturated: logs.length > 0 && !overlap };
 	}, [logs, snapshot, known, node, thread]);
 	return {
 		logs: visible,
 		paused: snapshot !== null,
-		pending,
+		...arrivals,
 		pause,
 		resume,
 		restore,

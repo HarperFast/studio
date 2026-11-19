@@ -33,6 +33,8 @@ import {
 	withTimeRange,
 } from './logView';
 
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 type InstanceParams = ReturnType<typeof useInstanceClientIdParams>;
 type SavedView = {
 	filters: LogFilters;
@@ -42,6 +44,11 @@ type SavedView = {
 	logs: ReadLogItem[];
 	live: boolean;
 	selected?: string;
+	expanded: Set<string>;
+	reversed: boolean;
+	scrollTop: number;
+	draft: LogFilters;
+	contextTimestamp?: string;
 };
 
 function formDates(filters: LogFilters): LogFilters {
@@ -109,8 +116,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const [savedView, setSavedView] = useState<SavedView | null>(null);
 	const [contextLog, setContextLog] = useState<ReadLogItem | null>(null);
 	const [selected, setSelected] = useState<string>();
+	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+	const linkedSelectionApplied = useRef(false);
+	const scrollToRestore = useRef<number | null>(null);
 	const tableScrollRef = useRef<HTMLDivElement>(null);
-	const userScrolling = useRef(false);
 	const form = useForm<LogFilters>({
 		resolver: zodResolver(LogFiltersFormSchema),
 		defaultValues: formDates(initialFilters),
@@ -120,13 +129,15 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const version = registrationInfo?.version;
 	const showLogName = !isLocalStudio && !!version && wasAReleasedBeforeB('5.0.13', version);
 	const showFilter = !!version && wasAReleasedBeforeB('4.7.16', version);
+	const contextTimestamp = contextLog?.timestamp ?? target?.timestamp;
 	const { logs: incoming, isLoading, isFetching, refetch, transport, error } = useInstanceLogs({
 		params,
 		logFilters,
 		replicated: params.entityType === 'cluster',
 		live: isLive,
+		contextTimestamp,
 	});
-	const queryKey = JSON.stringify([params.entityId, logFilters]);
+	const queryKey = JSON.stringify([params.entityId, logFilters, contextTimestamp]);
 	const inspection = useLogInspection(incoming, queryKey, node, thread);
 	const baseLogs = useMemo(() => contextLog ? mergeReadLogs(inspection.logs, [contextLog], 0) : inspection.logs, [
 		inspection.logs,
@@ -144,30 +155,50 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	]);
 	const selectedKey = selected ?? (targetMatches.length === 1 ? logKey(targetMatches[0]) : undefined);
 	const following = isLive && !inspection.paused;
+	useEffect(() => {
+		if (isLoading) { return; }
+		const present = new Set(baseLogs.map(logKey));
+		setExpandedKeys(current =>
+			[...current].every(key => present.has(key)) ? current : new Set([...current].filter(key => present.has(key)))
+		);
+	}, [baseLogs, isLoading]);
+	useEffect(() => {
+		if (!target || targetMatches.length !== 1 || linkedSelectionApplied.current) { return; }
+		linkedSelectionApplied.current = true;
+		setExpandedKeys(current => new Set([...current, logKey(targetMatches[0])]));
+		inspection.pause();
+	}, [target, targetMatches, inspection.pause]);
 
 	useEffect(() => {
 		if (following && !isLoading) {
 			const el = tableScrollRef.current;
-			userScrolling.current = false;
 			el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
 		}
 	}, [displayedLogs, following, isReversed, isLoading]);
 	useEffect(() => {
 		if (isLoading || inspection.paused) { return; }
 		const el = tableScrollRef.current;
-		userScrolling.current = false;
 		el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
 	}, [isReversed, isLoading]);
 	useEffect(() => {
-		if (selectedKey && !isLoading) {
-			const row = tableScrollRef.current?.querySelector<HTMLElement>('[data-log-selected="true"]');
-			userScrolling.current = false;
-			row?.scrollIntoView?.({ block: 'center' });
+		if (isLoading) { return; }
+		if (scrollToRestore.current !== null) {
+			tableScrollRef.current?.scrollTo({ top: scrollToRestore.current });
+			scrollToRestore.current = null;
+			return;
 		}
-	}, [selectedKey, isLoading]);
+		if (selectedKey) {
+			tableScrollRef.current?.querySelector<HTMLElement>('[data-log-selected="true"]')?.scrollIntoView?.({
+				block: 'center',
+			});
+		}
+	}, [selectedKey, isLoading, displayedLogs]);
 
 	const apply = (data: LogFilters, nextRange = range) => {
-		const next = withTimeRange(data, nextRange);
+		const displayed = formDates(logFilters);
+		const unchangedDates = data.from === displayed.from && data.until === displayed.until;
+		const canonical = unchangedDates ? { ...data, from: logFilters.from, until: logFilters.until } : data;
+		const next = withTimeRange(canonical, nextRange);
 		if (!validDateRange(next.from, next.until)) {
 			form.setError('from', { message: 'Choose valid dates with the start before the end.' });
 			setIsFiltersOpen(true);
@@ -180,6 +211,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		inspection.resume();
 		setSelected(undefined);
 		setTarget(undefined);
+		setExpandedKeys(new Set());
 		setSavedView(null);
 		setContextLog(null);
 	};
@@ -204,6 +236,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				logs: inspection.logs,
 				live: isLive,
 				selected: logKey(log),
+				expanded: new Set(expandedKeys),
+				reversed: isReversed,
+				scrollTop: tableScrollRef.current?.scrollTop ?? 0,
+				draft: { ...form.getValues() },
+				contextTimestamp,
 			});
 		}
 		const filters = surroundingFilters(logFilters, log.timestamp);
@@ -215,18 +252,38 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		setThread('*');
 		setContextLog(log);
 		setSelected(logKey(log));
+		setExpandedKeys(new Set([logKey(log)]));
 		inspection.resume();
-	}, [savedView, logFilters, range, node, thread, inspection.logs, isLive, form, inspection.resume]);
+	}, [
+		savedView,
+		logFilters,
+		range,
+		node,
+		thread,
+		inspection.logs,
+		isLive,
+		form,
+		inspection.resume,
+		expandedKeys,
+		isReversed,
+		contextTimestamp,
+	]);
 	const back = () => {
 		if (!savedView) { return; }
 		setLogFilters(savedView.filters);
-		form.reset(formDates(savedView.filters));
+		form.reset(savedView.draft);
 		setRange(savedView.range);
 		setNode(savedView.node);
 		setThread(savedView.thread);
 		setIsLive(savedView.live);
 		setSelected(savedView.selected);
-		inspection.restore(savedView.logs, JSON.stringify([params.entityId, savedView.filters]));
+		setExpandedKeys(savedView.expanded);
+		setIsReversed(savedView.reversed);
+		scrollToRestore.current = savedView.scrollTop;
+		inspection.restore(
+			savedView.logs,
+			JSON.stringify([params.entityId, savedView.filters, savedView.contextTimestamp]),
+		);
 		setContextLog(null);
 		setSavedView(null);
 	};
@@ -237,7 +294,6 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		setIsLive(true);
 	};
 
-	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	return (
 		<div className="space-y-3 px-2 pt-3 text-foreground">
 			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-3">
@@ -251,7 +307,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					<SlidersHorizontalIcon />Filters
 				</Button>
 				{showFilter && (
-					<form className="flex min-w-48 flex-1 gap-2" onSubmit={form.handleSubmit(data => apply(data))}>
+					<form
+						className="flex min-w-48 flex-1 gap-2"
+						onSubmit={form.handleSubmit(data => apply(data), () => setIsFiltersOpen(true))}
+					>
 						<div className="relative flex-1">
 							<SearchIcon className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
 							<Input
@@ -321,9 +380,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					<Button size="sm" variant="defaultOutline" onClick={resume} disabled={!!logFilters.until}>
 						<PlayIcon />
 						{inspection.pending
-							? `${inspection.pending}${
-								inspection.pending === incoming.length ? '+' : ''
-							} new matching logs available · `
+							? `${inspection.pending}${inspection.saturated ? '+' : ''} new matching logs available · `
 							: ''}Resume live
 					</Button>
 				)}
@@ -341,8 +398,8 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					</Button>
 					<span>Surrounding logs: ±30 seconds · text and severity filters relaxed · selected node</span>
 					<span className="text-xs text-muted-foreground">
-						Newest 1,000 logs in this window; earlier context may be missing, including when other nodes fill the
-						response. The selected event stays visible.
+						Up to 1,000 nearby logs, split before and after the selected event. Other nodes may fill either half; the
+						selected event stays visible.
 					</span>
 				</div>
 			)}
@@ -366,7 +423,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 							resetFilters={reset}
 							submitFilters={data => {
 								const current = formDates(logFilters);
-								apply(data, data.from !== current.from || data.until !== current.until ? 'custom' : range);
+								const changed = data.from !== current.from || data.until !== current.until;
+								apply(
+									changed ? data : { ...data, from: logFilters.from, until: logFilters.until },
+									changed ? 'custom' : range,
+								);
 							}}
 							showLogName={showLogName}
 							showFilter={false}
@@ -378,33 +439,22 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				<section
 					className="min-w-0 flex-1"
 					aria-label="Log results"
-					onPointerDownCapture={() => {
-						userScrolling.current = true;
+					onPointerDownCapture={event => {
+						if (event.target === tableScrollRef.current) { inspection.pause(); }
 					}}
-					onWheelCapture={() => {
-						userScrolling.current = true;
-					}}
-					onTouchMoveCapture={() => {
-						userScrolling.current = true;
-					}}
+					onWheelCapture={inspection.pause}
+					onTouchMoveCapture={inspection.pause}
 					onKeyDownCapture={event => {
 						if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
-							userScrolling
-								.current = true;
-						}
-					}}
-					onScrollCapture={() => {
-						const el = tableScrollRef.current;
-						if (!el || !userScrolling.current) { return; }
-						const away = isReversed ? el.scrollHeight - el.clientHeight - el.scrollTop > 48 : el.scrollTop > 48;
-						if (away) {
-							inspection.pause();
-							userScrolling.current = false;
+							inspection
+								.pause();
 						}
 					}}
 				>
 					<LogsDataTable
 						data={isLoading ? [] : displayedLogs}
+						expandedKeys={expandedKeys}
+						onExpandedChange={setExpandedKeys}
 						source={logFilters.log_name}
 						containerRef={tableScrollRef}
 						reversed={isReversed}

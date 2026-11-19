@@ -96,3 +96,45 @@ it('keeps non-live log reads manual across focus and reconnect events', () => {
 	expect(options.refetchOnReconnect).toBe(false);
 	expect(options.refetchInterval).toBe(false);
 });
+
+it('keeps both sides of a busy context window under one total limit', async () => {
+	const timestamp = '2026-11-19T18:00:00.000Z';
+	const center = Date.parse(timestamp);
+	const fixtures = Array.from(
+		{ length: 61 },
+		(_, index) => ({
+			timestamp: new Date(center + (index - 30) * 1000).toISOString(),
+			message: String(index),
+			level: 'info',
+			thread: 'main/0',
+			node: 'node-a',
+			tags: [],
+		}),
+	);
+	const post = vi.fn().mockImplementation(async (_url: string, body: Record<string, unknown>) => {
+		const matching = fixtures.filter(item =>
+			Date.parse(item.timestamp) >= Date.parse(body.from as string)
+			&& Date.parse(item.timestamp) <= Date.parse(body.until as string)
+		);
+		matching.sort((a, b) =>
+			body.order === 'asc' ? a.timestamp.localeCompare(b.timestamp) : b.timestamp.localeCompare(a.timestamp)
+		);
+		return { data: matching.slice(0, body.limit as number) };
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: timestamp,
+	});
+	const data = await (options.queryFn as () => Promise<typeof fixtures>)();
+	expect(post).toHaveBeenCalledTimes(2);
+	expect(post.mock.calls.map(([, body]) => body.order).sort()).toEqual(['asc', 'desc']);
+	expect(post.mock.calls.every(([, body]) => body.limit === 5 && body.replicated === true)).toBe(true);
+	expect(data).toHaveLength(10);
+	expect(data.some(item => Date.parse(item.timestamp) < center)).toBe(true);
+	expect(data.some(item => Date.parse(item.timestamp) > center)).toBe(true);
+	expect(data.every(item => Math.abs(Date.parse(item.timestamp) - center) <= 4000)).toBe(true);
+});

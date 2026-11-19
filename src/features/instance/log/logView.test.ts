@@ -95,3 +95,27 @@ describe('logs view contracts', () => {
 		expect(mergeReadLogs([log, { ...log }], [{ ...log }], 100).map(logKey)).toEqual([logKey(log)]);
 	});
 });
+
+it('bounds identity caching even while callers retain old record objects', () => {
+	mergeReadLogs([], [], 100);
+	let reads = 0;
+	const original = {
+		...log,
+		get message() {
+			reads++;
+			return 'same message';
+		},
+	};
+	const first = logKey(original);
+	expect(logKey(original)).toBe(first);
+	expect(reads).toBe(1);
+	const retained: ReadLogItem[] = [];
+	for (let index = 0; index < 30001; index++) {
+		const next = { ...log, message: String(index) };
+		retained.push(next);
+		logKey(next);
+	}
+	expect(logKey(original)).toBe(first);
+	expect(reads).toBe(2);
+	expect(retained).toHaveLength(30001);
+});

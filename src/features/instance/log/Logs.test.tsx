@@ -121,6 +121,40 @@ describe('logs explorer interactions', () => {
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
 	});
 
+	it('pins a scrollbar drag before a live flush can interrupt it', () => {
+		const { container, rerender } = render(<LogsExplorer params={params} />);
+		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
+		const scroller = container.querySelector('[data-slot="table-container"]')!;
+		fireEvent.pointerDown(scroller);
+		state.logs = [log('mid-drag arrival'), ...state.logs];
+		rerender(<LogsExplorer params={params} />);
+		Object.defineProperty(scroller, 'scrollTop', { value: 120, configurable: true });
+		fireEvent.scroll(scroller);
+		expect(screen.queryByText('mid-drag arrival')).toBeNull();
+		expect(screen.getByRole('button', { name: /Resume live/ })).toBeTruthy();
+	});
+	it('reveals invalid hidden date drafts when submitting Search', async () => {
+		render(<LogsExplorer params={params} />);
+		fireEvent.change(screen.getByLabelText('Time range'), { target: { value: 'custom' } });
+		fireEvent.change(screen.getByLabelText('Start date (local time)'), { target: { value: '2099-01-01T12:00' } });
+		fireEvent.click(screen.getAllByRole('button', { name: 'Filters' })[0]);
+		expect(screen.queryByLabelText('Start date (local time)')).toBeNull();
+		fireEvent.submit(screen.getByRole('searchbox', { name: 'Search logs' }).closest('form')!);
+		expect(await screen.findByText('Date cannot be after today')).toBeTruthy();
+		expect(screen.getByLabelText('Start date (local time)')).toBeTruthy();
+	});
+	it('retains canonical UTC bounds when untouched context dates are applied', async () => {
+		state.logs = [{ ...log('DST second hour'), timestamp: '2026-11-01T06:30:00Z' }];
+		const link = buildLogLink('https://studio.example/#/org/clu/logs', state.logs[0], 'hdb.log');
+		render(<LogsExplorer params={params} search={new URL(link).hash.split('?')[1]} />);
+		const previous = state.args.logFilters;
+		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }));
+		await waitFor(() => expect(state.args.logFilters).not.toBe(previous));
+		expect(state.args.logFilters.from).toBe(previous.from);
+		expect(state.args.logFilters.until).toBe(previous.until);
+	});
+
 	it('freezes when a user scrolls away from the newest edge', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
@@ -135,10 +169,11 @@ describe('logs explorer interactions', () => {
 		expect(screen.queryByText('new arrival')).toBeNull();
 		expect(screen.getByRole('button', { name: /Resume live/ })).toBeTruthy();
 	});
-	it('pivots to bounded context and restores the original pinned slice', () => {
+	it('restores all expanded logs when returning from surrounding context', () => {
 		const { rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
-		fireEvent.click(screen.getByRole('button', { name: 'View surrounding logs' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 2' }));
+		fireEvent.click(screen.getAllByRole('button', { name: 'View surrounding logs' })[0]);
 		expect(state.args.logFilters).toMatchObject({ level: 'undefined', filter: '', limit: '1000' });
 		expect(Date.parse(state.args.logFilters.until!) - Date.parse(state.args.logFilters.from!)).toBe(60000);
 		expect(state.args.live).toBe(false);
@@ -147,8 +182,9 @@ describe('logs explorer interactions', () => {
 		rerender(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Back to previous view' }));
 		expect(screen.getAllByText('first error').length).toBeGreaterThan(0);
-		expect(screen.getByText('second error')).toBeTruthy();
+		expect(screen.getAllByText('second error').length).toBeGreaterThan(0);
 		expect(screen.queryByText('nearby event')).toBeNull();
+		expect(screen.getAllByLabelText('Full log message')).toHaveLength(2);
 	});
 	it('validates persisted column preferences while keeping required columns visible', () => {
 		localStorage.setItem('LogsColumnSizing', JSON.stringify({ message: 'bad', timestamp: -5, node: 180 }));

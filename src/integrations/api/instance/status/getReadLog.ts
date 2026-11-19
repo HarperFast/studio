@@ -17,6 +17,8 @@ interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersFormSchema>;
 	replicated: boolean;
 	isAutoRefreshEnabled: boolean;
+	contextTimestamp?: string;
+	order?: 'asc' | 'desc';
 }
 
 /**
@@ -46,6 +48,7 @@ export function clampReadLogLimit(limit: string | null | undefined): number | un
 export function buildReadLogBody(
 	logFilters: z.infer<typeof LogFiltersFormSchema>,
 	replicated: boolean,
+	order: 'asc' | 'desc' = 'desc',
 ): Record<string, unknown> {
 	return {
 		operation: 'read_log',
@@ -61,15 +64,53 @@ export function buildReadLogBody(
 		until: !logFilters.relative_minutes && logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
 		log_name: logFilters.log_name ?? undefined,
 		filter: logFilters.filter ? logFilters.filter : undefined,
-		order: 'desc',
+		order,
 	};
 }
 
 export async function getReadLog(
-	{ instanceClient, logFilters, replicated }: Omit<GetReadLogParams, 'isAutoRefreshEnabled'> & InstanceClientIdConfig,
+	{ instanceClient, logFilters, replicated, order }:
+		& Omit<GetReadLogParams, 'isAutoRefreshEnabled'>
+		& InstanceClientIdConfig,
 ): Promise<ReadLogItem[]> {
-	const { data } = await instanceClient.post<ReadLogItem[]>('/', buildReadLogBody(logFilters, replicated));
+	const { data } = await instanceClient.post<ReadLogItem[]>('/', buildReadLogBody(logFilters, replicated, order));
 	return data;
+}
+
+async function getContextLogs(
+	params: GetReadLogParams & InstanceClientIdConfig,
+	timestamp: string,
+): Promise<ReadLogItem[]> {
+	const time = Date.parse(timestamp);
+	const limit = clampReadLogLimit(params.logFilters.limit) ?? 1000;
+	const beforeLimit = Math.ceil(limit / 2);
+	const afterLimit = Math.floor(limit / 2);
+	const common = { ...params.logFilters, relative_minutes: undefined };
+	const [before, after] = await Promise.all([
+		getReadLog({
+			...params,
+			order: 'desc',
+			logFilters: {
+				...common,
+				limit: String(beforeLimit),
+				from: new Date(time - 30000).toISOString(),
+				until: timestamp,
+			},
+		}),
+		afterLimit
+			? getReadLog({
+				...params,
+				order: 'asc',
+				logFilters: {
+					...common,
+					limit: String(afterLimit),
+					from: timestamp,
+					until: new Date(time + 30000).toISOString(),
+				},
+			})
+			: Promise.resolve([]),
+	]);
+	return before.slice(0, beforeLimit).concat(after.slice(0, afterLimit));
 }
 
 export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClientIdConfig) {
@@ -77,6 +118,8 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 	return queryOptions({
 		queryKey: [
 			'read_log',
+			params.contextTimestamp,
+			params.order,
 			params.entityId,
 			logFilters.relative_minutes,
 			logFilters.limit,
@@ -87,10 +130,10 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 			logFilters.filter,
 			params.replicated,
 		] as const,
-		queryFn: () => getReadLog(params),
+		queryFn: () => params.contextTimestamp ? getContextLogs(params, params.contextTimestamp) : getReadLog(params),
 		retry: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
-		refetchInterval: params.isAutoRefreshEnabled ? pollUnlessForbidden(5_000) : false,
+		refetchInterval: params.isAutoRefreshEnabled && !params.contextTimestamp ? pollUnlessForbidden(5_000) : false,
 	});
 }
