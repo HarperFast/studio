@@ -14,11 +14,15 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
 // The hook only reaches for the router; give it inert doubles we can assert against.
 // One router object for the whole file, matching production's stable one.
-const { navigate, router } = vi.hoisted(() => ({ navigate: vi.fn(), router: { invalidate: vi.fn() } }));
+const { navigate, router, hashSearch } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	router: { invalidate: vi.fn() },
+	hashSearch: { current: {} as Record<string, unknown> },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
-	useSearch: () => ({}),
+	useSearch: () => hashSearch.current,
 }));
 
 vi.mock('sonner', () => ({
@@ -32,6 +36,7 @@ vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 import { apiClient } from '@/config/apiClient';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import type { User } from '@/integrations/api/api.patch';
+import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { mutationErrorHandler, queryClient as appQueryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OUTCOME_UNKNOWN_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from '../describeAuthFailure';
@@ -74,6 +79,28 @@ describe('useCloudSignIn — unverified email', () => {
 		await waitFor(() => expect(toast.info).toHaveBeenCalled());
 		// The dead-end "Error" toast must NOT fire for this case.
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('keeps the redirect on the way to /verifying', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({
+				to: '/verifying',
+				search: { redirect: mcpAuthorize },
+				state: { prefillEmail: EMAIL },
+			})
+		);
+		hashSearch.current = {};
 	});
 
 	// The redirect is the success path for this rejection; filing it would put every unverified
@@ -257,5 +284,105 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 
 		expect(instanceSignOut).not.toHaveBeenCalled();
 		expect(appQueryClient.getQueryData(['ada-only'])).toBe('ada data');
+	});
+});
+
+describe('useCompleteCloudSignIn — redirect', () => {
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
+	const replace = vi.fn();
+
+	function appWrapper({ children }: PropsWithChildren) {
+		return <QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>;
+	}
+
+	beforeEach(() => {
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		vi.stubGlobal('location', { ...window.location, replace });
+	});
+	afterEach(() => {
+		hashSearch.current = {};
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		vi.unstubAllGlobals();
+	});
+
+	it('replaces the sign-in page with the MCP authorization', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		hashSearch.current = { redirect: mcpAuthorize };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(true);
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(navigate).not.toHaveBeenCalled();
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(ADA);
+	});
+
+	// As `href`: `to` is a pathname, whose normalization turns the query's `https://` into `https:/`.
+	it('navigates to an in-app redirect, keeping its own query', async () => {
+		const deploy = '/org-1/clu-1/config/deploy-from-github?repository=https://github.com/Acme/shop.git';
+		hashSearch.current = { redirect: deploy };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: deploy });
+		expect(replace).not.toHaveBeenCalled();
+	});
+
+	it('follows the redirect its page hands it over the page search', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&state=s';
+		hashSearch.current = { redirect: `${mcpAuthorize}?error=access_denied` };
+		const { result } = renderHook(() => useCompleteCloudSignIn({ redirect: mcpAuthorize }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+	});
+
+	it('gives up, without following the redirect, when another sign-in lands meanwhile', async () => {
+		const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+		hashSearch.current = { redirect: '/oauth/mcp/authorize?response_type=code&state=s' };
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			authStore.setUserForEntity(OverallAppSignIn, GRACE);
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(false);
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('still follows it when the sign-in bookkeeping throws', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&state=s';
+		hashSearch.current = { redirect: mcpAuthorize };
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		vi.mocked(loginSuccessDatadogAction).mockImplementationOnce(() => {
+			throw new Error('analytics script failed');
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(consoleDebug).toHaveBeenCalledWith('Sign-in bookkeeping failed, carrying on:', expect.any(Error));
+		consoleDebug.mockRestore();
+	});
+
+	it.each([
+		['another host', 'https://evil.example/oauth/mcp/authorize'],
+		['a protocol-relative host', '//evil.example'],
+		['a value that is not text', 404],
+	])('falls back to the default route for %s', async (_label, redirect) => {
+		hashSearch.current = { redirect };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(navigate).toHaveBeenCalledTimes(1);
+		expect(navigate.mock.calls[0][0]).toEqual({ to: expect.not.stringContaining('evil') });
 	});
 });

@@ -12,6 +12,7 @@ import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { followServerRedirect, postSignInRedirect, redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
@@ -19,12 +20,16 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
-/** Resolves false when a sign-out landed before it could navigate. */
-export function useCompleteCloudSignIn() {
+/**
+ * Resolves false when a sign-out or another sign-in landed before it could navigate. `redirect` defaults to the page's search; a page whose
+ * search the router cannot read cleanly passes its own.
+ */
+export function useCompleteCloudSignIn(options?: { redirect: unknown }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
-	const { redirect } = useSearch({ strict: false });
+	const search = useSearch({ strict: false });
+	const redirect = options ? options.redirect : search.redirect;
 
 	return useCallback(async (user: User): Promise<boolean> => {
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
@@ -48,18 +53,29 @@ export function useCompleteCloudSignIn() {
 			console.debug('Sign-in bookkeeping failed, carrying on:', error);
 		}
 		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
+		if (
+			authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
+		) {
 			return false;
 		}
+		const target = postSignInRedirect(redirect);
+		if (target?.kind === 'server') {
+			followServerRedirect(target.href);
+			return true;
+		}
 		void router.invalidate();
-		await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+		// `href`, not `to`: a target keeps its own query, which `to` would normalize as part of the path.
+		await navigate(target ? { href: target.to } : { to: defaultCloudRoute });
 		return true;
 	}, [navigate, queryClient, redirect, router]);
 }
 
 export function useCloudSignIn() {
 	const navigate = useNavigate();
+	const { redirect } = useSearch({ strict: false });
 	const completeSignIn = useCompleteCloudSignIn();
 	const [submitError, setSubmitError] = useState<string>();
 
@@ -87,13 +103,17 @@ export function useCloudSignIn() {
 								description: `We sent a new verification link to ${formData.email}.`,
 							}),
 					});
-					void navigate({ to: '/verifying', state: { prefillEmail: formData.email } });
+					void navigate({
+						to: '/verifying',
+						search: redirectSearch(redirect),
+						state: { prefillEmail: formData.email },
+					});
 					return;
 				}
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [completeSignIn, navigate, resendEmailVerification, submitLoginData]);
+	}, [completeSignIn, navigate, redirect, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,

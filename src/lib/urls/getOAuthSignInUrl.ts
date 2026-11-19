@@ -1,4 +1,5 @@
 import { joinPath } from '@/lib/string/paths/joinPath';
+import { postSignInRedirectParam } from '@/lib/urls/postSignInRedirect';
 
 /**
  * Where central-manager sends the browser after a successful built-in-provider login:
@@ -11,9 +12,16 @@ export const checkOAuthRedirect = '/#/check-oauth';
  * `redirect` on any origin it does not list in `postLoginRedirectOrigins`, so for dev Studio and
  * production this is the same as `checkOAuthRedirect`. A listed origin (a Studio PR preview on dev)
  * gets the sign-in handed to it with a one-time code, which `/#/check-oauth` redeems.
+ *
+ * `redirect` is where the sign-in page was asked to continue to. It rides along in the fragment's own
+ * query, which the CM keeps (its `sanitizeRedirect` drops only the scheme and host), and `/#/check-oauth`
+ * follows it. One that `postSignInRedirect` would not follow is left off.
  */
-export function checkOAuthRedirectUrl(origin: string = window.location.origin): string {
-	return `${origin}${checkOAuthRedirect}`;
+export function checkOAuthRedirectUrl(
+	{ redirect, origin = window.location.origin }: { redirect?: unknown; origin?: string } = {},
+): string {
+	const param = postSignInRedirectParam(redirect);
+	return `${origin}${checkOAuthRedirect}${param === undefined ? '' : `?redirect=${encodeURIComponent(param)}`}`;
 }
 
 /**

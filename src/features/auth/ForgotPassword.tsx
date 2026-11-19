@@ -4,10 +4,11 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -27,7 +28,8 @@ const ForgotPasswordSchema = z.object({
 
 export function ForgotPassword() {
 	const navigate = useNavigate();
-	const { me: formPersistenceEmail } = useSearch({ strict: false });
+	const { me: formPersistenceEmail, redirect } = useSearch({ strict: false });
+	const carriedSearch = useMemo(() => redirectSearch(redirect), [redirect]);
 	const prefillEmail = usePrefillEmail();
 	const methods = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
@@ -61,7 +63,7 @@ export function ForgotPassword() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/sign-in', state: { prefillEmail: formData.email } });
+				navigate({ to: '/sign-in', search: carriedSearch, state: { prefillEmail: formData.email } });
 			},
 			onError: (error) => {
 				setSubmitError(captcha.describeCaptchaError(error) ?? describeAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY));
@@ -104,10 +106,20 @@ export function ForgotPassword() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
+				<Link
+					className="text-sm hover:text-blue-300"
+					to="/sign-in"
+					search={carriedSearch}
+					state={{ prefillEmail: email }}
+				>
 					Sign in to your account
 				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/sign-up" state={{ prefillEmail: email }}>
+				<Link
+					className="text-sm hover:text-blue-300"
+					to="/sign-up"
+					search={carriedSearch}
+					state={{ prefillEmail: email }}
+				>
 					Sign up for free
 				</Link>
 			</div>

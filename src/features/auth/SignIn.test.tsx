@@ -11,20 +11,25 @@ const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
 // One router object for the whole file, matching production's stable one.
-const { navigate, router, historyState } = vi.hoisted(() => ({
+const { navigate, router, historyState, hashSearch } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	router: { invalidate: vi.fn() },
 	historyState: {} as { prefillEmail?: string },
+	hashSearch: { current: {} as Record<string, unknown> },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
-	useSearch: () => ({}),
+	useSearch: () => hashSearch.current,
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children, to, state, className }: PropsWithChildren<
-		{ to?: string; state?: { prefillEmail?: string }; className?: string }
-	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
+	Link: ({ children, to, search, state, className }: PropsWithChildren<
+		{ to?: string; search?: { redirect?: string }; state?: { prefillEmail?: string }; className?: string }
+	>) => (
+		<a href={to} data-redirect={search?.redirect} data-prefill-email={state?.prefillEmail} className={className}>
+			{children}
+		</a>
+	),
 }));
 
 vi.mock('sonner', () => ({
@@ -225,5 +230,41 @@ describe('SignIn — offline', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(post).toHaveBeenCalledTimes(1);
 		expect(navigate).not.toHaveBeenCalled();
+	});
+});
+
+describe('SignIn — redirect', () => {
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+	const checkOAuthWith = (redirect: string) =>
+		encodeURIComponent(`${window.location.origin}/#/check-oauth?redirect=${encodeURIComponent(redirect)}`);
+
+	afterEach(() => {
+		hashSearch.current = {};
+	});
+
+	it('hands the redirect to Google, GitHub and the sign-up link', () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		renderSignIn();
+
+		for (const name of ['Sign in with Google', 'Sign in with GitHub']) {
+			expect(screen.getByRole('link', { name }).getAttribute('href')).toContain(
+				`?redirect=${checkOAuthWith(mcpAuthorize)}`,
+			);
+		}
+		expect(screen.getByText(/Sign up for free/).closest('a')?.dataset.redirect).toBe(
+			mcpAuthorize,
+		);
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBe(mcpAuthorize);
+	});
+
+	it('hands on none of a redirect it would not follow', () => {
+		hashSearch.current = { redirect: 'https://evil.example/oauth/mcp/authorize' };
+		renderSignIn();
+
+		for (const name of ['Sign in with Google', 'Sign in with GitHub']) {
+			expect(screen.getByRole('link', { name }).getAttribute('href')).not.toContain('evil.example');
+		}
+		expect(screen.getByText(/Sign up for free/).closest('a')?.dataset.redirect)
+			.toBeUndefined();
 	});
 });

@@ -10,12 +10,14 @@ export function GoogleAuthenticationButton({
 	onClick,
 	lastUsed = false,
 	compact = false,
+	redirect,
 }: {
 	text: 'Sign in with Google' | 'Sign up with Google';
 	disabled?: boolean;
 	onClick?: MouseEventHandler<HTMLAnchorElement>;
 	lastUsed?: boolean;
 	compact?: boolean;
+	redirect?: string;
 }) {
 	const button = (
 		<a
@@ -24,7 +26,7 @@ export function GoogleAuthenticationButton({
 			// accepting the terms, and its handler's preventDefault only covers a plain click —
 			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
 			// keep the hrefless anchor in the tab order and announced, per the pattern in NodeLegend.
-			href={disabled ? undefined : getOAuthSignInUrl('google', checkOAuthRedirectUrl())}
+			href={disabled ? undefined : getOAuthSignInUrl('google', checkOAuthRedirectUrl({ redirect }))}
 			role={disabled ? 'link' : undefined}
 			tabIndex={disabled ? 0 : undefined}
 			onClick={onClick}

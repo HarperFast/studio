@@ -10,11 +10,12 @@ import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
+import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodNewAccountPassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { MouseEvent, useCallback, useEffect, useState } from 'react';
+import { MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { AuthInput } from './components/AuthInput';
@@ -66,7 +67,8 @@ const SignUpSchema = z.object({
 
 export function SignUp() {
 	const navigate = useNavigate();
-	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
+	const { email: searchEmail, me: formPersistenceEmail, redirect } = useSearch({ strict: false });
+	const carriedSearch = useMemo(() => redirectSearch(redirect), [redirect]);
 	const prefillEmail = usePrefillEmail();
 	const [flashTerms, setFlashTerms] = useState(false);
 
@@ -112,7 +114,7 @@ export function SignUp() {
 					...(company ? { company } : {}),
 				});
 				clearUtmParamsFromUrl();
-				void navigate({ to: '/verifying', state: { prefillEmail: userData.email } });
+				void navigate({ to: '/verifying', search: carriedSearch, state: { prefillEmail: userData.email } });
 			},
 			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
 			// and renders the failure in the form instead. RUM showed people resubmitting the
@@ -128,7 +130,7 @@ export function SignUp() {
 				});
 			},
 		});
-	}, [clearErrors, navigate, setError, submitSignUpData, captcha]);
+	}, [carriedSearch, clearErrors, navigate, setError, submitSignUpData, captcha]);
 
 	const onOAuthClick = useCallback((e: MouseEvent) => {
 		if (!acceptTerms) {
@@ -198,11 +200,13 @@ export function SignUp() {
 						text="Sign up with Google"
 						disabled={!acceptTerms}
 						onClick={onOAuthClick}
+						redirect={carriedSearch?.redirect}
 					/>
 					<GitHubAuthenticationButton
 						text="Sign up with GitHub"
 						disabled={!acceptTerms}
 						onClick={onOAuthClick}
+						redirect={carriedSearch?.redirect}
 					/>
 				</div>
 
@@ -313,7 +317,12 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="auth-links">
-				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" state={{ prefillEmail: email }}>
+				<Link
+					className="m-auto text-sm hover:text-blue-300"
+					to="/sign-in"
+					search={carriedSearch}
+					state={{ prefillEmail: email }}
+				>
 					Already have an account? Sign in instead.
 				</Link>
 			</div>

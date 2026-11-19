@@ -10,18 +10,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
-const { navigate, historyState } = vi.hoisted(() => ({
+const { navigate, historyState, hashSearch } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	historyState: {} as { prefillEmail?: string },
+	hashSearch: { current: {} as Record<string, unknown> },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
-	useSearch: () => ({}),
+	useSearch: () => hashSearch.current,
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children, to, state, className }: PropsWithChildren<
-		{ to?: string; state?: { prefillEmail?: string }; className?: string }
-	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
+	Link: ({ children, to, search, state, className }: PropsWithChildren<
+		{ to?: string; search?: { redirect?: string }; state?: { prefillEmail?: string }; className?: string }
+	>) => (
+		<a href={to} data-redirect={search?.redirect} data-prefill-email={state?.prefillEmail} className={className}>
+			{children}
+		</a>
+	),
 }));
 
 vi.mock('sonner', () => ({
@@ -672,5 +677,59 @@ describe('SignUp — browser proof', () => {
 		await waitFor(() => expect(navigate).toHaveBeenCalledWith(VERIFYING));
 		expect(screen.queryByRole('alert')).toBeNull();
 		expect(consoleError).not.toHaveBeenCalled();
+	});
+});
+
+describe('SignUp — redirect', () => {
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+	const checkOAuthWith = (redirect: string) =>
+		encodeURIComponent(`${window.location.origin}/#/check-oauth?redirect=${encodeURIComponent(redirect)}`);
+
+	afterEach(() => {
+		hashSearch.current = {};
+	});
+
+	it('hands the redirect to Google, GitHub and the sign-in link', () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		renderSignUp();
+		// The OAuth buttons only get an href once the terms are accepted.
+		fireEvent.click(screen.getAllByRole('checkbox')[0]);
+
+		for (const name of ['Sign up with Google', 'Sign up with GitHub']) {
+			expect(screen.getByRole('link', { name }).getAttribute('href')).toContain(
+				`?redirect=${checkOAuthWith(mcpAuthorize)}`,
+			);
+		}
+		expect(screen.getByText(/Sign in instead/).closest('a')?.dataset.redirect).toBe(
+			mcpAuthorize,
+		);
+	});
+
+	it('keeps the redirect on the way to /verifying after an email sign-up', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({
+				to: '/verifying',
+				search: { redirect: mcpAuthorize },
+				state: { prefillEmail: 'taken@example.com' },
+			})
+		);
+	});
+
+	it('hands on none of a redirect it would not follow', () => {
+		hashSearch.current = { redirect: 'https://evil.example/oauth/mcp/authorize' };
+		renderSignUp();
+		fireEvent.click(screen.getAllByRole('checkbox')[0]);
+
+		for (const name of ['Sign up with Google', 'Sign up with GitHub']) {
+			expect(screen.getByRole('link', { name }).getAttribute('href')).not.toContain('evil.example');
+		}
+		expect(screen.getByText(/Sign in instead/).closest('a')?.dataset.redirect)
+			.toBeUndefined();
 	});
 });
