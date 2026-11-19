@@ -303,6 +303,9 @@ function ScheduledJobsPage() {
 	if (!canManage) {
 		return <PageNotice>Only super users can view or change scheduled jobs.</PageNotice>;
 	}
+	if (version === undefined) {
+		return <Loading className="flex flex-col items-center justify-center py-24" text="Loading..." />;
+	}
 	if (!version) {
 		return (
 			<PageNotice>This instance's Harper version could not be read, so its scheduled jobs are not shown.</PageNotice>
