@@ -116,6 +116,16 @@ function renderForm(
 
 const recordLocksBox = () => screen.queryByRole<HTMLInputElement>('checkbox', { name: 'Cluster-wide record locks' });
 
+async function selectVersion(currentVersion: string, nextVersion: string) {
+	const trigger = screen.getAllByRole('combobox').find(combobox => combobox.textContent?.includes(currentVersion))!;
+	await act(async () => {
+		fireEvent.click(trigger);
+	});
+	await act(async () => {
+		fireEvent.click(screen.getByRole('option', { name: new RegExp(nextVersion.replaceAll('.', '\\.')) }));
+	});
+}
+
 async function create() {
 	post.mockResolvedValue({ data: { id: 'clu-new' } });
 	const submit = screen.getByRole<HTMLButtonElement>('button', { name: /Create New Cluster/ });
@@ -128,6 +138,32 @@ async function create() {
 }
 
 describe('ClusterForm — record locks on create', () => {
+	it('starts checked on Harper 5.4.0+ and sends recordLocks: true', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
+	});
+
+	it('sends recordLocks: false when unchecked on Harper 5.4.0+', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+	});
+
+	it('starts unchecked on Harper 5.3.0 and sends recordLocks: false', async () => {
+		renderForm({}, { harperVersions: versions('5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: false }));
+	});
+
 	it('sends recordLocks: true when ticked on Harper 5.3.0', async () => {
 		renderForm({}, { harperVersions: versions('5.3.0') });
 
@@ -149,15 +185,94 @@ describe('ClusterForm — record locks on create', () => {
 		expect((await screen.findAllByText(/lock a record across every instance/)).length).toBeGreaterThan(0);
 	});
 
-	it('leaves recordLocks out when the box is not ticked', async () => {
-		renderForm({}, { harperVersions: versions('5.3.0') });
-		expect(recordLocksBox()).toBeTruthy();
+	it('resets an untouched box to match the version default when moving between 5.4 and 5.3', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
 
-		expect(await create()).not.toHaveProperty('recordLocks');
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: false }));
+	});
+
+	it('checks an untouched box when moving from 5.3 to 5.4', async () => {
+		renderForm({ version: '5.3.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
+	});
+
+	it('keeps the user choice across version switches once the box has been touched', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		await selectVersion('5.4.0', '5.3.0');
+		await selectVersion('5.3.0', '5.4.0');
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+	});
+
+	it('keeps a touched box checked when moving from 5.4 to 5.3 even if toggled back to checked', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.3.0');
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: true }));
+	});
+
+	it('keeps an explicit false default on 5.4.0 (e.g. restored draft or Try Again)', async () => {
+		renderForm({ version: '5.4.0', recordLocks: false }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
 	});
 
 	it('offers nothing below 5.3.0, and drops a ticked box carried from a failed cluster', async () => {
 		renderForm({ version: '5.2.13', recordLocks: true }, { harperVersions: versions('5.2.13') });
+		expect(recordLocksBox()).toBeNull();
+
+		expect(await create()).not.toHaveProperty('recordLocks');
+	});
+
+	it('leaves recordLocks out after switching from 5.4.0 to a pre-5.3 version', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.2.13') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.2.13');
+		expect(recordLocksBox()).toBeNull();
+
+		expect(await create()).not.toHaveProperty('recordLocks');
+	});
+
+	it('offers nothing to a self-hosted cluster on 5.4+, and leaves recordLocks out', async () => {
+		renderForm({
+			version: '5.4.0',
+			deploymentDescription: 'Self-Hosted',
+			performanceDescription: 'Bring your own',
+			fqdn: 'locks.example.com',
+			regionPlans: [],
+			instances: [{ secure: 'true', fqdn: 'node-1.example.com', port: 9925 }],
+		}, { harperVersions: versions('5.4.0') });
 		expect(recordLocksBox()).toBeNull();
 
 		expect(await create()).not.toHaveProperty('recordLocks');

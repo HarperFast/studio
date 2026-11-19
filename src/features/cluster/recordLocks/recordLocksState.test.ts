@@ -1,6 +1,12 @@
 import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { hasMemberNotRunning, recordLocksBlocker, recordLocksState, supportsRecordLocks } from './recordLocksState';
+import {
+	defaultsRecordLocksOn,
+	hasMemberNotRunning,
+	recordLocksBlocker,
+	recordLocksState,
+	supportsRecordLocks,
+} from './recordLocksState';
 
 function instance(overrides: Partial<Instance> = {}): Instance {
 	return { id: 'ins-1', status: 'RUNNING', version: '5.3.1', ...overrides } as Instance;
@@ -49,6 +55,30 @@ describe('supportsRecordLocks', () => {
 		[null, false],
 	])('%s → %s', (version, expected) => {
 		expect(supportsRecordLocks(version)).toBe(expected);
+	});
+});
+
+describe('defaultsRecordLocksOn', () => {
+	it.each([
+		['5.4.0', true],
+		['5.4.1', true],
+		['5.5.0-alpha.1', true],
+		['6.0.0', true],
+		['v5.4.0', true],
+		['5.4.0+build.1', true],
+		[' 5.4.0 ', true],
+		['5.4.0-alpha.1', false],
+		['5.4.0-beta.1', false],
+		['5.3.9', false],
+		['5.3.0', false],
+		['5.2.13', false],
+		['5.4', false],
+		['=5.4.0', false],
+		['', false],
+		[undefined, false],
+		[null, false],
+	])('%s → %s', (version, expected) => {
+		expect(defaultsRecordLocksOn(version)).toBe(expected);
 	});
 });
 
