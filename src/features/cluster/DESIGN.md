@@ -78,6 +78,7 @@ restrictions". Studio recovers a token only on a 401, so the pages stay denied u
 
 So the in-cluster pages' guard, `checkClusterInstanceAuthenticationBeforeLoad`, sends a cluster whose `resetPassword` is
 still set to its overview, which routes on to Starting-up or Finish-setup, before it restores or mints any connection.
+A `STOPPED` cluster that `isStartBlocked` refuses stays on its overview, which offers no connection.
 The setup flow ([`useInstanceResetPasswordMutation`](../../integrations/api/instance/auth/useInstanceResetPasswordMutation.ts))
 also forgets the cluster's and its instances' connections (`clusterSignInIds`) first and runs on a fresh direct
 client. Otherwise every step would run as the Bearer's account, whatever credentials it presented, because Harper reads

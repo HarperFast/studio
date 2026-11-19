@@ -61,7 +61,6 @@ export function ClusterExpiryBanner({
 	);
 }
 
-/** Billing is the organization's, so its permission decides: the billing page refuses anyone else. */
 function UpdatePaymentAction({ organizationId }: { organizationId: string }) {
 	const { update: canManageBilling } = useOrganizationPermissions(organizationId);
 	if (!canManageBilling) {

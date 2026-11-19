@@ -76,9 +76,7 @@ export function ClusterHome() {
 	if (!cluster.fqdn) {
 		return <Navigate to={`${base}/instances`} replace />;
 	}
-	// A stopped cluster whose start is refused is not on its way up, so the setup flow would park it on
-	// "spinning up"; the overview's banner says why it is down and what brings it back.
-	if (cluster.resetPassword && !(cluster.status === 'STOPPED' && isStartBlocked(cluster))) {
+	if (cluster.resetPassword) {
 		// Only an admin (update) can finish setup / set the password. Match ClusterCardAction: send
 		// updaters into the setup flow, but show view-only members a "pending" message instead of
 		// redirecting them to a page they can't act on.
@@ -86,6 +84,18 @@ export function ClusterHome() {
 			return (
 				<ClusterHomeShell>
 					<PendingOwnerSetup />
+				</ClusterHomeShell>
+			);
+		}
+		// Not starting, so neither setup page applies, and nothing connects before setup: the layout's
+		// banner says why it is down.
+		if (cluster.status === 'STOPPED' && isStartBlocked(cluster)) {
+			return (
+				<ClusterHomeShell>
+					<div className="flex items-start justify-between gap-4 mb-6">
+						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
+						<ClusterStateMenu cluster={cluster} />
+					</div>
 				</ClusterHomeShell>
 			);
 		}

@@ -265,7 +265,6 @@ describe('errorHandler', () => {
 		);
 	});
 
-	// The code is the error class central manager threw, which names nothing a customer can act on.
 	it('titles a 402 as a payment problem rather than by its error class', () => {
 		const message = 'This cluster was stopped because a payment failed. Update the payment method to start it again.';
 		const axiosError = {

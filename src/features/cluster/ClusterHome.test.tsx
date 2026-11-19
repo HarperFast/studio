@@ -33,9 +33,11 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 }));
 vi.mock('@/features/cluster/components/ClusterUsageCard', () => ({ ClusterUsageCard: () => null }));
 vi.mock('@/features/clusters/components/ClusterStateMenu', () => ({ ClusterStateMenu: () => null }));
-vi.mock('@/hooks/useAuth', () => ({
-	useInstanceAuth: () => ({ user: viewer.user, isLoading: false }),
-	useStaffPermission: () => viewer.readOnlyConnect,
+const useInstanceAuth = vi.fn(() => ({ user: null, isLoading: false }));
+vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => useInstanceAuth() }));
+const permissions = { view: true, update: true };
+vi.mock('@/hooks/usePermissions', () => ({
+	useOrganizationClusterPermissions: () => permissions,
 }));
 vi.mock('@/hooks/usePermissions', () => ({
 	useOrganizationClusterPermissions: () => ({ view: true, update: viewer.update }),
@@ -56,18 +58,10 @@ import { DirectConnectionRequiredError } from '@/features/auth/scopedOperationTo
 import { authStore } from '@/features/auth/store/authStore';
 import { ClusterHome } from './ClusterHome';
 
-beforeEach(() => {
-	viewer.user = null;
-	viewer.superUser = false;
-	viewer.update = true;
-	viewer.readOnlyConnect = false;
-	useOwedPresetSetup.mockReset();
-});
 afterEach(() => {
 	cleanup();
-	apiGet.mockReset();
-	toastError.mockReset();
-	vi.restoreAllMocks();
+	useInstanceAuth.mockClear();
+	permissions.update = true;
 });
 
 async function renderHome(state: Cluster) {
@@ -176,17 +170,28 @@ describe(ClusterHome, () => {
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
 	});
 
-	// QA: a payment-stopped cluster that never finished setup was sent to "spinning up", which it is not.
-	it('keeps a stopped cluster whose start is refused off the starting-up page', async () => {
-		await renderHome({
-			...base,
-			status: 'STOPPED',
-			resetPassword: true,
-			suspendedReason: 'PAYMENT_FAILED',
-			grant: { isActive: true, source: 'purchased' } as Cluster['grant'],
-		});
+	const paymentStoppedPendingSetup = {
+		...base,
+		status: 'STOPPED',
+		resetPassword: true,
+		suspendedReason: 'PAYMENT_FAILED',
+		grant: { isActive: true, source: 'purchased' } as Cluster['grant'],
+	};
+
+	it('keeps a stopped cluster whose start is refused off the setup pages, with nothing to connect', async () => {
+		await renderHome(paymentStoppedPendingSetup);
 		expect(screen.queryByText(/redirected to/)).toBeNull();
 		expect(screen.getByRole('heading', { name: 'prod-east' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Direct sign-in' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Fabric Connect' })).toBeNull();
+		expect(useInstanceAuth).not.toHaveBeenCalled();
+	});
+
+	it('still shows Pending Owner Setup to a view-only member of such a cluster', async () => {
+		permissions.update = false;
+		await renderHome(paymentStoppedPendingSetup);
+		expect(screen.getByRole('heading', { name: 'Pending Owner Setup' })).toBeTruthy();
+		expect(useInstanceAuth).not.toHaveBeenCalled();
 	});
 
 	it('still holds an ordinary stopped cluster with setup pending on starting-up', async () => {

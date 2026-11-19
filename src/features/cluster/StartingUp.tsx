@@ -79,7 +79,6 @@ export function StartingUp() {
 		);
 	}
 
-	// Same rule as ClusterHome: nothing is starting, and the overview explains why.
 	if (status === 'STOPPED' && isStartBlocked(cluster)) {
 		return <Navigate to={`/${cluster.organizationId}/${cluster.id}`} replace />;
 	}
