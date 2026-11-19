@@ -134,7 +134,12 @@ test(
 		await page.goto(link);
 		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
 		await page.screenshot({ path: testInfo.outputPath('logs-link.png'), fullPage: true });
-		await page.evaluate(() => document.documentElement.classList.add('dark'));
+		await page.evaluate(() => localStorage.setItem('Theme', JSON.stringify('dark')));
+		await page.reload();
+		await expect(page.locator('html')).toHaveClass(/dark/);
+		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
+		const textColor = await page.getByLabel('Full log message').evaluate(el => getComputedStyle(el).color);
+		expect(textColor).toBe('rgb(250, 250, 250)');
 		await page.screenshot({ path: testInfo.outputPath('logs-dark.png'), fullPage: true });
 		await page.setViewportSize({ width: 390, height: 844 });
 		await expect(page.getByRole('button', { name: 'Filters', exact: true })).toBeVisible();

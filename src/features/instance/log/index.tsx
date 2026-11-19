@@ -159,6 +159,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 			setIsFiltersOpen(true);
 			return;
 		}
+		if (next.until) { setIsLive(false); }
 		setRange(nextRange);
 		form.reset(next);
 		setLogFilters(next);

@@ -149,12 +149,15 @@ describe('logs explorer interactions', () => {
 		expect(screen.queryByText('Log file')).toBeNull();
 		expect(screen.getByRole('alert').textContent).toContain('Could not load logs');
 	});
-	it('applies custom dates, allows Latest to clear them, and labels loaded-result facets', () => {
+	it('applies custom dates, stops live for a fixed end time, and lets Latest clear bounds', async () => {
 		render(<LogsExplorer params={params} />);
+		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
 		fireEvent.change(screen.getByLabelText('Time range'), { target: { value: 'custom' } });
 		fireEvent.change(screen.getByLabelText('Start date (local time)'), { target: { value: '2026-11-19T12:00' } });
 		fireEvent.change(screen.getByLabelText('End date (local time)'), { target: { value: '2026-11-19T13:00' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }));
+		await waitFor(() => expect(state.args.logFilters.until).toBe('2026-11-19T13:00'));
+		expect(state.args.live).toBe(false);
 		expect(screen.getByText('Filter loaded results')).toBeTruthy();
 		fireEvent.change(screen.getByLabelText('Time range'), { target: { value: 'latest' } });
 		expect(state.args.logFilters).toMatchObject({ from: '', until: '' });
