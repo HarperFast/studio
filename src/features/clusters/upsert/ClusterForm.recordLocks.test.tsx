@@ -90,7 +90,7 @@ function renderForm(
 		mode?: 'version';
 		harperVersions: HarperVersionsResponse;
 		recordLocksOn?: boolean;
-		setSavedClusterState?: ReturnType<typeof vi.fn>;
+		setSavedClusterState?: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 		startOffOnBilling?: boolean;
 	},
 ) {
