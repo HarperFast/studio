@@ -417,6 +417,7 @@ describe('ConfigOverviewIndex forms', () => {
 
 		fireEvent.change(level(), { target: { value: 'warn' } });
 		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+		expect(screen.queryByText("The last save didn't finish on every instance")).toBeNull();
 	});
 
 	it('puts every setting back on Discard', async () => {

@@ -131,13 +131,12 @@ export function InstanceConfigEditor(
 	const changes = useMemo(() => (base && draft ? listConfigChanges(base, draft) : []), [base, draft]);
 	// An unconfirmed setting is sent again only while the draft still holds it: one the user has since changed or put
 	// back is theirs to decide, not the last attempt's.
-	const pending = useMemo(() => {
-		const stillHeld = unconfirmed.filter(change => {
+	const stillHeld = useMemo(() =>
+		unconfirmed.filter(change => {
 			const now = getIn(draft, change.path);
 			return sameConfigValue(now, change.after) || sameConfigValue(now, storedByHarper(change.after));
-		});
-		return mergeConfigChanges(stillHeld, changes);
-	}, [unconfirmed, changes, draft]);
+		}), [unconfirmed, draft]);
+	const pending = useMemo(() => mergeConfigChanges(stillHeld, changes), [stillHeld, changes]);
 	const refused = useMemo(() => findRefusedChanges(pending, context), [pending, context]);
 	const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 	const dirty = pending.length > 0 || jsonError !== null || hasFieldErrors;
@@ -271,7 +270,7 @@ export function InstanceConfigEditor(
 				</div>
 			</div>
 
-			{unconfirmed.length > 0 && !refusal && !isSaving && (
+			{stillHeld.length > 0 && !refusal && !isSaving && (
 				<Alert variant="warning">
 					<AlertCircleIcon className="h-4 w-4" />
 					<AlertTitle>The last save didn't finish on every instance</AlertTitle>
