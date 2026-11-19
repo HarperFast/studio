@@ -4,6 +4,8 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 ## Active design documents
 
+- [`src/features/instance/log/MAP.md`](src/features/instance/log/MAP.md) — navigation index for log inspection, transport, and context behavior.
+
 - [`src/features/organizations/DESIGN.md`](src/features/organizations/DESIGN.md) — shared organization target policy, switch destinations, and account-menu behavior.
 
 - [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope, where a saved cluster draft reopens, and when the cluster form may terminate a cluster.

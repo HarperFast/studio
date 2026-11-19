@@ -50,6 +50,7 @@ function parseLimit(limit: LogFilters['limit']): number {
 /** Stable identity for the filter set, so effects restart only when the requested slice changes. */
 function filtersKey(logFilters: LogFilters, replicated: boolean): string {
 	return JSON.stringify([
+		logFilters.relative_minutes,
 		logFilters.limit,
 		logFilters.level,
 		logFilters.from,
@@ -157,10 +158,10 @@ export function useInstanceLogs(
 
 	const logs = useMemo(() => {
 		const snapshot = query.data ?? [];
-		// Merge whenever there are streamed entries — including after Live is toggled off — so the
-		// tail the user was watching stays on screen instead of snapping back to the older snapshot.
-		return mergeReadLogs(snapshot, stream.entries, limit);
-	}, [query.data, stream.entries, limit]);
+		const merged = mergeReadLogs(snapshot, stream.entries, limit);
+		const cutoff = logFilters.relative_minutes ? Date.now() - Number(logFilters.relative_minutes) * 60000 : -Infinity;
+		return merged.filter(entry => Date.parse(entry.timestamp) >= cutoff);
+	}, [query.data, stream.entries, limit, logFilters.relative_minutes]);
 
 	const transport: LogTransport = useSSE ? 'streaming' : live ? 'polling' : 'idle';
 

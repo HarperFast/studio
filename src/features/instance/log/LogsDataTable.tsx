@@ -5,24 +5,28 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableHeadSortable,
-	TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { cn } from '@/lib/cn';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { ColumnDef, studioTableFeatures } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState, flexRender, useTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
-import { Fragment, Ref, useEffect, useId, useMemo, useState } from 'react';
+import { Fragment, memo, Ref, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LogDetails } from './components/LogDetails';
 import { logKey } from './hooks/mergeReadLogs';
 import { LogFilters } from './logView';
+
+const timestampFormatter = new Intl.DateTimeFormat(undefined, {
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+	second: '2-digit',
+	hour12: false,
+	fractionalSecondDigits: 3,
+});
 
 const columns: ColumnDef<ReadLogItem>[] = [
 	{ id: 'expand', header: '', size: 40, minSize: 40, maxSize: 40, enableResizing: false, enableHiding: false },
@@ -33,15 +37,9 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		enableHiding: false,
 		cell: ({ row }) => (
 			<time title={row.original.timestamp} className="text-muted-foreground tabular-nums">
-				{new Date(row.original.timestamp).toLocaleString(undefined, {
-					month: '2-digit',
-					day: '2-digit',
-					hour: '2-digit',
-					minute: '2-digit',
-					second: '2-digit',
-					hour12: false,
-					fractionalSecondDigits: 3,
-				})}
+				{Number.isFinite(Date.parse(row.original.timestamp))
+					? timestampFormatter.format(new Date(row.original.timestamp))
+					: row.original.timestamp}
 			</time>
 		),
 	},
@@ -71,9 +69,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		size: 540,
 		minSize: 240,
 		enableHiding: false,
-		cell: ({ row }) => (
-			<span className="block truncate font-mono" title={row.original.message}>{row.original.message}</span>
-		),
+		cell: ({ row }) => <span className="block truncate font-mono">{row.original.message}</span>,
 	},
 	{ accessorKey: 'thread', header: 'Thread', size: 100 },
 	{
@@ -89,7 +85,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	{ accessorKey: 'tags', header: 'Tags', size: 160, cell: ({ row }) => row.original.tags?.join(', ') },
 ];
 
-export function LogsDataTable(
+export const LogsDataTable = memo(function LogsDataTable(
 	{ data, source, onInspect, onViewContext, containerRef, reversed, onReverse, selectedKey }: {
 		data: ReadLogItem[];
 		source: LogFilters['log_name'];
@@ -101,31 +97,80 @@ export function LogsDataTable(
 		selectedKey?: string;
 	},
 ) {
-	const [expanded, setExpanded] = useState<Set<string>>(() => new Set(selectedKey ? [selectedKey] : []));
-	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
-	const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({ tags: false });
+	const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
+	const [storedSizing, setStoredSizing] = useLocalStorage<unknown>(LocalStorageKeys.LogsColumnSizing, {});
+	const [storedVisibility, setStoredVisibility] = useLocalStorage<unknown>(LocalStorageKeys.LogsColumnVisibility, {
+		tags: false,
+	});
+	const columnSizing: ColumnSizingState = useMemo(() => {
+		const stored = storedSizing && typeof storedSizing === 'object' ? storedSizing as Record<string, unknown> : {};
+		return Object.fromEntries(columns.flatMap(column => {
+			const id = column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '');
+			const value = stored[id];
+			return typeof value === 'number' && Number.isFinite(value) && value > 0
+				? [[id, Math.max(column.minSize ?? 70, Math.min(value, column.maxSize ?? 2000))]]
+				: [];
+		}));
+	}, [storedSizing]);
+	const columnVisibility: ColumnVisibilityState = useMemo(() => {
+		const stored = storedVisibility && typeof storedVisibility === 'object'
+			? storedVisibility as Record<string, unknown>
+			: {};
+		return {
+			tags: false,
+			...Object.fromEntries(
+				['level', 'thread', 'node', 'tags'].flatMap(id => typeof stored[id] === 'boolean' ? [[id, stored[id]]] : []),
+			),
+		};
+	}, [storedVisibility]);
+	// TanStack includes row IDs in cell IDs; keep them short while matching complete log identities.
+	const previousIds = useRef(new Map<string, string>());
+	const nextId = useRef(0);
+	const rowIds = useMemo(() => {
+		const result = new Map<string, string>();
+		for (const log of data) {
+			const key = logKey(log);
+			result.set(key, previousIds.current.get(key) ?? `log-${++nextId.current}`);
+		}
+		return result;
+	}, [data]);
+	useLayoutEffect(() => {
+		previousIds.current = rowIds;
+	}, [rowIds]);
+	const selectionId = selectedKey ? rowIds.get(selectedKey) : undefined;
 	const id = useId();
+	const appliedSelection = useRef<string | undefined>(undefined);
 	const table = useTable({
 		features: studioTableFeatures,
 		data,
 		columns,
-		getRowId: logKey,
+		getRowId: log => rowIds.get(logKey(log))!,
 		manualSorting: true,
 		enableColumnResizing: true,
 		columnResizeMode: 'onEnd',
 		defaultColumn: { minSize: 70 },
 		state: { columnSizing, columnVisibility },
-		onColumnSizingChange: setColumnSizing,
-		onColumnVisibilityChange: setColumnVisibility,
+		onColumnSizingChange: value => setStoredSizing(typeof value === 'function' ? value(columnSizing) : value),
+		onColumnVisibilityChange: value =>
+			setStoredVisibility(typeof value === 'function' ? value(columnVisibility) : value),
 	});
-	const keys = useMemo(() => new Set(data.map(logKey)), [data]);
+	const keys = useMemo(() => new Set(rowIds.values()), [rowIds]);
 	useEffect(() => {
+		const selectionToAdd = selectionId && selectionId !== appliedSelection.current
+			? selectionId
+			: undefined;
 		setExpanded(current => {
 			const next = new Set([...current].filter(key => keys.has(key)));
-			if (selectedKey && keys.has(selectedKey)) { next.add(selectedKey); }
-			return next;
+			if (selectionToAdd) { next.add(selectionToAdd); }
+			return next.size === current.size && [...next].every(key => current.has(key)) ? current : next;
 		});
-	}, [keys, selectedKey]);
+		if (selectionToAdd) {
+			appliedSelection.current = selectionToAdd;
+			onInspect();
+		}
+		if (!selectedKey) { appliedSelection.current = undefined; }
+	}, [keys, selectedKey, selectionId, onInspect]);
+
 	const toggle = (key: string) => {
 		if (!expanded.has(key)) { onInspect(); }
 		setExpanded(current => {
@@ -163,6 +208,7 @@ export function LogsDataTable(
 			</div>
 			<Table
 				containerRef={containerRef}
+				containerTabIndex={0}
 				className="table-fixed text-xs"
 				style={{ width: `max(100%, ${table.getTotalSize()}px)` }}
 				containerClassName="logsTable max-h-[calc(100dvh-18rem-var(--notification-banner-height,0px))] min-h-64 overflow-auto rounded-b-md"
@@ -176,7 +222,13 @@ export function LogsDataTable(
 							{group.headers.map(header =>
 								header.column.id === 'timestamp'
 									? (
-										<TableHead key={header.id} className="px-2" aria-sort={reversed ? 'ascending' : 'descending'}>
+										<TableHeadSortable
+											key={header.id}
+											header={header}
+											className="px-2"
+											aria-label="Timestamp"
+											aria-sort={reversed ? 'ascending' : 'descending'}
+										>
 											<Button
 												size="sm"
 												variant="ghost"
@@ -185,7 +237,7 @@ export function LogsDataTable(
 											>
 												Timestamp{reversed ? <ArrowUpIcon /> : <ArrowDownIcon />}
 											</Button>
-										</TableHead>
+										</TableHeadSortable>
 									)
 									: <TableHeadSortable key={header.id} header={header} className="bg-card" />
 							)}
@@ -199,12 +251,12 @@ export function LogsDataTable(
 						return (
 							<Fragment key={row.id}>
 								<TableRow
-									data-log-key={row.id}
+									data-log-selected={selectionId === row.id ? true : undefined}
 									data-state={open ? 'selected' : undefined}
 									className={cn(
 										'cursor-pointer hover:bg-muted/30',
 										open && 'bg-muted/30',
-										selectedKey === row.id && 'outline outline-primary -outline-offset-1',
+										selectionId === row.id && 'outline outline-primary -outline-offset-1',
 									)}
 									onClick={event => {
 										if (
@@ -256,4 +308,4 @@ export function LogsDataTable(
 			</Table>
 		</div>
 	);
-}
+});

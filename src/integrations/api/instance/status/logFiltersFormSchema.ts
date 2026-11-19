@@ -45,6 +45,7 @@ const logDate = z.string().or(z.undefined()).or(z.null()).optional().superRefine
 });
 
 export const LogFiltersFormSchema = z.object({
+	relative_minutes: z.enum(['15', '60', '1440']).optional(),
 	limit: z.string().or(z.undefined()).or(z.null()).optional(),
 	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).or(z.undefined()).or(z.null())
 		.optional(),

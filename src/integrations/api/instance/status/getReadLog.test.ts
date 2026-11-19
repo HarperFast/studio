@@ -1,6 +1,6 @@
 import type { AxiosInstance } from 'axios';
 import { AxiosError } from 'axios';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildReadLogBody, clampReadLogLimit, getReadLogQueryOptions, MAX_READ_LOG_LIMIT } from './getReadLog';
 
 describe('clampReadLogLimit', () => {
@@ -61,4 +61,38 @@ describe('read_log auto-refresh', () => {
 		const poll = intervalFor(true);
 		expect(poll && poll({ state: { error: forbidden, errorUpdatedAt: 0 } })).toBe(false);
 	});
+});
+
+it('resolves relative windows at request time with a stable query identity and no until', () => {
+	const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T06:30:00Z'));
+	try {
+		const logFilters = { relative_minutes: '15' as const, until: '2026-11-01T00:00' };
+		const params = {
+			entityId: 'relative',
+			instanceClient: {} as AxiosInstance,
+			logFilters,
+			replicated: false,
+			isAutoRefreshEnabled: true,
+		};
+		const firstKey = getReadLogQueryOptions(params).queryKey;
+		expect(buildReadLogBody(logFilters, false)).toMatchObject({ from: '2026-11-01T06:15:00.000Z', until: undefined });
+		now.mockReturnValue(Date.parse('2026-11-01T06:40:00Z'));
+		expect(buildReadLogBody(logFilters, false).from).toBe('2026-11-01T06:25:00.000Z');
+		expect(getReadLogQueryOptions(params).queryKey).toEqual(firstKey);
+	} finally {
+		now.mockRestore();
+	}
+});
+
+it('keeps non-live log reads manual across focus and reconnect events', () => {
+	const options = getReadLogQueryOptions({
+		entityId: 'manual',
+		instanceClient: {} as AxiosInstance,
+		logFilters: {},
+		replicated: false,
+		isAutoRefreshEnabled: false,
+	});
+	expect(options.refetchOnWindowFocus).toBe(false);
+	expect(options.refetchOnReconnect).toBe(false);
+	expect(options.refetchInterval).toBe(false);
 });

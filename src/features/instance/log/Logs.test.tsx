@@ -65,6 +65,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('logs explorer interactions', () => {
+	it('preserves exact JSON tokens and safely renders a sparse log without a message', () => {
+		state.logs = [log('{"id":9007199254740993,"duration":1.0000000000000001}'), {
+			...log(''),
+			message: undefined as unknown as string,
+		}];
+		render(<LogsExplorer params={params} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+		expect(screen.getByLabelText('Full log message').textContent).toBe(state.logs[0].message);
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 2' }));
+		expect(screen.getAllByLabelText('Full log message')[1].textContent).toBe('');
+	});
+
 	it('expands multiple logs inline, copies without collapsing, and reveals full metadata', () => {
 		render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
@@ -90,16 +102,33 @@ describe('logs explorer interactions', () => {
 			rerender(<LogsExplorer params={params} />);
 			expect(screen.queryByText('new arrival')).toBeNull();
 			expect(screen.getByLabelText('Full log message').textContent).toBe(inspected);
-			fireEvent.click(screen.getByRole('button', { name: /1 new logs available.*Resume live/ }));
+			fireEvent.click(screen.getByRole('button', { name: /1 new matching logs available.*Resume live/ }));
 			expect(screen.getByText('new arrival')).toBeTruthy();
 		});
 	}
+	it('pins inspection even with Live off through a focus-style refetch and preserves expansion on Refresh', () => {
+		const { rerender } = render(<LogsExplorer params={params} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
+		expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
+		fireEvent.click(screen.getByRole('button', { name: 'Collapse log 1' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+		state.logs = [log('focus refetch arrival')];
+		rerender(<LogsExplorer params={params} />);
+		expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
+		expect(screen.queryByText('focus refetch arrival')).toBeNull();
+		fireEvent.click(screen.getByRole('button', { name: 'Refresh view' }));
+		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
+	});
+
 	it('freezes when a user scrolls away from the newest edge', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
 		const scroller = container.querySelector('[data-slot="table-container"]')!;
-		Object.defineProperty(scroller, 'scrollTop', { value: 120, configurable: true });
+		Object.defineProperty(scroller, 'scrollTop', { value: 10, configurable: true });
 		fireEvent.wheel(scroller);
+		fireEvent.scroll(scroller);
+		Object.defineProperty(scroller, 'scrollTop', { value: 120, configurable: true });
 		fireEvent.scroll(scroller);
 		state.logs = [log('new arrival'), ...state.logs];
 		rerender(<LogsExplorer params={params} />);
@@ -121,6 +150,18 @@ describe('logs explorer interactions', () => {
 		expect(screen.getByText('second error')).toBeTruthy();
 		expect(screen.queryByText('nearby event')).toBeNull();
 	});
+	it('validates persisted column preferences while keeping required columns visible', () => {
+		localStorage.setItem('LogsColumnSizing', JSON.stringify({ message: 'bad', timestamp: -5, node: 180 }));
+		localStorage.setItem(
+			'LogsColumnVisibility',
+			JSON.stringify({ tags: true, message: false, timestamp: false, level: 'bad' }),
+		);
+		render(<LogsExplorer params={params} />);
+		expect(screen.getByRole('columnheader', { name: 'Message' })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Timestamp' })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Tags' })).toBeTruthy();
+	});
+
 	it('keeps mandatory columns, allows tags to be revealed, and spans only visible columns', () => {
 		const { container } = render(<LogsExplorer params={params} />);
 		fireEvent.pointerDown(screen.getByRole('button', { name: 'Columns' }), { button: 0, ctrlKey: false });
@@ -140,6 +181,24 @@ describe('logs explorer interactions', () => {
 		render(<LogsExplorer params={params} search="?log=bad" />);
 		expect(screen.queryByLabelText('Full log message')).toBeNull();
 	});
+	it('keeps a linked row collapsed when the loaded rows change', () => {
+		const link = buildLogLink('https://studio.example/#/org/clu/logs', state.logs[0], 'hdb.log');
+		const { rerender } = render(<LogsExplorer params={params} search={new URL(link).hash.split('?')[1]} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Collapse log 1' }));
+		state.logs = [...state.logs, log('another row', 'node-a', 3)];
+		rerender(<LogsExplorer params={params} search={new URL(link).hash.split('?')[1]} />);
+		expect(screen.queryByLabelText('Full log message')).toBeNull();
+	});
+
+	it('refreshes the applied query without submitting the search draft', () => {
+		render(<LogsExplorer params={params} />);
+		const search = screen.getByRole('searchbox', { name: 'Search logs' });
+		fireEvent.change(search, { target: { value: 'unsubmitted draft' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
+		expect(state.args.logFilters.filter).toBe('');
+		expect((search as HTMLInputElement).value).toBe('unsubmitted draft');
+	});
+
 	it('respects source/search compatibility gates and shows retry on read failure', () => {
 		state.version = '4.7.0';
 		state.error = new Error('read failed');

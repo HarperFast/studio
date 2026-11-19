@@ -37,9 +37,23 @@ describe('useLogInspection', () => {
 		act(() => result.current.pause());
 		rerender({ logs: [entry('new entity')], key: 'two' });
 		expect(result.current.paused).toBe(false);
+		rerender({ logs: [entry('returned query')], key: 'one' });
+		expect(result.current.paused).toBe(false);
+		expect(result.current.logs[0].message).toBe('returned query');
 		act(() => result.current.restore(original, 'three'));
 		rerender({ logs: [entry('newer')], key: 'three' });
 		expect(result.current.paused).toBe(true);
 		expect(result.current.logs).toBe(original);
 	});
+});
+it('counts arrivals only in the selected loaded-result facets', () => {
+	const original = [{ ...entry('old'), node: 'node-a' }];
+	const { result, rerender } = renderHook(({ logs }) => useLogInspection(logs, 'same', 'node-a', 'main/0'), {
+		initialProps: { logs: original },
+	});
+	act(() => result.current.pause());
+	rerender({ logs: [{ ...entry('hidden'), node: 'node-b' }, ...original] });
+	expect(result.current.pending).toBe(0);
+	rerender({ logs: [{ ...entry('visible'), node: 'node-a' }, { ...entry('hidden'), node: 'node-b' }, ...original] });
+	expect(result.current.pending).toBe(1);
 });

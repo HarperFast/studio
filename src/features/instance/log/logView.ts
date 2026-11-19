@@ -18,13 +18,9 @@ export function localDateTime(date: Date): string {
 	return local.toISOString().slice(0, 23);
 }
 
-export function withTimeRange(filters: LogFilters, range: TimeRange, now = Date.now()): LogFilters {
-	if (range === 'custom') { return filters; }
-	return {
-		...filters,
-		from: range === 'latest' ? '' : localDateTime(new Date(now - Number(range) * 60000)),
-		until: '',
-	};
+export function withTimeRange(filters: LogFilters, range: TimeRange): LogFilters {
+	if (range === 'custom') { return { ...filters, relative_minutes: undefined }; }
+	return { ...filters, relative_minutes: range === 'latest' ? undefined : range, from: '', until: '' };
 }
 
 export function validDateRange(from?: string | null, until?: string | null): boolean {
@@ -38,23 +34,27 @@ export function surroundingFilters(filters: LogFilters, timestamp: string): LogF
 	return {
 		...filters,
 		filter: '',
+		relative_minutes: undefined,
 		level: 'undefined',
 		limit: '1000',
-		from: localDateTime(new Date(time - 30000)),
-		until: localDateTime(new Date(time + 30000)),
+		from: new Date(time - 30000).toISOString(),
+		until: new Date(time + 30000).toISOString(),
 	};
 }
 
+export function canViewLogContext(timestamp: string): boolean {
+	const time = Date.parse(timestamp);
+	return /^\d{4}-\d{2}-\d{2}T/.test(timestamp) && time >= 30000 && time < Date.UTC(9999, 0, 1) - 86400000;
+}
+
 const targetSchema = z.object({
-	timestamp: z.string().max(64).refine(value =>
-		Number.isFinite(Date.parse(value)) && Math.abs(Date.parse(value)) < 8640000000000000 - 30000
-	),
+	timestamp: z.string().max(64).refine(canViewLogContext),
 	node: z.string().max(512),
 	thread: z.string().max(256),
 	fingerprint: z.string().max(32),
 	source: z.enum(['hdb.log', 'system.log']),
 });
-export type LogTarget = z.infer<typeof targetSchema>;
+type LogTarget = z.infer<typeof targetSchema>;
 
 function fingerprint(log: ReadLogItem): string {
 	let hash = 2166136261;
@@ -64,16 +64,20 @@ function fingerprint(log: ReadLogItem): string {
 }
 
 export function parseLogTarget(value: unknown): LogTarget | undefined {
-	if (typeof value !== 'string' || value.length > 2048) { return; }
-	try {
-		return targetSchema.safeParse(JSON.parse(value)).data;
-	} catch {
-		return;
+	if (typeof value === 'string') {
+		if (value.length > 2048) { return; }
+		try {
+			value = JSON.parse(value);
+		} catch {
+			return;
+		}
 	}
+	return targetSchema.safeParse(value).data;
 }
 
-export function validateLogSearch(search: Record<string, unknown>): { log?: string } {
-	return parseLogTarget(search.log) ? { log: search.log as string } : {};
+export function validateLogSearch(search: Record<string, unknown>): { log?: LogTarget } {
+	const log = parseLogTarget(search.log);
+	return log ? { log } : {};
 }
 
 export function logMatchesTarget(log: ReadLogItem, target: LogTarget): boolean {
@@ -100,13 +104,4 @@ export function buildLogLink(href: string, log: ReadLogItem, source: LogFilters[
 	);
 	url.hash = `${path}?${search}`;
 	return url.toString();
-}
-
-export function formatLogMessage(message: string): string {
-	if (message.length > 100000) { return message; }
-	try {
-		return JSON.stringify(JSON.parse(message), null, 2);
-	} catch {
-		return message;
-	}
 }

@@ -11,10 +11,11 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from '@tanstack/react-router';
-import { ArrowLeftIcon, DownloadIcon, PlayIcon, RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearch } from '@tanstack/react-router';
+import { ArrowLeftIcon, PlayIcon, RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { DownloadLogsMenu } from './components/DownloadLogsMenu';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
 import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
 import { useInstanceLogs } from './hooks/useInstanceLogs';
@@ -22,6 +23,7 @@ import { useLogInspection } from './hooks/useLogInspection';
 import { LogsDataTable } from './LogsDataTable';
 import {
 	DEFAULT_LOG_FILTERS,
+	localDateTime,
 	LogFilters,
 	logMatchesTarget,
 	parseLogTarget,
@@ -41,6 +43,14 @@ type SavedView = {
 	live: boolean;
 	selected?: string;
 };
+
+function formDates(filters: LogFilters): LogFilters {
+	return {
+		...filters,
+		from: filters.from ? localDateTime(new Date(filters.from)) : '',
+		until: filters.until ? localDateTime(new Date(filters.until)) : '',
+	};
+}
 
 function Facet({ label, field, logs, value, onChange }: {
 	label: string;
@@ -77,12 +87,13 @@ function Facet({ label, field, logs, value, onChange }: {
 
 export function Logs() {
 	const params = useInstanceClientIdParams();
-	const search = useLocation({ select: location => location.searchStr });
+	const target = useSearch({ strict: false, select: search => parseLogTarget(search.log) });
+	const search = target ? new URLSearchParams({ log: JSON.stringify(target) }).toString() : '';
 	return <LogsExplorer key={`${params.entityId}:${search}`} params={params} search={search} />;
 }
 
 export function LogsExplorer({ params, search = '' }: { params: InstanceParams; search?: string }) {
-	const [target] = useState(() => parseLogTarget(new URLSearchParams(search).get('log')));
+	const [target, setTarget] = useState(() => parseLogTarget(new URLSearchParams(search).get('log')));
 	const [initialFilters] = useState(() =>
 		target
 			? surroundingFilters({ ...DEFAULT_LOG_FILTERS, log_name: target.source }, target.timestamp)
@@ -102,7 +113,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const userScrolling = useRef(false);
 	const form = useForm<LogFilters>({
 		resolver: zodResolver(LogFiltersFormSchema),
-		defaultValues: initialFilters,
+		defaultValues: formDates(initialFilters),
 		mode: 'onChange',
 	});
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(params));
@@ -116,7 +127,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		live: isLive,
 	});
 	const queryKey = JSON.stringify([params.entityId, logFilters]);
-	const inspection = useLogInspection(incoming, queryKey);
+	const inspection = useLogInspection(incoming, queryKey, node, thread);
 	const baseLogs = useMemo(() => contextLog ? mergeReadLogs(inspection.logs, [contextLog], 0) : inspection.logs, [
 		inspection.logs,
 		contextLog,
@@ -137,17 +148,20 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	useEffect(() => {
 		if (following && !isLoading) {
 			const el = tableScrollRef.current;
+			userScrolling.current = false;
 			el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
 		}
 	}, [displayedLogs, following, isReversed, isLoading]);
 	useEffect(() => {
+		if (isLoading || inspection.paused) { return; }
 		const el = tableScrollRef.current;
+		userScrolling.current = false;
 		el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
-	}, [isReversed]);
+	}, [isReversed, isLoading]);
 	useEffect(() => {
 		if (selectedKey && !isLoading) {
-			const row = Array.from(tableScrollRef.current?.querySelectorAll<HTMLElement>('[data-log-key]') ?? [])
-				.find(element => element.dataset.logKey === selectedKey);
+			const row = tableScrollRef.current?.querySelector<HTMLElement>('[data-log-selected="true"]');
+			userScrolling.current = false;
 			row?.scrollIntoView?.({ block: 'center' });
 		}
 	}, [selectedKey, isLoading]);
@@ -161,26 +175,26 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		}
 		if (next.until) { setIsLive(false); }
 		setRange(nextRange);
-		form.reset(next);
+		form.reset(formDates(next));
 		setLogFilters(next);
 		inspection.resume();
 		setSelected(undefined);
+		setTarget(undefined);
 		setSavedView(null);
 		setContextLog(null);
 	};
 	const refresh = () => {
-		if (range === 'custom' || range === 'latest') {
-			inspection.resume();
-			void refetch();
-		} else { apply(form.getValues()); }
+		inspection.resume();
+		void refetch();
 	};
+
 	const reset = () => {
 		setRange('latest');
 		setNode('*');
 		setThread('*');
 		apply(DEFAULT_LOG_FILTERS, 'latest');
 	};
-	const viewContext = (log: ReadLogItem) => {
+	const viewContext = useCallback((log: ReadLogItem) => {
 		if (!savedView) {
 			setSavedView({
 				filters: logFilters,
@@ -195,18 +209,18 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		const filters = surroundingFilters(logFilters, log.timestamp);
 		setIsLive(false);
 		setLogFilters(filters);
-		form.reset(filters);
+		form.reset(formDates(filters));
 		setRange('custom');
 		setNode(log.node || '');
 		setThread('*');
 		setContextLog(log);
 		setSelected(logKey(log));
 		inspection.resume();
-	};
+	}, [savedView, logFilters, range, node, thread, inspection.logs, isLive, form, inspection.resume]);
 	const back = () => {
 		if (!savedView) { return; }
 		setLogFilters(savedView.filters);
-		form.reset(savedView.filters);
+		form.reset(formDates(savedView.filters));
 		setRange(savedView.range);
 		setNode(savedView.node);
 		setThread(savedView.thread);
@@ -216,19 +230,13 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		setContextLog(null);
 		setSavedView(null);
 	};
+	const reverse = useCallback(() => setIsReversed(value => !value), [setIsReversed]);
 	const resume = () => {
 		setSelected(undefined);
 		inspection.resume();
 		setIsLive(true);
 	};
-	const exportLogs = () => {
-		const url = URL.createObjectURL(new Blob([JSON.stringify(displayedLogs, null, 2)], { type: 'application/json' }));
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = 'logs.json';
-		link.click();
-		setTimeout(() => URL.revokeObjectURL(url), 0);
-	};
+
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	return (
 		<div className="space-y-3 px-2 pt-3 text-foreground">
@@ -238,7 +246,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					size="sm"
 					onClick={() => setIsFiltersOpen(open => !open)}
 					aria-expanded={isFiltersOpen}
-					aria-controls="logs-sidebar"
+					aria-controls={isFiltersOpen ? 'logs-sidebar' : undefined}
 				>
 					<SlidersHorizontalIcon />Filters
 				</Button>
@@ -283,9 +291,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				>
 					<RefreshCwIcon className={isFetching ? 'animate-spin' : ''} />Refresh
 				</Button>
-				<Button size="sm" variant="ghost" onClick={exportLogs} disabled={!displayedLogs.length}>
-					<DownloadIcon />Download
-				</Button>
+				<DownloadLogsMenu logs={displayedLogs} logName={logFilters.log_name ?? 'hdb.log'} />
 				<div className="flex items-center gap-2 text-sm">
 					<Switch
 						id="logs-live"
@@ -310,10 +316,14 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					{isLive && !inspection.paused && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
 					{!!logFilters.until && ' · Fixed time range (Live unavailable)'}
 				</span>
-				{inspection.paused && (
+				{inspection.paused && isLive && (
 					<Button size="sm" variant="defaultOutline" onClick={resume} disabled={!!logFilters.until}>
 						<PlayIcon />
-						{inspection.pending ? `${inspection.pending} new logs available · ` : ''}Resume live
+						{inspection.pending
+							? `${inspection.pending}${
+								inspection.pending === incoming.length ? '+' : ''
+							} new matching logs available · `
+							: ''}Resume live
 					</Button>
 				)}
 			</div>
@@ -322,6 +332,9 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					Could not load logs. <Button size="sm" variant="defaultOutline" onClick={refresh}>Retry</Button>
 				</div>
 			)}
+			{inspection.paused && !isLive && (
+				<Button size="sm" variant="defaultOutline" onClick={refresh}>Refresh view</Button>
+			)}
 			{savedView && (
 				<div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
 					<Button size="sm" variant="defaultOutline" onClick={back}>
@@ -329,7 +342,8 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					</Button>
 					<span>Surrounding logs: ±30 seconds · text and severity filters relaxed · selected node</span>
 					<span className="text-xs text-muted-foreground">
-						Up to 1,000 logs per response; other nodes may fill the window. The selected event stays visible.
+						Newest 1,000 logs in this window; earlier context may be missing, including when other nodes fill the
+						response. The selected event stays visible.
 					</span>
 				</div>
 			)}
@@ -351,7 +365,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						<LogsFiltersForm
 							form={form}
 							resetFilters={reset}
-							submitFilters={data => apply(data, 'custom')}
+							submitFilters={data => {
+								const current = formDates(logFilters);
+								apply(data, data.from !== current.from || data.until !== current.until ? 'custom' : range);
+							}}
 							showLogName={showLogName}
 							showFilter={false}
 							isOpen={isFiltersOpen}
@@ -362,6 +379,9 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				<section
 					className="min-w-0 flex-1"
 					aria-label="Log results"
+					onPointerDownCapture={() => {
+						userScrolling.current = true;
+					}}
 					onWheelCapture={() => {
 						userScrolling.current = true;
 					}}
@@ -377,9 +397,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					onScrollCapture={() => {
 						const el = tableScrollRef.current;
 						if (!el || !userScrolling.current) { return; }
-						userScrolling.current = false;
 						const away = isReversed ? el.scrollHeight - el.clientHeight - el.scrollTop > 48 : el.scrollTop > 48;
-						if (isLive && away) { inspection.pause(); }
+						if (away) {
+							inspection.pause();
+							userScrolling.current = false;
+						}
 					}}
 				>
 					<LogsDataTable
@@ -387,11 +409,9 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						source={logFilters.log_name}
 						containerRef={tableScrollRef}
 						reversed={isReversed}
-						onReverse={() => setIsReversed(value => !value)}
+						onReverse={reverse}
 						selectedKey={selectedKey}
-						onInspect={() => {
-							if (isLive) { inspection.pause(); }
-						}}
+						onInspect={inspection.pause}
 						onViewContext={viewContext}
 					/>
 				</section>

@@ -4,7 +4,6 @@ import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
 import {
 	buildLogLink,
 	DEFAULT_LOG_FILTERS,
-	formatLogMessage,
 	localDateTime,
 	logMatchesTarget,
 	parseLogTarget,
@@ -25,12 +24,10 @@ const log: ReadLogItem = {
 
 describe('logs view contracts', () => {
 	it('relative time is open-ended for live logs and Latest clears both bounds', () => {
-		const now = Date.parse('2026-11-19T22:00:00Z');
-		const result = withTimeRange({ ...DEFAULT_LOG_FILTERS, until: log.timestamp }, '15', now);
-		expect(Date.parse(result.from!)).toBe(now - 900000);
-		expect(result.until).toBe('');
-		expect(withTimeRange(result, 'latest', now)).toMatchObject({ from: '', until: '' });
-		expect(withTimeRange(result, 'custom')).toBe(result);
+		const result = withTimeRange({ ...DEFAULT_LOG_FILTERS, until: log.timestamp }, '15');
+		expect(result).toMatchObject({ relative_minutes: '15', from: '', until: '' });
+		expect(withTimeRange(result, 'latest')).toMatchObject({ relative_minutes: undefined, from: '', until: '' });
+		expect(withTimeRange(result, 'custom').relative_minutes).toBeUndefined();
 	});
 	it('validates absolute bounds and preserves milliseconds through local datetime inputs', () => {
 		expect(validDateRange('bad', '')).toBe(false);
@@ -43,9 +40,16 @@ describe('logs view contracts', () => {
 			...DEFAULT_LOG_FILTERS,
 			filter: 'secret',
 			level: 'error',
+			relative_minutes: '15',
 			log_name: 'system.log',
 		}, log.timestamp);
-		expect(result).toMatchObject({ filter: '', level: 'undefined', limit: '1000', log_name: 'system.log' });
+		expect(result).toMatchObject({
+			filter: '',
+			level: 'undefined',
+			limit: '1000',
+			log_name: 'system.log',
+			relative_minutes: undefined,
+		});
 		expect(Date.parse(result.from!)).toBe(Date.parse(log.timestamp) - 30000);
 		expect(Date.parse(result.until!)).toBe(Date.parse(log.timestamp) + 30000);
 	});
@@ -55,6 +59,8 @@ describe('logs view contracts', () => {
 		expect(href).not.toContain('private');
 		const target = parseLogTarget(new URLSearchParams(new URL(href).hash.split('?')[1]).get('log'))!;
 		expect(target.source).toBe('system.log');
+		expect(validateLogSearch({ log: target })).toEqual({ log: target });
+		expect(validateLogSearch({ log: JSON.stringify(target) })).toEqual({ log: target });
 		expect(logMatchesTarget(log, target)).toBe(true);
 		expect(logMatchesTarget({ ...log, message: 'different' }, target)).toBe(false);
 	});
@@ -63,6 +69,9 @@ describe('logs view contracts', () => {
 			const value of [
 				'{',
 				'x'.repeat(3000),
+				...['-271821-04-20T00:01:00.000Z', '+275760-09-12T23:59:00.000Z'].map(timestamp =>
+					JSON.stringify({ timestamp, node: '', thread: '', fingerprint: 'a', source: 'hdb.log' })
+				),
 				JSON.stringify({ timestamp: 'bad' }),
 				JSON.stringify({
 					timestamp: '+275760-09-13T00:00:00.000Z',
@@ -75,12 +84,6 @@ describe('logs view contracts', () => {
 		) {
 			expect(parseLogTarget(value)).toBeUndefined();
 			expect(validateLogSearch({ log: value })).toEqual({});
-		}
-	});
-	it('formats JSON as text and leaves stacks, malformed JSON and oversized messages intact', () => {
-		expect(formatLogMessage('{"a":1}')).toBe('{\n  "a": 1\n}');
-		for (const message of ['Error\n at main:1', '<script>alert(1)</script>', 'a'.repeat(100001)]) {
-			expect(formatLogMessage(message)).toBe(message);
 		}
 	});
 	it('uses unambiguous shared row identity and the same duplicate rule before and after streaming', () => {

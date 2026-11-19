@@ -67,19 +67,32 @@ for (const oldestFirst of [false, true]) {
 	test(
 		`inline inspection preserves live rows until Resume (${oldestFirst ? 'oldest' : 'newest'} first)`,
 		async ({ page }, testInfo) => {
-			let logs = [log('Error: connection refused\n    at connect (client.ts:42:9)'), log('Previous log event', -1000)];
+			let logs = [
+				log('Error: connection refused\n    at connect (client.ts:42:9)'),
+				...Array.from({ length: 39 }, (_, i) => log(`Previous log event ${i + 1}`, -(i + 1) * 1000)),
+			];
 			const requests: Record<string, unknown>[] = [];
 			await serve(page, () => logs, requests);
+			await page.addInitScript(value => localStorage.setItem('LogsOrderReversed', JSON.stringify(value)), oldestFirst);
 			await page.setViewportSize({ width: 1440, height: 1000 });
 			await page.goto('/#/org-logs/clu-logs/logs');
-			await expect(page.getByRole('button', { name: 'Expand log 1' })).toBeVisible();
-			if (oldestFirst) { await page.getByRole('button', { name: 'Sort oldest first' }).click(); }
+			await expect(page.getByRole('button', { name: 'Expand log 1', exact: true })).toBeVisible();
+			await expect.poll(() =>
+				page.locator('[data-slot="table-container"]').evaluate(
+					(el, oldest) => oldest ? Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) : el.scrollTop,
+					oldestFirst,
+				)
+			).toBeLessThan(2);
+			await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
+			await page.getByRole('button', { name: 'Refresh logs' }).click();
+			await expect(page.getByLabel('Full log message')).toBeVisible();
+			await page.getByRole('button', { name: 'Collapse log 1', exact: true }).click();
 			await page.getByRole('switch', { name: 'Live logs' }).click();
-			await page.getByRole('button', { name: 'Expand log 1' }).click();
+			await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
 			const message = await page.getByLabel('Full log message').textContent();
 			const before = await page.locator('[data-slot="table-container"]').evaluate(el => el.scrollTop);
 			logs = [log('New live event', 1000), ...logs];
-			await expect(page.getByRole('button', { name: /1 new logs available.*Resume live/ })).toBeVisible({
+			await expect(page.getByRole('button', { name: /1 new matching logs available.*Resume live/ })).toBeVisible({
 				timeout: 15000,
 			});
 			await expect(page.getByText('New live event', { exact: true })).toHaveCount(0);
@@ -106,10 +119,18 @@ test(
 		await serve(page, () => logs, requests);
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		await page.goto('/#/org-logs/clu-logs/logs');
-		await page.getByRole('button', { name: 'Expand log 1' }).click();
+		await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
 		await page.getByRole('button', { name: 'Copy link' }).click();
 		const link = await page.evaluate(() => navigator.clipboard.readText());
 		expect(link).not.toContain('request failed');
+		const linkedPage = await context.newPage();
+		await serve(linkedPage, () => logs, []);
+		await linkedPage.goto(link);
+		await expect(linkedPage.getByLabel('Full log message')).toContainText('Error: request failed');
+		await expect(linkedPage).toHaveURL(/log=/);
+		await linkedPage.close();
+		await page.bringToFront();
+
 		await page.getByRole('button', { name: 'View surrounding logs' }).click();
 		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
 		await expect(page.getByText('Other node event', { exact: true })).toHaveCount(0);
@@ -131,7 +152,17 @@ test(
 		await page.mouse.move(box.x + 100, box.y + box.height / 2);
 		await page.mouse.up();
 		expect((await header.boundingBox())!.width).toBeGreaterThan(before + 50);
+		const timestampHeader = page.getByRole('columnheader', { name: 'Timestamp' });
+		const timestampWidth = (await timestampHeader.boundingBox())!.width;
+		const timestampGrip = (await timestampHeader.locator('[class*="cursor-col-resize"]').boundingBox())!;
+		await page.mouse.move(timestampGrip.x + timestampGrip.width / 2, timestampGrip.y + timestampGrip.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(timestampGrip.x + 85, timestampGrip.y + timestampGrip.height / 2);
+		await page.mouse.up();
+		expect((await timestampHeader.boundingBox())!.width).toBeGreaterThan(timestampWidth + 30);
+
 		await page.goto(link);
+		await expect(page.getByRole('columnheader', { name: 'Tags' })).toBeVisible();
 		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
 		await page.screenshot({ path: testInfo.outputPath('logs-link.png'), fullPage: true });
 		await page.evaluate(() => localStorage.setItem('Theme', JSON.stringify('dark')));

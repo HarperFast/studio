@@ -2,7 +2,6 @@ import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 
 const keys = new WeakMap<ReadLogItem, string>();
 
-/** Shared identity across snapshots, live replay, and expanded rows. */
 export function logKey(entry: ReadLogItem): string {
 	let key = keys.get(entry);
 	if (key === undefined) {
@@ -12,16 +11,7 @@ export function logKey(entry: ReadLogItem): string {
 	return key;
 }
 
-/**
- * Merge the buffered snapshot with entries received over the live tail into a single
- * newest-first list, de-duplicated (the two sources overlap: the tail may replay recent
- * lines that the snapshot already holds) and capped at `limit`.
- *
- * Both inputs are expected newest-first already; we still sort defensively by timestamp so
- * an out-of-order arrival cannot wedge a line into the wrong place. Ties keep first-seen
- * order, and since `live` is scanned before `snapshot`, a replayed line prefers the tail's
- * copy (which is the one carrying any freshly-attached `node`, etc.).
- */
+/** Deduplicate overlapping snapshots/tails and order newest first. A nonpositive limit is uncapped. */
 export function mergeReadLogs(
 	snapshot: ReadLogItem[],
 	live: ReadLogItem[],

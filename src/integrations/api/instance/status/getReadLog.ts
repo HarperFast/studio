@@ -53,8 +53,12 @@ export function buildReadLogBody(
 		replicated,
 		limit: clampReadLogLimit(logFilters.limit),
 		level: logFilters.level !== 'undefined' ? logFilters.level : undefined,
-		from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
-		until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
+		from: logFilters.relative_minutes
+			? new Date(Date.now() - Number(logFilters.relative_minutes) * 60000).toISOString()
+			: logFilters.from
+			? new Date(logFilters.from).toISOString()
+			: undefined,
+		until: !logFilters.relative_minutes && logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
 		log_name: logFilters.log_name ?? undefined,
 		filter: logFilters.filter ? logFilters.filter : undefined,
 		order: 'desc',
@@ -74,6 +78,7 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 		queryKey: [
 			'read_log',
 			params.entityId,
+			logFilters.relative_minutes,
 			logFilters.limit,
 			logFilters.level,
 			logFilters.from,
@@ -84,6 +89,8 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 		] as const,
 		queryFn: () => getReadLog(params),
 		retry: false,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
 		refetchInterval: params.isAutoRefreshEnabled ? pollUnlessForbidden(5_000) : false,
 	});
 }

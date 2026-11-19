@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { CopyIcon, LinkIcon, ListFilterIcon } from 'lucide-react';
-import { buildLogLink, formatLogMessage, LogFilters } from '../logView';
+import { buildLogLink, canViewLogContext, LogFilters } from '../logView';
 
 export function LogDetails({ log, source, onViewContext }: {
 	log: ReadLogItem;
@@ -10,11 +10,12 @@ export function LogDetails({ log, source, onViewContext }: {
 	onViewContext: (log: ReadLogItem) => void;
 }) {
 	const copy = useCopyTextToClipboard();
-	const validTime = Number.isFinite(Date.parse(log.timestamp));
+	const message = log.message ?? '';
+	const validTime = canViewLogContext(log.timestamp);
 	return (
 		<div className="space-y-3 border-l-2 border-primary bg-muted/20 p-4 text-sm">
 			<div className="flex flex-wrap items-center gap-2">
-				<Button size="sm" variant="ghost" onClick={() => copy(log.message)}>
+				<Button size="sm" variant="ghost" onClick={() => copy(message)}>
 					<CopyIcon />Copy message
 				</Button>
 				<Button size="sm" variant="ghost" onClick={() => copy(JSON.stringify(log, null, 2))}>Copy JSON</Button>
@@ -48,7 +49,7 @@ export function LogDetails({ log, source, onViewContext }: {
 			<pre
 				className="max-h-[32rem] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 select-text"
 				aria-label="Full log message"
-			>{formatLogMessage(log.message)}</pre>
+			>{message}</pre>
 		</div>
 	);
 }
