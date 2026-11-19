@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
 /**
- * Resolves false when a sign-out landed before it could navigate. `redirect` defaults to the page's search; a page whose
+ * Resolves false when a sign-out or another sign-in landed before it could navigate. `redirect` defaults to the page's search; a page whose
  * search the router cannot read cleanly passes its own.
  */
 export function useCompleteCloudSignIn(options?: { redirect: unknown }) {
@@ -53,8 +53,12 @@ export function useCompleteCloudSignIn(options?: { redirect: unknown }) {
 			console.debug('Sign-in bookkeeping failed, carrying on:', error);
 		}
 		const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+		const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 		await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-		if (authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
+		if (
+			authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
+		) {
 			return false;
 		}
 		const target = postSignInRedirect(redirect);

@@ -341,6 +341,20 @@ describe('useCompleteCloudSignIn — redirect', () => {
 		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
 	});
 
+	it('gives up, without following the redirect, when another sign-in lands meanwhile', async () => {
+		const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+		hashSearch.current = { redirect: '/oauth/mcp/authorize?response_type=code&state=s' };
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			authStore.setUserForEntity(OverallAppSignIn, GRACE);
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(false);
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
 	it('still follows it when the sign-in bookkeeping throws', async () => {
 		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&state=s';
 		hashSearch.current = { redirect: mcpAuthorize };

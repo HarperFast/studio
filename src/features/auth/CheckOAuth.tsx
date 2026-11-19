@@ -16,7 +16,6 @@ let checking: Promise<void> | null = null;
 
 export function CheckOAuth() {
 	const navigate = useNavigate();
-	// Read once, before the check clears the plugin's params from the URL.
 	const [redirect] = useState(() => redirectFromFragment(window.location.hash));
 	const signInSearch = redirectSearch(redirect);
 	const completeSignIn = useCompleteCloudSignIn({ redirect });
@@ -49,8 +48,9 @@ export function CheckOAuth() {
 					return;
 				}
 
-				// Read before the session is picked up: a sign-out, or another sign-in, in this or another tab while
-				// it is supersedes this callback, which must then neither publish its user nor continue to `redirect`.
+				// Read before the session is picked up: a sign-out or another sign-in in this tab meanwhile supersedes
+				// this callback, which must then neither publish its user nor continue to `redirect`. These counters are
+				// this tab's own; another tab's sign-in only reaches this one through the session cookie.
 				const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 				const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 
@@ -69,7 +69,6 @@ export function CheckOAuth() {
 					});
 				}
 
-				// `fetchCurrentUser`, which writes nothing to the store until the check below passes.
 				const user = await fetchCurrentUser().catch(() => null);
 				if (!user) {
 					toast.error(OAUTH_GENERIC_ERROR_MESSAGE, {

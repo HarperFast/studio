@@ -20,7 +20,6 @@ vi.mock('sonner', () => ({
 const { fetchCurrentUser } = vi.hoisted(() => ({ fetchCurrentUser: vi.fn() }));
 vi.mock('@/features/auth/queries/getCurrentUser', () => ({ fetchCurrentUser }));
 
-// The counters a sign-out or another sign-in advances.
 const { counters } = vi.hoisted(() => ({ counters: { signOutGeneration: 0, signInRevision: 0 } }));
 vi.mock('@/features/auth/store/authStore', () => ({
 	authStore: {
@@ -174,8 +173,8 @@ describe('CheckOAuth', () => {
 		consoleDebug.mockRestore();
 	});
 
-	// Cursor Grok (pre-push review): the same throw, but with an error param present, must not
-	// skip the one thing this component exists to do — show the mapped message and redirect.
+	// The same throw, but with an error param present, must not skip the one thing this component exists to do:
+	// show the mapped message and redirect.
 	it('still shows the mapped message when clearOAuthErrorParamsFromUrl throws on a failed redirect', async () => {
 		stubLocation('?error=access_denied&reason=email_not_verified');
 		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
