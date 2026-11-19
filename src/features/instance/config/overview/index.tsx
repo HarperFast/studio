@@ -51,7 +51,11 @@ export function ConfigOverviewIndex() {
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
-	const version = useLoadedInstanceVersion();
+	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
+		getRegistrationInfoQueryOptions(instanceParams),
+	);
+	// The loader fills this query's cache, so it has the version on the render the loader data lacks it.
+	const version = useLoadedInstanceVersion() ?? registrationInfo?.version;
 	const checkUsageLicenses = !isLocalStudio && version !== undefined && wasAReleasedBeforeB('4.7.0-alpha.1', version);
 
 	const { data: appliedLicenses } = useQuery(
@@ -59,9 +63,6 @@ export function ConfigOverviewIndex() {
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
-	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
-		getRegistrationInfoQueryOptions(instanceParams),
-	);
 	const { data: configurationInfo, isLoading: loadingConfig } = useQuery(
 		getConfigurationQueryOptions(instanceParams),
 	);

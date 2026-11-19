@@ -12,20 +12,24 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { useFitLevel } from '@/hooks/useFitLevel';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { cn } from '@/lib/cn';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLoaderData, useMatchRoute, useParams } from '@tanstack/react-router';
+import { Link, useMatchRoute, useParams } from '@tanstack/react-router';
 import { CheckIcon, ChevronDownIcon, EllipsisIcon, MenuIcon } from 'lucide-react';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 export function InstanceNavBar() {
+	const version = useLoadedInstanceVersion();
+	return version === undefined ? null : <InstanceNavBarFor version={version} />;
+}
+
+function InstanceNavBarFor({ version }: { version: string }) {
 	const canManage = useInstanceManagePermission();
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const statusAvailable = supportsGetStatus(version) && canManage;
 	const instanceParams = useInstanceClientIdParams();
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));

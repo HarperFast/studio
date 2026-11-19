@@ -4,8 +4,9 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import type { ComponentProps } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const { permission, studio } = vi.hoisted(() => ({
+const { permission, studio, route } = vi.hoisted(() => ({
 	permission: { canManage: true },
+	route: { loaderData: { version: '5.3.0' } as { version: string } | undefined },
 	studio: {
 		navigation: {} as Record<string, 'visible' | 'tucked' | 'hidden'>,
 		tabs: [] as { key: string; name: string; icon: string }[],
@@ -40,7 +41,7 @@ vi.mock('@tanstack/react-router', () => ({
 		& { to: string; activeOptions?: unknown; activeProps?: unknown; inactiveProps?: unknown }) => (
 		<a href={to} {...props} />
 	),
-	useLoaderData: () => ({ version: '5.3.0' }),
+	useLoaderData: () => route.loaderData,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1', instanceId: 'ins-1' }),
 	useMatchRoute: () => ({ to }: { to: string }) => to.endsWith('/databases') ? {} : false,
 }));
@@ -61,9 +62,16 @@ afterEach(() => {
 	studio.navigation = {};
 	studio.tabs = [];
 	studio.configEntries = [];
+	route.loaderData = { version: '5.3.0' };
 });
 
 describe('InstanceNavBar', () => {
+	it('renders nothing, rather than crashing, while its route has no loader data', () => {
+		route.loaderData = undefined;
+		const { container } = render(<InstanceNavBar />);
+		expect(container.innerHTML).toBe('');
+	});
+
 	it('keeps the instance breadcrumb when the full path and the leading fold exceed the available width', () => {
 		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(350);
 		vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function(this: HTMLElement) {
