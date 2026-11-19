@@ -26,6 +26,18 @@ vi.mock('sonner', () => ({
 	toast: { success: vi.fn(), error: vi.fn(), message: vi.fn(() => 'saving'), dismiss: vi.fn(), warning: vi.fn() },
 }));
 
+vi.mock('./ClusterBilling', () => ({
+	ClusterBilling: ({ onGoBackToDetails, onSaveStateForBillingRedirect }: {
+		onGoBackToDetails: () => void;
+		onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	}) => (
+		<div>
+			<button type="button" onClick={() => onSaveStateForBillingRedirect(true)}>Save draft for Stripe</button>
+			<button type="button" onClick={onGoBackToDetails}>Back to Details</button>
+		</div>
+	),
+}));
+
 import type { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterForm } from './ClusterForm';
 import type { UpsertClusterSchemaType } from './upsertClusterSchema';
@@ -40,6 +52,14 @@ const plans = [
 		deploymentDescription: 'Colocated',
 		performanceDescription: 'Free tier',
 		priceUsd: 0,
+		allowedRegionIds: ['us-small'],
+	},
+	{
+		id: 'paid',
+		deploymentType: 'colocated',
+		deploymentDescription: 'Colocated',
+		performanceDescription: 'Paid tier',
+		priceUsd: 100,
 		allowedRegionIds: ['us-small'],
 	},
 	{ id: 'self-hosted', deploymentDescription: 'Self-Hosted', performanceDescription: 'Bring your own', priceUsd: 0 },
@@ -65,11 +85,13 @@ function versions(...list: string[]): HarperVersionsResponse {
 
 function renderForm(
 	defaultValues: Partial<UpsertClusterSchemaType>,
-	{ clusterId, mode, harperVersions, recordLocksOn }: {
+	{ clusterId, mode, harperVersions, recordLocksOn, setSavedClusterState = vi.fn(), startOffOnBilling = false }: {
 		clusterId?: string;
 		mode?: 'version';
 		harperVersions: HarperVersionsResponse;
 		recordLocksOn?: boolean;
+		setSavedClusterState?: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
+		startOffOnBilling?: boolean;
 	},
 ) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -105,16 +127,26 @@ function renderForm(
 				recordLocksOn={locksOn}
 				regionLocationsColocated={regions}
 				regionLocationsDedicated={regions}
-				setSavedClusterState={vi.fn()}
-				startOffOnBilling={false}
+				setSavedClusterState={setSavedClusterState}
+				startOffOnBilling={startOffOnBilling}
 			/>
 		</QueryClientProvider>
 	);
 	const view = render(ui(recordLocksOn));
-	return { ...view, setRecordLocksOn: (locksOn: boolean) => view.rerender(ui(locksOn)) };
+	return { ...view, setRecordLocksOn: (locksOn: boolean) => view.rerender(ui(locksOn)), setSavedClusterState };
 }
 
 const recordLocksBox = () => screen.queryByRole<HTMLInputElement>('checkbox', { name: 'Cluster-wide record locks' });
+
+async function selectVersion(currentVersion: string, nextVersion: string) {
+	const trigger = screen.getAllByRole('combobox').find(combobox => combobox.textContent?.includes(currentVersion))!;
+	await act(async () => {
+		fireEvent.click(trigger);
+	});
+	await act(async () => {
+		fireEvent.click(screen.getByRole('option', { name: new RegExp(nextVersion.replaceAll('.', '\\.')) }));
+	});
+}
 
 async function create() {
 	post.mockResolvedValue({ data: { id: 'clu-new' } });
@@ -128,6 +160,39 @@ async function create() {
 }
 
 describe('ClusterForm — record locks on create', () => {
+	it('starts checked on Harper 5.4.0+ and sends recordLocks: true', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
+	});
+
+	it('starts checked on a 5.4.0 prerelease at or above central manager auto-enable floor', async () => {
+		renderForm({ version: '5.4.0-beta.1' }, { harperVersions: versions('5.4.0-beta.1', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0-beta.1', recordLocks: true }));
+	});
+
+	it('sends recordLocks: false when unchecked on Harper 5.4.0+', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+	});
+
+	it('starts unchecked on Harper 5.3.0 and sends recordLocks: false', async () => {
+		renderForm({}, { harperVersions: versions('5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: false }));
+	});
+
 	it('sends recordLocks: true when ticked on Harper 5.3.0', async () => {
 		renderForm({}, { harperVersions: versions('5.3.0') });
 
@@ -149,15 +214,158 @@ describe('ClusterForm — record locks on create', () => {
 		expect((await screen.findAllByText(/lock a record across every instance/)).length).toBeGreaterThan(0);
 	});
 
-	it('leaves recordLocks out when the box is not ticked', async () => {
-		renderForm({}, { harperVersions: versions('5.3.0') });
-		expect(recordLocksBox()).toBeTruthy();
+	it('resets an untouched box to match the version default when moving between 5.4 and 5.3', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(true);
 
-		expect(await create()).not.toHaveProperty('recordLocks');
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: false }));
+	});
+
+	it('checks an untouched box when moving from 5.3 to 5.4', async () => {
+		renderForm({ version: '5.3.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
+	});
+
+	it('keeps the user choice across version switches once the box has been touched', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		await selectVersion('5.4.0', '5.3.0');
+		await selectVersion('5.3.0', '5.4.0');
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: false }));
+	});
+
+	it('keeps a touched box checked when moving from 5.4 to 5.3 even if toggled back to checked', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.3.0') });
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+			fireEvent.click(recordLocksBox()!);
+		});
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.3.0');
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.3.0', recordLocks: true }));
+	});
+
+	it('keeps a seeded false default on 5.4.0 without treating it as a user touch across version switches', async () => {
+		renderForm({ version: '5.4.0', recordLocks: false }, { harperVersions: versions('5.4.0', '5.3.0') });
+		expect(recordLocksBox()?.checked).toBe(false);
+
+		await selectVersion('5.4.0', '5.3.0');
+		await selectVersion('5.3.0', '5.4.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(true));
+
+		expect(await create()).toEqual(expect.objectContaining({ version: '5.4.0', recordLocks: true }));
+	});
+
+	it('does not treat a restored billing draft as touched, so switching version still updates the default', async () => {
+		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
+		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
+		const first = renderForm(
+			{ version: '5.4.0', performanceDescription: 'Paid tier' },
+			{ harperVersions: versions('5.4.0', '5.3.0'), setSavedClusterState },
+		);
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		const next = screen.getByRole<HTMLButtonElement>('button', { name: /Confirm Payment Details/ });
+		await waitFor(() => expect(next.disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(next);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
+		});
+		const draft = savedDrafts.at(-1)!;
+		first.unmount();
+
+		renderForm(draft, { harperVersions: versions('5.4.0', '5.3.0'), startOffOnBilling: true });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Back to Details' }));
+		});
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.3.0');
+		await waitFor(() => expect(recordLocksBox()?.checked).toBe(false));
+	});
+
+	it('preserves a false value across a Stripe billing draft while version stays unchanged', async () => {
+		const savedDrafts: Array<null | ({ clusterId?: string } & UpsertClusterSchemaType)> = [];
+		const setSavedClusterState = vi.fn((value) => savedDrafts.push(value));
+		const first = renderForm(
+			{ version: '5.4.0', performanceDescription: 'Paid tier' },
+			{ harperVersions: versions('5.4.0', '5.3.0'), setSavedClusterState },
+		);
+
+		await act(async () => {
+			fireEvent.click(recordLocksBox()!);
+		});
+		const next = screen.getByRole<HTMLButtonElement>('button', { name: /Confirm Payment Details/ });
+		await waitFor(() => expect(next.disabled).toBe(false));
+		await act(async () => {
+			fireEvent.click(next);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save draft for Stripe' }));
+		});
+		const draft = savedDrafts.at(-1)!;
+		expect(draft.recordLocks).toBe(false);
+		first.unmount();
+
+		renderForm(draft, { harperVersions: versions('5.4.0', '5.3.0'), startOffOnBilling: true });
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Back to Details' }));
+		});
+		expect(recordLocksBox()?.checked).toBe(false);
 	});
 
 	it('offers nothing below 5.3.0, and drops a ticked box carried from a failed cluster', async () => {
 		renderForm({ version: '5.2.13', recordLocks: true }, { harperVersions: versions('5.2.13') });
+		expect(recordLocksBox()).toBeNull();
+
+		expect(await create()).not.toHaveProperty('recordLocks');
+	});
+
+	it('leaves recordLocks out after switching from 5.4.0 to a pre-5.3 version', async () => {
+		renderForm({ version: '5.4.0' }, { harperVersions: versions('5.4.0', '5.2.13') });
+		expect(recordLocksBox()?.checked).toBe(true);
+
+		await selectVersion('5.4.0', '5.2.13');
+		expect(recordLocksBox()).toBeNull();
+
+		expect(await create()).not.toHaveProperty('recordLocks');
+	});
+
+	it('offers nothing to a self-hosted cluster on 5.4+, and leaves recordLocks out', async () => {
+		renderForm({
+			version: '5.4.0',
+			deploymentDescription: 'Self-Hosted',
+			performanceDescription: 'Bring your own',
+			fqdn: 'locks.example.com',
+			regionPlans: [],
+			instances: [{ secure: 'true', fqdn: 'node-1.example.com', port: 9925 }],
+		}, { harperVersions: versions('5.4.0') });
 		expect(recordLocksBox()).toBeNull();
 
 		expect(await create()).not.toHaveProperty('recordLocks');

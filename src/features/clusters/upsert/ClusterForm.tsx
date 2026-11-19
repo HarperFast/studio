@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
-import { RECORD_LOCKS_MIN_VERSION, supportsRecordLocks } from '@/features/cluster/recordLocks/recordLocksState';
+import {
+	defaultsRecordLocksOn,
+	RECORD_LOCKS_MIN_VERSION,
+	supportsRecordLocks,
+} from '@/features/cluster/recordLocks/recordLocksState';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
@@ -276,10 +280,17 @@ export function ClusterForm({
 		recordLocksOn,
 	]);
 
+	const initialDefaultValues = useMemo(
+		() => (!clusterId && defaultValues.recordLocks === undefined
+			? { ...defaultValues, recordLocks: defaultsRecordLocksOn(defaultValues.version) }
+			: defaultValues),
+		[clusterId, defaultValues],
+	);
+
 	const form = useForm({
 		mode: 'onChange',
 		resolver: zodResolver(UpsertClusterSchema.superRefine(refineZod)),
-		defaultValues,
+		defaultValues: initialDefaultValues,
 	});
 
 	useEffect(function revalidateVersionWhenRecordLocksChange() {
@@ -316,10 +327,31 @@ export function ClusterForm({
 
 	const clusterName = form.watch('clusterName');
 	const abbreviatedName = form.watch('abbreviatedName');
+	const selectedVersion = form.watch('version');
 	const selectedDeployment = form.watch('deploymentDescription');
 	const selectedPerformance = form.watch('performanceDescription');
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
+
+	const recordLocksTouched = useRef(false);
+	const previousRecordLocksDefault = useRef(defaultsRecordLocksOn(defaultValues.version));
+	const onRecordLocksUserChange = useCallback(() => {
+		recordLocksTouched.current = true;
+	}, []);
+
+	useEffect(function syncRecordLocksDefaultWithVersion() {
+		if (clusterId) {
+			return;
+		}
+		const nextDefault = defaultsRecordLocksOn(selectedVersion);
+		if (previousRecordLocksDefault.current === nextDefault) {
+			return;
+		}
+		previousRecordLocksDefault.current = nextDefault;
+		if (!recordLocksTouched.current) {
+			form.setValue('recordLocks', nextDefault);
+		}
+	}, [clusterId, form, selectedVersion]);
 
 	const regionNameToLatencyToRegion = selectedDeployment !== 'Dedicated'
 		? colocatedRegionNameToLatencyToRegion
@@ -602,10 +634,11 @@ export function ClusterForm({
 				version: formData.version,
 				organizationId,
 				regionPlans: plans,
-				// Only where central manager accepts it: a box ticked before switching to self-hosted or an
-				// older version stays in the form, hidden, and must not turn into a 400.
-				...(formData.recordLocks && !isSelfManaged && supportsRecordLocks(formData.version)
-					? { recordLocks: true }
+				// Only where central manager accepts it: a box touched before switching to self-hosted or an
+				// older version stays in the form, hidden, and must not turn into a 400. Explicit false
+				// overrides central manager's 5.4+ default.
+				...(!isSelfManaged && supportsRecordLocks(formData.version)
+					? { recordLocks: Boolean(formData.recordLocks) }
 					: {}),
 				// Recorded so the cluster keeps its job wherever it is opened (a central-manager that predates the
 				// field drops it, which is why the browser remembers it too).
@@ -737,6 +770,7 @@ export function ClusterForm({
 									mode={mode}
 									partialUpgrade={partialUpgrade}
 									recordLocksOn={recordLocksOn}
+									onRecordLocksUserChange={onRecordLocksUserChange}
 									regionLocations={regionLocations}
 									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}

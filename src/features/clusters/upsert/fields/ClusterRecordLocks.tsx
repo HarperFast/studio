@@ -12,9 +12,11 @@ import { z } from 'zod';
 export function ClusterRecordLocks({
 	className,
 	form,
+	onUserChange,
 }: {
 	className?: string;
 	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
+	onUserChange?: () => void;
 }) {
 	return (
 		<FormField
@@ -28,7 +30,10 @@ export function ClusterRecordLocks({
 								type="checkbox"
 								className="w-4 h-4 cursor-pointer"
 								checked={field.value || false}
-								onChange={field.onChange}
+								onChange={(event) => {
+									onUserChange?.();
+									field.onChange(event);
+								}}
 								onBlur={field.onBlur}
 								name={field.name}
 								ref={field.ref}

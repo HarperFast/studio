@@ -33,7 +33,7 @@ vi.mock('@/components/ContactUs', () => ({ ContactUs: () => 'contact us' }));
 vi.mock('@/components/ErrorComponent', () => ({ ErrorComponent: ({ title }: { title: string }) => <h2>{title}</h2> }));
 vi.mock('./ClusterForm', () => ({
 	ClusterForm: ({ defaultValues, startOffOnBilling, partialUpgrade, recordLocksOn }: {
-		defaultValues: { regionPlans: unknown };
+		defaultValues: { regionPlans: unknown; recordLocks?: boolean };
 		startOffOnBilling: boolean;
 		partialUpgrade: unknown;
 		recordLocksOn?: boolean;
@@ -42,6 +42,7 @@ vi.mock('./ClusterForm', () => ({
 			data-billing={startOffOnBilling}
 			data-partial={JSON.stringify(partialUpgrade ?? null)}
 			data-record-locks={String(recordLocksOn)}
+			data-default-record-locks={String(defaultValues.recordLocks)}
 		>
 			{JSON.stringify(defaultValues.regionPlans)}
 		</output>
@@ -109,6 +110,29 @@ describe('UpsertCluster', () => {
 		renderUpsert();
 
 		expect((await screen.findByRole('status')).textContent).toBe('[{"regionId":"eu-ded"}]');
+	});
+
+	it('leaves defaultValues.recordLocks unset on a fresh create and preserves explicit choices on retry', async () => {
+		route.params = { organizationId: 'org-1' };
+		route.context = { organization };
+		const fresh = renderUpsert();
+		expect((await screen.findByRole('status')).getAttribute('data-default-record-locks')).toBe('undefined');
+		fresh.unmount();
+
+		localStorage.setItem(
+			LocalStorageKeys.SavedClusterState,
+			JSON.stringify({ ...dedicatedCluster, recordLocks: false }),
+		);
+		const retryFalse = renderUpsert();
+		expect((await screen.findByRole('status')).getAttribute('data-default-record-locks')).toBe('false');
+		retryFalse.unmount();
+
+		localStorage.setItem(
+			LocalStorageKeys.SavedClusterState,
+			JSON.stringify({ ...dedicatedCluster, recordLocks: true }),
+		);
+		renderUpsert();
+		expect((await screen.findByRole('status')).getAttribute('data-default-record-locks')).toBe('true');
 	});
 
 	it('still refuses to edit a cluster with a region it cannot resolve', async () => {

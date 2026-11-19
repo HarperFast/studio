@@ -278,8 +278,9 @@ export function UpsertCluster() {
 				fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 				instances,
 				regionPlans,
-				// Try Again on a failed cluster keeps its record-lock choice. An edit never sends it.
-				recordLocks: clusterToLoad?.recordLocks === true,
+				// Try Again on a failed cluster keeps its explicit record-lock choice; a fresh create leaves it
+				// unset so ClusterForm derives the default from the chosen version. An edit never sends it.
+				recordLocks: typeof clusterToLoad?.recordLocks === 'boolean' ? clusterToLoad.recordLocks : undefined,
 			},
 			unresolvedRegionIds,
 			draftDiscarded,
