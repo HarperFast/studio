@@ -16,7 +16,6 @@ export function ConfigIndex() {
 	const { isPending: extensionEntriesPending } = useStudioConfiguration();
 
 	const atIndex = pathname.replace(/\/+$/, '') === configPath;
-	// The Overview and the other built-in pages run operations only a manager may.
 	const entryPaths = groups.flatMap(({ entries }) => entries.map(({ to }) => to));
 	const onEntry = entryPaths.some((to) => isAtOrUnder(pathname, to));
 	const redirectTo = !canManage && !onEntry ? entryPaths[0] ?? buildAbsoluteLinkToPage(params, 'databases') : undefined;

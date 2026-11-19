@@ -171,10 +171,14 @@ export function EnvEditorView() {
 				selectedName={selectedName}
 				onSelectName={setSelectedName}
 				addDescription={isProtected
-					? 'The value is written to this application’s env file on the instance. It can be replaced or removed later, but never read back.'
+					? `The value is written to this application’s env file on the instance. It can be replaced${
+						canDelete ? ' or removed' : ''
+					} later, but never read back.`
 					: `The value is written to ${openedEntry?.name ?? 'this env file'} in this application.`}
 				editDescription={isProtected
-					? 'The current value can’t be shown — this Harper version never returns secret values. Enter a new value to replace it, or delete the secret.'
+					? `The current value can’t be shown — this Harper version never returns secret values. Enter a new value to replace it${
+						canDelete ? ', or delete the secret' : ''
+					}.`
 					: 'Reveal the current value, or enter a replacement.'}
 				onSet={onSet}
 				onDelete={canDelete ? onDelete : undefined}

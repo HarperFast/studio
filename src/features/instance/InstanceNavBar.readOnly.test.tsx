@@ -56,7 +56,6 @@ const READ_ONLY_OPERATIONS = [
 	'get_job',
 	'get_analytics',
 	'list_metrics',
-	'read_log',
 ];
 const scopedToken = [
 	'eyJhbGciOiJSUzI1NiJ9',
@@ -95,7 +94,7 @@ describe('InstanceNavBar in a read-only Fabric Connect session', () => {
 		session.token = scopedToken;
 		render(<InstanceNavBar />);
 
-		expect(linkNames().sort()).toEqual(['Databases', 'Logs', 'Status']);
+		expect(linkNames().sort()).toEqual(['Databases', 'Status']);
 		expect(screen.getAllByText('Read-only')).toHaveLength(1);
 	});
 
@@ -109,7 +108,7 @@ describe('InstanceNavBar in a read-only Fabric Connect session', () => {
 		session.token = scopedToken;
 		render(<InstanceNavBar />);
 
-		expect(linkNames().sort()).toEqual(['Applications', 'Config', 'Databases', 'Logs', 'Status']);
+		expect(linkNames().sort()).toEqual(['Applications', 'Config', 'Databases', 'Status']);
 	});
 
 	it('offers no Config for deployments on a Harper older than 5.1, which has none', () => {

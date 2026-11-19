@@ -728,7 +728,9 @@ class AuthStore {
 				this.fabricConnectAuth.delete(id);
 				this.bumpConnectionGeneration(id);
 			}
-			throwIfSignedOut(err);
+			if (!(err instanceof SignedOutWhileConnectingError)) {
+				throwIfSignedOut(err);
+			}
 			throw err;
 		}
 	}
