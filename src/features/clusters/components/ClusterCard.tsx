@@ -21,7 +21,7 @@ import {
 	type ExpirySeverity,
 	HOBBYIST_UPGRADE,
 	isConversionApplying,
-	isStartBlockedByPlan,
+	isStartBlocked,
 } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -120,13 +120,13 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
 	// can still be RUNNING or PARTIAL for the whole grace window. Hiding the group on this alone took
 	// Stop and Restart away from a running cluster and left Terminate as the only offer.
-	const startBlocked = isStartBlockedByPlan(cluster);
+	const startBlocked = isStartBlocked(cluster);
 	// The group is hidden only when it would otherwise be a heading over nothing: a stopped cluster
 	// whose only actions are the two Starts that are now refused.
-	const planEndedAndDown = startBlocked && !isClusterRunning && !isClusterPartial;
+	const blockedAndDown = startBlocked && !isClusterRunning && !isClusterPartial;
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
-	const showContainerActions = canRunContainerOps && !isSelfManaged && !planEndedAndDown;
+	const showContainerActions = canRunContainerOps && !isSelfManaged && !blockedAndDown;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(

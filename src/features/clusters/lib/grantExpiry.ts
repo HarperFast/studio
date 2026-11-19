@@ -12,8 +12,11 @@ import { Cluster, ClusterGrant, ExpiryStage } from '@/integrations/api/api.patch
 export type ExpirySeverity = 'info' | 'warning' | 'critical';
 
 export interface GrantExpiryDescription {
-	/** AWAITING_PLAN is a conversion still applying; UPGRADE_FAILED one that stopped, a separate stage so no reader can spin or hide on it. */
-	stage: ExpiryStage | 'EXPIRED' | 'UPGRADE_FAILED';
+	/**
+	 * AWAITING_PLAN is a conversion still applying; UPGRADE_FAILED one that stopped, a separate stage so no reader can
+	 * spin or hide on it. PAYMENT_FAILED is not a grant stage: the cluster was stopped over an unpaid invoice.
+	 */
+	stage: ExpiryStage | 'EXPIRED' | 'UPGRADE_FAILED' | 'PAYMENT_FAILED';
 	severity: ExpirySeverity;
 	/** Short form for the cluster card. */
 	badgeLabel: string;
@@ -37,6 +40,9 @@ export const HOBBYIST_UPGRADE = 'hobbyist';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** central-manager's `lastContainerActionBy` on a stop its unpaid-invoice pass made; only such a stop is undone once paid. */
+const UNPAID_INVOICE_ACTOR = 'unpaid-invoices';
+
 /**
  * Whether to repeat the warning on a surface the customer is working in, which is every expiry
  * stage — including the first, so nobody reaches the last two days without having seen it.
@@ -50,17 +56,22 @@ export function isExpiryWarning(description: GrantExpiryDescription | null): boo
 
 /**
  * Whether a start would be refused. Mirrors central-manager's `clusterStartBlockedReason`, which
- * gates on the cluster carrying a `suspendedReason` with no live grant — NOT on the grant alone.
+ * gates on the cluster carrying a `suspendedReason` with no live grant — NOT on the grant alone —
+ * or on an overdue invoice, which no grant overrides.
  *
  * Gating UI on "the grant lapsed" instead was wrong in both directions: it hid the container group
  * from a cluster the customer had stopped themselves whose grant later lapsed (a start the server
  * would have accepted), and permanently from one whose grant was revoked, since the expiry runner
  * skips revoked grants and so never writes `suspendedReason`.
+ *
+ * Studio can't see invoices, so the payment half reads the reason central manager stamps when it
+ * stops a cluster over one, and clears once the invoice is paid.
  */
-export function isStartBlockedByPlan(
+export function isStartBlocked(
 	cluster: Pick<Cluster, 'grant' | 'suspendedReason'>,
 ): boolean {
-	return cluster.suspendedReason != null && !cluster.grant?.isActive;
+	return cluster.suspendedReason === 'PAYMENT_FAILED'
+		|| (cluster.suspendedReason != null && !cluster.grant?.isActive);
 }
 
 /** A conversion that hasn't finished applying its plan yet. Bounded window, not the real terms. */
@@ -180,9 +191,26 @@ export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
  * one the runner hasn't staged yet.
  */
 export function describeGrantExpiry(
-	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
+	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy'>,
 	now: number = Date.now(),
 ): GrantExpiryDescription | null {
+	// First, and whatever the grant says: a purchased grant stays live through non-payment, and no plan
+	// choice lifts this stop — paying the invoice does. A plan that also ended reads PLAN_ENDED instead.
+	if (cluster.suspendedReason === 'PAYMENT_FAILED') {
+		return {
+			stage: 'PAYMENT_FAILED',
+			severity: 'critical',
+			badgeLabel: 'Payment failed',
+			title: 'This cluster was stopped because a payment failed',
+			// A cluster the customer had already stopped is only marked, and stays stopped once paid.
+			detail: cluster.lastContainerActionBy === UNPAID_INVOICE_ACTOR
+				? 'Its data is kept. Update the payment method, and the cluster starts again automatically once the payment goes through.'
+				: 'Its data is kept. Update the payment method, and you can start the cluster again once the payment goes through.',
+			needsUpgrade: false,
+			offerUpgrade: false,
+		};
+	}
+
 	const grant = cluster.grant;
 	if (!grant) { return null; }
 
@@ -329,7 +357,7 @@ export interface GrantReminder {
  * terms and gets no reminder.
  */
 export function describeGrantReminder(
-	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
+	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState' | 'lastContainerActionBy'>,
 	now: number = Date.now(),
 ): GrantReminder | null {
 	const grant = cluster.grant;

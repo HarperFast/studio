@@ -8,10 +8,11 @@ import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterTerminated } from '@/features/cluster/components/ClusterTerminated';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
+import { isStartBlocked } from '@/features/clusters/lib/grantExpiry';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter } from '@tanstack/react-router';
+import { Navigate, useParams, useRouter } from '@tanstack/react-router';
 import { CloudAlertIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { allClusterInstancesRunning } from './allInstancesRunning';
@@ -76,6 +77,11 @@ export function StartingUp() {
 				<ClusterTerminated cluster={cluster} />
 			</NestedContentWithSubNavMenu>
 		);
+	}
+
+	// Same rule as ClusterHome: nothing is starting, and the overview explains why.
+	if (status === 'STOPPED' && isStartBlocked(cluster)) {
+		return <Navigate to={`/${cluster.organizationId}/${cluster.id}`} replace />;
 	}
 
 	if (clusterIsActive) {

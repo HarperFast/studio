@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ to, children }: { to: string; children?: React.ReactNode }) => <a href={to}>{children}</a>,
+	Navigate: ({ to }: { to: string }) => <div>redirected to {to}</div>,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 	useRouter: () => ({ navigate: vi.fn() }),
 }));
@@ -77,5 +78,20 @@ describe('StartingUp', () => {
 		mount();
 		await waitFor(() => screen.getByRole('button', { name: 'Try Again' }));
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
+	});
+
+	it('sends a stopped cluster whose start is refused to its overview instead of promising it is spinning up', async () => {
+		respond = async () => ({
+			id: 'clu-1',
+			organizationId: 'org-1',
+			status: 'STOPPED',
+			resetPassword: true,
+			suspendedReason: 'PAYMENT_FAILED',
+			grant: { isActive: true, source: 'purchased' },
+			instances: [],
+		});
+		mount();
+		await waitFor(() => screen.getByText('redirected to /org-1/clu-1'));
+		expect(screen.queryByText('Here we go!')).toBeNull();
 	});
 });

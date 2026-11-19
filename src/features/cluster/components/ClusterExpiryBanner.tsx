@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { describeGrantExpiry, HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
+import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, Loader2, TriangleAlertIcon } from 'lucide-react';
@@ -8,7 +9,8 @@ import { useMemo } from 'react';
 
 /**
  * Says where a cluster sits in its plan's expiry timeline, and — once service has been withdrawn —
- * offers the only route back up. Renders nothing for a cluster with no grant or a healthy one.
+ * offers the only route back up; or that a failed payment stopped it. Renders nothing for a cluster
+ * with no grant or a healthy one.
  *
  * Lives in the cluster layout rather than the overview so a customer sees it from whichever page
  * they land on.
@@ -52,8 +54,22 @@ export function ClusterExpiryBanner({
 							Choose a Plan
 						</Link>
 					)}
+					{expiry.stage === 'PAYMENT_FAILED' && <UpdatePaymentAction organizationId={cluster.organizationId} />}
 				</AlertDescription>
 			)}
 		</Alert>
+	);
+}
+
+/** Billing is the organization's, so its permission decides: the billing page refuses anyone else. */
+function UpdatePaymentAction({ organizationId }: { organizationId: string }) {
+	const { update: canManageBilling } = useOrganizationPermissions(organizationId);
+	if (!canManageBilling) {
+		return <p>Ask an organization admin to update the payment method.</p>;
+	}
+	return (
+		<Link to={`/${organizationId}/billing`} className={buttonVariants({ size: 'sm' })}>
+			Update Payment Method
+		</Link>
 	);
 }

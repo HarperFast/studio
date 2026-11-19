@@ -214,3 +214,11 @@ describe('ClusterStateMenu — a suspended cluster that is down', () => {
 		expect(items).toContain('Stop');
 	});
 });
+
+describe('ClusterStateMenu — stopped over a failed payment', () => {
+	it('drops the container group although the grant is still live', () => {
+		const purchased = { isActive: true, status: 'ACTIVE', source: 'purchased' } as Cluster['grant'];
+		const items = menuItemsFor(cluster({ status: 'STOPPED', suspendedReason: 'PAYMENT_FAILED', grant: purchased }));
+		expect(items).toEqual(['Terminate']);
+	});
+});

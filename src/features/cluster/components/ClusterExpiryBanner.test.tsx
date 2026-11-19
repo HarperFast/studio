@@ -5,10 +5,16 @@ import { Cluster, ClusterGrant } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
 import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterExpiryBanner } from './ClusterExpiryBanner';
 
-afterEach(() => cleanup());
+const orgPermissions = { update: true };
+vi.mock('@/hooks/usePermissions', () => ({ useOrganizationPermissions: () => orgPermissions }));
+
+afterEach(() => {
+	cleanup();
+	orgPermissions.update = true;
+});
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -118,5 +124,36 @@ describe('ClusterExpiryBanner', () => {
 		await renderBanner(cluster({ isActive: false, status: 'EXPIRED', currentStage: 'DELETED' }));
 		expect(screen.getByRole('alert').textContent).toContain('deleted after its plan ended');
 		expect(upgradeLink()).toBeNull();
+	});
+
+	describe('stopped over a failed payment', () => {
+		const paymentStopped = () =>
+			({
+				...cluster({ source: 'purchased', expiryPolicy: null, endsAt: null }),
+				status: 'STOPPED',
+				suspendedReason: 'PAYMENT_FAILED',
+				lastContainerActionBy: 'unpaid-invoices',
+			}) as Cluster;
+		const paymentLink = () => screen.queryByRole('link', { name: 'Update Payment Method' });
+
+		it('says why it stopped and sends a billing manager to the payment method', async () => {
+			await renderBanner(paymentStopped());
+			const alert = screen.getByRole('alert');
+			expect(alert.textContent).toContain('This cluster was stopped because a payment failed');
+			expect(alert.textContent).toContain('starts again automatically');
+			expect(paymentLink()?.getAttribute('href')).toBe('/#/org-test/billing');
+			// Choosing a plan does not lift a payment stop.
+			expect(upgradeLink()).toBeNull();
+		});
+
+		// The billing page refuses anyone without organization update, so it is not offered to them.
+		it('tells anyone who cannot manage billing to ask an admin', async () => {
+			orgPermissions.update = false;
+			await renderBanner(paymentStopped());
+			expect(screen.getByRole('alert').textContent).toContain(
+				'Ask an organization admin to update the payment method.',
+			);
+			expect(paymentLink()).toBeNull();
+		});
 	});
 });
