@@ -7,6 +7,7 @@ import {
 	isConversionFailed,
 	isConversionPending,
 	isExpiryWarning,
+	isStartBlocked,
 	voucherLabel,
 } from './grantExpiry';
 
@@ -327,6 +328,75 @@ describe('describeGrantExpiry', () => {
 	it('survives a malformed date rather than rendering NaN', () => {
 		const broken = grant({ currentStage: 'WARNED', endsAt: 'not-a-date' });
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
+	});
+
+	// A purchased grant stays live through non-payment, so the stop has to be told from the
+	// suspension, not the grant — and no plan choice lifts it.
+	it('says a payment stopped the cluster although its grant is live', () => {
+		const paid = grant({ source: 'purchased', expiryPolicy: null, endsAt: null });
+		const result = describeGrantExpiry({
+			grant: paid,
+			status: 'STOPPED',
+			suspendedReason: 'PAYMENT_FAILED',
+			lastContainerActionBy: 'unpaid-invoices',
+		}, NOW);
+		expect(result).toMatchObject({
+			stage: 'PAYMENT_FAILED',
+			severity: 'critical',
+			badgeLabel: 'Payment failed',
+			title: 'This cluster was stopped because a payment failed',
+			needsUpgrade: false,
+			offerUpgrade: false,
+		});
+		expect(result?.detail).toBe(
+			'Its data is kept. Update the payment method, and the cluster starts again automatically once the payment goes through.',
+		);
+		expect(isExpiryWarning(result)).toBe(true);
+		expect(describeGrantReminder({ grant: paid, suspendedReason: 'PAYMENT_FAILED' }, NOW)).toBeNull();
+	});
+
+	// Central manager only marks a cluster the customer had already stopped, and leaves it stopped once paid.
+	it('promises no automatic start for a cluster the customer had stopped', () => {
+		const result = describeGrantExpiry({
+			grant: grant({ source: 'purchased' }),
+			status: 'STOPPED',
+			suspendedReason: 'PAYMENT_FAILED',
+			lastContainerActionBy: 'usr-123',
+		}, NOW);
+		expect(result?.detail).toBe(
+			'Its data is kept. Update the payment method, and you can start the cluster again once the payment goes through.',
+		);
+	});
+
+	it('reports a payment stop ahead of a failed conversion, and without a grant', () => {
+		expect(describeGrantExpiry({ grant: null, suspendedReason: 'PAYMENT_FAILED' }, NOW)?.stage).toBe('PAYMENT_FAILED');
+		const failing = grant({ source: 'purchased', isActive: false, expiryPolicy: 'conversion-pending' });
+		expect(
+			describeGrantExpiry({
+				grant: failing,
+				status: 'STOPPED',
+				conversionState: 'FAILED',
+				suspendedReason: 'PAYMENT_FAILED',
+			}, NOW)
+				?.stage,
+		).toBe('PAYMENT_FAILED');
+	});
+});
+
+describe('isStartBlocked', () => {
+	it('blocks a plan-ended suspension only while no grant is live', () => {
+		expect(isStartBlocked({ suspendedReason: 'PLAN_ENDED', grant: grant({ isActive: false }) })).toBe(true);
+		expect(isStartBlocked({ suspendedReason: 'PLAN_ENDED', grant: grant() })).toBe(false);
+	});
+
+	it('blocks a payment suspension whatever the grant', () => {
+		expect(isStartBlocked({ suspendedReason: 'PAYMENT_FAILED', grant: grant({ source: 'purchased' }) })).toBe(true);
+		expect(isStartBlocked({ suspendedReason: 'PAYMENT_FAILED', grant: null })).toBe(true);
+	});
+
+	it('never blocks a cluster nothing suspended, even with its grant lapsed', () => {
+		expect(isStartBlocked({ suspendedReason: null, grant: grant({ isActive: false }) })).toBe(false);
+		expect(isStartBlocked({})).toBe(false);
 	});
 });
 

@@ -12,7 +12,12 @@ import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard
 import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
-import { describeGrantReminder, GrantReminder, HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
+import {
+	describeGrantReminder,
+	GrantReminder,
+	HOBBYIST_UPGRADE,
+	isStartBlocked,
+} from '@/features/clusters/lib/grantExpiry';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -68,7 +73,9 @@ export function ClusterHome() {
 	if (!cluster.fqdn) {
 		return <Navigate to={`${base}/instances`} replace />;
 	}
-	if (cluster.resetPassword) {
+	// A stopped cluster whose start is refused is not on its way up, so the setup flow would park it on
+	// "spinning up"; the overview's banner says why it is down and what brings it back.
+	if (cluster.resetPassword && !(cluster.status === 'STOPPED' && isStartBlocked(cluster))) {
 		// Only an admin (update) can finish setup / set the password. Match ClusterCardAction: send
 		// updaters into the setup flow, but show view-only members a "pending" message instead of
 		// redirecting them to a page they can't act on.

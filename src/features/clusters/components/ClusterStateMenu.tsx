@@ -11,7 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
+import { isStartBlocked } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -52,9 +52,9 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
 	// can still be RUNNING or PARTIAL. Hiding the whole group on this alone left an up-and-billing
 	// cluster with Terminate as its only control.
-	const startBlocked = isStartBlockedByPlan(cluster);
+	const startBlocked = isStartBlocked(cluster);
 	// Hidden only when the group would be a heading over nothing.
-	const planEndedAndDown = startBlocked && !isRunning && !isPartial;
+	const blockedAndDown = startBlocked && !isRunning && !isPartial;
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
@@ -90,8 +90,8 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 
 	// `update` alone still gets the menu, so someone managing the cluster can see why its ops are disabled.
 	if (clusterIsSelfManaged(cluster) || (!update && !remove && !canRunContainerOps)) { return null; }
-	// Down with its plan ended, Terminate is all that is left; without delete that is one disabled item.
-	if (planEndedAndDown && !remove) { return null; }
+	// Down with its start refused, Terminate is all that is left; without delete that is one disabled item.
+	if (blockedAndDown && !remove) { return null; }
 
 	return (
 		<>
@@ -108,7 +108,7 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-56">
-					{!planEndedAndDown && (
+					{!blockedAndDown && (
 						<>
 							<DropdownMenuLabel className="text-gray-600 text-xs">
 								Container

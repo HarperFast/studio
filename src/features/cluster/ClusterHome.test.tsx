@@ -85,4 +85,22 @@ describe(ClusterHome, () => {
 		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
 	});
+
+	// QA: a payment-stopped cluster that never finished setup was sent to "spinning up", which it is not.
+	it('keeps a stopped cluster whose start is refused off the starting-up page', async () => {
+		await renderHome({
+			...base,
+			status: 'STOPPED',
+			resetPassword: true,
+			suspendedReason: 'PAYMENT_FAILED',
+			grant: { isActive: true, source: 'purchased' } as Cluster['grant'],
+		});
+		expect(screen.queryByText(/redirected to/)).toBeNull();
+		expect(screen.getByRole('heading', { name: 'prod-east' })).toBeTruthy();
+	});
+
+	it('still holds an ordinary stopped cluster with setup pending on starting-up', async () => {
+		await renderHome({ ...base, status: 'STOPPED', resetPassword: true });
+		expect(screen.getByText('redirected to /org-1/clu-1/starting-up')).toBeTruthy();
+	});
 });

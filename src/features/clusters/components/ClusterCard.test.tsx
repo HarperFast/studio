@@ -270,3 +270,30 @@ describe('ClusterCard — container actions once the plan has ended', () => {
 		expect(items).not.toContain('Start');
 	});
 });
+
+// A purchased grant stays live through non-payment, so the plan rule alone would offer a Start that
+// central manager refuses with a 402.
+describe('ClusterCard — stopped over a failed payment', () => {
+	const purchased = { isActive: true, status: 'ACTIVE', source: 'purchased' } as Cluster['grant'];
+	const paymentStopped = cluster({
+		status: 'STOPPED',
+		resetPassword: true,
+		suspendedReason: 'PAYMENT_FAILED',
+		lastContainerActionBy: 'unpaid-invoices',
+		grant: purchased,
+	});
+
+	it('names the payment in its own pill', () => {
+		render(<ClusterCard cluster={paymentStopped} />);
+		const pill = screen.getByText('Payment failed');
+		expect(pill.getAttribute('title')).toContain('starts again automatically');
+	});
+
+	it('offers no Start', () => {
+		render(<ClusterCard cluster={paymentStopped} />);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+		const items = screen.getAllByRole('menuitem').map(node => (node.textContent ?? '').trim());
+		expect(items).not.toContain('Start');
+		expect(items).not.toContain('Start in safe mode');
+	});
+});

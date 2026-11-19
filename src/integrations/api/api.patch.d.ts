@@ -654,8 +654,10 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	grant?: ClusterGrant | null;
 	/** `purchased` once staff move this cluster of an unrestricted organization onto paid terms (central-manager#890). */
 	commercialSource?: string | null;
-	/** Set when service was deliberately withdrawn. Distinguishes an expiry stop from a user stop. */
+	/** PLAN_ENDED or PAYMENT_FAILED once service was deliberately withdrawn. Distinguishes that stop from a user stop. */
 	suspendedReason?: string | null;
+	/** Who last ran a container op: a user id, or a central-manager actor such as `unpaid-invoices`. */
+	lastContainerActionBy?: string | null;
 	/**
 	 * A trial->paid conversion in flight: APPLYING while the server starts the cluster and lands the
 	 * plan, FAILED if it did not land, null when none is in flight (a completed conversion looks the

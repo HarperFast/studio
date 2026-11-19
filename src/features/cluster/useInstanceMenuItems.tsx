@@ -6,7 +6,7 @@ import { containerActionsForStatus } from '@/features/cluster/containerActionsFo
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
+import { isStartBlocked } from '@/features/clusters/lib/grantExpiry';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -60,7 +60,7 @@ export function useInstanceMenuItems(
 	const { organizationId, clusterId }: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
 	// Same rule as the cluster card and ClusterStateMenu, keyed on the server's own gate.
-	const planEnded = isStartBlockedByPlan(cluster ?? {});
+	const startBlocked = isStartBlocked(cluster ?? {});
 	const instanceHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id });
 	const signInHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id }, 'sign-in');
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
@@ -109,10 +109,10 @@ export function useInstanceMenuItems(
 	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
 	// Hidden mid-transition (the instances poll reveals the resting state and the actions reappear).
 	// Self-hosted clusters have no managed container lifecycle (Harper doesn't control their
-	// runtime), so the group is hidden for them. Only Start dies with the plan: central-manager
-	// refuses it with a 402, while Restart and Stop stay on the way down.
+	// runtime), so the group is hidden for them. Only Start dies with the plan or a failed payment:
+	// central-manager refuses it with a 402, while Restart and Stop stay on the way down.
 	const available = containerActionsForStatus(instance.status);
-	const containerActions = planEnded ? { ...available, start: false } : available;
+	const containerActions = startBlocked ? { ...available, start: false } : available;
 	const hasContainerOps = canRunContainerOps
 		&& !isSelfManaged
 		&& (containerActions.start || containerActions.restart || containerActions.stop);
