@@ -54,6 +54,7 @@ export type StaffPermission =
 	| 'cluster:delete'
 	| 'instance:read'
 	| 'instance:update'
+	| 'billing:read'
 	| 'billing:write'
 	| 'config:read'
 	| 'config:write'

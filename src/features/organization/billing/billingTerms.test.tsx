@@ -10,12 +10,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	organization: {} as Record<string, unknown>,
-	canUpdate: true,
+	canManage: true,
 	invoiceFetches: 0,
 }));
 
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ organizationId: 'org-1' }) }));
-vi.mock('@/hooks/usePermissions', () => ({ useOrganizationPermissions: () => ({ update: state.canUpdate }) }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useOrganizationBillingPermissions: () => ({ view: true, manage: state.canManage }),
+}));
 vi.mock('@/features/organization/queries/getOrganizationQuery', () => ({
 	getOrganizationQueryOptions: () => ({
 		queryKey: ['org', state.organization],
@@ -39,7 +41,7 @@ vi.mock('@/components/ContactUs', () => ({ ContactUs: () => <span>Contact us</sp
 
 afterEach(() => {
 	cleanup();
-	state.canUpdate = true;
+	state.canManage = true;
 	state.invoiceFetches = 0;
 });
 
@@ -69,7 +71,7 @@ describe('card screen', () => {
 	});
 
 	it('keeps the contract message for a member who cannot add a card', async () => {
-		state.canUpdate = false;
+		state.canManage = false;
 		renderWith(withPaidCluster, <PaymentMethodsDisplay />);
 		expect(await screen.findByText(/We don.t currently show your payment methods/)).toBeTruthy();
 		expect(screen.queryByText('card form')).toBeNull();

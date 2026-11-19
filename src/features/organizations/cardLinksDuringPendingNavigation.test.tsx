@@ -17,6 +17,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 vi.mock('@/hooks/usePermissions', () => ({
 	useOrganizationPermissions: () => ({ remove: true, update: true }),
 	useOrganizationRolePermissions: () => ({ view: true }),
+	useOrganizationBillingPermissions: () => ({ view: true, manage: true }),
 	useOrganizationClusterPermissions: () => ({ view: true, create: true, update: true, remove: true }),
 	useContainerOpsPermission: () => false,
 }));

@@ -1,6 +1,10 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
-import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import {
+	useOrganizationBillingPermissions,
+	useOrganizationPermissions,
+	useOrganizationRolePermissions,
+} from '@/hooks/usePermissions';
 import { useParams } from '@tanstack/react-router';
 import { CreditCardIcon, ServerIcon, SettingsIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { ReactNode } from 'react';
@@ -15,13 +19,14 @@ export function OrgPageLayout({ children }: { children: ReactNode }) {
 	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const { view: canViewUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const { update: canManageOrg } = useOrganizationPermissions(organizationId);
+	const { view: canViewBilling } = useOrganizationBillingPermissions(organizationId);
 	const base = `/${organizationId}`;
 
 	const items = [
 		{ to: base, label: 'Clusters', icon: ServerIcon, exact: true },
 		canViewUsersAndRoles && { to: `${base}/users`, label: 'Users', icon: UsersIcon },
 		canViewUsersAndRoles && { to: `${base}/roles`, label: 'Roles', icon: ShieldCheckIcon },
-		canManageOrg && {
+		canViewBilling && {
 			to: `${base}/billing`,
 			label: 'Billing',
 			icon: CreditCardIcon,

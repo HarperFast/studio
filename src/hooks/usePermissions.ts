@@ -31,6 +31,11 @@ interface UR {
 	remove: boolean;
 }
 
+interface BillingPermissions {
+	view: boolean;
+	manage: boolean;
+}
+
 interface CRUV {
 	create: boolean;
 	remove: boolean;
@@ -64,6 +69,23 @@ function memberOrganizationPermissions(user: User | null, orgId: string): UR {
 		return { update: true, remove: true };
 	}
 	return { update: role.organization.update, remove: role.organization.delete };
+}
+
+/**
+ * Central manager reads billing for an org admin or `billing:read` (`Invoice.allowRead`) and changes the card for an
+ * org admin or `billing:write` (`Payment`, `StripeAccount`). Members keep the org-update rule these pages always used.
+ */
+export function useOrganizationBillingPermissions(orgId?: string): BillingPermissions {
+	const { user } = useCloudAuth();
+	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
+	return getOrganizationBillingPermissions(user, orgId ?? orgIdFromRoute);
+}
+
+export function getOrganizationBillingPermissions(user: User | null, orgId: string): BillingPermissions {
+	const manage = memberOrganizationPermissions(user, orgId).update
+		|| hasStaffPermission(user, 'org:update')
+		|| hasStaffPermission(user, 'billing:write');
+	return { view: manage || hasStaffPermission(user, 'billing:read'), manage };
 }
 
 /**

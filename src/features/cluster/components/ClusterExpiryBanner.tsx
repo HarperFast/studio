@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { buttonVariants } from '@/components/ui/buttonVariants';
 import { describeGrantExpiry, HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
-import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { useOrganizationBillingPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, Loader2, TriangleAlertIcon } from 'lucide-react';
@@ -62,8 +62,8 @@ export function ClusterExpiryBanner({
 }
 
 function UpdatePaymentAction({ organizationId }: { organizationId: string }) {
-	const { update: canManageBilling } = useOrganizationPermissions(organizationId);
-	if (!canManageBilling) {
+	const { manage } = useOrganizationBillingPermissions(organizationId);
+	if (!manage) {
 		return <p>Ask an organization admin to update the payment method.</p>;
 	}
 	return (
