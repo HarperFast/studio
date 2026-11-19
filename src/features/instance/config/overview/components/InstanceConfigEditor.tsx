@@ -16,11 +16,14 @@ import {
 	type ConfigChange,
 	type ConfigObject,
 	findRefusedChanges,
+	getIn,
 	isPlainObject,
 	listConfigChanges,
 	mergeConfigChanges,
 	rebaseDraft,
+	sameConfigValue,
 	setIn,
+	storedByHarper,
 	toSetConfigurationParams,
 } from '../configDraft';
 import { omitRestrictedFields } from '../configRestrictions';
@@ -126,7 +129,15 @@ export function InstanceConfigEditor(
 	});
 
 	const changes = useMemo(() => (base && draft ? listConfigChanges(base, draft) : []), [base, draft]);
-	const pending = useMemo(() => mergeConfigChanges(unconfirmed, changes), [unconfirmed, changes]);
+	// An unconfirmed setting is sent again only while the draft still holds it: one the user has since changed or put
+	// back is theirs to decide, not the last attempt's.
+	const pending = useMemo(() => {
+		const stillHeld = unconfirmed.filter(change => {
+			const now = getIn(draft, change.path);
+			return sameConfigValue(now, change.after) || sameConfigValue(now, storedByHarper(change.after));
+		});
+		return mergeConfigChanges(stillHeld, changes);
+	}, [unconfirmed, changes, draft]);
 	const refused = useMemo(() => findRefusedChanges(pending, context), [pending, context]);
 	const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 	const dirty = pending.length > 0 || jsonError !== null || hasFieldErrors;
@@ -211,9 +222,10 @@ export function InstanceConfigEditor(
 		setRefusal(null);
 		const sending = pending;
 		confirmedRef.current = false;
-		void onConfigUpdate(toSetConfigurationParams(sending)).then(() => {
-			setUnconfirmed(confirmedRef.current ? [] : sending);
-		});
+		void onConfigUpdate(toSetConfigurationParams(sending)).then(
+			() => setUnconfirmed(confirmedRef.current ? [] : sending),
+			() => setUnconfirmed(sending),
+		);
 	}, [canReview, pending, onConfigUpdate]);
 
 	return (

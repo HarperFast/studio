@@ -36,8 +36,11 @@ export function fitsConfigField(field: ConfigFieldDef, value: unknown): boolean 
 		case 'number':
 			return typeof value === 'number';
 		case 'stringList':
-			// Harper's own default is `[null]`, and a null entry allows nothing (harper `utility/corsAccessList.ts`).
-			return Array.isArray(value) && value.every(item => typeof item === 'string' || item === null);
+			// Harper's own default `[null]` shows as an empty box. A list that mixes null with origins stays in Advanced
+			// JSON: the operations server treats a leading null as "every origin" (`getCORSOpts`), so dropping it on an
+			// edit would change who it answers.
+			return Array.isArray(value)
+				&& (value.every(item => typeof item === 'string') || (value.length === 1 && value[0] === null));
 	}
 }
 

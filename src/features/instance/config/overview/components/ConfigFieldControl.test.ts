@@ -39,6 +39,13 @@ describe('parseConfigFieldText', () => {
 		expect(parseConfigFieldText(field('string', { nullable: true }), '', '')).toEqual({ value: '' });
 	});
 
+	it('leaves a list that mixes null with origins to Advanced JSON, since a leading null opens the operations API', () => {
+		const list = field('stringList', { nullable: true });
+		expect(fitsConfigField(list, [null])).toBe(true);
+		expect(fitsConfigField(list, ['https://a.example'])).toBe(true);
+		expect(fitsConfigField(list, [null, 'https://a.example'])).toBe(false);
+	});
+
 	it("puts Harper's [null] list back when the box is cleared", () => {
 		const list = field('stringList', { nullable: true });
 		expect(parseConfigFieldText(list, '', [null])).toEqual({ value: [null] });

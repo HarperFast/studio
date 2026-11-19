@@ -402,6 +402,23 @@ describe('ConfigOverviewIndex forms', () => {
 		]);
 	});
 
+	it('stops sending an unconfirmed setting again once the user puts it back', async () => {
+		post.mockImplementation(async (_url: string, body: Record<string, unknown>) => {
+			if (body.operation === 'restart') { throw new Error('restart failed'); }
+			return { data: { message: 'ok' } };
+		});
+		renderPage();
+		await openSection('Logging');
+		const level = () => screen.getAllByRole('combobox', { name: 'Level' })[0] as HTMLSelectElement;
+		fireEvent.change(level(), { target: { value: 'debug' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Review & Save (1)' }));
+		fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Save & Restart' }));
+		expect(await screen.findByText("The last save didn't finish on every instance")).toBeTruthy();
+
+		fireEvent.change(level(), { target: { value: 'warn' } });
+		expect(screen.getByRole('button', { name: 'Review & Save' })).toBeTruthy();
+	});
+
 	it('puts every setting back on Discard', async () => {
 		renderPage();
 		await openSection('HTTP');
