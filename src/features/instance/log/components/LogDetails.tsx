@@ -11,6 +11,7 @@ export function LogDetails({ log, source }: {
 	const validTime = Number.isFinite(Date.parse(log.timestamp));
 	return (
 		<div className="space-y-3 border-l-2 border-primary bg-muted/20 p-4 text-sm">
+			<p id={shortcutId} className="text-[11px] leading-4 text-muted-foreground">↑/↓ to navigate logs</p>
 			<dl className="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
 				{Object.entries({
 					Timestamp: validTime ? new Date(log.timestamp).toISOString() : log.timestamp,
@@ -26,13 +27,6 @@ export function LogDetails({ log, source }: {
 					</div>
 				))}
 			</dl>
-			<p id={shortcutId} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-				Use <kbd className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-foreground">↑</kbd>
-				{' '}
-				and <kbd className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-foreground">↓</kbd>
-				{' '}
-				to navigate logs
-			</p>
 			<pre
 				className="max-h-[32rem] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 select-text"
 				aria-label="Full log message"
