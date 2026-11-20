@@ -10,7 +10,7 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { patch } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import type { OrganizationHarperVersion } from '@/integrations/api/api.patch';
-import { HarperVersionsSetting, isExpired } from './HarperVersionsSetting';
+import { HarperVersionsSetting, isDay, isExpired } from './HarperVersionsSetting';
 
 const PINNED: OrganizationHarperVersion = { name: 'pinned', version: '5.1.29', expiresAt: null };
 const LAPSED: OrganizationHarperVersion = {
@@ -77,21 +77,42 @@ describe('HarperVersionsSetting', () => {
 		expect(screen.getByText('Already offered; edit that entry instead')).toBeTruthy();
 	});
 
-	it('sends an expiry the form did not change back as stored, its time of day or an unreadable value included', async () => {
+	it('sends an expiry the form did not change back as stored, keeping its time of day', async () => {
 		const timed = { name: 'timed', version: '5.3.4', expiresAt: '2026-12-31T18:30:00.000Z' };
-		const unreadable = { name: 'garbled', version: '5.3.5', expiresAt: 'soon' };
-		for (const entry of [timed, unreadable]) {
-			renderSetting([entry]);
-			fireEvent.click(screen.getByRole('button', { name: `Edit ${entry.version}` }));
-			typeInto('Name', 'renamed');
-			await act(async () => {
-				fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-			});
-			expect(patch).toHaveBeenLastCalledWith('/Admin/Organization/org-1', {
-				harperVersions: [{ ...entry, name: 'renamed' }],
-			});
-			cleanup();
-		}
+		renderSetting([timed]);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.3.4' }));
+		typeInto('Name', 'renamed');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/Organization/org-1', {
+			harperVersions: [{ ...timed, name: 'renamed' }],
+		});
+	});
+
+	it('opens an unreadable expiry as today, still expired, and lets it be cleared to none in one save', async () => {
+		const garbled = { name: 'garbled', version: '5.3.5', expiresAt: 'soon' };
+		const today = new Date().toISOString().slice(0, 10);
+		renderSetting([garbled]);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.3.5' }));
+		expect((screen.getByLabelText(/^Expires/) as HTMLInputElement).value).toBe(today);
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		const kept = patch.mock.calls.at(-1)?.[1] as { harperVersions: OrganizationHarperVersion[] };
+		expect(kept.harperVersions[0].expiresAt).toBe(`${today}T00:00:00.000Z`);
+		expect(isExpired(kept.harperVersions[0])).toBe(true);
+		cleanup();
+
+		renderSetting([garbled]);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.3.5' }));
+		typeInto(/^Expires/, '');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).toHaveBeenLastCalledWith('/Admin/Organization/org-1', {
+			harperVersions: [{ ...garbled, expiresAt: null }],
+		});
 	});
 
 	it('refuses to save an entry someone removed since the form opened', async () => {
@@ -129,18 +150,17 @@ describe('HarperVersionsSetting', () => {
 		});
 	});
 
-	it('opens an entry whose stored expiry does not parse with the expiry empty', () => {
-		renderSetting([{ ...PINNED, expiresAt: 'soon' }]);
-		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.1.29' }));
-		expect((screen.getByLabelText(/^Expires/) as HTMLInputElement).value).toBe('');
-	});
-
 	it('removes a version', async () => {
 		renderSetting([PINNED, LAPSED]);
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.1.29' }));
 		});
 		expect(patch).toHaveBeenCalledWith('/Admin/Organization/org-1', { harperVersions: [LAPSED] });
+	});
+
+	it('takes only a day that exists as an expiry', () => {
+		expect(isDay('2026-02-28')).toBe(true);
+		for (const day of ['2026-02-31', '2026-13-01', '26-01-01', '20261-01-01']) { expect(isDay(day)).toBe(false); }
 	});
 
 	it('refuses the stable label and a version that is not one, without saving', async () => {

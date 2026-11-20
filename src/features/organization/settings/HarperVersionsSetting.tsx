@@ -33,11 +33,19 @@ const entrySchema = z.object({
 	version: z.string().trim().regex(SEMVER, 'A Harper version, such as 5.3.4'),
 	expires: z
 		.string()
-		.refine((day) => day === '' || (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day))), 'A date'),
+		.refine((day) => day === '' || isDay(day), 'A date'),
 });
 type EntryForm = z.infer<typeof entrySchema>;
 
-const dayInput = (time: number) => Number.isFinite(time) ? new Date(time).toISOString().slice(0, 10) : '';
+function dayInput(time: number): string {
+	return Number.isFinite(time) ? new Date(time).toISOString().slice(0, 10) : '';
+}
+
+// A date input sanitizes for itself; this also refuses a day that would roll over, such as 2026-02-31.
+export function isDay(day: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}$/.test(day) && dayInput(Date.parse(day)) === day;
+}
+
 const blankEntry = (): EntryForm => ({
 	name: '',
 	version: '',
@@ -65,13 +73,12 @@ async function patchHarperVersions(organizationId: string, harperVersions: Organ
 	return data as unknown as { harperVersions?: OrganizationHarperVersion[] | null };
 }
 
-// Saving replaces the whole stored list (PATCH /Admin/Organization/:id), built from `entries`.
 export function HarperVersionsSetting(
 	{ organizationId, entries }: { organizationId: string; entries: OrganizationHarperVersion[] },
 ) {
 	const queryClient = useQueryClient();
 	const [editing, setEditing] = useState<string | 'new' | null>(null);
-	const [openedExpires, setOpenedExpires] = useState('');
+	const [openedExpires, setOpenedExpires] = useState<string | null>(null);
 	const form = useForm<EntryForm>({ resolver: zodResolver(entrySchema), defaultValues: blankEntry() });
 
 	const { mutate, isPending } = useMutation({
@@ -90,15 +97,15 @@ export function HarperVersionsSetting(
 		mutate(next, { onSuccess: () => toast.success(message) });
 
 	const startEdit = (entry?: OrganizationHarperVersion) => {
+		const stored = entry?.expiresAt == null ? '' : dayInput(Date.parse(entry.expiresAt));
+		// A date input cannot show an unreadable expiry, so it opens as today, already expired as the stored value reads,
+		// and whatever the form then holds is saved: kept, it stays expired; cleared, it becomes no expiry.
+		const unreadable = entry?.expiresAt != null && stored === '';
 		const values = entry
-			? {
-				name: entry.name,
-				version: entry.version,
-				expires: entry.expiresAt ? dayInput(Date.parse(entry.expiresAt)) : '',
-			}
+			? { name: entry.name, version: entry.version, expires: unreadable ? dayInput(Date.now()) : stored }
 			: blankEntry();
 		form.reset(values);
-		setOpenedExpires(values.expires);
+		setOpenedExpires(unreadable ? null : values.expires);
 		setEditing(entry?.version ?? 'new');
 	};
 
@@ -112,7 +119,7 @@ export function HarperVersionsSetting(
 			form.setError('version', { message: 'No longer offered; someone removed it since this form opened' });
 			return;
 		}
-		// An expiry the form did not change is sent back as stored, keeping its time of day, or an unreadable value.
+		// An expiry the form did not change is sent back as stored, keeping its time of day.
 		const expiresAt = editedEntry && values.expires === openedExpires
 			? editedEntry.expiresAt
 			: values.expires
