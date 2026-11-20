@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ organizationId: 'org-1' }) }));
-vi.mock('@/hooks/useAuth', () => ({ useCloudAuth: () => ({ user: {} }) }));
+const { staffPermissions } = vi.hoisted(() => ({ staffPermissions: new Set<string>() }));
+vi.mock('@/hooks/useAuth', () => ({
+	useCloudAuth: () => ({ user: {} }),
+	useStaffPermission: (permission: string) => staffPermissions.has(permission),
+}));
 vi.mock('@/hooks/usePermissions', () => ({ useOrganizationPermissions: () => ({ update: true }) }));
 vi.mock('@/components/SubNavMenu', () => ({ SubNavMenu: () => null }));
 vi.mock('@/features/organization/components/OrgPageLayout', () => ({
@@ -21,8 +25,8 @@ vi.mock('@/features/organization/settings/ApiAccessSettings', () => ({ ApiAccess
 
 import { OrgSettingsIndex } from '@/features/organization/settings';
 
-function renderSettings(oauthConfigs: OAuthConfig[]) {
-	get.mockResolvedValue({ data: { id: 'org-1', settings: { oauthConfigs } } });
+function renderSettings(oauthConfigs: OAuthConfig[], organization: Record<string, unknown> = {}) {
+	get.mockResolvedValue({ data: { id: 'org-1', settings: { oauthConfigs }, ...organization } });
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 	return render(
 		<QueryClientProvider client={queryClient}>
@@ -45,6 +49,24 @@ beforeEach(() => patch.mockResolvedValue({ data: {} }));
 afterEach(() => {
 	cleanup();
 	vi.resetAllMocks();
+	staffPermissions.clear();
+});
+
+describe('OrgSettingsIndex — Harper versions', () => {
+	const harperVersions = [{ name: 'pinned', version: '5.1.29', expiresAt: null }];
+
+	it('shows the versions offered to the organization to staff who may update organizations', async () => {
+		staffPermissions.add('org:update');
+		renderSettings([], { harperVersions });
+		expect(await screen.findByRole('heading', { name: 'Harper versions' })).toBeTruthy();
+		expect(screen.getByText('5.1.29')).toBeTruthy();
+	});
+
+	it('hides them from everyone else, an organization admin included', async () => {
+		renderSettings([], { harperVersions });
+		await screen.findByRole('button', { name: 'Add OAuth provider' });
+		expect(screen.queryByRole('heading', { name: 'Harper versions' })).toBeNull();
+	});
 });
 
 describe('OrgSettingsIndex — OAuth scope', () => {

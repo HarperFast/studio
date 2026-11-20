@@ -318,8 +318,20 @@ export interface SystemStatusNotification {
 	endAt?: string | number | null;
 }
 
+/**
+ * A Harper version central manager offers one organization beyond the public list (central-manager#867). Returned on
+ * `GET /Organization/:id` only to staff who may read organizations; written through `PATCH /Admin/Organization/:id`.
+ */
+export interface OrganizationHarperVersion {
+	name: string;
+	version: string;
+	/** ISO time it stops being offered, or null for no expiry. */
+	expiresAt: string | null;
+}
+
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
+	harperVersions?: OrganizationHarperVersion[] | null;
 	// From central-manager#888: only the clusters with an instance still copying; absent when central manager can't say.
 	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
