@@ -95,19 +95,20 @@ describe('HarperVersionsSetting', () => {
 		});
 	});
 
-	it('opens an unreadable expiry as today, still expired, and lets it be cleared to none in one save', async () => {
+	it('keeps an unreadable expiry as stored unless it is changed, and lets it be cleared to none in one save', async () => {
 		const garbled = { name: 'garbled', version: '5.3.5', expiresAt: 'soon' };
 		const today = new Date().toISOString().slice(0, 10);
 		renderSetting([garbled]);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.3.5' }));
 		expect((screen.getByLabelText(/^Expires/) as HTMLInputElement).value).toBe(today);
 		expect(screen.getByText(/stored expiry could not be read and counts as expired/)).toBeTruthy();
+		typeInto('Name', 'renamed');
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
-		const kept = patch.mock.calls.at(-1)?.[1] as { harperVersions: OrganizationHarperVersion[] };
-		expect(kept.harperVersions[0].expiresAt).toBe(`${today}T00:00:00.000Z`);
-		expect(isExpired(kept.harperVersions[0])).toBe(true);
+		expect(patch).toHaveBeenLastCalledWith('/Admin/Organization/org-1', {
+			harperVersions: [{ ...garbled, name: 'renamed' }],
+		});
 		cleanup();
 
 		renderSetting([garbled]);
@@ -153,6 +154,31 @@ describe('HarperVersionsSetting', () => {
 	it('sends nothing when the version was already removed by someone else', async () => {
 		renderSetting([PINNED, LAPSED]);
 		stored = [LAPSED];
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.1.29' }));
+		});
+		expect(patch).not.toHaveBeenCalled();
+	});
+
+	it('shows a refusal from central manager on the form', async () => {
+		patch.mockRejectedValueOnce(Object.assign(new Error('Request failed'), {
+			isAxiosError: true,
+			response: { status: 400, data: { error: 'harperVersions[0].version must be a semver version' } },
+		}));
+		renderSetting([]);
+		fireEvent.click(screen.getByRole('button', { name: 'Offer a version' }));
+		typeInto('Version', '5.3.4');
+		typeInto('Name', 'preview');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(screen.getByRole('alert').textContent).not.toBe('');
+		expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+	});
+
+	it('saves nothing when the read does not return the list, rather than wiping it', async () => {
+		get.mockResolvedValueOnce({ data: { id: 'org-1' } });
+		renderSetting([PINNED]);
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.1.29' }));
 		});

@@ -11,6 +11,7 @@ import { apiClient } from '@/config/apiClient';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SettingsSection } from '@/features/organization/settings/SettingsSection';
 import { Organization, OrganizationHarperVersion } from '@/integrations/api/api.patch';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
@@ -86,6 +87,9 @@ export function HarperVersionsSetting(
 
 	const { mutate, isPending } = useMutation({
 		mutationFn: (next: OrganizationHarperVersion[]) => patchHarperVersions(organizationId, next),
+		// A refusal is shown on the form, or as this component's own toast, so the global handler stays out.
+		meta: { skipGlobalErrorToast: true },
+		onError: (error) => console.error(error),
 		onSuccess: (_data, next) => {
 			queryClient.setQueryData<Organization>(
 				[organizationId],
@@ -103,6 +107,8 @@ export function HarperVersionsSetting(
 		try {
 			// A request of its own: a poll already in flight may have started before another editor's save.
 			const organization = await getOrganization(organizationId);
+			// Central manager returns the list, [] when empty, only to staff holding org:read; without it a save would wipe it.
+			if (organization.harperVersions === undefined) { throw new Error('the list was not returned'); }
 			return organization.harperVersions ?? [];
 		} catch {
 			toast.error('Could not read the versions this organization is offered; nothing was saved.');
@@ -120,7 +126,7 @@ export function HarperVersionsSetting(
 			? { name: entry.name, version: entry.version, expires: unreadable ? dayInput(Date.now()) : stored }
 			: blankEntry();
 		form.reset(values);
-		setOpenedExpires(unreadable ? null : values.expires);
+		setOpenedExpires(values.expires);
 		setUnreadableExpiry(unreadable);
 		setEditing(entry?.version ?? 'new');
 	};
@@ -158,6 +164,7 @@ export function HarperVersionsSetting(
 				toast.success(`Harper ${entry.version} is offered to this organization.`);
 				setEditing(null);
 			},
+			onError: (error) => form.setError('root', { message: describeError(error).message }),
 		});
 	};
 
@@ -171,6 +178,7 @@ export function HarperVersionsSetting(
 		}
 		mutate(current.filter((existing) => existing.version !== version), {
 			onSuccess: () => toast.success(`Harper ${version} is no longer offered to this organization.`),
+			onError: (error) => toast.error(describeError(error).message),
 		});
 	};
 
@@ -288,13 +296,17 @@ export function HarperVersionsSetting(
 										</FormControl>
 										{unreadableExpiry && (
 											<p className="text-xs text-muted-foreground">
-												The stored expiry could not be read and counts as expired, so it shows as today.
+												The stored expiry could not be read and counts as expired. It shows as today and is kept as
+												stored unless you change it.
 											</p>
 										)}
 										<FormMessage />
 									</FormItem>
 								)}
 							/>
+							{form.formState.errors.root && (
+								<p className="text-sm text-destructive" role="alert">{form.formState.errors.root.message}</p>
+							)}
 							<Button type="submit" variant="positive" disabled={busy}>
 								{busy ? 'Saving...' : 'Save'}
 							</Button>
