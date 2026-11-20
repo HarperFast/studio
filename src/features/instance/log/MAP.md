@@ -2,7 +2,7 @@
 
 - `index.tsx` → `Logs` scopes the view to the entity and validated link; `LogsExplorer` owns filters, expanded entries, live following, and existing log-link targets.
 - `LogsDataTable.tsx` → controlled expansion and compact occurrence identities, column visibility and resizing, timestamp order.
-- `components/LogDetails.tsx` → selectable full message and metadata.
+- `components/LogDetails.tsx` → selectable full message and metadata; `components/LogTimestamp.tsx` formats local timestamps with a live relative age and exact UTC on hover.
 - `components/DownloadLogsMenu.tsx`, `lib/exportLogs.ts` → existing Text/JSON exports for the visible slice.
 - `components/LogsFiltersForm.tsx` → server-side source, limit, severity and absolute-date controls.
 - `logView.ts` → time-range conversion, validated link targets.
