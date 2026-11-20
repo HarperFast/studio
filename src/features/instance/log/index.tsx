@@ -16,7 +16,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useSearch } from '@tanstack/react-router';
-import { RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { ChevronDownIcon, RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { DownloadLogsMenu } from './components/DownloadLogsMenu';
@@ -236,23 +236,29 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						<Button type="submit" size="default" variant="defaultOutline" className="rounded-md">Search</Button>
 					</form>
 				)}
-				<select
-					aria-label="Time range"
-					value={range}
-					className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm"
-					onChange={event => {
-						const value = event.target.value as TimeRange;
-						setRange(value);
-						if (value === 'custom') { setIsFiltersOpen(true); }
-						else { apply(form.getValues(), value); }
-					}}
-				>
-					<option value="15">Last 15 minutes</option>
-					<option value="60">Last hour</option>
-					<option value="1440">Last 24 hours</option>
-					<option value="latest">Latest (any time)</option>
-					<option value="custom">Custom range</option>
-				</select>
+				<div className="relative shrink-0">
+					<select
+						aria-label="Time range"
+						value={range}
+						className="h-9 appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm"
+						onChange={event => {
+							const value = event.target.value as TimeRange;
+							setRange(value);
+							if (value === 'custom') { setIsFiltersOpen(true); }
+							else { apply(form.getValues(), value); }
+						}}
+					>
+						<option value="15">Last 15 minutes</option>
+						<option value="60">Last hour</option>
+						<option value="1440">Last 24 hours</option>
+						<option value="latest">Latest (any time)</option>
+						<option value="custom">Custom range</option>
+					</select>
+					<ChevronDownIcon
+						aria-hidden="true"
+						className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+				</div>
 				<Button
 					size="default"
 					variant="ghost"
