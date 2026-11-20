@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import type { OrganizationHarperVersion } from '@/integrations/api/api.patch';
 import { HarperVersionsSetting, isDay, isExpired } from './HarperVersionsSetting';
@@ -148,6 +148,15 @@ describe('HarperVersionsSetting', () => {
 		for (const name of ['Remove 5.1.29', 'Edit 5.1.29']) {
 			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
 		}
+	});
+
+	it('sends nothing when the version was already removed by someone else', async () => {
+		renderSetting([PINNED, LAPSED]);
+		stored = [LAPSED];
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.1.29' }));
+		});
+		expect(patch).not.toHaveBeenCalled();
 	});
 
 	it('saves nothing when the stored list cannot be read', async () => {

@@ -8,7 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/config/apiClient';
-import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SettingsSection } from '@/features/organization/settings/SettingsSection';
 import { Organization, OrganizationHarperVersion } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -101,10 +101,8 @@ export function HarperVersionsSetting(
 	const readCurrent = async (): Promise<OrganizationHarperVersion[] | null> => {
 		setReading(true);
 		try {
-			const organization = await queryClient.fetchQuery({
-				...getOrganizationQueryOptions(organizationId),
-				staleTime: 0,
-			});
+			// A request of its own: a poll already in flight may have started before another editor's save.
+			const organization = await getOrganization(organizationId);
 			return organization.harperVersions ?? [];
 		} catch {
 			toast.error('Could not read the versions this organization is offered; nothing was saved.');
@@ -165,6 +163,11 @@ export function HarperVersionsSetting(
 	const remove = async (version: string) => {
 		const current = await readCurrent();
 		if (!current) { return; }
+		if (!current.some((existing) => existing.version === version)) {
+			toast.info(`Harper ${version} was already removed.`);
+			void queryClient.invalidateQueries({ queryKey: [organizationId] });
+			return;
+		}
 		mutate(current.filter((existing) => existing.version !== version), {
 			onSuccess: () => toast.success(`Harper ${version} is no longer offered to this organization.`),
 		});
@@ -238,6 +241,7 @@ export function HarperVersionsSetting(
 						<button
 							type="button"
 							aria-label="Cancel"
+							disabled={busy}
 							onClick={() => setEditing(null)}
 							className="text-muted-foreground hover:text-foreground"
 						>
