@@ -18,7 +18,7 @@ import { AxiosError } from 'axios';
  * would also raise the shared mutation toast and its RUM report. Anything else (a 5xx, a network
  * failure, a 401) still rejects and is reported that way.
  */
-export type CancelUserInviteOutcome = 'cancelled' | 'not-pending' | 'forbidden';
+type CancelUserInviteOutcome = 'cancelled' | 'not-pending' | 'forbidden';
 
 export async function onCancelUserInvite({ userId }: { userId: string }): Promise<CancelUserInviteOutcome> {
 	try {

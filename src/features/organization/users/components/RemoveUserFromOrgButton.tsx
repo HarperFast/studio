@@ -2,11 +2,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, MailX, TriangleAlertIcon, UserMinus } from 'lucide-react';
 import { useState } from 'react';
 
-/**
- * What the button ends: your own membership (`leave`), another member's (`remove`), or an invitation
- * nobody has accepted yet (`cancel-invite`).
- */
-export type OrgRemovalKind = 'leave' | 'remove' | 'cancel-invite';
+type OrgRemovalKind = 'leave' | 'remove' | 'cancel-invite';
 
 const COPY: Record<OrgRemovalKind, { idle: string; back: string; confirm: string; busy: string; warning: string }> = {
 	leave: {
@@ -31,8 +27,10 @@ const COPY: Record<OrgRemovalKind, { idle: string; back: string; confirm: string
 		back: 'Keep invite',
 		confirm: 'Confirm cancellation',
 		busy: 'Cancelling…',
+		// Cancelling deletes the invitation itself, which central manager allows only when you manage every
+		// organization it is for, so it can reach past this one.
 		warning:
-			'This cancels their invitation, so signing up with this address won’t add them to this organization. You can invite them again later.',
+			'This cancels their invitation, so signing up with this address won’t add them to this organization. An invitation to another organization you manage may be cancelled with it.',
 	},
 };
 

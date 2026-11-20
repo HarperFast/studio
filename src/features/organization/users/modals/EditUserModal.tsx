@@ -38,7 +38,7 @@ export function EditUserModal({
 	const auth = useCloudAuth();
 	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;
-	// An invitation nobody has accepted. Never your own: you can't be signed in as a pending user.
+	// `!isSelf` keeps a cancellation, which deletes the user, away from your own account.
 	const isPendingInvite = data.status === 'PENDING' && !isSelf;
 	const [changesMade, setChangesMade] = useState<boolean>(false);
 
@@ -89,9 +89,8 @@ export function EditUserModal({
 		onUserUpdated();
 	}, [unlinkOrgRoles, data.email, isSelf, onUserUpdated]);
 
-	// Unlinking a pending user's roles would leave its PENDING record holding the email's account claim,
-	// so a later sign-up with that address would still resolve to this invitation. Central manager's
-	// cancellation deletes the whole invitation instead.
+	// Not `unlinkOrgRoles`: that leaves the PENDING user holding the email's account claim, so a later
+	// sign-up with the address would still resolve to this invitation.
 	const onCancelInvite = useCallback(async () => {
 		setIsRemoving(true);
 		try {
@@ -101,8 +100,6 @@ export function EditUserModal({
 			} else if (outcome === 'not-pending') {
 				toast.info(`The invitation to ${data.email} is no longer pending. It was accepted or already cancelled.`);
 			} else {
-				// Refused outright, most likely because the invitation is also pending in an org this admin
-				// can't manage. Taking it out of this org is still in reach, as it always was.
 				const failures = await unlinkOrgRoles();
 				if (failures.some(shouldToastOwnFailure)) {
 					toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
@@ -114,12 +111,11 @@ export function EditUserModal({
 				}
 			}
 		} catch (error) {
-			// The shared mutation toast has already described the failure; this one names whose invitation it was.
+			// On top of the shared mutation toast, as `onRemoveFromOrg` does: that one says what failed, this one whose.
 			if (shouldToastOwnFailure(error)) {
 				toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
 			}
 		}
-		// Refetch whatever the outcome so the list shows what actually changed, then close.
 		setIsRemoving(false);
 		onUserUpdated();
 	}, [cancelUserInvite, unlinkOrgRoles, data.id, data.email, onUserUpdated]);

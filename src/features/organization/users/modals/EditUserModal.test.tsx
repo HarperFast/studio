@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import type { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { mutationErrorHandler } from '@/react-query/queryClient';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,9 @@ vi.mock('@/hooks/useAuth', () => ({ useCloudAuth: () => auth }));
 vi.mock('@/hooks/usePermissions', () => ({ useOrganizationRolePermissions: () => permissions }));
 
 import { EditUserModal } from './EditUserModal';
+
+// The shared error toast logs with console.error first; keep it out of the test output.
+const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
 beforeAll(() => {
 	Element.prototype.hasPointerCapture ??= () => false;
@@ -66,7 +70,11 @@ function user(overrides: Partial<SchemaUser>): SchemaUser {
 async function renderModal(data: SchemaUser) {
 	get.mockResolvedValue({ data: orgRoles });
 	const onUserUpdated = vi.fn();
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+	// The app's own mutation cache, so a test sees the shared error toast exactly when production would.
+	const client = new QueryClient({
+		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
+		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+	});
 	render(
 		<QueryClientProvider client={client}>
 			<EditUserModal
@@ -93,6 +101,9 @@ async function confirm(idle: RegExp, confirmation: RegExp) {
 const cancelInvite = () => confirm(/^cancel invite$/i, /confirm cancellation/i);
 const inviteDeletes = () => del.mock.calls.filter(([url]) => String(url).startsWith('/UserInvite/'));
 const roleUnlinks = () => del.mock.calls.filter(([url]) => String(url).startsWith('/OrganizationRole/'));
+const ownFailureToast = 'Couldn’t cancel the invitation to invitee@example.com. Please try again.';
+const sharedErrorToast = (status: number) =>
+	['Error', expect.objectContaining({ description: `Request failed with status code ${status}` })] as const;
 
 describe('EditUserModal — a pending invitation', () => {
 	it('cancels it through DELETE /UserInvite/{id}, not by unlinking its roles', async () => {
@@ -121,6 +132,7 @@ describe('EditUserModal — a pending invitation', () => {
 		);
 		expect(toast.success).not.toHaveBeenCalled();
 		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 	});
 
@@ -139,6 +151,7 @@ describe('EditUserModal — a pending invitation', () => {
 			expect.objectContaining({ description: expect.stringMatching(/organization you don’t manage/) }),
 		);
 		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 	});
 
@@ -149,9 +162,7 @@ describe('EditUserModal — a pending invitation', () => {
 		await cancelInvite();
 
 		expect(roleUnlinks()).toHaveLength(1);
-		expect(toast.error).toHaveBeenCalledWith(
-			'Couldn’t cancel the invitation to invitee@example.com. Please try again.',
-		);
+		expect(toast.error.mock.calls).toEqual([[...sharedErrorToast(500)], [ownFailureToast]]);
 		expect(toast.success).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 	});
@@ -164,9 +175,7 @@ describe('EditUserModal — a pending invitation', () => {
 
 		expect(inviteDeletes()).toHaveLength(1);
 		expect(roleUnlinks()).toHaveLength(0);
-		expect(toast.error).toHaveBeenCalledWith(
-			'Couldn’t cancel the invitation to invitee@example.com. Please try again.',
-		);
+		expect(toast.error.mock.calls).toEqual([[...sharedErrorToast(500)], [ownFailureToast]]);
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 	});
 
