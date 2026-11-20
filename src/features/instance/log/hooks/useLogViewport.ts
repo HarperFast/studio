@@ -109,7 +109,9 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		);
 	}, []);
 	const onInspect = useCallback(() => holdPosition(false), [holdPosition]);
-	const onScrollIntent = useCallback(() => holdPosition(true), [holdPosition]);
+	const onScrollIntent = useCallback(() => {
+		state.current.userScrolling = true;
+	}, []);
 	const onWheel = useCallback((event: WheelEvent<HTMLElement>) => {
 		const message = (event.target as HTMLElement).closest<HTMLElement>('[aria-label="Full log message"]');
 		if (message && message.scrollHeight > message.clientHeight) {
@@ -214,6 +216,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		view.jump = false;
 		view.initialized = true;
 		view.expectedTop = element.scrollTop;
+		view.userScrolling = false;
 		view.anchor = captureAnchor(element);
 		setAway(!atEdge(element, reversed));
 	}, [logs, displayedLogs, scope, reversed, expandedKeys, loading, jumpVersion]);

@@ -296,6 +296,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				<span>
 					{isLoading ? 'Loading logs…' : `${displayedLogs.length} loaded logs`} · {timezone} ·{' '}
 					{logFilters.log_name ?? 'hdb.log'}
+					{baseLogs.length > incoming.length && ' · Retained context; intervening logs may be omitted'}
 					{isLive && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
 					{!!logFilters.until && ' · Fixed time range (Live unavailable)'}
 				</span>

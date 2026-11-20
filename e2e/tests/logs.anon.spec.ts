@@ -359,6 +359,7 @@ test('Home at the live edge does not stop following', async ({ page }) => {
 	await page.locator('[data-slot="table-container"]').focus();
 	await page.keyboard.press('Home');
 	await page.keyboard.press('ArrowUp');
+	await page.locator('[data-slot="table-container"]').click({ position: { x: 20, y: 250 } });
 	logs = [log('Edge newest', 1000), ...logs];
 	await expect(page.getByText('Edge newest', { exact: true })).toHaveCount(1, { timeout: 15000 });
 	await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);

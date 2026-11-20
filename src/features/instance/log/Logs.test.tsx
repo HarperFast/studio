@@ -119,8 +119,10 @@ describe('logs explorer interactions', () => {
 		rerender(<LogsExplorer params={params} />);
 		expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
+		expect(screen.getByText(/Retained context; intervening logs may be omitted/)).toBeTruthy();
 		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
+		expect(screen.getByText(/Retained context; intervening logs may be omitted/)).toBeTruthy();
 	});
 
 	it('ignores inspection gestures until the current query loads', () => {

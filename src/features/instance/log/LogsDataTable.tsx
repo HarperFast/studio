@@ -191,10 +191,10 @@ export const LogsDataTable = memo(function LogsDataTable(
 			button.focus({ preventScroll: true });
 			revealExpandedLog(button);
 		} else if (selectedKey && revealedSelection.current !== selectedKey && expandedKeys.has(selectedKey)) {
-			revealedSelection.current = selectedKey;
-			const selected = document.activeElement === document.body ? logToggle(rootRef.current, selectedKey) : null;
+			const selected = logToggle(rootRef.current, selectedKey);
 			if (selected) {
-				selected.focus({ preventScroll: true });
+				revealedSelection.current = selectedKey;
+				if (document.activeElement === document.body) { selected.focus({ preventScroll: true }); }
 				revealExpandedLog(selected);
 			}
 		}
