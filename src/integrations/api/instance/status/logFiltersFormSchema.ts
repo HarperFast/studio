@@ -37,12 +37,15 @@ export function getLogDateError(value: string | null | undefined, now?: Date): s
 	return undefined;
 }
 
-const logDate = z.string().or(z.undefined()).or(z.null()).optional().superRefine((value, ctx) => {
-	const message = getLogDateError(value);
-	if (message) {
-		ctx.addIssue({ code: 'custom', message });
-	}
-});
+// Generated server-time bounds remain valid when the server clock is ahead of the browser.
+export function logDateForValue(current?: string | null) {
+	return z.string().or(z.undefined()).or(z.null()).optional().superRefine((value, ctx) => {
+		if (value && value === current && DATETIME_LOCAL_VALUE.test(value) && Date.parse(value) >= 0) { return; }
+		const message = getLogDateError(value);
+		if (message) { ctx.addIssue({ code: 'custom', message }); }
+	});
+}
+const logDate = logDateForValue();
 
 export const LogFiltersFormSchema = z.object({
 	relative_minutes: z.enum(['15', '60', '1440']).optional(),

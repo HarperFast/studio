@@ -5,6 +5,7 @@ type Identity = { id: string; references: Set<WeakRef<ReadLogItem>> };
 const identities = new Map<string, Map<string, Identity>>();
 const keys = new WeakMap<ReadLogItem, string>();
 const occurrences = new WeakMap<ReadLogItem, number>();
+const copies = new WeakMap<ReadLogItem, { index: number; entry: ReadLogItem }>();
 let nextIdentity = 0;
 const collected = new FinalizationRegistry<{
 	metadata: string;
@@ -38,7 +39,6 @@ function contentKey(entry: ReadLogItem): string {
 		identity = { id: `event-${++nextIdentity}`, references: new Set() };
 		messages.set(message, identity);
 	}
-	// Index the original message string; never serialize/copy payloads into row or cell IDs.
 	const reference = new WeakRef(entry);
 	identity.references.add(reference);
 	collected.register(entry, { metadata, message, identity, reference });
@@ -52,7 +52,10 @@ export function logKey(entry: ReadLogItem): string {
 
 function occurrence(entry: ReadLogItem, index: number): ReadLogItem {
 	if ((occurrences.get(entry) ?? 0) === index) { return entry; }
+	const cached = copies.get(entry);
+	if (cached?.index === index) { return cached.entry; }
 	const copy = { ...entry };
+	copies.set(entry, { index, entry: copy });
 	occurrences.set(copy, index);
 	contentKey(copy);
 	return copy;

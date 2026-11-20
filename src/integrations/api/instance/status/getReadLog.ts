@@ -20,6 +20,7 @@ interface GetReadLogParams {
 	contextTimestamp?: string;
 	order?: 'asc' | 'desc';
 	start?: number;
+	signal?: AbortSignal;
 }
 
 /**
@@ -70,14 +71,14 @@ export function buildReadLogBody(
 }
 
 export async function getReadLog(
-	{ instanceClient, logFilters, replicated, order, start }:
+	{ instanceClient, logFilters, replicated, order, start, signal }:
 		& Omit<GetReadLogParams, 'isAutoRefreshEnabled'>
 		& InstanceClientIdConfig,
 ): Promise<ReadLogItem[]> {
 	const body = buildReadLogBody(logFilters, replicated, order, start);
-	// Buffered relative reads use Harper's tail seek; the hook applies the moving cutoff.
 	if (logFilters.relative_minutes) { delete body.from; }
-	const { data } = await instanceClient.post<ReadLogItem[]>('/', body);
+	signal?.throwIfAborted();
+	const { data } = await instanceClient.post<ReadLogItem[]>('/', body, signal ? { signal } : undefined);
 	return data;
 }
 
@@ -92,6 +93,9 @@ async function getContextLogs(
 	params: GetReadLogParams & InstanceClientIdConfig,
 	timestamp: string,
 ): Promise<ReadLogItem[]> {
+	const controller = new AbortController();
+	const signal = params.signal ? AbortSignal.any([params.signal, controller.signal]) : controller.signal;
+	const request = { ...params, signal };
 	const time = Date.parse(timestamp);
 	const limit = clampReadLogLimit(params.logFilters.limit) ?? 1000;
 	const beforeLimit = Math.ceil(limit / 2);
@@ -101,8 +105,9 @@ async function getContextLogs(
 		let nearest: ReadLogItem[] = [];
 		// Harper bounds a forward scan before sorting. Walk bounded pages to reach the center.
 		for (let page = 0; page < 8; page++) {
+			signal.throwIfAborted();
 			const rows = await getReadLog({
-				...params,
+				...request,
 				order: 'asc',
 				start: page * beforeLimit,
 				logFilters: {
@@ -112,27 +117,37 @@ async function getContextLogs(
 					until: timestamp,
 				},
 			});
-			nearest = nearest.concat(rows).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, beforeLimit);
+			nearest = nearest.concat(rows).sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? '')).slice(
+				0,
+				beforeLimit,
+			);
 			if (rows.length < beforeLimit) { return nearest; }
 		}
 		throw new LogContextLimitError();
 	};
-	const [earlier, later] = await Promise.all([
-		before(),
-		afterLimit
-			? getReadLog({
-				...params,
-				order: 'asc',
-				logFilters: {
-					...common,
-					limit: String(afterLimit),
-					from: new Date(time + 1).toISOString(),
-					until: new Date(time + 30000).toISOString(),
-				},
-			})
-			: Promise.resolve([]),
-	]);
-	return earlier.concat(later.sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, afterLimit));
+	try {
+		const [earlier, later] = await Promise.all([
+			before(),
+			afterLimit
+				? getReadLog({
+					...request,
+					order: 'asc',
+					logFilters: {
+						...common,
+						limit: String(afterLimit),
+						from: new Date(time + 1).toISOString(),
+						until: new Date(time + 30000).toISOString(),
+					},
+				})
+				: Promise.resolve([]),
+		]);
+		return earlier.concat(
+			later.sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? '')).slice(0, afterLimit),
+		);
+	} catch (error) {
+		controller.abort();
+		throw error;
+	}
 }
 
 export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClientIdConfig) {
@@ -153,7 +168,10 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 			logFilters.filter,
 			params.replicated,
 		] as const,
-		queryFn: () => params.contextTimestamp ? getContextLogs(params, params.contextTimestamp) : getReadLog(params),
+		queryFn: (context?: { signal?: AbortSignal }) => {
+			const request = { ...params, signal: context?.signal ?? params.signal };
+			return params.contextTimestamp ? getContextLogs(request, params.contextTimestamp) : getReadLog(request);
+		},
 		retry: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,

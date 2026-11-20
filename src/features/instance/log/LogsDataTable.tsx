@@ -13,7 +13,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { ColumnDef, studioTableFeatures } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState, flexRender, useTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
-import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useLayoutEffect, useMemo, useRef } from 'react';
+import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useMemo } from 'react';
 import { LogDetails } from './components/LogDetails';
 import { logKey } from './hooks/mergeReadLogs';
 import { LogFilters } from './logView';
@@ -135,27 +135,13 @@ export const LogsDataTable = memo(function LogsDataTable(
 			),
 		};
 	}, [storedVisibility]);
-	// TanStack includes row IDs in cell IDs; keep them short while matching complete log identities.
-	const previousIds = useRef(new Map<string, string>());
-	const nextId = useRef(0);
-	const rowIds = useMemo(() => {
-		const result = new Map<string, string>();
-		for (const log of data) {
-			const key = logKey(log);
-			result.set(key, previousIds.current.get(key) ?? `log-${++nextId.current}`);
-		}
-		return result;
-	}, [data]);
-	useLayoutEffect(() => {
-		previousIds.current = rowIds;
-	}, [rowIds]);
-	const selectionId = selectedKey ? rowIds.get(selectedKey) : undefined;
+
 	const id = useId();
 	const table = useTable({
 		features: studioTableFeatures,
 		data,
 		columns,
-		getRowId: log => rowIds.get(logKey(log))!,
+		getRowId: logKey,
 		manualSorting: true,
 		enableColumnResizing: true,
 		columnResizeMode: 'onEnd',
@@ -247,12 +233,12 @@ export const LogsDataTable = memo(function LogsDataTable(
 						return (
 							<Fragment key={row.id}>
 								<TableRow
-									data-log-selected={selectionId === row.id ? true : undefined}
+									data-log-selected={selectedKey === row.id ? true : undefined}
 									data-state={open ? 'selected' : undefined}
 									className={cn(
 										'cursor-pointer hover:bg-muted/30',
 										open && 'bg-muted/30',
-										selectionId === row.id && 'outline outline-primary -outline-offset-1',
+										selectedKey === row.id && 'outline outline-primary -outline-offset-1',
 									)}
 									onClick={event => {
 										if (

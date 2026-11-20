@@ -296,3 +296,48 @@ it('explains an oversized context and opens filters for recovery', () => {
 	fireEvent.click(screen.getByRole('button', { name: 'Open context filters' }));
 	expect(screen.getByLabelText('Start date (local time)')).toBeTruthy();
 });
+
+it('keeps generated future context bounds valid across a midnight clock skew', async () => {
+	const event = new Date();
+	event.setDate(event.getDate() + 1);
+	event.setHours(0, 1, 0, 0);
+	state.logs = [{ ...log('server clock ahead'), timestamp: event.toISOString() }];
+	const link = buildLogLink('https://studio.example/#/org/clu/logs', state.logs[0], 'hdb.log');
+	render(<LogsExplorer params={params} search={new URL(link).hash.split('?')[1]} />);
+	const previous = state.args.logFilters;
+	fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+	await waitFor(() => expect(state.args.logFilters).not.toBe(previous));
+	expect(state.args.logFilters.from).toBe(previous.from);
+	expect(state.args.logFilters.until).toBe(previous.until);
+	expect(screen.queryByRole('alert')).toBeNull();
+});
+it('does not pin an empty slice after an initial failed load', () => {
+	state.logs = [];
+	state.error = new Error('temporary failure');
+	const { container, rerender } = render(<LogsExplorer params={params} />);
+	fireEvent.wheel(container.querySelector('[data-slot="table-container"]')!);
+	state.error = null;
+	state.logs = [log('retry succeeded')];
+	rerender(<LogsExplorer params={params} />);
+	expect(screen.getByText('retry succeeded')).toBeTruthy();
+	expect(screen.queryByText(/Paused for inspection/)).toBeNull();
+});
+
+it('Search promotes custom date drafts instead of discarding them under a relative preset', async () => {
+	render(<LogsExplorer params={params} />);
+	fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+	fireEvent.change(screen.getByLabelText('Start date (local time)'), { target: { value: '2026-11-18T00:00' } });
+	fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+	await waitFor(() => expect(state.args.logFilters.relative_minutes).toBeUndefined());
+	expect(state.args.logFilters.from).toBe('2026-11-18T00:00');
+	expect((screen.getByLabelText('Time range') as HTMLSelectElement).value).toBe('custom');
+});
+it('does not hide arrivals after a gesture over a successfully empty view', () => {
+	state.logs = [];
+	const { container, rerender } = render(<LogsExplorer params={params} />);
+	fireEvent.wheel(container.querySelector('[data-slot="table-container"]')!);
+	state.logs = [log('first arrival')];
+	rerender(<LogsExplorer params={params} />);
+	expect(screen.getByText('first arrival')).toBeTruthy();
+	expect(screen.queryByText(/Paused for inspection/)).toBeNull();
+});

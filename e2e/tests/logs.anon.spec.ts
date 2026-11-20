@@ -194,3 +194,26 @@ test(
 		await page.screenshot({ path: testInfo.outputPath('logs-mobile.png'), fullPage: true });
 	},
 );
+
+test.describe('server clock context', () => {
+	test.use({ timezoneId: 'America/New_York' });
+	test('keeps generated dates valid when the server is ahead across midnight', async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.clock.install({ time: new Date('2026-11-20T04:59:50Z') });
+		const logs = [{ ...log('Server clock ahead'), timestamp: '2026-11-20T05:01:50.000Z' }];
+		const requests: Record<string, unknown>[] = [];
+		await serve(page, () => logs, requests);
+		await page.goto('/#/org-logs/clu-logs/logs');
+		await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
+		await page.getByRole('button', { name: 'View surrounding logs' }).click();
+		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
+		await page.getByRole('button', { name: 'Filters', exact: true }).click();
+		const count = requests.length;
+		await page.getByRole('button', { name: 'Apply Filters' }).click();
+		await expect.poll(() => requests.length).toBeGreaterThan(count);
+		expect(requests.at(-1)?.from).toBe('2026-11-20T05:01:20.000Z');
+		expect(requests.at(-1)?.until).toBe('2026-11-20T05:02:20.000Z');
+		await expect(page.getByRole('alert')).toHaveCount(0);
+		await expect(page.getByText('Date cannot be after today')).toHaveCount(0);
+	});
+});

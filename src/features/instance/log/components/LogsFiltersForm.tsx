@@ -31,6 +31,7 @@ const DATE_FIELDS = [
 
 export function LogsFiltersForm({
 	form,
+	dateMaxValues,
 	resetFilters,
 	submitFilters,
 	showLogName,
@@ -39,6 +40,7 @@ export function LogsFiltersForm({
 	onOpenChange,
 }: {
 	form: UseFormReturn<z.infer<typeof LogFiltersFormSchema>>;
+	dateMaxValues?: { from?: string | null; until?: string | null };
 	resetFilters: () => void;
 	submitFilters: (data: z.infer<typeof LogFiltersFormSchema>) => void;
 	showLogName?: boolean;
@@ -185,7 +187,9 @@ export function LogsFiltersForm({
 												type="datetime-local"
 												step={0.001}
 												min={LOG_DATE_MIN}
-												max={logDateMax}
+												max={dateMaxValues?.[name] && dateMaxValues[name]! > logDateMax
+													? dateMaxValues[name]!
+													: logDateMax}
 												onFocus={refreshLogDateMax}
 												className={FIELD_SURFACE}
 												value={field.value ?? ''}

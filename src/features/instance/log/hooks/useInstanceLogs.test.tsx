@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DEFAULT_LOG_FILTERS } from '../logView';
@@ -40,7 +40,7 @@ it('preserves repeat occurrences on initial load and polling without leaking bet
 	post.mockResolvedValue({ data: [other] });
 	rerender({ params: { ...params, entityId: 'b' }, live: false });
 	await waitFor(() => expect(result.current.logs).toEqual([other]));
-	expect(post).toHaveBeenLastCalledWith('/', expect.objectContaining({ operation: 'read_log', replicated: true }));
+	expect(post.mock.lastCall?.[1]).toMatchObject({ operation: 'read_log', replicated: true });
 	client.clear();
 });
 
@@ -75,4 +75,47 @@ it('retains malformed timestamps on latest and relative views instead of silentl
 	expect(result.current.logs).toContainEqual(base);
 	expect(result.current.logs).not.toContainEqual(expired);
 	client.clear();
+});
+
+it('reapplies the relative cutoff after a refresh returns an unchanged tail', async () => {
+	const start = Date.now();
+	const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const entry: ReadLogItem = {
+		level: 'info',
+		timestamp: new Date(start).toISOString(),
+		message: 'ages out',
+		node: '',
+		thread: 'main/0',
+		tags: [],
+	};
+	const params = {
+		entityId: 'cutoff',
+		entityType: 'instance',
+		instanceClient: { post: vi.fn().mockResolvedValue({ data: [entry] }) },
+	} as unknown as UseInstanceLogsParams['params'];
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	try {
+		const { result } = renderHook(
+			() =>
+				useInstanceLogs({
+					params,
+					live: false,
+					replicated: false,
+					logFilters: { ...DEFAULT_LOG_FILTERS, relative_minutes: '15' },
+				}),
+			{ wrapper },
+		);
+		await waitFor(() => expect(result.current.logs).toHaveLength(1));
+		clock.mockReturnValue(start + 16 * 60000);
+		await act(async () => {
+			await result.current.refetch();
+		});
+		await waitFor(() => expect(result.current.logs).toHaveLength(0));
+	} finally {
+		client.clear();
+		clock.mockRestore();
+	}
 });

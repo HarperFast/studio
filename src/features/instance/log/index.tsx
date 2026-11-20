@@ -6,7 +6,11 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { LogContextLimitError, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
-import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
+import {
+	getLogDateError,
+	logDateForValue,
+	LogFiltersFormSchema,
+} from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -120,8 +124,12 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const linkedSelectionApplied = useRef(false);
 	const scrollToRestore = useRef<number | null>(null);
 	const tableScrollRef = useRef<HTMLDivElement>(null);
+	const formSchema = useMemo(() => {
+		const current = formDates(logFilters);
+		return LogFiltersFormSchema.extend({ from: logDateForValue(current.from), until: logDateForValue(current.until) });
+	}, [logFilters.from, logFilters.until]);
 	const form = useForm<LogFilters>({
-		resolver: zodResolver(LogFiltersFormSchema),
+		resolver: zodResolver(formSchema),
 		defaultValues: formDates(initialFilters),
 		mode: 'onChange',
 	});
@@ -138,10 +146,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		contextTimestamp,
 	});
 	const queryKey = JSON.stringify([params.entityId, logFilters, contextTimestamp]);
-	const inspection = useLogInspection(incoming, queryKey, node, thread, !isLoading);
+	const inspection = useLogInspection(incoming, queryKey, node, thread, !isLoading && (!error || incoming.length > 0));
 	const baseLogs = useMemo(() =>
 		contextLog && !inspection.logs.some(log => logKey(log) === logKey(contextLog))
-			? [contextLog, ...inspection.logs].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+			? [contextLog, ...inspection.logs].sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''))
 			: inspection.logs, [
 		inspection.logs,
 		contextLog,
@@ -159,12 +167,15 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const selectedKey = selected ?? (targetMatches.length === 1 ? logKey(targetMatches[0]) : undefined);
 	const following = isLive && !inspection.paused;
 	useEffect(() => {
-		if (isLoading || !expandedKeys.size) { return; }
-		const present = new Set(baseLogs.map(logKey));
-		setExpandedKeys(current =>
-			[...current].every(key => present.has(key)) ? current : new Set([...current].filter(key => present.has(key)))
-		);
-	}, [baseLogs, isLoading, expandedKeys]);
+		if (isLoading) { return; }
+		setExpandedKeys(current => {
+			if (!current.size) { return current; }
+			const present = new Set(baseLogs.map(logKey));
+			return [...current].every(key => present.has(key))
+				? current
+				: new Set([...current].filter(key => present.has(key)));
+		});
+	}, [baseLogs, isLoading]);
 	useEffect(() => {
 		if (!target || targetMatches.length !== 1 || linkedSelectionApplied.current) { return; }
 		linkedSelectionApplied.current = true;
@@ -197,21 +208,33 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		}
 	}, [selectedKey, isLoading, displayedLogs]);
 
-	const apply = (data: LogFilters, nextRange = range) => {
+	const apply = (data: LogFilters, nextRange?: TimeRange) => {
 		const displayed = formDates(logFilters);
+		const requestedRange = nextRange
+			?? (data.from !== displayed.from || data.until !== displayed.until ? 'custom' : range);
 		const canonical = {
 			...data,
 			from: data.from === displayed.from ? logFilters.from : data.from,
 			until: data.until === displayed.until ? logFilters.until : data.until,
 		};
-		const next = withTimeRange(canonical, nextRange);
+		const next = withTimeRange(canonical, requestedRange);
+		if (requestedRange === 'custom') {
+			for (const field of ['from', 'until'] as const) {
+				const message = data[field] !== displayed[field] ? getLogDateError(data[field]) : undefined;
+				if (message) {
+					form.setError(field, { message });
+					setIsFiltersOpen(true);
+					return;
+				}
+			}
+		}
 		if (!validDateRange(next.from, next.until)) {
 			form.setError('from', { message: 'Choose valid dates with the start before the end.' });
 			setIsFiltersOpen(true);
 			return;
 		}
 		if (next.until) { setIsLive(false); }
-		setRange(nextRange);
+		setRange(requestedRange);
 		form.reset(formDates(next));
 		setLogFilters(next);
 		inspection.resume();
@@ -444,12 +467,9 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						</div>
 						<LogsFiltersForm
 							form={form}
+							dateMaxValues={formDates(logFilters)}
 							resetFilters={reset}
-							submitFilters={data => {
-								const current = formDates(logFilters);
-								const changed = data.from !== current.from || data.until !== current.until;
-								apply(data, changed ? 'custom' : range);
-							}}
+							submitFilters={data => apply(data)}
 							showLogName={showLogName}
 							showFilter={false}
 							isOpen={isFiltersOpen}

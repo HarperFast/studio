@@ -11,7 +11,7 @@ export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '
 	input.current = { logs, queryKey, ready };
 	const pause = useCallback(() => {
 		const { logs, queryKey, ready } = input.current;
-		if (!ready) { return; }
+		if (!ready || !logs.length) { return; }
 		setPinned(current => current?.key === queryKey ? current : { key: queryKey, logs });
 	}, []);
 	const resume = useCallback(() => setPinned(null), []);

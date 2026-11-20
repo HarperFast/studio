@@ -1,5 +1,5 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
 import {
 	buildLogLink,
@@ -121,14 +121,9 @@ it('keeps compact stable identities while callers retain old record objects', ()
 	expect(retained).toHaveLength(30001);
 });
 
-it('keeps generated midnight context dates valid for the form', () => {
-	const now = new Date();
-	now.setHours(23, 59, 50, 0);
-	const clock = vi.spyOn(Date, 'now').mockReturnValue(now.getTime());
-	try {
-		const filters = surroundingFilters(DEFAULT_LOG_FILTERS, now.toISOString());
-		expect(Date.parse(filters.until!)).toBe(now.getTime());
-	} finally {
-		clock.mockRestore();
-	}
+it('preserves the requested context window across midnight and server clock skew', () => {
+	const timestamp = new Date(Date.now() + 120000).toISOString();
+	const filters = surroundingFilters(DEFAULT_LOG_FILTERS, timestamp);
+	expect(Date.parse(filters.from!)).toBe(Date.parse(timestamp) - 30000);
+	expect(Date.parse(filters.until!)).toBe(Date.parse(timestamp) + 30000);
 });

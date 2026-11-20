@@ -172,3 +172,74 @@ it('fails explicitly when a context window exceeds its bounded scan budget', asy
 	await expect((options.queryFn as () => Promise<unknown>)()).rejects.toThrow('Too many logs');
 	expect(post).toHaveBeenCalledTimes(9);
 });
+
+it('cancels an abandoned context scan before another page starts', async () => {
+	const controller = new AbortController();
+	let finish!: (value: unknown) => void;
+	const pending = new Promise(resolve => {
+		finish = resolve;
+	});
+	const post = vi.fn().mockImplementation((_url, body, config) => {
+		expect(config.signal).toBeInstanceOf(AbortSignal);
+		return body.start === 0 && body.until === '2026-11-19T18:00:00.000Z' ? pending : Promise.resolve({ data: [] });
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'cancel-context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	const result = (options.queryFn as (ctx: { signal: AbortSignal }) => Promise<unknown>)({ signal: controller.signal });
+	controller.abort();
+	finish({ data: Array.from({ length: 5 }, () => ({ timestamp: '2026-11-19T18:00:00Z' })) });
+	await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+	expect(post).toHaveBeenCalledTimes(2);
+});
+
+it('stops the sibling scan when the after-context request fails', async () => {
+	let finish!: (value: unknown) => void;
+	let beforeSignal!: AbortSignal;
+	const pending = new Promise(resolve => {
+		finish = resolve;
+	});
+	const post = vi.fn().mockImplementation((_url, body, config) => {
+		if (body.until === '2026-11-19T18:00:00.000Z') {
+			beforeSignal = config.signal;
+			return pending;
+		}
+		return Promise.reject(new Error('after failed'));
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'sibling',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).rejects.toThrow('after failed');
+	expect(beforeSignal.aborted).toBe(true);
+	finish({ data: Array.from({ length: 5 }, () => ({ timestamp: '2026-11-19T18:00:00Z' })) });
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(post).toHaveBeenCalledTimes(2);
+});
+it('keeps sparse context records from turning sorting into an exception', async () => {
+	const post = vi.fn().mockResolvedValue({
+		data: [{ timestamp: undefined, message: 'sparse' }, { timestamp: '2026-11-19T18:00:00Z', message: 'valid' }],
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'sparse-context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: false,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).resolves.toContainEqual({
+		timestamp: undefined,
+		message: 'sparse',
+	});
+});

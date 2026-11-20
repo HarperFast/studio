@@ -162,7 +162,7 @@ export function useInstanceLogs(
 			const time = Date.parse(entry.timestamp);
 			return Number.isNaN(time) || time >= cutoff;
 		});
-	}, [query.data, stream.entries, limit, logFilters.relative_minutes, contextTimestamp]);
+	}, [query.data, query.dataUpdatedAt, stream.entries, limit, logFilters.relative_minutes, contextTimestamp]);
 
 	const transport: LogTransport = useSSE ? 'streaming' : live && !contextTimestamp ? 'polling' : 'idle';
 
