@@ -12,7 +12,6 @@ import { failFastOffline, OfflineSubmitError, reportAuthFailure, toastsAuthFailu
  */
 type VerifyEmailRequest = {
 	token: string;
-	/** The emailed flow the link names, which a set-password email it causes carries on. */
 	flow?: string;
 	browserProof?: string;
 	password?: string;

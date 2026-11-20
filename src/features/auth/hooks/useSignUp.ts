@@ -12,7 +12,6 @@ export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 	firstname: string;
 	lastname: string;
 	captchaToken?: string;
-	/** The emailed flow the verification link continues (`pendingSignInRedirect.ts`). */
 	flow?: string;
 }
 

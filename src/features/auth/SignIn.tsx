@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { readSignInRedirect, useEmailedFlow } from '@/features/auth/pendingSignInRedirect';
+import { keptSignInRedirectSearch, useEmailedFlow } from '@/features/auth/pendingSignInRedirect';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,9 +37,10 @@ export function SignIn() {
 	});
 	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
-	// Without a `?redirect=` of its own, a sign-in that finishes an emailed flow offers that flow's kept target.
-	const kept = readSignInRedirect(emailedFlow)?.redirect;
-	const carriedSearch = useMemo(() => redirectSearch(redirect) ?? redirectSearch(kept), [redirect, kept]);
+	const carriedSearch = useMemo(
+		() => redirectSearch(redirect) ?? keptSignInRedirectSearch(emailedFlow),
+		[redirect, emailedFlow],
+	);
 
 	const { submitForm, isPending, submitError, clearSubmitError } = useCloudSignIn();
 	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();

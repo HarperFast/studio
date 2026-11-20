@@ -7,7 +7,6 @@ import { clearCaptchaFailures } from './useCaptchaChallenge';
 export type ForgotPasswordCredential = {
 	email: string;
 	captchaToken?: string;
-	/** The emailed flow the reset link continues (`pendingSignInRedirect.ts`). */
 	flow?: string;
 };
 

@@ -228,6 +228,23 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		);
 	});
 
+	it('verifies again for the same token under another flow, so the answer and the screen follow one flow', async () => {
+		put.mockReturnValue(new Promise(() => {}));
+		search.flow = 'Fl0w_id-0123456789abcd';
+		const { rerender } = render(page());
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+
+		search.flow = 'Fl0w_id-abcdefghijklmn';
+		rerender(page());
+
+		await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', {
+			token: 'verify-token',
+			browserProof: 'browser-proof',
+			flow: 'Fl0w_id-abcdefghijklmn',
+		});
+	});
+
 	it('takes a verify that opened a session into the app, as a sign-in does, and forgets the proof', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		fetchCurrentUser.mockResolvedValue(USER);

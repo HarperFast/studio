@@ -4,7 +4,6 @@ import { failFastOffline, toastsAuthFailures } from '../failFastOffline';
 
 export type ResendEmailVerificationRequest = {
 	email: string;
-	/** The emailed flow the new link continues (`pendingSignInRedirect.ts`). */
 	flow?: string;
 };
 

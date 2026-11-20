@@ -52,7 +52,6 @@ export function ResetPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					// central-manager answers with the account's address.
 					const email = typeof response?.email === 'string' && response.email ? response.email : undefined;
 					navigate({
 						to: '/sign-in',

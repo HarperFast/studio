@@ -107,7 +107,6 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 				// `href`, not `to`: a target keeps its own query, which `to` would normalize as part of the path.
 				await navigate(target ? { href: target.to } : { to: defaultCloudRoute });
 			}
-			// The flow is done: its link has nothing left to continue to.
 			if (flow !== undefined && stillTaken()) {
 				finished = true;
 				forgetSignInRedirect(flow);
@@ -142,8 +141,6 @@ export function useCloudSignIn() {
 					// claim "we sent a link" once the resend actually succeeds; navigate regardless so an
 					// unverified user always lands on /verifying (which offers a manual resend) rather than
 					// dead-ending on the sign-in page.
-					// The new link's flow continues to the page's target, or to the one the emailed flow this sign-in finishes
-					// kept.
 					const target = postSignInRedirectParam(redirect) ?? readSignInRedirect(emailedFlow)?.redirect;
 					const flow = keepSignInRedirect(target);
 					// A promise, not `mutate`'s callbacks, which the navigation below skips by unmounting this page. Its

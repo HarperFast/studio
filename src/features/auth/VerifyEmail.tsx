@@ -536,7 +536,7 @@ export function VerifyEmail() {
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
 	const { mutate: logIn } = useLoginMutation();
 	const completeSignIn = useCompleteCloudSignIn({ flow });
-	const submittedToken = useRef<string | undefined>(undefined);
+	const submittedLink = useRef<string | undefined>(undefined);
 	// Bumped by every submit and every change of link, so a late answer can tell it has been superseded.
 	const attempt = useRef(0);
 	const mounted = useRef(false);
@@ -656,16 +656,17 @@ export function VerifyEmail() {
 		[enterApp, flow, isCurrent, logIn, pickUpSession, submitVerification],
 	);
 
-	// Once per arrival of a token, and only with this browser's sign-up proof: a mail scanner opening the link
-	// has none, and must not verify the email for whoever chose the password. StrictMode runs this twice in
-	// development, and the second PUT would answer `already_verified` and replace the first answer. A token
+	// Once per arrival of a link (its token and flow), and only with this browser's sign-up proof: a mail scanner
+	// opening the link has none, and must not verify the email for whoever chose the password. StrictMode runs this
+	// twice in development, and the second PUT would answer `already_verified` and replace the first answer. A link
 	// that comes back after another one or after none is handled again.
+	const link = token ? `${token} ${flow ?? ''}` : undefined;
 	useEffect(() => {
-		if (submittedToken.current === token) {
+		if (submittedLink.current === link) {
 			return;
 		}
 		attempt.current++;
-		submittedToken.current = token;
+		submittedLink.current = link;
 		if (token) {
 			setAccountEmail(undefined);
 			setRetrying(false);
@@ -676,7 +677,7 @@ export function VerifyEmail() {
 				reset();
 			}
 		}
-	}, [proof, reset, submit, token]);
+	}, [link, proof, reset, submit, token]);
 
 	if (token) {
 		const submission = submissionOf(variables);

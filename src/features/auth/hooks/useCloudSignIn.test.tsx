@@ -621,7 +621,6 @@ describe('useCloudSignIn — keeping the target for an emailed link', () => {
 
 		await waitFor(() => expect(resendBody()).toEqual({ email: EMAIL }));
 		expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } });
-		// Another flow's link still continues to its own target.
 		expect(readSignInRedirect(earlier)?.redirect).toBe(mcpAuthorize);
 	});
 

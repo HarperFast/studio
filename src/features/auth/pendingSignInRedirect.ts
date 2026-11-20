@@ -82,8 +82,8 @@ export function keepSignInRedirect(redirect: unknown, now = Date.now()): string 
 	if (param === undefined) {
 		return undefined;
 	}
-	const flow = newFlowId();
 	try {
+		const flow = newFlowId();
 		pruneExpired(now);
 		localStorage.setItem(
 			KEY_PREFIX + flow,
@@ -97,7 +97,6 @@ export function keepSignInRedirect(redirect: unknown, now = Date.now()): string 
 	}
 }
 
-/** Puts back what a storage wipe took while its flow still needs it. */
 export function restoreSignInRedirect(flow: string, kept: KeptSignInRedirect): void {
 	const key = keyFor(flow);
 	if (!key) {
@@ -131,7 +130,6 @@ export function readSignInRedirect(flow: string | undefined, now = Date.now()): 
 	}
 }
 
-/** The flow's kept target as `?redirect=`, for a page that sends the user on to sign in or reset. */
 export function keptSignInRedirectSearch(flow: string | undefined) {
 	return redirectSearch(readSignInRedirect(flow)?.redirect);
 }
@@ -148,7 +146,6 @@ export function forgetSignInRedirect(flow: string): void {
 	}
 }
 
-/** The emailed flow this page's sign-in finishes, from history state. */
 export function useEmailedFlow(): string | undefined {
 	return useLocation({ select: (location) => emailedFlowParam(location.state.emailedFlow) });
 }
