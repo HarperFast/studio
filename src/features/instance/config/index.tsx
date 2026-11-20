@@ -2,15 +2,21 @@ import { Loading } from '@/components/Loading';
 import { ConfigNavigation } from '@/features/instance/config/ConfigNavigation';
 import { useConfigNavigation } from '@/features/instance/config/useConfigNavigation';
 import { useStudioConfiguration } from '@/features/instance/extensions/useStudioExtensions';
-import type { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { Navigate, Outlet, useLoaderData, useLocation, useParams } from '@tanstack/react-router';
+import { Navigate, Outlet, useLocation, useParams } from '@tanstack/react-router';
 import { Suspense, useMemo } from 'react';
 import './config-navigation.css';
 
 export function ConfigIndex() {
+	const version = useLoadedInstanceVersion();
+	return version === undefined
+		? <Loading className="flex flex-col items-center justify-center py-24" text="Loading..." />
+		: <ConfigShell version={version} />;
+}
+
+function ConfigShell({ version }: { version: string }) {
 	const params: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({ strict: false });
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const { pathname } = useLocation();
 	const { groups, configPath, canManage, canListDeployments } = useConfigNavigation(version);
 	const { isPending: extensionEntriesPending } = useStudioConfiguration();

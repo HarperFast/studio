@@ -10,21 +10,19 @@ import { InstanceConfigEditor } from '@/features/instance/config/overview/compon
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import {
 	APIDirectoryEntry,
 	APIFileEntry,
 	getComponentsQueryOptions,
 } from '@/integrations/api/instance/applications/getComponents';
-import {
-	getRegistrationInfoQueryOptions,
-	RegistrationInfoResponse,
-} from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
-import { useLoaderData, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
@@ -43,17 +41,18 @@ export function ConfigOverviewIndex() {
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const checkUsageLicenses = !isLocalStudio && wasAReleasedBeforeB('4.7.0-alpha.1', version);
+	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
+		getRegistrationInfoQueryOptions(instanceParams),
+	);
+	// The loader fills this query's cache, so it has the version on the render the loader data lacks it.
+	const version = useLoadedInstanceVersion() ?? registrationInfo?.version;
+	const checkUsageLicenses = !isLocalStudio && version !== undefined && wasAReleasedBeforeB('4.7.0-alpha.1', version);
 
 	const { data: appliedLicenses } = useQuery(
 		getUsageLicensesQueryOptions(instanceParams, checkUsageLicenses),
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
-	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
-		getRegistrationInfoQueryOptions(instanceParams),
-	);
 	const canManage = useInstanceManagePermission();
 	const { data: components, isLoading: loadingComponents } = useQuery(
 		getComponentsQueryOptions({ ...instanceParams, enabled: canManage }),
@@ -150,7 +149,7 @@ export function ConfigOverviewIndex() {
 				key={instanceParams.entityId}
 				targetNoun={targetNoun}
 				clusterInfo={clusterInfo}
-				version={version ?? registrationInfo?.version}
+				version={version}
 				readsOneInstanceOfMany={!instanceId && !isLocalStudio}
 			/>
 		</div>
