@@ -14,15 +14,18 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 
 // The hook only reaches for the router; give it inert doubles we can assert against.
 // One router object for the whole file, matching production's stable one.
-const { navigate, router, hashSearch } = vi.hoisted(() => ({
+const { navigate, router, hashSearch, historyState } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	router: { invalidate: vi.fn() },
 	hashSearch: { current: {} as Record<string, unknown> },
+	historyState: { current: {} as { finishesEmailedLink?: boolean } },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
 	useSearch: () => hashSearch.current,
+	useLocation: ({ select }: { select: (location: { state: typeof historyState.current }) => unknown }) =>
+		select({ state: historyState.current }),
 }));
 
 vi.mock('sonner', () => ({
@@ -34,6 +37,7 @@ vi.mock('@/integrations/datadog/datadog', () => ({ loginSuccessDatadogAction: vi
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
 import { apiClient } from '@/config/apiClient';
+import { keepSignInRedirect, readSignInRedirect } from '@/features/auth/pendingSignInRedirect';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import type { User } from '@/integrations/api/api.patch';
 import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
@@ -384,5 +388,381 @@ describe('useCompleteCloudSignIn — redirect', () => {
 		expect(replace).not.toHaveBeenCalled();
 		expect(navigate).toHaveBeenCalledTimes(1);
 		expect(navigate.mock.calls[0][0]).toEqual({ to: expect.not.stringContaining('evil') });
+	});
+});
+
+describe('useCompleteCloudSignIn — a target kept across an emailed link', () => {
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
+	const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+	const replace = vi.fn();
+
+	function appWrapper({ children }: PropsWithChildren) {
+		return <QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>;
+	}
+
+	beforeEach(() => {
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		localStorage.clear();
+		vi.stubGlobal('location', { ...window.location, replace });
+	});
+	afterEach(() => {
+		hashSearch.current = {};
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		localStorage.clear();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it('continues to it when it finishes an emailed flow and the page has no target, and forgets it', async () => {
+		keepSignInRedirect('Ada@Example.com', mcpAuthorize);
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(true);
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBeUndefined();
+	});
+
+	it('leaves it alone for a completion that finishes no emailed flow', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: expect.any(String) });
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('leaves another address’s target alone', async () => {
+		keepSignInRedirect('grace@example.com', mcpAuthorize);
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect('grace@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('prefers the page’s own target, and keeps a different one for its own flow', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: '/org-1/clu-1/usage' });
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('forgets it when the page carries the same target', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		hashSearch.current = { redirect: mcpAuthorize };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBeUndefined();
+	});
+
+	it('keeps it when the completion gives up', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			authStore.setUserForEntity(OverallAppSignIn, GRACE);
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(false);
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+	});
+
+	// Clearing the previous account wipes localStorage, so the kept target has to be read before it.
+	it('still continues to it when the browser held another account', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+		await act(() => result.current(GRACE));
+		navigate.mockClear();
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(true);
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(ADA);
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(readSignInRedirect('ada@example.com')).toBeUndefined();
+	});
+
+	// A sign-out's own wipe takes the kept target too; giving up must not write it back after that wipe.
+	it.each([
+		['a sign-out', () => authStore.signOutAllLocally()],
+		[
+			'another sign-in',
+			() => authStore.setUserForEntity(OverallAppSignIn, { ...GRACE, id: 'usr-other' } as unknown as User),
+		],
+	])('doesn’t put back what the previous account’s wipe took when %s lands meanwhile', async (_label, land) => {
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+		await act(() => result.current(GRACE));
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			land();
+		});
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(false);
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect('ada@example.com')).toBeUndefined();
+	});
+
+	it('leaves the kept target when another sign-in lands during the navigation', async () => {
+		keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage');
+		navigate.mockImplementationOnce(async () => {
+			authStore.setUserForEntity(OverallAppSignIn, GRACE);
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
+	it('doesn’t put it back when a sign-out lands during the navigation', async () => {
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+		await act(() => result.current(GRACE));
+		keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage');
+		navigate.mockImplementationOnce(async () => {
+			authStore.signOutAllLocally();
+		});
+
+		await act(() => result.current(ADA));
+
+		expect(readSignInRedirect('ada@example.com')).toBeUndefined();
+	});
+
+	it('leaves a newer target another tab wrote for the address meanwhile', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage', Date.now() + 1);
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await act(() => result.current(ADA));
+
+		expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize);
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
+	it('keeps a followed in-app target when its navigation fails', async () => {
+		keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage');
+		navigate.mockRejectedValueOnce(new Error('navigation aborted'));
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA))).rejects.toThrow('navigation aborted');
+
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
+	it.each([
+		['before the store takes it in', false],
+		['after the store has moved its sign-in revision', true],
+	])('puts back what the previous account’s wipe took when taking the new one in throws %s', async (_when, after) => {
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+		await act(() => result.current(GRACE));
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		const kept = readSignInRedirect('ada@example.com');
+		// Only for the new account: the previous account's wipe sets the entity too.
+		const setUser = authStore.setUserForEntity.bind(authStore);
+		vi.spyOn(authStore, 'setUserForEntity').mockImplementation((...args: Parameters<typeof setUser>) => {
+			if (args[1] !== ADA) {
+				return setUser(...args);
+			}
+			if (after) {
+				setUser(...args);
+			}
+			throw new Error('replaceState throttled');
+		});
+
+		await expect(act(() => result.current(ADA))).rejects.toThrow('replaceState throttled');
+
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect('ada@example.com')).toEqual(kept);
+	});
+
+	it('puts back a kept target the previous account’s wipe took, when the page’s own target wins', async () => {
+		hashSearch.current = { redirect: '/org-1/clu-1/usage' };
+		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
+		await act(() => result.current(GRACE));
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		const kept = readSignInRedirect('ada@example.com');
+
+		await act(() => result.current(ADA));
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(ADA);
+		expect(navigate).toHaveBeenLastCalledWith({ href: '/org-1/clu-1/usage' });
+		expect(readSignInRedirect('ada@example.com')).toEqual(kept);
+	});
+});
+
+describe('useCloudSignIn — keeping the target for an emailed link', () => {
+	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+
+	afterEach(() => {
+		hashSearch.current = {};
+		historyState.current = {};
+		localStorage.clear();
+	});
+
+	// Back on /sign-in?redirect=… after a reset request, a wrong old password must not cost the reset its target.
+	it('keeps a target a reset request kept when a sign-in with the same target fails', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockRejectedValue(axiosError(401, { error: 'Invalid credentials' }));
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'old-password' }));
+
+		await waitFor(() => expect(result.current.submitError).toBeDefined());
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('keeps it when the account turns out unverified, which is sent a link', async () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/verifying' })));
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('forgets an earlier flow’s target when an unverified account without one is sent a link', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
+		await waitFor(() => expect(readSignInRedirect(EMAIL)).toBeUndefined());
+	});
+
+	it('leaves an earlier flow’s target when the new link fails to send', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		post.mockImplementation((url: string) =>
+			Promise.reject(
+				url === '/Login/'
+					? axiosError(403, { error: 'User has not verified email address' })
+					: axiosError(429, { error: 'Too many requests' }),
+			)
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('leaves a newer target another tab kept while the sign-in was out', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		let reject!: (reason: unknown) => void;
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? new Promise((_resolve, rejectLogin) => (reject = rejectLogin))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+
+		keepSignInRedirect(EMAIL, '/org-1/clu-1/usage', Date.now() + 1);
+		act(() => reject(axiosError(403, { error: 'User has not verified email address' })));
+
+		await waitFor(() => expect(toast.info).toHaveBeenCalled());
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
+	it('carries the target kept for the address to the link an unverified account is sent after an emailed link', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize, Date.now() - 1000);
+		const before = readSignInRedirect(EMAIL);
+		historyState.current = { finishesEmailedLink: true };
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({
+				to: '/verifying',
+				search: { redirect: mcpAuthorize },
+				state: { prefillEmail: EMAIL },
+			})
+		);
+		// Kept again, for the new link's full 30 minutes.
+		expect(readSignInRedirect(EMAIL)?.expiresAt).toBeGreaterThan(before!.expiresAt);
+	});
+
+	it('follows the target a reset kept, for a sign-in that finishes it', async () => {
+		const replace = vi.fn();
+		vi.stubGlobal('location', { ...window.location, replace });
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		historyState.current = { finishesEmailedLink: true };
+		post.mockResolvedValue({ data: { id: 'usr-reset', email: EMAIL, roles: {} } });
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'new-password' }));
+
+		await waitFor(() => expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize));
+		vi.unstubAllGlobals();
+		authStore.signOutAllLocally();
+	});
+
+	it('leaves a target another flow kept when a sign-in without one fails', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		post.mockRejectedValue(axiosError(401, { error: 'Invalid credentials' }));
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'wrong' }));
+
+		await waitFor(() => expect(result.current.submitError).toBeDefined());
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('keeps nothing while the sign-in is out: the login itself sends no email', () => {
+		hashSearch.current = { redirect: mcpAuthorize };
+		post.mockReturnValue(new Promise(() => {}));
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		expect(readSignInRedirect(EMAIL)).toBeUndefined();
+	});
+
+	it('leaves a kept target alone when the page has none', () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		post.mockReturnValue(new Promise(() => {}));
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
 	});
 });

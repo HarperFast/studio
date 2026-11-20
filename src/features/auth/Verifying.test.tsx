@@ -35,6 +35,7 @@ vi.mock('./hooks/useResendEmailVerification', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), dismiss: vi.fn() } }));
 
+import { readSignInRedirect } from './pendingSignInRedirect';
 import { Verifying } from './Verifying';
 
 afterEach(() => {
@@ -42,6 +43,7 @@ afterEach(() => {
 	delete search.redirect;
 	delete historyState.prefillEmail;
 	vi.clearAllMocks();
+	localStorage.clear();
 });
 
 describe('Verifying', () => {
@@ -86,6 +88,18 @@ describe('Verifying — redirect', () => {
 		expect(screen.getByRole('link', { name: 'I did it, let me sign in!' }).dataset.redirect).toBe(
 			'/oauth/mcp/authorize?response_type=code&client_id=c',
 		);
+	});
+
+	// The first link's target may have expired, or another flow forgotten it, while this page stayed open.
+	it('keeps the target again for the new link it sends', () => {
+		historyState.prefillEmail = 'ada@example.com';
+		search.redirect = '/oauth/mcp/authorize?response_type=code&client_id=c';
+		render(<Verifying />);
+
+		fireEvent.click(screen.getByRole('link', { name: 'Send me another code, please.' }));
+
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/oauth/mcp/authorize?response_type=code&client_id=c');
+		expect(resend).toHaveBeenCalledWith({ email: 'ada@example.com' }, expect.anything());
 	});
 
 	it('hands on none it would not follow', () => {

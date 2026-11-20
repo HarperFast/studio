@@ -20,9 +20,24 @@ vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
 	useRouter: () => router,
 	useSearch: () => search,
-	Link: ({ children, to, state, className }: PropsWithChildren<
-		{ to?: string; state?: { prefillEmail?: string }; className?: string }
-	>) => <a href={to} data-prefill-email={state?.prefillEmail} className={className}>{children}</a>,
+	Link: ({ children, to, search, state, className }: PropsWithChildren<
+		{
+			to?: string;
+			search?: { redirect?: string };
+			state?: { prefillEmail?: string; finishesEmailedLink?: boolean };
+			className?: string;
+		}
+	>) => (
+		<a
+			href={to}
+			data-redirect={search?.redirect}
+			data-prefill-email={state?.prefillEmail}
+			data-finishes-emailed-link={state?.finishesEmailedLink ? 'true' : undefined}
+			className={className}
+		>
+			{children}
+		</a>
+	),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), dismiss: vi.fn() } }));
@@ -47,6 +62,7 @@ import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { OFFLINE_MESSAGE } from './failFastOffline';
 import { clearPreviousAccount } from './handlers/clearAuthStateLocally';
+import { keepSignInRedirect } from './pendingSignInRedirect';
 import { readSignUpBrowserProofFor, SIGN_UP_BROWSER_PROOF_TTL_MS, storeSignUpBrowserProof } from './signUpBrowserProof';
 import { VerifyEmail } from './VerifyEmail';
 
@@ -197,6 +213,45 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(post).not.toHaveBeenCalled();
 	});
 
+	it('hands the kept target to the sign-in it offers, so a Google or GitHub sign-in keeps it too', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect(SIGNED_UP_EMAIL, mcpAuthorize);
+		put.mockResolvedValue(answer('verified', false));
+		render(page());
+
+		await screen.findByRole('heading', { name: 'Email verified' });
+		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+		expect(navigate).toHaveBeenCalledWith({
+			to: '/sign-in',
+			search: { redirect: mcpAuthorize },
+			state: { prefillEmail: SIGNED_UP_EMAIL, finishesEmailedLink: true },
+		});
+	});
+
+	it('hands the kept target to Forgot password, so a reset keeps it', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect(SIGNED_UP_EMAIL, mcpAuthorize);
+		put.mockResolvedValue(answer('verified', false));
+		render(page());
+
+		await screen.findByRole('heading', { name: 'Email verified' });
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBe(mcpAuthorize);
+	});
+
+	it('continues to the target the sign-up kept for the address', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect(SIGNED_UP_EMAIL, mcpAuthorize);
+		const replace = vi.fn();
+		vi.stubGlobal('location', { ...window.location, replace });
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		render(page());
+
+		await waitFor(() => expect(replace).toHaveBeenCalledExactlyOnceWith(mcpAuthorize));
+		expect(navigate).not.toHaveBeenCalled();
+		vi.unstubAllGlobals();
+	});
+
 	it('says "Signing you in" while it loads the user', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		fetchCurrentUser.mockReturnValue(new Promise(() => {}));
@@ -227,7 +282,11 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(fetchCurrentUser).not.toHaveBeenCalled();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { prefillEmail: SIGNED_UP_EMAIL } });
+		expect(navigate).toHaveBeenCalledWith({
+			to: '/sign-in',
+			state: { prefillEmail: SIGNED_UP_EMAIL, finishesEmailedLink: true },
+		});
+
 		expect(linkTarget('Forgot password?')).toEqual(PREFILLED.forgotPassword);
 	});
 
@@ -432,6 +491,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 
 	// A repeat visit, after which the sign-up password may already have been replaced.
 	it('stays on the page for already_verified, pointing at the set-password email, without claiming a password was saved', async () => {
+		keepSignInRedirect(SIGNED_UP_EMAIL, '/org-1/clu-1/usage');
 		put.mockResolvedValue(answer('already_verified', false));
 		render(page());
 
@@ -441,6 +501,9 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 		expect(status).toMatch(/use Forgot Password/);
 		expect(status).not.toMatch(/successfully|password (?:was|has been) (?:set|saved)/i);
 		expect(signInLinks()).toEqual(PREFILLED);
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBe('/org-1/clu-1/usage');
+		expect(screen.getByRole('link', { name: 'Back to sign in' }).dataset.redirect).toBe('/org-1/clu-1/usage');
+		expect(screen.getByRole('link', { name: 'Back to sign in' }).dataset.finishesEmailedLink).toBe('true');
 		expect(navigate).not.toHaveBeenCalled();
 		expect(toast.success).not.toHaveBeenCalled();
 	});
@@ -602,6 +665,7 @@ describe('VerifyEmail with a token and this browser’s sign-up proof', () => {
 			expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
 			expect(screen.getByRole('alert').textContent).toMatch(UNCONFIRMED);
 			expect(signInLinks()).toEqual(NOT_PREFILLED);
+			expect(screen.getByRole('link', { name: 'Back to sign in' }).dataset.finishesEmailedLink).toBeUndefined();
 			expect(put).toHaveBeenCalledTimes(1);
 			expect(toast.error).not.toHaveBeenCalled();
 		},
@@ -1067,6 +1131,27 @@ describe('VerifyEmail while this tab holds another account', () => {
 		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
 		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
 		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+	});
+
+	it('keeps the target kept for the address through the other account’s wipe, for the sign-in it offers', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect(SIGNED_UP_EMAIL, mcpAuthorize);
+		vi.mocked(clearPreviousAccount).mockImplementationOnce(async () => {
+			localStorage.clear();
+			return true;
+		});
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockRejectedValue(axiosError(500));
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+		expect(navigate).toHaveBeenCalledWith({
+			to: '/sign-in',
+			search: { redirect: mcpAuthorize },
+			state: { prefillEmail: SIGNED_UP_EMAIL, finishesEmailedLink: true },
+		});
 	});
 
 	it('leaves an account taken in since the verify was sent alone', async () => {
