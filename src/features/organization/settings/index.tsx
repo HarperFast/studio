@@ -13,8 +13,9 @@ import { apiClient } from '@/config/apiClient';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { ApiAccessSettings } from '@/features/organization/settings/ApiAccessSettings';
+import { HarperVersionsSetting } from '@/features/organization/settings/HarperVersionsSetting';
 import { SettingsSection } from '@/features/organization/settings/SettingsSection';
-import { useCloudAuth } from '@/hooks/useAuth';
+import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
 import { writeToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { SchemaOrganization } from '@/integrations/api/api.gen';
@@ -72,6 +73,10 @@ export function OrgSettingsIndex() {
 	const { organizationId } = useParams({ strict: false });
 	const { user } = useCloudAuth();
 	const { update: canUpdate } = useOrganizationPermissions(organizationId);
+	const canUpdateOrganizations = useStaffPermission('org:update');
+	const canReadOrganizations = useStaffPermission('org:read');
+	// The list comes back only to staff holding org:read, and a save replaces it, so editing needs both.
+	const canOfferVersions = canUpdateOrganizations && canReadOrganizations;
 	const { data: organization } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const queryClient = useQueryClient();
 
@@ -510,6 +515,13 @@ export function OrgSettingsIndex() {
 						organizationId={organizationId}
 						apiTokensEnabled={organization.settings?.apiTokensEnabled === true}
 					/>
+					{canOfferVersions && (
+						<HarperVersionsSetting
+							key={organizationId}
+							organizationId={organizationId}
+							entries={organization.harperVersions ?? []}
+						/>
+					)}
 				</div>
 			</OrgPageLayout>
 		</>

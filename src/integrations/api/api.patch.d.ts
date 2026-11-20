@@ -318,8 +318,17 @@ export interface SystemStatusNotification {
 	endAt?: string | number | null;
 }
 
+// central-manager#867. Returned on GET /Organization/:id only to staff holding org:read; written through
+// PATCH /Admin/Organization/:id. expiresAt null: no expiry.
+export interface OrganizationHarperVersion {
+	name: string;
+	version: string;
+	expiresAt: string | null;
+}
+
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
+	harperVersions?: OrganizationHarperVersion[] | null;
 	// From central-manager#888: only the clusters with an instance still copying; absent when central manager can't say.
 	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
