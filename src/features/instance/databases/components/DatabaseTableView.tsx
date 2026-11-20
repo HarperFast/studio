@@ -42,6 +42,12 @@ import {
 	syntheticAttributeNames,
 } from '@/features/instance/databases/functions/relationshipAttributes';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
+import {
+	SimilarRecordsSeed,
+	similarRecordsSeed,
+	vectorAttributes,
+	vectorFilterAttribute,
+} from '@/features/instance/databases/functions/vectorAttributes';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import { EditTableRowModal, RecordNavigation } from '@/features/instance/databases/modals/EditTableRowModal';
 import { useStaffPermission } from '@/hooks/useAuth';
@@ -120,6 +126,7 @@ import { EmptyResultSet } from './EmptyResultSet';
 import { FilterSyntaxHelp } from './FilterSyntaxHelp';
 import { FullTextSearchDialog } from './FullTextSearchDialog';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
+import { SimilarRecordsDialog } from './SimilarRecordsDialog';
 import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 
@@ -187,6 +194,12 @@ export function DatabaseTableView({
 	// their presence is the whole gate for the search tester: no version check could add anything.
 	const fullTextIndexes = instanceTable?.full_text_indexes ?? [];
 	const [isFullTextSearchOpen, setIsFullTextSearchOpen] = useEffectedState(false, allParams);
+	const vectors = useMemo(() => vectorAttributes(instanceTable), [instanceTable]);
+	// Captured when Find Similar is clicked, so the search is for the record that was open then.
+	const [similarRecordsFor, setSimilarRecordsFor] = useEffectedState<SimilarRecordsSeed | undefined>(
+		undefined,
+		allParams,
+	);
 
 	// What the empty state may actually invite, each gated on the source it would use rather than on
 	// `methods.*`: `methods.sample` and `methods.file` share one path (see IMPORT_METHOD_PATHS), so
@@ -340,6 +353,13 @@ export function DatabaseTableView({
 	// The only way a filter is applied, typed or deep-linked, so one that no index can answer never runs
 	// without the user agreeing to read the whole table.
 	const applySearchConditions = useCallback((conditions: SearchCondition[], formValues: FilterValues) => {
+		const vector = vectorFilterAttribute(conditions, attributesMap, relationshipInfoMap, databaseTables);
+		if (vector) {
+			toast.error(`${vector} is a vector, which can't be filtered`, {
+				description: 'Harper searches a vector only by distance. Open a record and use Find Similar instead.',
+			});
+			return false;
+		}
 		const scans = fullScanAttributes(conditions, attributesMap, relationshipInfoMap);
 		if (scans.length) {
 			setPendingConfirmation({ kind: 'fullScan', context: confirmationContext, conditions, scans, formValues });
@@ -347,7 +367,7 @@ export function DatabaseTableView({
 		}
 		commitSearchConditions(conditions, false, formValues);
 		return true;
-	}, [attributesMap, relationshipInfoMap, confirmationContext, commitSearchConditions]);
+	}, [attributesMap, relationshipInfoMap, databaseTables, confirmationContext, commitSearchConditions]);
 
 	const applyFilters = useCallback(() => {
 		applySearchConditions(translateFilterValues(columnFiltersValues), columnFiltersValues);
@@ -662,6 +682,16 @@ export function DatabaseTableView({
 		&& !!selectedIds?.length
 		&& !isSearchByIdFetching
 		&& (isSearchByIdError || (Array.isArray(fetchedRecord) && fetchedRecord.length === 0));
+	const editorRecords = isStepPending
+		? undefined
+		: missingPrimaryKey || recordUnavailable
+		? (clickedRow ? [clickedRow] : undefined)
+		: fetchedRecord;
+	// Only from the stored record, which an unaddressable row isn't.
+	const editorSeed = useMemo(
+		() => missingPrimaryKey || recordUnavailable ? undefined : similarRecordsSeed(editorRecords, primaryKey, vectors),
+		[missingPrimaryKey, recordUnavailable, editorRecords, primaryKey, vectors],
+	);
 
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
@@ -1289,11 +1319,8 @@ export function DatabaseTableView({
 				recordUnavailable={recordUnavailable}
 				syntheticAttributes={syntheticAttributes}
 				recordNavigation={recordNavigation}
-				data={isStepPending
-					? undefined
-					: missingPrimaryKey || recordUnavailable
-					? (clickedRow ? [clickedRow] : undefined)
-					: searchByIdData?.data}
+				data={editorRecords}
+				onFindSimilar={editorSeed && (() => setSimilarRecordsFor(editorSeed))}
 				onSaveChanges={onRecordUpdate}
 				onReplaceRecord={onRecordReplace}
 				onDeleteRecord={onDeleteRecord}
@@ -1311,6 +1338,22 @@ export function DatabaseTableView({
 				isRefreshing={isDescribeFetching}
 				onRefresh={() => void refetchDescribe()}
 			/>
+			{instanceTable && (
+				<SimilarRecordsDialog
+					open={!!similarRecordsFor}
+					onOpenChange={(open) => {
+						if (!open) {
+							setSimilarRecordsFor(undefined);
+						}
+					}}
+					databaseName={databaseName}
+					tableName={tableName}
+					table={instanceTable}
+					primaryKey={primaryKey}
+					vectors={vectors}
+					seed={similarRecordsFor}
+				/>
+			)}
 			<AlertDialog
 				open={!!confirmationCopy}
 				onOpenChange={(open) => {

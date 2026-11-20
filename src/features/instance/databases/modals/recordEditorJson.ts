@@ -25,6 +25,30 @@ export type RecordJsonValue = Record<string, unknown> | Record<string, unknown>[
 
 export type ParsedRecordJson = { ok: true; value: RecordJsonValue } | { ok: false; error: RecordJsonError };
 
+const FLAT_ARRAY = /\[([^[\]]+)\]/g;
+const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
+// Anchored, so a match that isn't a list of numbers (the whole record, an array of strings) fails at its
+// first item rather than being split.
+const NUMBER_LIST = new RegExp(`^\\s*${JSON_NUMBER}(?:\\s*,\\s*${JSON_NUMBER})*\\s*$`);
+
+/**
+ * `JSON.stringify(value, null, 4)`, except that an array holding only numbers stays on one line, so an
+ * embedding is one line rather than hundreds.
+ *
+ * A match is joined only when it spans a line break and every item is a JSON number. `JSON.stringify`
+ * never writes a raw line break inside a string, so such a match is never inside one: one that began or
+ * ended in a string would contain that string's quote, which no number does.
+ */
+export function formatRecordJson(value: unknown): string {
+	return JSON.stringify(value, null, 4).replace(
+		FLAT_ARRAY,
+		(match, items: string) =>
+			items.includes('\n') && NUMBER_LIST.test(items)
+				? `[${items.trim().replace(/\s*,\s*/g, ', ')}]`
+				: match,
+	);
+}
+
 /** Parse `content` as one or more records, returning a result object rather than throwing. */
 export function tryParseRecordJson(content: string): ParsedRecordJson {
 	if (!content.trim()) {
