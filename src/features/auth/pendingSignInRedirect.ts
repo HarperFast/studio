@@ -1,4 +1,4 @@
-import { postSignInRedirectParam } from '@/lib/urls/postSignInRedirect';
+import { postSignInRedirectParam, redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { useLocation } from '@tanstack/react-router';
 
 declare module '@tanstack/react-router' {
@@ -120,6 +120,11 @@ export function readSignInRedirect(email: string, now = Date.now()): KeptSignInR
 		console.debug('Could not read the kept sign-in target:', error);
 		return undefined;
 	}
+}
+
+/** The address's kept target as `?redirect=`, for a page that sends the user on to sign in or reset. */
+export function keptSignInRedirectSearch(email: string | undefined) {
+	return email ? redirectSearch(readSignInRedirect(email)?.redirect) : undefined;
 }
 
 /** With `only`, forgets the address's target only while it is still that one: another flow may have written its own since. */

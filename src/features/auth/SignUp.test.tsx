@@ -712,6 +712,22 @@ describe('SignUp — redirect', () => {
 		await waitFor(() => expect(readSignInRedirect('taken@example.com')).toBeUndefined());
 	});
 
+	it('leaves a newer target another tab kept while a sign-up without one was out', async () => {
+		keepSignInRedirect('taken@example.com', mcpAuthorize);
+		let answer!: (value: unknown) => void;
+		post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+
+		keepSignInRedirect('taken@example.com', '/org-1/clu-1/usage', Date.now() + 1);
+		answer({ data: 'Check your email to continue signing up', headers: {} });
+
+		await waitFor(() => expect(navigate).toHaveBeenCalled());
+		expect(readSignInRedirect('taken@example.com')?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
 	it('keeps its own target once the sign-up goes through', async () => {
 		hashSearch.current = { redirect: mcpAuthorize };
 		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });

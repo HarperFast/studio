@@ -119,7 +119,8 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 export function useCloudSignIn() {
 	const navigate = useNavigate();
 	const { redirect } = useSearch({ strict: false });
-	const completeSignIn = useCompleteCloudSignIn({ followKept: useFinishesEmailedLink() });
+	const finishesEmailedLink = useFinishesEmailedLink();
+	const completeSignIn = useCompleteCloudSignIn({ followKept: finishesEmailedLink });
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
@@ -140,8 +141,15 @@ export function useCloudSignIn() {
 					// claim "we sent a link" once the resend actually succeeds; navigate regardless so an
 					// unverified user always lands on /verifying (which offers a manual resend) rather than
 					// dead-ending on the sign-in page.
-					// Before the resend: the login itself sends no email, the verification link this asks for does.
-					keepSignInRedirect(formData.email, redirect);
+					// This sign-in's target: the page's, or after an emailed link the one kept for the address. The new link
+					// carries it or none, never an earlier flow's. Before the resend: the login itself sends no email.
+					const target = postSignInRedirectParam(redirect)
+						?? (finishesEmailedLink ? readSignInRedirect(formData.email)?.redirect : undefined);
+					if (target === undefined) {
+						forgetSignInRedirect(formData.email);
+					} else {
+						keepSignInRedirect(formData.email, target);
+					}
 					resendEmailVerification({ email: formData.email }, {
 						onSuccess: () =>
 							toast.info('Verify your email to finish signing in', {
@@ -150,7 +158,7 @@ export function useCloudSignIn() {
 					});
 					void navigate({
 						to: '/verifying',
-						search: redirectSearch(redirect),
+						search: redirectSearch(target),
 						state: { prefillEmail: formData.email },
 					});
 					return;
@@ -158,7 +166,7 @@ export function useCloudSignIn() {
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [completeSignIn, navigate, redirect, resendEmailVerification, submitLoginData]);
+	}, [completeSignIn, finishesEmailedLink, navigate, redirect, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,

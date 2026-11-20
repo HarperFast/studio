@@ -13,11 +13,13 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), dismiss: vi.fn() } }));
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('./hooks/useResetPassword', () => ({ useResetPasswordMutation: () => ({ mutate, isPending: false }) }));
 
+import { keepSignInRedirect } from './pendingSignInRedirect';
 import { ResetPassword } from './ResetPassword';
 
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	localStorage.clear();
 });
 
 async function submitNewPassword(value: string) {
@@ -36,6 +38,39 @@ describe('ResetPassword', () => {
 		await submitNewPassword('a-strong-password-1');
 
 		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { finishesEmailedLink: true } });
+	});
+
+	// So Google, GitHub and Forgot password carry the target before anything is typed.
+	it('fills in the address central-manager names, and hands on the target kept for it', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: (response: unknown) => void }) =>
+			onSuccess({ userId: 'u1', email: 'Ada@Example.com' })
+		);
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({
+			to: '/sign-in',
+			search: { redirect: mcpAuthorize },
+			state: { prefillEmail: 'Ada@Example.com', finishesEmailedLink: true },
+		});
+	});
+
+	it('fills in the address without a target when none was kept for it', async () => {
+		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: (response: unknown) => void }) =>
+			onSuccess({ userId: 'u1', email: 'ada@example.com' })
+		);
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate.mock.calls[0][0]).toStrictEqual({
+			to: '/sign-in',
+			search: undefined,
+			state: { prefillEmail: 'ada@example.com', finishesEmailedLink: true },
+		});
 	});
 
 	// maxlength would silently clamp a pasted password, leaving the password manager holding one that never worked.

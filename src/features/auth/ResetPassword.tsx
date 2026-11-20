@@ -12,6 +12,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { AuthInput } from './components/AuthInput';
 import { useResetPasswordMutation } from './hooks/useResetPassword';
+import { keptSignInRedirectSearch } from './pendingSignInRedirect';
 
 export function ResetPassword() {
 	const { token } = useSearch({ strict: false });
@@ -42,7 +43,7 @@ export function ResetPassword() {
 		submitResetPasswordData(
 			{ token: token as string, password: formData.password },
 			{
-				onSuccess: () => {
+				onSuccess: (response) => {
 					toast.success('Success', {
 						description: 'Your password has been reset successfully.',
 						action: {
@@ -50,7 +51,14 @@ export function ResetPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					navigate({ to: '/sign-in', state: { finishesEmailedLink: true } });
+					// central-manager answers with the account's address. Filled in, and its kept target as `?redirect=`, so
+					// Google, GitHub and Forgot password keep the target before anything is typed.
+					const email = typeof response?.email === 'string' && response.email ? response.email : undefined;
+					navigate({
+						to: '/sign-in',
+						search: keptSignInRedirectSearch(email),
+						state: email ? { prefillEmail: email, finishesEmailedLink: true } : { finishesEmailedLink: true },
+					});
 				},
 			},
 		);

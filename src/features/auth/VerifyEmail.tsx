@@ -7,7 +7,6 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { User } from '@/integrations/api/api.patch';
-import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { NewAccountPasswordSchema, zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,7 +30,7 @@ import {
 	VerifyEmailRequest,
 	VerifyEmailResponse,
 } from './hooks/useVerifyEmail';
-import { readSignInRedirect } from './pendingSignInRedirect';
+import { keptSignInRedirectSearch, readSignInRedirect, restoreSignInRedirect } from './pendingSignInRedirect';
 import { clearSignUpBrowserProof, readNewestSignUpBrowserProof, readSignUpBrowserProofFor } from './signUpBrowserProof';
 
 // Claims no outcome: each of these can follow a verify that landed (`unansweredWrite.ts`).
@@ -393,18 +392,16 @@ function SignInLinks({ email, finishesFlow = false }: { email: string | undefine
 			<Link
 				className="text-sm"
 				to="/sign-in"
-				search={finishesFlow ? keptSearch(email) : undefined}
+				search={finishesFlow ? keptSignInRedirectSearch(email) : undefined}
 				state={finishesFlow ? { ...state, finishesEmailedLink: true } : state}
 			>
 				Back to sign in
 			</Link>
-			<Link className="text-sm" to="/forgot-password" search={keptSearch(email)} state={state}>Forgot password?</Link>
+			<Link className="text-sm" to="/forgot-password" search={keptSignInRedirectSearch(email)} state={state}>
+				Forgot password?
+			</Link>
 		</div>
 	);
-}
-
-function keptSearch(email: string | undefined) {
-	return email ? redirectSearch(readSignInRedirect(email)?.redirect) : undefined;
 }
 
 function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined }) {
@@ -447,14 +444,19 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 					void navigate({
 						to: '/sign-in',
 						// As `?redirect=`, so a Google or GitHub sign-in from there carries it through `/#/check-oauth` too.
-						search: keptSearch(email),
+						search: keptSignInRedirectSearch(email),
 						state: { prefillEmail: email, finishesEmailedLink: true },
 					})}
 			>
 				Sign In
 			</Button>
 			<div className="auth-links">
-				<Link className="text-sm" to="/forgot-password" search={keptSearch(email)} state={{ prefillEmail: email }}>
+				<Link
+					className="text-sm"
+					to="/forgot-password"
+					search={keptSignInRedirectSearch(email)}
+					state={{ prefillEmail: email }}
+				>
 					Forgot password?
 				</Link>
 			</div>
@@ -479,8 +481,9 @@ function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRet
 type AttemptAuth = {
 	unchanged: () => boolean;
 	// A refused answer can still have handed the browser's session to `userId`, ending the account this tab held when
-	// it was sent. Only that one: an account taken in since is someone's current session.
-	releaseReplaced: (userId: string) => void;
+	// it was sent. Only that one: an account taken in since is someone's current session. Keeps the target the link's
+	// address (`email`) has kept, which the sign-in this page then offers carries on.
+	releaseReplaced: (userId: string, email: string | undefined) => void;
 };
 
 function readAttemptAuth(): AttemptAuth {
@@ -491,9 +494,14 @@ function readAttemptAuth(): AttemptAuth {
 		unchanged: () =>
 			authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
 			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision,
-		releaseReplaced: (userId) => {
+		releaseReplaced: (userId, email) => {
 			if (held !== null && held !== userId && authStore.getHeldAppUser() === held) {
+				const kept = email ? readSignInRedirect(email) : undefined;
 				void clearPreviousAccount();
+				// Its wipe runs before it first awaits, so this lands just after it, and a later sign-out's wipe still takes it.
+				if (email && kept) {
+					restoreSignInRedirect(email, kept);
+				}
 			}
 		},
 	};
@@ -552,13 +560,13 @@ export function VerifyEmail() {
 		}
 	}, [completeSignIn, isCurrent]);
 
-	const pickUpSession = useCallback(async (id: number, userId: string, auth: AttemptAuth) => {
+	const pickUpSession = useCallback(async (id: number, userId: string, email: string, auth: AttemptAuth) => {
 		let user;
 		try {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
 			user = await fetchCurrentUser();
 		} catch (error) {
-			auth.releaseReplaced(userId);
+			auth.releaseReplaced(userId, email);
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
 				setSessionLost(true);
@@ -570,7 +578,7 @@ export function VerifyEmail() {
 			await enterApp(id, user);
 			return;
 		}
-		auth.releaseReplaced(user.id);
+		auth.releaseReplaced(user.id, email);
 		if (isCurrent(id)) {
 			setSessionLost(true);
 		}
@@ -586,7 +594,7 @@ export function VerifyEmail() {
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
 				const superseded = !isCurrent(id) || !auth.unchanged();
 				if (superseded && response.signedIn === true) {
-					auth.releaseReplaced(response.userId);
+					auth.releaseReplaced(response.userId, response.email);
 				}
 				if (!isCurrent(id)) {
 					return;
@@ -608,7 +616,7 @@ export function VerifyEmail() {
 				}
 				clearSignUpBrowserProof(response.email);
 				if (opensSession(response)) {
-					void pickUpSession(id, response.userId, auth);
+					void pickUpSession(id, response.userId, response.email, auth);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					logIn({ email: response.email, password: sent.password }, {
@@ -617,7 +625,7 @@ export function VerifyEmail() {
 								void enterApp(id, user);
 								return;
 							}
-							auth.releaseReplaced(user.id);
+							auth.releaseReplaced(user.id, response.email);
 							if (isCurrent(id)) {
 								setSessionLost(true);
 							}

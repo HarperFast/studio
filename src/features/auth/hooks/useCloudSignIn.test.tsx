@@ -618,6 +618,45 @@ describe('useCloudSignIn — keeping the target for an emailed link', () => {
 		expect(readSignInRedirect(EMAIL)?.redirect).toBe(mcpAuthorize);
 	});
 
+	it('forgets an earlier flow’s target when an unverified account without one is sent a link', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize);
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying', state: { prefillEmail: EMAIL } }));
+		expect(readSignInRedirect(EMAIL)).toBeUndefined();
+	});
+
+	it('carries the target kept for the address to the link an unverified account is sent after an emailed link', async () => {
+		keepSignInRedirect(EMAIL, mcpAuthorize, Date.now() - 1000);
+		const before = readSignInRedirect(EMAIL);
+		historyState.current = { finishesEmailedLink: true };
+		post.mockImplementation((url: string) =>
+			url === '/Login/'
+				? Promise.reject(axiosError(403, { error: 'User has not verified email address' }))
+				: Promise.resolve({ data: { email: EMAIL } })
+		);
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({
+				to: '/verifying',
+				search: { redirect: mcpAuthorize },
+				state: { prefillEmail: EMAIL },
+			})
+		);
+		// Kept again, for the new link's full 30 minutes.
+		expect(readSignInRedirect(EMAIL)?.expiresAt).toBeGreaterThan(before!.expiresAt);
+	});
+
 	it('follows the target a reset kept, for a sign-in that finishes it', async () => {
 		const replace = vi.fn();
 		vi.stubGlobal('location', { ...window.location, replace });

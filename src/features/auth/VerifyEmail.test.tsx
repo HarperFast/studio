@@ -1133,6 +1133,27 @@ describe('VerifyEmail while this tab holds another account', () => {
 		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
 	});
 
+	it('keeps the target kept for the address through the other account’s wipe, for the sign-in it offers', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		keepSignInRedirect(SIGNED_UP_EMAIL, mcpAuthorize);
+		vi.mocked(clearPreviousAccount).mockImplementationOnce(async () => {
+			localStorage.clear();
+			return true;
+		});
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockRejectedValue(axiosError(500));
+		render(page());
+
+		expect(await screen.findByText('Sign in to continue.')).toBeTruthy();
+		expect(clearPreviousAccount).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+		expect(navigate).toHaveBeenCalledWith({
+			to: '/sign-in',
+			search: { redirect: mcpAuthorize },
+			state: { prefillEmail: SIGNED_UP_EMAIL, finishesEmailedLink: true },
+		});
+	});
+
 	it('leaves an account taken in since the verify was sent alone', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		let rejectUser!: (reason: unknown) => void;

@@ -5,6 +5,7 @@ import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
 import { AuthHeading } from './components/AuthHeading';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
+import { keepSignInRedirect } from './pendingSignInRedirect';
 import { usePrefillEmail } from './prefillEmail';
 
 export function Verifying() {
@@ -17,6 +18,8 @@ export function Verifying() {
 	const resendCode = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		if (email) {
+			// The new link needs the target this page still has, however long ago the first one was sent.
+			keepSignInRedirect(email, redirect);
 			resendEmailVerification({ email }, {
 				onSuccess: (message) => {
 					toast.success('Code Sent', {
@@ -30,7 +33,7 @@ export function Verifying() {
 			});
 		}
 		return false;
-	}, [email, resendEmailVerification]);
+	}, [email, redirect, resendEmailVerification]);
 
 	return (
 		<div className="auth-form flex flex-col gap-4">

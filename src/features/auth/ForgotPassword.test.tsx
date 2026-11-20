@@ -161,6 +161,22 @@ describe('ForgotPassword — redirect', () => {
 		await waitFor(() => expect(readSignInRedirect('ada@example.com')).toBeUndefined());
 	});
 
+	it('leaves a newer target another tab kept while a request without one was out', async () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		captchaState.configured = false;
+		let answer!: (value: unknown) => void;
+		post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+		const { container } = renderForm();
+		await submitWith(container, 'ada@example.com');
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+
+		keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage', Date.now() + 1);
+		answer({ data: 'If an account exists with this email...' });
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/sign-in' })));
+		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
+	});
+
 	it('keeps its own target once the request goes through', async () => {
 		hashSearch.current = { redirect: mcpAuthorize };
 		captchaState.configured = false;
