@@ -179,7 +179,7 @@ describe('logs explorer interactions', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
 			fireEvent.change(
 				screen.getByLabelText(changed === 'from' ? 'Start date (local time)' : 'End date (local time)'),
-				{ target: { value: changed === 'from' ? '2026-11-01T00:00' : '2026-11-01T03:00' } },
+				{ target: { value: changed === 'from' ? '2026-10-31T00:00' : '2026-11-02T03:00' } },
 			);
 			fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }));
 			await waitFor(() => expect(state.args.logFilters).not.toBe(previous));
