@@ -29,7 +29,7 @@ describe('useLogInspection', () => {
 		expect(result.current.logs.map(log => log.message)).toEqual(['e', 'f']);
 		expect(result.current.pending).toBe(0);
 	});
-	it('releases pinning on query/entity changes and restores a saved slice to its explicit key', () => {
+	it('releases pinning on query/entity changes', () => {
 		const original = [entry('a')];
 		const { result, rerender } = renderHook(({ logs, key }) => useLogInspection(logs, key), {
 			initialProps: { logs: original, key: 'one' },
@@ -40,10 +40,6 @@ describe('useLogInspection', () => {
 		rerender({ logs: [entry('returned query')], key: 'one' });
 		expect(result.current.paused).toBe(false);
 		expect(result.current.logs[0].message).toBe('returned query');
-		act(() => result.current.restore(original, 'three'));
-		rerender({ logs: [entry('newer')], key: 'three' });
-		expect(result.current.paused).toBe(true);
-		expect(result.current.logs).toBe(original);
 	});
 });
 it('counts arrivals only in the selected loaded-result facets', () => {

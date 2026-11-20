@@ -15,10 +15,7 @@ export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '
 		setPinned(current => current?.key === queryKey ? current : { key: queryKey, logs });
 	}, []);
 	const resume = useCallback(() => setPinned(null), []);
-	const restore = useCallback(
-		(saved: ReadLogItem[], key?: string) => setPinned({ key: key ?? input.current.queryKey, logs: saved }),
-		[],
-	);
+
 	const snapshot = pinned?.key === queryKey ? pinned.logs : null;
 	const visible = snapshot ?? logs;
 	const known = useMemo(() => new Set(snapshot?.map(logKey)), [snapshot]);
@@ -41,6 +38,5 @@ export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '
 		...arrivals,
 		pause,
 		resume,
-		restore,
 	};
 }

@@ -50,7 +50,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		cell: ({ row }) => (
 			<span
 				className={cn(
-					'inline-flex items-center gap-2 capitalize',
+					'capitalize',
 					['error', 'stderr'].includes(row.original.level)
 						? 'text-destructive'
 						: row.original.level === 'warn'
@@ -58,7 +58,6 @@ const columns: ColumnDef<ReadLogItem>[] = [
 						: 'text-muted-foreground',
 				)}
 			>
-				<span className="size-1.5 rounded-full bg-current" />
 				{row.original.level}
 			</span>
 		),
@@ -94,7 +93,6 @@ export const LogsDataTable = memo(function LogsDataTable(
 		data,
 		source,
 		onInspect,
-		onViewContext,
 		containerRef,
 		reversed,
 		onReverse,
@@ -105,7 +103,6 @@ export const LogsDataTable = memo(function LogsDataTable(
 		data: ReadLogItem[];
 		source: LogFilters['log_name'];
 		onInspect: () => void;
-		onViewContext: (log: ReadLogItem) => void;
 		containerRef?: Ref<HTMLDivElement>;
 		reversed: boolean;
 		onReverse: () => void;
@@ -227,7 +224,6 @@ export const LogsDataTable = memo(function LogsDataTable(
 			<div className="flex items-center justify-between border-b border-border px-3 py-1">
 				<span className="text-xs text-muted-foreground">
 					{data.length} loaded logs · {reversed ? 'Oldest first' : 'Newest first'}
-					{expandedKeys.size > 0 && <span className="ml-3 hidden sm:inline">↑/↓ navigate logs</span>}
 				</span>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -338,7 +334,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 								{open && (
 									<TableRow id={detailId} data-log-index={index}>
 										<TableCell colSpan={row.getVisibleCells().length} className="whitespace-normal p-0">
-											<LogDetails log={row.original} source={source} onViewContext={onViewContext} />
+											<LogDetails log={row.original} source={source} />
 										</TableCell>
 									</TableRow>
 								)}

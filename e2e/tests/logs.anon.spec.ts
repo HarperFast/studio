@@ -151,7 +151,7 @@ for (const oldestFirst of [false, true]) {
 }
 
 test(
-	'context restores the original view, column controls work, and copied links reopen an expanded row',
+	'column controls and existing log links work across themes and mobile',
 	async ({ page, context }, testInfo) => {
 		const logs = [
 			log('Error: request failed\n    at handler (api.ts:83:12)'),
@@ -160,12 +160,15 @@ test(
 		];
 		const requests: Record<string, unknown>[] = [];
 		await serve(page, () => logs, requests);
-		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		await page.goto('/#/org-logs/clu-logs/logs');
 		await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
-		await page.getByRole('button', { name: 'Copy link' }).click();
-		const link = await page.evaluate(() => navigator.clipboard.readText());
-		expect(link).not.toContain('request failed');
+		const link = '/#/org-logs/clu-logs/logs?log=' + encodeURIComponent(JSON.stringify({
+			timestamp: logs[0].timestamp,
+			node: logs[0].node,
+			thread: logs[0].thread,
+			fingerprint: '1f8qa9i',
+			source: 'hdb.log',
+		}));
 		const linkedPage = await context.newPage();
 		await serve(linkedPage, () => logs, []);
 		await linkedPage.goto(link);
@@ -175,17 +178,9 @@ test(
 		await page.bringToFront();
 
 		await page.getByRole('button', { name: 'Expand log 2', exact: true }).click();
-		await page.getByRole('button', { name: 'View surrounding logs' }).first().click();
-		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
-		await expect(page.getByText('Other node event', { exact: true })).toHaveCount(0);
-		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
-		expect(requests.slice(-2).every(body => body.order === 'asc')).toBe(true);
-		expect(requests.slice(-2).every(body => body.limit === 500)).toBe(true);
-		expect(requests.at(-1)?.level).toBeUndefined();
-		expect(requests.at(-1)?.filter).toBeUndefined();
-		await page.getByRole('button', { name: 'Back to previous view' }).click();
-		await expect(page.getByText('Other node event', { exact: true }).first()).toBeVisible();
 		await expect(page.getByLabel('Full log message')).toHaveCount(2);
+		await expect(page.getByRole('button', { name: /^(Copy message|Copy JSON|Copy link|View surrounding logs)$/ }))
+			.toHaveCount(0);
 		await page.getByRole('button', { name: 'Columns' }).click();
 		await page.getByRole('menuitemcheckbox', { name: 'Tags' }).click();
 		await page.keyboard.press('Escape');
@@ -238,10 +233,15 @@ test.describe('server clock context', () => {
 		const logs = [{ ...log('Server clock ahead'), timestamp: '2026-11-20T05:01:50.000Z' }];
 		const requests: Record<string, unknown>[] = [];
 		await serve(page, () => logs, requests);
-		await page.goto('/#/org-logs/clu-logs/logs');
-		await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
-		await page.getByRole('button', { name: 'View surrounding logs' }).click();
-		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
+		const link = '/#/org-logs/clu-logs/logs?log=' + encodeURIComponent(JSON.stringify({
+			timestamp: logs[0].timestamp,
+			node: logs[0].node,
+			thread: logs[0].thread,
+			fingerprint: '1rdd1kz',
+			source: 'hdb.log',
+		}));
+		await page.goto(link);
+		await expect(page.getByLabel('Full log message')).toHaveText('Server clock ahead');
 		await page.getByRole('button', { name: 'Filters', exact: true }).click();
 		const count = requests.length;
 		await page.getByRole('button', { name: 'Apply Filters' }).click();

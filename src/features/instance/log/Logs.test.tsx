@@ -11,7 +11,6 @@ const state = vi.hoisted(() => ({
 	version: '5.4.0',
 	args: {} as UseInstanceLogsParams,
 	refetch: vi.fn(),
-	copy: vi.fn(),
 	error: null as unknown,
 	loading: false,
 }));
@@ -35,7 +34,6 @@ vi.mock(
 		useQuery: () => ({ data: { version: state.version } }),
 	}),
 );
-vi.mock('@/hooks/useCopyToClipboard', () => ({ useCopyTextToClipboard: () => state.copy }));
 const log = (message: string, node = 'node-a', second = 1): ReadLogItem => ({
 	level: 'error',
 	timestamp: `2026-11-19T21:00:0${second}.123Z`,
@@ -60,7 +58,6 @@ beforeEach(() => {
 	state.version = '5.4.0';
 	state.error = null;
 	state.loading = false;
-	state.copy.mockClear();
 	state.refetch.mockClear();
 	localStorage.clear();
 });
@@ -79,17 +76,15 @@ describe('logs explorer interactions', () => {
 		expect(screen.getAllByLabelText('Full log message')[1].textContent).toBe('');
 	});
 
-	it('expands multiple logs inline, copies without collapsing, and reveals full metadata', () => {
+	it('expands multiple logs inline and shows metadata without action controls', () => {
 		render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Expand log 2' }));
 		expect(screen.getAllByLabelText('Full log message')).toHaveLength(2);
 		expect(document.querySelector('time')!.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
-		fireEvent.click(screen.getAllByRole('button', { name: 'Copy message' })[0]);
-		expect(state.copy).toHaveBeenCalledWith('first error');
-		fireEvent.click(screen.getAllByRole('button', { name: 'Copy JSON' })[0]);
-		expect(JSON.parse(state.copy.mock.lastCall![0])).toEqual(state.logs[0]);
-		expect(screen.getAllByLabelText('Full log message')).toHaveLength(2);
+		for (const name of ['Copy message', 'Copy JSON', 'Copy link', 'View surrounding logs']) {
+			expect(screen.queryByRole('button', { name })).toBeNull();
+		}
 		fireEvent.click(screen.getByRole('button', { name: 'Collapse log 1' }));
 		expect(screen.getAllByLabelText('Full log message')).toHaveLength(1);
 	});
@@ -199,23 +194,7 @@ describe('logs explorer interactions', () => {
 		expect(screen.queryByText('new arrival')).toBeNull();
 		expect(screen.getByRole('button', { name: /Resume live/ })).toBeTruthy();
 	});
-	it('restores all expanded logs when returning from surrounding context', () => {
-		const { rerender } = render(<LogsExplorer params={params} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
-		fireEvent.click(screen.getByRole('button', { name: 'Expand log 2' }));
-		fireEvent.click(screen.getAllByRole('button', { name: 'View surrounding logs' })[0]);
-		expect(state.args.logFilters).toMatchObject({ level: 'undefined', filter: '', limit: '1000' });
-		expect(Date.parse(state.args.logFilters.until!) - Date.parse(state.args.logFilters.from!)).toBe(60000);
-		expect(state.args.live).toBe(false);
-		expect(screen.getByRole('switch', { name: 'Live logs' }).hasAttribute('disabled')).toBe(true);
-		state.logs = [log('nearby event')];
-		rerender(<LogsExplorer params={params} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Back to previous view' }));
-		expect(screen.getAllByText('first error').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('second error').length).toBeGreaterThan(0);
-		expect(screen.queryByText('nearby event')).toBeNull();
-		expect(screen.getAllByLabelText('Full log message')).toHaveLength(2);
-	});
+
 	it('validates persisted column preferences while keeping required columns visible', () => {
 		localStorage.setItem('LogsColumnSizing', JSON.stringify({ message: 'bad', timestamp: -5, node: 180 }));
 		localStorage.setItem(
@@ -374,9 +353,9 @@ it('navigates the filtered slice and keeps independently expanded logs open', ()
 	screen.getByRole('button', { name: 'Collapse log 1' }).focus();
 	fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
 	expect(screen.getAllByLabelText('Full log message').map(el => el.textContent)).toEqual(['third', 'fourth']);
-	const copy = screen.getAllByRole('button', { name: 'Copy JSON' })[0];
-	copy.focus();
-	fireEvent.keyDown(copy, { key: 'ArrowUp' });
+	const message = screen.getAllByLabelText('Full log message')[0];
+	message.focus();
+	fireEvent.keyDown(message, { key: 'ArrowUp' });
 	expect(screen.getAllByLabelText('Full log message').map(el => el.textContent)).toEqual(['first', 'fourth']);
 });
 
