@@ -1,44 +1,66 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, TriangleAlertIcon, UserMinus } from 'lucide-react';
+import { LogOut, MailX, TriangleAlertIcon, UserMinus } from 'lucide-react';
 import { useState } from 'react';
+
+/**
+ * What the button ends: your own membership (`leave`), another member's (`remove`), or an invitation
+ * nobody has accepted yet (`cancel-invite`).
+ */
+export type OrgRemovalKind = 'leave' | 'remove' | 'cancel-invite';
+
+const COPY: Record<OrgRemovalKind, { idle: string; back: string; confirm: string; busy: string; warning: string }> = {
+	leave: {
+		idle: 'Leave organization',
+		back: 'Cancel',
+		confirm: 'Confirm leave',
+		busy: 'Leaving…',
+		warning:
+			'You’ll lose access to this organization and everything in it. You won’t be able to return unless another member invites you back.',
+	},
+	remove: {
+		idle: 'Remove from organization',
+		back: 'Cancel',
+		confirm: 'Confirm removal',
+		busy: 'Removing…',
+		warning:
+			'This revokes their access to this organization and everything in it. Their Harper account isn’t deleted, and they can be added back later.',
+	},
+	// "Keep invite", not "Cancel": beside a button that cancels the invite, a bare "Cancel" is ambiguous.
+	'cancel-invite': {
+		idle: 'Cancel invite',
+		back: 'Keep invite',
+		confirm: 'Confirm cancellation',
+		busy: 'Cancelling…',
+		warning:
+			'This cancels their invitation, so signing up with this address won’t add them to this organization. You can invite them again later.',
+	},
+};
+
+const ICON = { leave: LogOut, remove: UserMinus, 'cancel-invite': MailX } satisfies Record<OrgRemovalKind, unknown>;
 
 /**
  * A user belongs to an org purely by having org roles, so "removing" them means dropping all
  * of those roles at once. That's a destructive, non-obvious action (see issue #1505), so this
  * button makes it explicit and requires a second, deliberate click to confirm — the same inline
  * confirmation pattern used for deleting secrets (see `SecretModals`). Removing yourself is the
- * same action with gentler "leave" wording.
+ * same action with gentler "leave" wording; cancelling a pending invitation is its own action.
  *
  * The confirm control is intentionally right-aligned, away from the idle button's left-aligned
  * footprint, so a fast double-click can't land on "Confirm" and skip the confirmation step.
  */
 export function RemoveUserFromOrgButton({
-	isSelf,
+	kind,
 	isPending,
 	onConfirm,
 }: {
-	isSelf: boolean;
+	kind: OrgRemovalKind;
 	isPending: boolean;
 	onConfirm: () => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
 
-	const copy = isSelf
-		? {
-			idle: 'Leave organization',
-			confirm: 'Confirm leave',
-			busy: 'Leaving…',
-			warning:
-				'You’ll lose access to this organization and everything in it. You won’t be able to return unless another member invites you back.',
-		}
-		: {
-			idle: 'Remove from organization',
-			confirm: 'Confirm removal',
-			busy: 'Removing…',
-			warning:
-				'This revokes their access to this organization and everything in it. Their Harper account isn’t deleted, and they can be added back later.',
-		};
-	const Icon = isSelf ? LogOut : UserMinus;
+	const copy = COPY[kind];
+	const Icon = ICON[kind];
 
 	if (!confirming) {
 		return (
@@ -71,7 +93,7 @@ export function RemoveUserFromOrgButton({
 					disabled={isPending}
 					onClick={() => setConfirming(false)}
 				>
-					Cancel
+					{copy.back}
 				</Button>
 				{/* Not autoFocused: focus on the destructive button would let a stray Enter or double-click confirm. */}
 				<Button
