@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/config/apiClient';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SettingsSection } from '@/features/organization/settings/SettingsSection';
 import { Organization, OrganizationHarperVersion } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,6 +80,8 @@ export function HarperVersionsSetting(
 	const queryClient = useQueryClient();
 	const [editing, setEditing] = useState<string | 'new' | null>(null);
 	const [openedExpires, setOpenedExpires] = useState<string | null>(null);
+	const [unreadableExpiry, setUnreadableExpiry] = useState(false);
+	const [reading, setReading] = useState(false);
 	const form = useForm<EntryForm>({ resolver: zodResolver(entrySchema), defaultValues: blankEntry() });
 
 	const { mutate, isPending } = useMutation({
@@ -89,29 +92,46 @@ export function HarperVersionsSetting(
 				(organization) => organization && { ...organization, harperVersions: next },
 			);
 			void queryClient.invalidateQueries({ queryKey: [organizationId] });
-			setEditing(null);
 		},
 	});
+	const busy = reading || isPending;
 
-	const save = (next: OrganizationHarperVersion[], message: string) =>
-		mutate(next, { onSuccess: () => toast.success(message) });
+	// A save replaces the whole list, so it starts from the stored list rather than the last poll's copy, which could
+	// put back what another staff member just changed.
+	const readCurrent = async (): Promise<OrganizationHarperVersion[] | null> => {
+		setReading(true);
+		try {
+			const organization = await queryClient.fetchQuery({
+				...getOrganizationQueryOptions(organizationId),
+				staleTime: 0,
+			});
+			return organization.harperVersions ?? [];
+		} catch {
+			toast.error('Could not read the versions this organization is offered; nothing was saved.');
+			return null;
+		} finally {
+			setReading(false);
+		}
+	};
 
 	const startEdit = (entry?: OrganizationHarperVersion) => {
 		const stored = entry?.expiresAt == null ? '' : dayInput(Date.parse(entry.expiresAt));
-		// A date input cannot show an unreadable expiry, so it opens as today, already expired as the stored value reads,
-		// and whatever the form then holds is saved: kept, it stays expired; cleared, it becomes no expiry.
+		// A date input cannot show an unreadable expiry; today reads as expired, as the stored value does.
 		const unreadable = entry?.expiresAt != null && stored === '';
 		const values = entry
 			? { name: entry.name, version: entry.version, expires: unreadable ? dayInput(Date.now()) : stored }
 			: blankEntry();
 		form.reset(values);
 		setOpenedExpires(unreadable ? null : values.expires);
+		setUnreadableExpiry(unreadable);
 		setEditing(entry?.version ?? 'new');
 	};
 
-	const onSubmit = (values: EntryForm) => {
-		const editedEntry = editing === 'new' ? undefined : entries.find((existing) => existing.version === editing);
-		if (editing === 'new' && entries.some((existing) => existing.version === values.version)) {
+	const onSubmit = async (values: EntryForm) => {
+		const current = await readCurrent();
+		if (!current) { return; }
+		const editedEntry = editing === 'new' ? undefined : current.find((existing) => existing.version === editing);
+		if (editing === 'new' && current.some((existing) => existing.version === values.version)) {
 			form.setError('version', { message: 'Already offered; edit that entry instead' });
 			return;
 		}
@@ -119,7 +139,6 @@ export function HarperVersionsSetting(
 			form.setError('version', { message: 'No longer offered; someone removed it since this form opened' });
 			return;
 		}
-		// An expiry the form did not change is sent back as stored, keeping its time of day.
 		const expiresAt = editedEntry && values.expires === openedExpires
 			? editedEntry.expiresAt
 			: values.expires
@@ -127,22 +146,40 @@ export function HarperVersionsSetting(
 			: null;
 		const entry: OrganizationHarperVersion = { name: values.name, version: values.version, expiresAt };
 		const next = editedEntry
-			? entries.map((existing) => existing === editedEntry ? entry : existing)
-			: [...entries, entry];
+			? current.map((existing) => existing === editedEntry ? entry : existing)
+			: [...current, entry];
 		if (next.length > ORG_HARPER_VERSIONS_MAX) {
 			form.setError('version', {
 				message: `An organization can be offered at most ${ORG_HARPER_VERSIONS_MAX} versions`,
 			});
 			return;
 		}
-		save(next, `Harper ${entry.version} is offered to this organization.`);
+		mutate(next, {
+			onSuccess: () => {
+				toast.success(`Harper ${entry.version} is offered to this organization.`);
+				setEditing(null);
+			},
+		});
+	};
+
+	const remove = async (version: string) => {
+		const current = await readCurrent();
+		if (!current) { return; }
+		mutate(current.filter((existing) => existing.version !== version), {
+			onSuccess: () => toast.success(`Harper ${version} is no longer offered to this organization.`),
+		});
 	};
 
 	return (
 		<SettingsSection
 			title="Harper versions"
 			actions={editing === null && (
-				<Button variant="positiveOutline" size="sm" onClick={() => startEdit()}>
+				<Button
+					variant="positiveOutline"
+					size="sm"
+					disabled={busy}
+					onClick={() => startEdit()}
+				>
 					<PlusIcon />
 					Offer a version
 				</Button>
@@ -172,7 +209,7 @@ export function HarperVersionsSetting(
 									variant="outline"
 									size="sm"
 									aria-label={`Edit ${entry.version}`}
-									disabled={isPending}
+									disabled={busy || editing !== null}
 									onClick={() =>
 										startEdit(entry)}
 								>
@@ -182,14 +219,9 @@ export function HarperVersionsSetting(
 									variant="outline"
 									size="sm"
 									aria-label={`Remove ${entry.version}`}
-									disabled={isPending}
+									disabled={busy || editing !== null}
 									onClick={() =>
-										save(
-											entries.filter((existing) =>
-												existing.version !== entry.version
-											),
-											`Harper ${entry.version} is no longer offered to this organization.`,
-										)}
+										void remove(entry.version)}
 								>
 									<Trash2Icon className="size-4" />
 								</Button>
@@ -249,12 +281,17 @@ export function HarperVersionsSetting(
 										<FormControl>
 											<Input type="date" {...field} />
 										</FormControl>
+										{unreadableExpiry && (
+											<p className="text-xs text-muted-foreground">
+												The stored expiry could not be read and counts as expired, so it shows as today.
+											</p>
+										)}
 										<FormMessage />
 									</FormItem>
 								)}
 							/>
-							<Button type="submit" variant="positive" disabled={isPending}>
-								{isPending ? 'Saving...' : 'Save'}
+							<Button type="submit" variant="positive" disabled={busy}>
+								{busy ? 'Saving...' : 'Save'}
 							</Button>
 						</form>
 					</Form>

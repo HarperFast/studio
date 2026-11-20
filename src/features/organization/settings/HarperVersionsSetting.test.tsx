@@ -5,8 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { patch } = vi.hoisted(() => ({ patch: vi.fn() }));
-vi.mock('@/config/apiClient', () => ({ apiClient: { patch } }));
+const { get, patch } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import type { OrganizationHarperVersion } from '@/integrations/api/api.patch';
@@ -19,8 +19,12 @@ const LAPSED: OrganizationHarperVersion = {
 	expiresAt: '2020-01-01T00:00:00.000Z',
 };
 
+// What GET /Organization/:id answers when a save reads the stored list; a test sets it to model another editor.
+let stored: OrganizationHarperVersion[] = [];
+
 beforeEach(() => {
 	patch.mockImplementation((_url, body) => Promise.resolve({ data: body }));
+	get.mockImplementation(() => Promise.resolve({ data: { id: 'org-1', harperVersions: stored } }));
 });
 
 afterEach(() => {
@@ -29,6 +33,7 @@ afterEach(() => {
 });
 
 function renderSetting(entries: OrganizationHarperVersion[]) {
+	stored = entries;
 	const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
 	client.setQueryData(['org-1'], { id: 'org-1', harperVersions: entries });
 	render(
@@ -96,6 +101,7 @@ describe('HarperVersionsSetting', () => {
 		renderSetting([garbled]);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.3.5' }));
 		expect((screen.getByLabelText(/^Expires/) as HTMLInputElement).value).toBe(today);
+		expect(screen.getByText(/stored expiry could not be read and counts as expired/)).toBeTruthy();
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
@@ -115,21 +121,42 @@ describe('HarperVersionsSetting', () => {
 		});
 	});
 
-	it('refuses to save an entry someone removed since the form opened', async () => {
-		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-		const view = (entries: OrganizationHarperVersion[]) => (
-			<QueryClientProvider client={client}>
-				<HarperVersionsSetting organizationId="org-1" entries={entries} />
-			</QueryClientProvider>
-		);
-		const { rerender } = render(view([PINNED, LAPSED]));
+	it('refuses to save an entry someone removed since the form opened, checking the stored list', async () => {
+		renderSetting([PINNED, LAPSED]);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.1.29' }));
-		rerender(view([LAPSED]));
+		stored = [LAPSED];
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		});
 		expect(patch).not.toHaveBeenCalled();
 		expect(screen.getByText('No longer offered; someone removed it since this form opened')).toBeTruthy();
+	});
+
+	it("builds a save from the stored list, keeping another staff member's change the page has not polled yet", async () => {
+		const added = { name: 'theirs', version: '5.2.0', expiresAt: null };
+		renderSetting([PINNED, LAPSED]);
+		stored = [PINNED, LAPSED, added];
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.4.0-rc.1' }));
+		});
+		expect(patch).toHaveBeenCalledWith('/Admin/Organization/org-1', { harperVersions: [PINNED, added] });
+	});
+
+	it('keeps an open form: removing and editing other entries waits until it is saved or cancelled', () => {
+		renderSetting([PINNED, LAPSED]);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.4.0-rc.1' }));
+		for (const name of ['Remove 5.1.29', 'Edit 5.1.29']) {
+			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
+		}
+	});
+
+	it('saves nothing when the stored list cannot be read', async () => {
+		get.mockRejectedValueOnce(new Error('offline'));
+		renderSetting([PINNED]);
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Remove 5.1.29' }));
+		});
+		expect(patch).not.toHaveBeenCalled();
 	});
 
 	it('says an unreadable expiry is read as expired, rather than showing an invalid date', () => {
