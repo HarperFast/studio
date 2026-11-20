@@ -69,7 +69,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		size: 540,
 		minSize: 240,
 		enableHiding: false,
-		cell: ({ row }) => <span className="block truncate font-mono">{row.original.message}</span>,
+		cell: ({ row }) => <span data-column-content className="block truncate font-mono">{row.original.message}</span>,
 	},
 	{ accessorKey: 'thread', header: 'Thread', size: 100 },
 	{
@@ -77,7 +77,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		header: 'Node',
 		size: 200,
 		cell: ({ row }) => (
-			<span className="block truncate text-muted-foreground" title={row.original.node}>
+			<span data-column-content className="block truncate text-muted-foreground" title={row.original.node}>
 				{row.original.node || 'Local'}
 			</span>
 		),

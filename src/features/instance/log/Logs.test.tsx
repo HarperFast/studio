@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { LogContextLimitError, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseInstanceLogsParams } from './hooks/useInstanceLogs';
@@ -13,13 +13,14 @@ const state = vi.hoisted(() => ({
 	refetch: vi.fn(),
 	copy: vi.fn(),
 	error: null as unknown,
+	loading: false,
 }));
 vi.mock('./hooks/useInstanceLogs', () => ({
 	useInstanceLogs: (args: UseInstanceLogsParams) => {
 		state.args = args;
 		return {
 			logs: state.logs,
-			isLoading: false,
+			isLoading: state.loading,
 			isFetching: false,
 			refetch: state.refetch,
 			transport: 'polling',
@@ -58,6 +59,7 @@ beforeEach(() => {
 	state.logs = [log('first error'), log('second error', 'node-b', 2)];
 	state.version = '5.4.0';
 	state.error = null;
+	state.loading = false;
 	state.copy.mockClear();
 	state.refetch.mockClear();
 	localStorage.clear();
@@ -121,6 +123,17 @@ describe('logs explorer interactions', () => {
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
 	});
 
+	it('ignores inspection gestures until the current query loads', () => {
+		state.loading = true;
+		state.logs = [];
+		const { container, rerender } = render(<LogsExplorer params={params} />);
+		fireEvent.wheel(container.querySelector('[data-slot="table-container"]')!);
+		state.loading = false;
+		state.logs = [log('loaded after wheel')];
+		rerender(<LogsExplorer params={params} />);
+		expect(screen.getByText('loaded after wheel')).toBeTruthy();
+		expect(screen.queryByText(/Paused for inspection/)).toBeNull();
+	});
 	it('pins a scrollbar drag before a live flush can interrupt it', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
@@ -155,6 +168,23 @@ describe('logs explorer interactions', () => {
 		expect(state.args.logFilters.until).toBe(previous.until);
 	});
 
+	for (const changed of ['from', 'until'] as const) {
+		it(`preserves the untouched canonical DST bound when only ${changed} changes`, async () => {
+			state.logs = [{ ...log('DST partial edit'), timestamp: '2026-11-01T06:30:00Z' }];
+			const link = buildLogLink('https://studio.example/#/org/clu/logs', state.logs[0], 'hdb.log');
+			render(<LogsExplorer params={params} search={new URL(link).hash.split('?')[1]} />);
+			const previous = state.args.logFilters;
+			fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+			fireEvent.change(
+				screen.getByLabelText(changed === 'from' ? 'Start date (local time)' : 'End date (local time)'),
+				{ target: { value: changed === 'from' ? '2026-11-01T00:00' : '2026-11-01T03:00' } },
+			);
+			fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }));
+			await waitFor(() => expect(state.args.logFilters).not.toBe(previous));
+			const untouched = changed === 'from' ? 'until' : 'from';
+			expect(state.args.logFilters[untouched]).toBe(previous[untouched]);
+		});
+	}
 	it('freezes when a user scrolls away from the newest edge', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
@@ -257,4 +287,12 @@ describe('logs explorer interactions', () => {
 		fireEvent.change(screen.getByLabelText('Time range'), { target: { value: 'latest' } });
 		expect(state.args.logFilters).toMatchObject({ from: '', until: '' });
 	});
+});
+
+it('explains an oversized context and opens filters for recovery', () => {
+	state.error = new LogContextLimitError();
+	render(<LogsExplorer params={params} />);
+	expect(screen.getByRole('alert').textContent).toContain('Too many logs');
+	fireEvent.click(screen.getByRole('button', { name: 'Open context filters' }));
+	expect(screen.getByLabelText('Start date (local time)')).toBeTruthy();
 });

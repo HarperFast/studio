@@ -19,6 +19,7 @@ interface GetReadLogParams {
 	isAutoRefreshEnabled: boolean;
 	contextTimestamp?: string;
 	order?: 'asc' | 'desc';
+	start?: number;
 }
 
 /**
@@ -41,18 +42,18 @@ export function clampReadLogLimit(limit: string | null | undefined): number | un
 }
 
 /**
- * Build the `read_log` operation body from the current filters. Shared by the buffered
- * (axios) fetch and the SSE tail so the two paths request the exact same slice — the only
- * difference between them is the `Accept` header (see `streamReadLog`).
+ * Build the `read_log` body. SSE sends relative bounds to the tail; buffered relative reads
+ * omit those bounds to preserve Harper’s tail seek and apply the cutoff in useInstanceLogs.
  */
 export function buildReadLogBody(
 	logFilters: z.infer<typeof LogFiltersFormSchema>,
 	replicated: boolean,
 	order: 'asc' | 'desc' = 'desc',
+	start = 0,
 ): Record<string, unknown> {
 	return {
 		operation: 'read_log',
-		start: 0,
+		start,
 		replicated,
 		limit: clampReadLogLimit(logFilters.limit),
 		level: logFilters.level !== 'undefined' ? logFilters.level : undefined,
@@ -69,12 +70,22 @@ export function buildReadLogBody(
 }
 
 export async function getReadLog(
-	{ instanceClient, logFilters, replicated, order }:
+	{ instanceClient, logFilters, replicated, order, start }:
 		& Omit<GetReadLogParams, 'isAutoRefreshEnabled'>
 		& InstanceClientIdConfig,
 ): Promise<ReadLogItem[]> {
-	const { data } = await instanceClient.post<ReadLogItem[]>('/', buildReadLogBody(logFilters, replicated, order));
+	const body = buildReadLogBody(logFilters, replicated, order, start);
+	// Buffered relative reads use Harper's tail seek; the hook applies the moving cutoff.
+	if (logFilters.relative_minutes) { delete body.from; }
+	const { data } = await instanceClient.post<ReadLogItem[]>('/', body);
 	return data;
+}
+
+export class LogContextLimitError extends Error {
+	constructor() {
+		super('Too many logs in this context window. Use Filters to choose a smaller time range.');
+		this.name = 'LogContextLimitError';
+	}
 }
 
 async function getContextLogs(
@@ -86,17 +97,28 @@ async function getContextLogs(
 	const beforeLimit = Math.ceil(limit / 2);
 	const afterLimit = Math.floor(limit / 2);
 	const common = { ...params.logFilters, relative_minutes: undefined };
-	const [before, after] = await Promise.all([
-		getReadLog({
-			...params,
-			order: 'desc',
-			logFilters: {
-				...common,
-				limit: String(beforeLimit),
-				from: new Date(time - 30000).toISOString(),
-				until: timestamp,
-			},
-		}),
+	const before = async () => {
+		let nearest: ReadLogItem[] = [];
+		// Harper bounds a forward scan before sorting. Walk bounded pages to reach the center.
+		for (let page = 0; page < 8; page++) {
+			const rows = await getReadLog({
+				...params,
+				order: 'asc',
+				start: page * beforeLimit,
+				logFilters: {
+					...common,
+					limit: String(beforeLimit),
+					from: new Date(time - 30000).toISOString(),
+					until: timestamp,
+				},
+			});
+			nearest = nearest.concat(rows).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, beforeLimit);
+			if (rows.length < beforeLimit) { return nearest; }
+		}
+		throw new LogContextLimitError();
+	};
+	const [earlier, later] = await Promise.all([
+		before(),
 		afterLimit
 			? getReadLog({
 				...params,
@@ -104,13 +126,13 @@ async function getContextLogs(
 				logFilters: {
 					...common,
 					limit: String(afterLimit),
-					from: timestamp,
+					from: new Date(time + 1).toISOString(),
 					until: new Date(time + 30000).toISOString(),
 				},
 			})
 			: Promise.resolve([]),
 	]);
-	return before.slice(0, beforeLimit).concat(after.slice(0, afterLimit));
+	return earlier.concat(later.sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, afterLimit));
 }
 
 export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClientIdConfig) {
@@ -120,6 +142,7 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 			'read_log',
 			params.contextTimestamp,
 			params.order,
+			params.start,
 			params.entityId,
 			logFilters.relative_minutes,
 			logFilters.limit,

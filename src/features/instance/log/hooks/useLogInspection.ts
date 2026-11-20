@@ -2,15 +2,16 @@ import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logKey } from './mergeReadLogs';
 
-export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '*', thread = '*') {
+export function useLogInspection(logs: ReadLogItem[], queryKey: string, node = '*', thread = '*', ready = true) {
 	const [pinned, setPinned] = useState<{ key: string; logs: ReadLogItem[] } | null>(null);
 	useEffect(() => {
 		setPinned(current => current?.key === queryKey ? current : null);
 	}, [queryKey]);
-	const input = useRef({ logs, queryKey });
-	input.current = { logs, queryKey };
+	const input = useRef({ logs, queryKey, ready });
+	input.current = { logs, queryKey, ready };
 	const pause = useCallback(() => {
-		const { logs, queryKey } = input.current;
+		const { logs, queryKey, ready } = input.current;
+		if (!ready) { return; }
 		setPinned(current => current?.key === queryKey ? current : { key: queryKey, logs });
 	}, []);
 	const resume = useCallback(() => setPinned(null), []);

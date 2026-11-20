@@ -117,7 +117,7 @@ export function TableHeadSortable<TData extends RowData>({
 		const selector = `[data-col-id="${CSS.escape(header.column.id)}"]`;
 		const range = document.createRange();
 		const measure = (el: Element) => {
-			range.selectNodeContents(el);
+			range.selectNodeContents(el.querySelector('[data-column-content]') ?? el);
 			return range.getBoundingClientRect().width;
 		};
 		let widest = 0;

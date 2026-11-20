@@ -116,10 +116,11 @@ it('keeps both sides of a busy context window under one total limit', async () =
 			Date.parse(item.timestamp) >= Date.parse(body.from as string)
 			&& Date.parse(item.timestamp) <= Date.parse(body.until as string)
 		);
-		matching.sort((a, b) =>
+		const page = matching.slice(body.start as number, (body.start as number) + (body.limit as number));
+		page.sort((a, b) =>
 			body.order === 'asc' ? a.timestamp.localeCompare(b.timestamp) : b.timestamp.localeCompare(a.timestamp)
 		);
-		return { data: matching.slice(0, body.limit as number) };
+		return { data: page };
 	});
 	const options = getReadLogQueryOptions({
 		entityId: 'context',
@@ -130,11 +131,44 @@ it('keeps both sides of a busy context window under one total limit', async () =
 		contextTimestamp: timestamp,
 	});
 	const data = await (options.queryFn as () => Promise<typeof fixtures>)();
-	expect(post).toHaveBeenCalledTimes(2);
-	expect(post.mock.calls.map(([, body]) => body.order).sort()).toEqual(['asc', 'desc']);
+	expect(post).toHaveBeenCalledTimes(8);
+	expect(post.mock.calls.every(([, body]) => body.order === 'asc')).toBe(true);
 	expect(post.mock.calls.every(([, body]) => body.limit === 5 && body.replicated === true)).toBe(true);
 	expect(data).toHaveLength(10);
 	expect(data.some(item => Date.parse(item.timestamp) < center)).toBe(true);
 	expect(data.some(item => Date.parse(item.timestamp) > center)).toBe(true);
-	expect(data.every(item => Math.abs(Date.parse(item.timestamp) - center) <= 4000)).toBe(true);
+	expect(data.every(item => Math.abs(Date.parse(item.timestamp) - center) <= 5000)).toBe(true);
+});
+
+it('keeps buffered relative reads on the tail-seek path', async () => {
+	const post = vi.fn().mockResolvedValue({ data: [] });
+	const options = getReadLogQueryOptions({
+		entityId: 'tail',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { relative_minutes: '15', limit: '100' },
+		replicated: true,
+		isAutoRefreshEnabled: true,
+	});
+	await (options.queryFn as () => Promise<unknown>)();
+	expect(post.mock.calls[0][1]).toMatchObject({ order: 'desc', limit: 100 });
+	expect(post.mock.calls[0][1].from).toBeUndefined();
+	expect(post.mock.calls[0][1].until).toBeUndefined();
+});
+it('fails explicitly when a context window exceeds its bounded scan budget', async () => {
+	const post = vi.fn().mockImplementation(async (_url, body) => ({
+		data: Array.from(
+			{ length: body.limit },
+			(_, i) => ({ timestamp: new Date(Date.parse('2026-11-19T18:00:00Z') - i).toISOString() }),
+		),
+	}));
+	const options = getReadLogQueryOptions({
+		entityId: 'dense',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: false,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).rejects.toThrow('Too many logs');
+	expect(post).toHaveBeenCalledTimes(9);
 });

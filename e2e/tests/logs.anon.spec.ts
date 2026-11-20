@@ -50,7 +50,15 @@ async function serve(page: Page, logs: () => ReturnType<typeof log>[], requests:
 		const body = route.request().postDataJSON();
 		if (body.operation === 'read_log') {
 			requests.push(body);
-			return route.fulfill({ json: logs() });
+			const matching = logs().filter(log =>
+				(!body.from || log.timestamp >= body.from) && (!body.until || log.timestamp <= body.until)
+				&& (!body.level || log.level === body.level) && (!body.filter || log.message.includes(body.filter))
+			);
+			const rows = matching.slice(body.start ?? 0, (body.start ?? 0) + (body.limit ?? 1000));
+			rows.sort((a, b) =>
+				body.order === 'asc' ? a.timestamp.localeCompare(b.timestamp) : b.timestamp.localeCompare(a.timestamp)
+			);
+			return route.fulfill({ json: rows });
 		}
 		const responses: Record<string, unknown> = {
 			user_info: { username: 'admin', role: { permission: { super_user: true } } },
@@ -136,7 +144,7 @@ test(
 		await expect(page.getByRole('button', { name: 'Back to previous view' })).toBeVisible();
 		await expect(page.getByText('Other node event', { exact: true })).toHaveCount(0);
 		await expect(page.getByLabel('Full log message')).toContainText('Error: request failed');
-		expect(requests.slice(-2).map(body => body.order).sort()).toEqual(['asc', 'desc']);
+		expect(requests.slice(-2).every(body => body.order === 'asc')).toBe(true);
 		expect(requests.slice(-2).every(body => body.limit === 500)).toBe(true);
 		expect(requests.at(-1)?.level).toBeUndefined();
 		expect(requests.at(-1)?.filter).toBeUndefined();
@@ -148,8 +156,9 @@ test(
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('columnheader', { name: 'Tags' })).toBeVisible();
 		const nodeHeader = page.getByRole('columnheader', { name: 'Node' });
+		const nodeWidth = (await nodeHeader.boundingBox())!.width;
 		await nodeHeader.locator('[class*="cursor-col-resize"]').dblclick();
-		expect((await nodeHeader.boundingBox())!.width).toBeGreaterThan(100);
+		expect((await nodeHeader.boundingBox())!.width).not.toBe(nodeWidth);
 		const header = page.getByRole('columnheader', { name: 'Message' });
 		const before = (await header.boundingBox())!.width;
 		const grip = header.locator('[class*="cursor-col-resize"]');

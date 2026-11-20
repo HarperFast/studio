@@ -1,5 +1,5 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
 import {
 	buildLogLink,
@@ -91,12 +91,12 @@ describe('logs view contracts', () => {
 		const b = { ...log, node: 'a', thread: 'b|c' };
 		expect(logKey(a)).not.toBe(logKey(b));
 		expect(logKey({ ...log })).toBe(logKey(log));
-		expect(mergeReadLogs([log, { ...log }], [], 100)).toEqual([log]);
-		expect(mergeReadLogs([log, { ...log }], [{ ...log }], 100).map(logKey)).toEqual([logKey(log)]);
+		expect(mergeReadLogs([log, { ...log }], [], 100)).toEqual([log, log]);
+		expect(new Set(mergeReadLogs([log, { ...log }], [{ ...log }], 100).map(logKey)).size).toBe(2);
 	});
 });
 
-it('bounds identity caching even while callers retain old record objects', () => {
+it('keeps compact stable identities while callers retain old record objects', () => {
 	mergeReadLogs([], [], 100);
 	let reads = 0;
 	const original = {
@@ -116,6 +116,19 @@ it('bounds identity caching even while callers retain old record objects', () =>
 		logKey(next);
 	}
 	expect(logKey(original)).toBe(first);
-	expect(reads).toBe(2);
+	expect(reads).toBe(1);
+	expect(first.length).toBeLessThan(40);
 	expect(retained).toHaveLength(30001);
+});
+
+it('keeps generated midnight context dates valid for the form', () => {
+	const now = new Date();
+	now.setHours(23, 59, 50, 0);
+	const clock = vi.spyOn(Date, 'now').mockReturnValue(now.getTime());
+	try {
+		const filters = surroundingFilters(DEFAULT_LOG_FILTERS, now.toISOString());
+		expect(Date.parse(filters.until!)).toBe(now.getTime());
+	} finally {
+		clock.mockRestore();
+	}
 });

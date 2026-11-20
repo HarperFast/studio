@@ -38,7 +38,7 @@ export function surroundingFilters(filters: LogFilters, timestamp: string): LogF
 		level: 'undefined',
 		limit: '1000',
 		from: new Date(time - 30000).toISOString(),
-		until: new Date(time + 30000).toISOString(),
+		until: new Date(Math.min(time + 30000, Date.now())).toISOString(),
 	};
 }
 

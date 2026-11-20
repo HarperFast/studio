@@ -1,52 +1,79 @@
-import { MAX_READ_LOG_LIMIT, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 
 export const LIVE_LOG_BUFFER_FLOOR = 2000;
-// Bound cached message copies even when query or table consumers retain old record objects.
-let capacity = LIVE_LOG_BUFFER_FLOOR * 3;
-let keys = new WeakMap<ReadLogItem, string>();
-let slots: WeakRef<ReadLogItem>[] = [];
-let cursor = 0;
+type Identity = { id: string; references: Set<WeakRef<ReadLogItem>> };
+const identities = new Map<string, Map<string, Identity>>();
+const keys = new WeakMap<ReadLogItem, string>();
+const occurrences = new WeakMap<ReadLogItem, number>();
+let nextIdentity = 0;
+const collected = new FinalizationRegistry<{
+	metadata: string;
+	message: string;
+	identity: Identity;
+	reference: WeakRef<ReadLogItem>;
+}>(({ metadata, message, identity, reference }) => {
+	identity.references.delete(reference);
+	if (identity.references.size) { return; }
+	const messages = identities.get(metadata);
+	if (messages?.get(message) !== identity) { return; }
+	messages.delete(message);
+	if (!messages.size) { identities.delete(metadata); }
+});
 
-export function logKey(entry: ReadLogItem): string {
-	let key = keys.get(entry);
-	if (key === undefined) {
-		key = [entry.timestamp, entry.node ?? '', entry.thread ?? '', entry.level, entry.message].map(part => {
-			const text = typeof part === 'string' ? part : JSON.stringify(part);
-			return text === undefined || text === null ? '-1:' : `${text.length}:${text}`;
-		}).join('');
-		const expired = slots[cursor]?.deref();
-		if (expired) { keys.delete(expired); }
-		slots[cursor] = new WeakRef(entry);
-		cursor = (cursor + 1) % capacity;
-		keys.set(entry, key);
+function contentKey(entry: ReadLogItem): string {
+	const cached = keys.get(entry);
+	if (cached !== undefined) { return cached; }
+	const metadata = JSON.stringify([
+		entry.timestamp,
+		entry.node ?? '',
+		entry.thread ?? '',
+		entry.level,
+		entry.tags ?? [],
+	]);
+	const message = entry.message;
+	let messages = identities.get(metadata);
+	if (!messages) { identities.set(metadata, messages = new Map()); }
+	let identity = messages.get(message);
+	if (!identity) {
+		identity = { id: `event-${++nextIdentity}`, references: new Set() };
+		messages.set(message, identity);
 	}
-	return key;
+	// Index the original message string; never serialize/copy payloads into row or cell IDs.
+	const reference = new WeakRef(entry);
+	identity.references.add(reference);
+	collected.register(entry, { metadata, message, identity, reference });
+	keys.set(entry, identity.id);
+	return identity.id;
 }
 
-/** Deduplicate overlapping snapshots/tails and order newest first. A nonpositive limit is uncapped. */
-export function mergeReadLogs(
-	snapshot: ReadLogItem[],
-	live: ReadLogItem[],
-	limit: number,
-): ReadLogItem[] {
-	if (limit > 0) {
-		const nextCapacity = 3 * Math.max(LIVE_LOG_BUFFER_FLOOR, Math.min(limit, MAX_READ_LOG_LIMIT));
-		if (capacity !== nextCapacity) {
-			capacity = nextCapacity;
-			keys = new WeakMap();
-			slots = [];
-			cursor = 0;
-		}
-	}
-	const seen = new Set<string>();
+export function logKey(entry: ReadLogItem): string {
+	return `${contentKey(entry)}:${occurrences.get(entry) ?? 0}`;
+}
+
+function occurrence(entry: ReadLogItem, index: number): ReadLogItem {
+	if ((occurrences.get(entry) ?? 0) === index) { return entry; }
+	const copy = { ...entry };
+	occurrences.set(copy, index);
+	contentKey(copy);
+	return copy;
+}
+
+/** Preserve repeated emissions within a source; reconcile only overlapping snapshot/tail occurrences. */
+export function mergeReadLogs(snapshot: ReadLogItem[], live: ReadLogItem[], limit: number): ReadLogItem[] {
+	const liveCounts = new Map<string, number>();
+	const snapshotCounts = new Map<string, number>();
 	const merged: ReadLogItem[] = [];
-	for (const entry of [...live, ...snapshot]) {
-		const key = logKey(entry);
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
-		merged.push(entry);
+	for (const entry of live) {
+		const key = contentKey(entry);
+		const index = liveCounts.get(key) ?? 0;
+		liveCounts.set(key, index + 1);
+		merged.push(occurrence(entry, index));
+	}
+	for (const entry of snapshot) {
+		const key = contentKey(entry);
+		const index = snapshotCounts.get(key) ?? 0;
+		snapshotCounts.set(key, index + 1);
+		if (index >= (liveCounts.get(key) ?? 0)) { merged.push(occurrence(entry, index)); }
 	}
 	merged.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
 	return limit > 0 && merged.length > limit ? merged.slice(0, limit) : merged;

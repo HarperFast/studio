@@ -4,7 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { LogContextLimitError, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { DownloadLogsMenu } from './components/DownloadLogsMenu';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
-import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
+import { logKey } from './hooks/mergeReadLogs';
 import { useInstanceLogs } from './hooks/useInstanceLogs';
 import { useLogInspection } from './hooks/useLogInspection';
 import { LogsDataTable } from './LogsDataTable';
@@ -138,8 +138,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		contextTimestamp,
 	});
 	const queryKey = JSON.stringify([params.entityId, logFilters, contextTimestamp]);
-	const inspection = useLogInspection(incoming, queryKey, node, thread);
-	const baseLogs = useMemo(() => contextLog ? mergeReadLogs(inspection.logs, [contextLog], 0) : inspection.logs, [
+	const inspection = useLogInspection(incoming, queryKey, node, thread, !isLoading);
+	const baseLogs = useMemo(() =>
+		contextLog && !inspection.logs.some(log => logKey(log) === logKey(contextLog))
+			? [contextLog, ...inspection.logs].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+			: inspection.logs, [
 		inspection.logs,
 		contextLog,
 	]);
@@ -156,12 +159,12 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const selectedKey = selected ?? (targetMatches.length === 1 ? logKey(targetMatches[0]) : undefined);
 	const following = isLive && !inspection.paused;
 	useEffect(() => {
-		if (isLoading) { return; }
+		if (isLoading || !expandedKeys.size) { return; }
 		const present = new Set(baseLogs.map(logKey));
 		setExpandedKeys(current =>
 			[...current].every(key => present.has(key)) ? current : new Set([...current].filter(key => present.has(key)))
 		);
-	}, [baseLogs, isLoading]);
+	}, [baseLogs, isLoading, expandedKeys]);
 	useEffect(() => {
 		if (!target || targetMatches.length !== 1 || linkedSelectionApplied.current) { return; }
 		linkedSelectionApplied.current = true;
@@ -196,8 +199,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 
 	const apply = (data: LogFilters, nextRange = range) => {
 		const displayed = formDates(logFilters);
-		const unchangedDates = data.from === displayed.from && data.until === displayed.until;
-		const canonical = unchangedDates ? { ...data, from: logFilters.from, until: logFilters.until } : data;
+		const canonical = {
+			...data,
+			from: data.from === displayed.from ? logFilters.from : data.from,
+			until: data.until === displayed.until ? logFilters.until : data.until,
+		};
 		const next = withTimeRange(canonical, nextRange);
 		if (!validDateRange(next.from, next.until)) {
 			form.setError('from', { message: 'Choose valid dates with the start before the end.' });
@@ -387,7 +393,25 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 			</div>
 			{!!error && (
 				<div role="alert" className="flex items-center gap-3 rounded-md border border-destructive p-3 text-sm">
-					Could not load logs. <Button size="sm" variant="defaultOutline" onClick={refresh}>Retry</Button>
+					{error instanceof LogContextLimitError
+						? (
+							<>
+								{error.message}
+								<Button
+									aria-label="Open context filters"
+									size="sm"
+									variant="defaultOutline"
+									onClick={() => setIsFiltersOpen(true)}
+								>
+									Filters
+								</Button>
+							</>
+						)
+						: (
+							<>
+								Could not load logs. <Button size="sm" variant="defaultOutline" onClick={refresh}>Retry</Button>
+							</>
+						)}
 				</div>
 			)}
 
@@ -403,7 +427,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					</span>
 				</div>
 			)}
-			{target && !isLoading && targetMatches.length !== 1 && (
+			{target && !isLoading && !error && targetMatches.length !== 1 && (
 				<p role="status" className="text-sm text-muted-foreground">
 					{targetMatches.length > 1
 						? 'Multiple logs match this link. Expand an entry to inspect it.'
@@ -424,10 +448,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 							submitFilters={data => {
 								const current = formDates(logFilters);
 								const changed = data.from !== current.from || data.until !== current.until;
-								apply(
-									changed ? data : { ...data, from: logFilters.from, until: logFilters.until },
-									changed ? 'custom' : range,
-								);
+								apply(data, changed ? 'custom' : range);
 							}}
 							showLogName={showLogName}
 							showFilter={false}

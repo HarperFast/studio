@@ -9,7 +9,7 @@ import { useInstanceLogs, UseInstanceLogsParams } from './useInstanceLogs';
 vi.mock('./useSupportsLogSSE', () => ({ useSupportsLogSSE: () => false }));
 vi.mock('@/integrations/api/instance/status/streamReadLog', () => ({ streamReadLog: vi.fn() }));
 afterEach(cleanup);
-it('uses the same duplicate identity on initial load and polling without leaking between entities', async () => {
+it('preserves repeat occurrences on initial load and polling without leaking between entities', async () => {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const a: ReadLogItem = {
 		level: 'info',
@@ -32,9 +32,9 @@ it('uses the same duplicate identity on initial load and polling without leaking
 		({ params, live }) => useInstanceLogs({ params, live, replicated: true, logFilters: DEFAULT_LOG_FILTERS }),
 		{ wrapper, initialProps: { params, live: false } },
 	);
-	await waitFor(() => expect(result.current.logs).toHaveLength(1));
+	await waitFor(() => expect(result.current.logs).toHaveLength(2));
 	rerender({ params, live: true });
-	expect(result.current.logs).toEqual([a]);
+	expect(result.current.logs).toEqual([a, a]);
 	expect(result.current.transport).toBe('polling');
 	const other = { ...a, message: 'other entity' };
 	post.mockResolvedValue({ data: [other] });

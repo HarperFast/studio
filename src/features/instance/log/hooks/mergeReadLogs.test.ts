@@ -1,6 +1,6 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { describe, expect, it } from 'vitest';
-import { mergeReadLogs } from './mergeReadLogs';
+import { logKey, mergeReadLogs } from './mergeReadLogs';
 
 function entry(message: string, timestamp: string, overrides: Partial<ReadLogItem> = {}): ReadLogItem {
 	return { level: 'info', timestamp, thread: 'main/0', tags: [], node: '', message, ...overrides };
@@ -54,4 +54,14 @@ describe('mergeReadLogs', () => {
 		);
 		expect(merged).toHaveLength(2);
 	});
+});
+
+it('preserves repeated emissions and tags while reconciling source overlap', () => {
+	const a = entry('repeat', '2026-07-07T00:00:01.000Z');
+	const snapshot = [a, { ...a }, { ...a, tags: ['different'] }];
+	const result = mergeReadLogs(snapshot, [{ ...a }, { ...a }], 100);
+	expect(result).toHaveLength(3);
+	expect(new Set(result.map(logKey)).size).toBe(3);
+	expect(mergeReadLogs(snapshot, [], 100).map(logKey)).toEqual(result.map(logKey));
+	expect(logKey({ ...a })).toBe(logKey(a));
 });
