@@ -96,7 +96,7 @@ function logToggle(root: HTMLDivElement | null, key?: string) {
 	return key ? root?.querySelector<HTMLButtonElement>(`button[data-log-toggle="${key}"]`) : undefined;
 }
 
-function revealExpandedLog(button: HTMLButtonElement) {
+function revealExpandedLog(button: HTMLButtonElement, direction: -1 | 1 = 1) {
 	const row = button.closest('tr');
 	const container = row?.closest<HTMLElement>('[data-slot="table-container"]');
 	if (!row || !container) { return; }
@@ -108,9 +108,35 @@ function revealExpandedLog(button: HTMLButtonElement) {
 		0,
 	);
 	const bottom = Math.min(viewport.top + container.clientTop + container.clientHeight, window.innerHeight);
-	const start = row.getBoundingClientRect().top;
 	const details = document.getElementById(button.getAttribute('aria-controls') ?? '');
-	const end = (details ?? row).getBoundingClientRect().bottom;
+	const prior = row.previousElementSibling;
+	const candidate = direction < 0
+		? prior?.querySelector('button[data-log-toggle]') ? prior : prior?.previousElementSibling
+		: (details ?? row).nextElementSibling;
+	let neighbor = candidate?.querySelector('button[data-log-toggle]') ? candidate : null;
+	const message = details?.querySelector<HTMLElement>('[aria-label="Full log message"]');
+	if (message) {
+		const header = row.getBoundingClientRect();
+		const panel = (details ?? row).getBoundingClientRect();
+		const overhead = panel.bottom - header.top - message.getBoundingClientRect().height;
+		const peek = neighbor
+			? direction < 0
+				? header.top - neighbor.getBoundingClientRect().top
+				: neighbor.getBoundingClientRect().bottom - panel.bottom
+			: 0;
+		const minimum = Math.min(96, message.scrollHeight);
+		let room = bottom - top - overhead - peek;
+		if (room < minimum) {
+			neighbor = null;
+			room = bottom - top - overhead;
+		}
+		const banner = parseFloat(getComputedStyle(container).getPropertyValue('--notification-banner-height')) || 0;
+		const fixedHeight = Math.ceil(window.innerHeight - room - banner);
+		message.style.maxHeight =
+			`max(${minimum}px, min(32rem, calc(100dvh - var(--notification-banner-height,0px) - ${fixedHeight}px)))`;
+	}
+	const start = (direction < 0 && neighbor ? neighbor : row).getBoundingClientRect().top;
+	const end = (direction > 0 && neighbor ? neighbor : details ?? row).getBoundingClientRect().bottom;
 	const offset = end - start > bottom - top || start < top ? start - top : Math.max(0, end - bottom);
 	if (offset) { container.scrollTo({ top: container.scrollTop + offset, behavior: 'instant' }); }
 }
@@ -167,6 +193,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 	const rootRef = useRef<HTMLDivElement>(null);
 	const activeKey = useRef<string | undefined>(undefined);
 	const pendingFocus = useRef<HTMLButtonElement | null>(null);
+	const pendingDirection = useRef<-1 | 1>(1);
 	const revealedSelection = useRef<string | undefined>(undefined);
 	const id = useId();
 	const table = useTable({
@@ -189,7 +216,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 		pendingFocus.current = null;
 		if (button?.isConnected) {
 			button.focus({ preventScroll: true });
-			revealExpandedLog(button);
+			revealExpandedLog(button, pendingDirection.current);
 		} else if (selectedKey && revealedSelection.current !== selectedKey && expandedKeys.has(selectedKey)) {
 			const selected = logToggle(rootRef.current, selectedKey);
 			if (selected) {
@@ -202,6 +229,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 	const toggle = (key: string) => {
 		if (!expandedKeys.has(key)) {
 			activeKey.current = key;
+			pendingDirection.current = 1;
 			pendingFocus.current = logToggle(rootRef.current, key) ?? null;
 		} else if (activeKey.current === key) { activeKey.current = undefined; }
 		if (!expandedKeys.has(key)) { onInspect(); }
@@ -246,6 +274,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 				if (!next) { return; }
 				onInspect();
 				activeKey.current = next.id;
+				pendingDirection.current = event.key === 'ArrowUp' ? -1 : 1;
 				pendingFocus.current = logToggle(rootRef.current, next.id) ?? null;
 				onExpandedChange(current => {
 					const result = new Set(current);

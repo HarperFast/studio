@@ -108,7 +108,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		if (current.loading || view.scope !== current.scope || !view.entries.size) { return; }
 		view.following = false;
 		view.userScrolling = userScrolling;
-		view.expectedTop = null;
+		view.expectedTop = containerRef.current?.scrollTop ?? null;
 		if (containerRef.current) { view.anchor = captureAnchor(containerRef.current); }
 		setHeld(previous =>
 			previous?.scope === current.scope ? previous : { scope: current.scope, logs: current.incoming }
@@ -119,19 +119,17 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		state.current.userScrolling = true;
 	}, []);
 	const onWheel = useCallback((event: WheelEvent<HTMLElement>) => {
+		const element = containerRef.current;
+		if (!element || !element.contains(event.target as Node) || !event.deltaY || event.ctrlKey) { return; }
 		const message = (event.target as HTMLElement).closest<HTMLElement>('[aria-label="Full log message"]');
 		if (message && message.scrollHeight > message.clientHeight) {
 			holdPosition(false);
 			return;
 		}
-		const element = containerRef.current;
-		const towardEdge = input.current.reversed ? event.deltaY > 0 : event.deltaY < 0;
-		if (element && towardEdge && atEdge(element, input.current.reversed)) {
-			follow(state.current, containerRef.current);
-			state.current.userScrolling = true;
-			state.current.expectedTop = null;
-			setHeld(null);
-		} else { holdPosition(true); }
+		const canScroll = event.deltaY < 0
+			? element.scrollTop > 0
+			: element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+		if (canScroll) { holdPosition(true); }
 	}, [holdPosition]);
 	const onScroll = useCallback(() => {
 		const element = containerRef.current;

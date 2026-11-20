@@ -135,7 +135,6 @@ for (const oldestFirst of [false, true]) {
 		for (let i = 0; i < 10; i++) { await page.keyboard.press('ArrowDown'); }
 		const active = page.getByRole('button', { name: 'Collapse log 11', exact: true });
 		await expect(active).toBeFocused();
-		const inspected = await page.getByLabel('Full log message').textContent();
 		const scroller = await page.locator('[data-slot="table-container"]').boundingBox();
 		await expect.poll(async () => {
 			const box = await active.boundingBox();
@@ -143,6 +142,18 @@ for (const oldestFirst of [false, true]) {
 			return box!.y >= scroller!.y + 40
 				&& details!.y + details!.height <= Math.min(scroller!.y + scroller!.height, 1000) + 1;
 		}).toBe(true);
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByRole('button', { name: 'Collapse log 10', exact: true })).toBeFocused();
+		const previous = await page.getByRole('button', { name: 'Expand log 9', exact: true }).locator('xpath=ancestor::tr')
+			.boundingBox();
+		const sticky = await page.getByRole('columnheader', { name: 'Timestamp' }).boundingBox();
+		expect(previous!.y).toBeGreaterThanOrEqual(sticky!.y + sticky!.height - 1);
+		expect(previous!.y + previous!.height).toBeLessThanOrEqual(Math.min(scroller!.y + scroller!.height, 1000) + 1);
+		const currentDetails = await page.getByLabel('Full log message').locator('xpath=ancestor::tr').boundingBox();
+		expect(currentDetails!.y + currentDetails!.height).toBeLessThanOrEqual(
+			Math.min(scroller!.y + scroller!.height, 1000) + 1,
+		);
+		const inspected = await page.getByLabel('Full log message').textContent();
 		logs = [log('New event during keyboard inspection', 1000), ...logs];
 		await expect(page.getByText('New event during keyboard inspection', { exact: true })).toHaveCount(1, {
 			timeout: 15000,
@@ -195,7 +206,7 @@ for (const oldestFirst of [false, true]) {
 }
 
 test('a short expanded list stays still as rows are prepended', async ({ page }) => {
-	let logs = [log('Short original'), log('Short older', -1000)];
+	let logs = [log('Short original\n' + 'stack frame\n'.repeat(100)), log('Short older', -1000)];
 	await serve(page, () => logs, []);
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await page.goto('/#/org-logs/clu-logs/logs');
@@ -214,6 +225,11 @@ test('a short expanded list stays still as rows are prepended', async ({ page })
 	await expect(page.getByText('Short new', { exact: true })).toHaveCount(1, { timeout: 15000 });
 	expect(Math.abs((await page.getByLabel('Full log message').boundingBox())!.y - before)).toBeLessThan(1);
 	await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+	await page.getByLabel('Full log message').hover();
+	await page.mouse.wheel(0, 100);
+	await expect.poll(() => page.getByLabel('Full log message').evaluate(element => element.scrollTop)).toBeGreaterThan(
+		0,
+	);
 	const expanded = page.getByRole('button', { name: 'Collapse log 2', exact: true });
 	const headerY = (await expanded.boundingBox())!.y;
 	await expanded.click();
@@ -242,6 +258,12 @@ test('opening a lower log reveals its details and tall entries show their beginn
 		const viewport = await scroller.boundingBox();
 		return panel!.y + panel!.height <= Math.min(viewport!.y + viewport!.height, 800) + 1;
 	}).toBe(true);
+	await expect.poll(async () => {
+		const next = await page.getByRole('button', { name: 'Expand log 12', exact: true }).locator('xpath=ancestor::tr')
+			.boundingBox();
+		const viewport = await scroller.boundingBox();
+		return next!.y + next!.height <= Math.min(viewport!.y + viewport!.height, 800) + 1;
+	}).toBe(true);
 	await page.keyboard.press('ArrowDown');
 	await page.keyboard.press('ArrowDown');
 	await expect(page.getByRole('button', { name: 'Collapse log 13', exact: true })).toBeFocused();
@@ -253,6 +275,10 @@ test('opening a lower log reveals its details and tall entries show their beginn
 	expect(active!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
 	expect(active!.y).toBeLessThan(header!.y + header!.height + 20);
 	expect(content!.y).toBeLessThan(Math.min(viewport!.y + viewport!.height, 800) - 24);
+	const next = await page.getByRole('button', { name: 'Expand log 14', exact: true }).locator('xpath=ancestor::tr')
+		.boundingBox();
+	expect(next!.y + next!.height).toBeLessThanOrEqual(Math.min(viewport!.y + viewport!.height, 800) + 1);
+
 	expect(await message.evaluate(el => el.scrollTop)).toBe(0);
 });
 
@@ -368,6 +394,8 @@ test('Home at the live edge does not stop following', async ({ page }) => {
 	await page.keyboard.press('Home');
 	await page.keyboard.press('ArrowUp');
 	await page.locator('[data-slot="table-container"]').click({ position: { x: 20, y: 250 } });
+	await page.locator('[data-slot="table-container"]').dispatchEvent('wheel', { deltaY: 100 });
+	await page.locator('[data-slot="table-container"]').dispatchEvent('wheel', { deltaX: -40, deltaY: 0 });
 	logs = [log('Edge newest', 1000), ...logs];
 	await expect(page.getByText('Edge newest', { exact: true })).toHaveCount(1, { timeout: 15000 });
 	await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
