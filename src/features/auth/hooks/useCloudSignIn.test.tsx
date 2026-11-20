@@ -566,7 +566,10 @@ describe('useCompleteCloudSignIn — a target kept across an emailed link', () =
 		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
 	});
 
-	it('puts back what the previous account’s wipe took when taking the new one in throws', async () => {
+	it.each([
+		['before the store takes it in', false],
+		['after the store has moved its sign-in revision', true],
+	])('puts back what the previous account’s wipe took when taking the new one in throws %s', async (_when, after) => {
 		const { result } = renderHook(() => useCompleteCloudSignIn({ followKept: true }), { wrapper: appWrapper });
 		await act(() => result.current(GRACE));
 		keepSignInRedirect('ada@example.com', mcpAuthorize);
@@ -574,10 +577,13 @@ describe('useCompleteCloudSignIn — a target kept across an emailed link', () =
 		// Only for the new account: the previous account's wipe sets the entity too.
 		const setUser = authStore.setUserForEntity.bind(authStore);
 		vi.spyOn(authStore, 'setUserForEntity').mockImplementation((...args: Parameters<typeof setUser>) => {
-			if (args[1] === ADA) {
-				throw new Error('replaceState throttled');
+			if (args[1] !== ADA) {
+				return setUser(...args);
 			}
-			return setUser(...args);
+			if (after) {
+				setUser(...args);
+			}
+			throw new Error('replaceState throttled');
 		});
 
 		await expect(act(() => result.current(ADA))).rejects.toThrow('replaceState throttled');

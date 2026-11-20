@@ -72,12 +72,16 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 			if (replacesAccount && !(await clearPreviousAccount())) {
 				return false;
 			}
-			// Taken again below, since taking the user in moves the sign-in revision: this one covers a throw while doing so.
-			taken = {
-				signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
-				signInRevision: authStore.getSignInRevision(OverallAppSignIn),
-			};
-			authStore.setUserForEntity(OverallAppSignIn, user);
+			try {
+				authStore.setUserForEntity(OverallAppSignIn, user);
+			} finally {
+				// After taking the user in moves the sign-in revision, even when that throws partway, so the restore above
+				// still puts back what the previous account's wipe took.
+				taken = {
+					signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
+					signInRevision: authStore.getSignInRevision(OverallAppSignIn),
+				};
+			}
 			const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 			// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
 			try {
@@ -92,10 +96,6 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 			} catch (error) {
 				console.debug('Sign-in bookkeeping failed, carrying on:', error);
 			}
-			taken = {
-				signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
-				signInRevision: authStore.getSignInRevision(OverallAppSignIn),
-			};
 			await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 			if (!stillTaken()) {
 				return false;
