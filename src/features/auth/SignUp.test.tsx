@@ -691,7 +691,7 @@ describe('SignUp — redirect', () => {
 		localStorage.clear();
 	});
 
-	it('keeps the target for the emailed link before the sign-up is sent', async () => {
+	it('keeps the target under a new flow the sign-up names, before it is sent', async () => {
 		hashSearch.current = { redirect: mcpAuthorize };
 		post.mockReturnValue(new Promise(() => {}));
 		renderSignUp();
@@ -699,56 +699,21 @@ describe('SignUp — redirect', () => {
 		submit();
 
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
+		const { flow } = post.mock.calls[0][1];
+		expect(flow).toMatch(/^[A-Za-z0-9_-]{22}$/);
+		expect(readSignInRedirect(flow)?.redirect).toBe(mcpAuthorize);
 	});
 
-	it('forgets an earlier target for the address once a request without one goes through', async () => {
-		keepSignInRedirect('taken@example.com', mcpAuthorize);
+	it('names no flow without a target, and leaves other flows alone', async () => {
+		const other = keepSignInRedirect(mcpAuthorize);
 		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
 		renderSignUp();
 		fillValidForm();
 		submit();
-
-		await waitFor(() => expect(readSignInRedirect('taken@example.com')).toBeUndefined());
-	});
-
-	it('leaves a newer target another tab kept while a sign-up without one was out', async () => {
-		keepSignInRedirect('taken@example.com', mcpAuthorize);
-		let answer!: (value: unknown) => void;
-		post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
-		renderSignUp();
-		fillValidForm();
-		submit();
-		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-
-		keepSignInRedirect('taken@example.com', '/org-1/clu-1/usage', Date.now() + 1);
-		answer({ data: 'Check your email to continue signing up', headers: {} });
 
 		await waitFor(() => expect(navigate).toHaveBeenCalled());
-		expect(readSignInRedirect('taken@example.com')?.redirect).toBe('/org-1/clu-1/usage');
-	});
-
-	it('keeps its own target once the sign-up goes through', async () => {
-		hashSearch.current = { redirect: mcpAuthorize };
-		post.mockResolvedValue({ data: 'Check your email to continue signing up', headers: {} });
-		renderSignUp();
-		fillValidForm();
-		submit();
-
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/verifying' })));
-		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
-	});
-
-	it('leaves it when a request without one is refused', async () => {
-		keepSignInRedirect('taken@example.com', mcpAuthorize);
-		post.mockRejectedValue(axiosError(409, { error: 'Email already in use' }));
-		renderSignUp();
-		fillValidForm();
-		submit();
-
-		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(readSignInRedirect('taken@example.com')?.redirect).toBe(mcpAuthorize);
+		expect(post.mock.calls[0][1]).not.toHaveProperty('flow');
+		expect(readSignInRedirect(other)?.redirect).toBe(mcpAuthorize);
 	});
 
 	it('hands the redirect to Google, GitHub and the sign-in link', () => {

@@ -18,9 +18,9 @@ export function Verifying() {
 	const resendCode = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		if (email) {
-			// The first link's record may have expired or been replaced since.
-			keepSignInRedirect(email, redirect);
-			resendEmailVerification({ email }, {
+			// A flow of its own: the first link's record may have expired since.
+			const flow = keepSignInRedirect(redirect);
+			resendEmailVerification({ email, ...(flow ? { flow } : {}) }, {
 				onSuccess: (message) => {
 					toast.success('Code Sent', {
 						description: `${message}`,

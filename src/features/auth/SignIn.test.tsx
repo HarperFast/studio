@@ -14,7 +14,7 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 const { navigate, router, historyState, hashSearch } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	router: { invalidate: vi.fn() },
-	historyState: {} as { prefillEmail?: string; finishesEmailedLink?: boolean },
+	historyState: {} as { prefillEmail?: string; emailedFlow?: string },
 	hashSearch: { current: {} as Record<string, unknown> },
 }));
 vi.mock('@tanstack/react-router', () => ({
@@ -243,12 +243,10 @@ describe('SignIn — redirect', () => {
 		hashSearch.current = {};
 	});
 
-	// A reset whose answer named no address reaches /sign-in without a ?redirect=.
-	it('offers the target kept for the typed address to Google, GitHub and Forgot password after a reset', () => {
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
-		historyState.finishesEmailedLink = true;
+	// A page that sends the user on to sign in hands the target as `?redirect=` too; this covers one that doesn't.
+	it('offers the target of the emailed flow it finishes to Google, GitHub and Forgot password', () => {
+		historyState.emailedFlow = keepSignInRedirect(mcpAuthorize);
 		renderSignIn();
-		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
 
 		for (const name of ['Sign in with Google', 'Sign in with GitHub']) {
 			expect(screen.getByRole('link', { name }).getAttribute('href')).toContain(
@@ -256,14 +254,13 @@ describe('SignIn — redirect', () => {
 			);
 		}
 		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBe(mcpAuthorize);
-		delete historyState.finishesEmailedLink;
+		delete historyState.emailedFlow;
 		localStorage.clear();
 	});
 
 	it('offers nothing kept for a sign-in that finishes no emailed flow', () => {
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		keepSignInRedirect(mcpAuthorize);
 		renderSignIn();
-		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
 
 		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBeUndefined();
 		localStorage.clear();

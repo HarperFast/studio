@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { forgetSignInRedirect, keepSignInRedirect, readSignInRedirect } from '@/features/auth/pendingSignInRedirect';
+import { keepSignInRedirect } from '@/features/auth/pendingSignInRedirect';
 import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,15 +56,9 @@ export function ForgotPassword() {
 		setSubmitError(undefined);
 		const captchaToken = await captcha.getToken();
 		// Before the request, which can send the reset email even if this page is gone by its answer.
-		keepSignInRedirect(formData.email, redirect);
-		// Without a target, this flow replaces the one an earlier flow kept. Only that one: another tab may keep its own
-		// while this request is out.
-		const replaced = carriedSearch ? undefined : readSignInRedirect(formData.email);
-		submitForgotPasswordData({ ...formData, captchaToken }, {
+		const flow = keepSignInRedirect(redirect);
+		submitForgotPasswordData({ ...formData, captchaToken, ...(flow ? { flow } : {}) }, {
 			onSuccess: (message) => {
-				if (replaced) {
-					forgetSignInRedirect(formData.email, replaced);
-				}
 				toast.success('Success', {
 					description: `${message}`,
 					action: {

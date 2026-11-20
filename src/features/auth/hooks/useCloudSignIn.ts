@@ -8,7 +8,7 @@ import {
 	keepSignInRedirect,
 	readSignInRedirect,
 	restoreSignInRedirect,
-	useFinishesEmailedLink,
+	useEmailedFlow,
 } from '@/features/auth/pendingSignInRedirect';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -34,21 +34,20 @@ import { useResendEmailVerification } from './useResendEmailVerification';
 
 /**
  * Resolves false when a sign-out or another sign-in landed before it could navigate. `redirect` defaults to the page's
- * search; a page whose search the router cannot read cleanly passes its own. With `followKept`, a completion that
- * finishes an emailed link's flow continues to the target that flow kept for the address (`pendingSignInRedirect.ts`)
- * when the page has none.
+ * search; a page whose search the router cannot read cleanly passes its own. `flow` is the emailed flow this completion
+ * finishes (`pendingSignInRedirect.ts`): it continues to the target that flow kept when the page has none.
  */
-export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept?: boolean } = {}) {
+export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: string } = {}) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const search = useSearch({ strict: false });
 	const redirect = 'redirect' in options ? options.redirect : search.redirect;
-	const followKept = options.followKept === true;
+	const { flow } = options;
 
 	return useCallback(async (user: User): Promise<boolean> => {
 		// Read first: clearing a previous account below wipes localStorage, the kept target with it.
-		const kept = readSignInRedirect(user.email);
+		const kept = readSignInRedirect(flow);
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
 		const held = authStore.getHeldAppUser();
 		const replacesAccount = held !== null && held !== user.id;
@@ -63,8 +62,8 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 		} finally {
 			// The previous account's wipe took it, and its flow still needs it. Not once a sign-out or another sign-in has
 			// landed: a sign-out's own wipe must take it too.
-			if (kept !== undefined && replacesAccount && !finished && stillTaken()) {
-				restoreSignInRedirect(user.email, kept);
+			if (flow !== undefined && kept !== undefined && replacesAccount && !finished && stillTaken()) {
+				restoreSignInRedirect(flow, kept);
 			}
 		}
 
@@ -100,9 +99,7 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 			if (!stillTaken()) {
 				return false;
 			}
-			const pageTarget = postSignInRedirect(redirect);
-			const followed = pageTarget === undefined && followKept ? kept : undefined;
-			const target = pageTarget ?? postSignInRedirect(followed?.redirect);
+			const target = postSignInRedirect(redirect) ?? postSignInRedirect(kept?.redirect);
 			if (target?.kind === 'server') {
 				followServerRedirect(target.href);
 			} else {
@@ -110,22 +107,20 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 				// `href`, not `to`: a target keeps its own query, which `to` would normalize as part of the path.
 				await navigate(target ? { href: target.to } : { to: defaultCloudRoute });
 			}
-			const finishesFlow = kept !== undefined
-				&& (followed !== undefined || postSignInRedirectParam(redirect) === kept.redirect);
-			if (kept !== undefined && finishesFlow && stillTaken()) {
+			if (flow !== undefined && stillTaken()) {
 				finished = true;
-				forgetSignInRedirect(user.email, kept);
+				forgetSignInRedirect(flow);
 			}
 			return true;
 		}
-	}, [followKept, navigate, queryClient, redirect, router]);
+	}, [flow, navigate, queryClient, redirect, router]);
 }
 
 export function useCloudSignIn() {
 	const navigate = useNavigate();
 	const { redirect } = useSearch({ strict: false });
-	const finishesEmailedLink = useFinishesEmailedLink();
-	const completeSignIn = useCompleteCloudSignIn({ followKept: finishesEmailedLink });
+	const emailedFlow = useEmailedFlow();
+	const completeSignIn = useCompleteCloudSignIn({ flow: emailedFlow });
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
@@ -135,8 +130,6 @@ export function useCloudSignIn() {
 
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		setSubmitError(undefined);
-		// Read before sending: an unverified answer replaces only this, not one another tab keeps meanwhile.
-		const earlier = readSignInRedirect(formData.email);
 		submitLoginData(formData, {
 			onSuccess: completeSignIn,
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
@@ -148,15 +141,11 @@ export function useCloudSignIn() {
 					// claim "we sent a link" once the resend actually succeeds; navigate regardless so an
 					// unverified user always lands on /verifying (which offers a manual resend) rather than
 					// dead-ending on the sign-in page.
-					// The new link carries the page's target, or the one an emailed link's flow kept, never another flow's.
-					const target = postSignInRedirectParam(redirect) ?? (finishesEmailedLink ? earlier?.redirect : undefined);
-					keepSignInRedirect(formData.email, target);
+					const target = postSignInRedirectParam(redirect) ?? readSignInRedirect(emailedFlow)?.redirect;
+					const flow = keepSignInRedirect(target);
 					// A promise, not `mutate`'s callbacks, which the navigation below skips by unmounting this page. Its
 					// failure is reported by the mutation itself.
-					void resendEmailVerification({ email: formData.email }).then(() => {
-						if (target === undefined && earlier) {
-							forgetSignInRedirect(formData.email, earlier);
-						}
+					void resendEmailVerification({ email: formData.email, ...(flow ? { flow } : {}) }).then(() => {
 						toast.info('Verify your email to finish signing in', {
 							description: `We sent a new verification link to ${formData.email}.`,
 						});
@@ -171,7 +160,7 @@ export function useCloudSignIn() {
 				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
-	}, [completeSignIn, finishesEmailedLink, navigate, redirect, resendEmailVerification, submitLoginData]);
+	}, [completeSignIn, emailedFlow, navigate, redirect, resendEmailVerification, submitLoginData]);
 
 	return {
 		clearSubmitError,

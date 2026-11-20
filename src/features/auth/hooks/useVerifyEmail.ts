@@ -12,6 +12,7 @@ import { failFastOffline, OfflineSubmitError, reportAuthFailure, toastsAuthFailu
  */
 type VerifyEmailRequest = {
 	token: string;
+	flow?: string;
 	browserProof?: string;
 	password?: string;
 	newPassword?: string;
