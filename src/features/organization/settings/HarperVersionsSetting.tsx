@@ -31,8 +31,9 @@ const entrySchema = z.object({
 		.max(64, 'At most 64 characters')
 		.refine((name) => name.toLowerCase() !== 'stable', '"stable" is the default version\'s label'),
 	version: z.string().trim().regex(SEMVER, 'A Harper version, such as 5.3.4'),
-	// A date input's value: the entry stops being offered at the start of that day, UTC. Empty: no expiry.
-	expires: z.string(),
+	expires: z
+		.string()
+		.refine((day) => day === '' || (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day))), 'A date'),
 });
 type EntryForm = z.infer<typeof entrySchema>;
 
@@ -43,10 +44,17 @@ const blankEntry = (): EntryForm => ({
 	expires: dayInput(Date.now() + DEFAULT_EXPIRY_DAYS * 86_400_000),
 });
 
+// Central manager reads an expiry that does not parse as expired, so this does too.
 export function isExpired(entry: OrganizationHarperVersion, now = Date.now()): boolean {
 	if (entry.expiresAt == null) { return false; }
 	const time = Date.parse(entry.expiresAt);
 	return !Number.isFinite(time) || time <= now;
+}
+
+function expiryText(expiresAt: string | null): string {
+	if (expiresAt == null) { return 'No expiry'; }
+	const time = Date.parse(expiresAt);
+	return Number.isFinite(time) ? `Until ${new Date(time).toUTCString()}` : 'Unreadable expiry, read as expired';
 }
 
 async function patchHarperVersions(organizationId: string, harperVersions: OrganizationHarperVersion[]) {
@@ -57,16 +65,13 @@ async function patchHarperVersions(organizationId: string, harperVersions: Organ
 	return data as unknown as { harperVersions?: OrganizationHarperVersion[] | null };
 }
 
-/**
- * The Harper versions offered to this organization beyond the public list (central-manager#867): staff add one, with
- * an expiry, to release an early-access build to it or keep it on an older build. Central manager lists them to the
- * organization alone and lets it deploy them until they expire. Saving replaces the whole list.
- */
+// Saving replaces the whole stored list (PATCH /Admin/Organization/:id), built from `entries`.
 export function HarperVersionsSetting(
 	{ organizationId, entries }: { organizationId: string; entries: OrganizationHarperVersion[] },
 ) {
 	const queryClient = useQueryClient();
 	const [editing, setEditing] = useState<string | 'new' | null>(null);
+	const [openedExpires, setOpenedExpires] = useState('');
 	const form = useForm<EntryForm>({ resolver: zodResolver(entrySchema), defaultValues: blankEntry() });
 
 	const { mutate, isPending } = useMutation({
@@ -85,27 +90,37 @@ export function HarperVersionsSetting(
 		mutate(next, { onSuccess: () => toast.success(message) });
 
 	const startEdit = (entry?: OrganizationHarperVersion) => {
-		form.reset(
-			entry
-				? {
-					name: entry.name,
-					version: entry.version,
-					expires: entry.expiresAt ? dayInput(Date.parse(entry.expiresAt)) : '',
-				}
-				: blankEntry(),
-		);
+		const values = entry
+			? {
+				name: entry.name,
+				version: entry.version,
+				expires: entry.expiresAt ? dayInput(Date.parse(entry.expiresAt)) : '',
+			}
+			: blankEntry();
+		form.reset(values);
+		setOpenedExpires(values.expires);
 		setEditing(entry?.version ?? 'new');
 	};
 
 	const onSubmit = (values: EntryForm) => {
-		const entry: OrganizationHarperVersion = {
-			name: values.name,
-			version: values.version,
-			expiresAt: values.expires ? `${values.expires}T00:00:00.000Z` : null,
-		};
-		const offered = entries.some((existing) => existing.version === entry.version);
-		const next = offered
-			? entries.map((existing) => existing.version === entry.version ? entry : existing)
+		const editedEntry = editing === 'new' ? undefined : entries.find((existing) => existing.version === editing);
+		if (editing === 'new' && entries.some((existing) => existing.version === values.version)) {
+			form.setError('version', { message: 'Already offered; edit that entry instead' });
+			return;
+		}
+		if (editing !== 'new' && !editedEntry) {
+			form.setError('version', { message: 'No longer offered; someone removed it since this form opened' });
+			return;
+		}
+		// An expiry the form did not change is sent back as stored, keeping its time of day, or an unreadable value.
+		const expiresAt = editedEntry && values.expires === openedExpires
+			? editedEntry.expiresAt
+			: values.expires
+			? `${values.expires}T00:00:00.000Z`
+			: null;
+		const entry: OrganizationHarperVersion = { name: values.name, version: values.version, expiresAt };
+		const next = editedEntry
+			? entries.map((existing) => existing === editedEntry ? entry : existing)
 			: [...entries, entry];
 		if (next.length > ORG_HARPER_VERSIONS_MAX) {
 			form.setError('version', {
@@ -143,9 +158,7 @@ export function HarperVersionsSetting(
 								<span className="font-medium">{entry.name}</span>
 								<span className="ml-2 font-mono text-sm text-muted-foreground">{entry.version}</span>
 								{isExpired(entry) && <Badge variant="warning" className="ml-2">Expired</Badge>}
-								<p className="text-xs text-muted-foreground">
-									{entry.expiresAt ? `Until ${new Date(entry.expiresAt).toUTCString()}` : 'No expiry'}
-								</p>
+								<p className="text-xs text-muted-foreground">{expiryText(entry.expiresAt)}</p>
 							</div>
 							<div className="flex gap-2">
 								<Button

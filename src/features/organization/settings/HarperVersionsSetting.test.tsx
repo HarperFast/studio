@@ -65,6 +65,58 @@ describe('HarperVersionsSetting', () => {
 		expect(client.getQueryData(['org-1'])).toEqual({ id: 'org-1', harperVersions: next });
 	});
 
+	it('refuses to offer a version that is already offered, leaving the stored entry alone', async () => {
+		renderSetting([PINNED]);
+		fireEvent.click(screen.getByRole('button', { name: 'Offer a version' }));
+		typeInto('Version', '5.1.29');
+		typeInto('Name', 'again');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).not.toHaveBeenCalled();
+		expect(screen.getByText('Already offered; edit that entry instead')).toBeTruthy();
+	});
+
+	it('sends an expiry the form did not change back as stored, its time of day or an unreadable value included', async () => {
+		const timed = { name: 'timed', version: '5.3.4', expiresAt: '2026-12-31T18:30:00.000Z' };
+		const unreadable = { name: 'garbled', version: '5.3.5', expiresAt: 'soon' };
+		for (const entry of [timed, unreadable]) {
+			renderSetting([entry]);
+			fireEvent.click(screen.getByRole('button', { name: `Edit ${entry.version}` }));
+			typeInto('Name', 'renamed');
+			await act(async () => {
+				fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+			});
+			expect(patch).toHaveBeenLastCalledWith('/Admin/Organization/org-1', {
+				harperVersions: [{ ...entry, name: 'renamed' }],
+			});
+			cleanup();
+		}
+	});
+
+	it('refuses to save an entry someone removed since the form opened', async () => {
+		const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+		const view = (entries: OrganizationHarperVersion[]) => (
+			<QueryClientProvider client={client}>
+				<HarperVersionsSetting organizationId="org-1" entries={entries} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view([PINNED, LAPSED]));
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.1.29' }));
+		rerender(view([LAPSED]));
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).not.toHaveBeenCalled();
+		expect(screen.getByText('No longer offered; someone removed it since this form opened')).toBeTruthy();
+	});
+
+	it('says an unreadable expiry is read as expired, rather than showing an invalid date', () => {
+		renderSetting([{ ...PINNED, expiresAt: 'soon' }]);
+		expect(screen.getByText('Unreadable expiry, read as expired')).toBeTruthy();
+		expect(screen.queryByText(/Invalid Date/)).toBeNull();
+	});
+
 	it('changes an entry in place, and an empty expiry means none', async () => {
 		renderSetting([LAPSED, PINNED]);
 		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.4.0-rc.1' }));

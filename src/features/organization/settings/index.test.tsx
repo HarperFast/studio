@@ -55,14 +55,21 @@ afterEach(() => {
 describe('OrgSettingsIndex — Harper versions', () => {
 	const harperVersions = [{ name: 'pinned', version: '5.1.29', expiresAt: null }];
 
-	it('shows the versions offered to the organization to staff who may update organizations', async () => {
-		staffPermissions.add('org:update');
+	it('shows the versions offered to the organization to staff who may read and update organizations', async () => {
+		staffPermissions.add('org:update').add('org:read');
 		renderSettings([], { harperVersions });
 		expect(await screen.findByRole('heading', { name: 'Harper versions' })).toBeTruthy();
 		expect(screen.getByText('5.1.29')).toBeTruthy();
 	});
 
 	it('hides them from everyone else, an organization admin included', async () => {
+		renderSettings([], { harperVersions });
+		await screen.findByRole('button', { name: 'Add OAuth provider' });
+		expect(screen.queryByRole('heading', { name: 'Harper versions' })).toBeNull();
+	});
+
+	it('hides them from staff who may update organizations but not read the list a save would replace', async () => {
+		staffPermissions.add('org:update');
 		renderSettings([], { harperVersions });
 		await screen.findByRole('button', { name: 'Add OAuth provider' });
 		expect(screen.queryByRole('heading', { name: 'Harper versions' })).toBeNull();

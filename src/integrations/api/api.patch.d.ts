@@ -318,14 +318,11 @@ export interface SystemStatusNotification {
 	endAt?: string | number | null;
 }
 
-/**
- * A Harper version central manager offers one organization beyond the public list (central-manager#867). Returned on
- * `GET /Organization/:id` only to staff who may read organizations; written through `PATCH /Admin/Organization/:id`.
- */
+// central-manager#867. Returned on GET /Organization/:id only to staff holding org:read; written through
+// PATCH /Admin/Organization/:id. expiresAt null: no expiry.
 export interface OrganizationHarperVersion {
 	name: string;
 	version: string;
-	/** ISO time it stops being offered, or null for no expiry. */
 	expiresAt: string | null;
 }
 
