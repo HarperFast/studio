@@ -257,7 +257,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 		>
 			<div className="flex items-center justify-between border-b border-border px-3 py-1">
 				<span className="text-xs text-muted-foreground">
-					{data.length} loaded logs · {reversed ? 'Oldest first' : 'Newest first'}
+					{reversed ? 'Oldest first' : 'Newest first'}
 				</span>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
