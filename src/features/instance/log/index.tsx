@@ -205,6 +205,15 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 
 	const reverse = useCallback(() => setIsReversed(value => !value), [setIsReversed]);
 
+	const summary = [
+		isLoading ? 'Loading logs…' : `${displayedLogs.length} loaded logs`,
+		timezone,
+		logFilters.log_name ?? 'hdb.log',
+		baseLogs.length > incoming.length ? 'Retained context; intervening logs may be omitted' : undefined,
+		isLive ? transport === 'streaming' ? 'Streaming' : 'Updating every 5s' : undefined,
+		logFilters.until ? 'Fixed time range (Live unavailable)' : undefined,
+	].filter(Boolean).join(' · ');
+
 	return (
 		<div className="space-y-3 px-2 pt-3 text-foreground">
 			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-3">
@@ -290,16 +299,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				</div>
 			</div>
 			<div
-				className="flex min-h-8 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
+				className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-xs text-muted-foreground"
 				aria-live="polite"
 			>
-				<span>
-					{isLoading ? 'Loading logs…' : `${displayedLogs.length} loaded logs`} · {timezone} ·{' '}
-					{logFilters.log_name ?? 'hdb.log'}
-					{baseLogs.length > incoming.length && ' · Retained context; intervening logs may be omitted'}
-					{isLive && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
-					{!!logFilters.until && ' · Fixed time range (Live unavailable)'}
-				</span>
+				<span className="truncate" title={summary}>{summary}</span>
 				{view.away && <Button size="sm" variant="defaultOutline" onClick={view.jumpToLatest}>Jump to latest</Button>}
 			</div>
 			{!!error && (

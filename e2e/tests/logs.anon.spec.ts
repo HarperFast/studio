@@ -378,3 +378,17 @@ test('new batches do not focus an old expansion after jumping to latest', async 
 	await expect.poll(() => page.evaluate(() => document.activeElement === document.body)).toBe(true);
 	await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
 });
+
+test('live arrivals keep expanded text stationary on a narrow viewport', async ({ page }) => {
+	let logs = Array.from({ length: 40 }, (_, index) => log(`Mobile event ${index}`, -index * 1000));
+	await serve(page, () => logs, []);
+	await page.setViewportSize({ width: 390, height: 900 });
+	await page.goto('/#/org-logs/clu-logs/logs');
+	await page.getByRole('switch', { name: 'Live logs' }).click();
+	await page.getByRole('button', { name: 'Expand log 3', exact: true }).click();
+	const before = (await page.getByLabel('Full log message').boundingBox())!.y;
+	logs = [log('Mobile newest', 1000), ...logs];
+	await expect(page.getByText('Mobile newest', { exact: true })).toHaveCount(1, { timeout: 15000 });
+	expect(Math.abs((await page.getByLabel('Full log message').boundingBox())!.y - before)).toBeLessThan(1);
+	await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+});
