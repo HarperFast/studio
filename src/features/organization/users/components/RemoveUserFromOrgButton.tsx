@@ -41,7 +41,7 @@ const ICON = { leave: LogOut, remove: UserMinus, 'cancel-invite': MailX } satisf
  * of those roles at once. That's a destructive, non-obvious action (see issue #1505), so this
  * button makes it explicit and requires a second, deliberate click to confirm — the same inline
  * confirmation pattern used for deleting secrets (see `SecretModals`). Removing yourself is the
- * same action with gentler "leave" wording; cancelling a pending invitation is its own action.
+ * same action with gentler "leave" wording.
  *
  * The confirm control is intentionally right-aligned, away from the idle button's left-aligned
  * footprint, so a fast double-click can't land on "Confirm" and skip the confirmation step.

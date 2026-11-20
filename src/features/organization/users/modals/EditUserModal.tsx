@@ -55,10 +55,8 @@ export function EditUserModal({
 	const { mutateAsync: cancelUserInvite } = useCancelUserInvite();
 	const [isRemoving, setIsRemoving] = useState(false);
 
-	// Drops every role the user holds in this org, which is what membership is. `data.roles` comes from
-	// this org's roles payload (`collectOrgUsers`), so this never touches another organization. One
-	// removal per role; a role that's already gone (404) counts as success so a partially-completed
-	// attempt can be retried cleanly. Resolves to the failures that remain.
+	// `data.roles` comes from this org's roles payload (`collectOrgUsers`), so this never touches another
+	// organization. A role that's already gone (404) counts as success, so a partial attempt can be retried.
 	const unlinkOrgRoles = useCallback(async () => {
 		const results = await Promise.allSettled(
 			(data.roles ?? []).map((role) => removeUserFromRole({ userId: data.id, roleId: role.id })),
@@ -111,7 +109,6 @@ export function EditUserModal({
 				}
 			}
 		} catch (error) {
-			// On top of the shared mutation toast, as `onRemoveFromOrg` does: that one says what failed, this one whose.
 			if (shouldToastOwnFailure(error)) {
 				toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
 			}
