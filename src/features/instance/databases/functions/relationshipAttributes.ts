@@ -1,5 +1,6 @@
 import { ownEntry } from '@/features/instance/databases/functions/describedTable';
 import { SchemaRelationship } from '@/features/instance/databases/functions/schemaRelationships';
+import { isHnswIndexed } from '@/features/instance/databases/functions/vectorAttributes';
 import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 
 /**
@@ -84,14 +85,15 @@ export function getRelationshipInfo(
 /**
  * The related table's attributes that filters can join through. Excludes its own
  * relationship/computed attributes: filters join one hop (`[column, subProperty]`), so deeper
- * synthetic attributes can't be queried through here.
+ * synthetic attributes can't be queried through here. Also excludes HNSW attributes, which Harper
+ * won't filter without a target vector.
  */
 function joinableAttributes(
 	relatedTable: InstanceTable,
 	databaseTables: InstanceDatabaseTableMap,
 ): InstanceAttribute[] {
 	return (relatedTable.attributes ?? []).filter(
-		(related) => !related.computed && !relatedTableNameOf(related, databaseTables),
+		(related) => !related.computed && !relatedTableNameOf(related, databaseTables) && !isHnswIndexed(related.indexed),
 	);
 }
 

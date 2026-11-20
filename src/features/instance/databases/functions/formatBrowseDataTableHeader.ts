@@ -2,6 +2,7 @@ import { RelationshipCell } from '@/features/instance/databases/components/Relat
 import { ExtraRecordAttribute } from '@/features/instance/databases/functions/extraRecordAttributes';
 import { filterSyntaxHint } from '@/features/instance/databases/functions/filterSyntaxHint';
 import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
+import { isHnswIndexed, summarizeNumberArray } from '@/features/instance/databases/functions/vectorAttributes';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { CellContext, ColumnDef } from '@/lib/table';
 import { CellData, RowData, TableFeatures } from '@tanstack/react-table';
@@ -61,11 +62,13 @@ export function formatBrowseDataTableHeader(
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
 		const relationshipInfo = Object.hasOwn(relationshipInfoMap, attribute) ? relationshipInfoMap[attribute] : undefined;
-		const isIndexed = Boolean(is_primary_key || indexed);
+		const isVectorIndex = isHnswIndexed(indexed);
+		const isIndexed = Boolean(is_primary_key || indexed) && !isVectorIndex;
 		// Relationship columns are filterable via sub-properties (`.name value`), which the server
 		// executes as a join against the related table. Any other column takes a filter too, but one no
 		// index covers asks before it runs (`fullScanAttributes`).
-		const isUnindexedFilter = !relationshipInfo && !isIndexed && !UNFILTERABLE_TYPES.has(type ?? '');
+		const isUnindexedFilter = !relationshipInfo && !isIndexed && !isVectorIndex
+			&& !UNFILTERABLE_TYPES.has(type ?? '');
 		const isPlainFilter = !relationshipInfo && (isIndexed || isUnindexedFilter);
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
@@ -145,7 +148,8 @@ function isTimeAttribute(attribute: string) {
 
 /**
  * Default cell: objects and arrays render as JSON instead of the default renderer's
- * `[object Object]`/blank output, and booleans render as text (React renders `false` as nothing).
+ * `[object Object]`/blank output, booleans render as text (React renders `false` as nothing), and a
+ * long array of numbers, such as an embedding, as its length and first few numbers.
  */
 function renderPlainCell(context: CellContext<Record<string, unknown>, unknown>) {
 	const value = context.getValue();
@@ -153,7 +157,7 @@ function renderPlainCell(context: CellContext<Record<string, unknown>, unknown>)
 		return null;
 	}
 	if (typeof value === 'object') {
-		return JSON.stringify(value);
+		return summarizeNumberArray(value) ?? JSON.stringify(value);
 	}
 	return String(value);
 }
