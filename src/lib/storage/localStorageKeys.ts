@@ -7,6 +7,8 @@ export const enum LocalStorageKeys {
 	'ChatAlwaysApprovedTools' = 'ChatAlwaysApprovedTools',
 	'DatabasesSidebarWidth' = 'DatabasesSidebarWidth',
 	'LastUsedSignInMethod' = 'LastUsedSignInMethod',
+	'LogsColumnSizing' = 'LogsColumnSizing',
+	'LogsColumnVisibility' = 'LogsColumnVisibility',
 	'LogsOrderReversed' = 'LogsOrderReversed',
 	'RememberSignInMethod' = 'RememberSignInMethod',
 	'ResizableModalSize' = 'ResizableModalSize',

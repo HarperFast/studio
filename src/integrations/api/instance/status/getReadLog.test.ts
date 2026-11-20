@@ -1,6 +1,6 @@
 import type { AxiosInstance } from 'axios';
 import { AxiosError } from 'axios';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildReadLogBody, clampReadLogLimit, getReadLogQueryOptions, MAX_READ_LOG_LIMIT } from './getReadLog';
 
 describe('clampReadLogLimit', () => {
@@ -61,4 +61,210 @@ describe('read_log auto-refresh', () => {
 		const poll = intervalFor(true);
 		expect(poll && poll({ state: { error: forbidden, errorUpdatedAt: 0 } })).toBe(false);
 	});
+});
+
+it('resolves relative windows at request time with a stable query identity and no until', () => {
+	const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T06:30:00Z'));
+	try {
+		const logFilters = { relative_minutes: '15' as const, until: '2026-11-01T00:00' };
+		const params = {
+			entityId: 'relative',
+			instanceClient: {} as AxiosInstance,
+			logFilters,
+			replicated: false,
+			isAutoRefreshEnabled: true,
+		};
+		const firstKey = getReadLogQueryOptions(params).queryKey;
+		expect(buildReadLogBody(logFilters, false)).toMatchObject({ from: '2026-11-01T06:15:00.000Z', until: undefined });
+		now.mockReturnValue(Date.parse('2026-11-01T06:40:00Z'));
+		expect(buildReadLogBody(logFilters, false).from).toBe('2026-11-01T06:25:00.000Z');
+		expect(getReadLogQueryOptions(params).queryKey).toEqual(firstKey);
+	} finally {
+		now.mockRestore();
+	}
+});
+
+it('keeps non-live log reads manual across focus and reconnect events', () => {
+	const options = getReadLogQueryOptions({
+		entityId: 'manual',
+		instanceClient: {} as AxiosInstance,
+		logFilters: {},
+		replicated: false,
+		isAutoRefreshEnabled: false,
+	});
+	expect(options.refetchOnWindowFocus).toBe(false);
+	expect(options.refetchOnReconnect).toBe(false);
+	expect(options.refetchInterval).toBe(false);
+});
+
+it('keeps both sides of a busy context window under one total limit', async () => {
+	const timestamp = '2026-11-19T18:00:00.000Z';
+	const center = Date.parse(timestamp);
+	const fixtures = Array.from(
+		{ length: 61 },
+		(_, index) => ({
+			timestamp: new Date(center + (index - 30) * 1000).toISOString(),
+			message: String(index),
+			level: 'info',
+			thread: 'main/0',
+			node: 'node-a',
+			tags: [],
+		}),
+	);
+	const post = vi.fn().mockImplementation(async (_url: string, body: Record<string, unknown>) => {
+		const matching = fixtures.filter(item =>
+			Date.parse(item.timestamp) >= Date.parse(body.from as string)
+			&& Date.parse(item.timestamp) <= Date.parse(body.until as string)
+		);
+		const page = matching.slice(body.start as number, (body.start as number) + (body.limit as number));
+		page.sort((a, b) =>
+			body.order === 'asc' ? a.timestamp.localeCompare(b.timestamp) : b.timestamp.localeCompare(a.timestamp)
+		);
+		return { data: page };
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: timestamp,
+	});
+	const data = await (options.queryFn as () => Promise<typeof fixtures>)();
+	expect(post).toHaveBeenCalledTimes(8);
+	expect(post.mock.calls.every(([, body]) => body.order === 'asc')).toBe(true);
+	expect(post.mock.calls.every(([, body]) => body.limit === 5 && body.replicated === true)).toBe(true);
+	expect(data).toHaveLength(10);
+	expect(data.some(item => Date.parse(item.timestamp) < center)).toBe(true);
+	expect(data.some(item => Date.parse(item.timestamp) > center)).toBe(true);
+	expect(data.every(item => Math.abs(Date.parse(item.timestamp) - center) <= 5000)).toBe(true);
+});
+
+it('keeps buffered relative reads on the tail-seek path', async () => {
+	const post = vi.fn().mockResolvedValue({ data: [] });
+	const options = getReadLogQueryOptions({
+		entityId: 'tail',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { relative_minutes: '15', limit: '100' },
+		replicated: true,
+		isAutoRefreshEnabled: true,
+	});
+	await (options.queryFn as () => Promise<unknown>)();
+	expect(post.mock.calls[0][1]).toMatchObject({ order: 'desc', limit: 100 });
+	expect(post.mock.calls[0][1].from).toBeUndefined();
+	expect(post.mock.calls[0][1].until).toBeUndefined();
+});
+it('fails explicitly when a context window exceeds its bounded scan budget', async () => {
+	const post = vi.fn().mockImplementation(async (_url, body) => ({
+		data: Array.from(
+			{ length: body.limit },
+			(_, i) => ({ timestamp: new Date(Date.parse('2026-11-19T18:00:00Z') - i).toISOString() }),
+		),
+	}));
+	const options = getReadLogQueryOptions({
+		entityId: 'dense',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: false,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).rejects.toThrow('Too many logs');
+	expect(post).toHaveBeenCalledTimes(9);
+});
+
+it('cancels an abandoned context scan before another page starts', async () => {
+	const controller = new AbortController();
+	let finish!: (value: unknown) => void;
+	const pending = new Promise(resolve => {
+		finish = resolve;
+	});
+	const post = vi.fn().mockImplementation((_url, body, config) => {
+		expect(config.signal).toBeInstanceOf(AbortSignal);
+		return body.start === 0 && body.until === '2026-11-19T18:00:00.000Z' ? pending : Promise.resolve({ data: [] });
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'cancel-context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	const result = (options.queryFn as (ctx: { signal: AbortSignal }) => Promise<unknown>)({ signal: controller.signal });
+	controller.abort();
+	finish({ data: Array.from({ length: 5 }, () => ({ timestamp: '2026-11-19T18:00:00Z' })) });
+	await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+	expect(post).toHaveBeenCalledTimes(2);
+});
+
+it('stops the sibling scan when the after-context request fails', async () => {
+	let finish!: (value: unknown) => void;
+	let beforeSignal!: AbortSignal;
+	const pending = new Promise(resolve => {
+		finish = resolve;
+	});
+	const post = vi.fn().mockImplementation((_url, body, config) => {
+		if (body.until === '2026-11-19T18:00:00.000Z') {
+			beforeSignal = config.signal;
+			return pending;
+		}
+		return Promise.reject(new Error('after failed'));
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'sibling',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: true,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).rejects.toThrow('after failed');
+	expect(beforeSignal.aborted).toBe(true);
+	finish({ data: Array.from({ length: 5 }, () => ({ timestamp: '2026-11-19T18:00:00Z' })) });
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(post).toHaveBeenCalledTimes(2);
+});
+it('keeps sparse context records from turning sorting into an exception', async () => {
+	const post = vi.fn().mockResolvedValue({
+		data: [{ timestamp: undefined, message: 'sparse' }, { timestamp: '2026-11-19T18:00:00Z', message: 'valid' }],
+	});
+	const options = getReadLogQueryOptions({
+		entityId: 'sparse-context',
+		instanceClient: { post } as unknown as AxiosInstance,
+		logFilters: { limit: '10' },
+		replicated: false,
+		isAutoRefreshEnabled: false,
+		contextTimestamp: '2026-11-19T18:00:00Z',
+	});
+	await expect((options.queryFn as () => Promise<unknown>)()).resolves.toContainEqual({
+		timestamp: undefined,
+		message: 'sparse',
+	});
+});
+
+it('loads bookmarked context without native AbortSignal.any and detaches fallback listeners', async () => {
+	const native = AbortSignal.any;
+	const controller = new AbortController();
+	const remove = vi.spyOn(controller.signal, 'removeEventListener');
+	Object.defineProperty(AbortSignal, 'any', { configurable: true, writable: true, value: undefined });
+	try {
+		const post = vi.fn().mockResolvedValue({ data: [] });
+		const options = getReadLogQueryOptions({
+			entityId: 'fallback-context',
+			instanceClient: { post } as unknown as AxiosInstance,
+			logFilters: { limit: '10' },
+			replicated: false,
+			isAutoRefreshEnabled: false,
+			contextTimestamp: '2026-11-19T18:00:00Z',
+		});
+		await expect((options.queryFn as (ctx: { signal: AbortSignal }) => Promise<unknown>)({ signal: controller.signal }))
+			.resolves.toEqual([]);
+		expect(post).toHaveBeenCalledTimes(2);
+		expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
+	} finally {
+		Object.defineProperty(AbortSignal, 'any', { configurable: true, writable: true, value: native });
+		remove.mockRestore();
+	}
 });

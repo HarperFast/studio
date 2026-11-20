@@ -17,12 +17,14 @@ const RESIZE_HANDLE_WIDTH = 16;
 export interface TableProps extends React.ComponentProps<'table'> {
 	containerClassName?: string;
 	containerRef?: React.Ref<HTMLDivElement>;
+	containerTabIndex?: number;
 }
 
-export function Table({ className, containerClassName, containerRef, ...props }: TableProps) {
+export function Table({ className, containerClassName, containerRef, containerTabIndex, ...props }: TableProps) {
 	return (
 		<div
 			ref={containerRef}
+			tabIndex={containerTabIndex}
 			data-slot="table-container"
 			className={cn('relative w-full overflow-x-auto', containerClassName)}
 		>
@@ -74,6 +76,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
 
 export function TableHeadSortable<TData extends RowData>({
 	header,
+	children,
 	onColumnClick,
 	className,
 	...props
@@ -95,7 +98,9 @@ export function TableHeadSortable<TData extends RowData>({
 	// table that uses this header, not just the browse table that wires up sizing + persistence.
 	const enableResizing = header.getContext().table.options.enableColumnResizing === true
 		&& header.column.getCanResize();
-	const content = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext());
+	const content = header.isPlaceholder
+		? null
+		: children ?? flexRender(header.column.columnDef.header, header.getContext());
 	const table = header.getContext().table;
 	const size = header.getSize();
 	const minSize = header.column.columnDef.minSize ?? table.options.defaultColumn?.minSize ?? 20;
@@ -112,7 +117,7 @@ export function TableHeadSortable<TData extends RowData>({
 		const selector = `[data-col-id="${CSS.escape(header.column.id)}"]`;
 		const range = document.createRange();
 		const measure = (el: Element) => {
-			range.selectNodeContents(el);
+			range.selectNodeContents(el.querySelector('[data-column-content]') ?? el);
 			return range.getBoundingClientRect().width;
 		};
 		let widest = 0;

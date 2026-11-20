@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getLogDateError, getLogDateMax, LOG_DATE_MIN, LogFiltersFormSchema } from './logFiltersFormSchema';
+import {
+	getLogDateError,
+	getLogDateMax,
+	LOG_DATE_MIN,
+	logDateForValue,
+	LogFiltersFormSchema,
+} from './logFiltersFormSchema';
 
 // Every fixture is local time (or, for the epoch, at least 14h clear of it), so these hold in any zone.
 const NOW = new Date(2026, 9, 10, 14, 30, 0);
@@ -71,4 +77,14 @@ describe('LogFiltersFormSchema', () => {
 		expect(LogFiltersFormSchema.safeParse({ from: '', until: '', limit: '100', level: 'undefined' }).success)
 			.toBe(true);
 	});
+});
+
+it('preserves an unchanged generated future bound without allowing a new future edit', () => {
+	const future = new Date();
+	future.setDate(future.getDate() + 1);
+	const pad = (value: number) => String(value).padStart(2, '0');
+	const value = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}T01:00:00`;
+	expect(logDateForValue(value).safeParse(value).success).toBe(true);
+	expect(logDateForValue(value).safeParse(value.replace('01:00', '02:00')).success).toBe(false);
+	expect(logDateForValue('bad').safeParse('bad').success).toBe(false);
 });

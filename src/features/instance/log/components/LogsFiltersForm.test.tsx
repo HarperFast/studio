@@ -46,7 +46,7 @@ function dateInputs(container: HTMLElement) {
 }
 
 describe('LogsFiltersForm date inputs', () => {
-	it('bound both inputs to the epoch..today and show seconds', () => {
+	it('bound both inputs to the epoch..today and retain milliseconds', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date(2026, 9, 10, 14, 30, 0));
 		const { container } = render(<Harness onSubmit={() => undefined} />);
@@ -55,7 +55,7 @@ describe('LogsFiltersForm date inputs', () => {
 		for (const input of inputs) {
 			expect(input.min).toBe(LOG_DATE_MIN);
 			expect(input.max).toBe('2026-10-10T23:59:59');
-			expect(input.step).toBe('1');
+			expect(input.step).toBe('0.001');
 		}
 	});
 

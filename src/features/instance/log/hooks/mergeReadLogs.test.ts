@@ -1,6 +1,6 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { describe, expect, it } from 'vitest';
-import { mergeReadLogs } from './mergeReadLogs';
+import { logKey, mergeReadLogs } from './mergeReadLogs';
 
 function entry(message: string, timestamp: string, overrides: Partial<ReadLogItem> = {}): ReadLogItem {
 	return { level: 'info', timestamp, thread: 'main/0', tags: [], node: '', message, ...overrides };
@@ -54,4 +54,23 @@ describe('mergeReadLogs', () => {
 		);
 		expect(merged).toHaveLength(2);
 	});
+});
+
+it('preserves repeated emissions and tags while reconciling source overlap', () => {
+	const a = entry('repeat', '2026-07-07T00:00:01.000Z');
+	const snapshot = [a, { ...a }, { ...a, tags: ['different'] }];
+	const result = mergeReadLogs(snapshot, [{ ...a }, { ...a }], 100);
+	expect(result).toHaveLength(3);
+	expect(new Set(result.map(logKey)).size).toBe(3);
+	expect(mergeReadLogs(snapshot, [], 100).map(logKey)).toEqual(result.map(logKey));
+	expect(logKey({ ...a })).toBe(logKey(a));
+});
+
+it('reuses occurrence records when an unchanged burst is merged again', () => {
+	const original = entry('burst', '2026-07-07T00:00:01.000Z');
+	const source = [original, { ...original }, { ...original }];
+	const first = mergeReadLogs(source, [], 100);
+	const second = mergeReadLogs(source, [entry('new', '2026-07-07T00:00:02.000Z')], 100);
+	expect(second[2]).toBe(first[1]);
+	expect(second[3]).toBe(first[2]);
 });
