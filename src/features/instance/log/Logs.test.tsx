@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseInstanceLogsParams } from './hooks/useInstanceLogs';
 import { LogsExplorer } from './index';
-import { buildLogLink } from './logView';
+import { buildLogLink } from './test/logLinks';
 
 const state = vi.hoisted(() => ({
 	logs: [] as ReadLogItem[],

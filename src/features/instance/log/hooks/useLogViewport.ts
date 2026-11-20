@@ -138,6 +138,8 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 			} else { holdPosition(true); }
 		}
 		view.anchor = captureAnchor(element);
+		view.userScrolling = false;
+		view.expectedTop = element.scrollTop;
 		setAway(!edge);
 	}, [holdPosition]);
 	const jumpToLatest = useCallback(() => {
@@ -155,6 +157,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		const reset = view.scope !== scope || view.reversed !== reversed;
 		const changed = view.displayed !== displayedLogs;
 		const expanded = view.expanded !== expandedKeys;
+		const collapsing = expanded && expandedKeys.size < (view.expanded?.size ?? 0);
 		if (reset) {
 			view.following = true;
 			view.userScrolling = false;
@@ -172,9 +175,16 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		if (!element || loading) { return; }
 		if (!reset && !changed && !expanded && view.initialized && !view.jump) { return; }
 		if (expanded && expandedKeys.size && !reset) { view.following = false; }
-		if (reset || expanded || view.following) {
+		if (reset || view.following) {
 			element.style.paddingBottom = '';
 			view.padded = false;
+		}
+		if (collapsing && !reset && !view.following && !reversed) {
+			const top = view.expectedTop ?? element.scrollTop;
+			const tableHeight = element.querySelector('table')?.getBoundingClientRect().height ?? 0;
+			const padding = Math.max(parseFloat(element.style.paddingBottom) || 0, element.clientHeight + top - tableHeight);
+			element.style.paddingBottom = `${padding}px`;
+			element.scrollTo({ top, behavior: 'instant' });
 		}
 		if (expanded && !expandedKeys.size && atEdge(element, reversed)) {
 			view.following = true;

@@ -206,6 +206,16 @@ test('a short expanded list stays still as rows are prepended', async ({ page })
 	await expect(page.getByText('Short new', { exact: true })).toHaveCount(1, { timeout: 15000 });
 	expect(Math.abs((await page.getByLabel('Full log message').boundingBox())!.y - before)).toBeLessThan(1);
 	await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+	const expanded = page.getByRole('button', { name: 'Collapse log 2', exact: true });
+	const headerY = (await expanded.boundingBox())!.y;
+	await expanded.click();
+	const collapsed = page.getByRole('button', { name: 'Expand log 2', exact: true });
+	expect(Math.abs((await collapsed.boundingBox())!.y - headerY)).toBeLessThan(1);
+	await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+	logs = [log('Short second arrival', 2000), ...logs];
+	await expect(page.getByText('Short second arrival', { exact: true })).toHaveCount(1, { timeout: 15000 });
+	expect(Math.abs((await page.getByRole('button', { name: 'Expand log 3', exact: true }).boundingBox())!.y - headerY))
+		.toBeLessThan(1);
 });
 
 test('opening a lower log reveals its details and tall entries show their beginning', async ({ page }) => {
@@ -339,4 +349,31 @@ test.describe('server clock context', () => {
 		await expect(page.getByRole('alert')).toHaveCount(0);
 		await expect(page.getByText('Date cannot be after today')).toHaveCount(0);
 	});
+});
+
+test('Home at the live edge does not stop following', async ({ page }) => {
+	let logs = [log('Edge original'), log('Edge older', -1000)];
+	await serve(page, () => logs, []);
+	await page.goto('/#/org-logs/clu-logs/logs');
+	await page.getByRole('switch', { name: 'Live logs' }).click();
+	await page.locator('[data-slot="table-container"]').focus();
+	await page.keyboard.press('Home');
+	await page.keyboard.press('ArrowUp');
+	logs = [log('Edge newest', 1000), ...logs];
+	await expect(page.getByText('Edge newest', { exact: true })).toHaveCount(1, { timeout: 15000 });
+	await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
+});
+
+test('new batches do not focus an old expansion after jumping to latest', async ({ page }) => {
+	let logs = Array.from({ length: 40 }, (_, index) => log(`Focus event ${index}`, -index * 1000));
+	await serve(page, () => logs, []);
+	await page.goto('/#/org-logs/clu-logs/logs');
+	await page.getByRole('switch', { name: 'Live logs' }).click();
+	await page.getByRole('button', { name: 'Expand log 30', exact: true }).click();
+	await page.getByRole('button', { name: 'Jump to latest' }).click();
+	await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+	logs = [log('Focus newest', 1000), ...logs];
+	await expect(page.getByText('Focus newest', { exact: true })).toHaveCount(1, { timeout: 15000 });
+	await expect.poll(() => page.evaluate(() => document.activeElement === document.body)).toBe(true);
+	await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
 });

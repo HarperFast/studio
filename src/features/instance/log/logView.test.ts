@@ -2,7 +2,6 @@ import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { describe, expect, it } from 'vitest';
 import { logKey, mergeReadLogs } from './hooks/mergeReadLogs';
 import {
-	buildLogLink,
 	DEFAULT_LOG_FILTERS,
 	localDateTime,
 	logMatchesTarget,
@@ -12,6 +11,7 @@ import {
 	validDateRange,
 	withTimeRange,
 } from './logView';
+import { buildLogLink } from './test/logLinks';
 
 const log: ReadLogItem = {
 	level: 'error',

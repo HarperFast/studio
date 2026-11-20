@@ -368,7 +368,20 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 							!event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey
 							&& !(event.target as HTMLElement).closest('input, textarea, select, [contenteditable], [role=menu]')
 							&& ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)
-						) { view.onScrollIntent(); }
+						) {
+							const element = view.containerRef.current;
+							if (!element) { return; }
+							if (event.key === ' ' && (event.target as HTMLElement).closest('button, [role=button], [role=switch]')) {
+								return;
+							}
+							const upward = ['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey);
+							if (
+								upward
+									? element.scrollTop <= 0
+									: element.scrollHeight - element.clientHeight - element.scrollTop <= 1
+							) { return; }
+							view.onScrollIntent();
+						}
 					}}
 				>
 					<LogsDataTable

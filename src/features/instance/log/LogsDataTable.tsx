@@ -10,7 +10,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { cn } from '@/lib/cn';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { ColumnDef, studioTableFeatures } from '@/lib/table';
+import { Cell, ColumnDef, studioTableFeatures } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState, flexRender, useTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
 import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useLayoutEffect, useMemo, useRef } from 'react';
@@ -83,6 +83,14 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	},
 	{ accessorKey: 'tags', header: 'Tags', size: 160, cell: ({ row }) => row.original.tags?.join(', ') },
 ];
+
+const LogCellContent = memo(
+	function LogCellContent({ cell }: { cell: Cell<ReadLogItem, unknown> }) {
+		return flexRender(cell.column.columnDef.cell, cell.getContext());
+	},
+	(previous, next) =>
+		previous.cell.row.original === next.cell.row.original && previous.cell.column === next.cell.column,
+);
 
 function logToggle(root: HTMLDivElement | null, key?: string) {
 	return key ? root?.querySelector<HTMLButtonElement>(`button[data-log-toggle="${key}"]`) : undefined;
@@ -159,6 +167,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 	const rootRef = useRef<HTMLDivElement>(null);
 	const activeKey = useRef<string | undefined>(undefined);
 	const pendingFocus = useRef<HTMLButtonElement | null>(null);
+	const revealedSelection = useRef<string | undefined>(undefined);
 	const id = useId();
 	const table = useTable({
 		features: studioTableFeatures,
@@ -181,9 +190,9 @@ export const LogsDataTable = memo(function LogsDataTable(
 		if (button?.isConnected) {
 			button.focus({ preventScroll: true });
 			revealExpandedLog(button);
-		} else if (document.activeElement === document.body) {
-			const key = [activeKey.current, selectedKey, ...expandedKeys].find(key => key && expandedKeys.has(key));
-			const selected = logToggle(rootRef.current, key);
+		} else if (selectedKey && revealedSelection.current !== selectedKey && expandedKeys.has(selectedKey)) {
+			revealedSelection.current = selectedKey;
+			const selected = document.activeElement === document.body ? logToggle(rootRef.current, selectedKey) : null;
 			if (selected) {
 				selected.focus({ preventScroll: true });
 				revealExpandedLog(selected);
@@ -352,7 +361,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 														<ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />
 													</button>
 												)
-												: flexRender(cell.column.columnDef.cell, cell.getContext())}
+												: <LogCellContent cell={cell} />}
 										</TableCell>
 									))}
 								</TableRow>

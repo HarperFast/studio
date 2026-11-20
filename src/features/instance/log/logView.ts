@@ -42,7 +42,7 @@ export function surroundingFilters(filters: LogFilters, timestamp: string): LogF
 	};
 }
 
-export function canViewLogContext(timestamp: string): boolean {
+function canViewLogContext(timestamp: string): boolean {
 	const time = Date.parse(timestamp);
 	return /^\d{4}-\d{2}-\d{2}T/.test(timestamp) && time >= 30000 && time < Date.UTC(9999, 0, 1) - 86400000;
 }
@@ -83,25 +83,4 @@ export function validateLogSearch(search: Record<string, unknown>): { log?: LogT
 export function logMatchesTarget(log: ReadLogItem, target: LogTarget): boolean {
 	return Date.parse(log.timestamp) === Date.parse(target.timestamp) && (log.node ?? '') === target.node
 		&& (log.thread ?? '') === target.thread && fingerprint(log) === target.fingerprint;
-}
-
-export function buildLogLink(href: string, log: ReadLogItem, source: LogFilters['log_name']): string {
-	const url = new URL(href);
-	const [path, query = ''] = url.hash.slice(1).split('?');
-	const search = new URLSearchParams(query);
-	search.delete('filter');
-	search.set(
-		'log',
-		JSON.stringify(
-			{
-				timestamp: log.timestamp,
-				node: log.node ?? '',
-				thread: log.thread ?? '',
-				fingerprint: fingerprint(log),
-				source: source ?? 'hdb.log',
-			} satisfies LogTarget,
-		),
-	);
-	url.hash = `${path}?${search}`;
-	return url.toString();
 }
