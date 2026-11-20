@@ -16,14 +16,14 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useSearch } from '@tanstack/react-router';
-import { PlayIcon, RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { RefreshCwIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { DownloadLogsMenu } from './components/DownloadLogsMenu';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
 import { logKey } from './hooks/mergeReadLogs';
 import { useInstanceLogs } from './hooks/useInstanceLogs';
-import { useLogInspection } from './hooks/useLogInspection';
+import { useLogViewport } from './hooks/useLogViewport';
 import { LogsDataTable } from './LogsDataTable';
 import {
 	DEFAULT_LOG_FILTERS,
@@ -105,7 +105,6 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	const [thread, setThread] = useState('*');
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
 	const linkedSelectionApplied = useRef(false);
-	const tableScrollRef = useRef<HTMLDivElement>(null);
 	const formSchema = useMemo(() => {
 		const current = formDates(logFilters);
 		return LogFiltersFormSchema.extend({ from: logDateForValue(current.from), until: logDateForValue(current.until) });
@@ -128,20 +127,22 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		contextTimestamp,
 	});
 	const queryKey = JSON.stringify([params.entityId, logFilters, contextTimestamp]);
-	const inspection = useLogInspection(incoming, queryKey, node, thread, !isLoading && (!error || incoming.length > 0));
-	const baseLogs = inspection.logs;
-	const displayedLogs = useMemo(() => {
-		const filtered = baseLogs.filter(log =>
-			(node === '*' || (log.node || '') === node) && (thread === '*' || (log.thread || '') === thread)
-		);
-		return isReversed ? [...filtered].reverse() : filtered;
-	}, [baseLogs, node, thread, isReversed]);
+	const view = useLogViewport({
+		incoming,
+		queryKey,
+		expandedKeys,
+		reversed: isReversed,
+		node,
+		thread,
+		loading: isLoading,
+	});
+	const baseLogs = view.logs;
+	const displayedLogs = view.displayedLogs;
 	const targetMatches = useMemo(() => target ? incoming.filter(log => logMatchesTarget(log, target)) : [], [
 		incoming,
 		target,
 	]);
 	const selectedKey = targetMatches.length === 1 ? logKey(targetMatches[0]) : undefined;
-	const following = isLive && !inspection.paused;
 	useEffect(() => {
 		if (isLoading) { return; }
 		setExpandedKeys(current => {
@@ -156,29 +157,8 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		if (!target || targetMatches.length !== 1 || linkedSelectionApplied.current) { return; }
 		linkedSelectionApplied.current = true;
 		setExpandedKeys(current => new Set([...current, logKey(targetMatches[0])]));
-		inspection.pause();
-	}, [target, targetMatches, inspection.pause]);
-
-	useEffect(() => {
-		if (following && !isLoading) {
-			const el = tableScrollRef.current;
-			el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
-		}
-	}, [displayedLogs, following, isReversed, isLoading]);
-	useEffect(() => {
-		if (isLoading || inspection.paused) { return; }
-		const el = tableScrollRef.current;
-		el?.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
-	}, [isReversed, isLoading]);
-	useEffect(() => {
-		if (isLoading) { return; }
-
-		if (selectedKey) {
-			tableScrollRef.current?.querySelector<HTMLElement>('[data-log-selected="true"]')?.scrollIntoView?.({
-				block: 'center',
-			});
-		}
-	}, [selectedKey, isLoading, displayedLogs]);
+		view.onInspect();
+	}, [target, targetMatches, view.onInspect]);
 
 	const apply = (data: LogFilters, nextRange?: TimeRange) => {
 		const displayed = formDates(logFilters);
@@ -209,12 +189,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 		setRange(requestedRange);
 		form.reset(formDates(next));
 		setLogFilters(next);
-		inspection.resume();
 		setTarget(undefined);
 		setExpandedKeys(new Set());
 	};
 	const refresh = () => {
-		inspection.resume();
 		void refetch();
 	};
 
@@ -226,17 +204,14 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	};
 
 	const reverse = useCallback(() => setIsReversed(value => !value), [setIsReversed]);
-	const resume = () => {
-		inspection.resume();
-		setIsLive(true);
-	};
 
 	return (
 		<div className="space-y-3 px-2 pt-3 text-foreground">
 			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-3">
 				<Button
 					variant="defaultOutline"
-					size="sm"
+					size="default"
+					className="shrink-0 rounded-md"
 					onClick={() => setIsFiltersOpen(open => !open)}
 					aria-expanded={isFiltersOpen}
 					aria-controls={isFiltersOpen ? 'logs-sidebar' : undefined}
@@ -258,13 +233,13 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 								{...form.register('filter')}
 							/>
 						</div>
-						<Button type="submit" size="sm" variant="defaultOutline">Search</Button>
+						<Button type="submit" size="default" variant="defaultOutline" className="rounded-md">Search</Button>
 					</form>
 				)}
 				<select
 					aria-label="Time range"
 					value={range}
-					className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+					className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm"
 					onChange={event => {
 						const value = event.target.value as TimeRange;
 						setRange(value);
@@ -279,16 +254,17 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 					<option value="custom">Custom range</option>
 				</select>
 				<Button
-					size="sm"
+					size="default"
 					variant="ghost"
 					aria-label="Refresh logs"
+					className="shrink-0 rounded-md"
 					onClick={refresh}
 					disabled={isFetching || isLoading}
 				>
 					<RefreshCwIcon className={isFetching ? 'animate-spin' : ''} />Refresh
 				</Button>
-				<DownloadLogsMenu logs={displayedLogs} logName={logFilters.log_name ?? 'hdb.log'} />
-				<div className="flex items-center gap-2 text-sm">
+				<DownloadLogsMenu className="rounded-md" logs={displayedLogs} logName={logFilters.log_name ?? 'hdb.log'} />
+				<div className="flex h-9 shrink-0 items-center gap-2 border-l border-border pl-3 text-sm">
 					<Switch
 						id="logs-live"
 						aria-label="Live logs"
@@ -296,7 +272,6 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						disabled={!!logFilters.until}
 						onCheckedChange={value => {
 							setIsLive(value);
-							if (value) { inspection.resume(); }
 						}}
 					/>
 					<label htmlFor="logs-live">Live</label>
@@ -309,18 +284,10 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				<span>
 					{isLoading ? 'Loading logs…' : `${displayedLogs.length} loaded logs`} · {timezone} ·{' '}
 					{logFilters.log_name ?? 'hdb.log'}
-					{isLive && !inspection.paused && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
+					{isLive && ` · ${transport === 'streaming' ? 'Streaming' : 'Updating every 5s'}`}
 					{!!logFilters.until && ' · Fixed time range (Live unavailable)'}
 				</span>
-				{inspection.paused && !isLive && <span>Paused for inspection · Refresh to update</span>}
-				{inspection.paused && isLive && (
-					<Button size="sm" variant="defaultOutline" onClick={resume} disabled={!!logFilters.until}>
-						<PlayIcon />
-						{inspection.pending
-							? `${inspection.pending}${inspection.saturated ? '+' : ''} new matching logs available · `
-							: ''}Resume live
-					</Button>
-				)}
+				{view.away && <Button size="sm" variant="defaultOutline" onClick={view.jumpToLatest}>Jump to latest</Button>}
 			</div>
 			{!!error && (
 				<div role="alert" className="flex items-center gap-3 rounded-md border border-destructive p-3 text-sm">
@@ -376,16 +343,20 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 				<section
 					className="min-w-0 flex-1"
 					aria-label="Log results"
-					onPointerDownCapture={event => {
-						if (event.target === tableScrollRef.current) { inspection.pause(); }
+					onScrollCapture={event => {
+						if (event.target === view.containerRef.current) { view.onScroll(); }
 					}}
-					onWheelCapture={inspection.pause}
-					onTouchMoveCapture={inspection.pause}
-					onKeyDownCapture={event => {
-						if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
-							inspection
-								.pause();
-						}
+					onPointerDownCapture={event => {
+						if (event.target === view.containerRef.current) { view.onScrollIntent(); }
+					}}
+					onWheelCapture={view.onWheel}
+					onTouchMoveCapture={view.onScrollIntent}
+					onKeyDown={event => {
+						if (
+							!event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey
+							&& !(event.target as HTMLElement).closest('input, textarea, select, [contenteditable], [role=menu]')
+							&& ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)
+						) { view.onScrollIntent(); }
 					}}
 				>
 					<LogsDataTable
@@ -393,11 +364,11 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 						expandedKeys={expandedKeys}
 						onExpandedChange={setExpandedKeys}
 						source={logFilters.log_name}
-						containerRef={tableScrollRef}
+						containerRef={view.containerRef}
 						reversed={isReversed}
 						onReverse={reverse}
 						selectedKey={selectedKey}
-						onInspect={inspection.pause}
+						onInspect={view.onInspect}
 					/>
 				</section>
 			</div>

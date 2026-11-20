@@ -275,7 +275,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 				containerTabIndex={0}
 				className="table-fixed text-xs"
 				style={{ width: `max(100%, ${table.getTotalSize()}px)` }}
-				containerClassName="logsTable max-h-[calc(100dvh-18rem-var(--notification-banner-height,0px))] min-h-64 overflow-auto rounded-b-md"
+				containerClassName="logsTable h-[calc(100dvh-18rem-var(--notification-banner-height,0px))] min-h-64 overflow-auto rounded-b-md [overflow-anchor:none]"
 			>
 				<colgroup>
 					{table.getVisibleLeafColumns().map(column => <col key={column.id} style={{ width: column.getSize() }} />)}

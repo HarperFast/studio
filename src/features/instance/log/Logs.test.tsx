@@ -46,7 +46,13 @@ const params = { entityId: 'cluster-a', entityType: 'cluster', instanceClient: {
 	typeof LogsExplorer
 >[0]['params'];
 beforeAll(() => {
-	Element.prototype.scrollTo = vi.fn();
+	Element.prototype.scrollTo = vi.fn(function(this: HTMLElement, options?: ScrollToOptions | number, y?: number) {
+		Object.defineProperty(this, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: typeof options === 'number' ? y ?? this.scrollTop : options?.top ?? this.scrollTop,
+		});
+	});
 	Element.prototype.scrollIntoView = vi.fn();
 	Element.prototype.hasPointerCapture ??= () => false;
 	Element.prototype.setPointerCapture ??= () => undefined;
@@ -89,7 +95,7 @@ describe('logs explorer interactions', () => {
 		expect(screen.getAllByLabelText('Full log message')).toHaveLength(1);
 	});
 	for (const reversed of [false, true]) {
-		it(`holds expanded rows through live arrivals and resumes explicitly (reversed=${reversed})`, () => {
+		it(`keeps expanded rows while new live arrivals are rendered (reversed=${reversed})`, () => {
 			localStorage.setItem('LogsOrderReversed', JSON.stringify(reversed));
 			const { rerender } = render(<LogsExplorer params={params} />);
 			fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
@@ -97,13 +103,12 @@ describe('logs explorer interactions', () => {
 			const inspected = screen.getByLabelText('Full log message').textContent;
 			state.logs = [log('new arrival', 'node-c', 3), ...state.logs];
 			rerender(<LogsExplorer params={params} />);
-			expect(screen.queryByText('new arrival')).toBeNull();
+			expect(screen.getByText('new arrival')).toBeTruthy();
 			expect(screen.getByLabelText('Full log message').textContent).toBe(inspected);
-			fireEvent.click(screen.getByRole('button', { name: /1 new matching logs available.*Resume live/ }));
 			expect(screen.getByText('new arrival')).toBeTruthy();
 		});
 	}
-	it('pins inspection even with Live off through a focus-style refetch and preserves expansion on Refresh', () => {
+	it('keeps inspected entries while refreshed results arrive', () => {
 		const { rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
@@ -113,7 +118,7 @@ describe('logs explorer interactions', () => {
 		state.logs = [log('focus refetch arrival')];
 		rerender(<LogsExplorer params={params} />);
 		expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
-		expect(screen.queryByText('focus refetch arrival')).toBeNull();
+		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
 		fireEvent.click(screen.getByRole('button', { name: 'Refresh logs' }));
 		expect(screen.getByText('focus refetch arrival')).toBeTruthy();
 	});
@@ -129,7 +134,7 @@ describe('logs explorer interactions', () => {
 		expect(screen.getByText('loaded after wheel')).toBeTruthy();
 		expect(screen.queryByText(/Paused for inspection/)).toBeNull();
 	});
-	it('pins a scrollbar drag before a live flush can interrupt it', () => {
+	it('accepts live arrivals during a scrollbar drag', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
 		const scroller = container.querySelector('[data-slot="table-container"]')!;
@@ -138,8 +143,8 @@ describe('logs explorer interactions', () => {
 		rerender(<LogsExplorer params={params} />);
 		Object.defineProperty(scroller, 'scrollTop', { value: 120, configurable: true });
 		fireEvent.scroll(scroller);
-		expect(screen.queryByText('mid-drag arrival')).toBeNull();
-		expect(screen.getByRole('button', { name: /Resume live/ })).toBeTruthy();
+		expect(screen.getByText('mid-drag arrival')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
 	});
 	it('reveals invalid hidden date drafts when submitting Search', async () => {
 		render(<LogsExplorer params={params} />);
@@ -180,7 +185,7 @@ describe('logs explorer interactions', () => {
 			expect(state.args.logFilters[untouched]).toBe(previous[untouched]);
 		});
 	}
-	it('freezes when a user scrolls away from the newest edge', () => {
+	it('offers Jump to latest when the user scrolls away', () => {
 		const { container, rerender } = render(<LogsExplorer params={params} />);
 		fireEvent.click(screen.getByRole('switch', { name: 'Live logs' }));
 		const scroller = container.querySelector('[data-slot="table-container"]')!;
@@ -191,8 +196,8 @@ describe('logs explorer interactions', () => {
 		fireEvent.scroll(scroller);
 		state.logs = [log('new arrival'), ...state.logs];
 		rerender(<LogsExplorer params={params} />);
-		expect(screen.queryByText('new arrival')).toBeNull();
-		expect(screen.getByRole('button', { name: /Resume live/ })).toBeTruthy();
+		expect(screen.getByText('new arrival')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
 	});
 
 	it('validates persisted column preferences while keeping required columns visible', () => {

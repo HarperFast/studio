@@ -73,7 +73,7 @@ async function serve(page: Page, logs: () => ReturnType<typeof log>[], requests:
 
 for (const oldestFirst of [false, true]) {
 	test(
-		`inline inspection preserves live rows until Resume (${oldestFirst ? 'oldest' : 'newest'} first)`,
+		`live arrivals preserve the expanded reading position (${oldestFirst ? 'oldest' : 'newest'} first)`,
 		async ({ page }, testInfo) => {
 			let logs = [
 				log('Error: connection refused\n    at connect (client.ts:42:9)'),
@@ -98,18 +98,18 @@ for (const oldestFirst of [false, true]) {
 			await page.getByRole('switch', { name: 'Live logs' }).click();
 			await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
 			const message = await page.getByLabel('Full log message').textContent();
-			const before = await page.locator('[data-slot="table-container"]').evaluate(el => el.scrollTop);
+			const before = (await page.getByLabel('Full log message').boundingBox())!.y;
 			logs = [log('New live event', 1000), ...logs];
-			await expect(page.getByRole('button', { name: /1 new matching logs available.*Resume live/ })).toBeVisible({
-				timeout: 15000,
-			});
-			await expect(page.getByText('New live event', { exact: true })).toHaveCount(0);
+			await expect(page.getByText('New live event', { exact: true })).toHaveCount(1, { timeout: 15000 });
+			await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
 			await expect(page.getByLabel('Full log message')).toHaveText(message!);
-			expect(await page.locator('[data-slot="table-container"]').evaluate(el => el.scrollTop)).toBe(before);
+			expect(Math.abs((await page.getByLabel('Full log message').boundingBox())!.y - before)).toBeLessThan(1);
 			expect(requests.every(body => body.replicated === true)).toBe(true);
 			expect(requests.filter(body => !body.until).length).toBeGreaterThan(0);
 			await page.screenshot({ path: testInfo.outputPath('logs-inline.png'), fullPage: true });
-			await page.getByRole('button', { name: /Resume live/ }).click();
+			await page.getByRole('button', { name: 'Jump to latest' }).click();
+			await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
+			await expect(page.getByLabel('Full log message')).toHaveText(message!);
 			await expect(page.getByText('New live event', { exact: true })).toBeVisible();
 		},
 	);
@@ -144,13 +144,69 @@ for (const oldestFirst of [false, true]) {
 				&& details!.y + details!.height <= Math.min(scroller!.y + scroller!.height, 1000) + 1;
 		}).toBe(true);
 		logs = [log('New event during keyboard inspection', 1000), ...logs];
-		await expect(page.getByRole('button', { name: /1 new matching logs available.*Resume live/ })).toBeVisible({
+		await expect(page.getByText('New event during keyboard inspection', { exact: true })).toHaveCount(1, {
 			timeout: 15000,
 		});
 		await expect(page.getByLabel('Full log message')).toHaveText(inspected!);
-		await expect(page.getByText('New event during keyboard inspection', { exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
 	});
 }
+
+for (const oldestFirst of [false, true]) {
+	test(`reading context survives full buffer rotation (${oldestFirst ? 'oldest' : 'newest'} first)`, async ({ page }) => {
+		let logs = Array.from({ length: 40 }, (_, i) => log(`Original ${i}`, -i * 1000));
+		await serve(page, () => logs, []);
+		await page.addInitScript(value => localStorage.setItem('LogsOrderReversed', JSON.stringify(value)), oldestFirst);
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.goto('/#/org-logs/clu-logs/logs');
+		await page.getByRole('switch', { name: 'Live logs' }).click();
+		const pane = page.locator('[data-slot="table-container"]');
+		await pane.hover();
+		await page.mouse.wheel(0, oldestFirst ? -500 : 500);
+		await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+		const anchor = await pane.evaluate(el => {
+			const top = el.querySelector('thead')!.getBoundingClientRect().bottom;
+			const button = Array.from(el.querySelectorAll<HTMLElement>('button[data-log-toggle]')).find(b =>
+				b.closest('tr')!.getBoundingClientRect().bottom > top
+			)!;
+			return { key: button.dataset.logToggle!, y: button.getBoundingClientRect().y };
+		});
+		logs = Array.from({ length: 100 }, (_, i) => log(`Incoming ${i}`, (100 - i) * 1000));
+		await expect(page.getByText('Incoming 0', { exact: true })).toHaveCount(1, { timeout: 15000 });
+		const original = page.locator(`button[data-log-toggle="${anchor.key}"]`);
+		await expect.poll(async () => Math.abs((await original.boundingBox())!.y - anchor.y)).toBeLessThan(1);
+		if (oldestFirst) { await page.getByRole('button', { name: 'Jump to latest' }).click(); }
+		else {
+			await pane.hover();
+			await page.mouse.wheel(0, -100000);
+		}
+		await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
+		await expect(original).toHaveCount(0);
+		logs = [log('Followed arrival', 200000), ...logs];
+		await expect(page.getByText('Followed arrival', { exact: true })).toHaveCount(1, { timeout: 15000 });
+		await expect.poll(() =>
+			pane.evaluate(
+				(el, oldest) => oldest ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop,
+				oldestFirst,
+			)
+		).toBeLessThan(2);
+		await expect(page.getByRole('button', { name: 'Jump to latest' })).toHaveCount(0);
+	});
+}
+
+test('a short expanded list stays still as rows are prepended', async ({ page }) => {
+	let logs = [log('Short original'), log('Short older', -1000)];
+	await serve(page, () => logs, []);
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await page.goto('/#/org-logs/clu-logs/logs');
+	await page.getByRole('switch', { name: 'Live logs' }).click();
+	await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
+	const before = (await page.getByLabel('Full log message').boundingBox())!.y;
+	logs = [log('Short new', 1000), ...logs];
+	await expect(page.getByText('Short new', { exact: true })).toHaveCount(1, { timeout: 15000 });
+	expect(Math.abs((await page.getByLabel('Full log message').boundingBox())!.y - before)).toBeLessThan(1);
+	await expect(page.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+});
 
 test('opening a lower log reveals its details and tall entries show their beginning', async ({ page }) => {
 	const logs = Array.from({ length: 40 }, (_, index) =>
