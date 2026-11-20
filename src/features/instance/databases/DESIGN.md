@@ -218,3 +218,17 @@ and `hdb_job` does not replicate (`resources/databases.ts:330-339`). Central man
 to the first running instance (central-manager `src/resources/cluster/Cluster.js:375-380`), so it reaches the same
 node unless instance states change. The 20-second grace (`JOB_NOT_FOUND_GRACE_MS`) is the one the rolling-deploy
 follower uses for the same reason.
+
+## A vector search starts only from a vector the table stored
+
+Find Similar ([`SimilarRecordsDialog`](components/SimilarRecordsDialog.tsx)) sorts by an HNSW attribute with a
+record's own stored vector as the target, and offers no box to type or paste one. Harper doesn't check a target's
+length: it pads the shorter vector with zeros and ranks by that (harper `resources/indexes/vector.ts`), so a wrong
+length returns a confident, meaningless order. A stored vector has the table's length. A row the editor couldn't
+load by its key isn't stored under it, so it offers no search (`editorSeed` in
+[`DatabaseTableView`](components/DatabaseTableView.tsx)). Searching by typed text needs Harper to embed the query
+with the field's `@embed` model (HarperFast/harper#1277). The `/v1/embeddings` API is no substitute: it takes no
+`inputType` and leaves text unchanged (harper `resources/models/DESIGN.md`), so Studio would have to know each
+model's query prefix, which models like nomic-embed-text need for good recall.
+
+The grid offers no sort or filter on an HNSW column (`isHnswIndexed`): Harper refuses both without a target. Nor does a relationship filter offer a related table's vector as a sub-property. A deep link can still name either, so `applySearchConditions` refuses it with a toast (`vectorFilterAttribute`) rather than send a search Harper would refuse.

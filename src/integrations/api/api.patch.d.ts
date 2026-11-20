@@ -519,6 +519,8 @@ export interface InstanceAttribute {
 	nullable?: boolean;
 	/** True for `@computed` attributes (server only returns them when asked with `include_computed`). */
 	computed?: boolean;
+	/** Set on an `@embed` field (Harper 5.1+): the field it is embedded from, and the model. */
+	embed?: { source: string; model?: string };
 	/** Sub-fields of an object-typed attribute (includes to-one relationship targets on Harper 4.x). */
 	properties?: Array<{ name: string; type?: string }>;
 }

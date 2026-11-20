@@ -8,7 +8,6 @@
  * while the index rebuilds — shows Harper's own message inline: in a tester that is the answer, so
  * it is neither toasted nor reported as a Studio error.
  */
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { reportSearchFailure, SearchFailureAlert } from '@/features/instance/databases/components/SearchFailureAlert';
 import { HighlightedExcerpt, highlightedExcerpts } from '@/features/instance/databases/functions/fullTextHighlights';
 import { FullTextIndexDescription } from '@/integrations/api/api.patch';
 import {
@@ -24,33 +24,15 @@ import {
 	FullTextComparator,
 	FullTextHit,
 	FullTextSearchParams,
-	FullTextSearchStreamError,
 	searchFullText,
 	supportedQueryModes,
 } from '@/integrations/api/instance/database/searchFullText';
 import { getAnsweringNodeNameQueryOptions } from '@/integrations/api/instance/status/getAnsweringNodeName';
-import { describeError } from '@/react-query/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { isAxiosError } from 'axios';
-import { RefreshCwIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
+import { RefreshCwIcon, SearchIcon } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
 
 const RESULT_LIMITS = [10, 20, 50, 100];
-
-type FailureKind = 'refused' | 'stopped' | 'unanswered';
-
-const FAILURE_TITLE: Record<FailureKind, string> = {
-	refused: 'Harper refused the search',
-	stopped: 'Harper stopped the search partway',
-	unanswered: 'The search got no answer',
-};
-
-function failureKind(error: unknown): FailureKind {
-	if (error instanceof FullTextSearchStreamError) {
-		return 'stopped';
-	}
-	return isAxiosError(error) && error.response ? 'refused' : 'unanswered';
-}
 
 const READINESS: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
 	ready: { label: 'Ready', variant: 'success' },
@@ -160,15 +142,7 @@ function SearchTester({
 	const search = useMutation({
 		mutationFn: searchFullText,
 		meta: { skipGlobalErrorToast: true },
-		onError: (error) => {
-			// Harper refusing the search (a 4xx, a 503 while the index rebuilds, or a failure partway through) is
-			// what a tester is for, so it stays out of RUM; a failure with no answer at all is reported as usual.
-			if (failureKind(error) !== 'unanswered') {
-				console.debug('Full-text search refused', error);
-			} else {
-				console.error(error);
-			}
-		},
+		onError: reportSearchFailure,
 	});
 
 	const toggleField = (name: string, on: boolean) => {
@@ -346,15 +320,7 @@ function SearchTester({
 				</div>
 			</form>
 
-			{search.isError && search.variables.index.name === index.name && (
-				<Alert variant="destructive">
-					<TriangleAlertIcon />
-					<AlertTitle>
-						{FAILURE_TITLE[failureKind(search.error)]}
-					</AlertTitle>
-					<AlertDescription>{describeError(search.error).message}</AlertDescription>
-				</Alert>
-			)}
+			{search.isError && search.variables.index.name === index.name && <SearchFailureAlert error={search.error} />}
 
 			{/* Only for the index on screen: one a refresh dropped falls back to another without a reset. */}
 			{search.isSuccess && search.variables.index.name === index.name && (

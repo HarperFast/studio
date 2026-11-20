@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	buildFullTextSearchRequest,
 	FULL_TEXT_QUERY_MODES,
-	FullTextSearchStreamError,
 	searchFullText,
 	supportedQueryModes,
 } from './searchFullText';
+import { SearchStreamError } from './searchStreamError';
 
 /** `describe_table`'s `full_text_indexes[0]` from a real Harper 5.3.6, for the docs' Product table. */
 const INDEX: FullTextIndexDescription = {
@@ -111,7 +111,7 @@ describe('searchFullText when Harper fails partway', () => {
 	it('fails the search on the trailing { error } Harper streams once its 200 has begun', async () => {
 		const client = post([{ id: 'shoe-1', $score: 4.3 }, { error: "Full-text index 'catalogSearch' is not ready" }]);
 		await expect(searchFullText({ ...params, instanceClient: client })).rejects.toThrow(
-			new FullTextSearchStreamError("Full-text index 'catalogSearch' is not ready"),
+			new SearchStreamError("Full-text index 'catalogSearch' is not ready"),
 		);
 	});
 

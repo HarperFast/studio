@@ -199,3 +199,38 @@ describe('formatBrowseDataTableHeader filters on columns no index covers', () =>
 		expect(byHeader().photo.meta).toBeUndefined();
 	});
 });
+
+describe('formatBrowseDataTableHeader vector columns', () => {
+	// `describe_table` from a real Harper 5.4.1. A sort or filter on `embedding` there answers
+	// "A target vector must be provided for an HNSW query" / `Can not use "equals" comparator with HNSW`.
+	const doc = {
+		schema: 'vec',
+		name: 'Doc',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'embedding', type: 'array', elements: 'Float', indexed: { type: 'HNSW', distance: 'cosine' } },
+			{ attribute: 'category', type: 'String', indexed: {} },
+		],
+	} as InstanceTable;
+	const columns = () =>
+		Object.fromEntries(formatBrowseDataTableHeader(doc).dataTableColumns.map((column) => [column.header, column]));
+
+	it('offers neither a sort nor a filter on an HNSW column', () => {
+		expect(columns().embedding.enableSorting).toBe(false);
+		expect(columns().embedding.enableColumnFilter).toBe(false);
+		expect(columns().embedding.meta).toBeUndefined();
+	});
+
+	it('still sorts and filters on an ordinary index, which 4.7 describes as {}', () => {
+		expect(columns().category.enableSorting).toBe(true);
+		expect(columns().category.enableColumnFilter).toBe(true);
+	});
+
+	it('shows a vector as its length and first few numbers, and a short array as JSON', () => {
+		const render = columns().embedding.cell as (context: { getValue: () => unknown }) => unknown;
+		const embedding = Array.from({ length: 384 }, (_, index) => index / 1000 + 0.0001);
+		expect(render({ getValue: () => embedding })).toBe('384 numbers: [0.0001, 0.0011, 0.0021, …]');
+		expect(render({ getValue: () => [1, 2] })).toBe('[1,2]');
+	});
+});

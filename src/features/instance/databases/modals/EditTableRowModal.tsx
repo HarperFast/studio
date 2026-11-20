@@ -22,10 +22,10 @@ import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
-import { ChevronLeftIcon, ChevronRightIcon, Save, Trash, TriangleAlert } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, Save, ScanSearchIcon, Trash, TriangleAlert } from 'lucide-react';
 import { type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
+import { describeRecordJsonError, formatRecordJson, tryParseRecordJson } from './recordEditorJson';
 import { useRecordJsonErrorMarker } from './recordJsonErrorMarker';
 
 /** Where the open record sits in the browse result set, and how to step through it. */
@@ -63,6 +63,7 @@ export function EditTableRowModal({
 	onDeleteRecord,
 	isUpdateTableRecordsPending,
 	isDeleteTableRecordsPending,
+	onFindSimilar,
 }: {
 	canEditRecords: boolean;
 	canDeleteRecords: boolean;
@@ -99,6 +100,7 @@ export function EditTableRowModal({
 	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
+	onFindSimilar?: () => void;
 }) {
 	const monacoTheme = useMonacoTheme();
 	const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -124,7 +126,7 @@ export function EditTableRowModal({
 			}),
 		[data, syntheticAttributes],
 	);
-	const value = useMemo(() => editableRecords && JSON.stringify(editableRecords, null, 4), [editableRecords]);
+	const value = useMemo(() => editableRecords && formatRecordJson(editableRecords), [editableRecords]);
 	const editorValue = value ?? '';
 	// A value this component hands the editor comes back through `onChange` when the editor is
 	// read-only (`setValue` fires the change; the writable path suppresses it), and it arrives at
@@ -340,7 +342,7 @@ export function EditTableRowModal({
 					    permissions leave on either side of it. */
 					}
 					<div className="flex items-center justify-between gap-3 w-full">
-						<div className="flex">
+						<div className="flex gap-2">
 							{canDeleteRecords && !unaddressable && (
 								<Button
 									variant="destructive"
@@ -358,6 +360,18 @@ export function EditTableRowModal({
 									disabled={isDeleteTableRecordsPending || isUpdateTableRecordsPending}
 								>
 									<Trash /> Delete Record
+								</Button>
+							)}
+							{onFindSimilar && (
+								<Button
+									variant="ghost"
+									type="button"
+									autoFocus={false}
+									onClick={onFindSimilar}
+									// The record a write in flight changes or deletes is no seed to search from.
+									disabled={isWritePending}
+								>
+									<ScanSearchIcon /> Find Similar
 								</Button>
 							)}
 						</div>
