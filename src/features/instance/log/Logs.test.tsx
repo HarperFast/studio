@@ -341,3 +341,56 @@ it('does not hide arrivals after a gesture over a successfully empty view', () =
 	expect(screen.getByText('first arrival')).toBeTruthy();
 	expect(screen.queryByText(/Paused for inspection/)).toBeNull();
 });
+
+for (const reversed of [false, true]) {
+	it(`walks expanded logs with arrow keys in visible order (reversed=${reversed})`, () => {
+		state.logs = [log('first'), log('second', 'node-a', 2), log('third', 'node-a', 3)];
+		localStorage.setItem('LogsOrderReversed', JSON.stringify(reversed));
+		render(<LogsExplorer params={params} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+		const original = screen.getByLabelText('Full log message').textContent;
+		fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+		expect(screen.getByLabelText('Full log message').textContent).toBe(original);
+		fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+		expect(screen.getByLabelText('Full log message').textContent).toBe('second');
+		expect(screen.queryByRole('button', { name: 'Collapse log 1' })).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Collapse log 2' }));
+		fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+		fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+		expect(screen.getByLabelText('Full log message').textContent).toBe(reversed ? 'first' : 'third');
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Collapse log 3' }));
+		fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+		expect(screen.getByLabelText('Full log message').textContent).toBe('second');
+	});
+}
+
+it('navigates the filtered slice and keeps independently expanded logs open', () => {
+	state.logs = [log('first'), log('excluded', 'node-b', 2), log('third', 'node-a', 3), log('fourth', 'node-a', 4)];
+	render(<LogsExplorer params={params} />);
+	fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+	fireEvent.change(screen.getByLabelText('Node'), { target: { value: 'node-a' } });
+	fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+	fireEvent.click(screen.getByRole('button', { name: 'Expand log 3' }));
+	screen.getByRole('button', { name: 'Collapse log 1' }).focus();
+	fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+	expect(screen.getAllByLabelText('Full log message').map(el => el.textContent)).toEqual(['third', 'fourth']);
+	const copy = screen.getAllByRole('button', { name: 'Copy JSON' })[0];
+	copy.focus();
+	fireEvent.keyDown(copy, { key: 'ArrowUp' });
+	expect(screen.getAllByLabelText('Full log message').map(el => el.textContent)).toEqual(['first', 'fourth']);
+});
+
+it('preserves modified arrow keys and native search/menu keyboard behavior', () => {
+	render(<LogsExplorer params={params} />);
+	fireEvent.click(screen.getByRole('button', { name: 'Expand log 1' }));
+	fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown', shiftKey: true });
+	expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
+	const search = screen.getByRole('searchbox');
+	search.focus();
+	fireEvent.keyDown(search, { key: 'ArrowDown' });
+	expect(document.activeElement).toBe(search);
+	expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
+	fireEvent.pointerDown(screen.getByRole('button', { name: 'Columns' }), { button: 0, ctrlKey: false });
+	fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
+	expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
+});

@@ -115,6 +115,41 @@ for (const oldestFirst of [false, true]) {
 	);
 }
 
+for (const oldestFirst of [false, true]) {
+	test(`arrow keys inspect adjacent logs (${oldestFirst ? 'oldest' : 'newest'} first)`, async ({ page }) => {
+		let logs = Array.from({ length: 40 }, (_, index) => log(`Keyboard event ${index}`, -index * 1000));
+		await serve(page, () => logs, []);
+		await page.addInitScript(value => localStorage.setItem('LogsOrderReversed', JSON.stringify(value)), oldestFirst);
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.goto('/#/org-logs/clu-logs/logs');
+		await page.getByRole('switch', { name: 'Live logs' }).click();
+		await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
+		const original = await page.getByLabel('Full log message').textContent();
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByRole('button', { name: 'Collapse log 1', exact: true })).toBeFocused();
+		await page.keyboard.press('ArrowDown');
+		await expect(page.getByRole('button', { name: 'Collapse log 2', exact: true })).toBeFocused();
+		await expect(page.getByLabel('Full log message')).not.toHaveText(original!);
+		await page.keyboard.press('ArrowUp');
+		await expect(page.getByLabel('Full log message')).toHaveText(original!);
+		for (let i = 0; i < 10; i++) { await page.keyboard.press('ArrowDown'); }
+		const active = page.getByRole('button', { name: 'Collapse log 11', exact: true });
+		await expect(active).toBeFocused();
+		const inspected = await page.getByLabel('Full log message').textContent();
+		const scroller = await page.locator('[data-slot="table-container"]').boundingBox();
+		await expect.poll(async () => {
+			const box = await active.boundingBox();
+			return box!.y >= scroller!.y + 40 && box!.y + box!.height <= scroller!.y + scroller!.height;
+		}).toBe(true);
+		logs = [log('New event during keyboard inspection', 1000), ...logs];
+		await expect(page.getByRole('button', { name: /1 new matching logs available.*Resume live/ })).toBeVisible({
+			timeout: 15000,
+		});
+		await expect(page.getByLabel('Full log message')).toHaveText(inspected!);
+		await expect(page.getByText('New event during keyboard inspection', { exact: true })).toHaveCount(0);
+	});
+}
+
 test(
 	'context restores the original view, column controls work, and copied links reopen an expanded row',
 	async ({ page, context }, testInfo) => {

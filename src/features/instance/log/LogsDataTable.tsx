@@ -13,7 +13,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { ColumnDef, studioTableFeatures } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState, flexRender, useTable } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
-import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useMemo } from 'react';
+import { Dispatch, Fragment, memo, Ref, SetStateAction, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { LogDetails } from './components/LogDetails';
 import { logKey } from './hooks/mergeReadLogs';
 import { LogFilters } from './logView';
@@ -85,6 +85,10 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	{ accessorKey: 'tags', header: 'Tags', size: 160, cell: ({ row }) => row.original.tags?.join(', ') },
 ];
 
+function logToggle(root: HTMLDivElement | null, key?: string) {
+	return key ? root?.querySelector<HTMLButtonElement>(`button[data-log-toggle="${key}"]`) : undefined;
+}
+
 export const LogsDataTable = memo(function LogsDataTable(
 	{
 		data,
@@ -136,6 +140,9 @@ export const LogsDataTable = memo(function LogsDataTable(
 		};
 	}, [storedVisibility]);
 
+	const rootRef = useRef<HTMLDivElement>(null);
+	const activeKey = useRef<string | undefined>(undefined);
+	const pendingFocus = useRef<HTMLButtonElement | null>(null);
 	const id = useId();
 	const table = useTable({
 		features: studioTableFeatures,
@@ -151,7 +158,21 @@ export const LogsDataTable = memo(function LogsDataTable(
 		onColumnVisibilityChange: value =>
 			setStoredVisibility(typeof value === 'function' ? value(columnVisibility) : value),
 	});
+	const rows = table.getRowModel().rows;
+	useLayoutEffect(() => {
+		const button = pendingFocus.current;
+		pendingFocus.current = null;
+		if (button?.isConnected) {
+			button.focus({ preventScroll: true });
+			button.closest('tr')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		} else if (document.activeElement === document.body) {
+			const key = [activeKey.current, selectedKey, ...expandedKeys].find(key => key && expandedKeys.has(key));
+			logToggle(rootRef.current, key)?.focus({ preventScroll: true });
+		}
+	}, [expandedKeys, selectedKey, data]);
 	const toggle = (key: string) => {
+		if (!expandedKeys.has(key)) { activeKey.current = key; }
+		else if (activeKey.current === key) { activeKey.current = undefined; }
 		if (!expandedKeys.has(key)) { onInspect(); }
 		onExpandedChange(current => {
 			const next = new Set(current);
@@ -162,10 +183,51 @@ export const LogsDataTable = memo(function LogsDataTable(
 	};
 
 	return (
-		<div className="min-w-0 rounded-md border border-border bg-card">
+		<div
+			ref={rootRef}
+			className="min-w-0 rounded-md border border-border bg-card"
+			onFocusCapture={event => {
+				const row = (event.target as HTMLElement).closest<HTMLElement>('[data-log-index]');
+				if (row) { activeKey.current = rows[Number(row.dataset.logIndex)]?.id; }
+			}}
+			onKeyDown={event => {
+				if (
+					event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+					|| !['ArrowUp', 'ArrowDown'].includes(event.key)
+				) { return; }
+				const target = event.target as HTMLElement;
+				if (
+					target.closest(
+						'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="listbox"], [aria-haspopup]',
+					)
+				) { return; }
+				const row = target.closest<HTMLElement>('[data-log-index]');
+				const key = row
+					? rows[Number(row.dataset.logIndex)]?.id
+					: target.dataset.slot === 'table-container'
+					? [activeKey.current, selectedKey, ...(expandedKeys.size === 1 ? expandedKeys : [])].find(key =>
+						key && expandedKeys.has(key)
+					)
+					: undefined;
+				if (!key || !expandedKeys.has(key)) { return; }
+				event.preventDefault();
+				const next = rows[rows.findIndex(row => row.id === key) + (event.key === 'ArrowDown' ? 1 : -1)];
+				if (!next) { return; }
+				onInspect();
+				activeKey.current = next.id;
+				pendingFocus.current = logToggle(rootRef.current, next.id) ?? null;
+				onExpandedChange(current => {
+					const result = new Set(current);
+					result.delete(key);
+					result.add(next.id);
+					return result;
+				});
+			}}
+		>
 			<div className="flex items-center justify-between border-b border-border px-3 py-1">
 				<span className="text-xs text-muted-foreground">
 					{data.length} loaded logs · {reversed ? 'Oldest first' : 'Newest first'}
+					{expandedKeys.size > 0 && <span className="ml-3 hidden sm:inline">↑/↓ navigate logs</span>}
 				</span>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -226,17 +288,18 @@ export const LogsDataTable = memo(function LogsDataTable(
 					))}
 				</TableHeader>
 				<TableBody>
-					{table.getRowModel().rows.map((row, index) => {
+					{rows.map((row, index) => {
 						const eventKey = logKey(row.original);
 						const open = expandedKeys.has(eventKey);
 						const detailId = `${id}-detail-${index}`;
 						return (
 							<Fragment key={row.id}>
 								<TableRow
+									data-log-index={index}
 									data-log-selected={selectedKey === row.id ? true : undefined}
 									data-state={open ? 'selected' : undefined}
 									className={cn(
-										'cursor-pointer hover:bg-muted/30',
+										'cursor-pointer scroll-mt-12 hover:bg-muted/30',
 										open && 'bg-muted/30',
 										selectedKey === row.id && 'outline outline-primary -outline-offset-1',
 									)}
@@ -245,6 +308,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 											(event.target as HTMLElement).closest('button, a, input') || window.getSelection()?.toString()
 										) { return; }
 										toggle(eventKey);
+										logToggle(rootRef.current, eventKey)?.focus({ preventScroll: true });
 									}}
 								>
 									{row.getVisibleCells().map(cell => (
@@ -256,8 +320,13 @@ export const LogsDataTable = memo(function LogsDataTable(
 														className="flex size-6 items-center justify-center rounded hover:bg-muted focus-visible:outline-2"
 														aria-label={`${open ? 'Collapse' : 'Expand'} log ${index + 1}`}
 														aria-expanded={open}
+														data-log-toggle={eventKey}
+														aria-keyshortcuts={open ? 'ArrowUp ArrowDown' : undefined}
 														aria-controls={open ? detailId : undefined}
-														onClick={() => toggle(eventKey)}
+														onClick={event => {
+															toggle(eventKey);
+															event.currentTarget.focus({ preventScroll: true });
+														}}
 													>
 														<ChevronRightIcon className={cn('size-4 transition-transform', open && 'rotate-90')} />
 													</button>
@@ -267,7 +336,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 									))}
 								</TableRow>
 								{open && (
-									<TableRow id={detailId}>
+									<TableRow id={detailId} data-log-index={index}>
 										<TableCell colSpan={row.getVisibleCells().length} className="whitespace-normal p-0">
 											<LogDetails log={row.original} source={source} onViewContext={onViewContext} />
 										</TableCell>
