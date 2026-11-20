@@ -215,7 +215,7 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 	].filter(Boolean).join(' · ');
 
 	return (
-		<div className="space-y-3 px-2 pt-3 text-foreground">
+		<div className="space-y-3 px-2 pt-3 pb-12 text-foreground">
 			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-3">
 				<Button
 					variant="defaultOutline"
