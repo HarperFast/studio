@@ -194,6 +194,31 @@ describe('HarperVersionsSetting', () => {
 		expect(patch).toHaveBeenCalledWith('/Admin/Organization/org-1', { harperVersions: [LAPSED] });
 	});
 
+	it('refuses growing a list past 25, but lets a list already over it change in place', async () => {
+		const many = Array.from(
+			{ length: 26 },
+			(_, index) => ({ name: `v${index}`, version: `5.1.${index}`, expiresAt: null }),
+		);
+		renderSetting(many);
+		fireEvent.click(screen.getByRole('button', { name: 'Edit 5.1.0' }));
+		typeInto('Name', 'renamed');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).toHaveBeenCalledTimes(1);
+		cleanup();
+
+		renderSetting(many.slice(0, 25));
+		fireEvent.click(screen.getByRole('button', { name: 'Offer a version' }));
+		typeInto('Version', '5.9.0');
+		typeInto('Name', 'one more');
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		});
+		expect(patch).toHaveBeenCalledTimes(1);
+		expect(screen.getByText('An organization can be offered at most 25 versions')).toBeTruthy();
+	});
+
 	it('takes only a day that exists as an expiry', () => {
 		expect(isDay('2026-02-28')).toBe(true);
 		for (const day of ['2026-02-31', '2026-13-01', '26-01-01', '20261-01-01']) { expect(isDay(day)).toBe(false); }

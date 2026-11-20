@@ -146,7 +146,8 @@ export function HarperVersionsSetting(
 		const next = editedEntry
 			? current.map((existing) => existing === editedEntry ? entry : existing)
 			: [...current, entry];
-		if (next.length > ORG_HARPER_VERSIONS_MAX) {
+		// As central manager does, the cap stops a list growing past it; one already over it can still change.
+		if (next.length > ORG_HARPER_VERSIONS_MAX && next.length > current.length) {
 			form.setError('version', {
 				message: `An organization can be offered at most ${ORG_HARPER_VERSIONS_MAX} versions`,
 			});
