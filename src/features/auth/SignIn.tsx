@@ -37,7 +37,7 @@ export function SignIn() {
 	});
 	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
-	// After a reset this page has no `?redirect=`: Google, GitHub and Forgot password take the target kept for the address.
+	// Without a `?redirect=` of its own, a sign-in that finishes an emailed link offers the address's kept target.
 	const kept = finishesEmailedLink && email ? readSignInRedirect(email)?.redirect : undefined;
 	const carriedSearch = useMemo(() => redirectSearch(redirect) ?? redirectSearch(kept), [redirect, kept]);
 

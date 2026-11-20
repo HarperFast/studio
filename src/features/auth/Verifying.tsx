@@ -18,7 +18,7 @@ export function Verifying() {
 	const resendCode = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		if (email) {
-			// The new link needs the target this page still has, however long ago the first one was sent.
+			// The first link's record may have expired or been replaced since.
 			keepSignInRedirect(email, redirect);
 			resendEmailVerification({ email }, {
 				onSuccess: (message) => {

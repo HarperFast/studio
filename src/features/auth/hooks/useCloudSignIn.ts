@@ -72,6 +72,11 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; followKept
 			if (replacesAccount && !(await clearPreviousAccount())) {
 				return false;
 			}
+			// Taken again below, since taking the user in moves the sign-in revision: this one covers a throw while doing so.
+			taken = {
+				signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
+				signInRevision: authStore.getSignInRevision(OverallAppSignIn),
+			};
 			authStore.setUserForEntity(OverallAppSignIn, user);
 			const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 			// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
@@ -124,12 +129,14 @@ export function useCloudSignIn() {
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
-	const { mutate: resendEmailVerification } = useResendEmailVerification();
+	const { mutateAsync: resendEmailVerification } = useResendEmailVerification();
 
 	const clearSubmitError = useCallback(() => setSubmitError(undefined), []);
 
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		setSubmitError(undefined);
+		// Read before sending: an unverified answer replaces only this, not one another tab keeps meanwhile.
+		const earlier = readSignInRedirect(formData.email);
 		submitLoginData(formData, {
 			onSuccess: completeSignIn,
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
@@ -141,21 +148,19 @@ export function useCloudSignIn() {
 					// claim "we sent a link" once the resend actually succeeds; navigate regardless so an
 					// unverified user always lands on /verifying (which offers a manual resend) rather than
 					// dead-ending on the sign-in page.
-					// This sign-in's target: the page's, or after an emailed link the one kept for the address. The new link
-					// carries it or none, never an earlier flow's. Before the resend: the login itself sends no email.
-					const target = postSignInRedirectParam(redirect)
-						?? (finishesEmailedLink ? readSignInRedirect(formData.email)?.redirect : undefined);
-					if (target === undefined) {
-						forgetSignInRedirect(formData.email);
-					} else {
-						keepSignInRedirect(formData.email, target);
-					}
-					resendEmailVerification({ email: formData.email }, {
-						onSuccess: () =>
-							toast.info('Verify your email to finish signing in', {
-								description: `We sent a new verification link to ${formData.email}.`,
-							}),
-					});
+					// The new link carries the page's target, or the one an emailed link's flow kept, never another flow's.
+					const target = postSignInRedirectParam(redirect) ?? (finishesEmailedLink ? earlier?.redirect : undefined);
+					keepSignInRedirect(formData.email, target);
+					// A promise, not `mutate`'s callbacks, which the navigation below skips by unmounting this page. Its
+					// failure is reported by the mutation itself.
+					void resendEmailVerification({ email: formData.email }).then(() => {
+						if (target === undefined && earlier) {
+							forgetSignInRedirect(formData.email, earlier);
+						}
+						toast.info('Verify your email to finish signing in', {
+							description: `We sent a new verification link to ${formData.email}.`,
+						});
+					}, () => {});
 					void navigate({
 						to: '/verifying',
 						search: redirectSearch(target),

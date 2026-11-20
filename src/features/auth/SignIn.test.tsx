@@ -243,7 +243,7 @@ describe('SignIn — redirect', () => {
 		hashSearch.current = {};
 	});
 
-	// After a reset, /sign-in carries no ?redirect=; the target the reset request kept is offered for the typed address.
+	// A reset whose answer named no address reaches /sign-in without a ?redirect=.
 	it('offers the target kept for the typed address to Google, GitHub and Forgot password after a reset', () => {
 		keepSignInRedirect('ada@example.com', mcpAuthorize);
 		historyState.finishesEmailedLink = true;

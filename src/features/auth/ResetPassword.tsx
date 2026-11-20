@@ -51,8 +51,7 @@ export function ResetPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					// central-manager answers with the account's address. Filled in, and its kept target as `?redirect=`, so
-					// Google, GitHub and Forgot password keep the target before anything is typed.
+					// central-manager answers with the account's address, so Google and GitHub need nothing typed.
 					const email = typeof response?.email === 'string' && response.email ? response.email : undefined;
 					navigate({
 						to: '/sign-in',
