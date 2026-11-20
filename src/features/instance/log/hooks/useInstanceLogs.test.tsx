@@ -109,6 +109,13 @@ it('reapplies the relative cutoff after a refresh returns an unchanged tail', as
 			{ wrapper },
 		);
 		await waitFor(() => expect(result.current.logs).toHaveLength(1));
+		const previous = result.current.logs;
+		clock.mockReturnValue(start + 1);
+		await act(async () => {
+			await result.current.refetch();
+			await new Promise(resolve => setTimeout(resolve, 0));
+		});
+		expect(result.current.logs).toBe(previous);
 		clock.mockReturnValue(start + 16 * 60000);
 		await act(async () => {
 			await result.current.refetch();

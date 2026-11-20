@@ -245,7 +245,13 @@ export function LogsExplorer({ params, search = '' }: { params: InstanceParams; 
 							const value = event.target.value as TimeRange;
 							setRange(value);
 							if (value === 'custom') { setIsFiltersOpen(true); }
-							else { apply(form.getValues(), value); }
+							else {
+								const draft = form.getValues();
+								apply(formDates(logFilters), value);
+								for (const field of ['filter', 'limit', 'level', 'log_name'] as const) {
+									form.setValue(field, draft[field]);
+								}
+							}
 						}}
 					>
 						<option value="15">Last 15 minutes</option>

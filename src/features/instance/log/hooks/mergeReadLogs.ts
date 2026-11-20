@@ -1,7 +1,7 @@
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 
 export const LIVE_LOG_BUFFER_FLOOR = 2000;
-type Identity = { id: string; references: Set<WeakRef<ReadLogItem>> };
+type Identity = { id: string; references: number };
 const identities = new Map<string, Map<string, Identity>>();
 const keys = new WeakMap<ReadLogItem, string>();
 const occurrences = new WeakMap<ReadLogItem, number>();
@@ -11,10 +11,9 @@ const collected = new FinalizationRegistry<{
 	metadata: string;
 	message: string;
 	identity: Identity;
-	reference: WeakRef<ReadLogItem>;
-}>(({ metadata, message, identity, reference }) => {
-	identity.references.delete(reference);
-	if (identity.references.size) { return; }
+}>(({ metadata, message, identity }) => {
+	identity.references--;
+	if (identity.references) { return; }
 	const messages = identities.get(metadata);
 	if (messages?.get(message) !== identity) { return; }
 	messages.delete(message);
@@ -36,12 +35,11 @@ function contentKey(entry: ReadLogItem): string {
 	if (!messages) { identities.set(metadata, messages = new Map()); }
 	let identity = messages.get(message);
 	if (!identity) {
-		identity = { id: `event-${++nextIdentity}`, references: new Set() };
+		identity = { id: `event-${++nextIdentity}`, references: 0 };
 		messages.set(message, identity);
 	}
-	const reference = new WeakRef(entry);
-	identity.references.add(reference);
-	collected.register(entry, { metadata, message, identity, reference });
+	identity.references++;
+	collected.register(entry, { metadata, message, identity });
 	keys.set(entry, identity.id);
 	return identity.id;
 }
@@ -61,7 +59,7 @@ function occurrence(entry: ReadLogItem, index: number): ReadLogItem {
 	return copy;
 }
 
-/** Preserve repeated emissions within a source; reconcile only overlapping snapshot/tail occurrences. */
+/** Newest first with stable ties; tail wins overlaps, preserving per-source repeat counts. */
 export function mergeReadLogs(snapshot: ReadLogItem[], live: ReadLogItem[], limit: number): ReadLogItem[] {
 	const liveCounts = new Map<string, number>();
 	const snapshotCounts = new Map<string, number>();

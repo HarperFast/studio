@@ -243,3 +243,28 @@ it('keeps sparse context records from turning sorting into an exception', async 
 		message: 'sparse',
 	});
 });
+
+it('loads bookmarked context without native AbortSignal.any and detaches fallback listeners', async () => {
+	const native = AbortSignal.any;
+	const controller = new AbortController();
+	const remove = vi.spyOn(controller.signal, 'removeEventListener');
+	Object.defineProperty(AbortSignal, 'any', { configurable: true, writable: true, value: undefined });
+	try {
+		const post = vi.fn().mockResolvedValue({ data: [] });
+		const options = getReadLogQueryOptions({
+			entityId: 'fallback-context',
+			instanceClient: { post } as unknown as AxiosInstance,
+			logFilters: { limit: '10' },
+			replicated: false,
+			isAutoRefreshEnabled: false,
+			contextTimestamp: '2026-11-19T18:00:00Z',
+		});
+		await expect((options.queryFn as (ctx: { signal: AbortSignal }) => Promise<unknown>)({ signal: controller.signal }))
+			.resolves.toEqual([]);
+		expect(post).toHaveBeenCalledTimes(2);
+		expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
+	} finally {
+		Object.defineProperty(AbortSignal, 'any', { configurable: true, writable: true, value: native });
+		remove.mockRestore();
+	}
+});

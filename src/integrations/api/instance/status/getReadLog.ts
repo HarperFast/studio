@@ -1,5 +1,6 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
+import { anySignal } from '@/lib/abortSignals';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -94,7 +95,7 @@ async function getContextLogs(
 	timestamp: string,
 ): Promise<ReadLogItem[]> {
 	const controller = new AbortController();
-	const signal = params.signal ? AbortSignal.any([params.signal, controller.signal]) : controller.signal;
+	const { signal, cleanup } = anySignal([params.signal, controller.signal]);
 	const request = { ...params, signal };
 	const time = Date.parse(timestamp);
 	const limit = clampReadLogLimit(params.logFilters.limit) ?? 1000;
@@ -147,6 +148,8 @@ async function getContextLogs(
 	} catch (error) {
 		controller.abort();
 		throw error;
+	} finally {
+		cleanup();
 	}
 }
 

@@ -378,3 +378,15 @@ it('preserves modified arrow keys and native search/menu keyboard behavior', () 
 	fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
 	expect(screen.getByLabelText('Full log message').textContent).toBe('first error');
 });
+
+it('changes the time range without submitting or discarding pending search text', async () => {
+	render(<LogsExplorer params={params} />);
+	const search = screen.getByRole('searchbox', { name: 'Search logs' });
+	fireEvent.change(search, { target: { value: 'pending search' } });
+	fireEvent.change(screen.getByLabelText('Time range'), { target: { value: '60' } });
+	expect(state.args.logFilters.relative_minutes).toBe('60');
+	expect(state.args.logFilters.filter).toBe('');
+	expect((search as HTMLInputElement).value).toBe('pending search');
+	fireEvent.submit(search.closest('form')!);
+	await waitFor(() => expect(state.args.logFilters.filter).toBe('pending search'));
+});

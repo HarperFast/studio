@@ -20,6 +20,7 @@ export interface UseInstanceLogsParams {
 	replicated: boolean;
 	/** The "Live" toggle. Off → one fetch + manual refresh; on → SSE tail, else 5s polling. */
 	live: boolean;
+	/** Fixed bookmark context; disables tailing. */
 	contextTimestamp?: string;
 }
 
@@ -30,6 +31,7 @@ export interface UseInstanceLogsResult {
 	refetch: () => Promise<unknown>;
 	/** `'streaming'` over SSE, `'polling'` on the 5s fallback, `'idle'` when not live. */
 	transport: LogTransport;
+	/** Fetch failure; previously loaded rows may still be available. */
 	error: unknown;
 }
 
@@ -153,16 +155,28 @@ export function useInstanceLogs(
 		};
 	}, [useSSE, params.entityId, key]);
 
+	const merged = useMemo(() => mergeReadLogs(query.data ?? [], stream.entries, limit), [
+		query.data,
+		stream.entries,
+		limit,
+	]);
+	const visible = useRef<ReadLogItem[]>([]);
 	const logs = useMemo(() => {
-		const snapshot = query.data ?? [];
-		const merged = mergeReadLogs(snapshot, stream.entries, limit);
-		if (!logFilters.relative_minutes || contextTimestamp) { return merged; }
+		if (!logFilters.relative_minutes || contextTimestamp) {
+			visible.current = merged;
+			return merged;
+		}
 		const cutoff = Date.now() - Number(logFilters.relative_minutes) * 60000;
-		return merged.filter(entry => {
+		const next = merged.filter(entry => {
 			const time = Date.parse(entry.timestamp);
 			return Number.isNaN(time) || time >= cutoff;
 		});
-	}, [query.data, query.dataUpdatedAt, stream.entries, limit, logFilters.relative_minutes, contextTimestamp]);
+		if (next.length === visible.current.length && next.every((entry, index) => entry === visible.current[index])) {
+			return visible.current;
+		}
+		visible.current = next;
+		return next;
+	}, [merged, query.dataUpdatedAt, logFilters.relative_minutes, contextTimestamp]);
 
 	const transport: LogTransport = useSSE ? 'streaming' : live && !contextTimestamp ? 'polling' : 'idle';
 
