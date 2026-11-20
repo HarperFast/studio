@@ -70,6 +70,10 @@ vi.mock('@/config/useInstanceClient', () => {
 });
 
 vi.mock('@/hooks/useAuth', () => ({ useStaffPermission: () => false }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: () => true,
+	useInstanceOperationAccess: () => true,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
 	useInstanceBrowseManagePermission: () => true,
 	useInstanceImportDataPermission: () => true,
@@ -79,6 +83,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 		allowsDestination: () => true,
 	}),
 	useInstanceSchemaTablePermission: () => true,
+	useInstanceSchemaTableReadDenied: () => false,
 	useInstanceTablePutPermission: () => true,
 }));
 vi.mock('./PickColumnsDropdown', () => ({ PickColumnsDropdown: () => null }));
