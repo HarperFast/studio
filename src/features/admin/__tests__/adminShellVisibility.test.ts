@@ -47,6 +47,15 @@ describe('admin section visibility', () => {
 		expect(labels(user('fabric_staff', ['cluster:read', 'monitoringPolicy:write']))).toEqual(['Monitoring']);
 	});
 
+	it('shows the Agent page only to staff holding agent:read', () => {
+		expect(labels(user('fabric_readonly', ['agent:read']))).toEqual(['Agent']);
+		expect(labels(user('fabric_staff', ['agent:run', 'config:write']))).toEqual(['Configuration']);
+	});
+
+	it('hides the Agent page from a central manager that predates staffPermissions', () => {
+		expect(labels(user('fabric_admin'))).not.toContain('Agent');
+	});
+
 	it('hides the section entirely from customers', () => {
 		expect(canSeeAdminSection(user('least_privileged', []))).toBe(false);
 		expect(canSeeAdminSection(null)).toBe(false);
