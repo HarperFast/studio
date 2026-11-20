@@ -201,6 +201,14 @@ test('a short expanded list stays still as rows are prepended', async ({ page })
 	await page.goto('/#/org-logs/clu-logs/logs');
 	await page.getByRole('switch', { name: 'Live logs' }).click();
 	await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
+	await page.getByRole('button', { name: 'Collapse log 1', exact: true }).click();
+	await expect(page.locator('[data-slot="table-container"]')).toHaveJSProperty('scrollTop', 0);
+	expect(
+		await page.locator('[data-slot="table-container"]').evaluate(element =>
+			(element as HTMLElement).style.paddingBottom
+		),
+	).toBe('');
+	await page.getByRole('button', { name: 'Expand log 1', exact: true }).click();
 	const before = (await page.getByLabel('Full log message').boundingBox())!.y;
 	logs = [log('Short new', 1000), ...logs];
 	await expect(page.getByText('Short new', { exact: true })).toHaveCount(1, { timeout: 15000 });

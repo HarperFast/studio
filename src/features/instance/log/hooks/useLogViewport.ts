@@ -19,6 +19,12 @@ type Viewport = {
 	padded: boolean;
 };
 
+function follow(view: Viewport, element: HTMLElement | null) {
+	view.following = true;
+	view.padded = false;
+	if (element) { element.style.paddingBottom = ''; }
+}
+
 function atEdge(element: HTMLElement, reversed: boolean) {
 	return reversed ? element.scrollHeight - element.clientHeight - element.scrollTop <= 2 : element.scrollTop <= 2;
 }
@@ -121,7 +127,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		const element = containerRef.current;
 		const towardEdge = input.current.reversed ? event.deltaY > 0 : event.deltaY < 0;
 		if (element && towardEdge && atEdge(element, input.current.reversed)) {
-			state.current.following = true;
+			follow(state.current, containerRef.current);
 			state.current.userScrolling = true;
 			state.current.expectedTop = null;
 			setHeld(null);
@@ -135,7 +141,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		const user = view.userScrolling || view.expectedTop === null || Math.abs(element.scrollTop - view.expectedTop) > 1;
 		if (user) {
 			if (edge) {
-				view.following = true;
+				follow(view, containerRef.current);
 				setHeld(null);
 			} else { holdPosition(true); }
 		}
@@ -145,7 +151,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		setAway(!edge);
 	}, [holdPosition]);
 	const jumpToLatest = useCallback(() => {
-		state.current.following = true;
+		follow(state.current, containerRef.current);
 		state.current.userScrolling = false;
 		state.current.anchor = null;
 		state.current.jump = true;
@@ -161,7 +167,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 		const expanded = view.expanded !== expandedKeys;
 		const collapsing = expanded && expandedKeys.size < (view.expanded?.size ?? 0);
 		if (reset) {
-			view.following = true;
+			follow(view, containerRef.current);
 			view.userScrolling = false;
 			view.anchor = null;
 			view.initialized = false;
@@ -189,7 +195,7 @@ export function useLogViewport({ incoming, queryKey, expandedKeys, reversed, nod
 			element.scrollTo({ top, behavior: 'instant' });
 		}
 		if (expanded && !expandedKeys.size && atEdge(element, reversed)) {
-			view.following = true;
+			follow(view, containerRef.current);
 			setHeld(null);
 		}
 		if (!view.following && !reversed && !view.padded) {
