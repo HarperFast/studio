@@ -4,7 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { readSignInRedirect, useFinishesEmailedLink } from '@/features/auth/pendingSignInRedirect';
+import { readSignInRedirect, useEmailedFlow } from '@/features/auth/pendingSignInRedirect';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { redirectSearch } from '@/lib/urls/postSignInRedirect';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +26,7 @@ const rememberControlClassName =
 export function SignIn() {
 	const { me: formPersistenceEmail, redirect } = useSearch({ strict: false });
 	const prefillEmail = usePrefillEmail();
-	const finishesEmailedLink = useFinishesEmailedLink();
+	const emailedFlow = useEmailedFlow();
 
 	const methods = useForm({
 		resolver: zodResolver(EmailSignInSchema),
@@ -37,8 +37,8 @@ export function SignIn() {
 	});
 	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
-	// Without a `?redirect=` of its own, a sign-in that finishes an emailed link offers the address's kept target.
-	const kept = finishesEmailedLink && email ? readSignInRedirect(email)?.redirect : undefined;
+	// Without a `?redirect=` of its own, a sign-in that finishes an emailed flow offers that flow's kept target.
+	const kept = readSignInRedirect(emailedFlow)?.redirect;
 	const carriedSearch = useMemo(() => redirectSearch(redirect) ?? redirectSearch(kept), [redirect, kept]);
 
 	const { submitForm, isPending, submitError, clearSubmitError } = useCloudSignIn();

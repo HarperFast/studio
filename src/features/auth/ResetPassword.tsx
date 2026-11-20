@@ -12,10 +12,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { AuthInput } from './components/AuthInput';
 import { useResetPasswordMutation } from './hooks/useResetPassword';
-import { keptSignInRedirectSearch } from './pendingSignInRedirect';
+import { emailedFlowParam, keptSignInRedirectSearch } from './pendingSignInRedirect';
 
 export function ResetPassword() {
-	const { token } = useSearch({ strict: false });
+	const { token, flow: flowParam } = useSearch({ strict: false });
+	const flow = emailedFlowParam(flowParam);
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -51,17 +52,18 @@ export function ResetPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					// central-manager answers with the account's address, so Google and GitHub need nothing typed.
+					// central-manager answers with the account's address.
 					const email = typeof response?.email === 'string' && response.email ? response.email : undefined;
 					navigate({
 						to: '/sign-in',
-						search: keptSignInRedirectSearch(email),
-						state: email ? { prefillEmail: email, finishesEmailedLink: true } : { finishesEmailedLink: true },
+						// As `?redirect=` too, so a Google or GitHub sign-in from there keeps it.
+						search: keptSignInRedirectSearch(flow),
+						state: { ...(email ? { prefillEmail: email } : {}), ...(flow ? { emailedFlow: flow } : {}) },
 					});
 				},
 			},
 		);
-	}, [navigate, submitResetPasswordData, token]);
+	}, [flow, navigate, submitResetPasswordData, token]);
 
 	return (
 		<div className="auth-form">

@@ -30,7 +30,12 @@ import {
 	VerifyEmailRequest,
 	VerifyEmailResponse,
 } from './hooks/useVerifyEmail';
-import { keptSignInRedirectSearch, readSignInRedirect, restoreSignInRedirect } from './pendingSignInRedirect';
+import {
+	emailedFlowParam,
+	keptSignInRedirectSearch,
+	readSignInRedirect,
+	restoreSignInRedirect,
+} from './pendingSignInRedirect';
 import { clearSignUpBrowserProof, readNewestSignUpBrowserProof, readSignUpBrowserProofFor } from './signUpBrowserProof';
 
 // Claims no outcome: each of these can follow a verify that landed (`unansweredWrite.ts`).
@@ -382,41 +387,42 @@ function VerifiedCopy({ outcome, email }: { outcome: string | undefined; email: 
 }
 
 /**
- * `finishesFlow` once the email is verified: the sign-in then finishes this flow. Forgot password carries the target the
- * sign-up kept on, so a reset doesn't drop it.
+ * The sign-in finishes this link's flow (`flow`), verified or not: one that turns out unverified sends a new link that
+ * keeps its target. Forgot password carries the target on, so a reset doesn't drop it.
  */
-function SignInLinks({ email, finishesFlow = false }: { email: string | undefined; finishesFlow?: boolean }) {
+function SignInLinks({ email, flow }: { email: string | undefined; flow: string | undefined }) {
 	const state = email ? { prefillEmail: email } : undefined;
 	return (
 		<div className="auth-links">
 			<Link
 				className="text-sm"
 				to="/sign-in"
-				search={finishesFlow ? keptSignInRedirectSearch(email) : undefined}
-				state={finishesFlow ? { ...state, finishesEmailedLink: true } : state}
+				search={keptSignInRedirectSearch(flow)}
+				state={flow ? { ...state, emailedFlow: flow } : state}
 			>
 				Back to sign in
 			</Link>
-			<Link className="text-sm" to="/forgot-password" search={keptSignInRedirectSearch(email)} state={state}>
+			<Link className="text-sm" to="/forgot-password" search={keptSignInRedirectSearch(flow)} state={state}>
 				Forgot password?
 			</Link>
 		</div>
 	);
 }
 
-function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined }) {
+function VerifiedOutcome(props: { outcome: string | undefined; email: string | undefined; flow: string | undefined }) {
 	return (
 		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
-			<VerifiedCopy {...props} />
-			<SignInLinks email={props.email} finishesFlow />
+			<VerifiedCopy outcome={props.outcome} email={props.email} />
+			<SignInLinks email={props.email} flow={props.flow} />
 		</div>
 	);
 }
 
 // Verified, but this page couldn't sign them in: central-manager didn't open a session (Harper staff sign in
 // with Google), or Studio couldn't pick it up.
-function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError }: {
+function SignInToContinue({ email, flow, passwordSet, newPasswordIgnored, signInError }: {
 	email: string;
+	flow: string | undefined;
 	passwordSet?: boolean;
 	newPasswordIgnored?: boolean;
 	signInError?: string;
@@ -444,8 +450,8 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 					void navigate({
 						to: '/sign-in',
 						// As `?redirect=`, so a Google or GitHub sign-in from there carries it through `/#/check-oauth` too.
-						search: keptSignInRedirectSearch(email),
-						state: { prefillEmail: email, finishesEmailedLink: true },
+						search: keptSignInRedirectSearch(flow),
+						state: { prefillEmail: email, ...(flow ? { emailedFlow: flow } : {}) },
 					})}
 			>
 				Sign In
@@ -454,7 +460,7 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 				<Link
 					className="text-sm"
 					to="/forgot-password"
-					search={keptSignInRedirectSearch(email)}
+					search={keptSignInRedirectSearch(flow)}
 					state={{ prefillEmail: email }}
 				>
 					Forgot password?
@@ -464,7 +470,11 @@ function SignInToContinue({ email, passwordSet, newPasswordIgnored, signInError 
 	);
 }
 
-function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRetry: () => void }) {
+function VerificationUnconfirmed({ offline, flow, onRetry }: {
+	offline: boolean;
+	flow: string | undefined;
+	onRetry: () => void;
+}) {
 	return (
 		<div className="auth-form flex flex-col gap-4">
 			<AuthHeading icon={MailWarning} title="Verify Email" />
@@ -472,7 +482,7 @@ function VerificationUnconfirmed({ offline, onRetry }: { offline: boolean; onRet
 			<Button type="button" variant="submit" className="sign-in-submit" onClick={onRetry}>
 				Try again
 			</Button>
-			<SignInLinks email={undefined} />
+			<SignInLinks email={undefined} flow={flow} />
 		</div>
 	);
 }
@@ -482,11 +492,11 @@ type AttemptAuth = {
 	unchanged: () => boolean;
 	// A refused answer can still have handed the browser's session to `userId`, ending the account this tab held when
 	// it was sent. Only that one: an account taken in since is someone's current session. Keeps the target the link's
-	// address (`email`) has kept, which the sign-in this page then offers carries on.
-	releaseReplaced: (userId: string, email: string | undefined) => void;
+	// flow kept, which the sign-in this page then offers carries on.
+	releaseReplaced: (userId: string) => void;
 };
 
-function readAttemptAuth(): AttemptAuth {
+function readAttemptAuth(flow: string | undefined): AttemptAuth {
 	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 	const held = authStore.getHeldAppUser();
@@ -494,13 +504,13 @@ function readAttemptAuth(): AttemptAuth {
 		unchanged: () =>
 			authStore.getSignOutGeneration(OverallAppSignIn) === signOutGeneration
 			&& authStore.getSignInRevision(OverallAppSignIn) === signInRevision,
-		releaseReplaced: (userId, email) => {
+		releaseReplaced: (userId) => {
 			if (held !== null && held !== userId && authStore.getHeldAppUser() === held) {
-				const kept = email ? readSignInRedirect(email) : undefined;
+				const kept = readSignInRedirect(flow);
 				void clearPreviousAccount();
 				// Its wipe runs before it first awaits, so this lands just after it, and a later sign-out's wipe still takes it.
-				if (email && kept) {
-					restoreSignInRedirect(email, kept);
+				if (flow && kept) {
+					restoreSignInRedirect(flow, kept);
 				}
 			}
 		},
@@ -518,13 +528,14 @@ function toastVerified() {
 }
 
 export function VerifyEmail() {
-	const { token: searchToken } = useSearch({ strict: false });
+	const { token: searchToken, flow: flowParam } = useSearch({ strict: false });
+	const flow = emailedFlowParam(flowParam);
 	// central-manager's tokens are JWTs, which the router's JSON parse of search values leaves as strings.
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();
 	const { mutate: logIn } = useLoginMutation();
-	const completeSignIn = useCompleteCloudSignIn({ followKept: true });
+	const completeSignIn = useCompleteCloudSignIn({ flow });
 	const submittedToken = useRef<string | undefined>(undefined);
 	// Bumped by every submit and every change of link, so a late answer can tell it has been superseded.
 	const attempt = useRef(0);
@@ -560,13 +571,13 @@ export function VerifyEmail() {
 		}
 	}, [completeSignIn, isCurrent]);
 
-	const pickUpSession = useCallback(async (id: number, userId: string, email: string, auth: AttemptAuth) => {
+	const pickUpSession = useCallback(async (id: number, userId: string, auth: AttemptAuth) => {
 		let user;
 		try {
 			// `fetchCurrentUser`, which writes nothing to the store until the checks below pass.
 			user = await fetchCurrentUser();
 		} catch (error) {
-			auth.releaseReplaced(userId, email);
+			auth.releaseReplaced(userId);
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
 				setSessionLost(true);
@@ -578,7 +589,7 @@ export function VerifyEmail() {
 			await enterApp(id, user);
 			return;
 		}
-		auth.releaseReplaced(user.id, email);
+		auth.releaseReplaced(user.id);
 		if (isCurrent(id)) {
 			setSessionLost(true);
 		}
@@ -588,13 +599,13 @@ export function VerifyEmail() {
 		(request: VerifyEmailRequest) => {
 			const id = ++attempt.current;
 			// Read before sending: a sign-out or another sign-in while the request is out supersedes its answer.
-			const auth = readAttemptAuth();
+			const auth = readAttemptAuth(flow);
 			setSessionLost(false);
 			setSignInError(undefined);
 			const onSuccess = (sent: VerifyEmailRequest, response: VerifyEmailResponse) => {
 				const superseded = !isCurrent(id) || !auth.unchanged();
 				if (superseded && response.signedIn === true) {
-					auth.releaseReplaced(response.userId, response.email);
+					auth.releaseReplaced(response.userId);
 				}
 				if (!isCurrent(id)) {
 					return;
@@ -610,13 +621,13 @@ export function VerifyEmail() {
 					response.outcome === 'password_required' && sent.browserProof !== undefined && own
 					&& own.proof !== sent.browserProof
 				) {
-					const retry = { token: sent.token, browserProof: own.proof };
+					const retry = { ...sent, browserProof: own.proof };
 					submitVerification(retry, { onSuccess: (answer) => onSuccess(retry, answer) });
 					return;
 				}
 				clearSignUpBrowserProof(response.email);
 				if (opensSession(response)) {
-					void pickUpSession(id, response.userId, response.email, auth);
+					void pickUpSession(id, response.userId, auth);
 				} else if (response.outcome === undefined && sent.password !== undefined) {
 					// A central-manager without #781's change verified on the token alone, and opens no session.
 					logIn({ email: response.email, password: sent.password }, {
@@ -625,7 +636,7 @@ export function VerifyEmail() {
 								void enterApp(id, user);
 								return;
 							}
-							auth.releaseReplaced(user.id, response.email);
+							auth.releaseReplaced(user.id);
 							if (isCurrent(id)) {
 								setSessionLost(true);
 							}
@@ -638,9 +649,11 @@ export function VerifyEmail() {
 					});
 				}
 			};
-			submitVerification(request, { onSuccess: (response) => onSuccess(request, response) });
+			// So a set-password email this verify causes carries the flow on.
+			const sent = flow ? { ...request, flow } : request;
+			submitVerification(sent, { onSuccess: (response) => onSuccess(sent, response) });
 		},
-		[enterApp, isCurrent, logIn, pickUpSession, submitVerification],
+		[enterApp, flow, isCurrent, logIn, pickUpSession, submitVerification],
 	);
 
 	// Once per arrival of a token, and only with this browser's sign-up proof: a mail scanner opening the link
@@ -696,7 +709,7 @@ export function VerifyEmail() {
 			if (outcome === 'verified' || outcome === 'password_set') {
 				return opensSession(data) && !sessionLost
 					? <Pending message="Signing you in..." />
-					: <SignInToContinue email={email} passwordSet={outcome === 'password_set'} />;
+					: <SignInToContinue email={email} flow={flow} passwordSet={outcome === 'password_set'} />;
 			}
 			if (outcome === undefined) {
 				return submission === 'password' && !signInError && !sessionLost
@@ -704,17 +717,19 @@ export function VerifyEmail() {
 					: (
 						<SignInToContinue
 							email={email}
+							flow={flow}
 							newPasswordIgnored={submission === 'newPassword'}
 							signInError={signInError}
 						/>
 					);
 			}
-			return <VerifiedOutcome outcome={outcome} email={email} />;
+			return <VerifiedOutcome outcome={outcome} email={email} flow={flow} />;
 		}
 		if (isVerifyEmailUnconfirmed(error) && variables) {
 			return (
 				<VerificationUnconfirmed
 					offline={error instanceof OfflineSubmitError}
+					flow={flow}
 					onRetry={() => {
 						setRetrying(true);
 						submit(variables);

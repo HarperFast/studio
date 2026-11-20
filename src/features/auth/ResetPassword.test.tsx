@@ -4,10 +4,13 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+const { navigate, search } = vi.hoisted(() => ({
+	navigate: vi.fn(),
+	search: { token: 'reset-token' } as { token: string; flow?: unknown },
+}));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
-	useSearch: () => ({ token: 'reset-token' }),
+	useSearch: () => search,
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), dismiss: vi.fn() } }));
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
@@ -20,6 +23,7 @@ afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
 	localStorage.clear();
+	delete search.flow;
 });
 
 async function submitNewPassword(value: string) {
@@ -31,37 +35,13 @@ async function submitNewPassword(value: string) {
 }
 
 describe('ResetPassword', () => {
-	it('sends the user to sign in as the finish of an emailed flow', async () => {
-		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: () => void }) => onSuccess());
-		render(<ResetPassword />);
-
-		await submitNewPassword('a-strong-password-1');
-
-		expect(navigate).toHaveBeenCalledWith({ to: '/sign-in', state: { finishesEmailedLink: true } });
-	});
-
-	// So Google, GitHub and Forgot password carry the target before anything is typed.
-	it('fills in the address central-manager names, and hands on the target kept for it', async () => {
-		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
+	const answer = (response?: unknown) =>
 		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: (response: unknown) => void }) =>
-			onSuccess({ userId: 'u1', email: 'Ada@Example.com' })
+			onSuccess(response)
 		);
-		render(<ResetPassword />);
 
-		await submitNewPassword('a-strong-password-1');
-
-		expect(navigate).toHaveBeenCalledExactlyOnceWith({
-			to: '/sign-in',
-			search: { redirect: mcpAuthorize },
-			state: { prefillEmail: 'Ada@Example.com', finishesEmailedLink: true },
-		});
-	});
-
-	it('fills in the address without a target when none was kept for it', async () => {
-		mutate.mockImplementationOnce((_request: unknown, { onSuccess }: { onSuccess: (response: unknown) => void }) =>
-			onSuccess({ userId: 'u1', email: 'ada@example.com' })
-		);
+	it('sends the user to sign in, with the address central-manager names filled in', async () => {
+		answer({ userId: 'u1', email: 'Ada@Example.com' });
 		render(<ResetPassword />);
 
 		await submitNewPassword('a-strong-password-1');
@@ -69,8 +49,37 @@ describe('ResetPassword', () => {
 		expect(navigate.mock.calls[0][0]).toStrictEqual({
 			to: '/sign-in',
 			search: undefined,
-			state: { prefillEmail: 'ada@example.com', finishesEmailedLink: true },
+			state: { prefillEmail: 'Ada@Example.com' },
 		});
+	});
+
+	// As `?redirect=` too, so Google, GitHub and Forgot password carry the target before anything is typed.
+	it('marks that sign-in as finishing the link’s flow, and hands its target on', async () => {
+		const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
+		search.flow = keepSignInRedirect(mcpAuthorize);
+		answer({ userId: 'u1', email: 'ada@example.com' });
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({
+			to: '/sign-in',
+			search: { redirect: mcpAuthorize },
+			state: { prefillEmail: 'ada@example.com', emailedFlow: search.flow },
+		});
+	});
+
+	it.each([
+		['a flow it never kept', 'Fl0w_id-0123456789abcd', { emailedFlow: 'Fl0w_id-0123456789abcd' }],
+		['a flow parameter that is not one', 'not-a-flow', {}],
+	])('hands on no target for %s', async (_label, flow, state) => {
+		search.flow = flow;
+		answer();
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate.mock.calls[0][0]).toStrictEqual({ to: '/sign-in', search: undefined, state });
 	});
 
 	// maxlength would silently clamp a pasted password, leaving the password manager holding one that never worked.

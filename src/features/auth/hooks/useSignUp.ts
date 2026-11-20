@@ -12,13 +12,16 @@ export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 	firstname: string;
 	lastname: string;
 	captchaToken?: string;
+	/** The emailed flow the verification link continues (`pendingSignInRedirect.ts`). */
+	flow?: string;
 }
 
-export async function onSignUpSubmit({ captchaToken, ...signUpCredentials }: SignUpCredentials) {
+export async function onSignUpSubmit({ captchaToken, flow, ...signUpCredentials }: SignUpCredentials) {
 	// TODO: The types in our OpenAPI for this endpoint aren't defined.
 	const { data, headers } = await apiClient.post('/User/', {
 		...signUpCredentials,
 		...(captchaToken ? { captchaToken } : {}),
+		...(flow ? { flow } : {}),
 	});
 	if (data) {
 		const browserProof = headers?.[SIGN_UP_BROWSER_PROOF_HEADER];

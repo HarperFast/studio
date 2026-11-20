@@ -7,6 +7,8 @@ import { clearCaptchaFailures } from './useCaptchaChallenge';
 export type ForgotPasswordCredential = {
 	email: string;
 	captchaToken?: string;
+	/** The emailed flow the reset link continues (`pendingSignInRedirect.ts`). */
+	flow?: string;
 };
 
 type ForgotPasswordResponse = {
@@ -14,11 +16,12 @@ type ForgotPasswordResponse = {
 };
 
 export async function onResetPasswordSubmit(
-	{ email, captchaToken }: ForgotPasswordCredential,
+	{ email, captchaToken, flow }: ForgotPasswordCredential,
 ): Promise<ForgotPasswordResponse> {
 	const { data } = await apiClient.post('/ForgotPassword/', {
 		email,
 		...(captchaToken ? { captchaToken } : {}),
+		...(flow ? { flow } : {}),
 	});
 	if (data) {
 		// TODO: The OpenAPI description isn't accurate.
