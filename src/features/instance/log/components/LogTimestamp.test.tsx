@@ -14,7 +14,7 @@ it('shows a readable timestamp with milliseconds, elapsed age and exact UTC on h
 	const time = container.querySelector('time')!;
 	expect(time.textContent).toContain('2026');
 	expect(time.textContent).toContain('52.529');
-	expect(time.textContent).toContain('(56 minutes ago)');
+	expect(time.textContent).toContain(' (56 minutes ago)');
 	expect(time.dateTime).toBe('2026-11-20T17:00:52.529Z');
 	expect(time.title).toBe('2026-11-20T17:00:52.529Z');
 	act(() => vi.advanceTimersByTime(60000));

@@ -23,7 +23,7 @@ export function LogTimestamp({ value }: { value: string }) {
 	const relative = formatRelativeTime(date, now);
 	return (
 		<time dateTime={value} title={date.toISOString()}>
-			{dateFormat.format(date)} at {timeFormat.format(date).toLocaleLowerCase()}
+			{dateFormat.format(date)} at {timeFormat.format(date).toLocaleLowerCase()}{' '}
 			<span className="text-muted-foreground">({relative.charAt(0).toLocaleLowerCase() + relative.slice(1)})</span>
 		</time>
 	);
