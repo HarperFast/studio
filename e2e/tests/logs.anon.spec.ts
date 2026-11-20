@@ -139,7 +139,9 @@ for (const oldestFirst of [false, true]) {
 		const scroller = await page.locator('[data-slot="table-container"]').boundingBox();
 		await expect.poll(async () => {
 			const box = await active.boundingBox();
-			return box!.y >= scroller!.y + 40 && box!.y + box!.height <= scroller!.y + scroller!.height;
+			const details = await page.getByLabel('Full log message').locator('xpath=ancestor::tr').boundingBox();
+			return box!.y >= scroller!.y + 40
+				&& details!.y + details!.height <= Math.min(scroller!.y + scroller!.height, 1000) + 1;
 		}).toBe(true);
 		logs = [log('New event during keyboard inspection', 1000), ...logs];
 		await expect(page.getByRole('button', { name: /1 new matching logs available.*Resume live/ })).toBeVisible({
@@ -149,6 +151,36 @@ for (const oldestFirst of [false, true]) {
 		await expect(page.getByText('New event during keyboard inspection', { exact: true })).toHaveCount(0);
 	});
 }
+
+test('opening a lower log reveals its details and tall entries show their beginning', async ({ page }) => {
+	const logs = Array.from({ length: 40 }, (_, index) =>
+		log(
+			index === 12 ? 'Tall log start\n' + 'Stack trace line\n'.repeat(100) : `Mouse event ${index}`,
+			-index * 1000,
+		));
+	await serve(page, () => logs, []);
+	await page.setViewportSize({ width: 1440, height: 800 });
+	await page.goto('/#/org-logs/clu-logs/logs');
+	await page.getByRole('button', { name: 'Expand log 11', exact: true }).click();
+	const scroller = page.locator('[data-slot="table-container"]');
+	await expect.poll(async () => {
+		const panel = await page.getByLabel('Full log message').locator('xpath=ancestor::tr').boundingBox();
+		const viewport = await scroller.boundingBox();
+		return panel!.y + panel!.height <= Math.min(viewport!.y + viewport!.height, 800) + 1;
+	}).toBe(true);
+	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('ArrowDown');
+	await expect(page.getByRole('button', { name: 'Collapse log 13', exact: true })).toBeFocused();
+	const header = await page.getByRole('columnheader', { name: 'Timestamp' }).boundingBox();
+	const active = await page.getByRole('button', { name: 'Collapse log 13', exact: true }).boundingBox();
+	const message = page.getByLabel('Full log message');
+	const content = await message.boundingBox();
+	const viewport = await scroller.boundingBox();
+	expect(active!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
+	expect(active!.y).toBeLessThan(header!.y + header!.height + 20);
+	expect(content!.y).toBeLessThan(Math.min(viewport!.y + viewport!.height, 800) - 24);
+	expect(await message.evaluate(el => el.scrollTop)).toBe(0);
+});
 
 test(
 	'column controls and existing log links work across themes and mobile',

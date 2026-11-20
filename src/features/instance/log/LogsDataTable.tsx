@@ -88,6 +88,25 @@ function logToggle(root: HTMLDivElement | null, key?: string) {
 	return key ? root?.querySelector<HTMLButtonElement>(`button[data-log-toggle="${key}"]`) : undefined;
 }
 
+function revealExpandedLog(button: HTMLButtonElement) {
+	const row = button.closest('tr');
+	const container = row?.closest<HTMLElement>('[data-slot="table-container"]');
+	if (!row || !container) { return; }
+	container.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+	const viewport = container.getBoundingClientRect();
+	const top = Math.max(
+		viewport.top + container.clientTop,
+		row.closest('table')?.tHead?.getBoundingClientRect().bottom ?? 0,
+		0,
+	);
+	const bottom = Math.min(viewport.top + container.clientTop + container.clientHeight, window.innerHeight);
+	const start = row.getBoundingClientRect().top;
+	const details = document.getElementById(button.getAttribute('aria-controls') ?? '');
+	const end = (details ?? row).getBoundingClientRect().bottom;
+	const offset = end - start > bottom - top || start < top ? start - top : Math.max(0, end - bottom);
+	if (offset) { container.scrollTo({ top: container.scrollTop + offset, behavior: 'instant' }); }
+}
+
 export const LogsDataTable = memo(function LogsDataTable(
 	{
 		data,
@@ -161,15 +180,21 @@ export const LogsDataTable = memo(function LogsDataTable(
 		pendingFocus.current = null;
 		if (button?.isConnected) {
 			button.focus({ preventScroll: true });
-			button.closest('tr')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			revealExpandedLog(button);
 		} else if (document.activeElement === document.body) {
 			const key = [activeKey.current, selectedKey, ...expandedKeys].find(key => key && expandedKeys.has(key));
-			logToggle(rootRef.current, key)?.focus({ preventScroll: true });
+			const selected = logToggle(rootRef.current, key);
+			if (selected) {
+				selected.focus({ preventScroll: true });
+				revealExpandedLog(selected);
+			}
 		}
 	}, [expandedKeys, selectedKey, data]);
 	const toggle = (key: string) => {
-		if (!expandedKeys.has(key)) { activeKey.current = key; }
-		else if (activeKey.current === key) { activeKey.current = undefined; }
+		if (!expandedKeys.has(key)) {
+			activeKey.current = key;
+			pendingFocus.current = logToggle(rootRef.current, key) ?? null;
+		} else if (activeKey.current === key) { activeKey.current = undefined; }
 		if (!expandedKeys.has(key)) { onInspect(); }
 		onExpandedChange(current => {
 			const next = new Set(current);
@@ -295,7 +320,7 @@ export const LogsDataTable = memo(function LogsDataTable(
 									data-log-selected={selectedKey === row.id ? true : undefined}
 									data-state={open ? 'selected' : undefined}
 									className={cn(
-										'cursor-pointer scroll-mt-12 hover:bg-muted/30',
+										'cursor-pointer hover:bg-muted/30',
 										open && 'bg-muted/30',
 										selectedKey === row.id && 'outline outline-primary -outline-offset-1',
 									)}
