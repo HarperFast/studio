@@ -4,6 +4,7 @@ import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { useInstanceLoginMutation } from '@/integrations/api/instance/auth/useInstanceLoginMutation';
+import { appRedirectTarget } from '@/lib/urls/postSignInRedirect';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -45,13 +46,10 @@ export function useClusterInstanceSignIn({
 					}
 					authStore.setUserForEntity(entity, user);
 					void router.invalidate();
-					await navigate({
-						to: redirect?.startsWith('/')
-							? redirect
-							: isLocalStudio
-							? defaultInstanceRoute
-							: defaultInstanceRouteUpOne,
-					});
+					const target = appRedirectTarget(redirect);
+					await (target
+						? navigate({ href: target })
+						: navigate({ to: isLocalStudio ? defaultInstanceRoute : defaultInstanceRouteUpOne }));
 				},
 			},
 		);

@@ -2,6 +2,11 @@ import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
+	DirectConnectionRequiredError,
+	isScopedOperationToken,
+	withScopedTokenRole,
+} from '@/features/auth/scopedOperationToken';
+import {
 	forgetAllEntitySettings,
 	forgetEntitySettings,
 	pruneStaleEntitySettings,
@@ -652,9 +657,9 @@ class AuthStore {
 		operationsUrl: string | null | undefined,
 	): Promise<LocalUser> {
 		const signOutGeneration = this.getSignOutGeneration(id);
-		const throwIfSignedOut = () => {
+		const throwIfSignedOut = (cause?: unknown) => {
 			if (this.getSignOutGeneration(id) !== signOutGeneration) {
-				throw new SignedOutWhileConnectingError();
+				throw new SignedOutWhileConnectingError({ cause });
 			}
 		};
 		let claimedGeneration: number | undefined;
@@ -680,7 +685,7 @@ class AuthStore {
 					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we
 					// just minted (basic auth otherwise wins in getInstanceClient).
 					const directClient = getInstanceClient({ id, operationsUrl, forceOperationToken: true });
-					directUser = await getInstanceUserInfo({ instanceClient: directClient });
+					directUser = withScopedTokenRole(await getInstanceUserInfo({ instanceClient: directClient }), operationToken);
 				} catch (directErr) {
 					// Direct connect unreachable — fall back to the proxy. Log only the message: the full
 					// axios error carries the Bearer token in error.config.headers.
@@ -696,6 +701,12 @@ class AuthStore {
 					this.setUserForIdAndKey(id, operationsUrl, directUser);
 					return directUser;
 				}
+			}
+
+			// Central-manager proxies only the mint for a scoped (read-only) token's holder, so routing every
+			// operation through it would fail each one.
+			if (isScopedOperationToken(operationToken)) {
+				throw new DirectConnectionRequiredError(isDirectOperationsUrl(operationsUrl) ? 'unreachable' : 'noAddress');
 			}
 
 			// Proxy fallback: route every operation through the central-manager proxy.
@@ -716,6 +727,9 @@ class AuthStore {
 			if (ownsState) {
 				this.fabricConnectAuth.delete(id);
 				this.bumpConnectionGeneration(id);
+			}
+			if (!(err instanceof SignedOutWhileConnectingError)) {
+				throwIfSignedOut(err);
 			}
 			throw err;
 		}
@@ -1133,7 +1147,10 @@ class AuthStore {
 					user = await fetchCurrentUser();
 				}
 			} else if (id) {
-				user = await getInstanceUserInfo({ instanceClient: getInstanceClient({ id }) });
+				user = withScopedTokenRole(
+					await getInstanceUserInfo({ instanceClient: getInstanceClient({ id }) }),
+					this.getOperationToken(id),
+				);
 			}
 		} catch (error) {
 			// TODO: Only catch the errors we expect here (401? 403? w/e)
@@ -1164,8 +1181,8 @@ class AuthStore {
 }
 
 class SignedOutWhileConnectingError extends Error {
-	constructor() {
-		super('Signed out before Fabric Connect finished connecting.');
+	constructor(options?: ErrorOptions) {
+		super('Signed out before Fabric Connect finished connecting.', options);
 		this.name = 'SignedOutWhileConnectingError';
 	}
 }

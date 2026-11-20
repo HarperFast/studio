@@ -193,7 +193,10 @@ describe('auth resolutions that outlive a sign-out', () => {
 		await flush();
 		priorMint.reject(new Error('Request failed with status code 401'));
 
-		await expect(prior).rejects.toThrow('401');
+		await expect(prior).rejects.toMatchObject({
+			name: 'SignedOutWhileConnectingError',
+			cause: expect.objectContaining({ message: expect.stringContaining('401') }),
+		});
 		expect(authStore.getOperationToken('ins-race')).toBe('next-jwt');
 	});
 

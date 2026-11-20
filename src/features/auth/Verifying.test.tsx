@@ -4,7 +4,7 @@ import { PropsWithChildren } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { search, historyState, resend } = vi.hoisted(() => ({
-	search: {} as { email?: string },
+	search: {} as { email?: string; redirect?: unknown },
 	historyState: {} as { prefillEmail?: string },
 	resend: vi.fn(),
 }));
@@ -12,9 +12,23 @@ vi.mock('@tanstack/react-router', () => ({
 	useSearch: () => search,
 	useLocation: ({ select }: { select: (location: { state: typeof historyState }) => unknown }) =>
 		select({ state: historyState }),
-	Link: ({ children, to, state, onClick }: PropsWithChildren<
-		{ to?: string; state?: { prefillEmail?: string }; onClick?: (event: unknown) => void }
-	>) => <a href={to ?? '#'} data-prefill-email={state?.prefillEmail} onClick={onClick}>{children}</a>,
+	Link: ({ children, to, search, state, onClick }: PropsWithChildren<
+		{
+			to?: string;
+			search?: { redirect?: string };
+			state?: { prefillEmail?: string };
+			onClick?: (event: unknown) => void;
+		}
+	>) => (
+		<a
+			href={to ?? '#'}
+			data-redirect={search?.redirect}
+			data-prefill-email={state?.prefillEmail}
+			onClick={onClick}
+		>
+			{children}
+		</a>
+	),
 }));
 vi.mock('./hooks/useResendEmailVerification', () => ({
 	useResendEmailVerification: () => ({ mutate: resend, isPending: false }),
@@ -25,6 +39,7 @@ import { Verifying } from './Verifying';
 
 afterEach(() => {
 	delete search.email;
+	delete search.redirect;
 	delete historyState.prefillEmail;
 	vi.clearAllMocks();
 });
@@ -60,5 +75,23 @@ describe('Verifying', () => {
 		expect(screen.getByText('your email')).toBeTruthy();
 		fireEvent.click(screen.getByRole('link', { name: 'Send me another code, please.' }));
 		expect(resend).not.toHaveBeenCalled();
+	});
+});
+
+describe('Verifying — redirect', () => {
+	it('hands a redirect to follow on to sign-in', () => {
+		search.redirect = '/oauth/mcp/authorize?response_type=code&client_id=c';
+		render(<Verifying />);
+
+		expect(screen.getByRole('link', { name: 'I did it, let me sign in!' }).dataset.redirect).toBe(
+			'/oauth/mcp/authorize?response_type=code&client_id=c',
+		);
+	});
+
+	it('hands on none it would not follow', () => {
+		search.redirect = 'https://evil.example/oauth/mcp/authorize';
+		render(<Verifying />);
+
+		expect(screen.getByRole('link', { name: 'I did it, let me sign in!' }).dataset.redirect).toBeUndefined();
 	});
 });

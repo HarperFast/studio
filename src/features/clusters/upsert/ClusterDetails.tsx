@@ -40,6 +40,7 @@ interface ClusterDetailsProps {
 	mode: 'version' | undefined;
 	partialUpgrade: PartialUpgrade | null;
 	recordLocksOn: boolean;
+	onRecordLocksUserChange?: () => void;
 	regionLocations: SchemaRegion[] | undefined;
 	regionLookup: RegionLookup;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
@@ -67,6 +68,7 @@ export function ClusterDetails({
 	mode,
 	partialUpgrade,
 	recordLocksOn,
+	onRecordLocksUserChange,
 	regionLocations,
 	regionLookup,
 	regionNameToLatencyToRegion,
@@ -268,7 +270,11 @@ export function ClusterDetails({
 								? <ClusterFQDN form={form} disabled={!!clusterId} />
 								: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
 							{!clusterId && !isSelfManaged && supportsRecordLocks(selectedVersion) && (
-								<ClusterRecordLocks className="col-span-3 md:col-span-6" form={form} />
+								<ClusterRecordLocks
+									className="col-span-3 md:col-span-6"
+									form={form}
+									onUserChange={onRecordLocksUserChange}
+								/>
 							)}
 						</CardContent>
 					</Card>

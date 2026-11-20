@@ -25,7 +25,7 @@ import {
 } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { useDeleteEnvValue, useSetEnvValue } from '@/integrations/api/instance/applications/envValues';
 import {
 	getComponentFileQueryKey,
@@ -42,7 +42,9 @@ export function EnvEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const { openedEntry, writeFile } = useEditorView();
-	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	const canWriteFile = useInstanceOperationPermission('set_component_file');
+	const canSetEnvValue = useInstanceOperationPermission('set_env_value');
+	const canDeleteEnvValue = useInstanceOperationPermission('delete_env_value');
 
 	const path = openedEntry?.path ?? '';
 	const project = openedEntry?.project ?? '';
@@ -71,7 +73,9 @@ export function EnvEditorView() {
 		return Object.entries(parseEnv(rawText ?? '')).map(([name, value]) => ({ name, value }));
 	}, [data, isProtected, rawText]);
 
-	const canManage = !!openedEntry && !openedEntry.package && canManageBrowseInstance;
+	const editable = !!openedEntry && !openedEntry.package;
+	const canManage = editable && (isProtected ? canSetEnvValue : canWriteFile);
+	const canDelete = canManage && (isProtected ? canDeleteEnvValue : canWriteFile);
 
 	/*
 	 Persistence, per mode. Plaintext-mode writes are the editor's own save, which settles the query
@@ -167,15 +171,19 @@ export function EnvEditorView() {
 				selectedName={selectedName}
 				onSelectName={setSelectedName}
 				addDescription={isProtected
-					? 'The value is written to this application’s env file on the instance. It can be replaced or removed later, but never read back.'
+					? `The value is written to this application’s env file on the instance. It can be replaced${
+						canDelete ? ' or removed' : ''
+					} later, but never read back.`
 					: `The value is written to ${openedEntry?.name ?? 'this env file'} in this application.`}
 				editDescription={isProtected
-					? 'The current value can’t be shown — this Harper version never returns secret values. Enter a new value to replace it, or delete the secret.'
+					? `The current value can’t be shown — this Harper version never returns secret values. Enter a new value to replace it${
+						canDelete ? ', or delete the secret' : ''
+					}.`
 					: 'Reveal the current value, or enter a replacement.'}
 				onSet={onSet}
-				onDelete={canManage ? onDelete : undefined}
+				onDelete={canDelete ? onDelete : undefined}
 			>
-				{!isProtected && (
+				{!isProtected && canManage && (
 					<Button variant="defaultOutline" onClick={() => setShowRawEditor(true)}>
 						<CodeIcon />
 						<span className="hidden lg:inline-block">Edit as text</span>

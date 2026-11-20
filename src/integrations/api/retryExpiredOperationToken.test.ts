@@ -10,7 +10,7 @@ vi.mock('@/features/auth/store/authStore', () => ({
 	},
 }));
 
-const { curryRecoverExpiredOperationToken } = await import('./retryExpiredOperationToken');
+const { curryRecoverExpiredOperationToken, isExpiredTokenResponse } = await import('./retryExpiredOperationToken');
 
 function error401(config: Record<string, unknown> = { headers: {}, __connectionGeneration: 1 }) {
 	return { response: { status: 401 }, config };
@@ -85,5 +85,44 @@ describe('curryRecoverExpiredOperationToken', () => {
 		await expect(handler(err)).rejects.toBe(err);
 		expect(recoverExpiredOperationToken).not.toHaveBeenCalled();
 		expect(request).not.toHaveBeenCalled();
+	});
+});
+
+describe('isExpiredTokenResponse', () => {
+	it('treats a 401 as expiry, as before', () => {
+		expect(isExpiredTokenResponse({ status: 401 })).toBe(true);
+	});
+
+	it("recognizes Harper 5.3's 403 for an expired token, as text or problem details", () => {
+		expect(isExpiredTokenResponse({ status: 403, data: 'token expired' })).toBe(true);
+		expect(isExpiredTokenResponse({ status: 403, data: { title: 'token expired', status: 403 } })).toBe(true);
+		expect(isExpiredTokenResponse({ status: 403, data: { error: 'token expired' } })).toBe(true);
+	});
+
+	it('leaves every other 403 alone: a fresh token would be refused the same way', () => {
+		expect(isExpiredTokenResponse({ status: 403, data: { title: 'upstream token expired' } })).toBe(false);
+		expect(isExpiredTokenResponse({ status: 403, data: 'the vendor token expired' })).toBe(false);
+		expect(
+			isExpiredTokenResponse({ status: 403, data: { title: 'Operation read_log is not in the operations allowlist' } }),
+		)
+			.toBe(false);
+		expect(isExpiredTokenResponse({ status: 403 })).toBe(false);
+		expect(isExpiredTokenResponse({ status: 500, data: 'token expired' })).toBe(false);
+		expect(isExpiredTokenResponse(undefined)).toBe(false);
+	});
+
+	it('recovers and replays a request refused with an expired-token 403', async () => {
+		recoverExpiredOperationToken.mockResolvedValue('fresh-token');
+		getConnectionGeneration.mockReturnValue(1);
+		const request = vi.fn().mockResolvedValue({ data: 'ok' });
+		const handler = curryRecoverExpiredOperationToken({ request }, 'ins-1');
+
+		const result = await handler({
+			response: { status: 403, data: 'token expired' },
+			config: { headers: {}, __connectionGeneration: 1 },
+		});
+
+		expect(result).toEqual({ data: 'ok' });
+		expect(request).toHaveBeenCalledTimes(1);
 	});
 });

@@ -15,6 +15,9 @@ const { permission, studio, route } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => permission.canManage }));
+vi.mock('@/hooks/useAuth', () => ({
+	useInstanceAuth: () => ({ user: { role: { permission: { super_user: permission.canManage } } } }),
+}));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClientIdParams: () => ({}) }));
 vi.mock('@/components/Breadcrumbs', () => ({
 	BreadcrumbList: ({ collapse, keepPath }: { collapse?: number; keepPath?: string }) => (

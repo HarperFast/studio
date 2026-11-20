@@ -1,13 +1,16 @@
 /** @vitest-environment jsdom */
 import type { Cluster } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: { error: toastError, success: vi.fn() } }));
+
 const { viewer, useOwedPresetSetup } = vi.hoisted(() => ({
-	viewer: { user: null as { username: string } | null, superUser: false },
+	viewer: { user: null as { username: string } | null, superUser: false, update: true, readOnlyConnect: false },
 	useOwedPresetSetup: vi.fn(),
 }));
 
@@ -29,9 +32,12 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 }));
 vi.mock('@/features/cluster/components/ClusterUsageCard', () => ({ ClusterUsageCard: () => null }));
 vi.mock('@/features/clusters/components/ClusterStateMenu', () => ({ ClusterStateMenu: () => null }));
-vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: viewer.user, isLoading: false }) }));
+vi.mock('@/hooks/useAuth', () => ({
+	useInstanceAuth: () => ({ user: viewer.user, isLoading: false }),
+	useStaffPermission: () => viewer.readOnlyConnect,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
-	useOrganizationClusterPermissions: () => ({ view: true, update: true }),
+	useOrganizationClusterPermissions: () => ({ view: true, update: viewer.update }),
 	useInstanceManagePermission: () => viewer.superUser,
 }));
 vi.mock('@/features/clusters/presets/usePresetSetup', () => ({ useOwedPresetSetup }));
@@ -45,16 +51,22 @@ vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
 	}),
 }));
 
+import { DirectConnectionRequiredError } from '@/features/auth/scopedOperationToken';
+import { authStore } from '@/features/auth/store/authStore';
 import { ClusterHome } from './ClusterHome';
 
 beforeEach(() => {
 	viewer.user = null;
 	viewer.superUser = false;
+	viewer.update = true;
+	viewer.readOnlyConnect = false;
 	useOwedPresetSetup.mockReset();
 });
 afterEach(() => {
 	cleanup();
 	apiGet.mockReset();
+	toastError.mockReset();
+	vi.restoreAllMocks();
 });
 
 async function renderHome(state: Cluster) {
@@ -161,6 +173,45 @@ describe(ClusterHome, () => {
 		await renderHome({ ...base, status: 'RUNNING' });
 		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
+	});
+
+	it('offers Fabric Connect to staff who may connect read-only without update rights', async () => {
+		viewer.update = false;
+		viewer.readOnlyConnect = true;
+		await renderHome({ ...base, status: 'RUNNING' });
+		expect(screen.getByRole('button', { name: 'Fabric Connect' })).toBeTruthy();
+	});
+
+	it('tells read-only staff why connecting failed, since they have no sign-in to fall back on', async () => {
+		viewer.update = false;
+		viewer.readOnlyConnect = true;
+		vi.spyOn(authStore, 'establishFabricConnectAuth').mockRejectedValue(
+			new DirectConnectionRequiredError('unreachable'),
+		);
+		await renderHome({ ...base, status: 'RUNNING' });
+		fireEvent.click(screen.getByRole('button', { name: 'Fabric Connect' }));
+
+		await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+		expect(toastError.mock.calls[0][0]).toMatch(/^Read-only access unavailable/);
+		expect(JSON.stringify(toastError.mock.calls[0])).toContain('could not reach it');
+	});
+
+	it('stays quiet when a sign-out interrupts connecting', async () => {
+		const connect = vi.spyOn(authStore, 'establishFabricConnectAuth')
+			.mockRejectedValue(Object.assign(new Error('signed out'), { name: 'SignedOutWhileConnectingError' }));
+		await renderHome({ ...base, status: 'RUNNING' });
+		fireEvent.click(screen.getByRole('button', { name: 'Fabric Connect' }));
+
+		await waitFor(() => expect(connect).toHaveBeenCalled());
+		await act(async () => {});
+		expect(toastError).not.toHaveBeenCalled();
+	});
+
+	it('offers no Fabric Connect to a viewer who can neither update nor connect read-only', async () => {
+		viewer.update = false;
+		await renderHome({ ...base, status: 'RUNNING' });
+		expect(screen.queryByRole('button', { name: 'Fabric Connect' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
 	});
 });
 

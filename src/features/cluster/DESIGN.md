@@ -85,6 +85,20 @@ the `Authorization` header before the session cookie. If its own login still fal
 again once `HDB_ADMIN` is gone. If that fails, or still names `HDB_ADMIN` (the proxy can reach an instance the drop has
 not replicated to yet), setup finishes signed out instead, and the user connects from the overview.
 
+## A read-only connection is direct only, and its allowlist comes from its token
+
+Staff with `cluster:connectReadOnly` and no update right connect through a second kind of Fabric Connect: central
+manager mints a scoped token (`sub: scoped-operation`, one hour, no refresh token) whose inline role allows only reads,
+and proxies nothing else for them. So the session must reach the instance directly, and `establishFabricConnectAuth`
+([`authStore.ts`](../auth/store/authStore.ts)) refuses the proxy fallback for such a token (`isScopedOperationToken`)
+rather than routing every operation through a proxy that refuses each one.
+
+Harper's `user_info` names no role for the token's holder: it looks the role up by id, and a scoped token's role exists
+only in the token. Studio therefore takes the allowlist from the token's claims (`withScopedTokenRole`,
+[`scopedOperationToken.ts`](../auth/scopedOperationToken.ts)), on connect and on reload. Without it every operation gate
+reads "no allowlist" and hides every page. The claims are read, not verified: they only decide what Studio shows, and the
+instance enforces the scope it signed.
+
 ## An interrupted setup finishes from the admin it already created
 
 Central manager's `ResetPasswordUpdater` takes no body and only clears `resetPassword`
@@ -257,9 +271,12 @@ version check. Anything else it refuses, such as a maintenance drain, arrives as
 The setting goes in a PUT of its own: central manager answers 400 when `name`, `regionPlans`, `version`, `domainIds` or
 `generateDomainCerts` ride along. `skipGtmWait` may: the confirmation offers it as "Immediate restart", as the version
 update does, and central manager then restarts each member without draining it first. On create, `recordLocks` rides
-with the rest, and the form sends it only for a Fabric-hosted cluster on 5.3.0+, so a box ticked before switching to an
-older version or to self-hosted never becomes a 400. While record locks are on, the version picker disables versions
-below 5.3.0, which central manager would refuse.
+with the rest as an explicit `true` or `false` for a Fabric-hosted cluster on 5.3.0+, and is left out for self-hosted
+clusters and versions below 5.3.0 so a box touched before switching away never becomes a 400. Sending `false` matters from `5.4.0-alpha.1` onward (`RECORD_LOCKS_AUTO_MIN_VERSION` in central manager's
+`recordLockHomes.js`), where central manager turns record locks on by default unless the request says `false`; the
+checkbox therefore starts checked for `5.4.0-alpha.1`+ (`defaultsRecordLocksOn`) and resets to the version's default
+when crossing that boundary until the user changes it. While record locks are on, the version picker disables versions below 5.3.0, which
+central manager would refuse.
 
 Nothing here can see whether a member runs the LMDB storage engine, where `lock()` doesn't work at all; central manager
 doesn't check that either, so the page says it instead.

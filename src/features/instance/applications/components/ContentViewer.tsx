@@ -3,6 +3,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { isProtectedEnvFile } from '@/lib/env/envFile';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { getMarkupImageType } from '@/lib/string/markupImageType';
@@ -18,14 +19,35 @@ import { MarkupImageView } from './MarkupImageView';
 import { NewApplication } from './NewApplication';
 import { SchemaEditorView } from './SchemaEditorView';
 import { TextEditorView } from './TextEditorView';
+import { UnreadableEntryPlaceholder } from './UnreadableEntryPlaceholder';
 import './directoryReadMe.css';
 
 export function ContentViewer() {
-	const { openedEntry, openedEntryContents } = useEditorView();
+	const { openedEntry, openedEntryContents, canReadFiles } = useEditorView();
 	const urlTransform = useReadMeUrlTransformer(openedEntry?.project);
+	const canAddComponent = useInstanceOperationPermission('add_component');
+	const canDeployComponent = useInstanceOperationPermission('deploy_component');
 
 	if (openedEntry?.path === newApplication) {
-		return <NewApplication />;
+		return canAddComponent || canDeployComponent
+			? (
+				<NewApplication
+					key={`${canAddComponent}:${canDeployComponent}`}
+					canCreateFromTemplate={canAddComponent}
+					canImport={canDeployComponent}
+				/>
+			)
+			: (
+				<UnreadableEntryPlaceholder
+					name="New application"
+					isFolder
+					message="This connection cannot create applications."
+				/>
+			);
+	}
+
+	if (!canReadFiles && openedEntry) {
+		return <UnreadableEntryPlaceholder name={openedEntry.name} isFolder={isDirectory(openedEntry)} />;
 	}
 
 	if (isDirectory(openedEntry)) {

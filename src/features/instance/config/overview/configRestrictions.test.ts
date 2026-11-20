@@ -1,105 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenConfig, getChangedFields, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
-
-describe('getChangedFields', () => {
-	it('should return only changed fields', () => {
-		const original = {
-			http: { cors: true, corsAccessList: ['*'] },
-			analytics: { enabled: true },
-		};
-		const edited = {
-			http: { cors: false, corsAccessList: ['*'] },
-			analytics: { enabled: true },
-		};
-		const changes = getChangedFields(original, edited);
-		expect(changes).toEqual({
-			http: { cors: false },
-		});
-	});
-
-	it('should return empty object if nothing changed', () => {
-		const config = { a: 1, b: { c: 2 } };
-		expect(getChangedFields(config, config)).toEqual({});
-	});
-
-	it('should return only deep changed fields', () => {
-		const original = {
-			http: {
-				compressionThreshold: 0,
-				cors: false,
-				corsAccessList: ['https://fabric.harper.fast'],
-				keepAliveTimeout: 301000,
-				mtls: false,
-				http2: false,
-				timeout: 120000,
-			},
-			authentication: {
-				authorizeLocal: false,
-				cacheTTL: 30000,
-				operationTokenTimeout: '1d',
-				refreshTokenTimeout: '30d',
-				cookie: {
-					domains: ['local-inference.dawson-org-2.dev.harperfabric.com'],
-				},
-			},
-		};
-		const edited = JSON.parse(JSON.stringify(original));
-		edited.http.cors = true;
-
-		const changes = getChangedFields(original, edited);
-		expect(changes).toEqual({
-			http: { cors: true },
-		});
-	});
-
-	it('should detect additions', () => {
-		const original = { a: 1 };
-		const edited = { a: 1, b: 2 };
-		expect(getChangedFields(original, edited)).toEqual({ b: 2 });
-	});
-});
-
-describe('flattenConfig', () => {
-	it('should flatten nested objects using underscores', () => {
-		const config = {
-			http: {
-				cors: true,
-				port: 9925,
-			},
-			logging: {
-				level: 'info',
-				rotation: {
-					enabled: true,
-				},
-			},
-			simple: 1,
-		};
-		const flattened = flattenConfig(config);
-		expect(flattened).toEqual({
-			http_cors: true,
-			http_port: 9925,
-			logging_level: 'info',
-			logging_rotation_enabled: true,
-			simple: 1,
-		});
-	});
-
-	it('should handle arrays as values (not flatten them)', () => {
-		const config = {
-			http: {
-				corsAccessList: ['a', 'b'],
-			},
-		};
-		const flattened = flattenConfig(config);
-		expect(flattened).toEqual({
-			http_corsAccessList: ['a', 'b'],
-		});
-	});
-
-	it('should handle empty objects', () => {
-		expect(flattenConfig({})).toEqual({});
-	});
-});
+import { isHiddenConfigPath, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
 
 describe('isRestrictedConfigPath', () => {
 	it('should return false if value has not changed', () => {
@@ -186,5 +86,22 @@ describe('omitRestrictedFields', () => {
 		expect(omitRestrictedFields(config)).toEqual({ modelsGateway: { enabled: true } });
 		expect(isRestrictedConfigPath('models', { generative: {} }, undefined)).toBe(true);
 		expect(isRestrictedConfigPath('modelsGateway.enabled', false, true)).toBe(false);
+	});
+});
+
+describe('isHiddenConfigPath', () => {
+	it('hides what omitRestrictedFields drops, and nothing else', () => {
+		expect(isHiddenConfigPath(['threads', 'count'])).toBe(true);
+		expect(isHiddenConfigPath(['http', 'port'])).toBe(true);
+		expect(isHiddenConfigPath(['http', 'cors'])).toBe(false);
+		expect(isHiddenConfigPath(['replication', 'hostname'])).toBe(true);
+		expect(isHiddenConfigPath(['replication', 'databases'])).toBe(false);
+		expect(isHiddenConfigPath(['logging', 'rotation', 'path'])).toBe(true);
+		expect(isHiddenConfigPath(['logging', 'rotation', 'enabled'])).toBe(false);
+	});
+
+	it('reads only its own keys, not the prototype chain', () => {
+		expect(isHiddenConfigPath(['constructor'])).toBe(false);
+		expect(isHiddenConfigPath(['http', 'toString'])).toBe(false);
 	});
 });

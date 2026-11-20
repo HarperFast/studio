@@ -13,7 +13,8 @@ interface ReleaseOffer {
  * nodes is activated again, and one some node holds no copy of is refused there with a 404, so it is not offered.
  *
  * `trustRecords`: whether the records alone decide before Harper 5.4.0-alpha.1, as they do for a staged release. From
- * then on nothing is enabled until `list_releases` answers: retention prunes a stage without a record.
+ * then on nothing is enabled until `list_releases` answers, and nothing is offered to a role that may not ask it:
+ * retention prunes a stage without a record.
  */
 export function releaseOffer(
 	check: ReleaseCheck,
@@ -23,6 +24,8 @@ export function releaseOffer(
 	switch (check.kind) {
 		case 'unsupported':
 			return trustRecords ? { ...fromRecords, disabled: false } : { ...fromRecords, offer: false, disabled: true };
+		case 'denied':
+			return { ...fromRecords, offer: false, disabled: true };
 		case 'unreadable':
 		case 'checking':
 			return { ...fromRecords, offer: fromRecords.offer && trustRecords, disabled: true };

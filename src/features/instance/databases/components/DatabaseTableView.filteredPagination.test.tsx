@@ -84,7 +84,12 @@ vi.mock('@/hooks/useAuth', () => ({
 	useStaffPermission: () => false,
 }));
 
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: () => true,
+	useInstanceOperationAccess: () => true,
+}));
 vi.mock('@/hooks/usePermissions', () => ({
+	useInstanceSchemaTableReadDenied: () => false,
 	useInstanceBrowseManagePermission: () => true,
 	useInstanceImportDataPermission: () => true,
 	useInstanceImportCapabilities: () => ({

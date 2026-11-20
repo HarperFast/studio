@@ -31,6 +31,7 @@ export function ReleaseCheckNote({
 	const retry = () => void retryReleases().catch(() => undefined);
 	switch (check.kind) {
 		case 'unsupported':
+		case 'denied':
 			return null;
 		case 'checking':
 			return <p className="text-sm text-muted-foreground">Checking which nodes hold this release…</p>;

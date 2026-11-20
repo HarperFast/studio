@@ -27,6 +27,7 @@ export function ReleasedRecordDetail({ deployment }: { deployment: Deployment })
 	// Its error already says why it failed; with every node saying it holds none there is nothing to offer.
 	if (
 		check.kind === 'unsupported'
+		|| check.kind === 'denied'
 		|| (failed && check.kind === 'missing' && !check.held && check.missing.length > 0 && check.unreadable.length === 0)
 	) {
 		return null;

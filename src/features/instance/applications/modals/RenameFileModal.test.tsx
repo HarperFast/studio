@@ -20,11 +20,19 @@ vi.mock('@/lib/events/watcher', () => ({
 	useWatchedValue: () => ({ value: true, trigger: undefined }),
 	setWatchedValue: vi.fn(),
 }));
+const operations = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !operations.denied.has(operation),
+}));
+vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
+	usePayloadBranchedDatabasesAvailable: () => false,
+}));
 vi.mock('@/lib/attemptToRestoreFocus', () => ({ attemptToRestoreFocus: vi.fn() }));
 vi.mock('@/integrations/api/instance/applications/dropComponent', () => ({ dropComponent: vi.fn() }));
 vi.mock('@/integrations/api/instance/applications/setComponentFile', () => ({ setComponentFile: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+import { setWatchedValue } from '@/lib/events/watcher';
 import { RenameFileModal } from './RenameFileModal';
 
 function renderWithQueryClient(ui: ReactElement) {
@@ -58,6 +66,21 @@ function renameButton() {
 }
 
 describe('RenameFileModal', () => {
+	it.each(['get_component_file', 'set_component_file', 'drop_component'])(
+		'stays closed for a session that cannot run %s, whichever shortcut asked',
+		(operation) => {
+			operations.denied.add(operation);
+			try {
+				vi.mocked(setWatchedValue).mockClear();
+				renderWithQueryClient(<RenameFileModal />);
+				expect(screen.queryByRole('dialog')).toBeNull();
+				expect(setWatchedValue).toHaveBeenCalledWith('ShowRenameFileModal', false);
+			} finally {
+				operations.denied.clear();
+			}
+		},
+	);
+
 	it('stops the name at the 50 characters the form accepts, and says so there', () => {
 		renderWithQueryClient(<RenameFileModal />);
 		const name = screen.getByLabelText('Name') as HTMLInputElement;

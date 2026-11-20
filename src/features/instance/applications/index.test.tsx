@@ -3,9 +3,13 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationsEditor } from './index';
 
-vi.mock('@/hooks/usePermissions', () => ({ useInstanceManagePermission: () => true }));
+const browse = vi.hoisted(() => ({ allowed: true as boolean | undefined }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({ useInstanceOperationAccess: () => browse.allowed }));
 vi.mock('@/hooks/useSessionToggler', () => ({ useSessionToggler: () => ({ toggle: () => {}, toggled: false }) }));
-vi.mock('@tanstack/react-router', () => ({ Navigate: () => null, useParams: () => ({}) }));
+vi.mock('@tanstack/react-router', () => ({
+	Navigate: ({ to }: { to: string }) => <div data-testid="redirect">{to}</div>,
+	useParams: () => ({ organizationId: 'org-1', clusterId: 'cl-1' }),
+}));
 vi.mock('./components/ApplicationsSidebar', () => ({ ApplicationsSidebar: () => null }));
 vi.mock('./components/ContentActions', () => ({ ContentActions: () => null }));
 vi.mock('./components/ContentViewer', () => ({ ContentViewer: () => null }));
@@ -53,5 +57,27 @@ describe('ApplicationsEditor sidebar resizing', () => {
 		fireEvent.keyDown(separator, { key: 'ArrowRight' });
 		expect(separator.getAttribute('aria-valuenow')).toBe('234');
 		expect(localStorage.getItem('ApplicationsSidebarWidth')).toBe('234');
+	});
+});
+
+describe('ApplicationsEditor access', () => {
+	afterEach(() => {
+		cleanup();
+		browse.allowed = true;
+	});
+
+	it('waits, rather than leaving, while it cannot yet tell whether the session may list components', () => {
+		browse.allowed = undefined;
+		render(<ApplicationsEditor />);
+
+		expect(screen.getByText('Loading...')).toBeTruthy();
+		expect(screen.queryByTestId('redirect')).toBeNull();
+	});
+
+	it('sends a session that cannot list components to Databases', () => {
+		browse.allowed = false;
+		render(<ApplicationsEditor />);
+
+		expect(screen.getByTestId('redirect').textContent).toBe('/org-1/cl-1/databases');
 	});
 });

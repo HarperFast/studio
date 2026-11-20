@@ -138,6 +138,7 @@ vi.mock('@/features/instance/applications/hooks/useBranchedDatabases', () => ({
 	useApplicationBranchedDatabases: () => ({ setting: undefined }),
 	useApplicationsBranchedDatabases: () => ({ settings: [], known: false }),
 	useDiscardsDroppedBranches: () => undefined,
+	usePayloadBranchedDatabasesAvailable: () => false,
 	invalidateApplicationConfiguration: vi.fn(),
 }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'vs' }));
@@ -266,6 +267,10 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
 import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
+const writeAccess = vi.hoisted(() => ({ denied: false }));
+vi.mock('@/hooks/useInstanceOperationPermission', () => ({
+	useInstanceOperationPermission: (operation: string) => !(writeAccess.denied && operation === 'set_component_file'),
+}));
 
 const files = new Map<string, string>();
 const directories = new Set<string>();
@@ -553,6 +558,32 @@ function bufferAt(path: string, entity = 'ins-1') {
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
+	writeAccess.denied = false;
+});
+
+describe('a session that cannot write component files', () => {
+	it('opens a file read-only', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		writeAccess.denied = true;
+		renderEditor();
+
+		await openFile('app/a.js', 'saved a');
+
+		expect(editor().readOnly).toBe(true);
+	});
+
+	it('sends nothing on Save, even with a draft left from an earlier session', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		sessionStorage.setItem(editorFileContentKey('ins-1', 'app/a.js'), JSON.stringify('left-over draft'));
+		writeAccess.denied = true;
+		renderEditor();
+		await openFile('app/a.js', 'left-over draft');
+
+		save();
+		await act(async () => {});
+
+		expect(writesOf('app/a.js')).toEqual([]);
+	});
 });
 
 describe('a deleted file re-created at the same path', () => {

@@ -25,6 +25,17 @@ describe('GitHubAuthenticationButton', () => {
 		);
 	});
 
+	it("carries the sign-in page's redirect into /#/check-oauth", () => {
+		vi.stubEnv('VITE_CENTRAL_MANAGER_API_URL', 'https://cm.test.invalid');
+		const redirect = '/oauth/mcp/authorize?response_type=code&client_id=c';
+		render(<GitHubAuthenticationButton text="Sign in with GitHub" redirect={redirect} />);
+		expect(screen.getByRole('link').getAttribute('href')).toBe(
+			`https://cm.test.invalid/oauth/github/login?redirect=${
+				encodeURIComponent(`${window.location.origin}/#/check-oauth?redirect=${encodeURIComponent(redirect)}`)
+			}`,
+		);
+	});
+
 	it('drops the href when disabled, but stays focusable and announced', () => {
 		render(<GitHubAuthenticationButton text="Sign up with GitHub" disabled />);
 		const link = screen.getByRole('link');

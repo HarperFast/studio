@@ -399,3 +399,8 @@
 .tsqd-open-btn-container {
 	margin-bottom: 22px;
 }
+
+.harper-config-note {
+	opacity: 0.6;
+	font-style: italic;
+}

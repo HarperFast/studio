@@ -1,28 +1,24 @@
-import { currentUserQueryKey, getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
-import { reoClient } from '@/integrations/reo/reo';
-import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearOAuthErrorParamsFromUrl } from '@/lib/urls/clearOAuthErrorParams';
-import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
-import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { clearOAuthHandoffCodeFromUrl, readOAuthHandoffCodeFromUrl } from '@/lib/urls/oauthHandoff';
-import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { redirectFromFragment, redirectSearch } from '@/lib/urls/postSignInRedirect';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { LoaderCircle } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AuthHeading } from './components/AuthHeading';
 import { getOAuthErrorMessage, OAUTH_GENERIC_ERROR_MESSAGE } from './getOAuthErrorMessage';
+import { useCompleteCloudSignIn } from './hooks/useCloudSignIn';
 import { redeemOAuthHandoff } from './redeemOAuthHandoff';
 
 let checking: Promise<void> | null = null;
 
 export function CheckOAuth() {
 	const navigate = useNavigate();
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const { redirect } = useSearch({ strict: false });
+	const [redirect] = useState(() => redirectFromFragment(window.location.hash));
+	const signInSearch = redirectSearch(redirect);
+	const completeSignIn = useCompleteCloudSignIn({ redirect });
 
 	useEffect(() => {
 		if (checking) {
@@ -48,9 +44,15 @@ export function CheckOAuth() {
 
 				if (oauthErrorMessage) {
 					toast.error(oauthErrorMessage, { duration: 10_000 });
-					await navigate({ to: '/sign-in' });
+					await navigate({ to: '/sign-in', search: signInSearch });
 					return;
 				}
+
+				// Read before the session is picked up: a sign-out or another sign-in in this tab meanwhile supersedes
+				// this callback, which must then neither publish its user nor continue to `redirect`. These counters are
+				// this tab's own; another tab's sign-in only reaches this one through the session cookie.
+				const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+				const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 
 				// A sign-in the CM hands to this origin (a Studio PR preview) arrives as a single-use code,
 				// cleared before the redeem so a reload cannot present it again. A failed redeem still
@@ -67,28 +69,19 @@ export function CheckOAuth() {
 					});
 				}
 
-				const user = await getCurrentUser().catch(() => null);
+				const user = await fetchCurrentUser().catch(() => null);
 				if (!user) {
 					toast.error(OAUTH_GENERIC_ERROR_MESSAGE, {
 						duration: 10_000,
 					});
+					await navigate({ to: '/sign-in', search: signInSearch });
+					return;
+				}
+				const superseded = authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+					|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision;
+				if (superseded || !(await completeSignIn(user))) {
+					// Without `redirect`: whoever this tab belongs to now never resumes this callback's authorization.
 					await navigate({ to: '/sign-in' });
-				} else {
-					authStore.setUserForEntity(OverallAppSignIn, user);
-					clearUtmParamsFromUrl();
-					const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-
-					loginSuccessDatadogAction(user);
-
-					const company = parseCompanyFromEmail(user.email);
-					reoClient?.identify?.({
-						username: user.email,
-						type: 'email',
-						...(company ? { company } : {}),
-					});
-					await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-					await router.invalidate();
-					await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 				}
 			} finally {
 				checking = null;
@@ -110,6 +103,7 @@ export function CheckOAuth() {
 				<Link
 					className="text-sm"
 					to="/sign-in"
+					search={signInSearch}
 				>
 					Try signing in again
 				</Link>

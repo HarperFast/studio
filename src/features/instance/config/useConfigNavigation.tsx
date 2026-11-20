@@ -5,6 +5,7 @@ import type { ConfigMenuGroup } from '@/features/instance/config/ConfigNavigatio
 import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { extensionPagePath } from '@/features/instance/extensions/extensionPagePath';
 import { useVisibleExtensionPages } from '@/features/instance/extensions/useStudioExtensions';
+import { useInstanceOperationAccess } from '@/hooks/useInstanceOperationPermission';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { supportsBackups } from '@/integrations/api/instance/backups/backups';
@@ -48,6 +49,7 @@ export function useConfigNavigation(version: string) {
 	} = useParams({ strict: false });
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
+	const canListDeployments = useInstanceOperationAccess('list_deployments');
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, false),
 	);
@@ -132,10 +134,15 @@ export function useConfigNavigation(version: string) {
 						].filter(excludeFalsy),
 					},
 				]
+				: canListDeployments && deploymentsAvailable
+				? [{
+					label: 'Deployments & automation',
+					entries: [{ name: 'Deployments', to: to('deployments'), icon: <RocketIcon /> }],
+				}]
 				: []),
 			{ label: 'Components', entries: extensionEntries },
 		].filter(({ entries }) => entries.length > 0);
 
-		return { groups, configPath, firstExtension: extensionEntries[0]?.to, canManage };
-	}, [canManage, cluster, extensions, params, version]);
+		return { groups, configPath, canManage, canListDeployments };
+	}, [canManage, canListDeployments, cluster, extensions, params, version]);
 }

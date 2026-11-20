@@ -80,16 +80,19 @@ describe('redirectAwayFromSignInIfConnected (cluster)', () => {
 		).toThrow();
 	});
 
-	it('honors an absolute redirect target', () => {
+	it('honors an absolute redirect target, with its query', () => {
 		setConnectedUser(CLUSTER_ID);
 		try {
 			redirectAwayFromSignInIfConnected({
 				params: { clusterId: CLUSTER_ID },
-				location: { search: { redirect: '/some/path' } },
+				location: { search: { redirect: '/some/path?repository=https://github.com/Acme/shop.git' } },
 			});
 			expect.unreachable('expected a redirect');
 		} catch (thrown) {
-			expect((thrown as { options?: { to?: string } }).options?.to).toBe('/some/path');
+			// As `href`, which keeps the target's own query; `to` would normalize it as part of the path.
+			expect((thrown as { options?: { href?: string } }).options?.href).toBe(
+				'/some/path?repository=https://github.com/Acme/shop.git',
+			);
 		}
 	});
 });
@@ -154,16 +157,19 @@ describe('redirectAwayFromInstanceSignInIfConnected (instance)', () => {
 		).toThrow();
 	});
 
-	it('honors an absolute redirect target', () => {
+	it('honors an absolute redirect target, with its query', () => {
 		setConnectedUser(INSTANCE_ID);
 		try {
 			redirectAwayFromInstanceSignInIfConnected({
 				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
-				location: { search: { redirect: '/some/path' } },
+				location: { search: { redirect: '/some/path?repository=https://github.com/Acme/shop.git' } },
 			});
 			expect.unreachable('expected a redirect');
 		} catch (thrown) {
-			expect((thrown as { options?: { to?: string } }).options?.to).toBe('/some/path');
+			// As `href`, which keeps the target's own query; `to` would normalize it as part of the path.
+			expect((thrown as { options?: { href?: string } }).options?.href).toBe(
+				'/some/path?repository=https://github.com/Acme/shop.git',
+			);
 		}
 	});
 });
