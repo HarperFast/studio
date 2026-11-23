@@ -15,20 +15,24 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isScopedOperationToken } from '@/features/auth/scopedOperationToken';
 import { authStore } from '@/features/auth/store/authStore';
 import { InstanceNavLink, useInstanceNavLinks } from '@/features/instance/useInstanceNavLinks';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { checkInstanceOperationAllowed } from '@/hooks/checkOperationPermission';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useFitLevel } from '@/hooks/useFitLevel';
-import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { cn } from '@/lib/cn';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLoaderData, useMatchRoute, useParams } from '@tanstack/react-router';
+import { Link, useMatchRoute, useParams } from '@tanstack/react-router';
 import { CheckIcon, ChevronDownIcon, EllipsisIcon, MenuIcon } from 'lucide-react';
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export function InstanceNavBar() {
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const version = useLoadedInstanceVersion();
+	return version === undefined ? null : <InstanceNavBarFor version={version} />;
+}
+
+function InstanceNavBarFor({ version }: { version: string }) {
 	const instanceParams = useInstanceClientIdParams();
 	const permission = useInstanceAuth(instanceParams.entityId).user?.role?.permission;
 	const statusAvailable = supportsGetStatus(version)

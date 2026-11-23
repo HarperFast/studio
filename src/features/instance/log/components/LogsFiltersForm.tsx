@@ -25,12 +25,13 @@ import z from 'zod';
 const FIELD_SURFACE = 'dark:bg-grey-600 dark:border-grey-500';
 
 const DATE_FIELDS = [
-	{ name: 'from', label: 'Start date' },
-	{ name: 'until', label: 'End date' },
+	{ name: 'from', label: 'Start date (local time)' },
+	{ name: 'until', label: 'End date (local time)' },
 ] as const;
 
 export function LogsFiltersForm({
 	form,
+	dateMaxValues,
 	resetFilters,
 	submitFilters,
 	showLogName,
@@ -39,6 +40,7 @@ export function LogsFiltersForm({
 	onOpenChange,
 }: {
 	form: UseFormReturn<z.infer<typeof LogFiltersFormSchema>>;
+	dateMaxValues?: { from?: string | null; until?: string | null };
 	resetFilters: () => void;
 	submitFilters: (data: z.infer<typeof LogFiltersFormSchema>) => void;
 	showLogName?: boolean;
@@ -50,16 +52,15 @@ export function LogsFiltersForm({
 	const [logDateMax, setLogDateMax] = useState(getLogDateMax);
 	const refreshLogDateMax = () => setLogDateMax(getLogDateMax());
 
-	// On mobile the panel is toggled from the compact toolbar in the parent; on desktop it is always shown.
 	return (
-		<Card className={cn(isOpen ? 'block' : 'hidden', 'mt-3 md:mt-0 md:block')}>
-			<CardHeader className="hidden md:block">
+		<Card className={cn(isOpen ? 'block' : 'hidden', 'mt-3 md:mt-0')}>
+			<CardHeader className="block">
 				<button
 					type="button"
 					onClick={() => onOpenChange(!isOpen)}
 					aria-expanded={isOpen}
 					aria-controls="logs-filters-content"
-					className="flex w-full items-center justify-between md:pointer-events-none"
+					className="flex w-full items-center justify-between"
 				>
 					<CardTitle className="flex items-center gap-2 text-base">
 						<SlidersHorizontalIcon className="size-4 text-muted-foreground" />
@@ -184,9 +185,11 @@ export function LogsFiltersForm({
 										<FormControl>
 											<Input
 												type="datetime-local"
-												step={1}
+												step={0.001}
 												min={LOG_DATE_MIN}
-												max={logDateMax}
+												max={dateMaxValues?.[name] && dateMaxValues[name]! > logDateMax
+													? dateMaxValues[name]!
+													: logDateMax}
 												onFocus={refreshLogDateMax}
 												className={FIELD_SURFACE}
 												value={field.value ?? ''}

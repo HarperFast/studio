@@ -23,7 +23,7 @@ scheduler:
 const { state, post, restart } = vi.hoisted(() => {
 	const state = {
 		canManage: true,
-		version: '5.3.5',
+		version: '5.3.5' as string | undefined,
 		files: {} as Record<string, string>,
 		stateFails: false,
 		writeAnswerLost: false,
@@ -57,7 +57,7 @@ vi.mock('@/hooks/useRestartInstanceClick', () => ({
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org', clusterId: 'clu', instanceId: 'ins' }),
-	useLoaderData: () => ({ version: state.version }),
+	useLoaderData: () => (state.version === undefined ? undefined : { version: state.version }),
 	Link: ({ children }: { children: React.ReactNode }) => <a href="#status">{children}</a>,
 }));
 vi.mock(
@@ -199,6 +199,14 @@ describe('ConfigScheduledJobsIndex', () => {
 		state.canManage = false;
 		renderPage();
 		expect(screen.getByText('Only super users can view or change scheduled jobs.')).toBeTruthy();
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('waits, rather than calling the version unreadable, through a render whose route has no loader data yet', () => {
+		state.version = undefined;
+		renderPage();
+		expect(screen.getByText('Loading...')).toBeTruthy();
+		expect(screen.queryByText(/could not be read/)).toBeNull();
 		expect(post).not.toHaveBeenCalled();
 	});
 

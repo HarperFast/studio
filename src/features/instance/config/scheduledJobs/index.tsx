@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { PageNotice } from '@/features/instance/config/previews/PageNotice';
+import { useLoadedInstanceVersion } from '@/features/instance/useLoadedInstanceVersion';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
@@ -28,13 +29,12 @@ import {
 	SCHEDULER_STATE_READABLE_FROM,
 	supportsScheduledJobs,
 } from '@/integrations/api/instance/scheduler/scheduler';
-import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getStatusQueryOptions, supportsGetStatus } from '@/integrations/api/instance/status/getStatus';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { describeError } from '@/react-query/queryClient';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { Link, useLoaderData, useParams } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { PlusIcon, RefreshCwIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -141,7 +141,7 @@ function ScheduledJobsPage() {
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceManagePermission();
 	// The nav hides this page below 5.2, but a bookmark still lands here.
-	const { version }: Partial<RegistrationInfoResponse> = useLoaderData({ strict: false }) ?? {};
+	const version = useLoadedInstanceVersion();
 	const supported = supportsScheduledJobs(version);
 	const enabled = canManage && supported === true;
 	const readsState = canReadSchedulerState(version);
@@ -302,6 +302,9 @@ function ScheduledJobsPage() {
 
 	if (!canManage) {
 		return <PageNotice>Only super users can view or change scheduled jobs.</PageNotice>;
+	}
+	if (version === undefined) {
+		return <Loading className="flex flex-col items-center justify-center py-24" text="Loading..." />;
 	}
 	if (!version) {
 		return (

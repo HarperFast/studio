@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const PRERENDER = { key: 'harper-prerender.prerendering', name: 'Pre-rendering', icon: 'layers', placement: 'config' };
 
 const { viewer, route, entries } = vi.hoisted(() => ({
-	viewer: { canManage: false, version: '5.4.0' },
+	viewer: { canManage: false, version: '5.4.0' as string | undefined },
 	route: { pathname: '/org-1/clu-1/config' },
 	entries: { pages: [] as Record<string, string>[], pending: false },
 }));
@@ -34,7 +34,7 @@ vi.mock('@tanstack/react-router', () => ({
 	}) => <a href={to} {...anchor}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
 	Outlet: () => <div data-testid="outlet" />,
-	useLoaderData: () => ({ version: viewer.version }),
+	useLoaderData: () => (viewer.version === undefined ? undefined : { version: viewer.version }),
 	useLocation: () => ({ pathname: route.pathname }),
 	useMatchRoute: () => ({ to, fuzzy }: { to: string; fuzzy?: boolean }) =>
 		route.pathname === to || (!!fuzzy && route.pathname.startsWith(`${to}/`)) ? {} : false,
@@ -54,6 +54,13 @@ afterEach(() => {
 });
 
 describe('ConfigIndex', () => {
+	it('waits, rather than crashing, through a render whose route has no loader data yet', () => {
+		viewer.version = undefined;
+		render(<ConfigIndex />);
+		expect(screen.getByText('Loading...')).toBeTruthy();
+		expect(screen.queryByTestId('outlet')).toBeNull();
+	});
+
 	it.each(['/org-1/clu-1/config', '/org-1/clu-1/config/'])(
 		"opens a lesser role's first component entry instead of the super-user Overview at %s",
 		(pathname) => {

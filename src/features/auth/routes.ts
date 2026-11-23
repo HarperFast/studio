@@ -1,4 +1,5 @@
 import { defaultInstanceRoute } from '@/config/constants';
+import type { AuthenticatedConnection } from '@/features/auth/store/authStore';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import { guardedAppSignIn } from '@/router/guardedAppSignIn';
@@ -20,6 +21,29 @@ const authLayout = createRoute({
 	component: AuthLayout,
 });
 
+/**
+ * Sends a signed-in visitor on to the target their `?redirect=` names. Without one, `/sign-in` sends them to their
+ * default route and `/sign-up` shows its form, as it always has.
+ */
+function continueSignedIn(
+	user: NonNullable<AuthenticatedConnection['user']>,
+	search: Record<string, unknown> | undefined,
+	{ orDefaultRoute }: { orDefaultRoute: boolean },
+): void {
+	const target = postSignInRedirect(search?.redirect);
+	if (target?.kind === 'server') {
+		// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land on a
+		// sign-in page that sends the user straight on again.
+		throw redirect({ href: target.href, reloadDocument: true });
+	}
+	if (target) {
+		throw redirect({ href: target.to });
+	}
+	if (orDefaultRoute) {
+		throw redirect({ to: getDefaultSignedInCloudRouteForUser(user) });
+	}
+}
+
 const signInRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'sign-in',
@@ -28,14 +52,7 @@ const signInRoute = createRoute({
 	beforeLoad: ({ context, location }) => {
 		const user = guardedAppSignIn(context)?.user;
 		if (user) {
-			const search: Record<string, unknown> = location?.search;
-			const target = postSignInRedirect(search?.redirect);
-			if (target?.kind === 'server') {
-				// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land
-				// on a sign-in page that sends the user straight on again.
-				throw redirect({ href: target.href, reloadDocument: true });
-			}
-			throw redirect(target ? { href: target.to } : { to: getDefaultSignedInCloudRouteForUser(user) });
+			continueSignedIn(user, location?.search, { orDefaultRoute: true });
 		}
 	},
 });
@@ -62,6 +79,12 @@ const signUpRoute = createRoute({
 	path: 'sign-up',
 	head: () => ({ meta: [{ title: 'Sign Up — Harper Fabric' }] }),
 	component: SignUp,
+	beforeLoad: ({ context, location }) => {
+		const user = guardedAppSignIn(context)?.user;
+		if (user) {
+			continueSignedIn(user, location?.search, { orDefaultRoute: false });
+		}
+	},
 });
 const forgotPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,

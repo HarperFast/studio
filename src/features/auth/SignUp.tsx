@@ -6,6 +6,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { forgetSignInRedirect, keepSignInRedirect, readSignInRedirect } from '@/features/auth/pendingSignInRedirect';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
@@ -103,8 +104,16 @@ export function SignUp() {
 		// screen — #1677, reproduced by this form's own test. An `onInvalid` handler does not fix it.
 		clearErrors('root');
 		const captchaToken = await captcha.getToken();
+		// Before the request, which can send the verification email even if this page is gone by its answer.
+		keepSignInRedirect(userData.email, redirect);
+		// Without a target, this flow replaces the one an earlier flow kept. Only that one: another tab may keep its own
+		// while this request is out.
+		const replaced = carriedSearch ? undefined : readSignInRedirect(userData.email);
 		submitSignUpData({ ...userData, captchaToken }, {
 			onSuccess: () => {
+				if (replaced) {
+					forgetSignInRedirect(userData.email, replaced);
+				}
 				const company = parseCompanyFromEmail(userData.email);
 				reoClient?.identify?.({
 					username: userData.email,
@@ -130,7 +139,7 @@ export function SignUp() {
 				});
 			},
 		});
-	}, [carriedSearch, clearErrors, navigate, setError, submitSignUpData, captcha]);
+	}, [carriedSearch, clearErrors, navigate, redirect, setError, submitSignUpData, captcha]);
 
 	const onOAuthClick = useCallback((e: MouseEvent) => {
 		if (!acceptTerms) {

@@ -14,7 +14,7 @@ vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
 const { navigate, router, historyState, hashSearch } = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	router: { invalidate: vi.fn() },
-	historyState: {} as { prefillEmail?: string },
+	historyState: {} as { prefillEmail?: string; finishesEmailedLink?: boolean },
 	hashSearch: { current: {} as Record<string, unknown> },
 }));
 vi.mock('@tanstack/react-router', () => ({
@@ -45,6 +45,7 @@ import { toast } from 'sonner';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
 import { OFFLINE_MESSAGE } from './failFastOffline';
+import { keepSignInRedirect } from './pendingSignInRedirect';
 import { SignIn } from './SignIn';
 
 function axiosError(status: number, data?: unknown): AxiosError {
@@ -240,6 +241,32 @@ describe('SignIn — redirect', () => {
 
 	afterEach(() => {
 		hashSearch.current = {};
+	});
+
+	// A reset whose answer named no address reaches /sign-in without a ?redirect=.
+	it('offers the target kept for the typed address to Google, GitHub and Forgot password after a reset', () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		historyState.finishesEmailedLink = true;
+		renderSignIn();
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+
+		for (const name of ['Sign in with Google', 'Sign in with GitHub']) {
+			expect(screen.getByRole('link', { name }).getAttribute('href')).toContain(
+				`?redirect=${checkOAuthWith(mcpAuthorize)}`,
+			);
+		}
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBe(mcpAuthorize);
+		delete historyState.finishesEmailedLink;
+		localStorage.clear();
+	});
+
+	it('offers nothing kept for a sign-in that finishes no emailed flow', () => {
+		keepSignInRedirect('ada@example.com', mcpAuthorize);
+		renderSignIn();
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+
+		expect(screen.getByRole('link', { name: 'Forgot password?' }).dataset.redirect).toBeUndefined();
+		localStorage.clear();
 	});
 
 	it('hands the redirect to Google, GitHub and the sign-up link', () => {
