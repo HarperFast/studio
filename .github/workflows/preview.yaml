@@ -117,7 +117,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - if: steps.build.outputs.run-id != ''
-        uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
+        uses: HarperFast/deploy-action@a4a8af4e47add946657310b546f9e483d44b5cc5 # v1.0.1
         with:
           target: ${{ vars.HARPER_PREVIEW_TARGET }}
           app: hdbms
@@ -141,7 +141,7 @@ jobs:
       # when the job's `if:` has nothing else in it. Not on the author list, so a preview still goes
       # when its author leaves the list; dropping a preview that doesn't exist does nothing.
       - if: vars.HARPER_PREVIEW_TARGET != ''
-        uses: HarperFast/deploy-action@45fa59b6157eabb72b7a74922309238671f2a37d # v1.0.0
+        uses: HarperFast/deploy-action@a4a8af4e47add946657310b546f9e483d44b5cc5 # v1.0.1
         with:
           target: ${{ vars.HARPER_PREVIEW_TARGET }}
           app: hdbms
