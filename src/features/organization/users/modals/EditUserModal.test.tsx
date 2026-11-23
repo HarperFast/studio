@@ -256,7 +256,7 @@ describe('EditUserModal — a pending invitation', () => {
 		del.mockRejectedValue(httpError(403));
 		const { client } = await renderModal(user({}));
 		// A poll already on its way, which read the user before they accepted.
-		const poll = deferred<{ data: SchemaOrganizationRole[] }>();
+		const poll = deferred<{ data: unknown }>();
 		get.mockReturnValueOnce(poll.promise);
 		void client.refetchQueries({ queryKey: ['org-1', 'roles'] });
 		await waitFor(() => expect(client.getQueryState(['org-1', 'roles'])?.fetchStatus).toBe('fetching'));
