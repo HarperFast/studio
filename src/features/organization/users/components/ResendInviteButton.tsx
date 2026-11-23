@@ -6,6 +6,9 @@ import { MailIcon } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
 
+/** Marks one user's resend in flight, wherever it was clicked, so their invitation isn't cancelled under it. */
+export const resendInviteMutationKey = (userId: string) => ['resendInvite', userId] as const;
+
 /**
  * Resend a pending user's org invite. The backend treats a repeat POST /UserInvite for an
  * already-invited (still pending) user as a resend, so this reuses the same invite mutation and
@@ -17,7 +20,9 @@ import { toast } from 'sonner';
 export function ResendInviteButton({ user, disabled = false }: { user: SchemaUser; disabled?: boolean }) {
 	// Reads the org from the current route (same as the page's other permission checks).
 	const { update } = useOrganizationRolePermissions();
-	const { mutate: inviteUser, isPending } = useInviteUserToOrganizationRole();
+	const { mutate: inviteUser, isPending } = useInviteUserToOrganizationRole({
+		mutationKey: resendInviteMutationKey(user.id),
+	});
 	const roleId = user.roles?.[0]?.id;
 
 	const onClick = useCallback(

@@ -5,7 +5,10 @@ import { useRemoveUserFromOrganizationRole } from '@/features/organization/mutat
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { OrgUserRoleCheckbox } from '@/features/organization/users/components/OrgUserRoleCheckbox';
 import { RemoveUserFromOrgButton } from '@/features/organization/users/components/RemoveUserFromOrgButton';
-import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
+import {
+	ResendInviteButton,
+	resendInviteMutationKey,
+} from '@/features/organization/users/components/ResendInviteButton';
 import { collectOrgUsers } from '@/features/organization/users/orgRoleMembers';
 import { getOrgUserRemovalPolicy, isAdminRoleName } from '@/features/organization/users/orgUserRemovalPolicy';
 import { useCloudAuth } from '@/hooks/useAuth';
@@ -13,7 +16,7 @@ import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
 import { keyBy } from '@/lib/keyBy';
 import { shouldToastOwnFailure } from '@/react-query/queryClient';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -58,6 +61,8 @@ export function EditUserModal({
 	const [isRemoving, setIsRemoving] = useState(false);
 	// Latched for the rest of the dialog: a resend that lands after the cancellation commits creates a new invitation.
 	const [cancelStarted, setCancelStarted] = useState(false);
+	// And the other order: a resend already on its way could reach central manager after the cancellation.
+	const isResending = useIsMutating({ mutationKey: resendInviteMutationKey(data.id) }) > 0;
 
 	// The roles come from this org's roles payload (`collectOrgUsers`), so this never touches another
 	// organization. A role that's already gone (404) counts as success, so a partial attempt can be retried.
@@ -118,10 +123,11 @@ export function EditUserModal({
 		setIsRemoving(true);
 		setCancelStarted(true);
 		const notPending = `The invitation to ${data.email} is no longer pending. It was accepted or already cancelled.`;
+		let removedHere = false;
 		try {
 			const outcome = await cancelUserInvite({ userId: data.id });
 			if (outcome === 'cancelled') {
-				dropFromMemberList();
+				removedHere = true;
 				toast.success(`The invitation to ${data.email} was cancelled.`);
 			} else if (outcome === 'not-pending') {
 				toast.info(notPending);
@@ -134,7 +140,7 @@ export function EditUserModal({
 					if (failures.some(shouldToastOwnFailure)) {
 						toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
 					} else if (failures.length === 0) {
-						dropFromMemberList();
+						removedHere = true;
 						toast.success(`The invitation to ${data.email} was removed from this organization.`, {
 							description: 'They’re most likely also invited to an organization you don’t manage. Until that '
 								+ 'invitation is accepted or cancelled, they can’t be invited here again.',
@@ -149,6 +155,10 @@ export function EditUserModal({
 		}
 		setIsRemoving(false);
 		onUserUpdated();
+		// After closing: dropping the user while this dialog is still open for them would unmount it under the URL.
+		if (removedHere) {
+			dropFromMemberList();
+		}
 	}, [cancelUserInvite, rolesStillPendingHere, unlinkOrgRoles, dropFromMemberList, data.id, data.email, onUserUpdated]);
 
 	return (
@@ -197,6 +207,7 @@ export function EditUserModal({
 						<RemoveUserFromOrgButton
 							kind={isPendingInvite ? 'cancel-invite' : isSelf ? 'leave' : 'remove'}
 							isPending={isRemoving}
+							disabled={isPendingInvite && isResending}
 							onConfirm={isPendingInvite ? onCancelInvite : onRemoveFromOrg}
 						/>
 					</div>

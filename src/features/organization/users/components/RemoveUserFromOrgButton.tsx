@@ -49,10 +49,13 @@ const ICON = { leave: LogOut, remove: UserMinus, 'cancel-invite': MailX } satisf
 export function RemoveUserFromOrgButton({
 	kind,
 	isPending,
+	disabled = false,
 	onConfirm,
 }: {
 	kind: OrgRemovalKind;
 	isPending: boolean;
+	/** Holds the action back without saying it is underway, as `isPending` does. */
+	disabled?: boolean;
 	onConfirm: () => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
@@ -66,7 +69,7 @@ export function RemoveUserFromOrgButton({
 				<Button
 					type="button"
 					variant="destructiveOutline"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={() => setConfirming(true)}
 				>
 					<Icon /> {copy.idle}
@@ -88,7 +91,7 @@ export function RemoveUserFromOrgButton({
 				<Button
 					type="button"
 					variant="ghostOutline"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={() => setConfirming(false)}
 				>
 					{copy.back}
@@ -97,7 +100,7 @@ export function RemoveUserFromOrgButton({
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={onConfirm}
 				>
 					<Icon /> {isPending ? copy.busy : copy.confirm}

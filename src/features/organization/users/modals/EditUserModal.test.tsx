@@ -4,7 +4,7 @@
 import type { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -67,7 +67,6 @@ function user(overrides: Partial<SchemaUser>): SchemaUser {
 	} as SchemaUser;
 }
 
-/** The org's roles as central manager returns them, with usr-1 holding the developer role, or gone. */
 function membersWith(status: SchemaUser['status'] | null) {
 	return orgRoles.map((role) =>
 		role.id === 'role-dev' && status
@@ -76,7 +75,6 @@ function membersWith(status: SchemaUser['status'] | null) {
 	);
 }
 
-/** Every user id the cached member list still names, through either `userIds` or `users`. */
 function listedIds(client: QueryClient) {
 	return (client.getQueryData<SchemaOrganizationRole[]>(['org-1', 'roles']) ?? []).flatMap((role) => [
 		...role.userIds,
@@ -126,6 +124,8 @@ describe('EditUserModal — a pending invitation', () => {
 	it('cancels it through DELETE /UserInvite/{id}, not by unlinking its roles', async () => {
 		del.mockResolvedValue({ data: { deleted: true } });
 		const { onUserUpdated, client } = await renderModal(user({}));
+		// Still listed when the dialog closes: dropping it first would unmount the dialog under its URL.
+		onUserUpdated.mockImplementation(() => expect(listedIds(client)).toContain('usr-1'));
 
 		await cancelInvite();
 
@@ -134,8 +134,29 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(toast.success).toHaveBeenCalledWith('The invitation to invitee@example.com was cancelled.');
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
+		expect(onUserUpdated).toHaveReturned();
 		// Gone from the list before the refetch lands, so the table row can't offer Resend meanwhile.
 		expect(listedIds(client)).not.toContain('usr-1');
+	});
+
+	it('holds Cancel invite back while a resend for the same user is in flight', async () => {
+		let settle: (value: unknown) => void = () => undefined;
+		post.mockReturnValue(new Promise((resolve) => (settle = resolve)));
+		await renderModal(user({}));
+		const cancel = screen.getByRole('button', { name: /^cancel invite$/i });
+		expect(cancel.hasAttribute('disabled')).toBe(false);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: /resend invite/i }));
+		});
+		expect(post).toHaveBeenCalledWith('/UserInvite/', { email: 'invitee@example.com', roleId: 'role-dev' });
+		// useIsMutating hears of it through React Query's batched notify, a timer later.
+		await waitFor(() => expect(cancel.hasAttribute('disabled')).toBe(true));
+		// Not busy: nothing is being cancelled yet.
+		expect(cancel.textContent).toMatch(/^\s*cancel invite$/i);
+
+		await act(async () => settle({ data: {} }));
+		await waitFor(() => expect(cancel.hasAttribute('disabled')).toBe(false));
 	});
 
 	it('keeps Resend disabled from the moment a cancellation starts', async () => {

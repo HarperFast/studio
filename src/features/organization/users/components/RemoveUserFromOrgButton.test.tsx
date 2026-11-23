@@ -91,4 +91,19 @@ describe('RemoveUserFromOrgButton', () => {
 		fireEvent.click(confirm);
 		expect(onConfirm).not.toHaveBeenCalled();
 	});
+
+	it('disabled holds both steps back without the busy copy', () => {
+		const onConfirm = vi.fn();
+		const { rerender } = render(
+			<RemoveUserFromOrgButton kind="cancel-invite" isPending={false} onConfirm={onConfirm} />,
+		);
+		fireEvent.click(screen.getByRole('button', { name: /^cancel invite$/i }));
+		rerender(<RemoveUserFromOrgButton kind="cancel-invite" isPending={false} disabled onConfirm={onConfirm} />);
+
+		const confirm = screen.getByRole('button', { name: /confirm cancellation/i });
+		expect(confirm.hasAttribute('disabled')).toBe(true);
+		expect(screen.getByRole('button', { name: /keep invite/i }).hasAttribute('disabled')).toBe(true);
+		fireEvent.click(confirm);
+		expect(onConfirm).not.toHaveBeenCalled();
+	});
 });
