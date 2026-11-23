@@ -112,7 +112,8 @@ export function PreviewWorkflowInstructions(
 						<strong>On a public repository, let GitHub run this workflow.</strong> From 2026-12-02 GitHub blocks the
 						{' '}
 						<code className="font-mono">pull_request_target</code>{' '}
-						event in public repositories by default, so no preview would deploy. Private repositories are unaffected.
+						event in public repositories by default, so no preview would deploy. That default doesn't apply to private
+						repositories.
 					</p>
 					<p className="mt-2">
 						In the repository's <strong>Settings → Actions → Policies</strong>, create a policy with enforcement status
@@ -124,11 +125,13 @@ export function PreviewWorkflowInstructions(
 						This takes a repository administrator.
 					</p>
 					<p className="mt-2">
-						An organization owner can create it in the organization's settings instead, at the same place. Target this
-						repository as well as the file, or the policy applies to that path in every repository. If an event policy
-						already applies, GitHub adds no default one: every policy that applies has to allow{' '}
+						An organization owner can create it in the organization's settings instead, at the same place. Target{' '}
+						<code className="font-mono">{repository || 'this repository'}</code>{' '}
+						as well as the file, or the policy applies to that path in every repository. If an event policy already
+						applies, GitHub adds no default one: every Active policy that applies has to allow{' '}
 						<code className="font-mono">pull_request_target</code>{' '}
-						for this workflow, and Policy insights, under Policies, shows which one blocked a run.
+						for this workflow. Policy insights, under Policies, shows which one blocked a run; ask its owner to allow it
+						for this repository and file.
 					</p>
 					<p className="mt-2 text-muted-foreground">
 						<a className="underline" href={POLICY_GUIDE_URL} target="_blank" rel="noreferrer">

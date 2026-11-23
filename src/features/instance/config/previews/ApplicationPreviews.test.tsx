@@ -299,14 +299,16 @@ describe('ApplicationPreviews', () => {
 				expect(step.getByText('Active')).toBeTruthy();
 				expect(step.getByText('.github/workflows/preview.yaml')).toBeTruthy();
 				expect(step.getByText(/2026-12-02/)).toBeTruthy();
-				expect(step.getByText(/Private repositories are unaffected/)).toBeTruthy();
+				expect(step.getByText(/doesn't apply to private repositories/)).toBeTruthy();
 			});
 
 			it("keeps an organization's policy to this repository, and says where to see what blocked a run", async () => {
 				const step = await policyStep(ENABLED);
-				expect(step.getByText(/Target this\s+repository as well as the file/)).toBeTruthy();
-				expect(step.getByText(/every policy that applies has to allow/)).toBeTruthy();
-				expect(step.getByText(/Policy insights/)).toBeTruthy();
+				expect(step.getByText('acme/shop')).toBeTruthy();
+				expect(step.getByText(/as well as the file, or the policy applies to that path in every repository/))
+					.toBeTruthy();
+				expect(step.getByText(/every Active policy that applies has to allow/)).toBeTruthy();
+				expect(step.getByText(/Policy insights.*ask its owner to allow it for this repository and file/)).toBeTruthy();
 			});
 
 			it('targets the file the policy pins, and the default one when it pins none', async () => {
