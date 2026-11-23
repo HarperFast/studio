@@ -1,6 +1,40 @@
 import { Button } from '@/components/ui/button';
-import { LogOut, TriangleAlertIcon, UserMinus } from 'lucide-react';
+import { LogOut, MailX, TriangleAlertIcon, UserMinus } from 'lucide-react';
 import { useState } from 'react';
+
+type OrgRemovalKind = 'leave' | 'remove' | 'cancel-invite';
+
+const COPY: Record<OrgRemovalKind, { idle: string; back: string; confirm: string; busy: string; warning: string }> = {
+	leave: {
+		idle: 'Leave organization',
+		back: 'Cancel',
+		confirm: 'Confirm leave',
+		busy: 'Leaving…',
+		warning:
+			'You’ll lose access to this organization and everything in it. You won’t be able to return unless another member invites you back.',
+	},
+	remove: {
+		idle: 'Remove from organization',
+		back: 'Cancel',
+		confirm: 'Confirm removal',
+		busy: 'Removing…',
+		warning:
+			'This revokes their access to this organization and everything in it. Their Harper account isn’t deleted, and they can be added back later.',
+	},
+	// "Keep invite", not "Cancel": beside a button that cancels the invite, a bare "Cancel" is ambiguous.
+	'cancel-invite': {
+		idle: 'Cancel invite',
+		back: 'Keep invite',
+		confirm: 'Confirm cancellation',
+		busy: 'Cancelling…',
+		// Cancelling deletes the invitation itself, which central manager allows only when you manage every
+		// organization it is for, so it can reach past this one.
+		warning:
+			'This cancels their invitation, so signing up with this address won’t add them to this organization. An invitation to another organization you manage may be cancelled with it.',
+	},
+};
+
+const ICON = { leave: LogOut, remove: UserMinus, 'cancel-invite': MailX } satisfies Record<OrgRemovalKind, unknown>;
 
 /**
  * A user belongs to an org purely by having org roles, so "removing" them means dropping all
@@ -13,32 +47,21 @@ import { useState } from 'react';
  * footprint, so a fast double-click can't land on "Confirm" and skip the confirmation step.
  */
 export function RemoveUserFromOrgButton({
-	isSelf,
+	kind,
 	isPending,
+	disabled = false,
 	onConfirm,
 }: {
-	isSelf: boolean;
+	kind: OrgRemovalKind;
 	isPending: boolean;
+	/** Unlike `isPending`, shows no busy copy. */
+	disabled?: boolean;
 	onConfirm: () => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
 
-	const copy = isSelf
-		? {
-			idle: 'Leave organization',
-			confirm: 'Confirm leave',
-			busy: 'Leaving…',
-			warning:
-				'You’ll lose access to this organization and everything in it. You won’t be able to return unless another member invites you back.',
-		}
-		: {
-			idle: 'Remove from organization',
-			confirm: 'Confirm removal',
-			busy: 'Removing…',
-			warning:
-				'This revokes their access to this organization and everything in it. Their Harper account isn’t deleted, and they can be added back later.',
-		};
-	const Icon = isSelf ? LogOut : UserMinus;
+	const copy = COPY[kind];
+	const Icon = ICON[kind];
 
 	if (!confirming) {
 		return (
@@ -46,7 +69,7 @@ export function RemoveUserFromOrgButton({
 				<Button
 					type="button"
 					variant="destructiveOutline"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={() => setConfirming(true)}
 				>
 					<Icon /> {copy.idle}
@@ -68,16 +91,16 @@ export function RemoveUserFromOrgButton({
 				<Button
 					type="button"
 					variant="ghostOutline"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={() => setConfirming(false)}
 				>
-					Cancel
+					{copy.back}
 				</Button>
 				{/* Not autoFocused: focus on the destructive button would let a stray Enter or double-click confirm. */}
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={isPending}
+					disabled={isPending || disabled}
 					onClick={onConfirm}
 				>
 					<Icon /> {isPending ? copy.busy : copy.confirm}

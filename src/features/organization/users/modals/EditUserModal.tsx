@@ -1,17 +1,22 @@
 import { Loading } from '@/components/Loading';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useCancelUserInvite } from '@/features/organization/mutations/cancelUserInvite';
 import { useRemoveUserFromOrganizationRole } from '@/features/organization/mutations/removeUserFromOrganizationRole';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { OrgUserRoleCheckbox } from '@/features/organization/users/components/OrgUserRoleCheckbox';
 import { RemoveUserFromOrgButton } from '@/features/organization/users/components/RemoveUserFromOrgButton';
-import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
+import {
+	ResendInviteButton,
+	resendInviteMutationKey,
+} from '@/features/organization/users/components/ResendInviteButton';
+import { collectOrgUsers } from '@/features/organization/users/orgRoleMembers';
 import { getOrgUserRemovalPolicy, isAdminRoleName } from '@/features/organization/users/orgUserRemovalPolicy';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { SchemaUser } from '@/integrations/api/api.gen';
+import { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
 import { keyBy } from '@/lib/keyBy';
 import { shouldToastOwnFailure } from '@/react-query/queryClient';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -37,6 +42,8 @@ export function EditUserModal({
 	const auth = useCloudAuth();
 	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;
+	// `!isSelf` keeps a cancellation, which deletes the user, away from your own account.
+	const isPendingInvite = data.status === 'PENDING' && !isSelf;
 	const [changesMade, setChangesMade] = useState<boolean>(false);
 
 	const { canRemoveRoles, showRemovalAction, blockedReason } = getOrgUserRemovalPolicy({
@@ -49,20 +56,52 @@ export function EditUserModal({
 	});
 
 	const { mutateAsync: removeUserFromRole } = useRemoveUserFromOrganizationRole();
+	const { mutateAsync: cancelUserInvite } = useCancelUserInvite(data.id);
+	const queryClient = useQueryClient();
 	const [isRemoving, setIsRemoving] = useState(false);
+	// Latched for the rest of the dialog: a resend that lands after the cancellation commits creates a new invitation.
+	const [cancelStarted, setCancelStarted] = useState(false);
+	// A resend still in flight could reach central manager after the cancellation.
+	const isResending = useIsMutating({ mutationKey: resendInviteMutationKey(data.id) }) > 0;
 
-	// Removing a user from the org means dropping every role they hold in it. We fire one removal
-	// per role; a role that's already gone (404) is treated as success so a partially-completed
-	// attempt can be retried cleanly.
-	const onRemoveFromOrg = useCallback(async () => {
-		const roles = data.roles ?? [];
-		setIsRemoving(true);
+	// The roles come from this org's roles payload (`collectOrgUsers`), so this never touches another
+	// organization. A role that's already gone (404) counts as success, so a partial attempt can be retried.
+	const unlinkOrgRoles = useCallback(async (roles: SchemaOrganizationRole[]) => {
 		const results = await Promise.allSettled(
 			roles.map((role) => removeUserFromRole({ userId: data.id, roleId: role.id })),
 		);
-		const failures = results.flatMap((result) =>
+		return results.flatMap((result) =>
 			result.status === 'rejected' && (result.reason as AxiosError)?.response?.status !== 404 ? [result.reason] : []
 		);
+	}, [data.id, removeUserFromRole]);
+
+	// A 403 also answers a user who accepted after this list loaded and now belongs to an org this admin can't
+	// manage, so the fallback re-reads the member list and unlinks only roles the user still holds here as PENDING.
+	const rolesStillPendingHere = useCallback(async () => {
+		const options = getOrganizationRolesQueryOptions(organizationId);
+		// fetchQuery would join a poll already in flight, which may have read the user before they accepted.
+		await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+		const roles = await queryClient.fetchQuery({ ...options, staleTime: 0 });
+		const member = collectOrgUsers(roles).find((user) => user.id === data.id);
+		return member?.status === 'PENDING' ? member.roles : [];
+	}, [queryClient, organizationId, data.id]);
+
+	// Out of the list now rather than when the refetch lands, so the table row stops offering Resend.
+	const dropFromMemberList = useCallback(() => {
+		queryClient.setQueryData(
+			getOrganizationRolesQueryOptions(organizationId).queryKey,
+			(roles) =>
+				roles?.map((role) => ({
+					...role,
+					userIds: (role.userIds ?? []).filter((id) => id !== data.id),
+					users: role.users?.filter((user) => user?.id !== data.id),
+				})),
+		);
+	}, [queryClient, organizationId, data.id]);
+
+	const onRemoveFromOrg = useCallback(async () => {
+		setIsRemoving(true);
+		const failures = await unlinkOrgRoles(data.roles ?? []);
 		if (failures.some(shouldToastOwnFailure)) {
 			toast.error(
 				isSelf
@@ -79,11 +118,56 @@ export function EditUserModal({
 		// Refetch either way so the list reflects whatever actually changed, then close.
 		setIsRemoving(false);
 		onUserUpdated();
-	}, [data.roles, data.id, data.email, isSelf, removeUserFromRole, onUserUpdated]);
+	}, [unlinkOrgRoles, data.roles, data.email, isSelf, onUserUpdated]);
 
-	// TODO: Cancel invite
+	// Not `unlinkOrgRoles`: that leaves the PENDING user holding the email's account claim, so a later
+	// sign-up with the address would still resolve to this invitation.
+	const onCancelInvite = useCallback(async () => {
+		setIsRemoving(true);
+		setCancelStarted(true);
+		const notPending = `The invitation to ${data.email} is no longer pending. It was accepted or already cancelled.`;
+		let removedHere = false;
+		try {
+			const outcome = await cancelUserInvite({ userId: data.id });
+			if (outcome === 'cancelled') {
+				removedHere = true;
+				toast.success(`The invitation to ${data.email} was cancelled.`);
+			} else if (outcome === 'not-pending') {
+				toast.info(notPending);
+			} else {
+				const roles = await rolesStillPendingHere();
+				if (roles.length === 0) {
+					toast.info(notPending);
+				} else {
+					const failures = await unlinkOrgRoles(roles);
+					if (failures.some(shouldToastOwnFailure)) {
+						toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
+					} else if (failures.length === 0) {
+						removedHere = true;
+						toast.success(`The invitation to ${data.email} was removed from this organization.`, {
+							description: 'They’re most likely also invited to an organization you don’t manage. Until that '
+								+ 'invitation is accepted or cancelled, they can’t be invited here again.',
+						});
+					}
+				}
+			}
+		} catch (error) {
+			if (shouldToastOwnFailure(error)) {
+				toast.error(`Couldn’t cancel the invitation to ${data.email}. Please try again.`);
+			}
+		}
+		setIsRemoving(false);
+		onUserUpdated();
+		// After closing: dropping the user while this dialog is still open for them would unmount it under the URL.
+		if (removedHere) {
+			dropFromMemberList();
+		}
+	}, [cancelUserInvite, rolesStillPendingHere, unlinkOrgRoles, dropFromMemberList, data.id, data.email, onUserUpdated]);
+
 	return (
-		<Dialog onOpenChange={changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
+		// Not dismissable mid-removal: the latch above would go with it, and the removal's closing navigation
+		// could then shut another user's dialog.
+		<Dialog onOpenChange={isRemoving ? undefined : changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
 			<DialogContent resizable>
 				<DialogHeader>
 					<DialogTitle>{update ? 'Edit ' : 'View '} {data.email} {isSelf ? '(yourself)' : ''}</DialogTitle>
@@ -91,11 +175,15 @@ export function EditUserModal({
 
 				{update && (
 					<DialogDescription>
-						Use the checkboxes to change which roles {isSelf ? 'you have' : 'this user has'}.
-						{showRemovalAction
-							&& (isSelf
-								? ' To leave the organization entirely, use the button below.'
-								: ' To remove this user from the organization entirely, use the button below.')}
+						{isPendingInvite
+							? 'This invitation hasn’t been accepted yet, so its role can’t be changed.'
+								+ (showRemovalAction ? ' To invite them with a different role, cancel it and invite them again.' : '')
+							: `Use the checkboxes to change which roles ${isSelf ? 'you have' : 'this user has'}.`
+								+ (showRemovalAction
+									? isSelf
+										? ' To leave the organization entirely, use the button below.'
+										: ' To remove this user from the organization entirely, use the button below.'
+									: '')}
 					</DialogDescription>
 				)}
 
@@ -104,7 +192,9 @@ export function EditUserModal({
 					<EditUserRolesList
 						data={data}
 						organizationId={organizationId}
-						update={update}
+						// Central manager refuses to add a role to a pending user, and unchecking its only role would
+						// orphan the invitation (see onCancelInvite), so a pending invitation's role is read-only.
+						update={update && !isPendingInvite}
 						canRemove={canRemoveRoles}
 						setChangesMade={setChangesMade}
 					/>
@@ -113,13 +203,18 @@ export function EditUserModal({
 				{/* Pending users haven't accepted their invite yet — offer the same resend action as the users table row. */}
 				{data.status === 'PENDING' && (
 					<div className="border-t border-border pt-4">
-						<ResendInviteButton user={data} />
+						<ResendInviteButton user={data} disabled={cancelStarted} />
 					</div>
 				)}
 
 				{showRemovalAction && (
 					<div className="border-t border-border pt-4">
-						<RemoveUserFromOrgButton isSelf={isSelf} isPending={isRemoving} onConfirm={onRemoveFromOrg} />
+						<RemoveUserFromOrgButton
+							kind={isPendingInvite ? 'cancel-invite' : isSelf ? 'leave' : 'remove'}
+							isPending={isRemoving}
+							disabled={isPendingInvite && isResending}
+							onConfirm={isPendingInvite ? onCancelInvite : onRemoveFromOrg}
+						/>
 					</div>
 				)}
 

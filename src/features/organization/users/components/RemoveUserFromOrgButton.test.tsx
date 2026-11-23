@@ -13,7 +13,7 @@ afterEach(() => {
 describe('RemoveUserFromOrgButton', () => {
 	it('removing another user: shows "Remove from organization" and confirms in place', () => {
 		const onConfirm = vi.fn();
-		render(<RemoveUserFromOrgButton isSelf={false} isPending={false} onConfirm={onConfirm} />);
+		render(<RemoveUserFromOrgButton kind="remove" isPending={false} onConfirm={onConfirm} />);
 
 		const trigger = screen.getByRole('button', { name: /remove from organization/i });
 		expect(screen.queryByRole('button', { name: /^cancel$/i })).toBeNull();
@@ -32,7 +32,7 @@ describe('RemoveUserFromOrgButton', () => {
 
 	it('removing yourself: uses gentler "leave" wording', () => {
 		const onConfirm = vi.fn();
-		render(<RemoveUserFromOrgButton isSelf={true} isPending={false} onConfirm={onConfirm} />);
+		render(<RemoveUserFromOrgButton kind="leave" isPending={false} onConfirm={onConfirm} />);
 
 		fireEvent.click(screen.getByRole('button', { name: /leave organization/i }));
 		expect(screen.getByRole('button', { name: /confirm leave/i })).toBeTruthy();
@@ -44,9 +44,27 @@ describe('RemoveUserFromOrgButton', () => {
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 
+	it('cancelling an invitation: says "Cancel invite" and backs out with "Keep invite", not a bare "Cancel"', () => {
+		const onConfirm = vi.fn();
+		render(<RemoveUserFromOrgButton kind="cancel-invite" isPending={false} onConfirm={onConfirm} />);
+
+		fireEvent.click(screen.getByRole('button', { name: /^cancel invite$/i }));
+		expect(onConfirm).not.toHaveBeenCalled();
+		expect(screen.getByRole('alert').textContent).toMatch(/cancels their invitation/i);
+		expect(screen.queryByRole('button', { name: /^cancel$/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /remove/i })).toBeNull();
+
+		fireEvent.click(screen.getByRole('button', { name: /keep invite/i }));
+		expect(screen.getByRole('button', { name: /^cancel invite$/i })).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: /^cancel invite$/i }));
+		fireEvent.click(screen.getByRole('button', { name: /confirm cancellation/i }));
+		expect(onConfirm).toHaveBeenCalledTimes(1);
+	});
+
 	it('cancel returns to the idle state without confirming', () => {
 		const onConfirm = vi.fn();
-		render(<RemoveUserFromOrgButton isSelf={false} isPending={false} onConfirm={onConfirm} />);
+		render(<RemoveUserFromOrgButton kind="remove" isPending={false} onConfirm={onConfirm} />);
 
 		fireEvent.click(screen.getByRole('button', { name: /remove from organization/i }));
 		fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
@@ -59,17 +77,32 @@ describe('RemoveUserFromOrgButton', () => {
 	it('while a removal is pending both buttons are disabled and show busy copy', () => {
 		const onConfirm = vi.fn();
 		const { rerender } = render(
-			<RemoveUserFromOrgButton isSelf={false} isPending={false} onConfirm={onConfirm} />,
+			<RemoveUserFromOrgButton kind="remove" isPending={false} onConfirm={onConfirm} />,
 		);
 
 		fireEvent.click(screen.getByRole('button', { name: /remove from organization/i }));
-		rerender(<RemoveUserFromOrgButton isSelf={false} isPending={true} onConfirm={onConfirm} />);
+		rerender(<RemoveUserFromOrgButton kind="remove" isPending={true} onConfirm={onConfirm} />);
 
 		const confirm = screen.getByRole('button', { name: /removing/i });
 		const cancel = screen.getByRole('button', { name: /^cancel$/i });
 		expect(confirm.hasAttribute('disabled')).toBe(true);
 		expect(cancel.hasAttribute('disabled')).toBe(true);
 
+		fireEvent.click(confirm);
+		expect(onConfirm).not.toHaveBeenCalled();
+	});
+
+	it('disabled holds both steps back without the busy copy', () => {
+		const onConfirm = vi.fn();
+		const { rerender } = render(
+			<RemoveUserFromOrgButton kind="cancel-invite" isPending={false} onConfirm={onConfirm} />,
+		);
+		fireEvent.click(screen.getByRole('button', { name: /^cancel invite$/i }));
+		rerender(<RemoveUserFromOrgButton kind="cancel-invite" isPending={false} disabled onConfirm={onConfirm} />);
+
+		const confirm = screen.getByRole('button', { name: /confirm cancellation/i });
+		expect(confirm.hasAttribute('disabled')).toBe(true);
+		expect(screen.getByRole('button', { name: /keep invite/i }).hasAttribute('disabled')).toBe(true);
 		fireEvent.click(confirm);
 		expect(onConfirm).not.toHaveBeenCalled();
 	});
