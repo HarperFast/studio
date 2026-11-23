@@ -37,8 +37,12 @@ export async function onCancelUserInvite({ userId }: { userId: string }): Promis
 	}
 }
 
-export function useCancelUserInvite() {
+/** Marks one user's cancellation in flight, so a Resend anywhere on the page waits for its verdict. */
+export const cancelInviteMutationKey = (userId: string) => ['cancelInvite', userId] as const;
+
+export function useCancelUserInvite(userId: string) {
 	return useMutation<CancelUserInviteOutcome, Error, { userId: string }>({
+		mutationKey: cancelInviteMutationKey(userId),
 		mutationFn: onCancelUserInvite,
 	});
 }

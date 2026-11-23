@@ -56,12 +56,12 @@ export function EditUserModal({
 	});
 
 	const { mutateAsync: removeUserFromRole } = useRemoveUserFromOrganizationRole();
-	const { mutateAsync: cancelUserInvite } = useCancelUserInvite();
+	const { mutateAsync: cancelUserInvite } = useCancelUserInvite(data.id);
 	const queryClient = useQueryClient();
 	const [isRemoving, setIsRemoving] = useState(false);
 	// Latched for the rest of the dialog: a resend that lands after the cancellation commits creates a new invitation.
 	const [cancelStarted, setCancelStarted] = useState(false);
-	// And the other order: a resend already on its way could reach central manager after the cancellation.
+	// A resend still in flight could reach central manager after the cancellation.
 	const isResending = useIsMutating({ mutationKey: resendInviteMutationKey(data.id) }) > 0;
 
 	// The roles come from this org's roles payload (`collectOrgUsers`), so this never touches another
@@ -78,7 +78,10 @@ export function EditUserModal({
 	// A 403 also answers a user who accepted after this list loaded and now belongs to an org this admin can't
 	// manage, so the fallback re-reads the member list and unlinks only roles the user still holds here as PENDING.
 	const rolesStillPendingHere = useCallback(async () => {
-		const roles = await queryClient.fetchQuery({ ...getOrganizationRolesQueryOptions(organizationId), staleTime: 0 });
+		const options = getOrganizationRolesQueryOptions(organizationId);
+		// fetchQuery would join a poll already in flight, which may have read the user before they accepted.
+		await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+		const roles = await queryClient.fetchQuery({ ...options, staleTime: 0 });
 		const member = collectOrgUsers(roles).find((user) => user.id === data.id);
 		return member?.status === 'PENDING' ? member.roles : [];
 	}, [queryClient, organizationId, data.id]);
@@ -162,7 +165,9 @@ export function EditUserModal({
 	}, [cancelUserInvite, rolesStillPendingHere, unlinkOrgRoles, dropFromMemberList, data.id, data.email, onUserUpdated]);
 
 	return (
-		<Dialog onOpenChange={changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
+		// Not dismissable mid-removal: the latch above would go with it, and the removal's closing navigation
+		// could then shut another user's dialog.
+		<Dialog onOpenChange={isRemoving ? undefined : changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
 			<DialogContent resizable>
 				<DialogHeader>
 					<DialogTitle>{update ? 'Edit ' : 'View '} {data.email} {isSelf ? '(yourself)' : ''}</DialogTitle>

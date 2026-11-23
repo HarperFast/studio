@@ -1,10 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
+import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
 import type { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -82,29 +83,45 @@ function listedIds(client: QueryClient) {
 	]);
 }
 
+function deferred<T>() {
+	let resolve: (value: T) => void = () => undefined;
+	const promise = new Promise<T>((settle) => (resolve = settle));
+	return { promise, resolve };
+}
+
 async function renderModal(data: SchemaUser) {
 	get.mockResolvedValue({ data: membersWith(data.status ?? null) });
 	const onUserUpdated = vi.fn();
+	const closeModal = vi.fn();
 	// The app's own mutation cache, so a test sees the shared error toast exactly when production would.
 	const client = new QueryClient({
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
-	render(
+	// The users table's row action for the same user, beside the dialog as on the page.
+	const page = (withDialog: boolean) => (
 		<QueryClientProvider client={client}>
-			<EditUserModal
-				closeModal={vi.fn()}
-				data={data}
-				isModalOpen
-				onUserUpdated={onUserUpdated}
-				orgUserCount={3}
-				orgAdminCount={1}
-			/>
-		</QueryClientProvider>,
+			<div data-testid="row">
+				<ResendInviteButton user={data} />
+			</div>
+			{withDialog && (
+				<EditUserModal
+					closeModal={closeModal}
+					data={data}
+					isModalOpen
+					onUserUpdated={onUserUpdated}
+					orgUserCount={3}
+					orgAdminCount={1}
+				/>
+			)}
+		</QueryClientProvider>
 	);
+	const { rerender } = render(page(true));
 	await screen.findByText('developer');
-	return { onUserUpdated, client };
+	return { onUserUpdated, closeModal, client, closeDialog: () => rerender(page(false)) };
 }
+
+const rowResend = () => within(screen.getByTestId('row')).getByRole('button', { name: /resend invite/i, hidden: true });
 
 async function confirm(idle: RegExp, confirmation: RegExp) {
 	fireEvent.click(screen.getByRole('button', { name: idle }));
@@ -147,7 +164,7 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(cancel.hasAttribute('disabled')).toBe(false);
 
 		await act(async () => {
-			fireEvent.click(screen.getByRole('button', { name: /resend invite/i }));
+			fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /resend invite/i }));
 		});
 		expect(post).toHaveBeenCalledWith('/UserInvite/', { email: 'invitee@example.com', roleId: 'role-dev' });
 		// useIsMutating hears of it through React Query's batched notify, a timer later.
@@ -163,7 +180,7 @@ describe('EditUserModal — a pending invitation', () => {
 		let settle: (value: unknown) => void = () => undefined;
 		del.mockReturnValue(new Promise((resolve) => (settle = resolve)));
 		await renderModal(user({}));
-		const resend = screen.getByRole('button', { name: /resend invite/i });
+		const resend = within(screen.getByRole('dialog')).getByRole('button', { name: /resend invite/i });
 		expect(resend.hasAttribute('disabled')).toBe(false);
 
 		await cancelInvite();
@@ -233,6 +250,55 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(client.getQueryData<SchemaOrganizationRole[]>(['org-1', 'roles'])).toEqual(membersWith(status));
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not let the 403 re-read join a member-list poll sent before it', async () => {
+		del.mockRejectedValue(httpError(403));
+		const { client } = await renderModal(user({}));
+		// A poll already on its way, which read the user before they accepted.
+		const poll = deferred<{ data: SchemaOrganizationRole[] }>();
+		get.mockReturnValueOnce(poll.promise);
+		void client.refetchQueries({ queryKey: ['org-1', 'roles'] });
+		await waitFor(() => expect(client.getQueryState(['org-1', 'roles'])?.fetchStatus).toBe('fetching'));
+		get.mockResolvedValue({ data: membersWith('ACTIVE') });
+
+		await cancelInvite();
+		await act(async () => poll.resolve({ data: membersWith('PENDING') }));
+
+		await waitFor(() => expect(toast.info).toHaveBeenCalled());
+		expect(roleUnlinks()).toHaveLength(0);
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('cannot be dismissed while the cancellation is in flight', async () => {
+		const response = deferred<unknown>();
+		del.mockReturnValue(response.promise);
+		const { closeModal } = await renderModal(user({}));
+		// Positive control: Escape does reach closeModal while nothing is running.
+		fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+		expect(closeModal).toHaveBeenCalledTimes(1);
+
+		await cancelInvite();
+		fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+		expect(closeModal).toHaveBeenCalledTimes(1);
+
+		await act(async () => response.resolve({ data: { deleted: true } }));
+	});
+
+	it('holds the row’s Resend back until the cancellation has a verdict, even if the dialog is gone', async () => {
+		const response = deferred<unknown>();
+		del.mockReturnValue(response.promise);
+		const { closeDialog } = await renderModal(user({}));
+		expect(rowResend().hasAttribute('disabled')).toBe(false);
+
+		await cancelInvite();
+		closeDialog();
+		await waitFor(() => expect(rowResend().hasAttribute('disabled')).toBe(true));
+		fireEvent.click(rowResend());
+		expect(post).not.toHaveBeenCalled();
+
+		await act(async () => response.resolve({ data: { deleted: true } }));
+		await waitFor(() => expect(rowResend().hasAttribute('disabled')).toBe(false));
 	});
 
 	it('unlinks nothing when the fresh read itself fails', async () => {

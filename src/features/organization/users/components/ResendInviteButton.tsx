@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
+import { cancelInviteMutationKey } from '@/features/organization/mutations/cancelUserInvite';
 import { useInviteUserToOrganizationRole } from '@/features/organization/mutations/inviteUserToOrganizationRole';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaUser } from '@/integrations/api/api.gen';
+import { useIsMutating } from '@tanstack/react-query';
 import { MailIcon } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -23,6 +25,8 @@ export function ResendInviteButton({ user, disabled = false }: { user: SchemaUse
 	const { mutate: inviteUser, isPending } = useInviteUserToOrganizationRole({
 		mutationKey: resendInviteMutationKey(user.id),
 	});
+	// A resend that reaches central manager after this user's cancellation commits creates a new invitation.
+	const isCancelling = useIsMutating({ mutationKey: cancelInviteMutationKey(user.id) }) > 0;
 	const roleId = user.roles?.[0]?.id;
 
 	const onClick = useCallback(
@@ -56,7 +60,7 @@ export function ResendInviteButton({ user, disabled = false }: { user: SchemaUse
 			size="sm"
 			className="h-auto px-2 py-0 align-middle text-sm"
 			onClick={onClick}
-			disabled={disabled || isPending || !roleId}
+			disabled={disabled || isCancelling || isPending || !roleId}
 		>
 			<MailIcon /> Resend invite
 		</Button>
