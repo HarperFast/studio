@@ -308,7 +308,8 @@ describe('ApplicationPreviews', () => {
 				expect(step.getByText(/as well as the file, or the policy applies to that path in every repository/))
 					.toBeTruthy();
 				expect(step.getByText(/every Active policy that applies has to allow/)).toBeTruthy();
-				expect(step.getByText(/Policy insights.*ask its owner to allow it for this repository and file/)).toBeTruthy();
+				expect(step.getByText(/Policy insights.*shows which one blocked a run/)).toBeTruthy();
+				expect(step.getByText(/ask its owner to allow it for this repository and file/)).toBeTruthy();
 			});
 
 			it('targets the file the policy pins, and the default one when it pins none', async () => {

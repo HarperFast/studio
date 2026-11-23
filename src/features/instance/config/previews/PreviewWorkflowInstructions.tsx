@@ -130,8 +130,9 @@ export function PreviewWorkflowInstructions(
 						as well as the file, or the policy applies to that path in every repository. If an event policy already
 						applies, GitHub adds no default one: every Active policy that applies has to allow{' '}
 						<code className="font-mono">pull_request_target</code>{' '}
-						for this workflow. Policy insights, under Policies, shows which one blocked a run; ask its owner to allow it
-						for this repository and file.
+						for this workflow. Policy insights, under Policies, shows which one blocked a run. If it blocked{' '}
+						<code className="font-mono">pull_request_target</code>, ask its owner to allow it for this repository and
+						file.
 					</p>
 					<p className="mt-2 text-muted-foreground">
 						<a className="underline" href={POLICY_GUIDE_URL} target="_blank" rel="noreferrer">
