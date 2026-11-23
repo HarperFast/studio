@@ -11,8 +11,10 @@ import {
 	previewWorkflowText,
 } from './starterPreviewWorkflow';
 
-const GITHUB_RULE_URL =
-	'https://github.blog/changelog/2026-09-17-workflow-execution-protections-in-github-actions-generally-available/';
+const POLICY_GUIDE_URL =
+	'https://docs.github.com/en/actions/how-tos/administer/control-workflow-execution#creating-a-workflow-execution-policy';
+const POLICY_ANNOUNCEMENT_URL =
+	'https://github.blog/changelog/2026-11-02-pull_request_target-blocked-by-default-december-2';
 
 /** Built from what the cluster holds rather than the form, so it reads the same on every visit. */
 export function PreviewWorkflowInstructions(
@@ -105,12 +107,35 @@ export function PreviewWorkflowInstructions(
 					. Required reviewers on {environment} make someone approve each deploy. Leave {cleanupEnvironment}{' '}
 					without them, so closing a pull request never waits for an approval.
 				</li>
+				<li>
+					<p>
+						<strong>On a public repository, let GitHub run this workflow.</strong> From 2026-12-02 GitHub blocks the
+						{' '}
+						<code className="font-mono">pull_request_target</code>{' '}
+						event in public repositories by default, so no preview would deploy. Private repositories are unaffected.
+					</p>
+					<p className="mt-2">
+						In the repository's (or its organization's){' '}
+						<strong>Settings → Actions → Policies</strong>, create a policy with enforcement status{' '}
+						<strong>Active</strong> and the <strong>Restrict events</strong> rule allowing{' '}
+						<code className="font-mono">pull_request_target</code>, targeted at{' '}
+						<code className="font-mono">{workflowPath}</code>{' '}
+						only. A policy permits just the events it lists, so a wider target would block your other workflows' events.
+						If an event policy already applies, GitHub adds no default one: make sure that policy allows{' '}
+						<code className="font-mono">pull_request_target</code>{' '}
+						for this workflow. This takes a repository administrator or an organization owner.
+					</p>
+					<p className="mt-2 text-muted-foreground">
+						<a className="underline" href={POLICY_GUIDE_URL} target="_blank" rel="noreferrer">
+							GitHub's guide to workflow execution policies
+						</a>{' '}
+						·{' '}
+						<a className="underline" href={POLICY_ANNOUNCEMENT_URL} target="_blank" rel="noreferrer">
+							GitHub's announcement
+						</a>
+					</p>
+				</li>
 			</ol>
-			<p className="text-muted-foreground">
-				On a public repository, GitHub's default rule blocks pull_request_target from 2026-12-02, so its Actions policy
-				has to allow this workflow.{' '}
-				<a className="underline" href={GITHUB_RULE_URL} target="_blank" rel="noreferrer">GitHub's announcement</a>
-			</p>
 		</section>
 	);
 }

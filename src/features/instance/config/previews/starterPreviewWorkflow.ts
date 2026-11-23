@@ -27,7 +27,8 @@ export interface PreviewWorkflowOptions {
 /**
  * It runs from the default branch and never checks out the PR, so a PR cannot change what runs with the identity, and
  * the cluster fetches the PR's commit itself. Cleanup runs in its own environment, so a closure never waits for an
- * approval.
+ * approval. The cluster's trust policy pins the event to `pull_request_target`, so GitHub's default block on it in public
+ * repositories is answered by the policy step in `PreviewWorkflowInstructions`, never by changing the trigger.
  */
 export function previewWorkflowText({
 	app,

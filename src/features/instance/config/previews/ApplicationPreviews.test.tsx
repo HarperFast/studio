@@ -279,9 +279,56 @@ describe('ApplicationPreviews', () => {
 			const section = within(await screen.findByRole('region', { name: 'What to commit' }));
 			expect(section.getByText('HARPER_PREVIEW_TARGET')).toBeTruthy();
 			expect(section.getByText('https://cluster.example.com:9925/')).toBeTruthy();
-			expect(section.getByText('.github/workflows/preview.yaml')).toBeTruthy();
+			expect(section.getAllByText('.github/workflows/preview.yaml')).toHaveLength(2);
 			expect(section.getAllByText('preview-cleanup').length).toBeGreaterThan(0);
 			expect((await section.findByText(/pull_request_target:/)).textContent).not.toContain('domain:');
+		});
+
+		describe('the policy a public repository needs', () => {
+			const policyStep = async (policy: PreviewPolicy) => {
+				renderPanel({ policy });
+				const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+				const step = section.getByText('On a public repository, let GitHub run this workflow.').closest('li');
+				return within(step!);
+			};
+
+			it("names GitHub's settings path, the rule, and the one file to target", async () => {
+				const step = await policyStep(ENABLED);
+				expect(step.getByText('Settings → Actions → Policies')).toBeTruthy();
+				expect(step.getByText('Restrict events')).toBeTruthy();
+				expect(step.getByText('Active')).toBeTruthy();
+				expect(step.getByText('.github/workflows/preview.yaml')).toBeTruthy();
+				expect(step.getByText(/2026-12-02/)).toBeTruthy();
+				expect(step.getByText(/Private repositories are unaffected/)).toBeTruthy();
+			});
+
+			it('targets the file the policy pins, and the default one when it pins none', async () => {
+				expect((await policyStep({ ...ENABLED, workflow: '.github/workflows/previews-prod.yaml' })).getByText(
+					'.github/workflows/previews-prod.yaml',
+				)).toBeTruthy();
+				cleanup();
+				expect((await policyStep({ ...ENABLED, workflow: undefined })).getByText('.github/workflows/preview.yaml'))
+					.toBeTruthy();
+			});
+
+			it("links GitHub's guide to creating the policy and its announcement", async () => {
+				const step = await policyStep(ENABLED);
+				expect(step.getByRole('link', { name: "GitHub's guide to workflow execution policies" }).getAttribute('href'))
+					.toBe(
+						'https://docs.github.com/en/actions/how-tos/administer/control-workflow-execution#creating-a-workflow-execution-policy',
+					);
+				expect(step.getByRole('link', { name: "GitHub's announcement" }).getAttribute('href')).toBe(
+					'https://github.blog/changelog/2026-11-02-pull_request_target-blocked-by-default-december-2',
+				);
+			});
+
+			it('leaves the workflow on pull_request_target, which the cluster trusts', async () => {
+				renderPanel({ policy: ENABLED });
+				const section = within(await screen.findByRole('region', { name: 'What to commit' }));
+				expect((await section.findByText(/pull_request_target:/)).textContent).toContain(
+					'on:\n  pull_request_target:\n    types: [opened, reopened, synchronize, closed]',
+				);
+			});
 		});
 
 		it('writes a domain into the workflow only when it is not the default for the audience', async () => {
