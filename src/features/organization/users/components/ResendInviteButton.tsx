@@ -14,7 +14,7 @@ import { toast } from 'sonner';
  * Rendered only for PENDING rows (see the users table definition). Stops row-click propagation so
  * clicking it doesn't also open the edit modal.
  */
-export function ResendInviteButton({ user }: { user: SchemaUser }) {
+export function ResendInviteButton({ user, disabled = false }: { user: SchemaUser; disabled?: boolean }) {
 	// Reads the org from the current route (same as the page's other permission checks).
 	const { update } = useOrganizationRolePermissions();
 	const { mutate: inviteUser, isPending } = useInviteUserToOrganizationRole();
@@ -51,7 +51,7 @@ export function ResendInviteButton({ user }: { user: SchemaUser }) {
 			size="sm"
 			className="h-auto px-2 py-0 align-middle text-sm"
 			onClick={onClick}
-			disabled={isPending || !roleId}
+			disabled={disabled || isPending || !roleId}
 		>
 			<MailIcon /> Resend invite
 		</Button>

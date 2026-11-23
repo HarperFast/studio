@@ -53,9 +53,9 @@ function httpError(status: number) {
 }
 
 const orgRoles = [
-	{ id: 'role-admin', roleName: 'admin' },
-	{ id: 'role-dev', roleName: 'developer' },
-] as SchemaOrganizationRole[];
+	{ id: 'role-admin', roleName: 'admin', userIds: [] },
+	{ id: 'role-dev', roleName: 'developer', userIds: [] },
+] as unknown as SchemaOrganizationRole[];
 
 function user(overrides: Partial<SchemaUser>): SchemaUser {
 	return {
@@ -67,8 +67,25 @@ function user(overrides: Partial<SchemaUser>): SchemaUser {
 	} as SchemaUser;
 }
 
+/** The org's roles as central manager returns them, with usr-1 holding the developer role, or gone. */
+function membersWith(status: SchemaUser['status'] | null) {
+	return orgRoles.map((role) =>
+		role.id === 'role-dev' && status
+			? { ...role, userIds: ['usr-1'], users: [{ id: 'usr-1', email: 'invitee@example.com', status }] }
+			: role
+	);
+}
+
+/** Every user id the cached member list still names, through either `userIds` or `users`. */
+function listedIds(client: QueryClient) {
+	return (client.getQueryData<SchemaOrganizationRole[]>(['org-1', 'roles']) ?? []).flatMap((role) => [
+		...role.userIds,
+		...(role.users ?? []).map((member) => member.id),
+	]);
+}
+
 async function renderModal(data: SchemaUser) {
-	get.mockResolvedValue({ data: orgRoles });
+	get.mockResolvedValue({ data: membersWith(data.status ?? null) });
 	const onUserUpdated = vi.fn();
 	// The app's own mutation cache, so a test sees the shared error toast exactly when production would.
 	const client = new QueryClient({
@@ -88,7 +105,7 @@ async function renderModal(data: SchemaUser) {
 		</QueryClientProvider>,
 	);
 	await screen.findByText('developer');
-	return { onUserUpdated };
+	return { onUserUpdated, client };
 }
 
 async function confirm(idle: RegExp, confirmation: RegExp) {
@@ -108,7 +125,7 @@ const sharedErrorToast = (status: number) =>
 describe('EditUserModal — a pending invitation', () => {
 	it('cancels it through DELETE /UserInvite/{id}, not by unlinking its roles', async () => {
 		del.mockResolvedValue({ data: { deleted: true } });
-		const { onUserUpdated } = await renderModal(user({}));
+		const { onUserUpdated, client } = await renderModal(user({}));
 
 		await cancelInvite();
 
@@ -117,6 +134,25 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(toast.success).toHaveBeenCalledWith('The invitation to invitee@example.com was cancelled.');
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
+		// Gone from the list before the refetch lands, so the table row can't offer Resend meanwhile.
+		expect(listedIds(client)).not.toContain('usr-1');
+	});
+
+	it('keeps Resend disabled from the moment a cancellation starts', async () => {
+		let settle: (value: unknown) => void = () => undefined;
+		del.mockReturnValue(new Promise((resolve) => (settle = resolve)));
+		await renderModal(user({}));
+		const resend = screen.getByRole('button', { name: /resend invite/i });
+		expect(resend.hasAttribute('disabled')).toBe(false);
+
+		await cancelInvite();
+		expect(resend.hasAttribute('disabled')).toBe(true);
+
+		await act(async () => settle({ data: { deleted: true } }));
+		expect(toast.success).toHaveBeenCalledWith('The invitation to invitee@example.com was cancelled.');
+		expect(resend.hasAttribute('disabled')).toBe(true);
+		fireEvent.click(resend);
+		expect(post).not.toHaveBeenCalled();
 	});
 
 	it('says so and refetches when the invitation is no longer pending (404)', async () => {
@@ -140,11 +176,12 @@ describe('EditUserModal — a pending invitation', () => {
 		del.mockImplementation((url: string) =>
 			url.startsWith('/UserInvite/') ? Promise.reject(httpError(403)) : Promise.resolve({ data: { deleted: true } })
 		);
-		const { onUserUpdated } = await renderModal(user({}));
+		const { onUserUpdated, client } = await renderModal(user({}));
 
 		await cancelInvite();
 
 		expect(inviteDeletes()).toHaveLength(1);
+		expect(get).toHaveBeenCalledTimes(2);
 		expect(roleUnlinks()).toEqual([['/OrganizationRole/role/role-dev/user/usr-1']]);
 		expect(toast.success).toHaveBeenCalledWith(
 			'The invitation to invitee@example.com was removed from this organization.',
@@ -152,6 +189,41 @@ describe('EditUserModal — a pending invitation', () => {
 		);
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(consoleError).not.toHaveBeenCalled();
+		expect(listedIds(client)).not.toContain('usr-1');
+		expect(onUserUpdated).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		['accepted it in the meantime', 'ACTIVE' as const],
+		['has left this organization', null],
+	])('unlinks nothing on a 403 when a fresh read shows the user %s', async (_case, status) => {
+		del.mockRejectedValue(httpError(403));
+		const { onUserUpdated, client } = await renderModal(user({}));
+		get.mockResolvedValue({ data: membersWith(status) });
+
+		await cancelInvite();
+
+		expect(get).toHaveBeenLastCalledWith('/OrganizationRole/org-1');
+		expect(roleUnlinks()).toHaveLength(0);
+		expect(toast.info).toHaveBeenCalledWith(
+			'The invitation to invitee@example.com is no longer pending. It was accepted or already cancelled.',
+		);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(client.getQueryData<SchemaOrganizationRole[]>(['org-1', 'roles'])).toEqual(membersWith(status));
+		expect(onUserUpdated).toHaveBeenCalledTimes(1);
+	});
+
+	it('unlinks nothing when the fresh read itself fails', async () => {
+		del.mockRejectedValue(httpError(403));
+		const { onUserUpdated } = await renderModal(user({}));
+		get.mockRejectedValue(httpError(500));
+
+		await cancelInvite();
+
+		expect(roleUnlinks()).toHaveLength(0);
+		expect(toast.error).toHaveBeenCalledWith(ownFailureToast);
+		expect(toast.success).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 	});
 
