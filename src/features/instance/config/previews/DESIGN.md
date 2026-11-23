@@ -84,13 +84,15 @@ this ships after it.
 
 From 2026-12-02 GitHub blocks `pull_request_target` in public repositories unless an Actions event policy allows it.
 The trigger can't move to `pull_request`: the cluster's trust policies pin `event_name` to `pull_request_target`
-(harper `components/previewOperations.ts`), and the identity is safe only because the workflow definition runs from the
-base branch, never from the PR.
+(harper `components/previewOperations.ts`), and the identity is safe only because GitHub runs the workflow definition
+from the base repository's default branch, never from the PR.
 
 The allow is a repository or organization setting (Settings → Actions → Policies, a Restrict events rule scoped to the
 workflow file), not something a workflow file can opt into, and Studio holds no GitHub credential to create it. So
 `PreviewWorkflowInstructions` hands it over as a step, targeted at the same `workflowPath` as the commit step: a policy
-permits only the events it lists, so one aimed at every workflow would block the repository's other events. The step
+permits only the events it lists, so one aimed at every workflow would block the repository's other events. An
+organization policy also targets the repository, because GitHub treats repository and file path as separate conditions
+and a path alone matches that file in every repository. The step
 shows for every repository, because the anonymous lookup answers 404 for a private repository and a mistyped one alike,
 and hiding it on "not found" would hide it from a public repository whose lookup failed.
 

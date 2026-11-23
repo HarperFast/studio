@@ -302,6 +302,13 @@ describe('ApplicationPreviews', () => {
 				expect(step.getByText(/Private repositories are unaffected/)).toBeTruthy();
 			});
 
+			it("keeps an organization's policy to this repository, and says where to see what blocked a run", async () => {
+				const step = await policyStep(ENABLED);
+				expect(step.getByText(/Target this\s+repository as well as the file/)).toBeTruthy();
+				expect(step.getByText(/every policy that applies has to allow/)).toBeTruthy();
+				expect(step.getByText(/Policy insights/)).toBeTruthy();
+			});
+
 			it('targets the file the policy pins, and the default one when it pins none', async () => {
 				expect((await policyStep({ ...ENABLED, workflow: '.github/workflows/previews-prod.yaml' })).getByText(
 					'.github/workflows/previews-prod.yaml',

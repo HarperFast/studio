@@ -115,15 +115,20 @@ export function PreviewWorkflowInstructions(
 						event in public repositories by default, so no preview would deploy. Private repositories are unaffected.
 					</p>
 					<p className="mt-2">
-						In the repository's (or its organization's){' '}
-						<strong>Settings → Actions → Policies</strong>, create a policy with enforcement status{' '}
+						In the repository's <strong>Settings → Actions → Policies</strong>, create a policy with enforcement status
+						{' '}
 						<strong>Active</strong> and the <strong>Restrict events</strong> rule allowing{' '}
 						<code className="font-mono">pull_request_target</code>, targeted at{' '}
 						<code className="font-mono">{workflowPath}</code>{' '}
 						only. A policy permits just the events it lists, so a wider target would block your other workflows' events.
-						If an event policy already applies, GitHub adds no default one: make sure that policy allows{' '}
+						This takes a repository administrator.
+					</p>
+					<p className="mt-2">
+						An organization owner can create it in the organization's settings instead, at the same place. Target this
+						repository as well as the file, or the policy applies to that path in every repository. If an event policy
+						already applies, GitHub adds no default one: every policy that applies has to allow{' '}
 						<code className="font-mono">pull_request_target</code>{' '}
-						for this workflow. This takes a repository administrator or an organization owner.
+						for this workflow, and Policy insights, under Policies, shows which one blocked a run.
 					</p>
 					<p className="mt-2 text-muted-foreground">
 						<a className="underline" href={POLICY_GUIDE_URL} target="_blank" rel="noreferrer">
