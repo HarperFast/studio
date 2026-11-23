@@ -98,7 +98,6 @@ async function renderModal(data: SchemaUser) {
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
-	// The users table's row action for the same user, beside the dialog as on the page.
 	const page = (withDialog: boolean) => (
 		<QueryClientProvider client={client}>
 			<div data-testid="row">
@@ -152,7 +151,6 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(onUserUpdated).toHaveBeenCalledTimes(1);
 		expect(onUserUpdated).toHaveReturned();
-		// Gone from the list before the refetch lands, so the table row can't offer Resend meanwhile.
 		expect(listedIds(client)).not.toContain('usr-1');
 	});
 
@@ -169,7 +167,6 @@ describe('EditUserModal — a pending invitation', () => {
 		expect(post).toHaveBeenCalledWith('/UserInvite/', { email: 'invitee@example.com', roleId: 'role-dev' });
 		// useIsMutating hears of it through React Query's batched notify, a timer later.
 		await waitFor(() => expect(cancel.hasAttribute('disabled')).toBe(true));
-		// Not busy: nothing is being cancelled yet.
 		expect(cancel.textContent).toMatch(/^\s*cancel invite$/i);
 
 		await act(async () => settle({ data: {} }));
@@ -255,7 +252,6 @@ describe('EditUserModal — a pending invitation', () => {
 	it('does not let the 403 re-read join a member-list poll sent before it', async () => {
 		del.mockRejectedValue(httpError(403));
 		const { client } = await renderModal(user({}));
-		// A poll already on its way, which read the user before they accepted.
 		const poll = deferred<{ data: unknown }>();
 		get.mockReturnValueOnce(poll.promise);
 		void client.refetchQueries({ queryKey: ['org-1', 'roles'] });
@@ -274,7 +270,6 @@ describe('EditUserModal — a pending invitation', () => {
 		const response = deferred<unknown>();
 		del.mockReturnValue(response.promise);
 		const { closeModal } = await renderModal(user({}));
-		// Positive control: Escape does reach closeModal while nothing is running.
 		fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 		expect(closeModal).toHaveBeenCalledTimes(1);
 

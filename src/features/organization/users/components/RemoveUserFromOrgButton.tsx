@@ -54,7 +54,7 @@ export function RemoveUserFromOrgButton({
 }: {
 	kind: OrgRemovalKind;
 	isPending: boolean;
-	/** Holds the action back without saying it is underway, as `isPending` does. */
+	/** Unlike `isPending`, shows no busy copy. */
 	disabled?: boolean;
 	onConfirm: () => void;
 }) {
