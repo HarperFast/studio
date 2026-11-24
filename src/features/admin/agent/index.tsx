@@ -35,8 +35,7 @@ export function AgentAdminIndex() {
 		<div className="min-w-0">
 			<h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
 			<p className="mt-2 text-sm text-muted-foreground max-w-3xl">
-				The investigation agent starts on its own when a cluster operation fails, reads a fixed set of evidence and
-				writes a finding. It never changes a cluster.
+				Investigations, findings, and follow-up checks across your clusters.
 			</p>
 
 			{offReason && (
@@ -66,7 +65,7 @@ export function AgentAdminIndex() {
 				)}
 
 			<Tabs defaultValue="activity" className="mt-6">
-				<TabsList className="mb-2">
+				<TabsList className="mb-2 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0 dark:bg-transparent [&>button]:rounded-none [&>button]:border-0 [&>button]:border-b-2 [&>button]:border-transparent [&>button]:bg-transparent [&>button]:px-0 [&>button]:py-3 [&>button]:flex-none [&>button[data-state=active]]:border-foreground [&>button[data-state=active]]:bg-transparent [&>button[data-state=active]]:shadow-none">
 					<TabsTrigger value="activity">Activity</TabsTrigger>
 					<TabsTrigger value="watches">Watches</TabsTrigger>
 					<TabsTrigger value="settings">Settings</TabsTrigger>

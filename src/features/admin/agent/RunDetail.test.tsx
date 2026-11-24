@@ -104,11 +104,41 @@ describe('RunDetailPage', () => {
 		expect(screen.getByText('STATUS TEXT')).toBeTruthy();
 	});
 
+	it('expands failure details in place and removes them when collapsed', async () => {
+		renderPage();
+		await screen.findByText('One member is not serving.');
+		const evidence = within(screen.getByRole('region', { name: 'Evidence' }));
+		expect(evidence.queryByText('timed out')).toBeNull();
+		const toggle = evidence.getByRole('button', { name: 'Show host_logs details' });
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		fireEvent.click(toggle);
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(evidence.getByText('timed out')).toBeTruthy();
+		expect(evidence.getByText('ev-logs')).toBeTruthy();
+		fireEvent.click(evidence.getByRole('button', { name: 'Hide host_logs details' }));
+		expect(evidence.queryByText('timed out')).toBeNull();
+		expect(evidence.queryByText('ev-logs')).toBeNull();
+	});
+
+	it('shows a source name only once when it matches the evidence id', async () => {
+		get.mockResolvedValue({
+			data: { ...RUN, evidence: [{ ...RUN.evidence[0], id: 'cluster_context', name: 'cluster_context' }] },
+		});
+		renderPage();
+		await screen.findByText('One member is not serving.');
+		const evidence = within(screen.getByRole('region', { name: 'Evidence' }));
+		expect(evidence.getAllByText('cluster_context')).toHaveLength(1);
+		fireEvent.click(evidence.getByRole('button', { name: 'Show cluster_context text' }));
+		expect(evidence.getByText('STATUS TEXT')).toBeTruthy();
+		expect(evidence.getAllByText('cluster_context')).toHaveLength(1);
+	});
+
 	it('offers Cancel only on an open run and only with agent:run', async () => {
 		granted.add('agent:run');
 		get.mockResolvedValue({ data: { ...RUN, status: 'running', stage: 'gathering', finishedAt: null, finding: null } });
 		renderPage();
 		expect(await screen.findByRole('button', { name: 'Cancel run arn-1' })).toBeTruthy();
+		expect(screen.getByText('Gathering evidence')).toBeTruthy();
 		expect(screen.getByText('No finding yet.')).toBeTruthy();
 		cleanup();
 

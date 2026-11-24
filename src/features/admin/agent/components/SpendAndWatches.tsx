@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
 	AgentOverview,
@@ -6,14 +5,14 @@ import {
 	agentWatchesQueryOptions,
 	WATCH_MAX_PAGE,
 } from '@/features/admin/agent/agentAdminApi';
-import { formatUsd, LoadFailed, ScopeCell } from '@/features/admin/agent/components/AgentBits';
+import { formatUsd, LoadFailed, RunStatusLabel, ScopeCell } from '@/features/admin/agent/components/AgentBits';
 import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/WorkflowBits';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
 	return (
-		<div className="rounded-lg border bg-card px-4 py-3">
+		<div className="min-w-0 px-5 py-3">
 			<div className="text-xs font-medium text-muted-foreground">{label}</div>
 			<div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{value}</div>
 			{hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
@@ -23,9 +22,11 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 
 export function SpendPanel({ overview }: { overview: AgentOverview }) {
 	return (
-		<section aria-label="Spend" className="mt-6">
-			<h2 className="text-sm font-medium text-muted-foreground">Spend · {overview.month}</h2>
-			<div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+		<section aria-label="Spend" className="mt-5 rounded-xl border bg-card/60">
+			<h2 className="sr-only">
+				Spend · {overview.month}
+			</h2>
+			<div className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
 				<Stat
 					label="Per-run cap"
 					value={formatUsd(overview.runBudgetUsd)}
@@ -78,7 +79,7 @@ function WatchRow({ watch }: { watch: AgentWatch }) {
 				</div>
 			</TableCell>
 			<TableCell>
-				{watch.firing ? <Badge variant="destructive">firing</Badge> : <Badge variant="outline">quiet</Badge>}
+				<RunStatusLabel status={watch.firing ? 'firing' : 'quiet'} />
 			</TableCell>
 			<TableCell className="font-mono text-xs">{watchValue(watch.lastValue)}</TableCell>
 			<TableCell className="text-xs">
@@ -104,8 +105,8 @@ function WatchRow({ watch }: { watch: AgentWatch }) {
 
 export function WatchTable({ watches }: { watches: AgentWatch[] }) {
 	return (
-		<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
-			<Table>
+		<div className="overflow-x-auto rounded-lg border">
+			<Table className="[&_th]:bg-muted/30 [&_th]:px-4 [&_th]:py-3 [&_th]:text-xs [&_td]:px-4 [&_td]:py-3">
 				<TableHeader>
 					<TableRow>
 						<TableHead>Cluster</TableHead>

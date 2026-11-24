@@ -1,24 +1,27 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { isOpenRun, RunStage, RunSummary, useCancelRunMutation, Verdict } from '@/features/admin/agent/agentAdminApi';
+import { isOpenRun, RunStage, RunSummary, useCancelRunMutation } from '@/features/admin/agent/agentAdminApi';
 import { describeError } from '@/react-query/queryClient';
+import { CircleCheckBigIcon, CircleHelpIcon, OctagonXIcon, TriangleAlertIcon } from 'lucide-react';
 
-type BadgeVariant = 'success' | 'warning' | 'secondary' | 'outline' | 'destructive';
-
-const STATUS_BADGE: Record<string, BadgeVariant> = {
+const STATUS_VARIANTS = {
 	pending: 'secondary',
 	running: 'warning',
 	completed: 'success',
 	error: 'destructive',
 	cancelled: 'outline',
 	expired: 'outline',
-};
+	ok: 'success',
+	'blind spot': 'warning',
+	firing: 'destructive',
+	quiet: 'outline',
+} as const;
 
-const VERDICT_BADGE: Record<Verdict, BadgeVariant> = {
-	healthy: 'success',
-	degraded: 'warning',
-	down: 'destructive',
-	unknown: 'outline',
+const VERDICT_STYLES = {
+	healthy: { icon: CircleCheckBigIcon, color: 'text-emerald-700 dark:text-emerald-300', fill: '' },
+	degraded: { icon: TriangleAlertIcon, color: 'text-amber-700 dark:text-amber-300', fill: 'fill-amber-500/15' },
+	down: { icon: OctagonXIcon, color: 'text-red-700 dark:text-red-300', fill: 'fill-red-500/20' },
+	unknown: { icon: CircleHelpIcon, color: 'text-muted-foreground', fill: '' },
 };
 
 const STAGE_LABEL: Record<RunStage, string> = {
@@ -31,6 +34,8 @@ const STAGE_LABEL: Record<RunStage, string> = {
 
 const TRIGGER_LABEL: Record<string, string> = {
 	manual: 'Manual',
+	scheduled_scan: 'Scheduled scan',
+	control_plane_log: 'Control plane log',
 	failed_operation: 'Failed operation',
 	version_upgrade: 'Version upgrade',
 	bulk_upgrade: 'Bulk upgrade',
@@ -39,13 +44,23 @@ const TRIGGER_LABEL: Record<string, string> = {
 export const triggerLabel = (kind: string) => TRIGGER_LABEL[kind] ?? kind;
 export const stageLabel = (stage: string) => STAGE_LABEL[stage as RunStage] ?? stage;
 
-export function RunStatusBadge({ status }: { status: string }) {
-	return <Badge variant={STATUS_BADGE[status] ?? 'outline'}>{status}</Badge>;
+export function RunStatusLabel({ status }: { status: string }) {
+	return <Badge variant={STATUS_VARIANTS[status as keyof typeof STATUS_VARIANTS] ?? 'outline'}>{status}</Badge>;
 }
 
-export function VerdictBadge({ verdict }: { verdict?: string | null }) {
+export function VerdictLabel({ verdict }: { verdict?: string | null }) {
 	if (!verdict) { return <span className="text-muted-foreground">—</span>; }
-	return <Badge variant={VERDICT_BADGE[verdict as Verdict] ?? 'outline'}>{verdict}</Badge>;
+	const { icon: Icon, color, fill } = VERDICT_STYLES[verdict as keyof typeof VERDICT_STYLES] ?? VERDICT_STYLES.unknown;
+	return (
+		<span className={`inline-flex min-h-6 items-center gap-2.5 text-[13px] font-medium leading-5 ${color}`}>
+			<Icon aria-hidden="true" className={`size-5 shrink-0 ${fill}`} />
+			{verdict}
+		</span>
+	);
+}
+
+export function ConfidenceLabel({ confidence }: { confidence: string }) {
+	return <span className="text-[11px] font-normal leading-5 text-muted-foreground">{confidence} confidence</span>;
 }
 
 export function formatUsd(value: number | null | undefined): string {

@@ -21,14 +21,14 @@ import {
 } from '@/features/admin/agent/agentAdminApi';
 import {
 	CancelRunButton,
+	ConfidenceLabel,
 	LoadFailed,
 	runCostLabel,
 	runDuration,
-	RunStatusBadge,
-	ScopeCell,
+	RunStatusLabel,
 	stageLabel,
 	triggerLabel,
-	VerdictBadge,
+	VerdictLabel,
 } from '@/features/admin/agent/components/AgentBits';
 import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/WorkflowBits';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -39,19 +39,24 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const ALL = 'all';
 
-function RunLink({ run }: { run: Pick<RunSummary, 'id'> }) {
+function RunLink({ run }: { run: RunSummary }) {
 	return (
-		<Link
-			to="/admin/agent/$runId"
-			params={{ runId: run.id }}
-			className="group inline-flex items-center gap-2 rounded-sm font-mono text-xs font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring"
-		>
-			{run.id}
-			<ChevronRightIcon
-				aria-hidden="true"
-				className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground"
-			/>
-		</Link>
+		<div className="min-w-40 space-y-1">
+			<Link
+				to="/admin/agent/$runId"
+				params={{ runId: run.id }}
+				aria-label={`${run.clusterName || run.clusterId || triggerLabel(run.triggerKind)} ${run.id}`}
+				title={run.clusterId}
+				className="group inline-flex items-center gap-2 rounded-sm text-sm font-medium text-foreground hover:underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+			>
+				{run.clusterName || run.clusterId || triggerLabel(run.triggerKind)}
+				<ChevronRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground group-hover:text-foreground" />
+			</Link>
+			{run.organizationId && (
+				<div className="text-xs text-muted-foreground">{run.organizationName ?? run.organizationId}</div>
+			)}
+			<div className="font-mono text-[11px] text-muted-foreground/70">{run.id}</div>
+		</div>
 	);
 }
 
@@ -82,7 +87,12 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 	const { data, error, isLoading } = useQuery(activeRunsQueryOptions());
 
 	return (
-		<section aria-label="Active runs">
+		<section
+			aria-label="Active runs"
+			className={data?.length === 0
+				? 'flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/40 px-4 py-3'
+				: undefined}
+		>
 			<div className="flex items-center gap-2">
 				<h2 className="text-base font-semibold">Active</h2>
 				{data && (
@@ -91,7 +101,7 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 					</span>
 				)}
 			</div>
-			<div className="mt-2">
+			<div className={data?.length === 0 ? undefined : 'mt-2'}>
 				{isLoading
 					? <p className="text-sm text-muted-foreground">Loading active runs…</p>
 					: !data
@@ -107,17 +117,17 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 							)}
 							{data.length === 0
 								? (
-									<p className="rounded-lg border border-dashed bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+									<p className="text-xs text-muted-foreground">
 										No run is in progress.
 									</p>
 								)
 								: (
-									<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
-										<Table>
+									<div className="overflow-x-auto rounded-xl border bg-card/60 px-4 [&_th]:h-11 [&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wider [&_td]:py-4 [&_td]:align-top [&_td]:text-xs">
+										<Table className="min-w-[48rem] [&_td:not(:last-child)]:pr-5">
 											<TableHeader>
 												<TableRow>
 													<TableHead>Run</TableHead>
-													<TableHead>Cluster</TableHead>
+
 													<TableHead>Trigger</TableHead>
 													<TableHead>Started</TableHead>
 													<TableHead>Step</TableHead>
@@ -130,16 +140,14 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 														<TableCell>
 															<RunLink run={run} />
 														</TableCell>
-														<TableCell>
-															<ScopeCell row={run} />
-														</TableCell>
-														<TableCell>{triggerLabel(run.triggerKind)}</TableCell>
-														<TableCell className="text-xs">
+
+														<TableCell className="whitespace-normal">{triggerLabel(run.triggerKind)}</TableCell>
+														<TableCell className="min-w-24 max-w-28 whitespace-normal text-xs leading-relaxed">
 															<Timestamp value={run.startedAt ?? run.createdAt} />
 														</TableCell>
 														<TableCell>
 															<span className="flex items-center gap-2">
-																<RunStatusBadge status={run.status} />
+																<RunStatusLabel status={run.status} />
 																<span className="text-xs text-muted-foreground">{stageLabel(run.stage)}</span>
 															</span>
 														</TableCell>
@@ -252,7 +260,7 @@ export function PastRuns() {
 	return (
 		<section aria-label="Past runs" className="mt-6">
 			<h2 className="text-base font-semibold">Past runs</h2>
-			<div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:w-full">
+			<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 [&>*]:w-full">
 				<Select value={rangeChoice} onValueChange={(next) => setRangeChoice(next as RangeChoice)}>
 					<SelectTrigger aria-label="Time range" className="w-44">
 						<SelectValue />
@@ -325,18 +333,17 @@ export function PastRuns() {
 									</p>
 								)
 								: (
-									<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
-										<Table>
+									<div className="overflow-x-auto rounded-xl border bg-card/60 px-4 [&_th]:h-11 [&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wider [&_td]:py-4 [&_td]:align-top [&_td]:text-xs">
+										<Table className="min-w-[48rem] [&_td:not(:last-child)]:pr-5">
 											<TableHeader>
 												<TableRow>
 													<TableHead>Run</TableHead>
 													<TableHead>Created</TableHead>
-													<TableHead>Cluster</TableHead>
+
 													<TableHead>Trigger</TableHead>
 													<TableHead>Status</TableHead>
 													<TableHead>Verdict</TableHead>
-													<TableHead>Duration</TableHead>
-													<TableHead>Cost</TableHead>
+													<TableHead className="text-right">Usage</TableHead>
 												</TableRow>
 											</TableHeader>
 											<TableBody>
@@ -345,24 +352,26 @@ export function PastRuns() {
 														<TableCell>
 															<RunLink run={run} />
 														</TableCell>
-														<TableCell className="text-xs">
+														<TableCell className="min-w-24 max-w-28 whitespace-normal text-xs leading-relaxed">
 															<Timestamp value={run.createdAt} />
 														</TableCell>
+
+														<TableCell className="whitespace-normal">{triggerLabel(run.triggerKind)}</TableCell>
 														<TableCell>
-															<ScopeCell row={run} />
-														</TableCell>
-														<TableCell>{triggerLabel(run.triggerKind)}</TableCell>
-														<TableCell>
-															<RunStatusBadge status={run.status} />
+															<RunStatusLabel status={run.status} />
 														</TableCell>
 														<TableCell>
-															<VerdictBadge verdict={run.verdict} />
+															<VerdictLabel verdict={run.verdict} />
 															{run.confidence && (
-																<span className="ml-1 text-xs text-muted-foreground">{run.confidence}</span>
+																<div className="pl-[30px]">
+																	<ConfidenceLabel confidence={run.confidence} />
+																</div>
 															)}
 														</TableCell>
-														<TableCell className="tabular-nums">{runDuration(run)}</TableCell>
-														<TableCell className="tabular-nums">{runCostLabel(run)}</TableCell>
+														<TableCell className="text-right tabular-nums text-xs">
+															<div>{runCostLabel(run)}</div>
+															<div className="mt-1 text-muted-foreground">{runDuration(run)}</div>
+														</TableCell>
 													</TableRow>
 												))}
 											</TableBody>
