@@ -215,9 +215,9 @@ export function AgentSettingsForm(
 			{!canWrite && (
 				<p className="mb-4 text-sm text-muted-foreground">Changing these needs the config:write permission.</p>
 			)}
-			<div className="space-y-6">
+			<div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
 				{ordered.map(([group, entries]) => (
-					<fieldset key={group} className="rounded-xl border p-4">
+					<fieldset key={group} className="min-w-0 rounded-lg border bg-card p-4 sm:p-5">
 						<legend className="px-1 text-sm font-medium">{group}</legend>
 						<div className="space-y-4">
 							{entries.map((entry) => {
@@ -226,7 +226,7 @@ export function AgentSettingsForm(
 								const draft = drafts[entry.name];
 								return (
 									<div key={entry.name} className="flex flex-col gap-1.5">
-										<span className="inline-flex items-center gap-2 font-mono text-sm">
+										<span className="inline-flex flex-wrap items-center gap-2 break-all font-mono text-sm">
 											{entry.name}
 											{entry.superUserOnly && (
 												<Badge variant="secondary" className="text-[10px]">

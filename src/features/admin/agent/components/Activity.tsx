@@ -34,6 +34,7 @@ import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/
 import { useDebounce } from '@/hooks/useDebounce';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { ChevronRightIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const ALL = 'all';
@@ -43,9 +44,13 @@ function RunLink({ run }: { run: Pick<RunSummary, 'id'> }) {
 		<Link
 			to="/admin/agent/$runId"
 			params={{ runId: run.id }}
-			className="font-mono text-xs underline-offset-2 hover:underline"
+			className="group inline-flex items-center gap-2 rounded-sm font-mono text-xs font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring"
 		>
 			{run.id}
+			<ChevronRightIcon
+				aria-hidden="true"
+				className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground"
+			/>
 		</Link>
 	);
 }
@@ -78,7 +83,14 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 
 	return (
 		<section aria-label="Active runs">
-			<h2 className="text-lg font-light">Active</h2>
+			<div className="flex items-center gap-2">
+				<h2 className="text-base font-semibold">Active</h2>
+				{data && (
+					<span className="rounded-md bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+						{data.length}
+					</span>
+				)}
+			</div>
 			<div className="mt-2">
 				{isLoading
 					? <p className="text-sm text-muted-foreground">Loading active runs…</p>
@@ -94,9 +106,13 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 								</p>
 							)}
 							{data.length === 0
-								? <p className="text-sm text-muted-foreground">No run is in progress.</p>
+								? (
+									<p className="rounded-lg border border-dashed bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+										No run is in progress.
+									</p>
+								)
 								: (
-									<div className="overflow-x-auto">
+									<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
 										<Table>
 											<TableHeader>
 												<TableRow>
@@ -234,9 +250,9 @@ export function PastRuns() {
 	const hasNext = data !== undefined && data.length === RUN_PAGE_SIZE && start + 2 * RUN_PAGE_SIZE <= RUN_MAX_END;
 
 	return (
-		<section aria-label="Past runs" className="mt-8">
-			<h2 className="text-lg font-light">Past runs</h2>
-			<div className="mt-2 flex flex-wrap items-center gap-2">
+		<section aria-label="Past runs" className="mt-6">
+			<h2 className="text-base font-semibold">Past runs</h2>
+			<div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:w-full">
 				<Select value={rangeChoice} onValueChange={(next) => setRangeChoice(next as RangeChoice)}>
 					<SelectTrigger aria-label="Time range" className="w-44">
 						<SelectValue />
@@ -309,7 +325,7 @@ export function PastRuns() {
 									</p>
 								)
 								: (
-									<div className="overflow-x-auto">
+									<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
 										<Table>
 											<TableHeader>
 												<TableRow>

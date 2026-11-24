@@ -9,6 +9,7 @@ import {
 	runCostLabel,
 	runDuration,
 	RunStatusBadge,
+	ScopeCell,
 	stageLabel,
 	triggerLabel,
 	VerdictBadge,
@@ -23,9 +24,9 @@ import { ReactNode, useState } from 'react';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section aria-label={title} className="mt-8">
-			<h2 className="text-lg font-light">{title}</h2>
-			<div className="mt-2">{children}</div>
+		<section aria-label={title} className="mt-6 rounded-lg border bg-card p-4 sm:p-5">
+			<h2 className="text-base font-semibold">{title}</h2>
+			<div className="mt-4">{children}</div>
 		</section>
 	);
 }
@@ -155,7 +156,7 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 	const blindSpots = blindSpotsOf(run);
 	return (
 		<>
-			<dl className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-4 sm:p-5">
 				<DetailRow label="Status">
 					<span className="flex items-center gap-2">
 						<RunStatusBadge status={run.status} />
@@ -163,8 +164,7 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 					</span>
 				</DetailRow>
 				<DetailRow label="Cluster">
-					<span className="font-mono text-xs">{run.clusterId}</span>
-					{run.organizationId && <div className="font-mono text-xs text-muted-foreground">{run.organizationId}</div>}
+					<ScopeCell row={run} />
 				</DetailRow>
 				<DetailRow label="Created">
 					<Timestamp value={run.createdAt} />
@@ -188,6 +188,12 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 			)}
 			{run.error && <p role="alert" className="mt-4 text-sm text-destructive">{run.error}</p>}
 
+			<Section title="Finding">
+				{run.finding
+					? <FindingView finding={run.finding} />
+					: <p className="text-sm text-muted-foreground">No finding {run.finishedAt ? 'was written.' : 'yet.'}</p>}
+			</Section>
+
 			<Section title="Trigger">
 				<dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 					<DetailRow label="Kind">{triggerLabel(trigger.kind ?? run.triggerKind)}</DetailRow>
@@ -201,12 +207,6 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 					{trigger.by && <DetailRow label="By">{trigger.by}</DetailRow>}
 					{trigger.reason && <DetailRow label="Reason">{trigger.reason}</DetailRow>}
 				</dl>
-			</Section>
-
-			<Section title="Finding">
-				{run.finding
-					? <FindingView finding={run.finding} />
-					: <p className="text-sm text-muted-foreground">No finding {run.finishedAt ? 'was written.' : 'yet.'}</p>}
 			</Section>
 
 			<Section title="Blind spots">
@@ -265,8 +265,8 @@ export function RunDetailPage() {
 			>
 				<ArrowLeftIcon className="size-4" />Agent
 			</Link>
-			<h1 className="mt-2 text-2xl font-light">
-				Run <span className="font-mono text-lg">{runId}</span>
+			<h1 className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold tracking-tight">
+				Run <span className="break-all font-mono text-sm font-normal text-muted-foreground">{runId}</span>
 			</h1>
 			{isLoading
 				? <p className="mt-6 text-sm text-muted-foreground">Loading run…</p>

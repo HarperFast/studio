@@ -13,9 +13,9 @@ import { Link } from '@tanstack/react-router';
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
 	return (
-		<div className="rounded-xl border bg-card/70 px-4 py-4 shadow-sm">
+		<div className="rounded-lg border bg-card px-4 py-3">
 			<div className="text-xs font-medium text-muted-foreground">{label}</div>
-			<div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+			<div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{value}</div>
 			{hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
 		</div>
 	);
@@ -24,8 +24,8 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 export function SpendPanel({ overview }: { overview: AgentOverview }) {
 	return (
 		<section aria-label="Spend" className="mt-6">
-			<h2 className="text-lg font-light">Spend · {overview.month}</h2>
-			<div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+			<h2 className="text-sm font-medium text-muted-foreground">Spend · {overview.month}</h2>
+			<div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 				<Stat
 					label="Per-run cap"
 					value={formatUsd(overview.runBudgetUsd)}
@@ -104,7 +104,7 @@ function WatchRow({ watch }: { watch: AgentWatch }) {
 
 export function WatchTable({ watches }: { watches: AgentWatch[] }) {
 	return (
-		<div className="overflow-x-auto">
+		<div className="overflow-x-auto rounded-lg border [&_th]:bg-muted/30 [&_th]:text-xs [&_td]:py-3">
 			<Table>
 				<TableHeader>
 					<TableRow>

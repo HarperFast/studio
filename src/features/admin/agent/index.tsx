@@ -32,8 +32,8 @@ export function AgentAdminIndex() {
 	useActiveRunChanges();
 
 	return (
-		<div>
-			<h1 className="text-2xl font-light">Agent</h1>
+		<div className="min-w-0">
+			<h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
 			<p className="mt-2 text-sm text-muted-foreground max-w-3xl">
 				The investigation agent starts on its own when a cluster operation fails, reads a fixed set of evidence and
 				writes a finding. It never changes a cluster.
@@ -65,8 +65,8 @@ export function AgentAdminIndex() {
 					</div>
 				)}
 
-			<Tabs defaultValue="activity" className="mt-8">
-				<TabsList>
+			<Tabs defaultValue="activity" className="mt-6">
+				<TabsList className="mb-2">
 					<TabsTrigger value="activity">Activity</TabsTrigger>
 					<TabsTrigger value="watches">Watches</TabsTrigger>
 					<TabsTrigger value="settings">Settings</TabsTrigger>
