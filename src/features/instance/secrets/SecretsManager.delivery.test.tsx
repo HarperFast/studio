@@ -84,7 +84,7 @@ describe('SecretsManager delivery tier — Add', () => {
 
 		// The example links out to the Harper secrets docs for deeper reading.
 		const docsLink = screen.getByRole('link', { name: /learn more about secrets/i });
-		expect(docsLink.getAttribute('href')).toBe('https://docs.harperdb.io/reference/v5/security/secrets');
+		expect(docsLink.getAttribute('href')).toBe('https://docs.harper.fast/reference/v5/security/secrets');
 	});
 
 	it('submits a scoped secret with its pending grants', async () => {

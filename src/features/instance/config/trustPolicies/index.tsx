@@ -19,7 +19,7 @@ import { RefreshCwIcon } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
-const DOCS_URL = 'https://docs.harperdb.io/reference/v5/operations-api/operations#add_oidc_trust';
+const DOCS_URL = 'https://docs.harper.fast/reference/v5/operations-api/operations#add_oidc_trust';
 
 /** The cluster's OIDC trust policies: list, disable or enable, and drop. */
 export function ConfigTrustPoliciesIndex() {

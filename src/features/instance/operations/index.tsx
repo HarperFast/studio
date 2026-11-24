@@ -38,7 +38,7 @@ import type { AxiosInstance } from 'axios';
 import { Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-const OPERATIONS_API_DOCS = 'https://docs.harperdb.io/docs/developers/operations-api/';
+const OPERATIONS_API_DOCS = 'https://docs.harper.fast/reference/v5/operations-api/overview';
 const INITIAL_REQUEST = '{\n\t"operation": "describe_all"\n}\n';
 const CONFIRM_PREVIEW_CHARS = 4_000;
 const LOGOUT_REFUSAL = 'Sign out from Studio instead: a logout sent from here would end the session the rest of '

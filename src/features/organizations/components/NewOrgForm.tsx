@@ -172,7 +172,7 @@ export function NewOrgForm() {
 								You can also bind a domain you own to a Harper-hosted cluster after creating it.
 							</p>
 							<a
-								href="https://docs.harperdb.io/fabric/custom-domains"
+								href="https://docs.harper.fast/fabric/custom-domains"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="mt-3 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline underline-offset-4 hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring dark:text-violet-300"

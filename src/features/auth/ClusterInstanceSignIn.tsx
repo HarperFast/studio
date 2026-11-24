@@ -216,7 +216,7 @@ export function ClusterInstanceSignIn() {
 										<li>
 											Have you{' '}
 											<a
-												href="https://docs.harperdb.io/docs/developers/security/configuration#cors"
+												href="https://docs.harper.fast/reference/v5/http/configuration#cors"
 												target="_blank"
 												rel="noreferrer"
 												className="underline"

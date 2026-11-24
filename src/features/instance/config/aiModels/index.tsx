@@ -33,7 +33,7 @@ import { ModelsApiCard } from './ModelsApiCard';
 import { ModelSaveOutcome } from './saveModelChange';
 import { useSaveModelChange } from './useSaveModelChange';
 
-const DOCS_URL = 'https://docs.harperdb.io/reference/v5/models/overview';
+const DOCS_URL = 'https://docs.harper.fast/reference/v5/models/overview';
 
 function savedMessage(verb: string, model: { kind: ModelKind; name: string }, outcome: ModelSaveOutcome): string {
 	const skipped = outcome.notRunning > 0

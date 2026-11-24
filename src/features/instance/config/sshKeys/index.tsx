@@ -57,7 +57,7 @@ export function ConfigSSHKeysIndex() {
 			>
 				<Link
 					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
-					to="https://docs.harperdb.io/docs/developers/security/certificate-management"
+					to="https://docs.harper.fast/reference/v5/security/certificate-management"
 					target="_blank"
 				>
 					Certificate Management Docs
