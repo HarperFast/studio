@@ -3,6 +3,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
@@ -23,6 +24,12 @@ const EMBEDDING = [0.9, 0.1, 0, 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 const server = vi.hoisted(() => ({
 	stored: undefined as Record<string, unknown> | undefined,
 	requests: [] as Array<Record<string, unknown>>,
+	/** Whether describe reports `embedding` as an `@embed` field. */
+	embed: false,
+	/** What `registration_info` answers: a version, a refusal, or nothing yet. */
+	version: '5.4.1' as string | 'refused' | 'pending',
+	noPrimaryKey: false,
+	readDenied: false,
 }));
 
 vi.mock('@/config/useInstanceClient', () => {
@@ -35,31 +42,51 @@ vi.mock('@/config/useInstanceClient', () => {
 						data: {
 							schema: 'vec',
 							name: 'Doc',
-							hash_attribute: 'id',
+							...(server.noPrimaryKey ? null : { hash_attribute: 'id' }),
 							attributes: [
-								{ attribute: 'id', type: 'ID', is_primary_key: true },
+								{ attribute: 'id', type: 'ID', is_primary_key: !server.noPrimaryKey },
 								{
 									attribute: 'embedding',
 									type: 'array',
 									elements: 'Float',
 									indexed: { type: 'HNSW', distance: 'cosine' },
+									...(server.embed ? { embed: { source: 'title', model: 'default' } } : null),
 								},
 								{ attribute: 'title', type: 'String' },
 							],
 							record_count: 1,
 						},
 					};
-				case 'search_by_value':
-					if ((body.sort as { target?: unknown } | undefined)?.target) {
+				case 'search_by_value': {
+					const sort = body.sort as { target?: unknown; text?: unknown } | undefined;
+					if (sort?.target) {
 						return {
 							data: [{ $distance: 0, id: 'b', title: 'kitten' }, { $distance: 0.42, id: 'c', title: 'cat' }],
 						};
 					}
+					if (sort?.text) {
+						return { data: [{ $distance: 0.03, id: 'b', title: 'kitten' }] };
+					}
 					return { data: [{ id: 'b', title: 'kitten', embedding: EMBEDDING }] };
+				}
 				case 'search_by_id':
 					return { data: server.stored ? [server.stored] : [] };
 				case 'registration_info':
-					return { data: { version: '5.4.1' } };
+					if (server.version === 'pending') {
+						return new Promise(() => {});
+					}
+					if (server.version === 'refused') {
+						// How Harper refuses it to a role whose operations allowlist leaves it out.
+						const config = { headers: new AxiosHeaders(), method: 'post' } as InternalAxiosRequestConfig;
+						throw new AxiosError('Request failed with status code 403', AxiosError.ERR_BAD_REQUEST, config, undefined, {
+							status: 403,
+							statusText: 'Forbidden',
+							headers: {},
+							config,
+							data: { error: 'This operation is not authorized due to role restrictions' },
+						});
+					}
+					return { data: { version: server.version } };
 				default:
 					return { data: [] };
 			}
@@ -82,7 +109,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 		allowsDestination: () => true,
 	}),
 	useInstanceSchemaTablePermission: () => true,
-	useInstanceSchemaTableReadDenied: () => false,
+	useInstanceSchemaTableReadDenied: () => server.readDenied,
 	useInstanceTablePutPermission: () => true,
 }));
 vi.mock('./PickColumnsDropdown', () => ({ PickColumnsDropdown: () => null }));
@@ -112,6 +139,10 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	server.requests = [];
+	server.embed = false;
+	server.version = '5.4.1';
+	server.noPrimaryKey = false;
+	server.readDenied = false;
 	route.search = {};
 });
 
@@ -174,5 +205,60 @@ describe('DatabaseTableView deep-linked vector filter', { timeout: 30_000 }, () 
 				expect.objectContaining({ description: expect.stringContaining('Find Similar') }),
 			), { timeout: 10_000 });
 		expect(server.requests.some(request => request.operation === 'search_by_conditions')).toBe(false);
+	});
+});
+
+describe('DatabaseTableView vector search by text', { timeout: 30_000 }, () => {
+	const vectorSearchButton = () => screen.queryByRole('button', { name: /Vector Search/ });
+
+	/** Renders the table and waits until describe and the version read have both gone out and settled. */
+	async function renderTable() {
+		render(
+			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+				<DatabaseTableView databaseName="vec" tableName="Doc" />
+			</QueryClientProvider>,
+		);
+		await vi.waitFor(() => {
+			expect(server.requests.some(request => request.operation === 'describe_table')).toBe(true);
+			expect(server.requests.some(request => request.operation === 'registration_info')).toBe(true);
+		}, { timeout: 10_000 });
+		await act(() => new Promise(resolve => setTimeout(resolve, 50)));
+	}
+
+	it('searches an @embed field by text on Harper 5.4.2, from the toolbar, only on submit', async () => {
+		server.embed = true;
+		server.version = '5.4.2';
+		await renderTable();
+		await act(async () => fireEvent.click(await screen.findByRole('button', { name: /Vector Search/ })));
+		const dialog = await screen.findByRole('dialog', { name: 'Vector search' });
+		fireEvent.change(within(dialog).getByLabelText('Text'), { target: { value: 'my kitten' } });
+		const textSearches = () => server.requests.filter(request => (request.sort as { text?: unknown })?.text);
+		expect(textSearches()).toEqual([]);
+		await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: /Search/ })));
+		expect(await within(dialog).findByText('distance 0.03')).toBeTruthy();
+		expect(textSearches()).toEqual([expect.objectContaining({
+			operation: 'search_by_value',
+			search_attribute: 'id',
+			sort: { attribute: 'embedding', text: 'my kitten' },
+		})]);
+	});
+
+	it('is offered when Harper won’t tell its version: an older one refuses the search inline', async () => {
+		server.embed = true;
+		server.version = 'refused';
+		await renderTable();
+		expect(await screen.findByRole('button', { name: /Vector Search/ })).toBeTruthy();
+	});
+
+	it.each([
+		['the version is still being read', { embed: true, version: 'pending' }],
+		['Harper predates 5.4.2', { embed: true, version: '5.4.1' }],
+		['no vector field has @embed', { embed: false, version: '5.4.2' }],
+		['the table has no primary key', { embed: true, version: '5.4.2', noPrimaryKey: true }],
+		['this role can’t read the table', { embed: true, version: '5.4.2', readDenied: true }],
+	])('is not offered when %s', async (_, state) => {
+		Object.assign(server, state);
+		await renderTable();
+		expect(vectorSearchButton()).toBeNull();
 	});
 });
