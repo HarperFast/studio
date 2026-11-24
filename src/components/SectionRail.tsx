@@ -56,7 +56,7 @@ export function SectionRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLab
 						</p>
 						<div className="mt-4 flex flex-wrap gap-x-4 gap-y-3 text-xs font-medium">
 							<a
-								href="https://docs.harperdb.io/docs"
+								href="https://docs.harper.fast/"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring"

@@ -48,7 +48,7 @@ import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-const DOCS_URL = 'https://docs.harperdb.io/reference/v5/web-application-firewall/overview';
+const DOCS_URL = 'https://docs.harper.fast/reference/v5/web-application-firewall/overview';
 
 export function ConfigWafIndex() {
 	const { entityId } = useInstanceClientIdParams();

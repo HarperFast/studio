@@ -10,7 +10,7 @@ import { SecretTier } from './accessExample';
 import { SecretAccessExample } from './SecretAccessExample';
 
 /** The Harper docs hub for the secrets store — the `secrets` accessor, tiers, and change subscriptions. */
-const SECRETS_DOCS_URL = 'https://docs.harperdb.io/reference/v5/security/secrets';
+const SECRETS_DOCS_URL = 'https://docs.harper.fast/reference/v5/security/secrets';
 
 export function SecretDeliveryPicker({
 	name,

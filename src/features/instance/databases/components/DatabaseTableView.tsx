@@ -1208,7 +1208,7 @@ export function DatabaseTableView({
 								{onlyIfCached ? <CircleCheckBigIcon className="text-green" /> : <CircleIcon />}
 								Only If Cached
 								<Link
-									to="https://docs.harperdb.io/docs/developers/applications/caching#cache-control-header"
+									to="https://docs.harper.fast/reference/v5/rest/headers#cache-control"
 									target="_blank"
 									rel="noopener noreferrer"
 									onClick={onClickStopPropagation}

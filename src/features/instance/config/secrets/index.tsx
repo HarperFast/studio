@@ -117,7 +117,7 @@ export function ConfigSecretsIndex() {
 				docsLink={
 					<a
 						className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
-						href="https://docs.harperdb.io/reference/v5/security/secrets"
+						href="https://docs.harper.fast/reference/v5/security/secrets"
 						target="_blank"
 						rel="noreferrer"
 					>

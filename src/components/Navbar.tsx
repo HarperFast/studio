@@ -48,7 +48,7 @@ export function Navbar() {
 		() =>
 			[
 				{
-					to: 'https://docs.harperdb.io/docs',
+					to: 'https://docs.harper.fast/',
 					target: '_blank',
 					icon: <BookOpenTextIcon />,
 					text: 'Docs',
@@ -123,7 +123,7 @@ function AnonymousNav() {
 					<NavigationMenuItem>
 						<NavigationMenuLink asChild>
 							<Link
-								to="https://docs.harperdb.io/docs"
+								to="https://docs.harper.fast/"
 								target="_blank"
 								rel="noreferrer noopener"
 								className="flex-row items-center"

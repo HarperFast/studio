@@ -26,7 +26,7 @@ export function AuthLayout() {
 					<Version />
 				</div>
 				<nav aria-label="Authentication navigation">
-					<a className="sign-in-docs" href="https://docs.harperdb.io/docs" target="_blank" rel="noreferrer noopener">
+					<a className="sign-in-docs" href="https://docs.harper.fast/" target="_blank" rel="noreferrer noopener">
 						<BookOpenText aria-hidden="true" /> <span>Docs</span>
 					</a>
 					<ThemeToggle />

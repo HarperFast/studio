@@ -55,7 +55,7 @@ for (const path of ['/#/org-help', '/#/org-help/clu-help']) {
 		await expect(help).toBeVisible();
 		await expect(help.getByRole('link', { name: 'View docs' })).toHaveAttribute(
 			'href',
-			'https://docs.harperdb.io/docs',
+			'https://docs.harper.fast/',
 		);
 		await expect(help.getByRole('link', { name: 'Join Discord' })).toHaveAttribute('rel', 'noopener noreferrer');
 		const nav = page.locator('.section-rail-navigation');
