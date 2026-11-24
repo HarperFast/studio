@@ -43,8 +43,8 @@ import {
 } from '@/features/instance/databases/functions/relationshipAttributes';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import {
-	SimilarRecordsSeed,
 	similarRecordsSeed,
+	textSearchableVectors,
 	vectorAttributes,
 	vectorFilterAttribute,
 } from '@/features/instance/databases/functions/vectorAttributes';
@@ -85,11 +85,12 @@ import {
 	replaceRecordsBlockedReason,
 	usePutTableRecords,
 } from '@/integrations/api/instance/database/putTableRecords';
+import { offersSearchByText } from '@/integrations/api/instance/database/searchNearestRecords';
 import {
 	describeIncompleteUpdate,
 	useUpdateTableRecords,
 } from '@/integrations/api/instance/database/updateTableRecords';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
@@ -114,6 +115,7 @@ import {
 	FunnelXIcon,
 	PlusIcon,
 	RefreshCwIcon,
+	ScanSearchIcon,
 	TextSearchIcon,
 	Trash2Icon,
 	TrashIcon,
@@ -126,7 +128,7 @@ import { EmptyResultSet } from './EmptyResultSet';
 import { FilterSyntaxHelp } from './FilterSyntaxHelp';
 import { FullTextSearchDialog } from './FullTextSearchDialog';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
-import { SimilarRecordsDialog } from './SimilarRecordsDialog';
+import { SimilarRecordsDialog, VectorSearchRequest } from './SimilarRecordsDialog';
 import { UncountedPage, uncountedTotal } from './TablePagination';
 import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 
@@ -195,11 +197,9 @@ export function DatabaseTableView({
 	const fullTextIndexes = instanceTable?.full_text_indexes ?? [];
 	const [isFullTextSearchOpen, setIsFullTextSearchOpen] = useEffectedState(false, allParams);
 	const vectors = useMemo(() => vectorAttributes(instanceTable), [instanceTable]);
-	// Captured when Find Similar is clicked, so the search is for the record that was open then.
-	const [similarRecordsFor, setSimilarRecordsFor] = useEffectedState<SimilarRecordsSeed | undefined>(
-		undefined,
-		allParams,
-	);
+	const textVectors = useMemo(() => textSearchableVectors(vectors), [vectors]);
+	// A Find Similar seed is captured when it is clicked, so the search is for the record that was open then.
+	const [vectorSearch, setVectorSearch] = useEffectedState<VectorSearchRequest | undefined>(undefined, allParams);
 
 	// What the empty state may actually invite, each gated on the source it would use rather than on
 	// `methods.*`: `methods.sample` and `methods.file` share one path (see IMPORT_METHOD_PATHS), so
@@ -216,9 +216,12 @@ export function DatabaseTableView({
 		getSchemaRelationshipsQueryOptions({ ...instanceParams, enabled: schemaFilesAccess === true }),
 	);
 	const schemaRelationshipsLoading = schemaRelationshipsQueryLoading || schemaFilesAccess === undefined;
-	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
-	// know before it offers the save, so the version is read here rather than discovered by a failure.
-	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	// Removing an attribute needs the `put` operation, added in Harper 5.3.0, and searching by text needs
+	// 5.4.2. Both are offered only from the version, read here rather than discovered by a failure. A role
+	// Harper won't tell gets a settled answer at once, not retries: neither gate blocks on it.
+	const { data: registrationInfo, isPending: isVersionPending } = useQuery(
+		getHarperVersionProbeOptions(instanceParams),
+	);
 	// Not `canEditRecords && canAddRecords`: those fold in the `update`/`insert` operation allowlists,
 	// which Harper doesn't require for `put`, and they stay true for an attribute-scoped role that
 	// Harper refuses outright. `put` has its own authorization shape, so it gets its own check.
@@ -1169,6 +1172,17 @@ export function DatabaseTableView({
 						</Button>
 					)}
 
+					{textVectors.length > 0 && hasKnownPrimaryKey && canReadRecords
+						&& offersSearchByText(registrationInfo?.version, !isVersionPending) && (
+						<Button
+							variant="ghost"
+							onClick={() => setVectorSearch({ kind: 'text' })}
+						>
+							<ScanSearchIcon className="inline-block" />
+							Vector Search
+						</Button>
+					)}
+
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
@@ -1320,7 +1334,7 @@ export function DatabaseTableView({
 				syntheticAttributes={syntheticAttributes}
 				recordNavigation={recordNavigation}
 				data={editorRecords}
-				onFindSimilar={editorSeed && (() => setSimilarRecordsFor(editorSeed))}
+				onFindSimilar={editorSeed && (() => setVectorSearch({ kind: 'record', seed: editorSeed }))}
 				onSaveChanges={onRecordUpdate}
 				onReplaceRecord={onRecordReplace}
 				onDeleteRecord={onDeleteRecord}
@@ -1340,18 +1354,15 @@ export function DatabaseTableView({
 			/>
 			{instanceTable && (
 				<SimilarRecordsDialog
-					open={!!similarRecordsFor}
-					onOpenChange={(open) => {
-						if (!open) {
-							setSimilarRecordsFor(undefined);
-						}
-					}}
+					// It holds a search by text across closing and reopening, but never across instances or tables.
+					key={JSON.stringify([instanceParams.entityId, databaseName, tableName])}
+					request={vectorSearch}
+					onClose={() => setVectorSearch(undefined)}
 					databaseName={databaseName}
 					tableName={tableName}
 					table={instanceTable}
 					primaryKey={primaryKey}
 					vectors={vectors}
-					seed={similarRecordsFor}
 				/>
 			)}
 			<AlertDialog

@@ -7,6 +7,7 @@ import {
 	previewAttributes,
 	similarRecordsSeed,
 	summarizeNumberArray,
+	textSearchableVectors,
 	vectorAttributes,
 	vectorFilterAttribute,
 } from './vectorAttributes';
@@ -49,10 +50,30 @@ describe('isHnswIndexed', () => {
 describe('vectorAttributes', () => {
 	it('lists the HNSW attributes, with their metric (cosine when unnamed) and embed source', () => {
 		expect(vectorAttributes(DOC)).toEqual([
-			{ attribute: 'embedding', distance: 'cosine', embedSource: undefined },
-			{ attribute: 'bodyVector', distance: 'cosine', embedSource: 'body' },
+			{ attribute: 'embedding', distance: 'cosine', embedSource: undefined, embedModel: undefined },
+			{ attribute: 'bodyVector', distance: 'cosine', embedSource: 'body', embedModel: 'default' },
 		]);
 		expect(vectorAttributes(undefined)).toEqual([]);
+	});
+
+	it('takes a model name only when it is a string, on an @embed field', () => {
+		const odd = {
+			...DOC,
+			attributes: [
+				{ attribute: 'a', indexed: { type: 'HNSW' }, embed: { source: 'body', model: { name: 'x' } } },
+				{ attribute: 'b', indexed: { type: 'HNSW' }, embed: { model: 'default' } },
+			],
+		} as unknown as InstanceTable;
+		expect(vectorAttributes(odd).map(({ embedSource, embedModel }) => ({ embedSource, embedModel }))).toEqual([
+			{ embedSource: 'body', embedModel: undefined },
+			{ embedSource: undefined, embedModel: undefined },
+		]);
+	});
+});
+
+describe('textSearchableVectors', () => {
+	it('keeps only the vectors @embed fills, which Harper can embed a text for', () => {
+		expect(textSearchableVectors(vectorAttributes(DOC)).map(({ attribute }) => attribute)).toEqual(['bodyVector']);
 	});
 });
 

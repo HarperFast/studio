@@ -4,7 +4,7 @@ import { vectorAttributes } from '@/features/instance/databases/functions/vector
 import { InstanceTable } from '@/integrations/api/api.patch';
 import { mutationErrorHandler, queryErrorHandler } from '@/react-query/queryClient';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,7 +26,7 @@ vi.mock('@/config/useInstanceClient', () => {
 	return { useInstanceClientIdParams: () => params };
 });
 
-import { SimilarRecordsDialog } from './SimilarRecordsDialog';
+import { SimilarRecordsDialog, VectorSearchRequest } from './SimilarRecordsDialog';
 
 const DOC = {
 	schema: 'vec',
@@ -59,7 +59,12 @@ const HITS = [
 ];
 
 function refusal(status: number, error: string) {
-	const config = { headers: new AxiosHeaders(), method: 'post' } as InternalAxiosRequestConfig;
+	// The body names the operation, which is what tells a refused read from a write of unknown outcome.
+	const config = {
+		headers: new AxiosHeaders(),
+		method: 'post',
+		data: JSON.stringify({ operation: 'search_by_value' }),
+	} as InternalAxiosRequestConfig;
 	return new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_RESPONSE, config, undefined, {
 		status,
 		statusText: '',
@@ -69,27 +74,34 @@ function refusal(status: number, error: string) {
 	});
 }
 
-function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED }) {
+function renderRequest(request: VectorSearchRequest | undefined, table: InstanceTable = DOC) {
 	const client = new QueryClient({
 		queryCache: new QueryCache({ onError: queryErrorHandler }),
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
-	const view = (shown: typeof SEED | undefined) => (
+	const view = (shown: VectorSearchRequest | undefined, described: InstanceTable) => (
 		<QueryClientProvider client={client}>
 			<SimilarRecordsDialog
-				open
-				onOpenChange={vi.fn()}
+				request={shown}
+				onClose={vi.fn()}
 				databaseName="vec"
 				tableName="Doc"
-				table={DOC}
+				table={described}
 				primaryKey="id"
-				vectors={vectorAttributes(DOC)}
-				seed={shown}
+				vectors={vectorAttributes(described)}
 			/>
 		</QueryClientProvider>
 	);
-	const { rerender } = render(view(seed));
-	return { rerender: (next: typeof SEED) => rerender(view(next)) };
+	const { rerender } = render(view(request, table));
+	return {
+		rerender: (next: VectorSearchRequest | undefined, described: InstanceTable = table) =>
+			rerender(view(next, described)),
+	};
+}
+
+function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED }) {
+	const { rerender } = renderRequest(seed && { kind: 'record', seed });
+	return { rerender: (next: typeof SEED) => rerender({ kind: 'record', seed: next }) };
 }
 
 const searches = () => server.requests.filter(request => request.operation === 'search_by_value');
@@ -213,9 +225,181 @@ describe('SimilarRecordsDialog', () => {
 		expect(only.textContent).not.toContain('y'.repeat(201));
 	});
 
-	it('searches nothing without a seed', async () => {
+	it('stays closed, and searches nothing, without a request', async () => {
 		renderDialog({ seed: undefined });
-		await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+		await act(async () => {});
+		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(searches()).toEqual([]);
+	});
+});
+
+describe('SimilarRecordsDialog searching by text', () => {
+	/** Two `@embed` fields, one naming its model, beside a vector `@embed` doesn't fill. */
+	const ARTICLE = {
+		schema: 'vec',
+		name: 'Article',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'raw', type: 'array', elements: 'Float', indexed: { type: 'HNSW' } },
+			{
+				attribute: 'embedding',
+				type: 'array',
+				elements: 'Float',
+				indexed: { type: 'HNSW', distance: 'cosine' },
+				embed: { source: 'title', model: 'default' },
+			},
+			{
+				attribute: 'bodyVector',
+				type: 'array',
+				elements: 'Float',
+				indexed: { type: 'HNSW', distance: 'euclidean' },
+				embed: { source: 'body' },
+			},
+			{ attribute: 'title', type: 'String' },
+			{ attribute: 'body', type: 'String' },
+		],
+	} as InstanceTable;
+
+	/** What a build of harper main (#4498) answered for “my kitten keeps purring”. */
+	const TEXT_HITS = [
+		{ $distance: 0.0298, id: 'cats-1', title: 'Why cats knead blankets' },
+		{ $distance: 0.0370, id: 'cats-2', title: 'Kitten care basics' },
+	];
+
+	const openTextSearch = () => renderRequest({ kind: 'text' }, ARTICLE);
+	const type = (text: string) => fireEvent.change(screen.getByLabelText('Text'), { target: { value: text } });
+	const submit = () => fireEvent.click(screen.getByRole('button', { name: /Search/ }));
+
+	beforeEach(() => {
+		server.answer = () => TEXT_HITS;
+	});
+
+	it('runs no search, and so calls no model, until a submit', async () => {
+		openTextSearch();
+		type('my kitten keeps purring');
+		fireEvent.change(screen.getByLabelText('Vector'), { target: { value: 'bodyVector' } });
+		fireEvent.change(screen.getByLabelText('Show up to'), { target: { value: '50' } });
+		await act(async () => {});
+		expect(searches()).toEqual([]);
+	});
+
+	it('offers only the fields @embed fills, and searches the chosen one by the trimmed text', async () => {
+		openTextSearch();
+		const options = within(screen.getByLabelText('Vector')).getAllByRole('option').map(option => option.textContent);
+		expect(options.filter(Boolean)).toEqual(['embedding', 'bodyVector']);
+		type('  my kitten keeps purring  ');
+		await act(async () => submit());
+		await screen.findByRole('region', { name: 'Results' });
+		expect(searches()).toEqual([{
+			operation: 'search_by_value',
+			database: 'vec',
+			table: 'Doc',
+			search_attribute: 'id',
+			search_value: '*',
+			get_attributes: ['$distance', 'id', 'title', 'body'],
+			sort: { attribute: 'embedding', text: 'my kitten keeps purring' },
+			limit: 20,
+		}]);
+		expect(results().map(item => item.textContent)).toEqual([
+			expect.stringContaining('cats-1'),
+			expect.stringContaining('cats-2'),
+		]);
+	});
+
+	it('names the model, or says it is the field’s own when describe gives no name', () => {
+		openTextSearch();
+		expect(screen.getByText(/as a search query/).textContent).toContain('the default model');
+		fireEvent.change(screen.getByLabelText('Vector'), { target: { value: 'bodyVector' } });
+		expect(screen.getByText(/as a search query/).textContent).toContain('bodyVector’s @embed model');
+	});
+
+	it('won’t submit blank text, and sends one search for a double submit', async () => {
+		let release = () => {};
+		server.answer = () => new Promise(resolve => (release = () => resolve(TEXT_HITS)));
+		openTextSearch();
+		type('   ');
+		expect((screen.getByRole('button', { name: /Search/ }) as HTMLButtonElement).disabled).toBe(true);
+		await act(async () => fireEvent.submit(screen.getByLabelText('Text').closest('form')!));
+		expect(searches()).toEqual([]);
+
+		type('kitten');
+		const form = screen.getByLabelText('Text').closest('form')!;
+		await act(async () => {
+			fireEvent.submit(form);
+			fireEvent.submit(form);
+		});
+		await act(async () => release());
+		expect(searches()).toHaveLength(1);
+	});
+
+	it('keeps a search running across closing and reopening, and starts no second one meanwhile', async () => {
+		let release = () => {};
+		server.answer = () => new Promise(resolve => (release = () => resolve(TEXT_HITS)));
+		const { rerender } = openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		await act(async () => rerender(undefined));
+		await act(async () => rerender({ kind: 'text' }));
+		expect(screen.getByText('Searching…')).toBeTruthy();
+		type('puppy');
+		await act(async () => fireEvent.submit(screen.getByLabelText('Text').closest('form')!));
+		await act(async () => release());
+		expect(searches()).toHaveLength(1);
+		expect(await screen.findByRole('region', { name: 'Results' })).toBeTruthy();
+	});
+
+	it('holds the field while a search runs, so its results are never shown under another', async () => {
+		let release = () => {};
+		server.answer = () => new Promise(resolve => (release = () => resolve(TEXT_HITS)));
+		openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		const field = () => screen.getByLabelText('Vector') as HTMLSelectElement;
+		await vi.waitFor(() => expect(field().disabled).toBe(true));
+		await act(async () => release());
+		await vi.waitFor(() => expect(field().disabled).toBe(false));
+	});
+
+	it('hides its results once a schema refresh changes the searched field’s model', async () => {
+		const { rerender } = openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		await screen.findByRole('region', { name: 'Results' });
+		const remodelled = {
+			...ARTICLE,
+			attributes: ARTICLE.attributes.map(attribute =>
+				attribute.attribute === 'embedding' ? { ...attribute, embed: { source: 'title', model: 'bigger' } } : attribute
+			),
+		} as InstanceTable;
+		await act(async () => rerender({ kind: 'text' }, remodelled));
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+		expect(screen.getByText(/as a search query/).textContent).toContain('the bigger model');
+	});
+
+	it('says the results are for the last search once the text changes, and drops them for another field', async () => {
+		openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		await screen.findByRole('region', { name: 'Results' });
+		type('puppy');
+		expect(screen.getByText(/These are for your last search/)).toBeTruthy();
+		fireEvent.change(screen.getByLabelText('Vector'), { target: { value: 'bodyVector' } });
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+	});
+
+	it('shows Harper’s refusal inline, such as a model that failed', async () => {
+		vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const toastError = vi.spyOn(toast, 'error');
+		server.answer = () => {
+			throw refusal(502, 'Embedding the sort text for "embedding" failed');
+		};
+		openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Harper refused the search');
+		expect(alert.textContent).toContain('Embedding the sort text for "embedding" failed');
+		expect(toastError).not.toHaveBeenCalled();
 	});
 });

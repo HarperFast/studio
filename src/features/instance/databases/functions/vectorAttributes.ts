@@ -9,6 +9,7 @@ export interface VectorAttribute {
 	distance: string;
 	/** The field `@embed` fills this one from, when describe says. */
 	embedSource?: string;
+	embedModel?: string;
 }
 
 /**
@@ -60,8 +61,14 @@ export function vectorAttributes(table: InstanceTable | undefined): VectorAttrib
 			attribute,
 			distance: typeof distance === 'string' ? distance : 'cosine',
 			embedSource: typeof embed?.source === 'string' ? embed.source : undefined,
+			embedModel: typeof embed?.source === 'string' && typeof embed.model === 'string' ? embed.model : undefined,
 		}];
 	});
+}
+
+/** The fields a search by text can use: Harper embeds the text with the field's own `@embed` model. */
+export function textSearchableVectors(vectors: readonly VectorAttribute[]): VectorAttribute[] {
+	return vectors.filter(vector => vector.embedSource !== undefined);
 }
 
 const PREVIEW_ATTRIBUTES = 3;
