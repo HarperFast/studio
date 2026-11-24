@@ -90,7 +90,7 @@ import {
 	describeIncompleteUpdate,
 	useUpdateTableRecords,
 } from '@/integrations/api/instance/database/updateTableRecords';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
@@ -216,10 +216,11 @@ export function DatabaseTableView({
 		getSchemaRelationshipsQueryOptions({ ...instanceParams, enabled: schemaFilesAccess === true }),
 	);
 	const schemaRelationshipsLoading = schemaRelationshipsQueryLoading || schemaFilesAccess === undefined;
-	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
-	// know before it offers the save, so the version is read here rather than discovered by a failure.
+	// Removing an attribute needs the `put` operation, added in Harper 5.3.0, and searching by text needs
+	// 5.4.2. Both are offered only from the version, read here rather than discovered by a failure. A role
+	// Harper won't tell gets a settled answer at once, not retries: neither gate blocks on it.
 	const { data: registrationInfo, isPending: isVersionPending } = useQuery(
-		getRegistrationInfoQueryOptions(instanceParams),
+		getHarperVersionProbeOptions(instanceParams),
 	);
 	// Not `canEditRecords && canAddRecords`: those fold in the `update`/`insert` operation allowlists,
 	// which Harper doesn't require for `put`, and they stay true for an attribute-scoped role that
@@ -1353,6 +1354,8 @@ export function DatabaseTableView({
 			/>
 			{instanceTable && (
 				<SimilarRecordsDialog
+					// It holds a search by text across closing and reopening, but never across tables.
+					key={JSON.stringify([databaseName, tableName])}
 					request={vectorSearch}
 					onClose={() => setVectorSearch(undefined)}
 					databaseName={databaseName}

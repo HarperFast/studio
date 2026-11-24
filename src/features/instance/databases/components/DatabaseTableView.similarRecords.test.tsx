@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
@@ -24,12 +25,30 @@ const EMBEDDING = [0.9, 0.1, 0, 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 const server = vi.hoisted(() => ({
 	stored: undefined as Record<string, unknown> | undefined,
 	requests: [] as Array<Record<string, unknown>>,
-	/** Whether describe reports `embedding` as an `@embed` field. */
 	embed: false,
-	/** What `registration_info` answers: a version, a refusal, or nothing yet. */
 	version: '5.4.1' as string | 'refused' | 'pending',
 	noPrimaryKey: false,
 	readDenied: false,
+}));
+
+const fixtures = vi.hoisted(() => ({
+	describe: (name: string) => ({
+		schema: 'vec',
+		name,
+		...(server.noPrimaryKey ? null : { hash_attribute: 'id' }),
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: !server.noPrimaryKey },
+			{
+				attribute: 'embedding',
+				type: 'array',
+				elements: 'Float',
+				indexed: { type: 'HNSW', distance: 'cosine' },
+				...(server.embed ? { embed: { source: 'title', model: 'default' } } : null),
+			},
+			{ attribute: 'title', type: 'String' },
+		],
+		record_count: 1,
+	}),
 }));
 
 vi.mock('@/config/useInstanceClient', () => {
@@ -38,25 +57,7 @@ vi.mock('@/config/useInstanceClient', () => {
 			server.requests.push(body);
 			switch (body.operation) {
 				case 'describe_table':
-					return {
-						data: {
-							schema: 'vec',
-							name: 'Doc',
-							...(server.noPrimaryKey ? null : { hash_attribute: 'id' }),
-							attributes: [
-								{ attribute: 'id', type: 'ID', is_primary_key: !server.noPrimaryKey },
-								{
-									attribute: 'embedding',
-									type: 'array',
-									elements: 'Float',
-									indexed: { type: 'HNSW', distance: 'cosine' },
-									...(server.embed ? { embed: { source: 'title', model: 'default' } } : null),
-								},
-								{ attribute: 'title', type: 'String' },
-							],
-							record_count: 1,
-						},
-					};
+					return { data: fixtures.describe(String(body.table)) };
 				case 'search_by_value': {
 					const sort = body.sort as { target?: unknown; text?: unknown } | undefined;
 					if (sort?.target) {
@@ -211,10 +212,9 @@ describe('DatabaseTableView deep-linked vector filter', { timeout: 30_000 }, () 
 describe('DatabaseTableView vector search by text', { timeout: 30_000 }, () => {
 	const vectorSearchButton = () => screen.queryByRole('button', { name: /Vector Search/ });
 
-	/** Renders the table and waits until describe and the version read have both gone out and settled. */
-	async function renderTable() {
+	async function renderTable(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
 		render(
-			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+			<QueryClientProvider client={client}>
 				<DatabaseTableView databaseName="vec" tableName="Doc" />
 			</QueryClientProvider>,
 		);
@@ -243,11 +243,47 @@ describe('DatabaseTableView vector search by text', { timeout: 30_000 }, () => {
 		})]);
 	});
 
-	it('is offered when Harper won’t tell its version: an older one refuses the search inline', async () => {
+	it('keeps no search by text from one table when the view moves to another', async () => {
+		server.embed = true;
+		server.version = '5.4.2';
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		// The database map already holds both tables, as it does in the app once Browse has loaded, so the
+		// view keeps a schema, and its dialog stays mounted, across the move.
+		const map = {
+			vec: { Doc: fixtures.describe('Doc'), Other: fixtures.describe('Other') },
+		} as unknown as InstanceDatabaseMap;
+		const view = (tableName: string) => (
+			<QueryClientProvider client={client}>
+				<DatabaseTableView databaseName="vec" tableName={tableName} instanceDatabaseMap={map} />
+			</QueryClientProvider>
+		);
+		const { rerender } = render(view('Doc'));
+		await act(async () =>
+			fireEvent.click(await screen.findByRole('button', { name: /Vector Search/ }, { timeout: 10_000 }))
+		);
+		const dialog = await screen.findByRole('dialog', { name: 'Vector search' });
+		fireEvent.change(within(dialog).getByLabelText('Text'), { target: { value: 'my kitten' } });
+		await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: /Search/ })));
+		await within(dialog).findByText('distance 0.03');
+		// The app's route change closes it; this test's router mock has no params to change.
+		await act(async () => fireEvent.keyDown(dialog, { key: 'Escape' }));
+
+		rerender(view('Other'));
+		await act(async () =>
+			fireEvent.click(await screen.findByRole('button', { name: /Vector Search/ }, { timeout: 10_000 }))
+		);
+		const reopened = await screen.findByRole('dialog', { name: 'Vector search' });
+		expect((within(reopened).getByLabelText('Text') as HTMLInputElement).value).toBe('');
+		expect(within(reopened).queryByRole('region', { name: 'Results' })).toBeNull();
+	});
+
+	it('is offered at once when Harper won’t tell its version, with no retries first', async () => {
 		server.embed = true;
 		server.version = 'refused';
-		await renderTable();
-		expect(await screen.findByRole('button', { name: /Vector Search/ })).toBeTruthy();
+		// The app's own retry policy, which would retry a refusal for seconds without the version probe's.
+		await renderTable(new QueryClient());
+		expect(await screen.findByRole('button', { name: /Vector Search/ }, { timeout: 500 })).toBeTruthy();
+		expect(server.requests.filter(request => request.operation === 'registration_info')).toHaveLength(1);
 	});
 
 	it.each([

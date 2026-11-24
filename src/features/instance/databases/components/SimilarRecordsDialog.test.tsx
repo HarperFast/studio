@@ -93,7 +93,7 @@ function renderRequest(request: VectorSearchRequest | undefined, table: Instance
 		</QueryClientProvider>
 	);
 	const { rerender } = render(view(request));
-	return { rerender: (next: VectorSearchRequest) => rerender(view(next)) };
+	return { rerender: (next: VectorSearchRequest | undefined) => rerender(view(next)) };
 }
 
 function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED }) {
@@ -298,7 +298,6 @@ describe('SimilarRecordsDialog searching by text', () => {
 			sort: { attribute: 'embedding', text: 'my kitten keeps purring' },
 			limit: 20,
 		}]);
-		// No seed to drop: every hit is shown, as many as were asked for.
 		expect(results().map(item => item.textContent)).toEqual([
 			expect.stringContaining('cats-1'),
 			expect.stringContaining('cats-2'),
@@ -329,6 +328,34 @@ describe('SimilarRecordsDialog searching by text', () => {
 		});
 		await act(async () => release());
 		expect(searches()).toHaveLength(1);
+	});
+
+	it('keeps a search running across closing and reopening, and starts no second one meanwhile', async () => {
+		let release = () => {};
+		server.answer = () => new Promise(resolve => (release = () => resolve(TEXT_HITS)));
+		const { rerender } = openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		await act(async () => rerender(undefined));
+		await act(async () => rerender({ kind: 'text' }));
+		expect(screen.getByText('Searching…')).toBeTruthy();
+		type('puppy');
+		await act(async () => fireEvent.submit(screen.getByLabelText('Text').closest('form')!));
+		await act(async () => release());
+		expect(searches()).toHaveLength(1);
+		expect(await screen.findByRole('region', { name: 'Results' })).toBeTruthy();
+	});
+
+	it('holds the field while a search runs, so its results are never shown under another', async () => {
+		let release = () => {};
+		server.answer = () => new Promise(resolve => (release = () => resolve(TEXT_HITS)));
+		openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		const field = () => screen.getByLabelText('Vector') as HTMLSelectElement;
+		await vi.waitFor(() => expect(field().disabled).toBe(true));
+		await act(async () => release());
+		await vi.waitFor(() => expect(field().disabled).toBe(false));
 	});
 
 	it('says the results are for the last search once the text changes, and drops them for another field', async () => {

@@ -9,7 +9,6 @@ export interface VectorAttribute {
 	distance: string;
 	/** The field `@embed` fills this one from, when describe says. Set only on an `@embed` field. */
 	embedSource?: string;
-	/** The `@embed` model's name, which a search by text embeds with. */
 	embedModel?: string;
 }
 

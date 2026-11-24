@@ -25,8 +25,31 @@ import { FormEvent, ReactNode, useEffect, useId, useRef, useState } from 'react'
 const RESULT_LIMITS = [10, 20, 50, 100];
 const PREVIEW_LENGTH = 200;
 
-/** What the dialog searches from: a stored record's vector (Find Similar), or text the user types. */
 export type VectorSearchRequest = { kind: 'record'; seed: SimilarRecordsSeed } | { kind: 'text' };
+
+/**
+ * A search by text, held by the dialog rather than its contents, which unmount when it closes: closing and
+ * reopening it mid-search keeps the search in flight on screen, and its guard against a second model call.
+ */
+function useTextSearch() {
+	// Set before `mutate` and cleared when it settles, so a second Enter or click before React re-renders
+	// starts no second model call.
+	const inFlight = useRef(false);
+	const search = useMutation({
+		mutationFn: searchNearestRecords,
+		meta: { skipGlobalErrorToast: true },
+		onError: reportSearchFailure,
+		onSettled: () => {
+			inFlight.current = false;
+		},
+	});
+	const [text, setText] = useState('');
+	const [attributeName, setAttributeName] = useState<string>();
+	const [limit, setLimit] = useState(20);
+	return { search, inFlight, text, setText, attributeName, setAttributeName, limit, setLimit };
+}
+
+type TextSearchState = ReturnType<typeof useTextSearch>;
 
 export function SimilarRecordsDialog({
 	request,
@@ -45,9 +68,10 @@ export function SimilarRecordsDialog({
 	primaryKey: string;
 	vectors: VectorAttribute[];
 }) {
+	const textSearch = useTextSearch();
 	const seed = request?.kind === 'record' ? request.seed : undefined;
 	const recordVectors = seed ? vectors.filter(vector => seed.vectors.has(vector.attribute)) : [];
-	const textVectors = textSearchableVectors(vectors);
+	const textVectors = request?.kind === 'text' ? textSearchableVectors(vectors) : [];
 	const shared = { databaseName, tableName, table, primaryKey };
 	return (
 		<Dialog open={!!request} onOpenChange={open => !open && onClose()}>
@@ -68,13 +92,11 @@ export function SimilarRecordsDialog({
 							)}
 					</DialogDescription>
 				</DialogHeader>
-				{/* Mounted only while open, and anew for each record or table, so nothing carries over. */}
+				{/* Mounted only while open, and anew for each record, so a search is always from the record shown. */}
 				{seed && recordVectors.length > 0 && (
 					<RecordSearch key={JSON.stringify(seed.key)} {...shared} vectors={recordVectors} seed={seed} />
 				)}
-				{request?.kind === 'text' && textVectors.length > 0 && (
-					<TextSearch key={JSON.stringify([databaseName, tableName])} {...shared} vectors={textVectors} />
-				)}
+				{textVectors.length > 0 && <TextSearch {...shared} vectors={textVectors} state={textSearch} />}
 			</DialogContent>
 		</Dialog>
 	);
@@ -150,26 +172,14 @@ function RecordSearch({ databaseName, tableName, table, primaryKey, vectors, see
 	);
 }
 
-function TextSearch({ databaseName, tableName, table, primaryKey, vectors }: SearchProps) {
+function TextSearch({ databaseName, tableName, table, primaryKey, vectors, state }: SearchProps & {
+	state: TextSearchState;
+}) {
+	const { search, inFlight, text, setText, attributeName, setAttributeName, limit, setLimit } = state;
 	const { instanceClient } = useInstanceClientIdParams();
 	const queryId = useId();
-	const [attributeName, setAttributeName] = useState(vectors[0].attribute);
 	const vector = vectors.find(candidate => candidate.attribute === attributeName) ?? vectors[0];
-	const [text, setText] = useState('');
-	const [limit, setLimit] = useState(20);
 	const preview = previewAttributes(table, primaryKey, vector);
-	// Set before `mutate` and cleared when it settles, so a second Enter or click before React re-renders
-	// starts no second model call.
-	const inFlight = useRef(false);
-
-	const search = useMutation({
-		mutationFn: searchNearestRecords,
-		meta: { skipGlobalErrorToast: true },
-		onError: reportSearchFailure,
-		onSettled: () => {
-			inFlight.current = false;
-		},
-	});
 	const query = text.trim();
 
 	// Every search by text calls the field's model, so only a submit runs one: never opening, typing, or a
@@ -192,13 +202,9 @@ function TextSearch({ databaseName, tableName, table, primaryKey, vectors }: Sea
 		});
 	};
 
-	const chooseVector = (name: string) => {
-		setAttributeName(name);
-		// The results were ranked by the other field's vectors.
-		search.reset();
-	};
-
 	const searched = search.variables;
+	// Results ranked by another field's vectors, or by a field a schema refresh dropped, are never shown.
+	const sameField = searched?.attribute === vector.attribute;
 	const edited = !!searched && (searched.query.text !== query || searched.limit !== limit);
 	const editedNote = edited && (
 		<span className="block">These are for your last search. Search again to see results for your changes.</span>
@@ -210,7 +216,8 @@ function TextSearch({ databaseName, tableName, table, primaryKey, vectors }: Sea
 				<SearchControls
 					vectors={vectors}
 					vector={vector}
-					onVectorChange={chooseVector}
+					onVectorChange={setAttributeName}
+					vectorDisabled={search.isPending}
 					limit={limit}
 					onLimitChange={setLimit}
 				/>
@@ -237,8 +244,8 @@ function TextSearch({ databaseName, tableName, table, primaryKey, vectors }: Sea
 			</form>
 
 			{search.isPending && <p className="text-sm text-muted-foreground">Searching…</p>}
-			{search.isError && <SearchFailureAlert error={search.error} />}
-			{search.isSuccess && searched && (
+			{sameField && search.isError && <SearchFailureAlert error={search.error} />}
+			{sameField && search.isSuccess && searched && (
 				<Results hits={search.data} limit={searched.limit} primaryKey={primaryKey} preview={preview} note={editedNote}>
 					No record has a value for <code>{vector.attribute}</code>.
 				</Results>
@@ -261,10 +268,12 @@ function modelName(vector: VectorAttribute): ReactNode {
 		);
 }
 
-function SearchControls({ vectors, vector, onVectorChange, limit, onLimitChange }: {
+function SearchControls({ vectors, vector, onVectorChange, vectorDisabled, limit, onLimitChange }: {
 	vectors: VectorAttribute[];
 	vector: VectorAttribute;
 	onVectorChange: (name: string) => void;
+	/** While a search by text runs, so the field it ranks by can't change under it. */
+	vectorDisabled?: boolean;
 	limit: number;
 	onLimitChange: (limit: number) => void;
 }) {
@@ -274,7 +283,7 @@ function SearchControls({ vectors, vector, onVectorChange, limit, onLimitChange 
 			{vectors.length > 1 && (
 				<div className="flex flex-col gap-1">
 					<Label htmlFor={ids.attribute} className="text-xs text-muted-foreground">Vector</Label>
-					<Select value={vector.attribute} onValueChange={onVectorChange}>
+					<Select value={vector.attribute} onValueChange={onVectorChange} disabled={vectorDisabled}>
 						<SelectTrigger id={ids.attribute} className="w-48">
 							<SelectValue />
 						</SelectTrigger>
