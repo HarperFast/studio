@@ -90,16 +90,17 @@ describe('Verifying — redirect', () => {
 		);
 	});
 
-	// The first link's target may have expired, or another flow forgotten it, while this page stayed open.
-	it('keeps the target again for the new link it sends', () => {
+	// The first link's record may have expired while this page stayed open.
+	it('keeps the target under a new flow the new link names', () => {
 		historyState.prefillEmail = 'ada@example.com';
 		search.redirect = '/oauth/mcp/authorize?response_type=code&client_id=c';
 		render(<Verifying />);
 
 		fireEvent.click(screen.getByRole('link', { name: 'Send me another code, please.' }));
 
-		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/oauth/mcp/authorize?response_type=code&client_id=c');
-		expect(resend).toHaveBeenCalledWith({ email: 'ada@example.com' }, expect.anything());
+		const { flow } = resend.mock.calls[0][0];
+		expect(resend).toHaveBeenCalledWith({ email: 'ada@example.com', flow }, expect.anything());
+		expect(readSignInRedirect(flow)?.redirect).toBe('/oauth/mcp/authorize?response_type=code&client_id=c');
 	});
 
 	it('hands on none it would not follow', () => {

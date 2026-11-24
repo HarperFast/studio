@@ -138,7 +138,7 @@ describe('ForgotPassword — redirect', () => {
 		localStorage.clear();
 	});
 
-	it('keeps the target for the emailed link before the request is sent', async () => {
+	it('keeps the target under a new flow the request names, before it is sent', async () => {
 		hashSearch.current = { redirect: mcpAuthorize };
 		captchaState.configured = false;
 		post.mockReturnValue(new Promise(() => {}));
@@ -147,38 +147,13 @@ describe('ForgotPassword — redirect', () => {
 		await submitWith(container, 'ada@example.com');
 
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+		const { flow } = post.mock.calls[0][1];
+		expect(flow).toMatch(/^[A-Za-z0-9_-]{22}$/);
+		expect(readSignInRedirect(flow)?.redirect).toBe(mcpAuthorize);
 	});
 
-	it('forgets an earlier target for the address once a request without one goes through', async () => {
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
-		captchaState.configured = false;
-		post.mockResolvedValue({ data: 'If an account exists with this email...' });
-		const { container } = renderForm();
-
-		await submitWith(container, 'ada@example.com');
-
-		await waitFor(() => expect(readSignInRedirect('ada@example.com')).toBeUndefined());
-	});
-
-	it('leaves a newer target another tab kept while a request without one was out', async () => {
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
-		captchaState.configured = false;
-		let answer!: (value: unknown) => void;
-		post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
-		const { container } = renderForm();
-		await submitWith(container, 'ada@example.com');
-		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-
-		keepSignInRedirect('ada@example.com', '/org-1/clu-1/usage', Date.now() + 1);
-		answer({ data: 'If an account exists with this email...' });
-
-		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/sign-in' })));
-		expect(readSignInRedirect('ada@example.com')?.redirect).toBe('/org-1/clu-1/usage');
-	});
-
-	it('keeps its own target once the request goes through', async () => {
-		hashSearch.current = { redirect: mcpAuthorize };
+	it('names no flow without a target, and leaves other flows alone', async () => {
+		const other = keepSignInRedirect(mcpAuthorize);
 		captchaState.configured = false;
 		post.mockResolvedValue({ data: 'If an account exists with this email...' });
 		const { container } = renderForm();
@@ -186,20 +161,8 @@ describe('ForgotPassword — redirect', () => {
 		await submitWith(container, 'ada@example.com');
 
 		await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/sign-in' })));
-		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
-	});
-
-	it('leaves it when a request without one is refused', async () => {
-		keepSignInRedirect('ada@example.com', mcpAuthorize);
-		captchaState.configured = false;
-		post.mockRejectedValue(serverError);
-		const { container } = renderForm();
-
-		await submitWith(container, 'ada@example.com');
-
-		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(readSignInRedirect('ada@example.com')?.redirect).toBe(mcpAuthorize);
+		expect(post.mock.calls[0][1]).toEqual({ email: 'ada@example.com' });
+		expect(readSignInRedirect(other)?.redirect).toBe(mcpAuthorize);
 	});
 
 	it("keeps the sign-in page's redirect on the ways back", async () => {
