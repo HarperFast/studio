@@ -1226,6 +1226,23 @@ describe('VerifyEmail while this tab holds another account', () => {
 		});
 	});
 
+	it('does not take an answer in once a newer link supersedes it', async () => {
+		let release!: (cleared: boolean) => void;
+		vi.mocked(clearPreviousAccount).mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
+		put.mockResolvedValue(answer('verified', true));
+		fetchCurrentUser.mockResolvedValue(USER);
+		const { rerender } = render(page());
+		await waitFor(() => expect(clearPreviousAccount).toHaveBeenCalled());
+
+		put.mockReturnValue(new Promise(() => {}));
+		search.flow = 'Fl0w_id-abcdefghijklmn';
+		rerender(page());
+		await act(async () => release(true));
+
+		expect(authStore.setUserForEntity).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
 	it('leaves an account taken in since the verify was sent alone', async () => {
 		put.mockResolvedValue(answer('verified', true));
 		let rejectUser!: (reason: unknown) => void;

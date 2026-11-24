@@ -533,6 +533,45 @@ describe('useCompleteCloudSignIn — a target kept across an emailed link', () =
 		expect(readSignInRedirect(flow)).toBeUndefined();
 	});
 
+	it('gives up without taking the user in or navigating once its page has moved on', async () => {
+		const flow = keepSignInRedirect(mcpAuthorize);
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA, { stillCurrent: () => false }))).resolves.toBe(false);
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(navigate).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect(flow)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('gives up before navigating when its page moves on while the user is taken in', async () => {
+		const flow = keepSignInRedirect(mcpAuthorize);
+		let current = true;
+		vi.spyOn(appQueryClient, 'invalidateQueries').mockImplementationOnce(async () => {
+			current = false;
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(ADA, { stillCurrent: () => current }))).resolves.toBe(false);
+
+		expect(navigate).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+		expect(readSignInRedirect(flow)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('puts back what the previous account’s wipe took when its page has moved on', async () => {
+		const flow = keepSignInRedirect(mcpAuthorize);
+		const kept = readSignInRedirect(flow);
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+		authStore.setUserForEntity(OverallAppSignIn, GRACE);
+
+		await expect(act(() => result.current(ADA, { stillCurrent: () => false }))).resolves.toBe(false);
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).not.toBe(ADA);
+		expect(readSignInRedirect(flow)).toEqual(kept);
+	});
+
 	it('keeps a followed in-app target when its navigation fails', async () => {
 		const flow = keepSignInRedirect('/org-1/clu-1/usage');
 		navigate.mockRejectedValueOnce(new Error('navigation aborted'));

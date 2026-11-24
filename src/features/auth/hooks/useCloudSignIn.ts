@@ -35,7 +35,9 @@ import { useResendEmailVerification } from './useResendEmailVerification';
 /**
  * Resolves false when a sign-out or another sign-in landed before it could navigate. `redirect` defaults to the page's
  * search; a page whose search the router cannot read cleanly passes its own. `flow` is the emailed flow this completion
- * finishes (`pendingSignInRedirect.ts`): it continues to the target that flow kept when the page has none.
+ * finishes (`pendingSignInRedirect.ts`): it continues to the target that flow kept when the page has none. A page that
+ * can move on while this runs passes `stillCurrent`, and the completion gives up before taking the user in or
+ * navigating once it is false.
  */
 export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: string } = {}) {
 	const navigate = useNavigate();
@@ -45,7 +47,10 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 	const redirect = 'redirect' in options ? options.redirect : search.redirect;
 	const { flow } = options;
 
-	return useCallback(async (user: User): Promise<boolean> => {
+	return useCallback(async (
+		user: User,
+		{ stillCurrent = () => true }: { stillCurrent?: () => boolean } = {},
+	): Promise<boolean> => {
 		// Read first: clearing a previous account below wipes localStorage, the kept target with it.
 		const kept = readSignInRedirect(flow);
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
@@ -69,6 +74,14 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 
 		async function completeSignIn(): Promise<boolean> {
 			if (replacesAccount && !(await clearPreviousAccount())) {
+				return false;
+			}
+			if (!stillCurrent()) {
+				// Taken here so the restore above still puts back what the previous account's wipe took.
+				taken = {
+					signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
+					signInRevision: authStore.getSignInRevision(OverallAppSignIn),
+				};
 				return false;
 			}
 			try {
@@ -96,7 +109,7 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 				console.debug('Sign-in bookkeeping failed, carrying on:', error);
 			}
 			await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-			if (!stillTaken()) {
+			if (!stillTaken() || !stillCurrent()) {
 				return false;
 			}
 			const target = postSignInRedirect(redirect) ?? postSignInRedirect(kept?.redirect);
@@ -131,7 +144,7 @@ export function useCloudSignIn() {
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		setSubmitError(undefined);
 		submitLoginData(formData, {
-			onSuccess: completeSignIn,
+			onSuccess: (user) => completeSignIn(user),
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
 			// can special-case the unverified-email rejection instead of dead-ending on a red toast.
 			onError: (error) => {

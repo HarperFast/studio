@@ -560,7 +560,8 @@ export function VerifyEmail() {
 		let entered = false;
 		try {
 			toastVerified();
-			entered = await completeSignIn(user);
+			// A newer link (another token or flow) supersedes this answer while it is taken in.
+			entered = await completeSignIn(user, { stillCurrent: () => isCurrent(id) });
 		} catch (error) {
 			if (isCurrent(id)) {
 				reportAuthFailure(error);
