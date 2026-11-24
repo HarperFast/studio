@@ -7,7 +7,7 @@ export interface VectorAttribute {
 	attribute: string;
 	/** `cosine`, `euclidean` or `dotProduct`. Harper uses cosine when the schema names none. */
 	distance: string;
-	/** The field `@embed` fills this one from, when describe says. Set only on an `@embed` field. */
+	/** The field `@embed` fills this one from, when describe says. */
 	embedSource?: string;
 	embedModel?: string;
 }

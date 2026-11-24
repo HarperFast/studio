@@ -1354,8 +1354,8 @@ export function DatabaseTableView({
 			/>
 			{instanceTable && (
 				<SimilarRecordsDialog
-					// It holds a search by text across closing and reopening, but never across tables.
-					key={JSON.stringify([databaseName, tableName])}
+					// It holds a search by text across closing and reopening, but never across instances or tables.
+					key={JSON.stringify([instanceParams.entityId, databaseName, tableName])}
 					request={vectorSearch}
 					onClose={() => setVectorSearch(undefined)}
 					databaseName={databaseName}

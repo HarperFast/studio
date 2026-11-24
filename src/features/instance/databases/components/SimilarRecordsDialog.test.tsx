@@ -79,21 +79,24 @@ function renderRequest(request: VectorSearchRequest | undefined, table: Instance
 		queryCache: new QueryCache({ onError: queryErrorHandler }),
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 	});
-	const view = (shown: VectorSearchRequest | undefined) => (
+	const view = (shown: VectorSearchRequest | undefined, described: InstanceTable) => (
 		<QueryClientProvider client={client}>
 			<SimilarRecordsDialog
 				request={shown}
 				onClose={vi.fn()}
 				databaseName="vec"
 				tableName="Doc"
-				table={table}
+				table={described}
 				primaryKey="id"
-				vectors={vectorAttributes(table)}
+				vectors={vectorAttributes(described)}
 			/>
 		</QueryClientProvider>
 	);
-	const { rerender } = render(view(request));
-	return { rerender: (next: VectorSearchRequest | undefined) => rerender(view(next)) };
+	const { rerender } = render(view(request, table));
+	return {
+		rerender: (next: VectorSearchRequest | undefined, described: InstanceTable = table) =>
+			rerender(view(next, described)),
+	};
 }
 
 function renderDialog({ seed }: { seed: typeof SEED | undefined } = { seed: SEED }) {
@@ -356,6 +359,22 @@ describe('SimilarRecordsDialog searching by text', () => {
 		await vi.waitFor(() => expect(field().disabled).toBe(true));
 		await act(async () => release());
 		await vi.waitFor(() => expect(field().disabled).toBe(false));
+	});
+
+	it('hides its results once a schema refresh changes the searched field’s model', async () => {
+		const { rerender } = openTextSearch();
+		type('kitten');
+		await act(async () => submit());
+		await screen.findByRole('region', { name: 'Results' });
+		const remodelled = {
+			...ARTICLE,
+			attributes: ARTICLE.attributes.map(attribute =>
+				attribute.attribute === 'embedding' ? { ...attribute, embed: { source: 'title', model: 'bigger' } } : attribute
+			),
+		} as InstanceTable;
+		await act(async () => rerender({ kind: 'text' }, remodelled));
+		expect(screen.queryByRole('region', { name: 'Results' })).toBeNull();
+		expect(screen.getByText(/as a search query/).textContent).toContain('the bigger model');
 	});
 
 	it('says the results are for the last search once the text changes, and drops them for another field', async () => {

@@ -29,6 +29,7 @@ const server = vi.hoisted(() => ({
 	version: '5.4.1' as string | 'refused' | 'pending',
 	noPrimaryKey: false,
 	readDenied: false,
+	entityId: 'instance-1',
 }));
 
 const fixtures = vi.hoisted(() => ({
@@ -93,8 +94,16 @@ vi.mock('@/config/useInstanceClient', () => {
 			}
 		},
 	};
-	const params = { entityId: 'instance-1', instanceClient, entityType: 'instance' };
-	return { useInstanceClientIdParams: () => params };
+	// One stable object per instance, as the app's hook memoizes per mounted view.
+	const byEntity = new Map<string, { entityId: string; instanceClient: typeof instanceClient; entityType: string }>();
+	return {
+		useInstanceClientIdParams: () => {
+			if (!byEntity.has(server.entityId)) {
+				byEntity.set(server.entityId, { entityId: server.entityId, instanceClient, entityType: 'instance' });
+			}
+			return byEntity.get(server.entityId)!;
+		},
+	};
 });
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -144,6 +153,7 @@ afterEach(() => {
 	server.version = '5.4.1';
 	server.noPrimaryKey = false;
 	server.readDenied = false;
+	server.entityId = 'instance-1';
 	route.search = {};
 });
 
@@ -243,7 +253,13 @@ describe('DatabaseTableView vector search by text', { timeout: 30_000 }, () => {
 		})]);
 	});
 
-	it('keeps no search by text from one table when the view moves to another', async () => {
+	it.each([
+		['another table', () => ({ tableName: 'Other' })],
+		['the same table on another instance', () => {
+			server.entityId = 'instance-2';
+			return { tableName: 'Doc' };
+		}],
+	])('keeps no search by text when the view moves to %s', async (_, move) => {
 		server.embed = true;
 		server.version = '5.4.2';
 		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -268,7 +284,7 @@ describe('DatabaseTableView vector search by text', { timeout: 30_000 }, () => {
 		// The app's route change closes it; this test's router mock has no params to change.
 		await act(async () => fireEvent.keyDown(dialog, { key: 'Escape' }));
 
-		rerender(view('Other'));
+		rerender(view(move().tableName));
 		await act(async () =>
 			fireEvent.click(await screen.findByRole('button', { name: /Vector Search/ }, { timeout: 10_000 }))
 		);

@@ -36,7 +36,8 @@ function useTextSearch() {
 	// starts no second model call.
 	const inFlight = useRef(false);
 	const search = useMutation({
-		mutationFn: searchNearestRecords,
+		// `vector` rides along so the results can be checked against the field as describe now reports it.
+		mutationFn: ({ params }: { params: NearestRecordsParams; vector: VectorAttribute }) => searchNearestRecords(params),
 		meta: { skipGlobalErrorToast: true },
 		onError: reportSearchFailure,
 		onSettled: () => {
@@ -191,20 +192,24 @@ function TextSearch({ databaseName, tableName, table, primaryKey, vectors, state
 		}
 		inFlight.current = true;
 		search.mutate({
-			instanceClient,
-			databaseName,
-			tableName,
-			primaryKey,
-			attribute: vector.attribute,
-			query: { text: query },
-			previewAttributes: preview,
-			limit,
+			params: {
+				instanceClient,
+				databaseName,
+				tableName,
+				primaryKey,
+				attribute: vector.attribute,
+				query: { text: query },
+				previewAttributes: preview,
+				limit,
+			},
+			vector,
 		});
 	};
 
-	const searched = search.variables;
-	// Results ranked by another field's vectors, or by a field a schema refresh dropped, are never shown.
-	const sameField = searched?.attribute === vector.attribute;
+	const searched = search.variables?.params;
+	// Results ranked by another field, or by this one before a schema refresh changed its model, source or
+	// distance, are never shown.
+	const sameField = !!search.variables && sameVector(search.variables.vector, vector);
 	const edited = !!searched && (searched.query.text !== query || searched.limit !== limit);
 	const editedNote = edited && (
 		<span className="block">These are for your last search. Search again to see results for your changes.</span>
@@ -243,15 +248,26 @@ function TextSearch({ databaseName, tableName, table, primaryKey, vectors, state
 				</div>
 			</form>
 
-			{search.isPending && <p className="text-sm text-muted-foreground">Searching…</p>}
+			{sameField && search.isPending && <p className="text-sm text-muted-foreground">Searching…</p>}
 			{sameField && search.isError && <SearchFailureAlert error={search.error} />}
 			{sameField && search.isSuccess && searched && (
-				<Results hits={search.data} limit={searched.limit} primaryKey={primaryKey} preview={preview} note={editedNote}>
+				<Results
+					hits={search.data}
+					limit={searched.limit}
+					primaryKey={primaryKey}
+					preview={searched.previewAttributes}
+					note={editedNote}
+				>
 					No record has a value for <code>{vector.attribute}</code>.
 				</Results>
 			)}
 		</div>
 	);
+}
+
+function sameVector(a: VectorAttribute, b: VectorAttribute): boolean {
+	return a.attribute === b.attribute && a.distance === b.distance && a.embedModel === b.embedModel
+		&& a.embedSource === b.embedSource;
 }
 
 function modelName(vector: VectorAttribute): ReactNode {
@@ -272,7 +288,6 @@ function SearchControls({ vectors, vector, onVectorChange, vectorDisabled, limit
 	vectors: VectorAttribute[];
 	vector: VectorAttribute;
 	onVectorChange: (name: string) => void;
-	/** While a search by text runs, so the field it ranks by can't change under it. */
 	vectorDisabled?: boolean;
 	limit: number;
 	onLimitChange: (limit: number) => void;
@@ -316,7 +331,7 @@ function Results({ hits, limit, primaryKey, preview, note, children }: {
 	primaryKey: string;
 	preview: string[];
 	note?: ReactNode;
-	/** What to say when nothing came back: Harper leaves out records with no value for the vector. */
+	/** Harper leaves out records with no value for the vector, so an empty answer means none has one. */
 	children: ReactNode;
 }) {
 	if (hits.length === 0) {
