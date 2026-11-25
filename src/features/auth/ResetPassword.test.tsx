@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { navigate, search } = vi.hoisted(() => ({
 	navigate: vi.fn(),
-	search: { token: 'reset-token' } as { token: string; flow?: unknown },
+	search: { token: 'reset-token' } as { token: unknown; flow?: unknown },
 }));
 vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigate,
@@ -23,6 +23,7 @@ afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
 	localStorage.clear();
+	search.token = 'reset-token';
 	delete search.flow;
 });
 
@@ -80,6 +81,16 @@ describe('ResetPassword', () => {
 		await submitNewPassword('a-strong-password-1');
 
 		expect(navigate.mock.calls[0][0]).toStrictEqual({ to: '/sign-in', search: undefined, state });
+	});
+
+	it.each([12345, 0, true, null])('treats a search value that is not a string (%s) as no token', async (value) => {
+		search.token = value;
+		render(<ResetPassword />);
+
+		await submitNewPassword('a-strong-password-1');
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/sign-in' });
+		expect(mutate).not.toHaveBeenCalled();
 	});
 
 	// maxlength would silently clamp a pasted password, leaving the password manager holding one that never worked.

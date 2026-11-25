@@ -530,7 +530,6 @@ function toastVerified() {
 export function VerifyEmail() {
 	const { token: searchToken, flow: flowParam } = useSearch({ strict: false });
 	const flow = emailedFlowParam(flowParam);
-	// central-manager's tokens are JWTs, which the router's JSON parse of search values leaves as strings.
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();

@@ -15,7 +15,8 @@ import { useResetPasswordMutation } from './hooks/useResetPassword';
 import { emailedFlowParam, keptSignInRedirectSearch } from './pendingSignInRedirect';
 
 export function ResetPassword() {
-	const { token, flow: flowParam } = useSearch({ strict: false });
+	const { token: searchToken, flow: flowParam } = useSearch({ strict: false });
+	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 	const flow = emailedFlowParam(flowParam);
 	const navigate = useNavigate();
 
@@ -41,8 +42,11 @@ export function ResetPassword() {
 	const { mutate: submitResetPasswordData, isPending } = useResetPasswordMutation();
 
 	const submitForm = useCallback(async (formData: { password: string; confirmPassword: string }) => {
+		if (!token) {
+			return;
+		}
 		submitResetPasswordData(
-			{ token: token as string, password: formData.password },
+			{ token, password: formData.password },
 			{
 				onSuccess: (response) => {
 					toast.success('Success', {

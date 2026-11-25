@@ -4,6 +4,7 @@ import { AuthenticatedConnection, EntityIds } from '@/features/auth/store/authSt
 import { browserIsTouchBased } from '@/lib/browserIsTouchBased';
 import { queryClient } from '@/react-query/queryClient';
 import { rootRouteTree } from '@/router/rootRouteTree';
+import { parseSearch, stringifySearch } from '@/router/searchParams';
 import { createHashHistory, createRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -25,6 +26,8 @@ export function useNewRouter({ routeTree = rootRouteTree, authentication }: {
 			defaultErrorComponent: ErrorComponent,
 			defaultPreload: browserIsTouchBased() ? false : 'intent',
 			trailingSlash: 'never',
+			parseSearch,
+			stringifySearch,
 			// Since we're using React Query, we don't want loader calls to ever be stale
 			// This will ensure that the loader is always called when the route is preloaded or visited
 			defaultPreloadStaleTime: 0,
