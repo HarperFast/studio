@@ -198,11 +198,14 @@ describe.each([
 			cancellation.signal,
 		);
 		await vi.waitFor(async () => expect(await queued()).toBe(1));
+		const logged = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 
 		cancellation.abort();
 
 		await expect(starting).resolves.toBeUndefined();
 		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(false);
+		expect(logged).not.toHaveBeenCalled();
+		logged.mockRestore();
 		landed.resolve();
 		await saving;
 		(await rename(tabA, ['app/a.js', 'app/c.js']))();
@@ -260,6 +263,7 @@ describe('within one tab', () => {
 describe('without Web Locks', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
 	it.each([
@@ -267,6 +271,7 @@ describe('without Web Locks', () => {
 		['no navigator', undefined],
 	])("falls back to the tab's own interlock in %s", async (_, navigatorStub) => {
 		vi.stubGlobal('navigator', navigatorStub);
+		const logged = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 		const tabA = await openTab();
 		const tabB = await openTab();
 
@@ -283,6 +288,7 @@ describe('without Web Locks', () => {
 		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(false);
 		editorSaveInFlight(tabA, 'ins-1');
 		expect(tabA.interlock.startRename(tabA.client, 'ins-1', 'instance')).toBeUndefined();
+		expect(logged).not.toHaveBeenCalled();
 	});
 
 	it.each([
@@ -295,11 +301,13 @@ describe('without Web Locks', () => {
 		],
 	])('saves and renames once, without them, when Web Locks %s', async (_, request) => {
 		vi.stubGlobal('navigator', { locks: { request } });
+		const logged = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 		const tab = await openTab();
 		const send = vi.fn(() => Promise.resolve('saved'));
 
 		await expect(tab.interlock.holdForSave('ins-1', 'app/a.js', send)).resolves.toBe('saved');
 		expect(send).toHaveBeenCalledOnce();
 		(await tab.interlock.startRename(tab.client, 'ins-1', 'instance'))!();
+		expect(logged).toHaveBeenCalledTimes(2);
 	});
 });

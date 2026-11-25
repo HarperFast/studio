@@ -1,5 +1,6 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import {
 	copyEditorFileContent,
 	discardEditorFileContent,
@@ -28,9 +29,7 @@ export function refuseRenameDuringSave() {
 }
 
 interface RenameOptions {
-	/** The caller started the rename and ends it, as a folder rename does to cover the old folder's drop. */
 	startedByCaller?: boolean;
-	/** Gives up a rename still waiting for another tab, as the progress toast's Cancel does. */
 	signal?: AbortSignal;
 }
 
@@ -56,6 +55,10 @@ export function useRenameFiles() {
 		}
 		const cancellation = new AbortController();
 		signal?.addEventListener('abort', () => cancellation.abort(), { once: true });
+		if (signal?.aborted) {
+			cancellation.abort();
+		}
+		const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
 		const starting = startedByCaller
 			? Promise.resolve(() => undefined)
 			: startRename(queryClient, instanceParams.entityId, {
@@ -98,7 +101,9 @@ export function useRenameFiles() {
 		}
 
 		const endRename = await starting;
-		if (!endRename) {
+		// A wait for another tab can outlast the session: nothing is sent under the next one.
+		if (!endRename || authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration) {
+			endRename?.();
 			toast.warning('Rename Cancelled', { id: toastConfig.id, description: 'Nothing was renamed.', duration: 10000 });
 			return false;
 		}

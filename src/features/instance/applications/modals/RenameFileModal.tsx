@@ -16,6 +16,7 @@ import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import type { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import {
 	calculateRootEntries,
 } from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
@@ -61,8 +62,18 @@ function entryAt(entries: Array<DirectoryEntry | FileEntry>, path: string): Dire
 	return undefined;
 }
 
-async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string) {
-	const { entries } = await getComponents(instanceParams);
+/** Rejects as soon as `signal` aborts, rather than when `promise` settles. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const abort = () => reject(signal.reason);
+		signal.addEventListener('abort', abort, { once: true });
+		void promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+	});
+}
+
+async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string, signal: AbortSignal) {
+	// Only a read, so a closed dialog stops waiting for it and lets the instance go at once.
+	const { entries } = await untilAborted(getComponents(instanceParams), signal);
 	const folder = entryAt(calculateRootEntries(entries).rootEntries, from);
 	if (!folder || !isDirectory(folder)) {
 		throw new Error(`${from} is no longer on the instance.`);
@@ -139,8 +150,7 @@ export function RenameFileModal() {
 			}
 		}
 
-		// Dropping the old folder takes every file under it, so a folder's rename covers the whole instance
-		// from its first move until that drop. Closing the dialog gives up a rename that has sent nothing yet.
+		// The old folder's drop takes every file under it, so a folder's rename holds the whole instance.
 		const cancellation = new AbortController();
 		const folderRename = isDir
 			? startRename(queryClient, instanceParams.entityId, 'instance', cancellation.signal)
@@ -149,25 +159,29 @@ export function RenameFileModal() {
 			refuseRenameDuringSave();
 			return;
 		}
+		const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
+		const givenUp = () =>
+			cancellation.signal.aborted || authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration;
 		setIsPending(true);
 		cancelOnClose.current = cancellation;
 		const endFolderRename = await folderRename;
 		let renamed: boolean;
 		try {
 			let changes = [{ from: openedEntry.path, to }];
-			if (endFolderRename) {
+			if (endFolderRename && !givenUp()) {
 				try {
-					// Listed under the lock: this tab's tree can lack a file another tab made.
-					changes = await folderMoves(instanceParams, openedEntry.path, to);
+					changes = await folderMoves(instanceParams, openedEntry.path, to, cancellation.signal);
 				} catch (error) {
-					toast.error('Rename Failed', {
-						description: error instanceof Error ? error.message : 'Could not list the folder.',
-					});
-					setIsPending(false);
-					return;
+					if (!givenUp()) {
+						toast.error('Rename Failed', {
+							description: error instanceof Error ? error.message : 'Could not list the folder.',
+						});
+						setIsPending(false);
+						return;
+					}
 				}
 			}
-			if (isDir && cancellation.signal.aborted) {
+			if (givenUp()) {
 				toast.warning('Rename Cancelled', { description: 'Nothing was renamed.', duration: 10000 });
 				setIsPending(false);
 				return;

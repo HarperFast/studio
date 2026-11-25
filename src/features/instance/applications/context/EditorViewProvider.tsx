@@ -264,12 +264,18 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [queryClient]);
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
-		mutationFn: request =>
-			holdForSave(
+		mutationFn: request => {
+			// A wait for another tab's rename can outlast the session: nothing is sent under the next one.
+			const signOutGeneration = authStore.getSignOutGeneration(request.entityId);
+			const sessionEnded = () =>
+				signedOutSince(queryClient, request)
+				|| authStore.getSignOutGeneration(request.entityId) !== signOutGeneration;
+			return holdForSave(
 				request.entityId,
 				`${request.project}/${request.file}`,
-				async () => signedOutSince(queryClient, request) ? undefined : setComponentFile(request),
-			),
+				async () => sessionEnded() ? undefined : setComponentFile(request),
+			);
+		},
 		onSuccess: settleSave,
 	});
 	const savingEntryKeys = useMutationState({

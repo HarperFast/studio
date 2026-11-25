@@ -10,6 +10,7 @@
  * keeps a model per path the way `keepCurrentModel` does, because that is where a reused path's old
  * text survives once the buffer and the query are gone.
  */
+import { authStore } from '@/features/auth/store/authStore';
 import { editorFileContentKey } from '@/features/instance/applications/context/editorFileContent';
 import type { EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
 import { holdForSave, isRenaming, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
@@ -1145,7 +1146,13 @@ describe('another tab on the same instance', () => {
 		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
 	});
 
-	it('does not send a save that waited for that tab through a sign-out', async () => {
+	// A full sign-out clears the mutation cache; signing out of one instance moves its sign-out generation.
+	const signOuts = [
+		['a sign-out', () => queryClient.getMutationCache().clear()],
+		['a sign-out of the instance', () => vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(-1)],
+	] as const;
+
+	it.each(signOuts)('does not send a save that waited for that tab through %s', async (_, signOut) => {
 		seed({ 'app/a.js': 'saved a' });
 		renderEditor();
 		await openFile('app/a.js', 'saved a');
@@ -1154,7 +1161,7 @@ describe('another tab on the same instance', () => {
 		save();
 		await waitFor(async () => expect(await waiting()).toBe(1));
 
-		act(() => queryClient.getMutationCache().clear());
+		act(() => void signOut());
 		act(() => endRename());
 
 		await waitFor(async () => expect(await lockCount()).toBe(0));
@@ -1266,25 +1273,61 @@ describe('another tab on the same instance', () => {
 		},
 	);
 
-	it('cancels a folder rename when its dialog is closed while it lists the folder', async () => {
-		const cancelled = vi.spyOn(toast, 'warning');
-		seed({ 'app/lib/x.js': 'saved x' });
-		renderEditor();
-		await open('app/lib');
-		const listed = hold('get_components', 'undefined');
-		await submitRename('src');
-		await waitFor(() => expect(harness.holds.size).toBe(0));
+	it.each(['answers', 'fails'])(
+		'cancels a folder rename when its dialog is closed while it lists the folder, and the listing %s',
+		async outcome => {
+			const cancelled = vi.spyOn(toast, 'warning');
+			const failed = vi.spyOn(toast, 'error');
+			seed({ 'app/lib/x.js': 'saved x' });
+			renderEditor();
+			await open('app/lib');
+			const listed = hold('get_components', 'undefined');
+			if (outcome === 'fails') {
+				harness.refused.add('get_components:undefined');
+			}
+			await submitRename('src');
+			await waitFor(() => expect(harness.holds.size).toBe(0));
 
-		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		await listed();
+			fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-		await waitFor(() => expect(cancelled).toHaveBeenCalledWith('Rename Cancelled', expect.anything()));
-		await waitFor(async () => expect(await lockCount()).toBe(0));
-		expect(isRenaming(queryClient, 'ins-1')).toBe(false);
-		expect(copiesSent()).toBe(0);
-		expect(sent('drop_component')).toEqual([]);
-		expect(files.get('app/lib/x.js')).toBe('saved x');
-	});
+			// Before the listing answers: the instance and this tab's saves are free at once.
+			await waitFor(async () => expect(await lockCount()).toBe(0));
+			expect(isRenaming(queryClient, 'ins-1')).toBe(false);
+			expect(cancelled).toHaveBeenCalledWith('Rename Cancelled', expect.anything());
+			await listed();
+			await act(async () => {});
+			expect(failed).not.toHaveBeenCalled();
+			expect(copiesSent()).toBe(0);
+			expect(sent('drop_component')).toEqual([]);
+			expect(files.get('app/lib/x.js')).toBe('saved x');
+		},
+	);
+
+	it.each([
+		['a folder', 'app/lib', 'src', 'app/src/x.js'],
+		['a file', 'app/lib/x.js', 'y.js', 'app/lib/y.js'],
+	])(
+		'sends nothing for a rename of %s that waited for that tab through a sign-out of the instance',
+		async (_, path, name, to) => {
+			seed({ 'app/lib/x.js': 'saved x' });
+			renderEditor();
+			await open(path);
+			const theirs = await theirSave('app/lib/x.js');
+			await submitRename(name);
+			await waitFor(async () => expect(await waiting()).toBe(1));
+			const listings = sent('get_components').length;
+
+			vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(-1);
+			await theirs.land();
+
+			await waitFor(async () => expect(await lockCount()).toBe(0));
+			expect(isRenaming(queryClient, 'ins-1')).toBe(false);
+			expect(sent('get_components')).toHaveLength(listings);
+			expect(copiesSent()).toBe(0);
+			expect(sent('drop_component')).toEqual([]);
+			expect(files.has(to)).toBe(false);
+		},
+	);
 });
 
 describe('a renamed file', () => {

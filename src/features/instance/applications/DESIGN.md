@@ -89,15 +89,16 @@ folder's files from the instance, since this tab's tree can lack one another tab
 then its paths in sorted order, all before sending anything, so two tabs can never each hold what the other waits for.
 Lock names carry the instance id and the path and nothing more, since any script on the page can list them.
 
-A save waits inside its mutation, so it reads as saving meanwhile, and one whose session ended while it waited is not
-sent. A file rename or move waits under its progress toast, and a folder rename in its pending dialog. While a rename
-waits for another tab, or a folder rename lists its files, the toast's Cancel or closing the dialog gives it up before
-it writes anything, and this tab's saves go ahead again. Once it is moving files, only the toast's Cancel stops it,
-between files, as before. A save that waited out another tab's rename of its file still writes the path it was sent for, so the file comes
-back there with what was saved, beside the renamed copy, rather than being lost. Without Web Locks (an insecure context,
-an older browser) only the tab's own interlock holds. Another browser can still interleave, as can a write that isn't an
-editor save: New File, an upload, the assistant's `setComponentFile` tool. Closing that needs renames the server makes
-atomic.
+A save waits inside its mutation, so it reads as saving meanwhile. A file rename or move waits under its progress toast,
+and a folder rename in its pending dialog. While a rename waits for another tab, or a folder rename lists its files, the
+toast's Cancel or closing the dialog gives it up before it writes anything, and this tab's saves go ahead again. Once it
+is moving files, only the toast's Cancel stops it, between files, as before. A save or rename whose instance was signed
+out of while it waited sends nothing, since the next session's credentials would carry it. A save that waited out
+another tab's rename of its file still writes the path it was sent for, so the file comes back there with what was
+saved, beside the renamed copy, rather than being lost. Without Web Locks (an insecure context, an older browser), or
+when they refuse a request (logged with `console.debug`, which RUM doesn't collect), only the tab's own interlock holds.
+Another browser can still interleave, as can a write that isn't an editor save: New File, an upload, the assistant's
+`setComponentFile` tool. Closing that needs renames the server makes atomic.
 
 ## When a deploy is done
 

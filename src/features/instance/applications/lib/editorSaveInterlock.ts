@@ -15,13 +15,11 @@ export function isRenaming(queryClient: QueryClient, entityId: string): boolean 
 	return renamesInFlight.get(queryClient)?.has(entityId) ?? false;
 }
 
-export type RenameScope = { readonly paths: readonly string[] } | 'instance';
+type RenameScope = { readonly paths: readonly string[] } | 'instance';
 
 /**
- * Refuses with `undefined` while this tab has an editor save in flight on the instance. Otherwise this
- * tab's saves there are refused from now on, and it resolves with the function that ends the rename once
- * no other tab is saving what it covers. If `signal` aborts first, it resolves with `undefined`, holding
- * nothing.
+ * `undefined` at once while this tab is saving on the instance, or once `signal` aborts its wait for
+ * other tabs; otherwise the function that ends the rename.
  */
 export function startRename(
 	queryClient: QueryClient,
@@ -63,7 +61,6 @@ export function holdForSave<T>(entityId: string, path: string, save: () => Promi
 	], save);
 }
 
-// The instance first, then paths sorted, all before sending anything: see "Saving a file" in DESIGN.md.
 interface LockSpec {
 	name: string;
 	mode: LockMode;
@@ -77,6 +74,7 @@ function fileLockName(entityId: string, path: string) {
 	return `Studio:EditorFile:${encodeURIComponent(entityId)}:${path}`;
 }
 
+// The instance first, then paths sorted, as every caller takes them: see "Saving a file" in DESIGN.md.
 function renameLocks(entityId: string, scope: RenameScope): LockSpec[] {
 	if (scope === 'instance') {
 		return [{ name: instanceLockName(entityId), mode: 'exclusive' }];
@@ -94,11 +92,7 @@ function lockManager(): LockManager | undefined {
 	return typeof navigator === 'undefined' ? undefined : navigator.locks;
 }
 
-/**
- * Runs `work` holding `locks`, taken in the order given. Without Web Locks, or when they refuse the
- * request, it runs without them. An abort of `signal` ends a wait the same way, so a caller passing one
- * checks it once `work` starts.
- */
+/** Runs without the locks when Web Locks are missing or refuse, and when `signal` aborts: callers check it. */
 async function whileHeldAcrossTabs<T>(
 	locks: readonly LockSpec[],
 	work: () => Promise<T>,
@@ -125,6 +119,10 @@ async function whileHeldAcrossTabs<T>(
 	} catch (error) {
 		if (started) {
 			throw error;
+		}
+		if (!signal?.aborted) {
+			// Not console.error: RUM reports that, and this tab's own interlock still holds.
+			console.debug('Web Locks refused; this save or rename is not held across tabs:', error);
 		}
 		return run();
 	}
