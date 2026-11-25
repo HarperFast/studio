@@ -29,7 +29,7 @@ export function getInstanceClient(
 		forceOperationToken?: boolean;
 		/**
 		 * Opt this client out of the direct-connect token lifecycle entirely — no request-time Bearer,
-		 * no 401 recovery. Set by the refresh call itself: it carries the refresh token as its own
+		 * no token recovery. Set by the refresh call itself: it carries the refresh token as its own
 		 * Bearer, and a recovery interceptor on it would re-enter the mint that is awaiting it.
 		 */
 		disableTokenRecovery?: boolean;
@@ -118,8 +118,9 @@ export function getInstanceClient(
 		rejectReplicationFailures,
 		curryRetryGatewayErrors(client),
 	);
-	// Direct-connect clients recover from a 401 (expired operation token) by minting a fresh token and
-	// replaying once. Registered after the gateway-retry handler, which passes a 401 straight through.
+	// Direct-connect clients recover from an expired operation token, or one whose user was dropped, by
+	// minting a fresh token and replaying once. Registered after the gateway-retry handler, which passes
+	// a 401 or 403 straight through.
 	if (operationToken && !disableTokenRecovery) {
 		client.interceptors.response.use(undefined, curryRecoverExpiredOperationToken(client, id));
 	}

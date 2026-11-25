@@ -28,8 +28,57 @@ function reject401(config: InternalAxiosRequestConfig): never {
 	throw new AxiosError('Unauthorized', AxiosError.ERR_BAD_REQUEST, config, undefined, response);
 }
 
+function reject403(config: InternalAxiosRequestConfig, data: unknown): never {
+	const response = { status: 403, statusText: 'Forbidden', data, headers: {}, config };
+	throw new AxiosError('Forbidden', AxiosError.ERR_BAD_REQUEST, config, undefined, response);
+}
+
 function ok(config: InternalAxiosRequestConfig, data: unknown = { ok: true }) {
 	return { status: 200, statusText: 'OK', data, headers: {}, config };
+}
+
+/** An operation token as Harper signs one: Studio reads only its payload. */
+function operationToken(username: string): string {
+	const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+	return [encode({ alg: 'RS256', typ: 'JWT' }), encode({ username, super_user: true, sub: 'operation' }), 'sig'].join(
+		'.',
+	);
+}
+
+const DROPPED = operationToken('HDB_ADMIN');
+const ADMIN = operationToken('admin');
+const OP_AUTH_PERMS_ERROR = 'This operation is not authorized due to role restrictions and/or invalid database items';
+
+/** Harper's 403 for a principal with no role (`verifyPerms`, `USER_HAS_NO_PERMS`), as the operations API sends it. */
+function noRoleBody(username: string) {
+	return {
+		error: OP_AUTH_PERMS_ERROR,
+		unauthorized_access: [`User ${username} has no role or permissions.  Please assign the user a valid role.`],
+		invalid_schema_items: [],
+	};
+}
+
+/**
+ * An instance where the users behind `roleless` tokens were dropped: Harper still verifies those tokens but finds no
+ * role, and refuses their refresh tokens, since the record that held the hash is gone.
+ */
+function droppedUserInstance({ roleless }: { roleless: string[] }) {
+	return async (config: InternalAxiosRequestConfig) => {
+		const operation = record(config);
+		// A recovery loop runs on microtasks alone, which starves the test timeout; fail it here instead.
+		if (seen.length > 20) {
+			throw new Error('Recovery is looping');
+		}
+		if (operation === 'refresh_operation_token') {
+			return reject401(config);
+		}
+		const token = bearer(config).replace('Bearer ', '');
+		if (roleless.includes(token)) {
+			const { username } = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+			return reject403(config, noRoleBody(username));
+		}
+		return ok(config);
+	};
 }
 
 let seen: string[] = [];
@@ -274,5 +323,92 @@ describe('a direct-connect client whose operation token expires mid-session', ()
 
 		expect(seen).toEqual(['call:op-1']);
 		expect(authStore.getOperationToken(ID)).toBe('op-other');
+	});
+});
+
+describe('a direct-connect client whose user is dropped mid-session', () => {
+	const originalAdapter = axios.defaults.adapter;
+
+	beforeEach(() => {
+		seen = [];
+		vi.clearAllMocks();
+		authStore.flagForFabricConnect(ID, false);
+	});
+
+	afterEach(() => {
+		axios.defaults.adapter = originalAdapter;
+	});
+
+	it('re-mints once for a token whose user was dropped, and replays the request as the user it now resolves to', async () => {
+		await connectDirectly(DROPPED);
+		createInstanceAuthenticationTokens.mockReset();
+		createInstanceAuthenticationTokens.mockResolvedValue({ operationToken: ADMIN, refreshToken: 'rt-2' });
+		serve(droppedUserInstance({ roleless: [DROPPED] }));
+
+		await expect(client().post('/', {})).resolves.toMatchObject({ status: 200 });
+
+		expect(seen).toEqual([`call:${DROPPED}`, 'refresh_operation_token:rt-1', `call:${ADMIN}`]);
+		expect(createInstanceAuthenticationTokens).toHaveBeenCalledTimes(1);
+		expect(authStore.getOperationToken(ID)).toBe(ADMIN);
+	});
+
+	it('surfaces a second no-role 403 after the re-mint instead of minting again', async () => {
+		await connectDirectly(DROPPED);
+		createInstanceAuthenticationTokens.mockReset();
+		createInstanceAuthenticationTokens.mockResolvedValue({ operationToken: ADMIN, refreshToken: 'rt-2' });
+		serve(droppedUserInstance({ roleless: [DROPPED, ADMIN] }));
+
+		await expect(client().post('/', {})).rejects.toMatchObject({ response: { status: 403 } });
+
+		expect(seen).toEqual([`call:${DROPPED}`, 'refresh_operation_token:rt-1', `call:${ADMIN}`]);
+		expect(createInstanceAuthenticationTokens).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not re-mint for an ordinary 403 refusing a user that has a role', async () => {
+		await connectDirectly(DROPPED);
+		createInstanceAuthenticationTokens.mockReset();
+		serve(async (config) => {
+			record(config);
+			return reject403(config, {
+				error: OP_AUTH_PERMS_ERROR,
+				unauthorized_access: ["Operation 'drop_user' is restricted to 'super_user' roles"],
+				invalid_schema_items: [],
+			});
+		});
+
+		await expect(client().post('/', {})).rejects.toMatchObject({ response: { status: 403 } });
+
+		expect(seen).toEqual([`call:${DROPPED}`]);
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+	});
+
+	it('does not re-mint for a no-role 403 naming a user other than the token’s', async () => {
+		await connectDirectly(DROPPED);
+		createInstanceAuthenticationTokens.mockReset();
+		serve(async (config) => {
+			record(config);
+			return reject403(config, noRoleBody('someone-else'));
+		});
+
+		await expect(client().post('/', {})).rejects.toMatchObject({ response: { status: 403 } });
+
+		expect(seen).toEqual([`call:${DROPPED}`]);
+		expect(createInstanceAuthenticationTokens).not.toHaveBeenCalled();
+	});
+
+	it('shares one re-mint between requests refused together for a dropped user', async () => {
+		await connectDirectly(DROPPED);
+		createInstanceAuthenticationTokens.mockReset();
+		createInstanceAuthenticationTokens.mockResolvedValue({ operationToken: ADMIN, refreshToken: 'rt-2' });
+		serve(droppedUserInstance({ roleless: [DROPPED] }));
+		const browse = client();
+
+		await expect(Promise.all([browse.post('/', {}), client().post('/', {})])).resolves.toMatchObject([
+			{ status: 200 },
+			{ status: 200 },
+		]);
+
+		expect(seen.filter((entry) => entry.startsWith('refresh_operation_token'))).toHaveLength(1);
+		expect(createInstanceAuthenticationTokens).toHaveBeenCalledTimes(1);
 	});
 });
