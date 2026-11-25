@@ -543,8 +543,9 @@ class AuthStore {
 
 	/**
 	 * Recovers a fresh operation token for a direct-connect id whose token was rejected (typically 401
-	 * from mid-session expiry — Harper operation tokens default to ~1 day). Prefers exchanging the
-	 * refresh token directly at the instance; falls back to re-minting a fresh pair through the proxy.
+	 * from mid-session expiry — Harper operation tokens default to ~1 day — or 403 for a dropped user,
+	 * whose refresh token Harper refuses too). Prefers exchanging the refresh token directly at the
+	 * instance; falls back to re-minting a fresh pair through the proxy.
 	 * Returns the new token, or null if recovery failed or the id isn't in direct mode. Concurrent
 	 * callers for the same id share one recovery.
 	 */

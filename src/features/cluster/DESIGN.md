@@ -74,10 +74,17 @@ Fabric Connect is whoever Harper resolves the central-manager proxy's request to
 forwards no credential, and Harper answers a credential-less request on its operations socket as that user. Until Finish
 Setup runs, that is the provisioning `HDB_ADMIN`, which setup then drops. A token minted for it still verifies after
 that, but resolves to a user with no role, so every operation through it answers 403 "not authorized due to role
-restrictions". Studio recovers a token only on a 401, so the pages stay denied until a reload mints again.
+restrictions", with `User <name> has no role or permissions` naming that user.
 
-So the in-cluster pages' guard, `checkClusterInstanceAuthenticationBeforeLoad`, sends a cluster whose `resetPassword` is
-still set to its overview, which routes on to Starting-up or Finish-setup, before it restores or mints any connection.
+A direct connection's token recovery ([`retryExpiredOperationToken.ts`](../../integrations/api/retryExpiredOperationToken.ts))
+treats that refusal like an expired token, but only when it names the user the token was minted for. Harper refuses
+that user's refresh token too, since the record holding its hash is gone, so recovery re-mints through the proxy for
+whichever super user Harper resolves to now, and replays the request once. That covers a user dropped from the Users
+page or another client ([HarperFast/studio#1981](https://github.com/HarperFast/studio/issues/1981)).
+
+Before setup, though, Fabric Connect can only connect as the account setup deletes. So the in-cluster pages' guard,
+`checkClusterInstanceAuthenticationBeforeLoad`, sends a cluster whose `resetPassword` is still set to its overview, which
+routes on to Starting-up or Finish-setup, before it restores or mints any connection.
 The setup flow ([`useInstanceResetPasswordMutation`](../../integrations/api/instance/auth/useInstanceResetPasswordMutation.ts))
 also forgets the cluster's and its instances' connections (`clusterSignInIds`) first and runs on a fresh direct
 client. Otherwise every step would run as the Bearer's account, whatever credentials it presented, because Harper reads
