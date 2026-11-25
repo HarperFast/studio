@@ -3,11 +3,13 @@ import type { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import type { Organization, OrganizationRegion } from '@/integrations/api/api.patch';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClusterForm } from './ClusterForm';
 import type { RegionCohort } from './lib/describeRegionSwap';
-import type { UpsertClusterSchemaType } from './upsertClusterSchema';
+import { buildRegionLookup } from './lib/regionLookup';
+import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
+import type { RegionPlanEntry, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 vi.mock('@tanstack/react-router', () => {
 	const router = { invalidate: vi.fn() };
@@ -51,11 +53,18 @@ afterEach(cleanup);
 
 function renderForm(
 	defaultValues: Partial<UpsertClusterSchemaType>,
-	{ clusterId, currentRegions = [], organizationRegions = [], canUseCustomRegions = false }: {
+	{
+		clusterId,
+		currentRegions = [],
+		organizationRegions = [],
+		canUseCustomRegions = false,
+		lockedOrganizationRegionIds = [],
+	}: {
 		clusterId?: string;
 		currentRegions?: RegionCohort[];
 		organizationRegions?: OrganizationRegion[];
 		canUseCustomRegions?: boolean;
+		lockedOrganizationRegionIds?: string[];
 	} = {},
 ) {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -84,7 +93,7 @@ function renderForm(
 				organizationRegions={organizationRegions}
 				canUseCustomRegions={canUseCustomRegions}
 				canDefineCustomRegions={false}
-				lockedOrganizationRegionIds={[]}
+				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={null}
 				planTypes={plans}
 				regionLocationsColocated={[...regions]}
@@ -280,5 +289,96 @@ describe('ClusterForm editing regions', () => {
 
 		expect(selectedRegionPlans()).toEqual(['Europe / 60ms, small distribution']);
 		expect(swapGuidance()).toBeNull();
+	});
+});
+
+describe('ClusterForm — a custom region deactivated after it was chosen (#2057)', () => {
+	const inactiveMessage = 'This custom region is inactive. Choose another region.';
+	const edge: OrganizationRegion = {
+		id: 'oreg-edge',
+		organizationId: 'org-a',
+		name: 'Edge',
+		placement: { gcp: ['us-east1', 'us-west1'] },
+		active: false,
+	};
+	const lookupWith = (region: OrganizationRegion) => buildRegionLookup(regions, [region], undefined);
+	// A restored value never passes through the picker, so build it the way the page does.
+	const restoredDraft = (region: OrganizationRegion, entries: RegionPlanEntry[]) =>
+		migrateDraftRegionPlans(entries, lookupWith(region))!;
+
+	it('refuses one restored from a new-cluster draft', async () => {
+		const regionPlans = restoredDraft(edge, [{ regionId: 'oreg-edge', quantity: 1 }]);
+		expect(regionPlans).toEqual([{ regionId: 'oreg-edge', quantity: 1 }]);
+
+		renderForm({ regionPlans }, { organizationRegions: [edge], canUseCustomRegions: true });
+
+		expect(await screen.findByText(inactiveMessage)).toBeTruthy();
+		expect(submitButton().disabled).toBe(true);
+	});
+
+	it('refuses one carried by a failed cluster being tried again', async () => {
+		const { regionPlans } = buildRegionPlanDefaults(
+			[{ planId: 'medium', regionId: 'oreg-edge', quantity: 1 }],
+			lookupWith(edge),
+		);
+		expect(regionPlans).toEqual([{ regionId: 'oreg-edge', quantity: 1 }]);
+
+		renderForm({ sourceClusterId: 'clu-failed', regionPlans }, {
+			organizationRegions: [edge],
+			canUseCustomRegions: true,
+		});
+
+		expect(await screen.findByText(inactiveMessage)).toBeTruthy();
+		expect(submitButton().disabled).toBe(true);
+	});
+
+	it('refuses one an edit draft adds beside the regions the cluster already deploys', async () => {
+		const regionPlans = restoredDraft(edge, [{ regionId: 'us-small' }, { regionId: 'oreg-edge', quantity: 1 }]);
+		renderForm({ regionPlans }, {
+			clusterId: 'clu-a',
+			currentRegions: [{ key: 'US', name: 'US' }],
+			organizationRegions: [edge],
+			canUseCustomRegions: true,
+		});
+		expect(await screen.findByText(inactiveMessage)).toBeTruthy();
+
+		// An unchanged edit is disabled anyway; a change shows the region is what holds it.
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Add Additional Region Usage' }));
+		});
+
+		expect(screen.getAllByText(/^Region \d+$/, { selector: 'label' })).toHaveLength(3);
+		expect(submitButton().disabled).toBe(true);
+	});
+
+	it.each([['a member', false], ['staff', true]])(
+		'lets %s save an edit that keeps one the cluster already deploys',
+		async (_who, canUseCustomRegions) => {
+			renderForm({ regionPlans: [{ regionId: 'oreg-edge', quantity: 1 }] }, {
+				clusterId: 'clu-a',
+				currentRegions: [{ key: 'oreg-edge', name: 'Edge' }],
+				organizationRegions: [edge],
+				lockedOrganizationRegionIds: ['oreg-edge'],
+				canUseCustomRegions,
+			});
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole('button', { name: 'Add Additional Region Usage' }));
+			});
+
+			await waitFor(() => expect(submitButton().disabled).toBe(false));
+			expect(screen.queryByText(inactiveMessage)).toBeNull();
+		},
+	);
+
+	it('leaves an active custom region restored the same way alone', async () => {
+		const active = { ...edge, active: true };
+		renderForm({ regionPlans: restoredDraft(active, [{ regionId: 'oreg-edge', quantity: 1 }]) }, {
+			organizationRegions: [active],
+			canUseCustomRegions: true,
+		});
+
+		await waitFor(() => expect(submitButton().disabled).toBe(false));
+		expect(screen.queryByText(inactiveMessage)).toBeNull();
 	});
 });
