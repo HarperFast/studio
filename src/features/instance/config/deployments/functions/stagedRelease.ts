@@ -9,10 +9,16 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  * - `activating`: an activation of it has not finished. Another one now would start a second rolling restart, unless
  *   the first stopped without recording an end, which nothing here can tell apart.
  * - `live`: its newest activation is the component's newest successful deploy, every node it reached took it, and
- *   no deploy after it failed. A deploy still running does not count. Activating it again swaps nothing and only
+ *   no deploy after it failed or is rolling out. A deploy still running does not count until it reads `rolling_out`,
+ *   which Harper, like `success` and `partial`, counts as live on the node that received it (harper
+ *   `v5.4.1:components/deploymentOperations.ts:119-120`). Activating it again swaps nothing and only
  *   restarts every worker (harper `components/Application.ts:4812-4821`, `operations.js:956`). Before Harper 5.4 the
  *   record cannot say whether the rolling restart that followed finished; from 5.4 a certified activation reads
  *   `rolling_out` until it has (`src/features/instance/applications/DESIGN.md`).
+ * - `being-replaced`: nothing after its activation succeeded or failed, but a later deploy that is not an activation
+ *   of it reads `rolling_out` (5.4+). That deploy is live on the node that received it, and its activation job is
+ *   taking it to the others one at a time (harper `v5.4.1:components/operations.ts:1111-1130`, `:1257`), so this
+ *   release may still be live on some of them. The job ends it `success` (`replaced`) or `partial` (`uncertain`).
  * - `replaced`: a later deploy succeeded. Each node keeps the release it displaced, so activating this one again is a
  *   rollback, for as long as retention keeps it.
  * - `uncertain`: a deploy that touched it failed somewhere: its activation (`activation` absent, or `failed` is the
@@ -26,6 +32,7 @@ export type StagedReleaseState =
 	| { kind: 'waiting' }
 	| { kind: 'activating'; activation: Deployment }
 	| { kind: 'live'; activation: Deployment }
+	| { kind: 'being-replaced'; activation: Deployment; replacedBy: Deployment }
 	| { kind: 'replaced'; activation: Deployment; replacedBy: Deployment }
 	| { kind: 'uncertain'; activation?: Deployment; failed: Deployment }
 	| { kind: 'unknown' };
@@ -57,9 +64,8 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 		const failed = failedAfter(newestSuccess, (record) => record.activated_from === staged.deployment_id);
 		return failed ? { kind: 'uncertain', failed } : { kind: 'waiting' };
 	}
-	const replacedBy = newestFirst.slice(0, newestFirst.indexOf(activation)).find((record) =>
-		record.status === 'success'
-	);
+	const later = newestFirst.slice(0, newestFirst.indexOf(activation));
+	const replacedBy = later.find((record) => record.status === 'success');
 	if (replacedBy) {
 		return { kind: 'replaced', activation, replacedBy };
 	}
@@ -67,7 +73,13 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 		?? (activation.status === 'partial' || activation.peer_results?.some((peer) => peer.status === 'failed')
 			? activation
 			: undefined);
-	return failed ? { kind: 'uncertain', activation, failed } : { kind: 'live', activation };
+	if (failed) {
+		return { kind: 'uncertain', activation, failed };
+	}
+	const rollingOut = later.find((record) =>
+		record.status === 'rolling_out' && record.activated_from !== staged.deployment_id
+	);
+	return rollingOut ? { kind: 'being-replaced', activation, replacedBy: rollingOut } : { kind: 'live', activation };
 }
 
 /**

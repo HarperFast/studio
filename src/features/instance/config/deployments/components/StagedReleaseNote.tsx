@@ -36,6 +36,12 @@ export function StagedReleaseNote({ release }: { release: StagedReleaseState | u
 					live, activated by <DeploymentLink deployment={release.activation} />
 				</>
 			)}
+			{release.kind === 'being-replaced' && (
+				<>
+					activated by <DeploymentLink deployment={release.activation} />, being replaced by{' '}
+					<DeploymentLink deployment={release.replacedBy} />
+				</>
+			)}
 			{release.kind === 'replaced' && (
 				<>
 					activated by <DeploymentLink deployment={release.activation} />, replaced by{' '}

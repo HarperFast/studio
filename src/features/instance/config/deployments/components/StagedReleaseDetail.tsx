@@ -45,12 +45,13 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
 	const { intent, offer, disabled } = releaseOffer(check, {
-		intent: release?.kind === 'replaced'
+		intent: release?.kind === 'replaced' || release?.kind === 'being-replaced'
 			? 'rollback'
 			: release?.kind === 'uncertain' || release?.kind === 'activating'
 			? 'again'
 			: 'activate',
-		offer: release !== undefined && release.kind !== 'live',
+		// Not while another deploy rolls out: activating this one would start a second rolling restart.
+		offer: release !== undefined && release.kind !== 'live' && release.kind !== 'being-replaced',
 	}, true);
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
@@ -91,6 +92,14 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 						<>
 							Live: activated by <DeploymentLink deployment={release.activation} />, and no other deploy of{' '}
 							{deployment.project} has finished since{advise ? ', so there is nothing to activate.' : '.'}
+						</>
+					)}
+					{release?.kind === 'being-replaced' && (
+						<>
+							Activated by <DeploymentLink deployment={release.activation} />, but a later deploy,{' '}
+							<DeploymentLink deployment={release.replacedBy} />, is taking over: it is live on the node that received
+							it and is reaching the other nodes one at a time, so this release may still be live on some of them. While
+							it runs, activating this release starts a second rolling restart.
 						</>
 					)}
 					{release?.kind === 'replaced' && (

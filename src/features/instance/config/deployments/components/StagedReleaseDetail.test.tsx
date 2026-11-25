@@ -192,6 +192,20 @@ describe('StagedReleaseDetail', () => {
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
 
+	it('says a later deploy rolling out is taking over rather than that it is live, and offers no activation', async () => {
+		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
+		const note = await screen.findByText(/is taking over/);
+		expect(note.textContent).toBe(
+			'Activated by 5c12b89e, but a later deploy, 9f00aa11, is taking over: it is live on the node that received it'
+				+ ' and is reaching the other nodes one at a time, so this release may still be live on some of them.'
+				+ ' While it runs, activating this release starts a second rolling restart.',
+		);
+		expect(screen.getByRole('link', { name: '9f00aa11' }).getAttribute('href'))
+			.toBe(`/org-a/clu-a/config/deployments/${later.deployment_id}`);
+		expect(screen.queryByText(/Live: activated by/)).toBeNull();
+		expect(activationButton()).toBeNull();
+	});
+
 	it('says when someone else is activating it, and what another activation would do', async () => {
 		renderDetail([{ ...activation, status: 'restarting' }, staged]);
 		const note = await screen.findByText(/Being activated by/);
@@ -298,6 +312,27 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		const button = activationButton() as HTMLButtonElement;
 		expect(button.textContent).toContain('Activate again');
 		expect(button.disabled).toBe(false);
+	});
+
+	it('says both that a later deploy is taking over and where the nodes still run this release', async () => {
+		state.releases = {
+			nodes: [
+				holding('a', later.deployment_id, [[STAGED_ID, 'kept']]),
+				holding('b', STAGED_ID, []),
+			],
+		};
+		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
+		expect(await screen.findByText(/^Live on b\. The other nodes hold it/)).toBeTruthy();
+		expect(screen.getByText(/is taking over: it is live on the node that received it/)).toBeTruthy();
+		expect(activationButton()?.textContent).toContain('Activate again');
+	});
+
+	it('offers a rollback once the nodes say the later deploy reached every one, before its record ends', async () => {
+		const runsLater = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'kept']]);
+		state.releases = { nodes: [runsLater('a'), runsLater('b')] };
+		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		expect(activationButton()?.textContent).toContain('Roll back to this release');
 	});
 
 	it("drops the records' claim that it is live where the nodes report it live on none", async () => {
