@@ -46,6 +46,10 @@ describe('getChatUsageQueryOptions', () => {
 		expect(console.error).not.toHaveBeenCalled();
 	});
 
+	it('builds its retry predicate once, not per render', () => {
+		expect(getChatUsageQueryOptions('org-1').retry).toBe(getChatUsageQueryOptions('org-2').retry);
+	});
+
 	it('still retries and reports a server failure', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		mocks.get.mockRejectedValue(httpError(500));
