@@ -10,6 +10,7 @@ import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { hasStaffPermission } from '@/hooks/useAuth';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -64,6 +65,12 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	if (context.cluster?.resetPassword) {
 		throw redirect({ to: `/${params.organizationId}/${params.clusterId}` });
 	}
+	// An instance listed without an address isn't opened, whatever sign-in is remembered for it: it goes to the
+	// Instances list, where its row offers no way in. Not to sign-in, whose guard sends a live direct session back here.
+	if (listsWithoutAddress(context.cluster, params.instanceId)) {
+		const { organizationId, clusterId } = params;
+		throw redirect({ to: buildAbsoluteLinkToPage({ organizationId, clusterId }, 'instances') });
+	}
 
 	const entityId = params.instanceId || params.clusterId;
 
@@ -79,15 +86,9 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 		}
 	}
 
-	// A sign-in made while central manager still listed an address doesn't reopen the instance once it lists none:
-	// like the Fabric Connect attempts, which refuse it, it goes on to the sign-in redirect.
-	const resumable = !listsWithoutAddress(context.cluster, params.instanceId);
-
 	// Nothing else checks a remembered sign-in before this route's loader runs. The answer reaches the
 	// root context, whose change re-runs this guard.
-	if (resumable) {
-		authStore.startSignInCheck(entityId);
-	}
+	authStore.startSignInCheck(entityId);
 
 	// Are we already authenticated (direct sign-in, basic auth, or a resolved Fabric Connect)?
 	// Read LIVE auth state, not the context.authentication snapshot: a direct sign-in sets the
@@ -96,7 +97,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// auto-Fabric-Connect over the direct session (the user lands back on the cluster list as
 	// "Fabric Connect" instead of "Direct Connect").
 	const auth = authStore.getConnectionById(entityId);
-	if (resumable && (auth.isLoading || auth.user)) {
+	if (auth.isLoading || auth.user) {
 		return;
 	}
 
@@ -104,9 +105,8 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// app-level connection in the context at all, don't redirect from here — another guard owns that
 	// decision, and stacking redirects within one navigation can corrupt router state. Returning also
 	// avoids dereferencing `overallAuth.user` below (which threw "Cannot read properties of undefined").
-	// Waiting would let this route load an instance it won't resume.
 	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined;
-	if (!overallAuth || (overallAuth.isLoading && resumable)) {
+	if (!overallAuth || overallAuth.isLoading) {
 		return;
 	}
 

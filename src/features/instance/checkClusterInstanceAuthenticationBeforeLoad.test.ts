@@ -142,7 +142,7 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 	it.each([
 		['a first visit', false],
 		['a reload of a flagged connection', true],
-	])('sends an instance with no address to sign-in without connecting, on %s', async (_, flagged) => {
+	])('sends an instance with no address to the Instances list without connecting, on %s', async (_, flagged) => {
 		permissions = { update: true };
 		(authStore.checkForFabricConnect as ReturnType<typeof vi.fn>).mockReturnValue(flagged);
 		const cluster = {
@@ -156,7 +156,7 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 				context: { authentication: overallAuthReady, cluster },
 				params: { ...PARAMS, instanceId: 'ins-1' },
 			}),
-		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}/instance/ins-1/sign-in` } });
+		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}/instances` } });
 		expect(establishSpy).not.toHaveBeenCalled();
 	});
 
@@ -172,21 +172,24 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 				params: { ...PARAMS, instanceId: 'ins-1' },
 			});
 
+		// Not to sign-in, whose guard (`redirectAwayFromInstanceSignInIfConnected`) sends a live direct user back.
 		it.each([
 			['signed in', { isLoading: false, user: { username: 'admin' } }],
 			['still being checked', { isLoading: true, user: null }],
 			['signed in, before the app sign-in is checked', { isLoading: false, user: { username: 'admin' } }, {
 				OverallAppSignIn: { isLoading: true, user: null },
 			}],
-		])('sends the instance to sign-in, %s', async (_, connection, authentication = overallAuthReady) => {
+			['signed in, as read-only staff', { isLoading: false, user: { username: 'admin' } }, readOnlyStaffAuth],
+		])('sends the instance to the Instances list, %s', async (_, connection, authentication = overallAuthReady) => {
 			connectionSpy.mockReturnValue(connection as never);
 			const checkSpy = vi.spyOn(authStore, 'startSignInCheck').mockImplementation(() => {});
 
 			await expect(run(addressless, authentication)).rejects.toMatchObject({
-				options: { to: `/org-1/${CLUSTER_ID}/instance/ins-1/sign-in` },
+				options: { to: `/org-1/${CLUSTER_ID}/instances` },
 			});
 			expect(checkSpy).not.toHaveBeenCalled();
 			expect(establishSpy).not.toHaveBeenCalled();
+			expect(toastError).not.toHaveBeenCalled();
 		});
 
 		it('still resumes it while it has an address', async () => {
