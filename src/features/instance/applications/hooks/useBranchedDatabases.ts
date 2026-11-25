@@ -80,7 +80,7 @@ export function useBranchedDatabasesReadable(): boolean {
  */
 export function useBranchedDatabasesPossible(): boolean {
 	const params = useInstanceClientIdParams();
-	const { data, isSuccess } = useQuery({ ...getRegistrationInfoQueryOptions(params), retry: retryUnlessRejected() });
+	const { data, isSuccess } = useQuery(getRegistrationInfoQueryOptions(params));
 	return !isSuccess || !data?.version || supportsBranchedDatabases(data.version);
 }
 
@@ -90,12 +90,7 @@ export function useBranchedDatabasesPossible(): boolean {
  */
 export function useDiscardsDroppedBranches(enabled: boolean): boolean | undefined {
 	const params = useInstanceClientIdParams();
-	const { data, isSuccess } = useQuery({
-		...getRegistrationInfoQueryOptions(params),
-		enabled,
-		retry: retryUnlessRejected(),
-		meta: { refusalIsAnAnswer: true },
-	});
+	const { data, isSuccess } = useQuery({ ...getRegistrationInfoQueryOptions(params), enabled });
 	return isSuccess ? discardsDroppedBranches(data?.version) : undefined;
 }
 
