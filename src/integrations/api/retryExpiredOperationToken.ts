@@ -66,7 +66,8 @@ export function isExpiredTokenResponse(response: { status?: number; data?: unkno
 }
 
 // Harper's `OP_AUTH_PERMS_ERROR` and `USER_HAS_NO_PERMS`, word for word (two spaces included), in
-// `utility/errors/commonErrors.ts` from 4.2 through 5.4.
+// `utility/errors/commonErrors.ts` (v5.4.2 lines 132 and 152), unchanged from 4.2 through 5.4. If Harper
+// rewords them, this recovery stops matching and the pages stay denied until a reload again.
 const OP_AUTH_PERMS_ERROR = 'This operation is not authorized due to role restrictions and/or invalid database items';
 
 function userHasNoPerms(username: string): string {
@@ -98,7 +99,10 @@ export function isDroppedTokenUserResponse(
 		&& refusals[0] === userHasNoPerms(username);
 }
 
-/** The Bearer the request was sent with: the request interceptor sets it at send time. */
+/**
+ * From the request, not the store: the refusal is about the token this request presented, and another
+ * request's recovery may already have replaced the store's.
+ */
 function presentedToken(config: { headers?: unknown }): string | undefined {
 	const headers = config.headers as { get?: (name: string) => unknown; Authorization?: unknown } | undefined;
 	const value = typeof headers?.get === 'function' ? headers.get('Authorization') : headers?.Authorization;

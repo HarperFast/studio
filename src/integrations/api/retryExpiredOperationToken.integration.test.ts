@@ -347,7 +347,6 @@ describe('a direct-connect client whose user is dropped mid-session', () => {
 
 		await expect(client().post('/', {})).resolves.toMatchObject({ status: 200 });
 
-		// Harper refuses the dropped user's refresh token too, so the proxy re-mint is what recovers it.
 		expect(seen).toEqual([`call:${DROPPED}`, 'refresh_operation_token:rt-1', `call:${ADMIN}`]);
 		expect(createInstanceAuthenticationTokens).toHaveBeenCalledTimes(1);
 		expect(authStore.getOperationToken(ID)).toBe(ADMIN);
