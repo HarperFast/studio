@@ -83,7 +83,6 @@ describe('ResetPassword', () => {
 		expect(navigate.mock.calls[0][0]).toStrictEqual({ to: '/sign-in', search: undefined, state });
 	});
 
-	// A router without the app's `parseSearch` would JSON-parse a token into these.
 	it.each([12345, 0, true, null])('treats a search value that is not a string (%s) as no token', async (value) => {
 		search.token = value;
 		render(<ResetPassword />);

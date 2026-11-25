@@ -530,7 +530,6 @@ function toastVerified() {
 export function VerifyEmail() {
 	const { token: searchToken, flow: flowParam } = useSearch({ strict: false });
 	const flow = emailedFlowParam(flowParam);
-	// The app's router hands `token` over as the link spells it (`@/router/searchParams`).
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 
 	const { mutate: submitVerification, data, error, status, variables, reset } = useVerifyEmailMutation();

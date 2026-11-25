@@ -5,13 +5,12 @@ import { defaultParseSearch, defaultStringifySearch } from '@tanstack/react-rout
  * central-manager's verify-email and reset-password emails (`studioLink` in its `src/emails/emailService.js`). The
  * router's default parse runs `JSON.parse` on every value, so one that happened to read as JSON would stop being the
  * link's string: `12345678901234567890` loses its last digits, `1e5` becomes `100000`, `"x"` loses its quotes, and
- * `0`, `true` or `null` stop being strings (#2026).
+ * `0`, `true` or `null` stop being strings.
  */
 const VERBATIM_PARAMS = ['token', 'flow'];
 
 export function parseSearch(searchStr: string): Record<string, unknown> {
 	const search: Record<string, unknown> = defaultParseSearch(searchStr);
-	// The router parses every location and every `href` it is handed, nearly all without these.
 	if (!VERBATIM_PARAMS.some((key) => key in search)) {
 		return search;
 	}
@@ -31,7 +30,6 @@ export function parseSearch(searchStr: string): Record<string, unknown> {
  */
 export function stringifySearch(search: Record<string, unknown>): string {
 	const searchStr = defaultStringifySearch(search);
-	// Every `<Link>` builds its `href` through here.
 	if (!VERBATIM_PARAMS.some((key) => typeof search[key] === 'string')) {
 		return searchStr;
 	}

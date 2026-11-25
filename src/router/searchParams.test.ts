@@ -4,7 +4,6 @@ import { parseSearch, stringifySearch } from './searchParams';
 
 const JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1MSJ9.c2lnbmF0dXJl';
 
-// Every one of these is valid JSON, which the router's default parse would turn into something else.
 const JSON_LOOKING = ['12345678901234567890', '1e5', '0', '-5', 'true', 'false', 'null', '"quoted"', '[1]', '{"a":1}'];
 
 describe('parseSearch', () => {

@@ -16,7 +16,6 @@ import { emailedFlowParam, keptSignInRedirectSearch } from './pendingSignInRedir
 
 export function ResetPassword() {
 	const { token: searchToken, flow: flowParam } = useSearch({ strict: false });
-	// The app's router hands `token` over as the link spells it (`@/router/searchParams`).
 	const token = typeof searchToken === 'string' && searchToken ? searchToken : undefined;
 	const flow = emailedFlowParam(flowParam);
 	const navigate = useNavigate();
