@@ -43,3 +43,9 @@
 - **Moving a page under a different layout is safe; changing its path is not.** The test pins the URL and
   the component it lands on, not the route tree in between, so a new pathless layout passes and a renamed
   segment fails.
+- **A value such a link carries stays the string the link spelled.** The router JSON-parses every
+  search value by default, so a `token` of `0` or `12345678901234567890` would reach the page as a number.
+  [`searchParams.ts`](searchParams.ts) keeps the emailed links' `token` and `flow` verbatim, in both directions;
+  [`emailedLinkSearch.test.tsx`](../features/auth/emailedLinkSearch.test.tsx) opens those links in the app's router.
+  A new parameter like them belongs in its list, not in a page that reads the URL itself: the history moves on
+  to the next page while this one is still mounted.

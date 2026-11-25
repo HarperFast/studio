@@ -1134,8 +1134,9 @@ describe('VerifyEmail with a token and no sign-up proof', () => {
 		expect(put).toHaveBeenLastCalledWith('/VerifyEmail/', { token: 'verify-token', password: 'correct horse' });
 	});
 
-	// Tokens are JWTs, which the router's JSON parse never turns into anything else.
-	it.each([12345, 0, true, null])('treats a search value the router parsed into %s as no token', (value) => {
+	// The app's router keeps `token` the link's string (`emailedLinkSearch.test.tsx`); a router without its
+	// `parseSearch` would JSON-parse it into these.
+	it.each([12345, 0, true, null])('treats a search value that is not a string (%s) as no token', (value) => {
 		search.token = value;
 		render(page());
 
