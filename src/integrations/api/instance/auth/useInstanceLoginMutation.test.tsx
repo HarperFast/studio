@@ -112,4 +112,21 @@ describe('a sign-out while signing in', () => {
 		expect(authStore.checkForBasicAuth(ENTITY)).toEqual({ username: 'owner@example.com', password: 'secret' });
 		expect(authStore.getLastConnectMode(ENTITY)).toBe('direct');
 	});
+
+	it('stores the Basic Auth credential with the URL it was entered for', async () => {
+		getInstanceUserInfo.mockRejectedValueOnce(new Error('no session')).mockResolvedValue(owner);
+
+		await onInstanceLoginSubmit({
+			username: 'owner@example.com',
+			password: 'secret',
+			instanceClient: clientSigningOutDuring(() => {}),
+			entityId: ENTITY,
+		});
+
+		expect(JSON.parse(atob(localStorage.getItem(`Studio:BasicAuth:${ENTITY}`)!))).toEqual({
+			username: 'owner@example.com',
+			password: 'secret',
+			url: 'https://clu-login.example.com:9925/',
+		});
+	});
 });

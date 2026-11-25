@@ -82,7 +82,7 @@ export async function onInstanceLoginSubmit({
 	});
 	if (basicUser) {
 		throwIfSignedOut();
-		authStore.flagForBasicAuth(entityId, auth);
+		authStore.flagForBasicAuth(entityId, { ...auth, url: instanceClient.defaults.baseURL });
 		authStore.setLastConnectMode(entityId, 'direct');
 		return {
 			message,

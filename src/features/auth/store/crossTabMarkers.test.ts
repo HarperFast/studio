@@ -224,6 +224,42 @@ describe('a sign-in another tab made again at a newer URL', () => {
 
 		expect(loggedOutAt()).toEqual([url('ins-here'), newer]);
 	});
+
+	describe.each([
+		['an app sign-out', () => authStore.signOutFromPotentiallyAuthenticatedInstances()],
+		['signOutEntities', () => authStore.signOutEntities(['ins-here'])],
+	])('with a Basic Auth credential, at %s', (_, signOut) => {
+		const credential = { username: 'admin', password: 'hunter2' };
+
+		function loggedOutWith() {
+			return onInstanceLogoutSubmit.mock.calls.map(([{ instanceClient }]) => [
+				instanceClient.defaults.baseURL,
+				instanceClient.defaults.auth,
+				instanceClient.defaults.withCredentials,
+			]);
+		}
+
+		it.each([
+			['this tab', url('ins-here')],
+			['the other tab', newer],
+		])('sends it only to the URL %s entered it for, and the cookies to the other', async (_, enteredFor) => {
+			authStore.flagForBasicAuth('ins-here', { ...credential, url: enteredFor });
+
+			await signOut();
+
+			expect(loggedOutWith()).toEqual(
+				[url('ins-here'), newer].map((at) => at === enteredFor ? [at, credential, false] : [at, undefined, true]),
+			);
+		});
+
+		it('sends one stored without its URL to neither', async () => {
+			authStore.flagForBasicAuth('ins-here', credential);
+
+			await signOut();
+
+			expect(loggedOutWith()).toEqual([[url('ins-here'), undefined, true], [newer, undefined, true]]);
+		});
+	});
 });
 
 describe('a check of a sign-in this tab remembers', () => {

@@ -11,8 +11,9 @@ const ENTITIES = ['clu-1', 'ins-1', 'clu-2'];
 
 function remember(id: string) {
 	const user = { username: 'admin' } as SetArgs[2];
-	authStore.setUserForIdAndKey(id as SetArgs[0], `https://${id}.example.com:9925/` as SetArgs[1], user);
-	authStore.flagForBasicAuth(id, { username: 'admin', password: 'hunter2' });
+	const url = `https://${id}.example.com:9925/`;
+	authStore.setUserForIdAndKey(id as SetArgs[0], url as SetArgs[1], user);
+	authStore.flagForBasicAuth(id, { username: 'admin', password: 'hunter2', url });
 }
 
 function rememberedEntities() {

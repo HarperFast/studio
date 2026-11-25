@@ -421,7 +421,8 @@ class AuthStore {
 		return undefined;
 	}
 
-	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string }) {
+	/** `url`: the operations URL the credential was entered for, the only one a sign-out's logout sends it to. */
+	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string; url?: string }) {
 		if (credentials !== null) {
 			this.writeStoredItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
 		} else {
@@ -726,6 +727,17 @@ class AuthStore {
 	}
 
 	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string } {
+		const stored = this.readBasicAuth(id);
+		return stored && { username: stored.username, password: stored.password };
+	}
+
+	/** None for a credential stored before it recorded its URL, since that URL can't be told now. */
+	private basicAuthFor(id: EntityIds, url: string | undefined): undefined | { username: string; password: string } {
+		const stored = this.readBasicAuth(id);
+		return stored?.url && stored.url === url ? { username: stored.username, password: stored.password } : undefined;
+	}
+
+	private readBasicAuth(id: EntityIds): undefined | { username: string; password: string; url?: string } {
 		const value = this.readStoredItem(this.basicAuthKeyPrefix + id);
 		return value ? JSON.parse(atob(value)) : undefined;
 	}
@@ -764,6 +776,12 @@ class AuthStore {
 				return null;
 			}
 			const instanceClient = getInstanceClient({ id: entityId, operationsUrl });
+			// Another URL the entity is marked at gets the logout with only that host's cookies, as a cookie sign-in does.
+			if (instanceClient.defaults.auth) {
+				const credential = this.basicAuthFor(entityId, instanceClient.defaults.baseURL);
+				instanceClient.defaults.auth = credential;
+				instanceClient.defaults.withCredentials = !credential;
+			}
 			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
 			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.
 			instanceClient.interceptors.response.clear();
