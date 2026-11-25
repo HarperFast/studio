@@ -198,7 +198,7 @@ export function AddUserModal({
 								<Button
 									type="submit"
 									variant="submit"
-									disabled={isAddPending || assignmentBlocked || canListRoles === false}
+									disabled={isAddPending || isRolesLoading || assignmentBlocked || canListRoles === false}
 								>
 									<Save /> Add User
 								</Button>

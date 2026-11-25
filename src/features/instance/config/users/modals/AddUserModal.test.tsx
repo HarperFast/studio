@@ -100,6 +100,15 @@ describe('AddUserModal roles', () => {
 		expect(listRoles).not.toHaveBeenCalled();
 	});
 
+	it('keeps Add User off while the roles load', async () => {
+		signedInAs({ super_user: true });
+		listRoles.mockImplementation(() => new Promise(() => {}));
+		renderModal(true);
+		await waitFor(() => expect(listRoles).toHaveBeenCalled());
+
+		expect((screen.getByRole('button', { name: /Add User/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it('says why no role can be chosen, and keeps Add User off', async () => {
 		signedInAs({ super_user: false, operations: ['list_users', 'add_user'] });
 		renderModal(true);

@@ -52,7 +52,6 @@ export function AlterUserForm({
 	// Harper rejects any user whose `active` is falsy (`findAndValidateUser`), not only `false`.
 	const isActive = Boolean(data.active);
 	const { canList: canListRoles, roles, isLoading: isRolesLoading } = useListedRoles();
-	// Without list_roles there is nothing to choose from: the role is shown, and sent only once the grant is known.
 	const isRoleReadOnly = canListRoles === false;
 	const sendsRole = canListRoles === true;
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
