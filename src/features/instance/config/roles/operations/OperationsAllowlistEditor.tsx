@@ -289,12 +289,7 @@ const NEEDS_5_3_TITLE = "This instance's Harper checks this operation under its 
 // out whitespace/quote garbage that could never be an operation name.
 const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
 
-/**
- * Grouped checkbox dropdown over the grantable catalog, borrowing the filter/typeahead handling
- * from `features/admin/components/MultiSelect` (which fits chips of known options but not
- * category sections, super_user badges, or free-text names for component-registered operations).
- */
-function OperationsPicker({
+function RoleOperationsPicker({
 	grantable,
 	band,
 	selectedSet,

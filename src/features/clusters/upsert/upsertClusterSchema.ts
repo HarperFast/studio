@@ -56,6 +56,7 @@ export const UpsertClusterSchema = z.object({
 	/** Unbound grant to claim on create; the server ignores it on edit. */
 	grantId: z.string().optional(),
 
+	recordLocks: z.boolean().optional(),
 	skipToBilling: z.boolean().optional(),
 	skipGtmWait: z.boolean().optional(),
 	sourceClusterId: z.string().optional(),

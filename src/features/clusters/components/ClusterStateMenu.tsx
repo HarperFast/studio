@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import { isStartBlocked } from '@/features/clusters/lib/grantExpiry';
-import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { describeTermination, useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';

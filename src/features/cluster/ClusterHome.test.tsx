@@ -33,11 +33,10 @@ vi.mock('@/features/cluster/components/ClusterPageLayout', () => ({
 }));
 vi.mock('@/features/cluster/components/ClusterUsageCard', () => ({ ClusterUsageCard: () => null }));
 vi.mock('@/features/clusters/components/ClusterStateMenu', () => ({ ClusterStateMenu: () => null }));
-const useInstanceAuth = vi.fn(() => ({ user: null, isLoading: false }));
-vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => useInstanceAuth() }));
-const permissions = { view: true, update: true };
-vi.mock('@/hooks/usePermissions', () => ({
-	useOrganizationClusterPermissions: () => permissions,
+const useInstanceAuth = vi.fn(() => ({ user: viewer.user, isLoading: false }));
+vi.mock('@/hooks/useAuth', () => ({
+	useInstanceAuth: () => useInstanceAuth(),
+	useStaffPermission: () => viewer.readOnlyConnect,
 }));
 vi.mock('@/hooks/usePermissions', () => ({
 	useOrganizationClusterPermissions: () => ({ view: true, update: viewer.update }),
@@ -58,10 +57,19 @@ import { DirectConnectionRequiredError } from '@/features/auth/scopedOperationTo
 import { authStore } from '@/features/auth/store/authStore';
 import { ClusterHome } from './ClusterHome';
 
+beforeEach(() => {
+	viewer.user = null;
+	viewer.superUser = false;
+	viewer.update = true;
+	viewer.readOnlyConnect = false;
+	useOwedPresetSetup.mockReset();
+});
 afterEach(() => {
 	cleanup();
 	useInstanceAuth.mockClear();
-	permissions.update = true;
+	apiGet.mockReset();
+	toastError.mockReset();
+	vi.restoreAllMocks();
 });
 
 async function renderHome(state: Cluster) {
@@ -188,7 +196,7 @@ describe(ClusterHome, () => {
 	});
 
 	it('still shows Pending Owner Setup to a view-only member of such a cluster', async () => {
-		permissions.update = false;
+		viewer.update = false;
 		await renderHome(paymentStoppedPendingSetup);
 		expect(screen.getByRole('heading', { name: 'Pending Owner Setup' })).toBeTruthy();
 		expect(useInstanceAuth).not.toHaveBeenCalled();
@@ -197,5 +205,67 @@ describe(ClusterHome, () => {
 	it('still holds an ordinary stopped cluster with setup pending on starting-up', async () => {
 		await renderHome({ ...base, status: 'STOPPED', resetPassword: true });
 		expect(screen.getByText('redirected to /org-1/clu-1/starting-up')).toBeTruthy();
+	});
+
+	it('offers Fabric Connect to staff who may connect read-only without update rights', async () => {
+		viewer.update = false;
+		viewer.readOnlyConnect = true;
+		await renderHome({ ...base, status: 'RUNNING' });
+		expect(screen.getByRole('button', { name: 'Fabric Connect' })).toBeTruthy();
+	});
+
+	it('tells read-only staff why connecting failed, since they have no sign-in to fall back on', async () => {
+		viewer.update = false;
+		viewer.readOnlyConnect = true;
+		vi.spyOn(authStore, 'establishFabricConnectAuth').mockRejectedValue(
+			new DirectConnectionRequiredError('unreachable'),
+		);
+		await renderHome({ ...base, status: 'RUNNING' });
+		fireEvent.click(screen.getByRole('button', { name: 'Fabric Connect' }));
+
+		await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+		expect(toastError.mock.calls[0][0]).toMatch(/^Read-only access unavailable/);
+		expect(JSON.stringify(toastError.mock.calls[0])).toContain('could not reach it');
+	});
+
+	it('stays quiet when a sign-out interrupts connecting', async () => {
+		const connect = vi.spyOn(authStore, 'establishFabricConnectAuth')
+			.mockRejectedValue(Object.assign(new Error('signed out'), { name: 'SignedOutWhileConnectingError' }));
+		await renderHome({ ...base, status: 'RUNNING' });
+		fireEvent.click(screen.getByRole('button', { name: 'Fabric Connect' }));
+
+		await waitFor(() => expect(connect).toHaveBeenCalled());
+		await act(async () => {});
+		expect(toastError).not.toHaveBeenCalled();
+	});
+
+	it('offers no Fabric Connect to a viewer who can neither update nor connect read-only', async () => {
+		viewer.update = false;
+		await renderHome({ ...base, status: 'RUNNING' });
+		expect(screen.queryByRole('button', { name: 'Fabric Connect' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
+	});
+});
+
+describe('ClusterHome for a cluster that still owes its preset setup', () => {
+	beforeEach(() => {
+		viewer.user = { username: 'admin' };
+		useOwedPresetSetup.mockReturnValue({ id: 'redirects', name: 'HTTP redirects' });
+	});
+
+	it('sends a super user to finish the setup', async () => {
+		viewer.superUser = true;
+		await renderHome({ ...base, status: 'RUNNING' });
+		const link = screen.getByRole('link', { name: /Finish setting up HTTP redirects/ });
+		expect(link.getAttribute('href')).toBe('/org-1/clu-1/setup');
+		expect(useOwedPresetSetup).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'clu-1' }), true);
+	});
+
+	it('lets anyone else enter the cluster, without reading its setup state', async () => {
+		await renderHome({ ...base, status: 'RUNNING' });
+		const link = screen.getByRole('link', { name: /Enter cluster/ });
+		expect(link.getAttribute('href')).toBe('/org-1/clu-1/start');
+		expect(screen.queryByText(/Finish setting up/)).toBeNull();
+		expect(useOwedPresetSetup).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'clu-1' }), false);
 	});
 });

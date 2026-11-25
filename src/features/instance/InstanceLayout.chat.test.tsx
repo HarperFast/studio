@@ -14,6 +14,8 @@ vi.mock('@/features/restart/RestartingNotice', () => ({ RestartingNotice: () => 
 vi.mock('./applications/components/Chat/FloatingChat', () => ({ FloatingChat: () => <div>chat widget</div> }));
 // The dev-only panel reads Studio configuration through React Query, and this render has no QueryClient.
 vi.mock('./extensions/prototype/PrototypePanel', () => ({ PrototypePanel: () => null }));
+// The expiry strip reads the cluster from route context, which this router mock does not provide.
+vi.mock('@/features/cluster/components/ClusterExpiryStrip', () => ({ ClusterExpiryStrip: () => null }));
 vi.mock('@tanstack/react-router', () => ({
 	Outlet: () => <main>page</main>,
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),

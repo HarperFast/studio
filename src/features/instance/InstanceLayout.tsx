@@ -28,7 +28,7 @@ export function InstanceLayout() {
 		<>
 			<div className="studio-subnav fixed top-20 w-full z-39 h-12 px-4 lg:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none">
 				<InstanceNavBar />
-			</nav>
+			</div>
 			<div className="mt-32 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
 				<ClusterExpiryStrip />
 				<RestartingNotice

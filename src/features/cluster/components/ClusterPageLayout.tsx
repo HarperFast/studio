@@ -9,7 +9,15 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useParams } from '@tanstack/react-router';
-import { ChartColumnIncreasing, GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
+import {
+	ChartColumnIncreasing,
+	GaugeIcon,
+	GlobeIcon,
+	LayoutDashboardIcon,
+	LockIcon,
+	ServerIcon,
+	TagIcon,
+} from 'lucide-react';
 import { ReactNode } from 'react';
 
 /**

@@ -803,6 +803,15 @@ export function ClusterForm({
 				regionPlans: plans,
 				// Omitted unless one was entered: the server claims a grant only when asked to.
 				grantId: formData.grantId?.trim() || undefined,
+				// Only where central manager accepts it: a box touched before switching to self-hosted or an
+				// older version stays in the form, hidden, and must not turn into a 400. Explicit false
+				// overrides central manager's 5.4+ default.
+				...(!isSelfManaged && supportsRecordLocks(formData.version)
+					? { recordLocks: Boolean(formData.recordLocks) }
+					: {}),
+				// Recorded so the cluster keeps its job wherever it is opened (a central-manager that predates the
+				// field drops it, which is why the browser remembers it too).
+				preset: presetToRecord,
 			}, {
 				onSuccess: (data) => {
 					// Remembered before the cluster exists to sign in to; FinishSetup picks it up once its admin does.

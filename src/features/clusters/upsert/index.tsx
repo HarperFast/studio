@@ -300,6 +300,9 @@ export function UpsertCluster() {
 				regionPlans,
 				// Soonest-ending first is the server's order, so the default is the one about to lapse.
 				grantId: clusterId ? undefined : organization?.unboundGrants?.[0]?.id,
+				// Try Again on a failed cluster keeps its explicit record-lock choice; a fresh create leaves it
+				// unset so ClusterForm derives the default from the chosen version. An edit never sends it.
+				recordLocks: typeof clusterToLoad?.recordLocks === 'boolean' ? clusterToLoad.recordLocks : undefined,
 			},
 			unresolvedRegionIds,
 			draftDiscarded,

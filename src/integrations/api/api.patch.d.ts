@@ -339,6 +339,7 @@ export interface Organization extends SchemaOrganization {
 	 * ending first. Absent on a central-manager that predates the field.
 	 */
 	unboundGrants?: ClusterGrant[];
+	harperVersions?: OrganizationHarperVersion[] | null;
 	// From central-manager#888: only the clusters with an instance still copying; absent when central manager can't say.
 	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
@@ -684,6 +685,9 @@ export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	 */
 	conversionState?: 'APPLYING' | 'FAILED' | null;
 	plans?: RegionPlan[];
+	// The job the cluster was created for (a Studio `CLUSTER_PRESETS` id); absent or null for a blank cluster.
+	// Being added to central-manager; not yet in the generated OpenAPI schema.
+	preset?: string | null;
 	/** The durable workflow holding the cluster (an upgrade, say); set until it ends, and cluster mutations 409 meanwhile. */
 	workflowId?: string | null;
 }
@@ -709,6 +713,7 @@ export interface ClusterUpsert extends Omit<SchemaClusterUpsert, 'regionPlans'> 
 	 * by POST /Cluster (validation.js) but absent from the generated spec. Create only.
 	 */
 	grantId?: string;
+	preset?: string;
 }
 
 export interface InstanceDatabaseMap {

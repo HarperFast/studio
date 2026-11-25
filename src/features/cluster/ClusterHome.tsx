@@ -19,7 +19,8 @@ import {
 	HOBBYIST_UPGRADE,
 	isStartBlocked,
 } from '@/features/clusters/lib/grantExpiry';
-import { useInstanceAuth } from '@/hooks/useAuth';
+import { useOwedPresetSetup } from '@/features/clusters/presets/usePresetSetup';
+import { useInstanceAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceManagePermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';

@@ -22,7 +22,9 @@ import {
 	HOBBYIST_UPGRADE,
 	isStartBlocked,
 } from '@/features/clusters/lib/grantExpiry';
-import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { describeTermination, useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
+import { useClusterPreset } from '@/features/clusters/presets/usePresetSetup';
+import { ExtensionIcon } from '@/features/instance/extensions/ExtensionIcon';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';

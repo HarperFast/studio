@@ -121,6 +121,7 @@ async function mountEditor(overrides: Partial<Parameters<typeof ClusterDetails>[
 						selectedPerformance={HOBBYIST.performanceDescription!}
 						selectedPlan={HOBBYIST}
 						totalPrice={20}
+						recordLocksOn={false}
 						{...overrides}
 					/>
 				)}
