@@ -114,6 +114,7 @@ describe('logs view contracts', () => {
 				{ ...valid, timestamp: '9998-12-31T00:00:00.000Z' },
 				{ ...valid, timestamp: '1763588700123' },
 				{ ...valid, timestamp: '2026-11-19 21:45:00.123Z' },
+				{ ...valid, timestamp: '2026-11-19T25:61:00.000Z' },
 				{ ...valid, timestamp: longTimestamp(65) },
 				...(['timestamp', 'node', 'thread', 'fingerprint', 'source'] as const).map(key => ({
 					...valid,
