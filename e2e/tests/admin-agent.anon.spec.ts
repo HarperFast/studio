@@ -178,3 +178,26 @@ test('a run moves from Active to Past runs when it finishes, without a reload', 
 	await expect(past.getByText('arn-live')).toBeVisible({ timeout: 5_000 });
 	await expect(past.getByText('healthy')).toBeVisible();
 });
+
+test('staff start an investigation and land on its run', async ({ page }, testInfo) => {
+	await mockCentralManager(page, { active: [], past: [pastRun] });
+	let body: unknown;
+	await page.route('**/Admin/Investigation/', (route) => {
+		if (route.request().method() !== 'POST') { return route.fallback(); }
+		body = route.request().postDataJSON();
+		return route.fulfill({
+			status: 202,
+			json: { id: 'arn-done', clusterId: 'clu-done', status: 'pending', attached: false },
+		});
+	});
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await page.goto('/#/admin/agent');
+	await page.getByRole('button', { name: 'Investigate a cluster' }).click();
+	const dialog = page.getByRole('dialog', { name: 'Investigate a cluster' });
+	await dialog.getByLabel('Cluster id').fill('clu-done');
+	await page.screenshot({ path: testInfo.outputPath('agent-start-dialog.png') });
+	await dialog.getByRole('button', { name: 'Start investigation' }).click();
+	await expect(page).toHaveURL(/#\/admin\/agent\/arn-done$/);
+	await expect(page.getByText('One member stopped serving after the restart.')).toBeVisible();
+	expect(body).toEqual({ clusterId: 'clu-done', lookBackMinutes: 60, trigger: { kind: 'manual' } });
+});

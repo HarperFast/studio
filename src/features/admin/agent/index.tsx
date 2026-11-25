@@ -5,6 +5,7 @@ import { ActiveRuns, PastRuns, useActiveRunChanges } from '@/features/admin/agen
 import { LoadFailed } from '@/features/admin/agent/components/AgentBits';
 import { AgentSettingsForm, useAgentSettingsEditor } from '@/features/admin/agent/components/AgentSettingsForm';
 import { SpendPanel, WatchesPanel } from '@/features/admin/agent/components/SpendAndWatches';
+import { StartRunButton } from '@/features/admin/agent/components/StartRun';
 import { RefreshFailed } from '@/features/admin/workflows/components/WorkflowBits';
 import { useCloudAuth, useStaffPermission } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -20,9 +21,9 @@ export function switchedOffReason(
 	return null;
 }
 
-/** Staff page for the investigation agent. AdminShell gates it on agent:read; Cancel and Settings gate themselves. */
+/** Staff page for the investigation agent. AdminShell gates it on agent:read; Investigate and Cancel need agent:run; Settings gates itself. */
 export function AgentAdminIndex() {
-	const canCancel = useStaffPermission('agent:run');
+	const canRun = useStaffPermission('agent:run');
 	const canWriteConfig = useStaffPermission('config:write');
 	const { user } = useCloudAuth();
 	const isCoreSuperUser = user !== null && 'fabricRole' in user && user.fabricRole === 'super_user';
@@ -33,7 +34,10 @@ export function AgentAdminIndex() {
 
 	return (
 		<div className="min-w-0">
-			<h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
+				{canRun && <StartRunButton offReason={offReason} runBudgetUsd={overview.data?.runBudgetUsd} />}
+			</div>
 			<p className="mt-2 text-sm text-muted-foreground max-w-3xl">
 				The investigation agent starts on its own when a cluster operation fails, reads a fixed set of evidence and
 				writes a finding. It never changes a cluster.
@@ -72,7 +76,7 @@ export function AgentAdminIndex() {
 					<TabsTrigger value="settings">Settings</TabsTrigger>
 				</TabsList>
 				<TabsContent value="activity" className="mt-4">
-					<ActiveRuns canCancel={canCancel} />
+					<ActiveRuns canCancel={canRun} />
 					<PastRuns />
 				</TabsContent>
 				<TabsContent value="watches" className="mt-4">

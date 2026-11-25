@@ -355,6 +355,46 @@ export function useCancelRunMutation() {
 	});
 }
 
+/** Look-back windows the start dialog offers; central manager accepts 1 minute to 7 days. */
+export const LOOK_BACK_CHOICES = [60, 360, 1_440, 10_080] as const;
+export const RUN_REF_MAX = 200;
+
+export interface StartRunRequest {
+	clusterId: string;
+	lookBackMinutes: number;
+	/** Free text kept on the run's trigger: why staff started it. */
+	ref?: string;
+}
+
+/** `attached`: the cluster already had an open run, which is answered instead of starting a second one. */
+export interface StartedRun {
+	id: string;
+	clusterId: string;
+	status: string;
+	attached: boolean;
+}
+
+export async function startRun({ clusterId, lookBackMinutes, ref }: StartRunRequest): Promise<StartedRun> {
+	const { data } = await apiClient.post(RUN_BASE as '/Admin/Region/', {
+		clusterId,
+		lookBackMinutes,
+		trigger: { kind: 'manual', ...(ref ? { ref } : {}) },
+	} as never);
+	return data as unknown as StartedRun;
+}
+
+export function useStartRunMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		networkMode: 'always',
+		mutationFn: startRun,
+		onSettled: () => {
+			void invalidateRunLists(queryClient);
+			void queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey });
+		},
+	});
+}
+
 export interface SettingChange {
 	name: string;
 	value: unknown;

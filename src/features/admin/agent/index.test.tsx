@@ -5,19 +5,28 @@ import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get, patch, del } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn(), del: vi.fn() }));
+const { get, patch, del, post, navigate } = vi.hoisted(() => ({
+	get: vi.fn(),
+	patch: vi.fn(),
+	del: vi.fn(),
+	post: vi.fn(),
+	navigate: vi.fn(),
+}));
 let granted = new Set<string>();
 
-vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch, delete: del } }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { get, patch, post, delete: del } }));
 vi.mock('@/hooks/useAuth', () => ({
 	useStaffPermission: (permission: string) => granted.has(permission),
 	useCloudAuth: () => ({ user: { fabricRole: 'fabric_admin' }, isLoading: false }),
 }));
 vi.mock('@/hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }));
-const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError, success: vi.fn(), dismiss: vi.fn() }) }));
+const { toastError, toastSuccess } = vi.hoisted(() => ({ toastError: vi.fn(), toastSuccess: vi.fn() }));
+vi.mock('sonner', () => ({
+	toast: Object.assign(vi.fn(), { error: toastError, success: toastSuccess, dismiss: vi.fn() }),
+}));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+	useNavigate: () => navigate,
 }));
 
 import { monthLabel } from '@/features/admin/agent/components/SpendAndWatches';
@@ -111,7 +120,10 @@ beforeEach(() => {
 	get.mockReset();
 	patch.mockReset();
 	del.mockReset();
+	post.mockReset();
+	navigate.mockReset();
 	toastError.mockReset();
+	toastSuccess.mockReset();
 	get.mockImplementation(async (url: string) => {
 		if (url === '/Admin/AgentOverview/') { return { data: overview }; }
 		if (url === '/Admin/AgentWatch/?limit(0,500)') { return { data: [WATCH] }; }
@@ -286,6 +298,89 @@ describe('AgentAdminIndex — spend and switched off', () => {
 		renderPage();
 		expect(await screen.findByText(/Couldn't load spend/)).toBeTruthy();
 		expect(await screen.findByText('arn-active')).toBeTruthy();
+	});
+});
+
+describe('AgentAdminIndex — start a run', () => {
+	const openDialog = async () => {
+		fireEvent.click(await screen.findByRole('button', { name: 'Investigate a cluster' }));
+		return screen.findByRole('dialog', { name: 'Investigate a cluster' });
+	};
+
+	it('offers Investigate only with agent:run', async () => {
+		granted.delete('agent:run');
+		renderPage();
+		await screen.findByRole('region', { name: 'Spend' });
+		expect(screen.queryByRole('button', { name: 'Investigate a cluster' })).toBeNull();
+	});
+
+	it('starts a manual run of the trimmed cluster id and opens it', async () => {
+		post.mockResolvedValue({ data: { id: 'arn-new', clusterId: 'clu-9', status: 'pending', attached: false } });
+		renderPage();
+		const dialog = await openDialog();
+		const start = within(dialog).getByRole('button', { name: 'Start investigation' });
+		expect((start as HTMLButtonElement).disabled).toBe(true);
+		expect(within(dialog).getByText(/at most \$1\.00/)).toBeTruthy();
+		fireEvent.change(within(dialog).getByLabelText('Cluster id'), { target: { value: '  clu-9 ' } });
+		fireEvent.change(within(dialog).getByLabelText('Reason (optional)'), { target: { value: ' replication alert ' } });
+		fireEvent.click(start);
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/admin/agent/$runId', params: { runId: 'arn-new' } })
+		);
+		expect(post).toHaveBeenCalledWith('/Admin/Investigation/', {
+			clusterId: 'clu-9',
+			lookBackMinutes: 60,
+			trigger: { kind: 'manual', ref: 'replication alert' },
+		});
+		expect(toastSuccess).toHaveBeenCalledWith('Investigation started', { description: 'arn-new' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('sends no ref when the reason is blank, and says when it attached to an open run', async () => {
+		post.mockResolvedValue({ data: { id: 'arn-active', clusterId: 'clu-1', status: 'running', attached: true } });
+		renderPage();
+		const dialog = await openDialog();
+		fireEvent.change(within(dialog).getByLabelText('Cluster id'), { target: { value: 'clu-1' } });
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Start investigation' }));
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/admin/agent/$runId', params: { runId: 'arn-active' } })
+		);
+		expect(post.mock.calls[0][1]).toEqual({ clusterId: 'clu-1', lookBackMinutes: 60, trigger: { kind: 'manual' } });
+		expect(toastSuccess.mock.calls[0][0]).toBe('This cluster already has an open run');
+	});
+
+	it('keeps the dialog open with its input when central manager refuses the start', async () => {
+		post.mockRejectedValue(Object.assign(new Error('Request failed with status code 429'), {
+			isAxiosError: true,
+			response: { status: 429, data: { error: 'The investigator role has spent its monthly budget' } },
+			config: { method: 'post', url: '/Admin/Investigation/' },
+		}));
+		renderPage();
+		const dialog = await openDialog();
+		fireEvent.change(within(dialog).getByLabelText('Cluster id'), { target: { value: 'clu-9' } });
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Start investigation' }));
+		await waitFor(() => expect(toastError).toHaveBeenCalled());
+		expect(navigate).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Investigate a cluster' })).toBeTruthy();
+		expect((within(dialog).getByLabelText('Cluster id') as HTMLInputElement).value).toBe('clu-9');
+		await waitFor(() =>
+			expect((within(dialog).getByRole('button', { name: 'Start investigation' }) as HTMLButtonElement).disabled).toBe(
+				false,
+			)
+		);
+	});
+
+	it('says why no run can start while the agent is switched off, and does not send one', async () => {
+		overview = { ...OVERVIEW, agentEnabled: false };
+		renderPage();
+		await screen.findByText(/agent is switched off/);
+		const dialog = await openDialog();
+		expect(within(dialog).getByRole('alert').textContent).toMatch(/agent is switched off/);
+		fireEvent.change(within(dialog).getByLabelText('Cluster id'), { target: { value: 'clu-9' } });
+		const start = within(dialog).getByRole('button', { name: 'Start investigation' });
+		expect((start as HTMLButtonElement).disabled).toBe(true);
+		fireEvent.submit(start.closest('form')!);
+		expect(post).not.toHaveBeenCalled();
 	});
 });
 
