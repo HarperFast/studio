@@ -14,7 +14,7 @@
  * `%3F` stays literal and can never complete the path.
  */
 
-type PostSignInRedirect =
+export type PostSignInRedirect =
 	| { kind: 'app'; to: string }
 	| { kind: 'server'; href: string };
 

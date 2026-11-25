@@ -1,4 +1,5 @@
 import { defaultInstanceRoute } from '@/config/constants';
+import { redirectAccess } from '@/features/auth/redirectAccess';
 import type { AuthenticatedConnection } from '@/features/auth/store/authStore';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
@@ -30,7 +31,9 @@ function continueSignedIn(
 	search: Record<string, unknown> | undefined,
 	{ orDefaultRoute }: { orDefaultRoute: boolean },
 ): void {
-	const target = postSignInRedirect(search?.redirect);
+	const named = postSignInRedirect(search?.redirect);
+	// Not into an organization this account can't open. `'unknown'` follows: a guard can't wait on `/User/current`.
+	const target = named && redirectAccess(user, named) !== 'closed' ? named : undefined;
 	if (target?.kind === 'server') {
 		// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land on a
 		// sign-in page that sends the user straight on again.

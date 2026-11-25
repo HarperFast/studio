@@ -10,7 +10,8 @@ import {
 	restoreSignInRedirect,
 	useEmailedFlow,
 } from '@/features/auth/pendingSignInRedirect';
-import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
+import { currentUserQueryKey, fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { redirectAccess } from '@/features/auth/redirectAccess';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { User } from '@/integrations/api/api.patch';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
@@ -25,6 +26,7 @@ import {
 	postSignInRedirectParam,
 	redirectSearch,
 } from '@/lib/urls/postSignInRedirect';
+import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
@@ -109,10 +111,10 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 				console.debug('Sign-in bookkeeping failed, carrying on:', error);
 			}
 			await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+			const target = await firstOpenTarget(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
 			if (!stillTaken() || !stillCurrent()) {
 				return false;
 			}
-			const target = postSignInRedirect(redirect) ?? postSignInRedirect(kept?.redirect);
 			if (target?.kind === 'server') {
 				followServerRedirect(target.href);
 			} else {
@@ -181,6 +183,37 @@ export function useCloudSignIn() {
 		submitError,
 		submitForm,
 	};
+}
+
+/**
+ * The first target this account can open (`redirectAccess.ts`). Asks `/User/current` only when a target needs staff
+ * access to decide and the `/Login/` record can't say; when that fails, the target is followed as it always was.
+ */
+async function firstOpenTarget(
+	user: User,
+	targets: Array<PostSignInRedirect | undefined>,
+): Promise<PostSignInRedirect | undefined> {
+	let current: User | null | undefined;
+	for (const target of targets) {
+		if (target === undefined) {
+			continue;
+		}
+		let access = redirectAccess(user, target);
+		if (access === 'unknown') {
+			if (current === undefined) {
+				current = await fetchCurrentUser().catch((error: unknown) => {
+					console.debug('Could not read the signed-in account to check its sign-in target:', error);
+					return null;
+				});
+			}
+			access = current ? redirectAccess(current, target) : 'open';
+		}
+		if (access !== 'closed') {
+			return target;
+		}
+		console.debug('Not following a sign-in target into an organization this account cannot open.');
+	}
+	return undefined;
 }
 
 export function useLoginMutation() {

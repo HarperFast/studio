@@ -9,8 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCloudSignIn, useCompleteCloudSignIn } from './useCloudSignIn';
 
 // One shared apiClient mock backs both the login POST and the resend POST.
-const { post } = vi.hoisted(() => ({ post: vi.fn() }));
-vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
+const { post, get } = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { post, get } }));
 
 // The hook only reaches for the router; give it inert doubles we can assert against.
 // One router object for the whole file, matching production's stable one.
@@ -292,7 +292,7 @@ describe('useCompleteCloudSignIn — taking in a different account', () => {
 });
 
 describe('useCompleteCloudSignIn — redirect', () => {
-	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: { 'org-1': {} } } as unknown as User;
 	const replace = vi.fn();
 
 	function appWrapper({ children }: PropsWithChildren) {
@@ -391,9 +391,121 @@ describe('useCompleteCloudSignIn — redirect', () => {
 	});
 });
 
+describe('useCompleteCloudSignIn — a target into an organization the account can’t open', () => {
+	// As /Login/ answers: roles, no staff fields.
+	const NEWCOMER = { id: 'usr-new', email: 'new@example.com', roles: {} } as unknown as User;
+	const MEMBER = { id: 'usr-member', email: 'member@example.com', roles: { 'org-1': {} } } as unknown as User;
+	const previousAccountsPage = '/org-1/users';
+
+	function appWrapper({ children }: PropsWithChildren) {
+		return <QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>;
+	}
+
+	beforeEach(() => {
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		localStorage.clear();
+	});
+	afterEach(() => {
+		hashSearch.current = {};
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		localStorage.clear();
+	});
+
+	it('goes to the account’s own default route instead, once /User/current says it isn’t staff', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({ data: { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] } });
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(true);
+
+		expect(get).toHaveBeenCalledExactlyOnceWith('/User/current');
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('follows it for staff who can read any organization', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({ data: { ...NEWCOMER, fabricRole: 'fabric_support', staffPermissions: ['org:read'] } });
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+	});
+
+	it('follows a member’s target without asking /User/current', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(MEMBER));
+
+		expect(get).not.toHaveBeenCalled();
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+	});
+
+	it('decides from a full account record without asking, as the OAuth and emailed flows hand it one', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		const full = { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] } as unknown as User;
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(full));
+
+		expect(get).not.toHaveBeenCalled();
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('follows it as before when /User/current can’t be read', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockRejectedValue(new Error('offline'));
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+	});
+
+	it('passes over a closed page target to the emailed flow’s, asking /User/current once', async () => {
+		const flow = keepSignInRedirect('/profile');
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({ data: { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] } });
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(get).toHaveBeenCalledTimes(1);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: '/profile' });
+	});
+
+	it('asks /User/current once for two targets it can’t open, then goes to the default route', async () => {
+		const flow = keepSignInRedirect('/org-2/clu-1/usage');
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({ data: { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] } });
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(get).toHaveBeenCalledTimes(1);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('gives up without navigating when another sign-in lands while it asks', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockImplementation(async () => {
+			authStore.setUserForEntity(OverallAppSignIn, MEMBER);
+			return { data: { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] } };
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(false);
+
+		expect(navigate).not.toHaveBeenCalled();
+	});
+});
+
 describe('useCompleteCloudSignIn — a target kept across an emailed link', () => {
-	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: {} } as unknown as User;
-	const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: {} } as unknown as User;
+	const ADA = { id: 'usr-ada', email: 'ada@example.com', roles: { 'org-1': {} } } as unknown as User;
+	const GRACE = { id: 'usr-grace', email: 'grace@example.com', roles: { 'org-1': {} } } as unknown as User;
 	const mcpAuthorize = '/oauth/mcp/authorize?response_type=code&client_id=c&state=s';
 	const replace = vi.fn();
 
