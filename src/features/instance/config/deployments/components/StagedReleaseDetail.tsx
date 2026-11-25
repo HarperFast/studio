@@ -54,15 +54,17 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const rolloutsAsked = useReleaseTrackingAvailable();
-	const rolloutsQuery = useMemo(() =>
-		getDeploymentsQueryOptions({
+	const rolloutsQuery = useMemo(() => ({
+		...getDeploymentsQueryOptions({
 			...instanceParams,
 			project: deployment.project,
 			status: 'rolling_out',
 			pollWhileOpen: true,
 			enabled: rolloutsAsked,
-		}), [instanceParams, deployment.project, rolloutsAsked]);
-	const { data: rollingOut, error: rollingOutError } = useQuery(rolloutsQuery);
+		}),
+		meta: { reportsOwnFailure: true },
+	}), [instanceParams, deployment.project, rolloutsAsked]);
+	const { data: rollingOut, error: rollingOutError, status: rolloutsStatus } = useQuery(rolloutsQuery);
 	// The records above start at this release, so this list adds the rollouts that began before it; once those
 	// records are read, they decide for every rollout from it on, which keeps a stale list from reviving one.
 	const historyRead = release !== undefined && release.kind !== 'unknown';
@@ -70,7 +72,8 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 		...(release?.rollout ? [release.rollout] : []),
 		...(rollingOut?.deployments ?? []).filter((record) => !historyRead || startedBefore(record, deployment)),
 	]);
-	const rolloutsUnread = rolloutsAsked && rollingOut === undefined;
+	// A list whose latest read failed may be missing a rollout that has started since.
+	const rolloutsUnread = rolloutsAsked && rolloutsStatus !== 'success';
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
 	const offered = releaseOffer(check, {
@@ -158,7 +161,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 					isn&apos;t offered.
 				</p>
 			)}
-			{offered.offer && !rollout && rolloutsUnread && rollingOutError && (
+			{offered.offer && !rollout && rolloutsAsked && rollingOutError && (
 				<p className="text-sm text-muted-foreground">
 					Couldn&apos;t ask whether another deploy of {deployment.project} is rolling out:{' '}
 					{describeError(rollingOutError).message} Activation stays disabled until that can be read.

@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	history: [] as object[] | Error | 'pending',
-	/** The answer to `list_deployments` by `status: 'rolling_out'`; `undefined` answers with `history`. */
 	rolling: undefined as object[] | Error | 'pending' | undefined,
 	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
@@ -457,7 +456,24 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 			cleanup();
 
 			state.rolling = new Error('list_deployments timed out');
-			renderDetail([staged]);
+			const queryClient = renderDetail([staged]);
+			expect(await screen.findByText(/^Couldn't ask whether another deploy of hello is rolling out/)).toBeTruthy();
+			expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+			const [rollouts] = queryClient.getQueryCache().findAll({
+				predicate: (query) => query.queryKey.some((part) => (part as { status?: string })?.status === 'rolling_out'),
+			});
+			expect(rollouts.meta).toEqual({ reportsOwnFailure: true });
+		});
+
+		it('enables nothing again once a later read of that list fails', async () => {
+			state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+			state.rolling = [];
+			const queryClient = renderDetail([staged]);
+			expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+			await vi.waitFor(() => expect((activationButton() as HTMLButtonElement).disabled).toBe(false));
+
+			state.rolling = new Error('list_deployments timed out');
+			await act(() => queryClient.refetchQueries());
 			expect(await screen.findByText(/^Couldn't ask whether another deploy of hello is rolling out/)).toBeTruthy();
 			expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
 		});
