@@ -39,7 +39,6 @@ const freshFromLogin = { id: 'usr-new', roles: {} } as unknown as User;
 describe('a signed-in visitor’s ?redirect= on the auth pages', () => {
 	it('is not followed into an organization the account can’t open', () => {
 		expect(landing('sign-in', customer, '/org-1/users')).toEqual({ href: undefined, to: '/' });
-		// Sign-up shows its form to a signed-in visitor with nothing to continue to.
 		expect(landing('sign-up', customer, '/org-1/users')).toBeUndefined();
 	});
 

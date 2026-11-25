@@ -507,7 +507,6 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(false);
 
 		expect(navigate).not.toHaveBeenCalled();
-		// The tab follows the account that holds the session.
 		await waitFor(() =>
 			expect((authStore.getConnectionById(OverallAppSignIn).user as User | null)?.id).toBe('usr-someone-else')
 		);

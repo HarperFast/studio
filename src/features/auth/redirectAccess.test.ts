@@ -26,6 +26,24 @@ describe('redirectAccess', () => {
 		expect(redirectAccess(customer, app('/org-theirs?tab=users'))).toBe('closed');
 	});
 
+	it('keeps a member out of an organization that needs its own provider sign-in first', () => {
+		const locked = {
+			...customer,
+			roles: { 'org-sso': { oauthProviders: [{ name: 'Okta', oauthConfigId: 'oac-1' }] } },
+		} as unknown as User;
+		expect(redirectAccess(locked, app('/org-sso/clusters'))).toBe('closed');
+		expect(redirectAccess({ ...locked, staffPermissions: ['org:read'] } as User, app('/org-sso/clusters'))).toBe(
+			'open',
+		);
+		const lockedFromLogin = { id: 'usr-ada', roles: locked.roles } as unknown as User;
+		expect(redirectAccess(lockedFromLogin, app('/org-sso/clusters'))).toBe('unknown');
+	});
+
+	it('reads a percent-encoded organization segment as the router does', () => {
+		expect(redirectAccess(customer, app('/org%2Dtheirs/users'))).toBe('closed');
+		expect(redirectAccess(customer, app('/%E0%A4%A/users'))).toBe('open');
+	});
+
 	it('lets staff with org:read into any organization', () => {
 		expect(redirectAccess(staff, app('/org-theirs/users'))).toBe('open');
 	});

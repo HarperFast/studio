@@ -91,7 +91,7 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 			// `?redirect=` it can't yet rule out.
 			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
 			if (settled === undefined) {
-				// The session is another account's now. Nothing is put back for this flow, and the tab follows the session.
+				// Another account holds the session now: put nothing back for this flow, and let the tab follow that account.
 				void getCurrentUser().catch((error: unknown) => {
 					console.debug('Could not read the account that took the session:', error);
 				});
