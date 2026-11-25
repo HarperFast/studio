@@ -374,13 +374,18 @@ export interface StartedRun {
 	attached: boolean;
 }
 
-export async function startRun({ clusterId, lookBackMinutes, ref }: StartRunRequest): Promise<StartedRun> {
+async function startRun({ clusterId, lookBackMinutes, ref }: StartRunRequest): Promise<StartedRun> {
 	const { data } = await apiClient.post(RUN_BASE as '/Admin/Region/', {
 		clusterId,
 		lookBackMinutes,
 		trigger: { kind: 'manual', ...(ref ? { ref } : {}) },
 	} as never);
-	return data as unknown as StartedRun;
+	const answer: unknown = data;
+	// The page navigates to the answered id, so an answer without one must fail here rather than open /agent/undefined.
+	if (!isObject(answer) || typeof answer.id !== 'string' || !answer.id) {
+		throw new Error('Central manager accepted the run but did not answer its id');
+	}
+	return { ...answer, attached: answer.attached === true } as unknown as StartedRun;
 }
 
 export function useStartRunMutation() {
@@ -427,12 +432,23 @@ export function useSaveAgentSettingsMutation({ onSettledKeys }: { onSettledKeys?
 		onSuccess: (saved) =>
 			toast.success(saved.length === 1 ? `${saved[0]} updated` : `${saved.length} settings updated`),
 		// Awaited, so the save stays pending until the form holds the saved values and an edit cannot start from old ones.
-		onSettled: async (saved, failure) => {
+		onSettled: async (saved, failure, changes) => {
+			const acknowledged = saved ?? (failure as { saved?: string[] } | null)?.saved ?? [];
+			// A confirmed write is the server's value now. Holding it in the cache keeps the next edit's baseline right
+			// even when the refetch below fails; a successful refetch replaces it with the stored row.
+			queryClient.setQueryData<AgentOverview>(agentOverviewQueryKey, (current) =>
+				current && {
+					...current,
+					settings: current.settings.map((entry) => {
+						const change = acknowledged.includes(entry.name) && changes.find(({ name }) => name === entry.name);
+						return change ? { ...entry, value: change.value } : entry;
+					}),
+				});
 			await Promise.allSettled([
 				queryClient.invalidateQueries({ queryKey: agentOverviewQueryKey }),
 				queryClient.invalidateQueries({ queryKey: configurationQueryKey }),
 			]);
-			onSettledKeys?.(saved ?? (failure as { saved?: string[] } | null)?.saved ?? []);
+			onSettledKeys?.(acknowledged);
 		},
 	});
 }

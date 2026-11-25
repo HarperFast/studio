@@ -370,6 +370,41 @@ describe('AgentAdminIndex — start a run', () => {
 		);
 	});
 
+	it('with cluster:read, finds the cluster by name and starts a run of the one picked', async () => {
+		granted.add('cluster:read');
+		const base = get.getMockImplementation()!;
+		get.mockImplementation(async (url: string) =>
+			url === '/Admin/ClusterMonitoringPolicy/?search=checkout'
+				? {
+					data: [{
+						clusterId: 'clu-7',
+						clusterName: 'checkout-prod',
+						clusterStatus: 'RUNNING',
+						organizationId: 'org-1',
+						organizationName: 'Shared Co',
+						monitoringPolicy: 'page',
+					}],
+				}
+				: base(url)
+		);
+		post.mockResolvedValue({ data: { id: 'arn-new', clusterId: 'clu-7', status: 'pending', attached: false } });
+		renderPage();
+		const dialog = await openDialog();
+		expect(within(dialog).queryByLabelText('Cluster id')).toBeNull();
+		fireEvent.change(within(dialog).getByLabelText('Cluster'), { target: { value: 'checkout' } });
+		const matches = await within(dialog).findByRole('list', { name: 'Matching clusters' });
+		const start = within(dialog).getByRole('button', { name: 'Start investigation' });
+		expect((start as HTMLButtonElement).disabled).toBe(true);
+		fireEvent.click(within(matches).getByRole('button', { name: /checkout-prod/ }));
+		expect(within(dialog).getByText(/Shared Co · clu-7/)).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Change' })).toBeTruthy();
+		fireEvent.click(start);
+		await waitFor(() =>
+			expect(navigate).toHaveBeenCalledWith({ to: '/admin/agent/$runId', params: { runId: 'arn-new' } })
+		);
+		expect(post.mock.calls[0][1]).toEqual({ clusterId: 'clu-7', lookBackMinutes: 60, trigger: { kind: 'manual' } });
+	});
+
 	it('says why no run can start while the agent is switched off, and does not send one', async () => {
 		overview = { ...OVERVIEW, agentEnabled: false };
 		renderPage();
@@ -406,6 +441,33 @@ describe('AgentAdminIndex — settings', () => {
 		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
 		await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
 		expect(patch).toHaveBeenCalledWith('/Admin/Configuration/AGENT_ENABLED', { value: false });
+	});
+
+	it("keeps a confirmed save as the next edit's baseline when the refresh after it fails", async () => {
+		renderPage();
+		openTab('Settings');
+		const form = await screen.findByRole('form', { name: 'Agent settings' });
+		const input = () => within(form).getByLabelText('AGENT_RUN_BUDGET_USD') as HTMLInputElement;
+		patch.mockImplementation(async (url: string, body: { value: unknown }) => {
+			stored[url.slice('/Admin/Configuration/'.length)] = body.value;
+			return { data: {} };
+		});
+		const base = get.getMockImplementation()!;
+		get.mockImplementation(async (url: string) => {
+			if (url === '/Admin/AgentOverview/' && stored.AGENT_RUN_BUDGET_USD !== 1) { throw new Error('refresh failed'); }
+			return base(url);
+		});
+		fireEvent.change(input(), { target: { value: '2' } });
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(within(form).getByRole('button', { name: 'Save' })).toBeTruthy());
+		expect(input().value).toBe('2');
+
+		fireEvent.change(input(), { target: { value: '3' } });
+		fireEvent.click(within(form).getByRole('button', { name: 'Save 1 change' }));
+		await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
+		expect(patch).toHaveBeenLastCalledWith('/Admin/Configuration/AGENT_RUN_BUDGET_USD', { value: 3 });
+		expect(toastError).not.toHaveBeenCalled();
 	});
 
 	it('locks a super-user-only key and a key with no row, and shows each description', async () => {

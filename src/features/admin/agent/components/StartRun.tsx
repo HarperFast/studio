@@ -12,6 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LOOK_BACK_CHOICES, RUN_REF_MAX, useStartRunMutation } from '@/features/admin/agent/agentAdminApi';
 import { formatUsd } from '@/features/admin/agent/components/AgentBits';
+import { ClusterSearch } from '@/features/admin/components/ClusterSearch';
+import { ClusterPolicySearchResult } from '@/features/admin/monitoring/monitoringPolicyApi';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { useNavigate } from '@tanstack/react-router';
 import { Loader2Icon, SearchIcon } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
@@ -46,11 +49,14 @@ export function StartRunButton(props: StartRunProps) {
 function StartRunDialog({ offReason, runBudgetUsd, onClose }: StartRunProps & { onClose: () => void }) {
 	const navigate = useNavigate();
 	const mutation = useStartRunMutation();
+	// The cluster search needs cluster:read; without it staff type the id.
+	const canSearch = useStaffPermission('cluster:read');
+	const [picked, setPicked] = useState<ClusterPolicySearchResult | null>(null);
 	const [clusterId, setClusterId] = useState('');
 	const [lookBack, setLookBack] = useState<number>(LOOK_BACK_CHOICES[0]);
 	const [ref, setRef] = useState('');
 	const ids = { cluster: useId(), lookBack: useId(), ref: useId() };
-	const cluster = clusterId.trim();
+	const cluster = canSearch ? picked?.clusterId ?? '' : clusterId.trim();
 	const canSubmit = cluster !== '' && offReason === null && !mutation.isPending;
 
 	const submit = (event: FormEvent) => {
@@ -81,18 +87,46 @@ function StartRunDialog({ offReason, runBudgetUsd, onClose }: StartRunProps & { 
 						</DialogDescription>
 					</DialogHeader>
 					{offReason && <p role="alert" className="text-sm text-destructive">{offReason}</p>}
-					<div className="space-y-1.5">
-						<Label htmlFor={ids.cluster}>Cluster id</Label>
-						<Input
-							id={ids.cluster}
-							value={clusterId}
-							onChange={(event) => setClusterId(event.target.value)}
-							autoFocus
-							autoComplete="off"
-							spellCheck={false}
-							className="font-mono"
-						/>
-					</div>
+					{!canSearch
+						? (
+							<div className="space-y-1.5">
+								<Label htmlFor={ids.cluster}>Cluster id</Label>
+								<Input
+									id={ids.cluster}
+									value={clusterId}
+									onChange={(event) => setClusterId(event.target.value)}
+									autoFocus
+									autoComplete="off"
+									spellCheck={false}
+									className="font-mono"
+								/>
+							</div>
+						)
+						: picked
+						? (
+							<div className="space-y-1.5">
+								<span className="text-sm font-medium">Cluster</span>
+								<div className="flex items-center justify-between gap-3 rounded-md border p-3">
+									<span className="min-w-0">
+										<span className="block truncate text-sm">{picked.clusterName}</span>
+										<span className="block truncate text-xs text-muted-foreground">
+											{picked.organizationName} · {picked.clusterId}
+											{picked.clusterStatus ? ` · ${picked.clusterStatus}` : ''}
+										</span>
+									</span>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										disabled={mutation.isPending}
+										onClick={() => setPicked(null)}
+									>
+										Change
+									</Button>
+								</div>
+							</div>
+						)
+						: <ClusterSearch onPick={setPicked} />}
 					<div className="space-y-1.5">
 						<Label htmlFor={ids.lookBack}>Look back</Label>
 						<Select value={String(lookBack)} onValueChange={(next) => setLookBack(Number(next))}>

@@ -8,7 +8,7 @@ const staff = {
 	lastname: 'Admin',
 	roles: {},
 	fabricRole: 'fabric_admin',
-	staffPermissions: ['agent:read', 'agent:run', 'config:read', 'config:write'],
+	staffPermissions: ['agent:read', 'agent:run', 'cluster:read', 'config:read', 'config:write'],
 };
 
 const activeRun = {
@@ -90,6 +90,26 @@ const overview = {
 	settings: [
 		{ name: 'AGENT_ENABLED', description: 'Global switch.', value: true, superUserOnly: false },
 		{ name: 'AGENT_RUN_BUDGET_USD', description: 'Per-run cap.', value: 1, superUserOnly: false },
+		{
+			name: 'AGENT_MONTHLY_BUDGET_USD_INVESTIGATOR',
+			description: 'USD the investigator role may reserve and spend per calendar month; past it a start is refused.',
+			value: 20,
+			superUserOnly: false,
+		},
+		{
+			name: 'AGENT_TRIGGER_COOLDOWN_MINUTES',
+			description: 'Minutes after an automatic investigation during which another failure starts no new run.',
+			value: 60,
+			superUserOnly: false,
+		},
+		{ name: 'AGENT_SLACK_ENABLED', description: 'Post findings to Slack.', value: false, superUserOnly: false },
+		{
+			name: 'AGENT_SLACK_CHANNEL',
+			description: 'The channel the webhook posts to, so a reader knows where the digest lands.',
+			value: '',
+			superUserOnly: false,
+		},
+		{ name: 'GRAFANA_LOKI_URL', description: 'Loki base URL.', value: 'https://loki.example', superUserOnly: true },
 	],
 };
 
@@ -154,6 +174,24 @@ for (const colorScheme of ['light', 'dark'] as const) {
 	);
 }
 
+for (const width of [1440, 390]) {
+	test(`agent settings fit the page at ${width}px`, async ({ page }, testInfo) => {
+		await mockCentralManager(page, { active: [], past: [] });
+		await page.setViewportSize({ width, height: 1000 });
+		await page.goto('/#/admin/agent');
+		await page.getByRole('tab', { name: 'Settings' }).click();
+		const form = page.getByRole('form', { name: 'Agent settings' });
+		await expect(form.getByText('AGENT_SLACK_CHANNEL')).toBeVisible();
+		await page.screenshot({ path: testInfo.outputPath(`agent-settings-${width}.png`), fullPage: true });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		const formBox = (await form.boundingBox())!;
+		for (const input of await form.locator('input, textarea, button[role="combobox"]').all()) {
+			const box = (await input.boundingBox())!;
+			expect(box.x + box.width).toBeLessThanOrEqual(formBox.x + formBox.width + 1);
+		}
+	});
+}
+
 test('a run moves from Active to Past runs when it finishes, without a reload', async ({ page }) => {
 	// Past runs starts without the open run, so only the refetch Active triggers can bring it there inside 30 s.
 	const state = { active: [activeRun] as unknown[], past: [pastRun] as unknown[] };
@@ -190,11 +228,23 @@ test('staff start an investigation and land on its run', async ({ page }, testIn
 			json: { id: 'arn-done', clusterId: 'clu-done', status: 'pending', attached: false },
 		});
 	});
+	await page.route(/\/Admin\/ClusterMonitoringPolicy\/\?search=/, (route) =>
+		route.fulfill({
+			json: [{
+				clusterId: 'clu-done',
+				clusterName: 'checkout-prod',
+				clusterStatus: 'RUNNING',
+				organizationId: 'org-1',
+				organizationName: 'Example Co',
+				monitoringPolicy: 'page',
+			}],
+		}));
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await page.goto('/#/admin/agent');
 	await page.getByRole('button', { name: 'Investigate a cluster' }).click();
 	const dialog = page.getByRole('dialog', { name: 'Investigate a cluster' });
-	await dialog.getByLabel('Cluster id').fill('clu-done');
+	await dialog.getByLabel('Cluster', { exact: true }).fill('checkout');
+	await dialog.getByRole('list', { name: 'Matching clusters' }).getByRole('button', { name: /checkout-prod/ }).click();
 	await page.screenshot({ path: testInfo.outputPath('agent-start-dialog.png') });
 	await dialog.getByRole('button', { name: 'Start investigation' }).click();
 	await expect(page).toHaveURL(/#\/admin\/agent\/arn-done$/);

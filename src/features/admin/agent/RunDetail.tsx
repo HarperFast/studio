@@ -341,7 +341,7 @@ export function RunDetailPage() {
 								<RefreshFailed error={error} />
 							</div>
 						)}
-						<RunView run={data} canCancel={canCancel} />
+						<RunView key={data.id} run={data} canCancel={canCancel} />
 					</>
 				)}
 		</div>

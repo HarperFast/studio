@@ -215,7 +215,8 @@ export function AgentSettingsForm(
 			{!canWrite && (
 				<p className="mb-4 text-sm text-muted-foreground">Changing these needs the config:write permission.</p>
 			)}
-			<div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+			{/* One column: groups differ a lot in height, so two columns left ragged gaps, and a form reads top to bottom. */}
+			<div className="max-w-3xl space-y-6">
 				{ordered.map(([group, entries]) => (
 					<fieldset key={group} className="min-w-0 rounded-lg border bg-card p-4 sm:p-5">
 						<legend className="px-1 text-sm font-medium">{group}</legend>

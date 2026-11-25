@@ -39,7 +39,7 @@ export interface ClusterMonitoringPolicyRow extends MonitoringPolicyChange {
 }
 
 /** One `?search=` match: the cluster with its effective policy (`page` when it has no row). */
-interface ClusterPolicySearchResult extends MonitoringPolicyChange {
+export interface ClusterPolicySearchResult extends MonitoringPolicyChange {
 	clusterId: string;
 	clusterName: string;
 	clusterStatus?: string | null;
