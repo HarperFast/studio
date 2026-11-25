@@ -61,7 +61,6 @@ function entryAt(entries: Array<DirectoryEntry | FileEntry>, path: string): Dire
 	return undefined;
 }
 
-/** A folder's moves, from the instance as it is now rather than the tree, which another tab can have outdated. */
 async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string) {
 	const { entries } = await getComponents(instanceParams);
 	const folder = entryAt(calculateRootEntries(entries).rootEntries, from);
@@ -73,11 +72,11 @@ async function folderMoves(instanceParams: InstanceClientIdConfig, from: string,
 
 export function RenameFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRenameFileModal', false);
-	const waitingRename = useRef<AbortController>(undefined);
-	useEffect(() => () => waitingRename.current?.abort(), []);
+	const cancelOnClose = useRef<AbortController>(undefined);
+	useEffect(() => () => cancelOnClose.current?.abort(), []);
 
 	const closeModal = useCallback(() => {
-		waitingRename.current?.abort();
+		cancelOnClose.current?.abort();
 		setWatchedValue('ShowRenameFileModal', false);
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
@@ -141,7 +140,7 @@ export function RenameFileModal() {
 		}
 
 		// Dropping the old folder takes every file under it, so a folder's rename covers the whole instance
-		// from its first move until that drop. Closing the dialog while it waits for another tab cancels it.
+		// from its first move until that drop. Closing the dialog gives up a rename that has sent nothing yet.
 		const cancellation = new AbortController();
 		const folderRename = isDir
 			? startRename(queryClient, instanceParams.entityId, 'instance', cancellation.signal)
@@ -151,18 +150,14 @@ export function RenameFileModal() {
 			return;
 		}
 		setIsPending(true);
-		waitingRename.current = cancellation;
+		cancelOnClose.current = cancellation;
 		const endFolderRename = await folderRename;
-		waitingRename.current = undefined;
-		if (isDir && !endFolderRename) {
-			setIsPending(false);
-			return;
-		}
 		let renamed: boolean;
 		try {
 			let changes = [{ from: openedEntry.path, to }];
-			if (isDir) {
+			if (endFolderRename) {
 				try {
+					// Listed under the lock: this tab's tree can lack a file another tab made.
 					changes = await folderMoves(instanceParams, openedEntry.path, to);
 				} catch (error) {
 					toast.error('Rename Failed', {
@@ -172,7 +167,12 @@ export function RenameFileModal() {
 					return;
 				}
 			}
-			renamed = await renameFiles(changes, isDir);
+			if (isDir && cancellation.signal.aborted) {
+				toast.warning('Rename Cancelled', { description: 'Nothing was renamed.', duration: 10000 });
+				setIsPending(false);
+				return;
+			}
+			renamed = await renameFiles(changes, { startedByCaller: isDir, signal: cancellation.signal });
 
 			// Moving the files leaves the original (now-empty) directory behind, so once
 			// the move fully succeeds recreate the renamed shell (for empty folders) and
@@ -202,6 +202,7 @@ export function RenameFileModal() {
 				}
 			}
 		} finally {
+			cancelOnClose.current = undefined;
 			endFolderRename?.();
 		}
 

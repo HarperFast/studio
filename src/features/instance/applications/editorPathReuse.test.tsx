@@ -1239,22 +1239,51 @@ describe('another tab on the same instance', () => {
 		expect([...files.keys()].filter(path => path.startsWith('app/lib/'))).toEqual([]);
 	});
 
-	it('cancels a folder rename still waiting for that tab when its dialog is closed', async () => {
+	it.each([
+		['a folder', 'app/lib', 'src', 'app/lib/x.js', 'app/src/x.js'],
+		['a file', 'app/lib/x.js', 'y.js', 'app/lib/x.js', 'app/lib/y.js'],
+	])(
+		'cancels a rename of %s still waiting for that tab when its dialog is closed',
+		async (_, path, name, saved, to) => {
+			const cancelled = vi.spyOn(toast, 'warning');
+			seed({ 'app/lib/x.js': 'saved x' });
+			renderEditor();
+			await open(path);
+			const theirs = await theirSave(saved);
+			await submitRename(name);
+			await waitFor(async () => expect(await waiting()).toBe(1));
+
+			fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			await waitFor(() => expect(isRenaming(queryClient, 'ins-1')).toBe(false));
+			expect(cancelled).toHaveBeenCalledWith('Rename Cancelled', expect.anything());
+			await theirs.land();
+			await waitFor(async () => expect(await lockCount()).toBe(0));
+			expect(copiesSent()).toBe(0);
+			expect(sent('drop_component')).toEqual([]);
+			expect(files.get(saved)).toBe('saved in the other tab');
+			expect(files.has(to)).toBe(false);
+		},
+	);
+
+	it('cancels a folder rename when its dialog is closed while it lists the folder', async () => {
+		const cancelled = vi.spyOn(toast, 'warning');
 		seed({ 'app/lib/x.js': 'saved x' });
 		renderEditor();
 		await open('app/lib');
-		const theirs = await theirSave('app/lib/x.js');
+		const listed = hold('get_components', 'undefined');
 		await submitRename('src');
-		await waitFor(async () => expect(await waiting()).toBe(1));
+		await waitFor(() => expect(harness.holds.size).toBe(0));
 
 		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await listed();
 
-		await waitFor(() => expect(isRenaming(queryClient, 'ins-1')).toBe(false));
-		await theirs.land();
+		await waitFor(() => expect(cancelled).toHaveBeenCalledWith('Rename Cancelled', expect.anything()));
 		await waitFor(async () => expect(await lockCount()).toBe(0));
+		expect(isRenaming(queryClient, 'ins-1')).toBe(false);
+		expect(copiesSent()).toBe(0);
 		expect(sent('drop_component')).toEqual([]);
-		expect(files.get('app/lib/x.js')).toBe('saved in the other tab');
-		expect(files.has('app/src/x.js')).toBe(false);
+		expect(files.get('app/lib/x.js')).toBe('saved x');
 	});
 });
 

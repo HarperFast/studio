@@ -27,6 +27,13 @@ export function refuseRenameDuringSave() {
 	toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
 }
 
+interface RenameOptions {
+	/** The caller started the rename and ends it, as a folder rename does to cover the old folder's drop. */
+	startedByCaller?: boolean;
+	/** Gives up a rename still waiting for another tab, as the progress toast's Cancel does. */
+	signal?: AbortSignal;
+}
+
 export function useRenameFiles() {
 	const {
 		reloadRootEntries,
@@ -37,15 +44,18 @@ export function useRenameFiles() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 
-	return useCallback(async (changes: { from: string; to: string }[], startedByCaller = false): Promise<boolean> => {
+	return useCallback(async (
+		changes: { from: string; to: string }[],
+		{ startedByCaller = false, signal }: RenameOptions = {},
+	): Promise<boolean> => {
 		let canceled = false;
 		const actualChanges = changes.filter(change => change.from !== change.to);
 
 		if (actualChanges.length === 0) {
 			return true;
 		}
-		// Cancel stops a rename still waiting for another tab before it sends anything.
 		const cancellation = new AbortController();
+		signal?.addEventListener('abort', () => cancellation.abort(), { once: true });
 		const starting = startedByCaller
 			? Promise.resolve(() => undefined)
 			: startRename(queryClient, instanceParams.entityId, {

@@ -264,7 +264,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [queryClient]);
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
-		// A save can wait for another tab's rename, and one whose session ended meanwhile is not sent.
 		mutationFn: request =>
 			holdForSave(
 				request.entityId,

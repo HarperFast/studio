@@ -9,14 +9,12 @@ export function editorSavesInFlight(queryClient: QueryClient): SetComponentFileR
 		.map(mutation => mutation.state.variables as SetComponentFileRequest);
 }
 
-// By query client, which is one per tab, like the saves its mutation cache tracks.
 const renamesInFlight = new WeakMap<QueryClient, Map<string, number>>();
 
 export function isRenaming(queryClient: QueryClient, entityId: string): boolean {
 	return renamesInFlight.get(queryClient)?.has(entityId) ?? false;
 }
 
-/** The paths a rename reads, writes and drops, or the whole instance for a folder. */
 export type RenameScope = { readonly paths: readonly string[] } | 'instance';
 
 /**
@@ -58,7 +56,6 @@ export function startRename(
 	});
 }
 
-/** Sends a save of `path` once no other tab is renaming it, and holds off their renames until it settles. */
 export function holdForSave<T>(entityId: string, path: string, save: () => Promise<T>): Promise<T> {
 	return whileHeldAcrossTabs([
 		{ name: instanceLockName(entityId), mode: 'shared' },
@@ -66,8 +63,7 @@ export function holdForSave<T>(entityId: string, path: string, save: () => Promi
 	], save);
 }
 
-// Every caller takes the instance first and then its paths sorted, all before sending anything, so two
-// tabs never each hold what the other waits for. Any script on the page can list the names.
+// The instance first, then paths sorted, all before sending anything: see "Saving a file" in DESIGN.md.
 interface LockSpec {
 	name: string;
 	mode: LockMode;
@@ -134,7 +130,6 @@ async function whileHeldAcrossTabs<T>(
 	}
 }
 
-/** Takes `locks` as `whileHeldAcrossTabs` does, and holds them until the function it resolves with is called. */
 function holdAcrossTabs(locks: readonly LockSpec[], signal?: AbortSignal): Promise<() => void> {
 	let release!: () => void;
 	const released = new Promise<void>(resolve => {
