@@ -776,7 +776,6 @@ class AuthStore {
 				return null;
 			}
 			const instanceClient = getInstanceClient({ id: entityId, operationsUrl });
-			// The Basic credential goes only to the URL it was entered for, taken from the same read that checks the URL.
 			// Another URL the entity is marked at gets the logout with only that host's cookies, as a cookie sign-in does.
 			if (instanceClient.defaults.auth) {
 				const credential = this.basicAuthFor(entityId, instanceClient.defaults.baseURL);
