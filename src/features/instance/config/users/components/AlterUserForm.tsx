@@ -23,12 +23,14 @@ import { Switch } from '@/components/ui/switch';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { useRoleBlocksAssignment } from '@/features/instance/config/roles/operations/useRoleBlocksAssignment';
+import { useListedRoles } from '@/features/instance/config/users/useListedRoles';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/auth/alterUser';
-import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
-import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
+import {
+	AlterUserFixedRoleFormSchema,
+	AlterUserFormSchema,
+} from '@/integrations/api/instance/auth/alterUserFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -49,14 +51,12 @@ export function AlterUserForm({
 	const instanceParams = useInstanceClientIdParams();
 	// Harper rejects any user whose `active` is falsy (`findAndValidateUser`), not only `false`.
 	const isActive = Boolean(data.active);
-	const { data: roles, isLoading: isRolesLoading } = useQuery({
-		...getListRolesQueryOptions(instanceParams),
-		// Keep the previous useSuspenseQuery behavior of surfacing fetch errors to the ErrorBoundary.
-		throwOnError: true,
-	});
+	const { canList: canListRoles, roles, isLoading: isRolesLoading } = useListedRoles();
+	const isRoleReadOnly = canListRoles === false;
+	const sendsRole = canListRoles === true;
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
 	const alterForm = useForm({
-		resolver: zodResolver(AlterUserFormSchema),
+		resolver: zodResolver(isRoleReadOnly ? AlterUserFixedRoleFormSchema : AlterUserFormSchema),
 		defaultValues: {
 			username: data.username,
 			role: data.role?.id ?? '',
@@ -79,18 +79,27 @@ export function AlterUserForm({
 	const selectedRoleId = alterForm.watch('role');
 	const assignmentBlocked = useRoleBlocksAssignment(roles?.find((role) => role.id === selectedRoleId));
 
+	// Against the form's own starting value: `data` is re-polled while the form is open, so another admin's
+	// change would otherwise read as this one's.
+	const sendsActive = useCallback(
+		(active: boolean) => activeToggle === 'editable' && active !== alterForm.formState.defaultValues?.active,
+		[activeToggle, alterForm],
+	);
+	// Harper refuses an alter_user with no password, role or active to update.
+	const hasNothingToSend = !sendsRole && !alterForm.watch('newPassword') && !sendsActive(alterForm.watch('active'));
+
 	const onSubmitClick = useCallback((formData: z.infer<typeof AlterUserFormSchema>) => {
 		const alterBody: AlterUserRequestBody = {
 			username: data.username,
-			role: formData.role,
 			...instanceParams,
 		};
+		if (sendsRole) {
+			alterBody.role = formData.role;
+		}
 		if (formData.newPassword) {
 			alterBody.password = formData.newPassword;
 		}
-		// Against the form's own starting value: `data` is re-polled while the form is open, so another admin's
-		// change would otherwise read as this one's.
-		if (activeToggle === 'editable' && formData.active !== alterForm.formState.defaultValues?.active) {
+		if (sendsActive(formData.active)) {
 			alterBody.active = formData.active;
 		}
 		alterUser(
@@ -103,7 +112,7 @@ export function AlterUserForm({
 				},
 			},
 		);
-	}, [activeToggle, alterForm, alterUser, data.username, instanceParams, onUserUpdated]);
+	}, [alterForm, alterUser, data.username, instanceParams, onUserUpdated, sendsActive, sendsRole]);
 
 	return (
 		<Form {...alterForm}>
@@ -149,14 +158,20 @@ export function AlterUserForm({
 
 									{isRolesLoading ? <TextLoadingSkeleton /> : (
 										<FormControl>
-											<Select {...field} onValueChange={(role) => field.onChange(role)}>
+											<Select
+												{...field}
+												// Read-only shows the re-polled role, which the form's starting value can fall behind.
+												value={isRoleReadOnly ? data.role?.id ?? '' : field.value}
+												onValueChange={(role) => field.onChange(role)}
+												disabled={isRoleReadOnly}
+											>
 												<SelectTrigger className="w-full">
 													<SelectValue placeholder="Choose Role" />
 												</SelectTrigger>
 												<SelectContent>
 													<SelectGroup>
 														<SelectLabel>Role</SelectLabel>
-														{roles?.map((role) => (
+														{(isRoleReadOnly ? (data.role ? [data.role] : []) : roles)?.map((role) => (
 															<SelectItem
 																key={role.id}
 																value={role.id}
@@ -168,6 +183,9 @@ export function AlterUserForm({
 												</SelectContent>
 											</Select>
 										</FormControl>
+									)}
+									{isRoleReadOnly && (
+										<FormDescription>Changing the role needs list_roles, which your role doesn't have.</FormDescription>
 									)}
 									<RoleOperationsSummary role={roles?.find((role) => role.id === field.value)} />
 									<FormMessage />
@@ -248,7 +266,7 @@ export function AlterUserForm({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"
-							disabled={isUpdateUserPending || assignmentBlocked}
+							disabled={isUpdateUserPending || isRolesLoading || assignmentBlocked || hasNothingToSend}
 						>
 							<Save /> Save Changes
 						</Button>

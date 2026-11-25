@@ -35,13 +35,11 @@ export function EditUserModal({
 	const isFabricConnect = authStore.checkForFabricConnect(instanceId ?? clusterId);
 	const auth = useInstanceAuth(instanceId ?? clusterId);
 	const canAlterUsers = useInstanceOperationPermission('alter_user');
-	// The form cannot render without list_roles (HarperFast/studio#2111).
-	const canListRoles = useInstanceOperationPermission('list_roles');
 	const isSelf = !isFabricConnect && auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
 	let activeToggle: ActiveToggle = 'hidden';
-	if (canAlterUsers && canListRoles && !isSelf) {
+	if (canAlterUsers && !isSelf) {
 		activeToggle = isOnlyActiveSuperUser(users, data.username) ? 'only-active-super-user' : 'editable';
 	}
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
@@ -21,11 +22,10 @@ import {
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { useRoleBlocksAssignment } from '@/features/instance/config/roles/operations/useRoleBlocksAssignment';
+import { useListedRoles } from '@/features/instance/config/users/useListedRoles';
 import { useAddUserMutation } from '@/integrations/api/instance/auth/addUser';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
-import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -42,11 +42,7 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { data: roles, isLoading: isRolesLoading } = useQuery({
-		...getListRolesQueryOptions(instanceParams),
-		// Keep the previous useSuspenseQuery behavior of surfacing fetch errors to the ErrorBoundary.
-		throwOnError: true,
-	});
+	const { canList: canListRoles, roles, isLoading: isRolesLoading } = useListedRoles();
 	const form = useForm({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
@@ -164,7 +160,11 @@ export function AddUserModal({
 
 									{isRolesLoading ? <TextLoadingSkeleton /> : (
 										<FormControl>
-											<Select {...field} onValueChange={(role) => field.onChange(role)}>
+											<Select
+												{...field}
+												onValueChange={(role) => field.onChange(role)}
+												disabled={canListRoles === false}
+											>
 												<SelectTrigger className="w-full">
 													<SelectValue placeholder="Choose Role" />
 												</SelectTrigger>
@@ -184,6 +184,9 @@ export function AddUserModal({
 											</Select>
 										</FormControl>
 									)}
+									{canListRoles === false && (
+										<FormDescription>Choosing a role needs list_roles, which your role doesn't have.</FormDescription>
+									)}
 									<RoleOperationsSummary role={roles?.find((role) => role.id === field.value)} />
 									<FormMessage />
 								</FormItem>
@@ -192,7 +195,11 @@ export function AddUserModal({
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="submit" variant="submit" disabled={isAddPending || assignmentBlocked}>
+								<Button
+									type="submit"
+									variant="submit"
+									disabled={isAddPending || isRolesLoading || assignmentBlocked || canListRoles === false}
+								>
 									<Save /> Add User
 								</Button>
 							</div>
