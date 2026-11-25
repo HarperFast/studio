@@ -8,9 +8,10 @@ export interface RegistrationInfoResponse {
 
 /**
  * Harper refuses `registration_info` to a role whose operations allowlist leaves it out (harper v5.4.1
- * `utility/operation_authorization.ts:476`, `:816`). That refusal is an answer, "version unknown": it isn't retried or
- * toasted, and a route that needs the version still shows it as its error page. It is set here, not per caller: every
- * surface shares this cache entry, and React Query applies the options of whichever observer rendered or fetched last.
+ * `utility/operation_authorization.ts:476`, `:816`). That refusal is an answer, "version unknown": it isn't retried,
+ * toasted or reported, even from a route preload (`src/router/DESIGN.md`); a route that needs the version still shows it
+ * as its error page. It is set here, not per caller: every surface shares this cache entry, and React Query applies the
+ * options of whichever observer rendered or fetched last.
  */
 export function getRegistrationInfoQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({

@@ -8,7 +8,9 @@
   the root `onCaughtError` the one RUM report. Everything else keeps the global toast and report — a
   background refetch, an imperative fetch, a load the user navigated away from, and any preload.
   [`routeLoadFailureReporting.test.tsx`](__tests__/routeLoadFailureReporting.test.tsx) pins each case
-  against the real router.
+  against the real router. One exception: a 403 from the registration-info read behind every loader is
+  an answer (`meta.refusalIsAnAnswer`), so outside a claim it is neither toasted nor reported. A
+  refused preload or abandoned load says nothing; a navigation that stays still shows and reports it.
 - **Guards read the app sign-in through [`guardedAppSignIn`](guardedAppSignIn.ts).** The store learns of a
   sign-out at once and clears the query cache; the router context hears a tick later, through the store's
   listeners. A load that starts in between (Back, a preload) would pass the dashboard guard on the old
@@ -18,8 +20,8 @@
   router gave up ("Too many redirects").
   [`endedSessionRouteFailures.test.tsx`](__tests__/endedSessionRouteFailures.test.tsx) starts such a load
   from a pending and from a signed-in context.
-- **Preloads never claim, so no failure goes unreported.** A navigation runs `beforeLoad` again and
-  claims a read its preload left in flight. It does not run a `loader` its preload has in flight —
+- **Preloads never claim, so no failure goes unreported** (but for the refusal above). A navigation
+  runs `beforeLoad` again and claims a read its preload left in flight. It does not run a `loader` its preload has in flight —
   it adopts it — so that one failure is still reported twice (toast and console, then the boundary).
   Claiming loader preloads would close it, at the price of silencing every failed hover nobody
   clicked.

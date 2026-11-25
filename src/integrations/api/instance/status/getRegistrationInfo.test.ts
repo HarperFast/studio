@@ -16,7 +16,6 @@ function failedWith(status: number) {
 
 describe('getRegistrationInfoQueryOptions', () => {
 	const options = getRegistrationInfoQueryOptions({ entityId: 'instance-1', instanceClient: {} as AxiosInstance });
-	// Test QueryClients usually set `retry: false`, which a query-level `retry` overrides, so the predicate is pinned here.
 	const retry = options.retry as (failureCount: number, error: unknown) => boolean;
 
 	it('takes a refusal as the answer: not retried, and marked so the global handler doesn’t toast it', () => {

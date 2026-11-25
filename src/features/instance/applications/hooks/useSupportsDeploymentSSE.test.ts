@@ -62,10 +62,6 @@ function failedWith(status: number) {
 	});
 }
 
-/**
- * The redeploy dialog's two reads of one cache entry, in its order (its SSE check reads through
- * `useDeploymentsAvailable`). The observer that starts the fetch decides the retry; a `retry: false` default would hide it.
- */
 function renderRedeployVersionReads() {
 	const queryClient = new QueryClient({
 		queryCache: new QueryCache({ onError: queryErrorHandler }),
