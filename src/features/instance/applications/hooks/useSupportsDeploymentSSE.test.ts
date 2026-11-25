@@ -63,9 +63,8 @@ function failedWith(status: number) {
 }
 
 /**
- * The redeploy dialog's pair, in its order: `useSupportsDeploymentSSE` reads the version before
- * `useStagedDeploymentsAvailable`, both on one cache entry. The global error handler routes failures as the app's does,
- * and there is no `retry: false` default: a query without its own `retry` gets React Query's three.
+ * The redeploy dialog's two reads of one cache entry, in its order (its SSE check reads through
+ * `useDeploymentsAvailable`). The observer that starts the fetch decides the retry; a `retry: false` default would hide it.
  */
 function renderRedeployVersionReads() {
 	const queryClient = new QueryClient({
