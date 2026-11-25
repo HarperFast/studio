@@ -52,4 +52,17 @@ describe('byInstanceFqdnThenPort', () => {
 		expect([...items].sort(byInstanceFqdnThenPort)).toEqual([items[3], items[1], items[2], items[0]]);
 		expect([...items].reverse().sort(byInstanceFqdnThenPort)).toEqual([items[3], items[1], items[2], items[0]]);
 	});
+
+	it.each(['   ', 'https://'])(
+		'sorts an FQDN of %j with the missing ones, after every address (#2022)',
+		(instanceFqdn) => {
+			const items: Item[] = [
+				{ instanceFqdn, operationsApiPort: 9925 },
+				{ instanceFqdn: 'a.example.com', operationsApiPort: 9925 },
+			];
+
+			expect([...items].sort(byInstanceFqdnThenPort)).toEqual([items[1], items[0]]);
+			expect(byInstanceFqdnThenPort(items[0], { instanceFqdn: undefined, operationsApiPort: 9925 })).toBe(0);
+		},
+	);
 });

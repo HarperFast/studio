@@ -59,7 +59,7 @@ const reachable = {
 	status: 'RUNNING',
 	version: '4.7.3',
 };
-const addressless = {
+const addresslessBase = {
 	id: 'ins-2',
 	name: 'addressless',
 	operationsApiPort: 9925,
@@ -103,7 +103,10 @@ function rowContaining(text: string) {
 	return screen.getByText(text).closest('tr')!;
 }
 
-describe('Instances with an instance that has no FQDN', () => {
+// A blank or scheme-only FQDN is no address either (#2022), and sorts with the missing ones.
+describe.each([undefined, '   ', 'https://'])('Instances with an instance whose FQDN is %j', (instanceFqdn) => {
+	const addressless = { ...addresslessBase, instanceFqdn };
+
 	it('renders every row, and offers no sign-in or status for the one without an address', async () => {
 		const queryClient = await renderInstances({ instances: [reachable, addressless] as Cluster['instances'] });
 

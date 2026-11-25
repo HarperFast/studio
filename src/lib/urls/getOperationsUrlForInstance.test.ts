@@ -1,4 +1,4 @@
-import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { getInstanceAddress, getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { describe, expect, it } from 'vitest';
 
 describe('getOperationsUrlForInstance', () => {
@@ -48,5 +48,21 @@ describe('getOperationsUrlForInstance', () => {
 			operationsApiPort: 9925,
 			operationsApiSecure: true,
 		})).toBeNull();
+	});
+});
+
+describe('getInstanceAddress', () => {
+	it.each([undefined, '', '   ', 'https://', ' node.example.com'])(
+		'has no address for an FQDN of %j, which has no operations URL either (#2022)',
+		(instanceFqdn) => {
+			expect(getInstanceAddress({ instanceFqdn })).toBeNull();
+			expect(getOperationsUrlForInstance({ instanceFqdn, operationsApiPort: 9925, operationsApiSecure: true }))
+				.toBeNull();
+		},
+	);
+
+	it('gives the FQDN back without padding a URL ignores', () => {
+		expect(getInstanceAddress({ instanceFqdn: 'node.example.com ' })).toBe('node.example.com');
+		expect(getInstanceAddress({ instanceFqdn: '10.0.0.4' })).toBe('10.0.0.4');
 	});
 });
