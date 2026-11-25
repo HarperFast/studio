@@ -44,15 +44,18 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const release = useStagedReleases(records).get(deployment.deployment_id);
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
-	const { intent, offer, disabled } = releaseOffer(check, {
-		intent: release?.kind === 'replaced' || release?.kind === 'being-replaced'
+	const offered = releaseOffer(check, {
+		intent: release?.kind === 'replaced'
 			? 'rollback'
 			: release?.kind === 'uncertain' || release?.kind === 'activating'
 			? 'again'
 			: 'activate',
-		// Not while another deploy rolls out: activating this one would start a second rolling restart.
-		offer: release !== undefined && release.kind !== 'live' && release.kind !== 'being-replaced',
+		offer: release !== undefined && release.kind !== 'live',
 	}, true);
+	const { intent, disabled } = offered;
+	// Whatever the nodes hold: while another deploy rolls out, activating this one starts a second rolling activation
+	// alongside it, of a different release.
+	const offer = offered.offer && release?.kind !== 'being-replaced';
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
@@ -97,9 +100,9 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 					{release?.kind === 'being-replaced' && (
 						<>
 							Activated by <DeploymentLink deployment={release.activation} />, but a later deploy,{' '}
-							<DeploymentLink deployment={release.replacedBy} />, is taking over: it is live on the node that received
-							it and is reaching the other nodes one at a time, so this release may still be live on some of them. While
-							it runs, activating this release starts a second rolling restart.
+							<DeploymentLink deployment={release.replacedBy} />, is taking over: it went live on the node that received
+							it and is reaching the other nodes one at a time. Until it finishes, activating this release would start a
+							second rolling restart, so it is not offered.
 						</>
 					)}
 					{release?.kind === 'replaced' && (

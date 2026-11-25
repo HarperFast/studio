@@ -147,7 +147,6 @@ describe('stagedReleaseState', () => {
 			activation,
 			replacedBy: rolling,
 		});
-		// An activation of another release rolls out the same way.
 		const other = { ...rolling, activated_from: '57a6ed00-0000-4000-8000-000000000005' };
 		expect(stagedReleaseState(staged, [staged, activation, other])).toEqual({
 			kind: 'being-replaced',
@@ -164,20 +163,28 @@ describe('stagedReleaseState', () => {
 		}
 	});
 
-	it('is replaced, or uncertain, once a deploy after it succeeded or failed, whatever else is rolling out', () => {
+	it('is replaced once a deploy after it succeeded, whether that came before or after a rollout', () => {
+		const success = record('9f00aa11-0000-4000-8000-000000000002', 400);
+		for (const rollingAt of [300, 500]) {
+			const rolling = record('ab0de000-0000-4000-8000-000000000009', rollingAt, { status: 'rolling_out' });
+			expect(stagedReleaseState(staged, [staged, activation, rolling, success])).toEqual({
+				kind: 'replaced',
+				activation,
+				replacedBy: success,
+			});
+		}
+	});
+
+	// As `uncertain` it would offer to activate this release, which would start a second rollout alongside this one.
+	it('is being replaced rather than uncertain while a deploy rolls out, whichever failure came first', () => {
 		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
-		const later = record('9f00aa11-0000-4000-8000-000000000002', 400);
-		expect(stagedReleaseState(staged, [staged, activation, rolling, later])).toEqual({
-			kind: 'replaced',
-			activation,
-			replacedBy: later,
-		});
-		const failed = { ...later, status: 'failed' } as Deployment;
-		expect(stagedReleaseState(staged, [staged, activation, rolling, failed])).toEqual({
-			kind: 'uncertain',
-			activation,
-			failed,
-		});
+		const beingReplaced = (on: Deployment) => ({ kind: 'being-replaced', activation: on, replacedBy: rolling });
+		const partialActivation = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, partialActivation, rolling])).toEqual(beingReplaced(partialActivation));
+		for (const failedAt of [250, 400]) {
+			const failed = record('fa11ed00-0000-4000-8000-000000000004', failedAt, { status: 'failed' });
+			expect(stagedReleaseState(staged, [staged, activation, rolling, failed])).toEqual(beingReplaced(activation));
+		}
 	});
 
 	it('ignores a rollout that started before its activation', () => {
@@ -185,10 +192,15 @@ describe('stagedReleaseState', () => {
 		expect(stagedReleaseState(staged, [staged, rolling, activation])).toEqual({ kind: 'live', activation });
 	});
 
-	it('does not read its own activation rolling out as another deploy, even when no start time orders them', () => {
-		const unordered = { ...activation, started_at: undefined };
-		const rolling = { ...unordered, deployment_id: 'ab0de000-0000-4000-8000-000000000009', status: 'rolling_out' };
-		expect(stagedReleaseState(staged, [rolling, unordered] as Deployment[]).kind).not.toBe('being-replaced');
+	// An unfinished activation of it that a later deploy came after is no longer `activating`.
+	it('does not read its own re-activation, still rolling out, as another deploy taking over', () => {
+		const again = record('ab0de000-0000-4000-8000-000000000009', 300, {
+			status: 'rolling_out',
+			activated_from: STAGED_ID,
+		});
+		const partial = record('fa11ed00-0000-4000-8000-000000000004', 400, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, activation, again, partial]))
+			.toEqual({ kind: 'uncertain', activation, failed: partial });
 	});
 
 	it('ignores a failure from before its activation, a later stage, and other components', () => {
