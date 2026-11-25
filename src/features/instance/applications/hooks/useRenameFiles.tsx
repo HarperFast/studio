@@ -101,8 +101,10 @@ export function useRenameFiles() {
 		}
 
 		const endRename = await starting;
-		// A wait for another tab can outlast the session: nothing is sent under the next one.
-		if (!endRename || authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration) {
+		if (
+			!endRename || cancellation.signal.aborted
+			|| authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration
+		) {
 			endRename?.();
 			toast.warning('Rename Cancelled', { id: toastConfig.id, description: 'Nothing was renamed.', duration: 10000 });
 			return false;

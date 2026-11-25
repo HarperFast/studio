@@ -59,6 +59,9 @@ function signedOutSince(queryClient: QueryClient, saved: SetComponentFileRequest
 	return !queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
 }
 
+/** A save that waited for another tab past the end of its session: nothing was sent, so nothing settles. */
+const notSent = Symbol('not sent');
+
 interface SaveRefusal {
 	id: string;
 	title: string;
@@ -227,9 +230,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Save changes.
 	 */
-	const settleSave = useCallback(async (_response: unknown, saved: SetComponentFileRequest) => {
+	const settleSave = useCallback(async (response: unknown, saved: SetComponentFileRequest) => {
 		const { entityId, instanceClient, project, file, payload } = saved;
-		if (payload === undefined) {
+		if (response === notSent || payload === undefined) {
 			return;
 		}
 		if (signedOutSince(queryClient, saved)) {
@@ -265,7 +268,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
 		mutationFn: request => {
-			// A wait for another tab's rename can outlast the session: nothing is sent under the next one.
 			const signOutGeneration = authStore.getSignOutGeneration(request.entityId);
 			const sessionEnded = () =>
 				signedOutSince(queryClient, request)
@@ -273,7 +275,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			return holdForSave(
 				request.entityId,
 				`${request.project}/${request.file}`,
-				async () => sessionEnded() ? undefined : setComponentFile(request),
+				async () => sessionEnded() ? notSent : setComponentFile(request),
 			);
 		},
 		onSuccess: settleSave,
@@ -324,7 +326,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			if (refusal) {
 				throw new Error(`${refusal.title}. ${refusal.description}`);
 			}
-			await writeComponentFile(data);
+			if (await writeComponentFile(data) === notSent) {
+				throw new Error(`${data.file.split('/').at(-1)} was not saved. The session ended before it was sent.`);
+			}
 		},
 		[refusalOf, writeComponentFile],
 	);

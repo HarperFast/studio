@@ -74,7 +74,6 @@ function fileLockName(entityId: string, path: string) {
 	return `Studio:EditorFile:${encodeURIComponent(entityId)}:${path}`;
 }
 
-// The instance first, then paths sorted, as every caller takes them: see "Saving a file" in DESIGN.md.
 function renameLocks(entityId: string, scope: RenameScope): LockSpec[] {
 	if (scope === 'instance') {
 		return [{ name: instanceLockName(entityId), mode: 'exclusive' }];
@@ -92,7 +91,6 @@ function lockManager(): LockManager | undefined {
 	return typeof navigator === 'undefined' ? undefined : navigator.locks;
 }
 
-/** Runs without the locks when Web Locks are missing or refuse, and when `signal` aborts: callers check it. */
 async function whileHeldAcrossTabs<T>(
 	locks: readonly LockSpec[],
 	work: () => Promise<T>,

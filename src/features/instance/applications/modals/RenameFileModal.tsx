@@ -62,7 +62,6 @@ function entryAt(entries: Array<DirectoryEntry | FileEntry>, path: string): Dire
 	return undefined;
 }
 
-/** Rejects as soon as `signal` aborts, rather than when `promise` settles. */
 function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 	return new Promise((resolve, reject) => {
 		const abort = () => reject(signal.reason);
@@ -72,7 +71,6 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 }
 
 async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string, signal: AbortSignal) {
-	// Only a read, so a closed dialog stops waiting for it and lets the instance go at once.
 	const { entries } = await untilAborted(getComponents(instanceParams), signal);
 	const folder = entryAt(calculateRootEntries(entries).rootEntries, from);
 	if (!folder || !isDirectory(folder)) {
@@ -150,7 +148,6 @@ export function RenameFileModal() {
 			}
 		}
 
-		// The old folder's drop takes every file under it, so a folder's rename holds the whole instance.
 		const cancellation = new AbortController();
 		const folderRename = isDir
 			? startRename(queryClient, instanceParams.entityId, 'instance', cancellation.signal)

@@ -1152,20 +1152,44 @@ describe('another tab on the same instance', () => {
 		['a sign-out of the instance', () => vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(-1)],
 	] as const;
 
-	it.each(signOuts)('does not send a save that waited for that tab through %s', async (_, signOut) => {
-		seed({ 'app/a.js': 'saved a' });
+	it.each(signOuts)(
+		'does not send a save that waited for that tab through %s, and keeps its edits unsaved',
+		async (_, signOut) => {
+			seed({ 'app/a.js': 'saved a' });
+			renderEditor();
+			await openFile('app/a.js', 'saved a');
+			type('edits to a');
+			const endRename = (await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] }))!;
+			save();
+			await waitFor(async () => expect(await waiting()).toBe(1));
+
+			act(() => void signOut());
+			act(() => endRename());
+
+			await waitFor(async () => expect(await lockCount()).toBe(0));
+			await waitFor(() => expect(view.isSavingFile).toBe(false));
+			expect(writesOf('app/a.js')).toEqual([]);
+			expect(bufferAt('app/a.js')).toBe('edits to a');
+			expect(cachedContents('app/a.js')).toMatchObject({ message: 'saved a' });
+		},
+	);
+
+	it('reports a .env write that waited for that tab through a sign-out of the instance as not saved', async () => {
+		seed({ 'app/.env': 'API_KEY=secret123\n' });
 		renderEditor();
-		await openFile('app/a.js', 'saved a');
-		type('edits to a');
-		const endRename = (await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] }))!;
-		save();
+		await open('app/.env');
+		const endRename = (await startRename(anotherTab(), 'ins-1', { paths: ['app/.env', 'app/lib/.env'] }))!;
+		let written!: Promise<void>;
+		act(() => {
+			written = view.writeFile({ ...harness.instanceParams, project: 'app', file: '.env', payload: 'NEW_KEY=value\n' });
+		});
 		await waitFor(async () => expect(await waiting()).toBe(1));
 
-		act(() => void signOut());
+		vi.spyOn(authStore, 'getSignOutGeneration').mockReturnValue(-1);
 		act(() => endRename());
 
-		await waitFor(async () => expect(await lockCount()).toBe(0));
-		expect(writesOf('app/a.js')).toEqual([]);
+		await expect(written).rejects.toThrow('.env was not saved');
+		expect(writesOf('app/.env')).toEqual([]);
 	});
 
 	// The file renamed moves with what that tab saved; the file it replaces is replaced after that save.
