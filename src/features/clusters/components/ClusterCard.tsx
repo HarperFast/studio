@@ -10,6 +10,7 @@ import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { describeSyncSummary } from '@/features/cluster/cloneProgress';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
+import { clusterSignInIds } from '@/features/cluster/terminatedClusterSignIns';
 import { CardLinkAffordance, ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
@@ -109,18 +110,22 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 
 	const onSignOutClick = useCallback(async () => {
 		setSigningOut(true);
-		const fullCluster = await getClusterInfo(cluster.id).catch((err) => {
-			console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
-			return null;
-		});
-		await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
-		if (fullCluster?.instances?.length) {
-			// Flag all cluster instances as signed out as well.
-			for (const instance of fullCluster.instances) {
-				authStore.setUserForEntity(instance, null);
+		try {
+			const fullCluster = await getClusterInfo(cluster.id).catch((err) => {
+				console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
+				return null;
+			});
+			try {
+				await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
+			} catch (err) {
+				// Debug, like authStore's other best-effort logouts: the RUM SDK files a console.error as an error
+				// (#1658), and the whole Axios error carries the request's credentials.
+				console.debug('Cluster logout failed, signing out locally', err instanceof Error ? err.message : err);
 			}
+			authStore.signOutEntitiesLocally(clusterSignInIds(fullCluster ?? cluster));
+		} finally {
+			setSigningOut(false);
 		}
-		authStore.setUserForEntity(cluster, null);
 	}, [cluster, instanceClient]);
 
 	const onTryAgainClick = useCallback(() => {

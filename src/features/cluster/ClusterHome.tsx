@@ -332,8 +332,7 @@ function SelfHostedClusterHome({ cluster }: { cluster: Cluster }) {
 		} catch {
 			// Ignore: we're clearing local state regardless of the server response.
 		}
-		authStore.setUserForEntity(firstInstance, null);
-		authStore.flagForBasicAuth(firstInstance.id, null);
+		authStore.signOutLocally(firstInstance.id);
 		await router.invalidate();
 	}, [firstInstance, router]);
 
