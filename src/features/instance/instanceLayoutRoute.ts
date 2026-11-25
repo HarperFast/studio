@@ -79,9 +79,15 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 		}
 	}
 
+	// A sign-in made while central manager still listed an address doesn't reopen the instance once it lists none:
+	// like the Fabric Connect attempts, which refuse it, it goes on to the sign-in redirect.
+	const resumable = !listsWithoutAddress(context.cluster, params.instanceId);
+
 	// Nothing else checks a remembered sign-in before this route's loader runs. The answer reaches the
 	// root context, whose change re-runs this guard.
-	authStore.startSignInCheck(entityId);
+	if (resumable) {
+		authStore.startSignInCheck(entityId);
+	}
 
 	// Are we already authenticated (direct sign-in, basic auth, or a resolved Fabric Connect)?
 	// Read LIVE auth state, not the context.authentication snapshot: a direct sign-in sets the
@@ -90,7 +96,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// auto-Fabric-Connect over the direct session (the user lands back on the cluster list as
 	// "Fabric Connect" instead of "Direct Connect").
 	const auth = authStore.getConnectionById(entityId);
-	if (auth.isLoading || auth.user) {
+	if (resumable && (auth.isLoading || auth.user)) {
 		return;
 	}
 
@@ -98,8 +104,9 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// app-level connection in the context at all, don't redirect from here — another guard owns that
 	// decision, and stacking redirects within one navigation can corrupt router state. Returning also
 	// avoids dereferencing `overallAuth.user` below (which threw "Cannot read properties of undefined").
+	// An instance that can't be resumed has nothing to wait for, and waiting would let this route load it.
 	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined;
-	if (!overallAuth || overallAuth.isLoading) {
+	if (!overallAuth || (overallAuth.isLoading && resumable)) {
 		return;
 	}
 
@@ -155,6 +162,12 @@ async function tryEstablishFabricConnect(
 		}
 		return false;
 	}
+}
+
+/** Whether the cluster lists this instance with no address, as the Instances list shows it (`—`). */
+function listsWithoutAddress(cluster: Cluster | undefined, instanceId: string | undefined): boolean {
+	const instance = instanceId ? cluster?.instances?.find((candidate) => candidate.id === instanceId) : undefined;
+	return !!instance && !getOperationsUrlForInstance(instance);
 }
 
 /**
