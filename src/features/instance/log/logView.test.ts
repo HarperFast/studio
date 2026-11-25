@@ -94,7 +94,6 @@ describe('logs view contracts', () => {
 		const padded = (length: number) => JSON.stringify(valid).slice(0, -1).padEnd(length - 1) + '}';
 		expect(parseLogTarget(padded(2048))).toStrictEqual(valid);
 		expect(parseLogTarget(padded(2049))).toBeUndefined();
-		// Extra fractional digits still parse, so only the 64-character cap decides these two.
 		const longTimestamp = (length: number) => '2026-11-19T21:45:00.123'.padEnd(length - 1, '0') + 'Z';
 		expect(Date.parse(longTimestamp(65))).toBe(Date.parse(valid.timestamp));
 		for (
