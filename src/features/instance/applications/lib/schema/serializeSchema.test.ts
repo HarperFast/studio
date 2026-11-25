@@ -360,7 +360,6 @@ describe('full-text fields', () => {
 });
 
 describe('a comment between a field and its continued directive', () => {
-	/** Marks the table edited, so it is regenerated. */
 	function regenerate(source: string, change: (table: TableModel) => TableModel = table => table): string {
 		const doc = parse(source);
 		return serializeSchema({
@@ -450,6 +449,30 @@ describe('a comment between a field and its continued directive', () => {
 		]);
 		expect(search.directives.map(directive => directive.name)).toEqual(['fullText']);
 		expect(regenerate(source)).toBe(source);
+	});
+
+	it('reads and writes a comment run too long to spread into one call', { timeout: 30_000 }, () => {
+		// The spread limit follows the engine's stack size, so find a length that overflows it here.
+		const overflowsSpread = (length: number) => {
+			try {
+				const lines: string[] = [];
+				lines.push(...Array.from({ length }, () => '# c'));
+				return false;
+			} catch {
+				return true;
+			}
+		};
+		let length = 1 << 16;
+		while (length < 1 << 23 && !overflowsSpread(length)) {
+			length *= 2;
+		}
+		expect(overflowsSpread(length)).toBe(true);
+		const source = tableLines(['\tname: String', ...Array.from({ length }, () => '\t\t# c'), '\t\t@indexed']).join(
+			'\n',
+		);
+		expect(fieldNamed(source, 'name').continuationComments).toHaveLength(length);
+		// Compared as a boolean: a failing `toBe` would print a diff of megabytes.
+		expect(regenerate(source) === source).toBe(true);
 	});
 
 	it('drops blank lines in the gap, as it already did with no comment there', () => {

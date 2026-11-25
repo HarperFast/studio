@@ -169,26 +169,27 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 		).flatMap(directive => serializeBlockDirective(directive, indent));
 		const fieldDirectives = serializeDirectives(inline, FIELD_DIRECTIVE_ORDER);
 		let fieldLine = `${indent}${field.name}: ${formatTypeRef(field.type)}`;
-		const below: string[] = [];
-		if (continuationComments.length > 0) {
+		const below = continuationComments.map(comment => `${indent}${indent}${comment}`);
+		if (below.length > 0 && fieldDirectives) {
 			// A directive left on the field's line would put the comments after it, which ends the field.
-			below.push(...continuationComments.map(comment => `${indent}${indent}${comment}`));
-			if (fieldDirectives) {
-				below.push(`${indent}${indent}${fieldDirectives}`);
-			}
+			below.push(`${indent}${indent}${fieldDirectives}`);
 		} else if (fieldDirectives) {
 			fieldLine += ` ${fieldDirectives}`;
 		}
-		below.push(...block);
+		const continued = below.concat(block);
 		// A line comment goes last: after the last directive line below the field when there is one,
 		// since a comment on the field's own line would end the field before the directives below it
 		// are read.
-		if (field.lineComment && below.length > 0) {
-			below[below.length - 1] += ` ${field.lineComment}`;
+		if (field.lineComment && continued.length > 0) {
+			continued[continued.length - 1] += ` ${field.lineComment}`;
 		} else if (field.lineComment) {
 			fieldLine += ` ${field.lineComment}`;
 		}
-		lines.push(fieldLine, ...below);
+		// One push per line: spreading a long comment run into `push` overflows the call stack.
+		lines.push(fieldLine);
+		for (const line of continued) {
+			lines.push(line);
+		}
 	}
 
 	// Comments that trailed the last field, before `}` — preserved so an edit

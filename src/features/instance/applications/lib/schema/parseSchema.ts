@@ -401,7 +401,10 @@ function skipToContinuedDirective(src: string, i: number, comments?: string[]): 
 	if (src[ahead] !== '@') {
 		return inline;
 	}
-	comments?.push(...skipped);
+	// One push per line: spreading a long run into `push` overflows the call stack.
+	for (const comment of skipped) {
+		comments?.push(comment);
+	}
 	return ahead;
 }
 
