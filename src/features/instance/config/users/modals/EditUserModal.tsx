@@ -5,7 +5,7 @@ import { ActiveToggle, AlterUserForm } from '@/features/instance/config/users/co
 import { DeleteUserForm } from '@/features/instance/config/users/components/DeleteUserForm';
 import { isOnlyActiveSuperUser } from '@/features/instance/config/users/isOnlyActiveSuperUser';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { useInstanceAlterUserPermission } from '@/hooks/usePermissions';
+import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPermission';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { Trash } from 'lucide-react';
 
@@ -34,12 +34,14 @@ export function EditUserModal({
 }) {
 	const isFabricConnect = authStore.checkForFabricConnect(instanceId ?? clusterId);
 	const auth = useInstanceAuth(instanceId ?? clusterId);
-	const canAlterUsers = useInstanceAlterUserPermission(instanceId ?? clusterId);
+	const canAlterUsers = useInstanceOperationPermission('alter_user');
+	// The form cannot render without list_roles (HarperFast/studio#2111).
+	const canListRoles = useInstanceOperationPermission('list_roles');
 	const isSelf = !isFabricConnect && auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
 	let activeToggle: ActiveToggle = 'hidden';
-	if (canAlterUsers && !isSelf) {
+	if (canAlterUsers && canListRoles && !isSelf) {
 		activeToggle = isOnlyActiveSuperUser(users, data.username) ? 'only-active-super-user' : 'editable';
 	}
 

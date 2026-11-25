@@ -6,10 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { alterUser, auth, instanceParams, roles } = vi.hoisted(() => ({
+const { alterUser, auth, instanceParams, probe, roles } = vi.hoisted(() => ({
 	alterUser: vi.fn(),
 	auth: { value: { user: null as LocalUser | null } },
 	instanceParams: { instanceClient: {}, entityType: 'cluster' },
+	probe: { fetch: async (): Promise<{ version: string }> => ({ version: '5.4.1' }) },
 	roles: { value: [] as LocalRole[] },
 }));
 
@@ -28,6 +29,9 @@ vi.mock('@/config/useInstanceClient', () => ({
 }));
 vi.mock('@/integrations/api/instance/auth/getListRoles', () => ({
 	getListRolesQueryOptions: () => ({ queryKey: ['roles'], queryFn: async () => roles.value }),
+}));
+vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
+	getHarperVersionProbeOptions: () => ({ queryKey: ['registration_info'], queryFn: () => probe.fetch(), retry: false }),
 }));
 vi.mock('@/integrations/api/instance/auth/alterUser', () => ({
 	useAlterUser: () => ({ mutate: alterUser, isPending: false }),
@@ -69,16 +73,28 @@ function user(username: string, active: boolean, userRole: LocalRole): LocalUser
 const viewer = user('viewer', true, superRole);
 const alice = user('alice', true, plainRole);
 
+function delegateRole(operations: string[] = ['list_users', 'list_roles', 'alter_user']) {
+	return role('delegate', { super_user: false, operations });
+}
+
+let client: QueryClient;
+
 beforeEach(() => {
 	alterUser.mockReset();
 	auth.value = { user: viewer };
 	roles.value = [superRole, plainRole];
+	probe.fetch = async () => ({ version: '5.4.1' });
+	client = new QueryClient();
 });
 
 afterEach(cleanup);
 
+/** Until the version probe settles, an allowlisted role's switch is hidden no matter what it grants. */
+async function versionSettled() {
+	await waitFor(() => expect(client.getQueryState(['registration_info'])?.status).not.toBe('pending'));
+}
+
 function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
-	const client = new QueryClient();
 	const modal = (data: LocalUser, list: LocalUser[]) => (
 		<QueryClientProvider client={client}>
 			<EditUserModal
@@ -138,25 +154,54 @@ describe('EditUserModal active toggle', () => {
 		expect(await save()).not.toHaveProperty('active');
 	});
 
-	it('offers the switch to a role whose operations allowlist grants alter_user', () => {
-		auth.value = {
-			user: user('delegate', true, role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] })),
-		};
+	it.each([
+		['5.2.15', async () => ({ version: '5.2.15' })],
+		['5.3.0-alpha.1', async () => ({ version: '5.3.0-alpha.1' })],
+		['5.4.1', async () => ({ version: '5.4.1' })],
+		['a version it could not read', async () => Promise.reject(new Error('registration_info refused'))],
+	])('offers the switch to a role whose operations allowlist grants alter_user, on %s', async (_, fetchVersion) => {
+		probe.fetch = fetchVersion;
+		auth.value = { user: user('delegate', true, delegateRole()) };
 		renderModal(alice);
 
-		expect(activeSwitch()).not.toBeNull();
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
 	});
 
 	it.each([
 		['a role without super_user', { super_user: false }],
+		['a structure user without an allowlist', { super_user: false, structure_user: true }],
 		['an allowlist that does not grant alter_user', { operations: ['list_users', 'list_roles'] }],
 		['an allowlist without list_roles, which the modal needs to render', { operations: ['list_users', 'alter_user'] }],
 	])('hides the switch from %s', async (_, permission) => {
 		auth.value = { user: user('limited', true, role('limited', permission as LocalRolePermission)) };
 		renderModal(alice);
+		await versionSettled();
 
 		expect(activeSwitch()).toBeNull();
 		expect(await save()).not.toHaveProperty('active');
+	});
+
+	it("waits for the instance version before offering an allowlisted role the switch, then shows the user's value", async () => {
+		let answerVersion: (response: { version: string }) => void = () => {};
+		probe.fetch = () => new Promise((resolve) => (answerVersion = resolve));
+		auth.value = { user: user('delegate', true, delegateRole()) };
+		const dormant = user('dormant', false, plainRole);
+		renderModal(dormant);
+		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
+
+		expect(activeSwitch()).toBeNull();
+
+		await act(async () => answerVersion({ version: '5.4.1' }));
+
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
+		expect(activeSwitch()?.getAttribute('aria-checked')).toBe('false');
+	});
+
+	it('offers a super user the switch without waiting for the instance version', () => {
+		probe.fetch = () => new Promise(() => {});
+		renderModal(alice);
+
+		expect(activeSwitch()).not.toBeNull();
 	});
 
 	it('shows the current value when the switch appears after a re-poll', () => {
@@ -185,14 +230,11 @@ describe('EditUserModal active toggle', () => {
 	});
 
 	it('locks the switch on for the only active super user', async () => {
-		const delegate = user(
-			'delegate',
-			true,
-			role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] }),
-		);
+		const delegate = user('delegate', true, delegateRole());
 		const admin = user('admin', true, superRole);
 		auth.value = { user: delegate };
 		renderModal(admin, [delegate, admin, user('dormant', false, superRole)]);
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
 
 		expect(activeSwitch()?.disabled).toBe(true);
 		expect(screen.getByText(/only active super user/)).toBeTruthy();
@@ -222,15 +264,12 @@ describe('EditUserModal active toggle', () => {
 	});
 
 	it('does not send a deactivation once the switch has become locked', async () => {
-		const delegate = user(
-			'delegate',
-			true,
-			role('delegate', { operations: ['list_users', 'list_roles', 'alter_user'] }),
-		);
+		const delegate = user('delegate', true, delegateRole());
 		const admin = user('admin', true, superRole);
 		const backup = user('backup', true, superRole);
 		auth.value = { user: delegate };
 		const { repoll } = renderModal(admin, [delegate, admin, backup]);
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
 		await act(async () => {
 			fireEvent.click(activeSwitch()!);
 		});
@@ -270,8 +309,9 @@ describe('EditUserModal delete section', () => {
 	});
 
 	it('does not point at the Active switch when the switch is not offered', async () => {
-		auth.value = { user: user('delegate', true, role('delegate', { operations: ['list_users', 'drop_user'] })) };
+		auth.value = { user: user('delegate', true, delegateRole(['list_users', 'list_roles', 'drop_user'])) };
 		renderModal(alice);
+		await versionSettled();
 
 		await act(async () => {
 			fireEvent.click(deleteTrigger()!);
