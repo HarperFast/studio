@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { legacySignInMarkersKey, migrateLegacySignInMarkers } from './signInMarkers';
+import { legacySignInMarkersKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
@@ -13,6 +13,7 @@ vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onIn
 type Store = Awaited<ReturnType<typeof loadPage>>;
 type SetArgs = Parameters<Store['setUserForIdAndKey']>;
 const url = (id: string) => `https://${id}.example.com:9925/`;
+const legacyMigratedKey = 'Studio:PotentiallyAuthenticatedMigrated';
 
 /** The store reads its markers at construction, so each load is a fresh one. */
 async function loadPage() {
@@ -25,13 +26,26 @@ function legacy(): unknown {
 	return raw === null ? null : JSON.parse(raw);
 }
 
-// What a tab on the previous release writes: its whole load-time copy, every time.
-function writeFromPreviousRelease(markers: Record<string, string>) {
+// What a tab on a release before v2.199.0 writes: its whole load-time copy, every time.
+function writeFromOlderRelease(markers: Record<string, string>) {
 	localStorage.setItem(legacySignInMarkersKey, JSON.stringify(markers));
 }
 
 function signIn(store: Store, id: string) {
 	store.setUserForIdAndKey(id as SetArgs[0], url(id) as SetArgs[1], { username: 'admin' } as SetArgs[2]);
+}
+
+function loggedOut() {
+	return onInstanceLogoutSubmit.mock.calls.map(([{ entityId, instanceClient }]) => [
+		entityId,
+		instanceClient.defaults.baseURL,
+	]);
+}
+
+function refuseWrites() {
+	return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+		throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+	});
 }
 
 beforeEach(() => {
@@ -45,41 +59,41 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('the first load of this release', () => {
-	it("moves the previous release's markers into one key per entity", async () => {
-		writeFromPreviousRelease({ OverallAppSignIn: 'OverallAppSignIn', 'ins-a': url('ins-a') });
+describe('a load that finds the record an older release kept', () => {
+	it('moves its markers into one key per entity, then deletes it', async () => {
+		writeFromOlderRelease({ OverallAppSignIn: 'OverallAppSignIn', 'ins-a': url('ins-a') });
 
 		const store = await loadPage();
 
 		expect(storedSignInMarkers()).toEqual({ OverallAppSignIn: 'OverallAppSignIn', 'ins-a': url('ins-a') });
 		expect(store.getOperationsUrl('ins-a')).toBe(url('ins-a'));
+		expect(legacy()).toBeNull();
 	});
 
 	it('keeps a marker already stored for an entity over the legacy one', async () => {
 		seedSignInMarkers({ 'ins-a': 'https://ins-a-2.example.com:9925/' });
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
 
 		await loadPage();
 
 		expect(storedSignInMarkers()).toEqual({ 'ins-a': 'https://ins-a-2.example.com:9925/' });
 	});
 
-	it('writes the same markers when another tab migrates at the same time', () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a'), 'ins-b': url('ins-b') });
+	it('moves only the entries that are markers, and deletes the rest with it', async () => {
+		localStorage.setItem(legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), 'ins-b': 123, 'ins-c': '' }));
 
-		migrateLegacySignInMarkers();
-		const once = storedSignInMarkers();
-		localStorage.removeItem('Studio:PotentiallyAuthenticatedMigrated');
-		migrateLegacySignInMarkers();
+		await loadPage();
 
-		expect(storedSignInMarkers()).toEqual(once);
+		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
+		expect(legacy()).toBeNull();
 	});
 
 	it.each([
 		['an array', JSON.stringify([url('ins-a')])],
 		['not JSON', 'ins-a'],
 		['null', 'null'],
-	])('removes a legacy record that is %s, and moves nothing', async (_, junk) => {
+		['a record of no markers', JSON.stringify({ 'ins-a': 123 })],
+	])('deletes a legacy record that is %s, and moves nothing', async (_, junk) => {
 		localStorage.setItem(legacySignInMarkersKey, junk);
 
 		await loadPage();
@@ -88,232 +102,129 @@ describe('the first load of this release', () => {
 		expect(storedSignInMarkers()).toEqual({});
 	});
 
-	it("drops entries that aren't markers from the legacy record", async () => {
-		localStorage.setItem(legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), 'ins-b': 123, 'ins-c': '' }));
+	it('gives an app sign-out the sign-ins of a user who never loaded a release that copied it', async () => {
+		writeFromOlderRelease({ OverallAppSignIn: 'OverallAppSignIn', 'ins-old': url('ins-old') });
+		localStorage.setItem('Studio:BasicAuth:ins-old', btoa(JSON.stringify({ username: 'admin', password: 'hunter2' })));
+		const store = await loadPage();
+
+		await store.signOutFromPotentiallyAuthenticatedInstances();
+
+		expect(loggedOut()).toEqual([['ins-old', url('ins-old')]]);
+		expect(storedSignInMarkers()).toEqual({});
+		expect(store.checkForBasicAuth('ins-old')).toBeUndefined();
+	});
+
+	it("moves it even after a release that kept it in step had, and deletes that release's flag", async () => {
+		localStorage.setItem(legacyMigratedKey, '1');
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
 
 		await loadPage();
 
-		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
+		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
+		expect(localStorage.getItem(legacyMigratedKey)).toBeNull();
 	});
 
-	it("still signs in on the previous release's markers when storage refuses the migration", async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-		});
+	it('still signs in and out on its markers when storage refuses to copy them, and keeps it for a later load', async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		const refused = refuseWrites();
 
 		const store = await loadPage();
 
 		expect(store.getOperationsUrl('ins-a')).toBe(url('ins-a'));
-	});
-});
+		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
+		await store.signOutFromPotentiallyAuthenticatedInstances();
+		expect(loggedOut()).toEqual([['ins-a', url('ins-a')]]);
 
-describe('a later load', () => {
-	it('brings back nothing a previous-release tab wrote back after this release signed it out', async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const store = await loadPage();
-		store.signOutLocally('ins-a');
-
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		await loadPage();
-
-		expect(storedSignInMarkers()).toEqual({});
-	});
-
-	it('brings back nothing written after a full sign-out, which keeps the record migrated', async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const store = await loadPage();
-		store.signOutAllLocally();
-		store.wipeLocalStorageForSignOut();
-
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		await loadPage();
-
-		expect(storedSignInMarkers()).toEqual({});
-	});
-
-	it('keeps the record migrated through a full sign-out whose writes storage refuses', async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const store = await loadPage();
-		store.signOutAllLocally();
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-		});
-		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
-		store.wipeLocalStorageForSignOut();
-		vi.restoreAllMocks();
-
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		await loadPage();
-
-		expect(storedSignInMarkers()).toEqual({});
-	});
-
-	it("brings back nothing written after a full sign-out, even when the first migration didn't land", async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const refused = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-		});
-		const store = await loadPage();
 		refused.mockRestore();
-		store.signOutAllLocally();
-		store.wipeLocalStorageForSignOut();
+		await loadPage();
 
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const next = await loadPage();
-
-		expect(next.getOperationsUrl('ins-a')).toBeUndefined();
+		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
+		expect(legacy()).toBeNull();
 	});
 
-	it("doesn't sign back in on a write-back when it can't clean the record", async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const store = await loadPage();
-		store.signOutLocally('ins-a');
-		localStorage.setItem(legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), junk: 1 }));
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-		});
-
-		const next = await loadPage();
-
-		expect(next.getOperationsUrl('ins-a')).toBeUndefined();
-	});
-
-	it("doesn't sign back in on a write-back when it can't read the migration flag", async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
-		const store = await loadPage();
-		store.signOutLocally('ins-a');
-		writeFromPreviousRelease({ 'ins-a': url('ins-a') });
+	it("starts without its markers when storage won't read it", async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
 		const getItem = Storage.prototype.getItem;
 		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function(this: Storage, key: string) {
-			if (key === 'Studio:PotentiallyAuthenticatedMigrated') {
+			if (key === legacySignInMarkersKey) {
 				throw new DOMException('Storage refused.', 'SecurityError');
 			}
 			return getItem.call(this, key);
 		});
 
-		const next = await loadPage();
+		const store = await loadPage();
 
-		expect(next.getOperationsUrl('ins-a')).toBeUndefined();
-	});
-
-	it('still removes a legacy record that is not one', async () => {
-		await loadPage();
-		localStorage.setItem(legacySignInMarkersKey, JSON.stringify([url('ins-a')]));
-
-		await loadPage();
-
-		expect(localStorage.getItem(legacySignInMarkersKey)).toBeNull();
+		expect(store.getOperationsUrl('ins-a')).toBeUndefined();
 	});
 });
 
-describe('for tabs still on the previous release', () => {
-	it('mirrors each sign-in and sign-out into the legacy record, leaving its other markers', async () => {
-		writeFromPreviousRelease({ 'ins-old': url('ins-old') });
+describe("a record an older release's tab writes back after this load", () => {
+	it('is moved at the next load, and deleted again', async () => {
 		const store = await loadPage();
+		signIn(store, 'ins-here');
+		writeFromOlderRelease({ 'ins-old': url('ins-old') });
 
-		signIn(store, 'ins-a');
-		expect(legacy()).toEqual({ 'ins-old': url('ins-old'), 'ins-a': url('ins-a') });
+		await loadPage();
 
-		store.signOutLocally('ins-a');
+		expect(storedSignInMarkers()).toEqual({ 'ins-here': url('ins-here'), 'ins-old': url('ins-old') });
+		expect(legacy()).toBeNull();
+	});
+
+	it('brings back a sign-in signed out here only until a check finds its session ended', async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		(await loadPage()).signOutLocally('ins-a');
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		const next = await loadPage();
+		expect(next.getOperationsUrl('ins-a')).toBe(url('ins-a'));
+		getInstanceUserInfo.mockRejectedValue(new Error('Request failed with status code 401'));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+		await next.reloadUser('ins-a');
+
+		expect(storedSignInMarkers()).toEqual({});
+	});
+
+	it.each([
+		['an app sign-out', (store: Store) => store.signOutFromPotentiallyAuthenticatedInstances()],
+		['signOutEntities', (store: Store) => store.signOutEntities(['ins-old'])],
+	])("isn't read by %s", async (_, signOut) => {
+		const store = await loadPage();
+		writeFromOlderRelease({ 'ins-old': url('ins-old') });
+
+		await signOut(store);
+
+		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
 		expect(legacy()).toEqual({ 'ins-old': url('ins-old') });
 	});
+});
 
-	it('creates the legacy record when there is none, so a rollback still sees the sign-in', async () => {
+describe("this release's sign-ins, sign-outs and checks", () => {
+	it("don't create the legacy record", async () => {
 		const store = await loadPage();
 
 		signIn(store, 'ins-a');
-
-		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
-	});
-
-	it("keeps a newer URL that tab recorded when a check of this tab's older one fails", async () => {
-		const store = await loadPage();
-		signIn(store, 'ins-a');
-		writeFromPreviousRelease({ 'ins-a': 'https://ins-a-2.example.com:9925/' });
-		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
-		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-		await store.reloadUser('ins-a');
-
-		expect(legacy()).toEqual({ 'ins-a': 'https://ins-a-2.example.com:9925/' });
-	});
-
-	it("leaves a legacy record it can't read alone at a sign-in", async () => {
-		const store = await loadPage();
-		localStorage.setItem(legacySignInMarkersKey, 'not a record');
-
-		signIn(store, 'ins-a');
-
-		expect(localStorage.getItem(legacySignInMarkersKey)).toBe('not a record');
-	});
-
-	it("keeps the whole legacy record when it can't mirror a failed check", async () => {
-		writeFromPreviousRelease({ 'ins-old': url('ins-old') });
-		const store = await loadPage();
-		signIn(store, 'ins-a');
-		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
-		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		const setItem = Storage.prototype.setItem;
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key: string, value: string) {
-			if (key === legacySignInMarkersKey) {
-				throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-			}
-			setItem.call(this, key, value);
-		});
-
-		await store.reloadUser('ins-a');
-
-		expect(legacy()).toEqual({ 'ins-old': url('ins-old'), 'ins-a': url('ins-a') });
-	});
-
-	it('takes the whole legacy record when it cannot mirror a sign-out', async () => {
-		writeFromPreviousRelease({ 'ins-a': url('ins-a'), 'ins-old': url('ins-old') });
-		const store = await loadPage();
-		const setItem = Storage.prototype.setItem;
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key: string, value: string) {
-			if (key === legacySignInMarkersKey) {
-				throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-			}
-			setItem.call(this, key, value);
-		});
-
-		store.signOutLocally('ins-a');
 
 		expect(legacy()).toBeNull();
 	});
 
-	it('gives an app sign-out a sign-in only a previous-release tab recorded, and forgets it', async () => {
+	it('never write a legacy record an older release wrote back', async () => {
 		const store = await loadPage();
-		writeFromPreviousRelease({ 'ins-old': url('ins-old') });
-		localStorage.setItem('Studio:BasicAuth:ins-old', btoa(JSON.stringify({ username: 'admin', password: 'hunter2' })));
+		signIn(store, 'ins-b');
+		writeFromOlderRelease({ 'ins-a': url('ins-a'), 'ins-b': url('ins-b') });
+		const setItem = vi.spyOn(Storage.prototype, 'setItem');
+		const removeItem = vi.spyOn(Storage.prototype, 'removeItem');
+		getInstanceUserInfo.mockRejectedValue(new Error('Network Error'));
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-		await store.signOutFromPotentiallyAuthenticatedInstances();
+		signIn(store, 'ins-c');
+		store.signOutLocally('ins-a');
+		await store.reloadUser('ins-b');
 
-		expect(onInstanceLogoutSubmit.mock.calls.map(([{ entityId, instanceClient }]) => [
-			entityId,
-			instanceClient.defaults.baseURL,
-		])).toEqual([['ins-old', url('ins-old')]]);
-		expect(legacy()).toEqual({});
-		expect(store.checkForBasicAuth('ins-old')).toBeUndefined();
-	});
-
-	it('gives signOutEntities a sign-in only a previous-release tab recorded', async () => {
-		const store = await loadPage();
-		writeFromPreviousRelease({ 'ins-old': url('ins-old') });
-
-		await store.signOutEntities(['ins-old']);
-
-		expect(onInstanceLogoutSubmit.mock.calls.map(([{ entityId }]) => entityId)).toEqual(['ins-old']);
-		expect(legacy()).toEqual({});
-	});
-
-	it('gives an app sign-out no entity from a legacy record that is not one', async () => {
-		const store = await loadPage();
-		localStorage.setItem(legacySignInMarkersKey, JSON.stringify([url('ins-old')]));
-
-		await store.signOutFromPotentiallyAuthenticatedInstances();
-
-		expect(onInstanceLogoutSubmit).not.toHaveBeenCalled();
+		const legacyWrites = [...setItem.mock.calls, ...removeItem.mock.calls].filter(([key]) =>
+			key === legacySignInMarkersKey
+		);
+		expect(legacyWrites).toEqual([]);
+		expect(legacy()).toEqual({ 'ins-a': url('ins-a'), 'ins-b': url('ins-b') });
+		expect(storedSignInMarkers()).toEqual({ 'ins-c': url('ins-c') });
 	});
 });

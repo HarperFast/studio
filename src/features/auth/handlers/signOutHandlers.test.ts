@@ -89,8 +89,7 @@ describe.each(
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
 		expect(authStore.getConnectionById('ins-a').user).toBeNull();
 		expectCachesEmpty();
-		// The migration flag holds no account data, and keeps a previous-release tab's write-back from being migrated.
-		expect(localStorageKeys().sort()).toEqual(['Studio:ExplorerAuthEpoch', 'Studio:PotentiallyAuthenticatedMigrated']);
+		expect(localStorageKeys()).toEqual(['Studio:ExplorerAuthEpoch']);
 		expect(sessionStorage.length).toBe(0);
 	});
 
@@ -236,7 +235,7 @@ describe.each(
 		await signOut();
 
 		expectCachesEmpty();
-		expect(localStorageKeys()).toEqual(['Studio:PotentiallyAuthenticatedMigrated']);
+		expect(localStorageKeys()).toEqual([]);
 		expect(sessionStorage.length).toBe(0);
 		expect(consoleError).toHaveBeenCalledWith(failure);
 	});

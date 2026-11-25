@@ -89,24 +89,23 @@ test('account menu groups profile, organization switching, appearance and sign o
 	expect(await page.evaluate((key) => localStorage.getItem(key), appSignInMarker)).toBeNull();
 });
 
-test.describe('alongside a tab still on the previous release, which keeps every sign-in in one record', () => {
+test.describe('with the one record releases before v2.199.0 kept every sign-in in', () => {
 	const legacyRecord = 'Studio:PotentiallyAuthenticated';
 
-	test('stays signed in on the sign-in that release recorded', async ({ page }) => {
+	test('stays signed in on the sign-in it holds, and deletes it', async ({ page }) => {
 		await page.addInitScript(({ marker, legacy }) => {
-			if (!localStorage.getItem('Studio:PotentiallyAuthenticatedMigrated')) {
-				localStorage.removeItem(marker);
-				localStorage.setItem(legacy, JSON.stringify({ OverallAppSignIn: 'fixture' }));
-			}
+			localStorage.removeItem(marker);
+			localStorage.setItem(legacy, JSON.stringify({ OverallAppSignIn: 'fixture' }));
 		}, { marker: appSignInMarker, legacy: legacyRecord });
 
 		await page.goto('/#/org-a');
 
 		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		expect(await page.evaluate((key) => localStorage.getItem(key), appSignInMarker)).toBeTruthy();
+		expect(await page.evaluate((key) => localStorage.getItem(key), legacyRecord)).toBeNull();
 	});
 
-	test('signs out of a server only that tab signed into', async ({ page }) => {
+	test('signs out of a server only it holds a sign-in to', async ({ page }) => {
 		const oldTabSignIn = 'https://ins-old.example.test:9925/';
 		const instanceRequests: string[] = [];
 		await page.route(/ins-old\.example\.test/, route => {
@@ -121,14 +120,13 @@ test.describe('alongside a tab still on the previous release, which keeps every 
 			});
 		});
 		await page.route(/\/Logout\/?$/, route => route.fulfill({ json: {} }));
-		await page.goto('/#/org-a');
-		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
-		// That tab writes its whole record back after this one has loaded.
-		await page.evaluate(
+		await page.addInitScript(
 			({ legacy, url }) =>
 				localStorage.setItem(legacy, JSON.stringify({ OverallAppSignIn: 'fixture', 'ins-old': url })),
 			{ legacy: legacyRecord, url: oldTabSignIn },
 		);
+		await page.goto('/#/org-a');
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 
 		await page.getByRole('button', { name: 'Account menu' }).click();
 		await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();

@@ -152,18 +152,21 @@ Anything sized or pinned to the viewport bottom subtracts that variable: every f
   `getCurrentUser.test.ts`). A sign-in storage refuses to record still signs in, and its next sign-in or check writes
   it; a marker storage won't remove is retried at every marker write, unless another tab has rewritten it since
   (`localSignOutStorageFailure.test.ts`).
-- **The previous release's one shared record is kept in step for one more release.** Its tabs read
-  `Studio:PotentiallyAuthenticated` once at load and write their whole copy back, and know nothing of the per-entity
-  keys. So this release copies that record into the keys once per storage (a marker already stored per entity wins),
-  mirrors every marker change into it, and reads it in every sign-out sweep. A previous-release tab, or a rollback,
-  therefore still sees this release's sign-ins and sign-outs, and an app sign-out here reaches a sign-in only that tab
-  recorded. Its sign-in reaches this release's keys only at that first copy, and its sign-out of an entity doesn't
-  remove the entity's key, which matters only if its logout also failed; its full sign-out wipes both. The copy is
-  never repeated, because that tab's whole-copy writes would bring back what this release signed out, so the sign-out
-  wipe keeps the flag that records it. Until the copy lands, as when a full quota refuses it, the record also seeds
-  this tab's markers (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). Every load also removes a record
-  that isn't one, which the previous release can't start on, and drops entries that aren't markers; a sign-in leaves
-  one it can't read alone. The release after this one stops the mirror and removes the record (HarperFast/studio#1970).
+- **The one record releases before v2.199.0 kept every marker in is moved into the keys and deleted at every load
+  that finds it** (`migrateLegacySignInMarkers`, HarperFast/studio#1970). A marker already stored per entity wins, and
+  entries that aren't markers are dropped. Nothing writes `Studio:PotentiallyAuthenticated` any more and sign-out
+  sweeps don't read it; the full sign-out wipe deletes it with the rest. It is moved rather than dropped because a user
+  who hasn't loaded Studio since before v2.199.0 has their sign-ins only there, and an app sign-out must still reach
+  them. A tab still open on such a release writes its whole load-time copy back at each sign-in or sign-out, so the
+  record can come back, and the next load moves it again; until then a sign-out here doesn't reach what it wrote. That
+  copy can bring back a marker this release signed out. It costs one more `logout` at the next sweep, and opening the
+  entity checks the session, which removes the marker if the sign-out ended it; a session that outlived it is one that
+  tab is still using. Not moving the copy would hide that tab's newer sign-ins from every sign-out here instead. Until
+  storage accepts the copy, the record stays and also seeds this tab's markers (`legacySignInMarkers.test.ts`,
+  `account-menu.anon.spec.ts`). The releases from v2.199.0 that kept the record in step also kept a
+  `Studio:PotentiallyAuthenticatedMigrated` flag so they copied it only once; each load deletes it, since nothing
+  reads it now, and without it one of those releases, rolled back to, copies a written-back record once, as this one
+  does.
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the

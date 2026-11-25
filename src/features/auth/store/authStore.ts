@@ -27,15 +27,7 @@ import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
-import {
-	legacyMigratedKey,
-	markLegacySignInMarkersMigrated,
-	migrateLegacySignInMarkers,
-	mirrorLegacySignInMarker,
-	readLegacySignInMarkers,
-	readSignInMarkers,
-	signInMarkerKey,
-} from './signInMarkers';
+import { migrateLegacySignInMarkers, readSignInMarkers, signInMarkerKey } from './signInMarkers';
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -130,8 +122,8 @@ class AuthStore {
 	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
-		// Until a migration lands (a full quota refuses one), the previous release's record still holds the sign-ins.
-		const unmigrated = migrateLegacySignInMarkers() ? {} : readLegacySignInMarkers();
+		// Until a migration lands (a full quota refuses one), an older release's record still holds the sign-ins.
+		const unmigrated = migrateLegacySignInMarkers();
 		this.potentiallyAuthenticated = { ...unmigrated, ...Object.fromEntries(readSignInMarkers()) };
 	}
 
@@ -206,13 +198,12 @@ class AuthStore {
 
 	/**
 	 * Keeps the explorer's sign-out generation: a tab that missed the sign-out compares its stored explorer
-	 * credential against it when it reloads, so removing it would make that credential current again. Keeps the
-	 * sign-in markers' migration flag too (`signInMarkers.ts`). Then, with room made, writes what a full store refused.
+	 * credential against it when it reloads, so removing it would make that credential current again. Then,
+	 * with room made, writes what a full store refused.
 	 */
 	public wipeLocalStorageForSignOut(): void {
 		try {
-			clearLocalStorage([this.explorerAuthEpochKey, legacyMigratedKey]);
-			markLegacySignInMarkersMigrated();
+			clearLocalStorage([this.explorerAuthEpochKey]);
 		} finally {
 			this.retrySignOutWritesAfterWipe();
 		}
@@ -844,17 +835,15 @@ class AuthStore {
 	}
 
 	/**
-	 * This tab's sign-ins, every stored one, and every one a previous-release tab recorded, once per URL: another tab
-	 * may have signed in again at a newer URL, and the older one's session is still open. A sweep that reaches more
-	 * only signs more out.
+	 * This tab's sign-ins and every stored one, once per URL: another tab may have signed in again at a newer URL, and
+	 * the older one's session is still open. A sweep that reaches more only signs more out.
 	 */
 	private rememberedSignIns(): Array<[EntityIds, AuthenticatedConnectionKey]> {
-		const signIns = [
-			...Object.entries(this.potentiallyAuthenticated),
-			...readSignInMarkers(),
-			...Object.entries(readLegacySignInMarkers() ?? {}),
-		];
-		return signIns.filter(([id, key], index) => signIns.findIndex(([i, k]) => i === id && k === key) === index);
+		const signIns = new Map<string, [EntityIds, AuthenticatedConnectionKey]>();
+		for (const signIn of [...Object.entries(this.potentiallyAuthenticated), ...readSignInMarkers()]) {
+			signIns.set(JSON.stringify(signIn), signIn);
+		}
+		return [...signIns.values()];
 	}
 
 	/** Read raw, not through `readStoredItem`, because another tab may have written them. */
@@ -1049,7 +1038,6 @@ class AuthStore {
 			this.unrecordedSignIns.add(id);
 			console.debug('Could not record a sign-in', error);
 		}
-		mirrorLegacySignInMarker(id, key);
 	}
 
 	/** `checkedKey`: the URL a failed check used, which says nothing about a newer one another tab stored. */
@@ -1077,7 +1065,6 @@ class AuthStore {
 				this.unremovedSignInMarkers.set(markerKey, stored);
 			}
 		}
-		mirrorLegacySignInMarker(id, null, checkedKey);
 	}
 
 	private async updateListeners(id: EntityIds): Promise<void> {
