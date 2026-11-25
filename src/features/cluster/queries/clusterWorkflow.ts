@@ -57,7 +57,7 @@ export function latestClusterWorkflowQueryOptions(clusterId: string | undefined,
 		},
 		enabled: !!clusterId,
 		retry: false,
-		meta: { quietErrors: true },
+		meta: { quietErrors: true, keptOnEntitySignOut: true },
 		refetchInterval: poll,
 	});
 }
