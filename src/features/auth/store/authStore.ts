@@ -731,10 +731,10 @@ class AuthStore {
 		return stored && { username: stored.username, password: stored.password };
 	}
 
-	/** False for a credential stored before it recorded its URL, since that URL can't be told now. */
-	private isBasicAuthFor(id: EntityIds, url: string | undefined): boolean {
+	/** None for a credential stored before it recorded its URL, since that URL can't be told now. */
+	private basicAuthFor(id: EntityIds, url: string | undefined): undefined | { username: string; password: string } {
 		const stored = this.readBasicAuth(id);
-		return !!stored?.url && stored.url === url;
+		return stored?.url && stored.url === url ? { username: stored.username, password: stored.password } : undefined;
 	}
 
 	private readBasicAuth(id: EntityIds): undefined | { username: string; password: string; url?: string } {
@@ -776,11 +776,12 @@ class AuthStore {
 				return null;
 			}
 			const instanceClient = getInstanceClient({ id: entityId, operationsUrl });
-			// The Basic credential goes only to the URL it was entered for. Another URL the entity is marked at gets
-			// the logout with only that host's cookies, as a cookie sign-in does.
-			if (instanceClient.defaults.auth && !this.isBasicAuthFor(entityId, instanceClient.defaults.baseURL)) {
-				instanceClient.defaults.auth = undefined;
-				instanceClient.defaults.withCredentials = true;
+			// The Basic credential goes only to the URL it was entered for, taken from the same read that checks the URL.
+			// Another URL the entity is marked at gets the logout with only that host's cookies, as a cookie sign-in does.
+			if (instanceClient.defaults.auth) {
+				const credential = this.basicAuthFor(entityId, instanceClient.defaults.baseURL);
+				instanceClient.defaults.auth = credential;
+				instanceClient.defaults.withCredentials = !credential;
 			}
 			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
 			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.
