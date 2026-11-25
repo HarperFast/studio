@@ -35,6 +35,7 @@ import {
 } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { FullScan, fullScanAttributes, fullScanQuestion } from '@/features/instance/databases/functions/fullScanFilter';
 import { randomizableAttributes } from '@/features/instance/databases/functions/generateRandomRecords';
+import { LastPageProof, lastPageProofHolds } from '@/features/instance/databases/functions/lastPageProof';
 import {
 	buildSyntheticGetAttributes,
 	collapsedForeignKeyNames,
@@ -452,10 +453,8 @@ export function DatabaseTableView({
 	// The page a step has proven to be the last one. A full unfiltered page can't say whether more
 	// records follow, so the step probes; an empty answer is the only proof, and remembering it keeps
 	// the Next button from offering that same dead probe again. It holds only while the record count
-	// the step set out with does.
-	const [knownLastPage, setKnownLastPage] = useEffectedState<
-		{ pageIndex: number; totalRecords: number | undefined } | null
-	>(null, [
+	// can't have let a record in past that page (`lastPageProofHolds`).
+	const [knownLastPage, setKnownLastPage] = useEffectedState<LastPageProof | null>(null, [
 		databaseName,
 		tableName,
 		appliedSearchConditions,
@@ -639,7 +638,8 @@ export function DatabaseTableView({
 	const hasNextPage = uncountedPage
 		? !!uncountedPage.hasNextPage
 		: !!pageRows && pageRows.length === pageSize
-			&& !(knownLastPage?.pageIndex === pageIndex && knownLastPage.totalRecords === totalRecords);
+			&& !(knownLastPage?.pageIndex === pageIndex
+				&& lastPageProofHolds(knownLastPage, { totalRecords, isEstimated: isEstimatedCount }, pageSize));
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -1003,14 +1003,15 @@ export function DatabaseTableView({
 			return;
 		}
 		if (pendingRecordStep.end === 'first') {
-			// A count that moved while the probe was out leaves its empty answer proving nothing.
-			if (pendingRecordStep.totalRecords !== totalRecords) {
-				return;
-			}
 			// An empty page forward is proof there is nothing past the page we came from -- the only
 			// proof available when that page was full. Backwards it means something else entirely
 			// (records disappeared behind us), so it must not mark that page as the last one.
-			setKnownLastPage({ pageIndex: pendingRecordStep.fromPage, totalRecords });
+			const proof = { pageIndex: pendingRecordStep.fromPage, totalRecords: pendingRecordStep.totalRecords };
+			// A count that moved while the probe was out is held to the same terms as one that moves after.
+			if (!lastPageProofHolds(proof, { totalRecords, isEstimated: isEstimatedCount }, pageSize)) {
+				return;
+			}
+			setKnownLastPage(proof);
 			toast.info('This is the last record');
 			return;
 		}
@@ -1023,6 +1024,8 @@ export function DatabaseTableView({
 		openRecordAt,
 		setPageIndex,
 		totalRecords,
+		isEstimatedCount,
+		pageSize,
 		setKnownLastPage,
 	]);
 

@@ -28,26 +28,42 @@ const instance = vi.hoisted(() => ({
 	failingOffset: undefined as number | undefined,
 	heldOffset: undefined as number | undefined,
 	releaseHeldRead: () => undefined as void,
+	// What describe_table reports in place of the records' own count: a stale count, or an estimate.
+	describedCount: undefined as number | undefined,
+	estimatedRange: undefined as [number, number] | undefined,
+	holdDescribe: false,
+	releaseHeldDescribe: () => undefined as void,
 }));
+
+const pets = {
+	schema: 'data',
+	name: 'pets',
+	hash_attribute: 'id',
+	audit: true,
+	schema_defined: false,
+	attributes: [{ attribute: 'id', is_primary_key: true }],
+	db_size: 65536,
+	sources: [],
+	table_size: 4096,
+	db_audit_size: 4096,
+} satisfies InstanceTable;
 
 vi.mock('@/config/useInstanceClient', () => {
 	const instanceClient = {
 		post: async (_url: string, body: { operation: string; offset?: number; limit?: number }) => {
 			switch (body.operation) {
 				case 'describe_table':
+					if (instance.holdDescribe) {
+						instance.holdDescribe = false;
+						await new Promise<void>((resolve) => {
+							instance.releaseHeldDescribe = resolve;
+						});
+					}
 					return {
 						data: {
-							schema: 'data',
-							name: 'pets',
-							hash_attribute: 'id',
-							audit: true,
-							schema_defined: false,
-							attributes: [{ attribute: 'id', is_primary_key: true }],
-							db_size: 65536,
-							sources: [],
-							record_count: instance.records.length,
-							table_size: 4096,
-							db_audit_size: 4096,
+							...pets,
+							record_count: instance.describedCount ?? instance.records.length,
+							estimated_record_range: instance.estimatedRange,
 						} satisfies InstanceTable,
 						status: 200,
 					};
@@ -134,6 +150,9 @@ afterEach(() => {
 	instance.pageReads = [];
 	instance.failingOffset = undefined;
 	instance.heldOffset = undefined;
+	instance.describedCount = undefined;
+	instance.estimatedRange = undefined;
+	instance.holdDescribe = false;
 	editor.navigation = undefined;
 });
 
@@ -141,12 +160,19 @@ function seedPets(count: number) {
 	instance.records = Array.from({ length: count }, (_, index) => ({ id: index + 1 }));
 }
 
-function renderPets(count: number) {
+// `beforeTheCount` holds describe_table and hands the view describe_all's schema without a count, as
+// current servers do, so a step can prove a page before the count arrives.
+function renderPets(count: number, { beforeTheCount = false } = {}) {
 	seedPets(count);
+	instance.holdDescribe = beforeTheCount;
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={queryClient}>
-			<DatabaseTableView databaseName="data" tableName="pets" />
+			<DatabaseTableView
+				databaseName="data"
+				tableName="pets"
+				instanceDatabaseMap={beforeTheCount ? { data: { pets } } : undefined}
+			/>
 		</QueryClientProvider>,
 	);
 	return queryClient;
@@ -154,8 +180,8 @@ function renderPets(count: number) {
 
 const findCell = (name: string) => screen.findByRole('cell', { name }, { timeout: 10_000 });
 
-async function proveTheFirstPageIsTheLast({ clockAheadBeforeTheStep = 0 } = {}) {
-	const queryClient = renderPets(20);
+async function proveTheFirstPageIsTheLast({ clockAheadBeforeTheStep = 0, beforeTheCount = false } = {}) {
+	const queryClient = renderPets(20, { beforeTheCount });
 	fireEvent.click(await findCell('20'));
 	expect(editor.navigation).toMatchObject({ position: 20, hasNext: true });
 	clockAhead = clockAheadBeforeTheStep;
@@ -299,6 +325,100 @@ describe('DatabaseTableView remembering the last page', { timeout: 30_000 }, () 
 
 		expect(editor.navigation).toMatchObject({ position: 20 });
 		expect(toastError).toHaveBeenCalledWith("Couldn't load the next page of records");
+	});
+
+	describe('when the count first arrives', () => {
+		it('keeps the proof when the count is the records through the proven page', async () => {
+			const queryClient = await proveTheFirstPageIsTheLast({ beforeTheCount: true });
+			expect(editor.navigation?.total).toBeUndefined();
+
+			act(() => instance.releaseHeldDescribe());
+			await waitFor(() => expect(editor.navigation?.total).toBe(20));
+			await settle(queryClient);
+
+			expect(editor.navigation).toMatchObject({ position: 20, hasNext: false });
+		});
+
+		it('forgets the proof when the count says records follow the proven page', async () => {
+			await proveTheFirstPageIsTheLast({ beforeTheCount: true });
+
+			seedPets(21);
+			act(() => instance.releaseHeldDescribe());
+
+			await expectNextToReachTheNewRecord();
+		});
+
+		// Harper rounds an estimate, so one can match the proven page with a record already past it.
+		it('forgets the proof when the count is an estimate', async () => {
+			await proveTheFirstPageIsTheLast({ beforeTheCount: true });
+
+			seedPets(21);
+			instance.describedCount = 20;
+			instance.estimatedRange = [10, 40];
+			act(() => instance.releaseHeldDescribe());
+
+			await expectNextToReachTheNewRecord();
+		});
+
+		it('keeps the answer of a probe the count arrived during', async () => {
+			const toastInfo = vi.spyOn(toast, 'info');
+			const queryClient = renderPets(20, { beforeTheCount: true });
+			fireEvent.click(await findCell('20'));
+			instance.heldOffset = 20;
+			act(() => editor.navigation!.onNext());
+			await waitFor(() => expect(instance.pageReads).toContain(20));
+
+			act(() => instance.releaseHeldDescribe());
+			await waitFor(() => expect(editor.navigation?.total).toBe(20));
+			act(() => instance.releaseHeldRead());
+
+			await waitFor(() => expect(editor.navigation).toMatchObject({ position: 20, hasNext: false }));
+			await settle(queryClient);
+			expect(toastInfo).toHaveBeenCalledWith('This is the last record');
+		});
+
+		it('forgets a proof it kept once the table grows', async () => {
+			const queryClient = await proveTheFirstPageIsTheLast({ beforeTheCount: true });
+			act(() => instance.releaseHeldDescribe());
+			await waitFor(() => expect(editor.navigation?.total).toBe(20));
+			await settle(queryClient);
+			expect(editor.navigation).toMatchObject({ position: 20, hasNext: false });
+
+			seedPets(21);
+			await act(() => queryClient.invalidateQueries({ queryKey: ['instance-1', 'data', 'pets'] }));
+
+			await expectNextToReachTheNewRecord();
+		});
+	});
+
+	// The step returns to the first page at 61s and reads it afresh, so a focus refetch then re-reads only
+	// the count: the page on screen stays full, and only the proof keeps Next from probing past it.
+	describe('when the count shrinks', () => {
+		it('keeps the proof after records are deleted', async () => {
+			const queryClient = await proveTheFirstPageIsTheLast({ clockAheadBeforeTheStep: 61_000 });
+			await settle(queryClient);
+
+			seedPets(19);
+			refocusTheWindow();
+			await waitFor(() => expect(editor.navigation?.total).toBe(19));
+			await settle(queryClient);
+
+			expect(editor.navigation).toMatchObject({ position: 20, hasNext: false });
+			expect(instance.pageReads).toEqual([0, 20, 0]);
+		});
+
+		// The step set out with a count from before records were deleted, above the proven page's end.
+		it('forgets the proof when the count still says records follow the proven page', async () => {
+			instance.describedCount = 25;
+			const queryClient = await proveTheFirstPageIsTheLast({ clockAheadBeforeTheStep: 61_000 });
+			await settle(queryClient);
+
+			seedPets(22);
+			instance.describedCount = undefined;
+			refocusTheWindow();
+
+			await expectNextToReachTheNewRecord();
+		});
 	});
 });
 
