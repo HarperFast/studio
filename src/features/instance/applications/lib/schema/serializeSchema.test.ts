@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createField, createTable, setArg } from './mutations';
 import { parseSchema } from './parseSchema';
 import { serializeSchema } from './serializeSchema';
-import { SchemaDocument, Segment, TableModel } from './types';
+import { FieldModel, SchemaDocument, Segment, TableModel } from './types';
 
 function parse(source: string): SchemaDocument {
 	return parseSchema(source).document;
@@ -360,7 +360,36 @@ describe('full-text fields', () => {
 });
 
 describe('a comment between a field and its continued directive', () => {
-	it('keeps the file intact rather than guess where the comment belongs', () => {
+	function regenerate(source: string, change: (table: TableModel) => TableModel = table => table): string {
+		const doc = parse(source);
+		return serializeSchema({
+			...doc,
+			segments: doc.segments.map(segment =>
+				segment.kind === 'table' ? { kind: 'table', table: { ...change(segment.table), edited: true } } : segment
+			),
+		});
+	}
+
+	function fieldNamed(source: string, name: string): FieldModel {
+		const field = firstTable(parse(source)).fields.find(candidate => candidate.name === name);
+		if (!field) {
+			throw new Error(`no field ${name}`);
+		}
+		return field;
+	}
+
+	const tableLines = (fieldLines: string[]) => ['type T @table {', '\tid: ID @primaryKey', ...fieldLines, '}', ''];
+
+	const CANONICAL = tableLines([
+		'\tsearch: FullText',
+		'\t\t# searches the id',
+		'\t\t@fullText(',
+		'\t\t\tfields: [{ name: "id" }]',
+		'\t\t) # the storefront search',
+		'\tprice: Float',
+	]);
+
+	it('reads the comment into the field, which makes the table editable', () => {
 		const source = [
 			'type Product @table(audit: true) {',
 			'\tid: ID @primaryKey',
@@ -372,9 +401,161 @@ describe('a comment between a field and its continued directive', () => {
 			'',
 		].join('\n');
 		const parsed = parseSchema(source);
+		const table = firstTable(parsed.document);
+		expect(table.fields.map(field => field.name)).toEqual(['id', 'title', 'catalogSearch']);
+		expect(table.fields[2].continuationComments).toEqual(['# searches the title']);
+		expect(table.fields[2].directives.map(directive => directive.name)).toEqual(['fullText']);
 		expect(serializeSchema(parsed.document)).toBe(source);
-		// Not offered as an editable table, so no edit can drop the comment.
+		expect(regenerate(source)).toBe(source.replace(
+			'\t\t@fullText(fields: [{ name: "title" }])',
+			'\t\t@fullText(\n\t\t\tfields: [{ name: "title" }]\n\t\t)',
+		));
+	});
+
+	it('writes the comment back in its place when the table is regenerated', () => {
+		const source = CANONICAL.join('\n');
+		expect(fieldNamed(source, 'search').continuationComments).toEqual(['# searches the id']);
+		const once = regenerate(source);
+		expect(once).toBe(source);
+		expect(regenerate(once)).toBe(source);
+	});
+
+	it('keeps the comment when the directive under it is edited', () => {
+		const written = regenerate(CANONICAL.join('\n'), table => ({
+			...table,
+			fields: table.fields.map(field =>
+				field.name === 'search'
+					? { ...field, directives: setArg(field.directives, 'fullText', 'stopWords', 'false') }
+					: field
+			),
+		}));
+		expect(written).toContain('\tsearch: FullText\n\t\t# searches the id\n\t\t@fullText(\n');
+		expect(written).toContain('\t\t\tstopWords: false\n\t\t) # the storefront search\n');
+	});
+
+	it('keeps several comment lines in order, reading no directive out of them', () => {
+		const source = tableLines([
+			'\tsearch: FullText',
+			'\t\t# searches the id',
+			'\t\t# no @indexed here: Harper refuses one on a FullText field',
+			'\t\t@fullText(',
+			'\t\t\tfields: [{ name: "id" }]',
+			'\t\t)',
+		]).join('\n');
+		const search = fieldNamed(source, 'search');
+		expect(search.continuationComments).toEqual([
+			'# searches the id',
+			'# no @indexed here: Harper refuses one on a FullText field',
+		]);
+		expect(search.directives.map(directive => directive.name)).toEqual(['fullText']);
+		expect(regenerate(source)).toBe(source);
+	});
+
+	it('reads and writes a comment run too long to spread into one call', { timeout: 30_000 }, () => {
+		// The spread limit follows the engine's stack size, so find a length that overflows it here.
+		const overflowsSpread = (length: number) => {
+			try {
+				const lines: string[] = [];
+				lines.push(...Array.from({ length }, () => '# c'));
+				return false;
+			} catch {
+				return true;
+			}
+		};
+		let length = 1 << 16;
+		while (length < 1 << 23 && !overflowsSpread(length)) {
+			length *= 2;
+		}
+		expect(overflowsSpread(length)).toBe(true);
+		const source = tableLines(['\tname: String', ...Array.from({ length }, () => '\t\t# c'), '\t\t@indexed']).join(
+			'\n',
+		);
+		expect(fieldNamed(source, 'name').continuationComments).toHaveLength(length);
+		// Compared as a boolean: a failing `toBe` would print a diff of megabytes.
+		expect(regenerate(source) === source).toBe(true);
+	});
+
+	it('drops blank lines in the gap, as it already did with no comment there', () => {
+		const block = ['\t\t@fullText(', '\t\t\tfields: [{ name: "id" }]', '\t\t)'];
+		const blankOnly = tableLines(['\tsearch: FullText', '', ...block]).join('\n');
+		expect(regenerate(blankOnly)).toBe(tableLines(['\tsearch: FullText', ...block]).join('\n'));
+
+		const commented = tableLines(['\tsearch: FullText', '', '\t\t# one', '', '\t\t# two', '', ...block]).join('\n');
+		expect(regenerate(commented)).toBe(
+			tableLines(['\tsearch: FullText', '\t\t# one', '\t\t# two', ...block]).join('\n'),
+		);
+	});
+
+	it("puts the field's other directives below the comment too, and its line comment after them", () => {
+		const source = tableLines([
+			'\t# the lookup key',
+			'\tname: String',
+			'\t\t# looked up by name',
+			'\t\t@indexed # unique per tenant',
+		]).join('\n');
+		expect(fieldNamed(source, 'name')).toMatchObject({
+			leadingComments: ['# the lookup key'],
+			continuationComments: ['# looked up by name'],
+			lineComment: '# unique per tenant',
+		});
+		expect(regenerate(source)).toBe(source);
+	});
+
+	it('leaves a comment with no directive after it to the next field or the table, as before', () => {
+		const source = tableLines(['\ttitle: String', '\t\t# about price', '\tprice: Float', '\t\t# the end']).join('\n');
+		const table = firstTable(parse(source));
+		expect(table.fields.map(field => [field.name, field.continuationComments, field.leadingComments])).toEqual([
+			['id', undefined, []],
+			['title', undefined, []],
+			['price', undefined, ['# about price']],
+		]);
+		expect(table.trailingComments).toEqual(['# the end']);
+	});
+
+	it('moves the comment above its field once no directive is left below it', () => {
+		const written = regenerate(CANONICAL.join('\n'), table => ({
+			...table,
+			fields: table.fields.map(field =>
+				field.name === 'search'
+					? { ...field, type: { kind: 'named', name: 'String', nonNull: false }, directives: [] }
+					: field
+			),
+		}));
+		expect(written).toBe(
+			tableLines([
+				'\t# searches the id',
+				'\tsearch: String # the storefront search',
+				'\tprice: Float',
+			]).join('\n'),
+		);
+		expect(fieldNamed(written, 'search').leadingComments).toEqual(['# searches the id']);
+	});
+
+	it('reads and writes the comments in a CRLF document without carrying a carriage return', () => {
+		const source = tableLines([
+			'\tsearch: FullText',
+			'\t\t# searches the id',
+			'',
+			'\t\t# and nothing else yet',
+			'\t\t@fullText(',
+			'\t\t\tfields: [{ name: "id" }]',
+			'\t\t)',
+		]).join('\r\n');
+		expect(fieldNamed(source, 'search').continuationComments).toEqual([
+			'# searches the id',
+			'# and nothing else yet',
+		]);
+		expect(regenerate(source)).toBe(source.replace('\r\n\r\n', '\r\n'));
+	});
+
+	it.each([
+		['on the field line', ['\tsearch: FullText # searches the id', '\t\t@fullText(fields: [{ name: "id" }])']],
+		['after a directive in the run', ['\tname: String @indexed', '\t\t# the owner', '\t\t@relationship(from: "id")']],
+	])('still keeps the table as text for a comment %s, which the model has no place for', (_, fieldLines) => {
+		const source = tableLines(fieldLines).join('\n');
+		const parsed = parseSchema(source);
 		expect(parsed.document.segments.some(segment => segment.kind === 'table')).toBe(false);
+		expect(serializeSchema(parsed.document)).toBe(source);
 	});
 });
 

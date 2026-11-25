@@ -71,6 +71,12 @@ export interface FieldModel {
 	leadingComments: string[];
 	name: string;
 	type: TypeRef;
+	/**
+	 * `# …` comment lines between the field's type and directives continued on the lines below it,
+	 * each trimmed. Re-emitted in that gap when the table is regenerated, with every directive moved
+	 * below them; with no directive left to precede, they go above the field instead.
+	 */
+	continuationComments?: string[];
 	directives: Directive[];
 	/** Inline `# …` trailing comment on the field's own line, if any. */
 	lineComment?: string;

@@ -382,11 +382,30 @@ function skipInlineWhitespace(src: string, i: number): number {
  * Skip spaces/tabs, and also line breaks when the next thing after them is a directive, so a field's
  * directives may continue onto following lines. Otherwise stops at the end of the line, which keeps
  * an inline `# …` comment attached to the field.
+ *
+ * Given `comments`, whole `# …` lines between the end of this line and the continued directive are
+ * stepped over too and appended to `comments`. A comment on this line still ends the field, and
+ * comment lines with no directive after them are left for whatever does follow (the next field, or
+ * the table's trailing comments).
  */
-function skipToContinuedDirective(src: string, i: number): number {
+function skipToContinuedDirective(src: string, i: number, comments?: string[]): number {
 	const inline = skipInlineWhitespace(src, i);
-	const ahead = skipWhitespace(src, inline);
-	return src[ahead] === '@' ? ahead : inline;
+	let ahead = skipWhitespace(src, inline);
+	const skipped: string[] = [];
+	// Only a line break moves `ahead` past `inline`, so a comment on this line is never collected.
+	while (comments && ahead > inline && src[ahead] === '#') {
+		const end = skipLineComment(src, ahead);
+		skipped.push(src.slice(ahead, end).trim());
+		ahead = skipWhitespace(src, end);
+	}
+	if (src[ahead] !== '@') {
+		return inline;
+	}
+	// One push per line: spreading a long run into `push` overflows the call stack.
+	for (const comment of skipped) {
+		comments?.push(comment);
+	}
+	return ahead;
 }
 
 /**
@@ -439,9 +458,11 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 		i = typeRef.end;
 		// Directives, on the field's line or continuing onto the next ones — Harper's docs put a long
 		// `@fullText(...)` on the line below its field. A field name can't start with `@`, so a line
-		// that does continues this field.
+		// that does continues this field. A comment after the first directive has no place in the model,
+		// so it ends the field and the table stays text.
 		const directiveStart = i;
-		i = skipToContinuedDirective(body, i);
+		const continuationComments: string[] = [];
+		i = skipToContinuedDirective(body, i, continuationComments);
 		while (body[i] === '@') {
 			i++;
 			while (i < body.length && isIdentChar(body[i])) {
@@ -471,6 +492,7 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 			leadingComments: pendingComments,
 			name,
 			type: typeRef.type,
+			...(continuationComments.length > 0 ? { continuationComments } : null),
 			directives,
 			lineComment,
 		});
