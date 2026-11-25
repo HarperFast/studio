@@ -42,7 +42,6 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	// Mounted while closed, so an ungated read here would take the Users page down for a role without list_roles.
 	const { canList: canListRoles, roles, isLoading: isRolesLoading } = useListedRoles();
 	const form = useForm({
 		resolver: zodResolver(AddUserFormSchema),

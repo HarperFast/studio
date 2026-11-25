@@ -127,9 +127,14 @@ function setPassword(password: string) {
 	fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: password } });
 }
 
+function saveButton() {
+	return screen.getByRole('button', { name: /Save Changes/ }) as HTMLButtonElement;
+}
+
 async function save() {
+	await waitFor(() => expect(saveButton().disabled).toBe(false));
 	await act(async () => {
-		fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+		fireEvent.click(saveButton());
 	});
 	await waitFor(() => expect(alterUser).toHaveBeenCalledTimes(1));
 	return alterUser.mock.calls[0][0] as Record<string, unknown>;
@@ -344,37 +349,59 @@ describe('EditUserModal for a role that cannot list roles', () => {
 	it('keeps Save off until there is a password or Active change to send', async () => {
 		renderModal(alice);
 		await waitFor(() => expect(activeSwitch()).not.toBeNull());
-		const saveButton = screen.getByRole('button', { name: /Save Changes/ }) as HTMLButtonElement;
 
-		expect(saveButton.disabled).toBe(true);
+		expect(saveButton().disabled).toBe(true);
 		await act(async () => {
 			fireEvent.click(activeSwitch()!);
 		});
-		expect(saveButton.disabled).toBe(false);
+		expect(saveButton().disabled).toBe(false);
 		await act(async () => {
 			fireEvent.click(activeSwitch()!);
 		});
-		expect(saveButton.disabled).toBe(true);
+		expect(saveButton().disabled).toBe(true);
 	});
 
 	it.each([
 		['one that can list roles', ['list_users', 'list_roles', 'alter_user'], false],
 		['one that cannot', ['list_users', 'alter_user'], true],
-	])('shows no role field until the version settles, then the final one, for %s', async (_, operations, readOnly) => {
+	])('shows no role field and allows no save until the version settles, for %s', async (_, operations, readOnly) => {
 		let answerVersion: (response: { version: string }) => void = () => {};
 		probe.fetch = () => new Promise((resolve) => (answerVersion = resolve));
 		auth.value = { user: user('delegate', true, delegateRole(operations)) };
 		renderModal(alice);
 		await waitFor(() => expect(screen.getByLabelText('Change Password')).toBeTruthy());
+		setPassword('new-password');
 
 		expect(roleSelect()).toBeNull();
 		expect(screen.queryByText(/Changing the role needs list_roles/)).toBeNull();
+		expect(saveButton().disabled).toBe(true);
 
 		await act(async () => answerVersion({ version: '5.4.1' }));
 
 		await waitFor(() => expect(roleSelect()).not.toBeNull());
 		expect(roleSelect()?.disabled).toBe(readOnly);
 		expect(roleSelect()?.textContent).toContain('plain');
+		const sent = await save();
+		expect(sent).toMatchObject({ username: 'alice', password: 'new-password' });
+		expect('role' in sent).toBe(!readOnly);
+	});
+
+	it('saves a user whose role no longer exists', async () => {
+		const orphan = { ...user('orphan', false, plainRole), role: undefined } as unknown as LocalUser;
+		renderModal(orphan, [viewer, orphan]);
+		await waitFor(() => expect(roleSelect()).not.toBeNull());
+		setPassword('new-password');
+
+		expect(await save()).toMatchObject({ username: 'orphan', password: 'new-password' });
+	});
+
+	it('shows the role another admin set while the dialog was open', async () => {
+		const { repoll } = renderModal(alice);
+		await waitFor(() => expect(roleSelect()?.textContent).toContain('plain'));
+		const promoted = { ...alice, role: superRole };
+		repoll(promoted, [viewer, promoted]);
+
+		await waitFor(() => expect(roleSelect()?.textContent).toContain('super'));
 	});
 });
 

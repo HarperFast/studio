@@ -26,7 +26,10 @@ import { useRoleBlocksAssignment } from '@/features/instance/config/roles/operat
 import { useListedRoles } from '@/features/instance/config/users/useListedRoles';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/auth/alterUser';
-import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
+import {
+	AlterUserFixedRoleFormSchema,
+	AlterUserFormSchema,
+} from '@/integrations/api/instance/auth/alterUserFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
@@ -49,11 +52,12 @@ export function AlterUserForm({
 	// Harper rejects any user whose `active` is falsy (`findAndValidateUser`), not only `false`.
 	const isActive = Boolean(data.active);
 	const { canList: canListRoles, roles, isLoading: isRolesLoading } = useListedRoles();
-	// Without list_roles there is nothing to choose from, so the role is shown and never sent.
+	// Without list_roles there is nothing to choose from: the role is shown, and sent only once the grant is known.
 	const isRoleReadOnly = canListRoles === false;
+	const sendsRole = canListRoles === true;
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
 	const alterForm = useForm({
-		resolver: zodResolver(AlterUserFormSchema),
+		resolver: zodResolver(isRoleReadOnly ? AlterUserFixedRoleFormSchema : AlterUserFormSchema),
 		defaultValues: {
 			username: data.username,
 			role: data.role?.id ?? '',
@@ -83,14 +87,14 @@ export function AlterUserForm({
 		[activeToggle, alterForm],
 	);
 	// Harper refuses an alter_user with no password, role or active to update.
-	const hasNothingToSend = isRoleReadOnly && !alterForm.watch('newPassword') && !sendsActive(alterForm.watch('active'));
+	const hasNothingToSend = !sendsRole && !alterForm.watch('newPassword') && !sendsActive(alterForm.watch('active'));
 
 	const onSubmitClick = useCallback((formData: z.infer<typeof AlterUserFormSchema>) => {
 		const alterBody: AlterUserRequestBody = {
 			username: data.username,
 			...instanceParams,
 		};
-		if (!isRoleReadOnly) {
+		if (sendsRole) {
 			alterBody.role = formData.role;
 		}
 		if (formData.newPassword) {
@@ -109,7 +113,7 @@ export function AlterUserForm({
 				},
 			},
 		);
-	}, [alterForm, alterUser, data.username, instanceParams, isRoleReadOnly, onUserUpdated, sendsActive]);
+	}, [alterForm, alterUser, data.username, instanceParams, onUserUpdated, sendsActive, sendsRole]);
 
 	return (
 		<Form {...alterForm}>
@@ -157,6 +161,8 @@ export function AlterUserForm({
 										<FormControl>
 											<Select
 												{...field}
+												// Read-only shows the re-polled role, which the form's starting value can fall behind.
+												value={isRoleReadOnly ? data.role?.id ?? '' : field.value}
 												onValueChange={(role) => field.onChange(role)}
 												disabled={isRoleReadOnly}
 											>
@@ -261,7 +267,7 @@ export function AlterUserForm({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"
-							disabled={isUpdateUserPending || assignmentBlocked || hasNothingToSend}
+							disabled={isUpdateUserPending || isRolesLoading || assignmentBlocked || hasNothingToSend}
 						>
 							<Save /> Save Changes
 						</Button>

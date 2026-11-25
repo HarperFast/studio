@@ -8,7 +8,6 @@ export interface ListedRoles {
 	/** `undefined` until the viewer's grant is known. */
 	canList: boolean | undefined;
 	roles: LocalRole[] | undefined;
-	/** Waiting on the grant, or on the roles themselves. */
 	isLoading: boolean;
 }
 
@@ -22,7 +21,6 @@ export function useListedRoles(): ListedRoles {
 	const { data: roles, isLoading } = useQuery({
 		...getListRolesQueryOptions(instanceParams),
 		enabled: canList === true,
-		// Keep the previous useSuspenseQuery behavior of surfacing other fetch errors to the ErrorBoundary.
 		throwOnError: true,
 	});
 	return { canList, roles, isLoading: canList === undefined || isLoading };
