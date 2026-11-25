@@ -1,14 +1,18 @@
 /** @vitest-environment jsdom */
-import { seedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
+import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
 import type { Cluster } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getInstanceUserInfo } = vi.hoisted(() => ({ getInstanceUserInfo: vi.fn() }));
+const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
+	getInstanceUserInfo: vi.fn(),
+	onInstanceLogoutSubmit: vi.fn(),
+}));
 vi.mock('@/integrations/api/instance/status/getInstanceUserInfo', () => ({ getInstanceUserInfo }));
+vi.mock('@/integrations/api/instance/auth/onInstanceLogoutSubmit', () => ({ onInstanceLogoutSubmit }));
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
 	Navigate: ({ to }: { to: string }) => <div>redirected to {to}</div>,
@@ -85,5 +89,40 @@ describe('the overview of a cluster with a remembered sign-in', () => {
 
 		expect(await screen.findByText('Enter cluster')).toBeTruthy();
 		expect(getInstanceUserInfo).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('the self-hosted overview', () => {
+	it('signs out of an instance central manager now lists without an address (#2021)', async () => {
+		// Signed in while central manager still gave the instance an address.
+		seedSignInMarkers({ 'ins-1': 'https://node-1.example.com:9925/' });
+		cluster = {
+			id: 'clu-1',
+			name: 'on-prem',
+			organizationId: 'org-1',
+			status: 'RUNNING',
+			plans: [{ planId: 'self-hosted-free' }],
+			instances: [{ id: 'ins-1', name: 'node-1', status: 'RUNNING' }],
+		} as Cluster;
+		vi.resetModules();
+		const { authStore } = await import('@/features/auth/store/authStore');
+		authStore.flagForBasicAuth('ins-1', { username: 'admin', password: 'pw' });
+		const { ClusterHome } = await import('./ClusterHome');
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		client.setQueryData(['clu-1'], cluster);
+		render(
+			<QueryClientProvider client={client}>
+				<ClusterHome />
+			</QueryClientProvider>,
+		);
+		onInstanceLogoutSubmit.mockRejectedValue(new Error('offline'));
+
+		fireEvent.click(await screen.findByRole('button', { name: 'Direct sign out' }));
+
+		expect(await screen.findByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
+		expect(onInstanceLogoutSubmit).toHaveBeenCalledWith(expect.objectContaining({ entityId: 'ins-1' }));
+		expect(authStore.getConnectionById('ins-1').user).toBeNull();
+		expect(storedSignInMarkers()['ins-1']).toBeUndefined();
+		expect(authStore.checkForBasicAuth('ins-1')).toBeUndefined();
 	});
 });
