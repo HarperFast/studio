@@ -314,7 +314,6 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect(button.disabled).toBe(false);
 	});
 
-	// Activating it then would start a second rolling activation, of a different release, alongside the first.
 	it('offers no activation while a later deploy rolls out, wherever the nodes say this release is live', async () => {
 		state.releases = {
 			nodes: [holding('a', later.deployment_id, [[STAGED_ID, 'kept']]), holding('b', STAGED_ID, [])],

@@ -175,7 +175,6 @@ describe('stagedReleaseState', () => {
 		}
 	});
 
-	// As `uncertain` it would offer to activate this release, which would start a second rollout alongside this one.
 	it('is being replaced rather than uncertain while a deploy rolls out, whichever failure came first', () => {
 		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
 		const beingReplaced = (on: Deployment) => ({ kind: 'being-replaced', activation: on, replacedBy: rolling });

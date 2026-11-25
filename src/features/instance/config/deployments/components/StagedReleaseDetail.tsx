@@ -53,8 +53,8 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
 	const { intent, disabled } = offered;
-	// Whatever the nodes hold: while another deploy rolls out, activating this one starts a second rolling activation
-	// alongside it, of a different release.
+	// Whatever the nodes hold, since `being-replaced` means another deploy is rolling out: activating this release now
+	// would start a second rolling activation alongside it, of a different release.
 	const offer = offered.offer && release?.kind !== 'being-replaced';
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
