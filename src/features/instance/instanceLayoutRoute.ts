@@ -10,6 +10,7 @@ import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { hasStaffPermission } from '@/hooks/useAuth';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -63,6 +64,11 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// routes on to setup.
 	if (context.cluster?.resetPassword) {
 		throw redirect({ to: `/${params.organizationId}/${params.clusterId}` });
+	}
+	// Not to sign-in, whose guard sends a live direct session straight back here.
+	if (listsWithoutAddress(context.cluster, params.instanceId)) {
+		const { organizationId, clusterId } = params;
+		throw redirect({ to: buildAbsoluteLinkToPage({ organizationId, clusterId }, 'instances') });
 	}
 
 	const entityId = params.instanceId || params.clusterId;
@@ -155,6 +161,11 @@ async function tryEstablishFabricConnect(
 		}
 		return false;
 	}
+}
+
+function listsWithoutAddress(cluster: Cluster | undefined, instanceId: string | undefined): boolean {
+	const instance = instanceId ? cluster?.instances?.find((candidate) => candidate.id === instanceId) : undefined;
+	return !!instance && !getOperationsUrlForInstance(instance);
 }
 
 /**

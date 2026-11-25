@@ -19,7 +19,7 @@ import {
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { getInstanceAddress, getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import {
@@ -80,7 +80,7 @@ export function useInstanceMenuItems(
 	// point of use, same as the cluster path. Both safe-mode entries route through one dialog.
 	const [safeModeAction, setSafeModeAction] = useState<'start' | 'restart' | null>(null);
 
-	const fqdn = instance.instanceFqdn;
+	const fqdn = getInstanceAddress(instance);
 	const apiUrl = fqdn
 		? calculateInstanceFQDN({
 			secure: instance.operationsApiSecure ? 'true' : 'false',

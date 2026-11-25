@@ -86,9 +86,13 @@ export function ClusterInstanceSignIn() {
 		[operationsUrl],
 	);
 	const hasNoAddress = !!cluster && (!instanceId || !!instance) && !operationsUrl;
+	// Without its own URL the client would fall back to a stored sign-in URL or this page's origin, and for an
+	// instance the cluster doesn't list `operationsUrl` is the cluster's. Local Studio has no cluster, and its
+	// fallback is the instance.
+	const knowsWhereToProbe = isLocalStudio || (!!operationsUrl && (!instanceId || !!instance));
 	const { data: healthy } = useQuery({
 		...getInstanceHealthQueryOptions(instanceParams),
-		enabled: !isTerminated && !hasNoAddress,
+		enabled: !isTerminated && knowsWhereToProbe,
 	});
 
 	const methods = useForm({

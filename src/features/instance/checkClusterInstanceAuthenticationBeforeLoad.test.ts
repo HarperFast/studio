@@ -142,7 +142,7 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 	it.each([
 		['a first visit', false],
 		['a reload of a flagged connection', true],
-	])('sends an instance with no address to sign-in without connecting, on %s', async (_, flagged) => {
+	])('sends an instance with no address to the Instances list without connecting, on %s', async (_, flagged) => {
 		permissions = { update: true };
 		(authStore.checkForFabricConnect as ReturnType<typeof vi.fn>).mockReturnValue(flagged);
 		const cluster = {
@@ -156,8 +156,48 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 				context: { authentication: overallAuthReady, cluster },
 				params: { ...PARAMS, instanceId: 'ins-1' },
 			}),
-		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}/instance/ins-1/sign-in` } });
+		).rejects.toMatchObject({ options: { to: `/org-1/${CLUSTER_ID}/instances` } });
 		expect(establishSpy).not.toHaveBeenCalled();
+	});
+
+	describe('with a sign-in remembered from before central manager stopped listing the address', () => {
+		const addressless = { id: CLUSTER_ID, organizationId: 'org-1', instances: [{ id: 'ins-1', status: 'RUNNING' }] };
+		const reachable = {
+			...addressless,
+			instances: [{ id: 'ins-1', status: 'RUNNING', instanceFqdn: 'ins-1.example.com', operationsApiPort: 9925 }],
+		};
+		const run = (cluster: object, authentication: object = overallAuthReady) =>
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: authentication as never, cluster: cluster as Cluster },
+				params: { ...PARAMS, instanceId: 'ins-1' },
+			});
+
+		it.each([
+			['signed in', { isLoading: false, user: { username: 'admin' } }],
+			['still being checked', { isLoading: true, user: null }],
+			['signed in, before the app sign-in is checked', { isLoading: false, user: { username: 'admin' } }, {
+				OverallAppSignIn: { isLoading: true, user: null },
+			}],
+			['signed in, as read-only staff', { isLoading: false, user: { username: 'admin' } }, readOnlyStaffAuth],
+		])('sends the instance to the Instances list, %s', async (_, connection, authentication = overallAuthReady) => {
+			connectionSpy.mockReturnValue(connection as never);
+			const checkSpy = vi.spyOn(authStore, 'startSignInCheck').mockImplementation(() => {});
+
+			await expect(run(addressless, authentication)).rejects.toMatchObject({
+				options: { to: `/org-1/${CLUSTER_ID}/instances` },
+			});
+			expect(checkSpy).not.toHaveBeenCalled();
+			expect(establishSpy).not.toHaveBeenCalled();
+			expect(toastError).not.toHaveBeenCalled();
+		});
+
+		it('still resumes it while it has an address', async () => {
+			connectionSpy.mockReturnValue({ isLoading: false, user: { username: 'admin' } } as never);
+			const checkSpy = vi.spyOn(authStore, 'startSignInCheck').mockImplementation(() => {});
+
+			await expect(run(reachable)).resolves.toBeUndefined();
+			expect(checkSpy).toHaveBeenCalledWith('ins-1');
+		});
 	});
 
 	it('redirects to sign-in when not flagged and the user cannot manage', async () => {

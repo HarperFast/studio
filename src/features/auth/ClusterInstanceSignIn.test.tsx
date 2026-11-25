@@ -21,6 +21,14 @@ vi.mock('@tanstack/react-router', () => {
 });
 vi.mock('@/components/Breadcrumbs', () => ({ Breadcrumbs: () => null }));
 
+const page = vi.hoisted(() => ({ local: false, clusterLoading: false }));
+vi.mock('@/config/constants', async (importOriginal) => ({
+	...await importOriginal<typeof import('@/config/constants')>(),
+	get isLocalStudio() {
+		return page.local;
+	},
+}));
+
 const instanceClient = { get: vi.fn(), post: vi.fn(), defaults: {} };
 vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientIdParams: () => ({ entityId: 'clu-1', entityType: 'cluster', instanceClient }),
@@ -30,7 +38,7 @@ let cluster: Cluster;
 vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
 		queryKey: [clusterId],
-		queryFn: async () => cluster,
+		queryFn: () => page.clusterLoading ? new Promise<never>(() => {}) : Promise.resolve(cluster),
 		staleTime: Infinity,
 	}),
 }));
@@ -42,6 +50,8 @@ afterEach(() => {
 	vi.clearAllMocks();
 	vi.restoreAllMocks();
 	routeParams = { clusterId: 'clu-1' };
+	page.local = false;
+	page.clusterLoading = false;
 });
 
 function clusterWith(overrides: Partial<Cluster>): Cluster {
@@ -59,7 +69,9 @@ function clusterWith(overrides: Partial<Cluster>): Cluster {
 async function renderSignIn(state: Cluster) {
 	cluster = state;
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	client.setQueryData(['clu-1'], state);
+	if (!page.clusterLoading) {
+		client.setQueryData(['clu-1'], state);
+	}
 	render(
 		<QueryClientProvider client={client}>
 			<ClusterInstanceSignIn />
@@ -153,5 +165,31 @@ describe(ClusterInstanceSignIn, () => {
 		expect(screen.getByRole('button', { name: 'Sign In' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Cluster Terminated' })).toBeNull();
 		expect(instanceClient.get).toHaveBeenCalledWith('/health');
+	});
+});
+
+describe('the sign-in health probe', () => {
+	it('waits for the cluster before probing anything', async () => {
+		page.clusterLoading = true;
+		await renderSignIn(clusterWith({}));
+		expect(instanceClient.get).not.toHaveBeenCalled();
+	});
+
+	it('probes the instance itself in Local Studio, which has no cluster', async () => {
+		page.local = true;
+		page.clusterLoading = true;
+		instanceClient.get.mockResolvedValue({ data: {} });
+		await renderSignIn(clusterWith({}));
+		expect(instanceClient.get).toHaveBeenCalledWith('/health');
+	});
+
+	it("doesn't probe the cluster for an instance the cluster doesn't list", async () => {
+		routeParams = { clusterId: 'clu-1', instanceId: 'ins-9' };
+		await renderSignIn(
+			clusterWith({
+				instances: [{ id: 'ins-1', status: 'RUNNING', instanceFqdn: 'ins-1.example.com' }] as Cluster['instances'],
+			}),
+		);
+		expect(instanceClient.get).not.toHaveBeenCalled();
 	});
 });

@@ -16,6 +16,7 @@ import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort
 import { getRestartState } from '@/lib/restart/restartTracker';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { ColumnDef } from '@/lib/table';
+import { getInstanceAddress } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { LifeBuoyIcon } from 'lucide-react';
@@ -52,7 +53,7 @@ export function Instances() {
 					size: 90,
 					header: 'URL',
 					cell: (cell) => {
-						const fqdn = cell.row.original.instanceFqdn;
+						const fqdn = getInstanceAddress(cell.row.original);
 						if (!fqdn) {
 							return <span className="text-muted-foreground text-sm">—</span>;
 						}
