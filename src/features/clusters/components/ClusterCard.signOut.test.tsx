@@ -92,8 +92,6 @@ function signedOut(id: string) {
 
 describe('ClusterCard Direct Sign Out', () => {
 	it('signs out an instance central manager now lists without an address (#2021)', async () => {
-		// Signed in to the cluster directly, and to its instances while central manager still gave each an address:
-		// ins-a through Fabric Connect, ins-b directly.
 		authStore.setUserForEntity(cluster, user);
 		authStore.flagForFabricConnect('ins-a', true);
 		authStore.setUserForEntity(instance('ins-a', 'node-a.example.test'), user);
@@ -104,7 +102,6 @@ describe('ClusterCard Direct Sign Out', () => {
 			'ins-a': 'https://node-a.example.test:9925/',
 			'ins-b': 'https://node-b.example.test:9925/',
 		});
-		// Central manager has since stopped listing ins-a's address.
 		getClusterInfo.mockResolvedValue({
 			...cluster,
 			instances: [instance('ins-a'), instance('ins-b', 'node-b.example.test')],
@@ -118,27 +115,23 @@ describe('ClusterCard Direct Sign Out', () => {
 		await vi.waitFor(() => expect(authStore.getConnectionById('clu-a').user).toBeNull());
 		const cleared = { user: null, marker: undefined, fabricConnect: false, basicAuth: undefined };
 		expect(signedOut('ins-a')).toEqual(cleared);
-		// An instance with an address is signed out as before, and now loses its stored credentials too.
 		expect(signedOut('ins-b')).toEqual(cleared);
 		expect(signedOut('clu-a')).toEqual(cleared);
-		// The one logout goes to the cluster, as before.
 		expect(clusterClient.post).toHaveBeenCalledExactlyOnceWith('/', { operation: 'logout' });
 		expect(getClusterInfo).toHaveBeenCalledWith('clu-a');
 	});
 
-	it('still signs out the cluster when its instances cannot be read', async () => {
+	it('signs out only the cluster when its instances cannot be read', async () => {
 		authStore.setUserForEntity(cluster, user);
 		authStore.setUserForEntity(instance('ins-b', 'node-b.example.test'), user);
 		getClusterInfo.mockRejectedValue(new Error('offline'));
 		clusterClient.post.mockResolvedValue({ data: { message: 'Logout successful' } });
-		vi.spyOn(console, 'error').mockImplementation(() => {});
 
 		render(<ClusterCard item={describeCluster(cluster)} />);
 		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
 		fireEvent.click(screen.getByRole('menuitem', { name: 'Direct Sign Out' }));
 
 		await vi.waitFor(() => expect(authStore.getConnectionById('clu-a').user).toBeNull());
-		// Without the list there are no instances to sign out.
 		expect(storedSignInMarkers()).toEqual({ 'ins-b': 'https://node-b.example.test:9925/' });
 	});
 });

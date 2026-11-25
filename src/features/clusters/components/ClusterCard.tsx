@@ -114,8 +114,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 			return null;
 		});
 		await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
-		// Every instance is signed out as well, locally and by id: `setUserForEntity` skips an instance listed
-		// without an `instanceFqdn`, which would leave it signed in (#2021).
+		// By id, since an instance may be listed without an address.
 		authStore.signOutEntitiesLocally((fullCluster?.instances ?? []).map((instance) => instance.id));
 		authStore.setUserForEntity(cluster, null);
 	}, [cluster, instanceClient]);

@@ -332,7 +332,7 @@ function SelfHostedClusterHome({ cluster }: { cluster: Cluster }) {
 		} catch {
 			// Ignore: we're clearing local state regardless of the server response.
 		}
-		// By id: `setUserForEntity` skips an instance listed without an `instanceFqdn` (#2021).
+		// By id, since an instance may be listed without an address.
 		authStore.signOutLocally(firstInstance.id);
 		await router.invalidate();
 	}, [firstInstance, router]);

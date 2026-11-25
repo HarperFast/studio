@@ -94,7 +94,6 @@ describe('the overview of a cluster with a remembered sign-in', () => {
 
 describe('the self-hosted overview', () => {
 	it('signs out of an instance central manager now lists without an address (#2021)', async () => {
-		// Signed in while central manager still gave the instance an address.
 		seedSignInMarkers({ 'ins-1': 'https://node-1.example.com:9925/' });
 		cluster = {
 			id: 'clu-1',
