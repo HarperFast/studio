@@ -392,8 +392,7 @@ function skipToContinuedDirective(src: string, i: number, comments?: string[]): 
 	const inline = skipInlineWhitespace(src, i);
 	let ahead = skipWhitespace(src, inline);
 	const skipped: string[] = [];
-	// `ahead > inline` only once a line break was crossed: `skipInlineWhitespace` already took the
-	// spaces, tabs and commas, so a comment still on this line leaves `ahead` at `inline`.
+	// Only a line break moves `ahead` past `inline`, so a comment on this line is never collected.
 	while (comments && ahead > inline && src[ahead] === '#') {
 		const end = skipLineComment(src, ahead);
 		skipped.push(src.slice(ahead, end).trim());
@@ -456,9 +455,8 @@ function parseFields(body: string): { fields: FieldModel[]; trailingComments: st
 		i = typeRef.end;
 		// Directives, on the field's line or continuing onto the next ones — Harper's docs put a long
 		// `@fullText(...)` on the line below its field. A field name can't start with `@`, so a line
-		// that does continues this field. Comment lines may sit between the type and those directives;
-		// a comment further into the run has no place in the model, so it ends the field and the
-		// table stays text.
+		// that does continues this field. A comment after the first directive has no place in the model,
+		// so it ends the field and the table stays text.
 		const directiveStart = i;
 		const continuationComments: string[] = [];
 		i = skipToContinuedDirective(body, i, continuationComments);

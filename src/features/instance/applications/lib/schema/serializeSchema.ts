@@ -154,8 +154,7 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 		}
 		const hasDirectives = field.directives.length > 0;
 		const continuationComments = hasDirectives ? (field.continuationComments ?? []) : [];
-		// With no directive left to sit above, the comments from between the type and its directives go
-		// above the field: below it, they would read back as the next field's.
+		// Below the field, they would read back as the next field's.
 		const leadingComments = hasDirectives
 			? field.leadingComments
 			: [...field.leadingComments, ...(field.continuationComments ?? [])];
@@ -172,9 +171,7 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 		let fieldLine = `${indent}${field.name}: ${formatTypeRef(field.type)}`;
 		const below: string[] = [];
 		if (continuationComments.length > 0) {
-			// The comments keep their place between the type and the directives, so every directive goes
-			// below them: one left on the field's line would put the comments after a directive, where the
-			// parser ends the field and keeps the table as text.
+			// A directive left on the field's line would put the comments after it, which ends the field.
 			below.push(...continuationComments.map(comment => `${indent}${indent}${comment}`));
 			if (fieldDirectives) {
 				below.push(`${indent}${indent}${fieldDirectives}`);

@@ -360,7 +360,7 @@ describe('full-text fields', () => {
 });
 
 describe('a comment between a field and its continued directive', () => {
-	/** Serialize with the table marked edited, so it is regenerated rather than written verbatim. */
+	/** Marks the table edited, so it is regenerated. */
 	function regenerate(source: string, change: (table: TableModel) => TableModel = table => table): string {
 		const doc = parse(source);
 		return serializeSchema({
@@ -381,7 +381,6 @@ describe('a comment between a field and its continued directive', () => {
 
 	const tableLines = (fieldLines: string[]) => ['type T @table {', '\tid: ID @primaryKey', ...fieldLines, '}', ''];
 
-	/** The layout regeneration writes: the comment where it was, the directive block below it. */
 	const CANONICAL = tableLines([
 		'\tsearch: FullText',
 		'\t\t# searches the id',
@@ -435,19 +434,21 @@ describe('a comment between a field and its continued directive', () => {
 		expect(written).toContain('\t\t\tstopWords: false\n\t\t) # the storefront search\n');
 	});
 
-	it('keeps several comment lines in order', () => {
+	it('keeps several comment lines in order, reading no directive out of them', () => {
 		const source = tableLines([
 			'\tsearch: FullText',
 			'\t\t# searches the id',
-			'\t\t# and nothing else yet',
+			'\t\t# no @indexed here: Harper refuses one on a FullText field',
 			'\t\t@fullText(',
 			'\t\t\tfields: [{ name: "id" }]',
 			'\t\t)',
 		]).join('\n');
-		expect(fieldNamed(source, 'search').continuationComments).toEqual([
+		const search = fieldNamed(source, 'search');
+		expect(search.continuationComments).toEqual([
 			'# searches the id',
-			'# and nothing else yet',
+			'# no @indexed here: Harper refuses one on a FullText field',
 		]);
+		expect(search.directives.map(directive => directive.name)).toEqual(['fullText']);
 		expect(regenerate(source)).toBe(source);
 	});
 
