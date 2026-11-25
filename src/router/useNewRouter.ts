@@ -26,7 +26,6 @@ export function useNewRouter({ routeTree = rootRouteTree, authentication }: {
 			defaultErrorComponent: ErrorComponent,
 			defaultPreload: browserIsTouchBased() ? false : 'intent',
 			trailingSlash: 'never',
-			// Keeps an emailed link's `token` and `flow` the strings the link spelled (#2026).
 			parseSearch,
 			stringifySearch,
 			// Since we're using React Query, we don't want loader calls to ever be stale

@@ -49,6 +49,12 @@ describe('stringifySearch', () => {
 		expect(stringifySearch({ redirect: '/x', token: '0', page: 2 })).toBe('?redirect=%2Fx&token=0&page=2');
 	});
 
+	it('writes the other parameters beside a token byte for byte as the default does', () => {
+		const others = { q: 'a b+c%', filters: { id: 'x y' }, page: 2 };
+
+		expect(stringifySearch({ ...others, token: '0' })).toBe(`${defaultStringifySearch(others)}&token=0`);
+	});
+
 	it('writes every other parameter as the default does', () => {
 		const search = { page: 2, filters: { id: '1' }, project: '0', token: JWT };
 

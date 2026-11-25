@@ -9,9 +9,12 @@ import { defaultParseSearch, defaultStringifySearch } from '@tanstack/react-rout
  */
 const VERBATIM_PARAMS = ['token', 'flow'];
 
-/** The router's default parse, except that a verbatim parameter keeps its first value exactly as the URL spells it. */
 export function parseSearch(searchStr: string): Record<string, unknown> {
 	const search: Record<string, unknown> = defaultParseSearch(searchStr);
+	// The router parses every location and every `href` it is handed, nearly all without these.
+	if (!VERBATIM_PARAMS.some((key) => key in search)) {
+		return search;
+	}
 	const params = new URLSearchParams(searchStr);
 	for (const key of VERBATIM_PARAMS) {
 		const value = params.get(key);
@@ -27,13 +30,17 @@ export function parseSearch(searchStr: string): Record<string, unknown> {
  * `parseSearch` would keep, quotes and all, the next time the router read a URL it had written itself.
  */
 export function stringifySearch(search: Record<string, unknown>): string {
-	const params = new URLSearchParams(defaultStringifySearch(search));
+	const searchStr = defaultStringifySearch(search);
+	// Every `<Link>` builds its `href` through here.
+	if (!VERBATIM_PARAMS.some((key) => typeof search[key] === 'string')) {
+		return searchStr;
+	}
+	const params = new URLSearchParams(searchStr);
 	for (const key of VERBATIM_PARAMS) {
 		const value = search[key];
 		if (typeof value === 'string') {
 			params.set(key, value);
 		}
 	}
-	const searchStr = params.toString();
-	return searchStr ? `?${searchStr}` : '';
+	return `?${params}`;
 }
