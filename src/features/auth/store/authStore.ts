@@ -122,7 +122,6 @@ class AuthStore {
 	private signOutHeardDuringCheck: string | null = null;
 
 	constructor() {
-		// Until a migration lands (a full quota refuses one), an older release's record still holds the sign-ins.
 		const unmigrated = migrateLegacySignInMarkers();
 		this.potentiallyAuthenticated = { ...unmigrated, ...Object.fromEntries(readSignInMarkers()) };
 	}

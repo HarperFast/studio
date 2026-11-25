@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { legacySignInMarkersKey } from './signInMarkers';
+import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
@@ -124,22 +124,65 @@ describe('a load that finds the record an older release kept', () => {
 		expect(localStorage.getItem(legacyMigratedKey)).toBeNull();
 	});
 
-	it('still signs in and out on its markers when storage refuses to copy them, and keeps it for a later load', async () => {
+	it('still signs in and out on its markers when storage refuses to copy them', async () => {
 		writeFromOlderRelease({ 'ins-a': url('ins-a') });
-		const refused = refuseWrites();
+		refuseWrites();
 
 		const store = await loadPage();
 
 		expect(store.getOperationsUrl('ins-a')).toBe(url('ins-a'));
-		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
 		await store.signOutFromPotentiallyAuthenticatedInstances();
 		expect(loggedOut()).toEqual([['ins-a', url('ins-a')]]);
+	});
 
+	it('keeps it for a later load when storage refuses to copy it', async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		const refused = refuseWrites();
+		await loadPage();
+		expect(legacy()).toEqual({ 'ins-a': url('ins-a') });
 		refused.mockRestore();
+
 		await loadPage();
 
 		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
 		expect(legacy()).toBeNull();
+	});
+
+	it('keeps it for the next load when an older tab rewrites it during the copy', async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		const setItem = Storage.prototype.setItem;
+		const rewrite = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(
+			function(this: Storage, key: string, value: string) {
+				setItem.call(this, key, value);
+				if (key === signInMarkerKey('ins-a')) {
+					setItem.call(this, legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') }));
+				}
+			},
+		);
+		await loadPage();
+		rewrite.mockRestore();
+		expect(legacy()).toEqual({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') });
+
+		await loadPage();
+
+		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') });
+		expect(legacy()).toBeNull();
+	});
+
+	it("still moves it when storage won't remove the old migration flag", async () => {
+		writeFromOlderRelease({ 'ins-a': url('ins-a') });
+		const removeItem = Storage.prototype.removeItem;
+		vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function(this: Storage, key: string) {
+			if (key === legacyMigratedKey) {
+				throw new DOMException('Storage refused.', 'SecurityError');
+			}
+			removeItem.call(this, key);
+		});
+
+		const store = await loadPage();
+
+		expect(store.getOperationsUrl('ins-a')).toBe(url('ins-a'));
+		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
 	});
 
 	it("starts without its markers when storage won't read it", async () => {

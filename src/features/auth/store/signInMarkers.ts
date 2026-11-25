@@ -9,7 +9,7 @@ import type { AuthenticatedConnectionKey, EntityIds } from './authStore';
  */
 const signInMarkerPrefix = 'Studio:PotentiallyAuthenticated:';
 export const legacySignInMarkersKey = 'Studio:PotentiallyAuthenticated';
-/** Set by the releases that kept the record in step once they had copied it. Nothing reads it now. */
+/** Unused, so deleted at load. */
 const legacyMigratedKey = 'Studio:PotentiallyAuthenticatedMigrated';
 
 type SignIns = Record<EntityIds, AuthenticatedConnectionKey>;
@@ -52,16 +52,17 @@ function parseLegacySignInMarkers(raw: string | null): SignIns | null {
 
 /**
  * Copies the legacy record into per-entity keys, leaving any marker already stored per entity as it is, then deletes
- * it and the old migration flag. A tab still open on a release before v2.199.0 writes its whole load-time copy back at
- * each sign-in or sign-out, so the record can return; the next load moves it again, which keeps that tab's sign-ins in
- * reach of a sign-out here (DESIGN.md).
- *
- * Returns the markers storage refused to copy: the record is kept for the next load, and they seed this tab's.
+ * it. Runs at every load, since a tab still open on an older release can write the record back (DESIGN.md). Returns
+ * the markers storage refused to copy; their record is kept for the next load.
  */
 export function migrateLegacySignInMarkers(): SignIns {
-	let raw: string | null;
 	try {
 		localStorage.removeItem(legacyMigratedKey);
+	} catch {
+		// Harmless where it stays.
+	}
+	let raw: string | null;
+	try {
 		raw = localStorage.getItem(legacySignInMarkersKey);
 	} catch {
 		return {};
@@ -80,7 +81,11 @@ export function migrateLegacySignInMarkers(): SignIns {
 		return legacy;
 	}
 	try {
-		localStorage.removeItem(legacySignInMarkersKey);
+		// Kept if an older tab rewrote it meanwhile, since the rewrite can hold a sign-in this copy missed. Storage has
+		// no compare-and-delete, so this only narrows the window.
+		if (localStorage.getItem(legacySignInMarkersKey) === raw) {
+			localStorage.removeItem(legacySignInMarkersKey);
+		}
 	} catch {
 		// The next load moves it again.
 	}
