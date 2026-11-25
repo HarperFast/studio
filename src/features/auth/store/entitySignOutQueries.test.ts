@@ -2,7 +2,7 @@
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import type { LocalUser } from '@/integrations/api/api.patch';
 import { queryClient } from '@/react-query/queryClient';
-import type { QueryKey } from '@tanstack/react-query';
+import { type QueryKey, QueryObserver } from '@tanstack/react-query';
 import { afterEach, describe, expect, it } from 'vitest';
 import { authStore } from './authStore';
 
@@ -36,5 +36,33 @@ describe.each([
 
 		expect(dropped.filter(cached)).toEqual([]);
 		expect(kept.filter(cached)).toEqual(kept);
+	});
+});
+
+describe("the entity's next sign-in (#1993)", () => {
+	const url = 'https://ins-a.example.com:9925/';
+	const queryKey = ['ins-a', 'get_components'];
+
+	it('drops a read a page went on showing through the sign-out and has since let go', () => {
+		authStore.setUserForIdAndKey('ins-a', url, { username: 'first' } as LocalUser);
+		queryClient.setQueryData(queryKey, { read: 'by the first user' });
+		const page = new QueryObserver(queryClient, { queryKey, queryFn: () => ({}), staleTime: Infinity });
+		const unmount = page.subscribe(() => {});
+
+		authStore.signOutLocally('ins-a');
+		expect(cached(queryKey)).toBe(true);
+		unmount();
+		authStore.setUserForIdAndKey('ins-a', url, { username: 'second' } as LocalUser);
+
+		expect(cached(queryKey)).toBe(false);
+	});
+
+	it('keeps the cache when the entity is signed in already, as when Fabric Connect resolves again', () => {
+		authStore.setUserForIdAndKey('ins-a', url, { username: 'admin' } as LocalUser);
+		queryClient.setQueryData(queryKey, { read: 'this session' });
+
+		authStore.setUserForIdAndKey('ins-a', url, { username: 'admin' } as LocalUser);
+
+		expect(cached(queryKey)).toBe(true);
 	});
 });

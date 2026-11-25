@@ -378,12 +378,16 @@ class AuthStore {
 		user: AuthenticatedConnection['user'],
 	): void {
 		if (user) {
+			if (!this.allConnections[id]?.user) {
+				// A page mounted at the sign-out kept its reads past that sweep; they are inactive by now.
+				removeEntityQueries(queryClient, id);
+			}
 			this.signInRevisions.set(id, (this.signInRevisions.get(id) ?? 0) + 1);
 			this.flagKeyAsSignedIn(id, key);
 			this.updateConnectionIfChanged(id, false, user);
 		} else {
-			// Clears the API explorer's stored credentials and the session's cached reads too, or the next
-			// user to sign into this entity would inherit them.
+			// Clears the API explorer's stored credentials too, or the next user to sign into this entity
+			// would inherit them.
 			this.clearSignIn(id);
 		}
 	}
@@ -793,8 +797,8 @@ class AuthStore {
 	/**
 	 * Clears every locally-held credential and flag for an entity — the potentially-authenticated
 	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token, the
-	 * API explorer's persisted server/credentials, and the cached reads made through the sign-in
-	 * (`removeEntityQueries`) — without posting a logout to it. For when a
+	 * API explorer's persisted server/credentials, and the sign-in's cached reads — without posting a
+	 * logout to it. For when a
 	 * server-side logout elsewhere already invalidated the entity's session, e.g. signing out of an
 	 * instance also signs Studio out of its cluster.
 	 */

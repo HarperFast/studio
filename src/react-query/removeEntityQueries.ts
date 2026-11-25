@@ -1,19 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
- * Drops what was read through an entity's (instance or cluster) sign-in once it ends, so the next sign-in to it starts
- * empty rather than from the previous session's results. Removing a query cancels a read still out for it, silently:
- * the read rejects instead of landing in the cache or resolving to its caller. Not `cancelQueries` first: its default
- * `revert` resolves a read whose query already held data with that data, the previous session's.
+ * Drops what was read through an entity's sign-in. Removal cancels a read still out silently, so it rejects rather
+ * than landing; `cancelQueries` first would revert, resolving a read whose query held data with that data.
  *
- * - The id may sit anywhere in the key. Most keys lead with it or put it after the operation (`invalidateEntityQueries`),
- *   but `read_log`'s carries it fifth.
- * - Central manager's own records of the entity are kept (`meta: { keptOnEntitySignOut: true }`): they are read with
- *   the app's sign-in, and the cluster's pages and route loaders read them whether or not the entity is signed in.
- * - So is a query a mounted component is reading. Removed, its observer stays on the dropped query, stuck `fetching`
- *   if a read was out, until it renders again; the full sign-out can clear those because it navigates away.
+ * - The id can sit anywhere in the key: `read_log` carries it fifth.
+ * - Central manager's records of the entity (`meta.keptOnEntitySignOut`) stay: they are read with the app's sign-in.
+ * - Inactive queries only: a removed query's mounted observer stays on it, stuck `fetching` if a read was out. The
+ *   store sweeps again at the entity's next sign-in, by when a page mounted at the sign-out has let its reads go.
  *
- * Never throws: it runs inside a sign-out, which must finish.
+ * Never throws: it runs inside a sign-out or a sign-in, which must finish.
  */
 export function removeEntityQueries(queryClient: QueryClient, entityId: string): void {
 	try {
