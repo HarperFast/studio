@@ -153,21 +153,23 @@ Anything sized or pinned to the viewport bottom subtracts that variable: every f
   it; a marker storage won't remove is retried at every marker write, unless another tab has rewritten it since
   (`localSignOutStorageFailure.test.ts`).
 - **The one record releases before v2.199.0 kept every marker in is moved into the keys and deleted at every load
-  that finds it** (`migrateLegacySignInMarkers`, HarperFast/studio#1970). A marker already stored per entity wins, and
-  entries that aren't markers are dropped. This release never writes `Studio:PotentiallyAuthenticated` and its
-  sign-out sweeps don't read it; the full sign-out wipe deletes it with the rest. It is moved rather than dropped
-  because a user who hasn't loaded Studio since before v2.199.0 has their sign-ins only there, and an app sign-out must
-  still reach them. A tab still open on an older release can bring it back: one from before v2.199.0 writes its whole
-  load-time copy at each sign-in or sign-out, and one from v2.199.0 on keeps mirroring its own changes into it. The
-  next load moves it again. Until then a sign-out here misses only a pre-v2.199.0 tab's newer sign-ins, since the later
-  releases write the per-entity keys too. The copy can bring back a marker this release signed out. That costs one
-  more `logout` at the next sweep, and opening the entity checks the session, which removes the marker if the sign-out
-  ended it; a session that outlived it is one that tab is still using. Not moving the copy would hide a pre-v2.199.0
-  tab's newer sign-ins from every sign-out here instead. Until storage accepts the copy, the record stays and also seeds
-  this tab's markers (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). The releases from v2.199.0 that kept
-  the record in step also kept a `Studio:PotentiallyAuthenticatedMigrated` flag so they copied it only once; each load
-  deletes it, since nothing reads it now, and without it one of those releases, rolled back to, copies a written-back
-  record once, as this one does.
+  that finds it** (`migrateLegacySignInMarkers`, HarperFast/studio#1970). A marker already stored per entity wins, so a
+  sign-in an older tab made at another URL of that entity gets no `logout`; entries that aren't markers are dropped.
+  This release never writes `Studio:PotentiallyAuthenticated` and its sign-out sweeps don't read it; the full sign-out
+  wipe deletes it with the rest. It is moved rather than dropped because a user who hasn't loaded Studio since before
+  v2.199.0 has their sign-ins only there, and an app sign-out must still reach them. A tab still open on an older
+  release can bring it back: one from before v2.199.0 writes its whole load-time copy at each sign-in or sign-out, and
+  one from v2.199.0 on keeps mirroring its own changes into it. The next load moves it again. Until then a sign-out
+  here misses only a pre-v2.199.0 tab's newer sign-ins, since the later releases write the per-entity keys too. A
+  rewrite landing between a load's read and its delete goes with the record, as storage has no compare-and-delete;
+  that tab writes its whole record again at its next sign-in or sign-out. The copy can bring back a marker this release
+  signed out. That costs one more `logout` at the next sweep, and opening the entity checks the session, which removes
+  the marker if the sign-out ended it; a session that outlived it is one that tab is still using. Not moving the copy
+  would hide a pre-v2.199.0 tab's newer sign-ins from every sign-out here instead. Until storage accepts the copy, the
+  record stays and also seeds this tab's markers (`legacySignInMarkers.test.ts`, `account-menu.anon.spec.ts`). The
+  releases from v2.199.0 that kept the record in step also kept a `Studio:PotentiallyAuthenticatedMigrated` flag so
+  they copied it only once; each load deletes it, since nothing reads it now, and without it one of those releases,
+  rolled back to, copies a written-back record once, as this one does.
 - **`Dashboard` renders nothing under it without a signed-in user.** Route data loads in parallel with the page load's
   `/User/current` check (waiting for it costs +262/680 ms p75 on live org/cluster cold loads), and central manager
   answers a request with no session with 403, so a deep link on an expired session has its route data fail before the

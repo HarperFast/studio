@@ -3,13 +3,10 @@ import type { AuthenticatedConnectionKey, EntityIds } from './authStore';
 /**
  * Sign-in markers: one `localStorage` key per entity, holding the operations URL it was signed into. Each tab writes
  * only the entity it signs in or out, so it can't erase or restore another tab's (HarperFast/studio#1968).
- *
- * Releases before v2.199.0 kept every marker in one record. Each load moves what is still in it into these keys and
- * deletes it (DESIGN.md, HarperFast/studio#1970).
  */
 const signInMarkerPrefix = 'Studio:PotentiallyAuthenticated:';
+/** Every marker in one record, as releases before v2.199.0 keep them (DESIGN.md). */
 export const legacySignInMarkersKey = 'Studio:PotentiallyAuthenticated';
-/** Unused, so deleted at load. */
 const legacyMigratedKey = 'Studio:PotentiallyAuthenticatedMigrated';
 
 type SignIns = Record<EntityIds, AuthenticatedConnectionKey>;
@@ -51,9 +48,8 @@ function parseLegacySignInMarkers(raw: string | null): SignIns | null {
 }
 
 /**
- * Copies the legacy record into per-entity keys, leaving any marker already stored per entity as it is, then deletes
- * it. Runs at every load, since a tab still open on an older release can write the record back (DESIGN.md). Returns
- * the markers storage refused to copy; their record is kept for the next load.
+ * Copies the legacy record into per-entity keys, a marker already stored winning, then deletes it. Every load does
+ * this, since an older tab can write the record back. Returns the markers storage refused to copy, whose record stays.
  */
 export function migrateLegacySignInMarkers(): SignIns {
 	try {
@@ -81,11 +77,9 @@ export function migrateLegacySignInMarkers(): SignIns {
 		return legacy;
 	}
 	try {
-		// Kept if an older tab rewrote it meanwhile, since the rewrite can hold a sign-in this copy missed. Storage has
-		// no compare-and-delete, so this only narrows the window.
-		if (localStorage.getItem(legacySignInMarkersKey) === raw) {
-			localStorage.removeItem(legacySignInMarkersKey);
-		}
+		// Takes with it a rewrite another tab made since the read, as storage has no compare-and-delete. That tab writes
+		// its whole record again the next time it records a sign-in or sign-out.
+		localStorage.removeItem(legacySignInMarkersKey);
 	} catch {
 		// The next load moves it again.
 	}

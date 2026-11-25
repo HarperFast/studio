@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
+import { legacySignInMarkersKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
@@ -145,27 +145,6 @@ describe('a load that finds the record an older release kept', () => {
 		await loadPage();
 
 		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a') });
-		expect(legacy()).toBeNull();
-	});
-
-	it('keeps it for the next load when an older tab rewrites it during the copy', async () => {
-		writeFromOlderRelease({ 'ins-a': url('ins-a') });
-		const setItem = Storage.prototype.setItem;
-		const rewrite = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(
-			function(this: Storage, key: string, value: string) {
-				setItem.call(this, key, value);
-				if (key === signInMarkerKey('ins-a')) {
-					setItem.call(this, legacySignInMarkersKey, JSON.stringify({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') }));
-				}
-			},
-		);
-		await loadPage();
-		rewrite.mockRestore();
-		expect(legacy()).toEqual({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') });
-
-		await loadPage();
-
-		expect(storedSignInMarkers()).toEqual({ 'ins-a': url('ins-a'), 'ins-x': url('ins-x') });
 		expect(legacy()).toBeNull();
 	});
 
