@@ -5,14 +5,22 @@ import {
 	agentWatchesQueryOptions,
 	WATCH_MAX_PAGE,
 } from '@/features/admin/agent/agentAdminApi';
-import { formatUsd, LoadFailed, RunStatusLabel, ScopeCell } from '@/features/admin/agent/components/AgentBits';
+import { formatUsd, LoadFailed, ScopeCell, WatchStateLabel } from '@/features/admin/agent/components/AgentBits';
 import { RefreshFailed, Timestamp } from '@/features/admin/workflows/components/WorkflowBits';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
+/** `2026-11` → `November 2026`; anything unparseable is shown as sent. */
+export function monthLabel(month: string): string {
+	const date = new Date(`${month}-01T00:00:00Z`);
+	return Number.isNaN(date.getTime())
+		? month
+		: date.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
 	return (
-		<div className="min-w-0 px-5 py-3">
+		<div className="min-w-0 border-r border-b px-5 py-3">
 			<div className="text-xs font-medium text-muted-foreground">{label}</div>
 			<div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{value}</div>
 			{hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
@@ -22,11 +30,12 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 
 export function SpendPanel({ overview }: { overview: AgentOverview }) {
 	return (
-		<section aria-label="Spend" className="mt-5 rounded-xl border bg-card/60">
-			<h2 className="sr-only">
-				Spend · {overview.month}
+		<section aria-label="Spend" className="mt-5 overflow-hidden rounded-xl border bg-card/60">
+			<h2 className="border-b px-5 py-2 text-xs font-medium text-muted-foreground">
+				Spend · {monthLabel(overview.month)}
 			</h2>
-			<div className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+			{/* Each stat draws its own right and bottom rule; the negative margins tuck the outer ones under the card's border, so any count wraps cleanly. */}
+			<div className="-mr-px -mb-px grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
 				<Stat
 					label="Per-run cap"
 					value={formatUsd(overview.runBudgetUsd)}
@@ -50,7 +59,7 @@ export function SpendPanel({ overview }: { overview: AgentOverview }) {
 				})}
 			</div>
 			{overview.roles.length === 0 && (
-				<p className="mt-2 text-sm text-muted-foreground">
+				<p className="border-t px-5 py-3 text-sm text-muted-foreground">
 					No agent role reports spend.
 				</p>
 			)}
@@ -79,7 +88,7 @@ function WatchRow({ watch }: { watch: AgentWatch }) {
 				</div>
 			</TableCell>
 			<TableCell>
-				<RunStatusLabel status={watch.firing ? 'firing' : 'quiet'} />
+				<WatchStateLabel firing={!!watch.firing} />
 			</TableCell>
 			<TableCell className="font-mono text-xs">{watchValue(watch.lastValue)}</TableCell>
 			<TableCell className="text-xs">

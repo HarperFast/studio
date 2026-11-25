@@ -17,9 +17,10 @@ vi.mock('@/hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }))
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError, success: vi.fn(), dismiss: vi.fn() }) }));
 vi.mock('@tanstack/react-router', () => ({
-	Link: ({ children, title }: { children: React.ReactNode; title?: string }) => <a title={title}>{children}</a>,
+	Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 
+import { monthLabel } from '@/features/admin/agent/components/SpendAndWatches';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { AgentAdminIndex } from './index';
 
@@ -220,12 +221,12 @@ describe('AgentAdminIndex — activity', () => {
 		);
 	});
 
-	it('shows cluster names with their id available on the link, and the organization id when its name is gone', async () => {
+	it('shows cluster and organization names with their ids, and the id alone when the name is gone', async () => {
 		pastAnswer = async () => ({ data: [{ ...PAST_RUN, clusterName: 'checkout-prod', organizationName: null }] });
 		renderPage();
 		const past = await screen.findByRole('region', { name: 'Past runs' });
 		expect(await within(past).findByText('checkout-prod')).toBeTruthy();
-		expect(within(past).getByTitle('clu-2')).toBeTruthy();
+		expect(within(past).getByText('clu-2')).toBeTruthy();
 		expect(within(past).getByText('org-1')).toBeTruthy();
 	});
 
@@ -260,6 +261,9 @@ describe('AgentAdminIndex — spend and switched off', () => {
 		expect(within(spend).getByText('$3.42 of $200.00')).toBeTruthy();
 		expect(within(spend).getByText('$1.00')).toBeTruthy();
 		expect(within(spend).getByText(/17 runs this month/)).toBeTruthy();
+		expect(within(spend).getByRole('heading').textContent).toBe(`Spend · ${monthLabel('2026-11')}`);
+		expect(monthLabel('2026-11')).toMatch(/2026/);
+		expect(monthLabel('not-a-month')).toBe('not-a-month');
 	});
 
 	it('says so when a spend refresh fails, keeping the last answer', async () => {

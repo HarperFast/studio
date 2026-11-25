@@ -35,7 +35,8 @@ export function AgentAdminIndex() {
 		<div className="min-w-0">
 			<h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
 			<p className="mt-2 text-sm text-muted-foreground max-w-3xl">
-				Investigations, findings, and follow-up checks across your clusters.
+				The investigation agent starts on its own when a cluster operation fails, reads a fixed set of evidence and
+				writes a finding. It never changes a cluster.
 			</p>
 
 			{offReason && (

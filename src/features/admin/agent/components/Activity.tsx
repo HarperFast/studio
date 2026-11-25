@@ -21,7 +21,6 @@ import {
 } from '@/features/admin/agent/agentAdminApi';
 import {
 	CancelRunButton,
-	ConfidenceLabel,
 	LoadFailed,
 	runCostLabel,
 	runDuration,
@@ -40,20 +39,26 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 const ALL = 'all';
 
 function RunLink({ run }: { run: RunSummary }) {
+	const title = run.clusterName || run.clusterId || triggerLabel(run.triggerKind);
 	return (
 		<div className="min-w-40 space-y-1">
 			<Link
 				to="/admin/agent/$runId"
 				params={{ runId: run.id }}
-				aria-label={`${run.clusterName || run.clusterId || triggerLabel(run.triggerKind)} ${run.id}`}
-				title={run.clusterId}
+				aria-label={`${title} ${run.id}`}
 				className="group inline-flex items-center gap-2 rounded-sm text-sm font-medium text-foreground hover:underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
 			>
-				{run.clusterName || run.clusterId || triggerLabel(run.triggerKind)}
+				{title}
 				<ChevronRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground group-hover:text-foreground" />
 			</Link>
+			{run.clusterName && run.clusterId && (
+				<div className="font-mono text-[11px] text-muted-foreground">{run.clusterId}</div>
+			)}
 			{run.organizationId && (
-				<div className="text-xs text-muted-foreground">{run.organizationName ?? run.organizationId}</div>
+				<div className="text-xs text-muted-foreground">
+					{run.organizationName && <span>{run.organizationName} ·{' '}</span>}
+					<span className="font-mono text-[11px]">{run.organizationId}</span>
+				</div>
 			)}
 			<div className="font-mono text-[11px] text-muted-foreground/70">{run.id}</div>
 		</div>
@@ -127,7 +132,6 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 											<TableHeader>
 												<TableRow>
 													<TableHead>Run</TableHead>
-
 													<TableHead>Trigger</TableHead>
 													<TableHead>Started</TableHead>
 													<TableHead>Step</TableHead>
@@ -140,7 +144,6 @@ export function ActiveRuns({ canCancel }: { canCancel: boolean }) {
 														<TableCell>
 															<RunLink run={run} />
 														</TableCell>
-
 														<TableCell className="whitespace-normal">{triggerLabel(run.triggerKind)}</TableCell>
 														<TableCell className="min-w-24 max-w-28 whitespace-normal text-xs leading-relaxed">
 															<Timestamp value={run.startedAt ?? run.createdAt} />
@@ -339,7 +342,6 @@ export function PastRuns() {
 												<TableRow>
 													<TableHead>Run</TableHead>
 													<TableHead>Created</TableHead>
-
 													<TableHead>Trigger</TableHead>
 													<TableHead>Status</TableHead>
 													<TableHead>Verdict</TableHead>
@@ -355,18 +357,12 @@ export function PastRuns() {
 														<TableCell className="min-w-24 max-w-28 whitespace-normal text-xs leading-relaxed">
 															<Timestamp value={run.createdAt} />
 														</TableCell>
-
 														<TableCell className="whitespace-normal">{triggerLabel(run.triggerKind)}</TableCell>
 														<TableCell>
 															<RunStatusLabel status={run.status} />
 														</TableCell>
 														<TableCell>
-															<VerdictLabel verdict={run.verdict} />
-															{run.confidence && (
-																<div className="pl-[30px]">
-																	<ConfidenceLabel confidence={run.confidence} />
-																</div>
-															)}
+															<VerdictLabel verdict={run.verdict} confidence={run.confidence} />
 														</TableCell>
 														<TableCell className="text-right tabular-nums text-xs">
 															<div>{runCostLabel(run)}</div>

@@ -11,10 +11,6 @@ const STATUS_VARIANTS = {
 	error: 'destructive',
 	cancelled: 'outline',
 	expired: 'outline',
-	ok: 'success',
-	'blind spot': 'warning',
-	firing: 'destructive',
-	quiet: 'outline',
 } as const;
 
 const VERDICT_STYLES = {
@@ -48,13 +44,28 @@ export function RunStatusLabel({ status }: { status: string }) {
 	return <Badge variant={STATUS_VARIANTS[status as keyof typeof STATUS_VARIANTS] ?? 'outline'}>{status}</Badge>;
 }
 
-export function VerdictLabel({ verdict }: { verdict?: string | null }) {
+/** A failed evidence read is a gap in what the agent saw, not a failed run, so anything but ok stays amber. */
+export function EvidenceStatusLabel({ status }: { status?: string | null }) {
+	if (!status) { return <span className="text-muted-foreground">—</span>; }
+	return (
+		<Badge variant={status === 'ok' ? 'success' : 'warning'}>{status === 'blind_spot' ? 'blind spot' : status}</Badge>
+	);
+}
+
+export function WatchStateLabel({ firing }: { firing: boolean }) {
+	return firing ? <Badge variant="destructive">firing</Badge> : <Badge variant="outline">quiet</Badge>;
+}
+
+export function VerdictLabel({ verdict, confidence }: { verdict?: string | null; confidence?: string | null }) {
 	if (!verdict) { return <span className="text-muted-foreground">—</span>; }
 	const { icon: Icon, color, fill } = VERDICT_STYLES[verdict as keyof typeof VERDICT_STYLES] ?? VERDICT_STYLES.unknown;
 	return (
-		<span className={`inline-flex min-h-6 items-center gap-2.5 text-[13px] font-medium leading-5 ${color}`}>
-			<Icon aria-hidden="true" className={`size-5 shrink-0 ${fill}`} />
-			{verdict}
+		<span className="inline-flex items-start gap-2.5">
+			<Icon aria-hidden="true" className={`size-5 shrink-0 ${color} ${fill}`} />
+			<span className="flex flex-col">
+				<span className={`text-[13px] font-medium leading-5 ${color}`}>{verdict}</span>
+				{confidence && <ConfidenceLabel confidence={confidence} />}
+			</span>
 		</span>
 	);
 }

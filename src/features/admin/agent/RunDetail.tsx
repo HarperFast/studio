@@ -10,6 +10,7 @@ import {
 import {
 	CancelRunButton,
 	ConfidenceLabel,
+	EvidenceStatusLabel,
 	formatDuration,
 	LoadFailed,
 	runCostLabel,
@@ -101,7 +102,7 @@ function EvidenceRow({ entry }: { entry: EvidenceEntry }) {
 						)}
 				</TableCell>
 				<TableCell className="py-3 pr-4">
-					<RunStatusLabel status={entry.status === 'blind_spot' ? 'blind spot' : entry.status ?? '—'} />
+					<EvidenceStatusLabel status={entry.status} />
 				</TableCell>
 				<TableCell className="py-3 pr-4 text-xs text-muted-foreground">{entry.coverage ?? '—'}</TableCell>
 				<TableCell className="py-3 pr-4 text-right tabular-nums text-xs">{formatBytes(entry.bytes)}</TableCell>
@@ -235,7 +236,6 @@ function RunView({ run, canCancel }: { run: RunDetail; canCancel: boolean }) {
 											<TableHead className="pr-4">Source</TableHead>
 											<TableHead className="pr-4">Status</TableHead>
 											<TableHead className="pr-4">Coverage</TableHead>
-
 											<TableHead className="pr-4 text-right">Size</TableHead>
 											<TableHead className="text-right">Time</TableHead>
 										</TableRow>
