@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import {
 	describeWafAction,
 	describeWafActivation,
@@ -45,7 +46,7 @@ import {
 } from '@/integrations/api/instance/waf/waf';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const DOCS_URL = 'https://docs.harper.fast/reference/v5/web-application-firewall/overview';
@@ -257,10 +258,6 @@ function WafPage() {
 			/>
 		</div>
 	);
-}
-
-function PageNotice({ children }: { children: ReactNode }) {
-	return <p className="rounded-md border p-4 text-sm text-muted-foreground">{children}</p>;
 }
 
 function WafRuleStatus({ rule, deferred }: { rule: WafRule; deferred: boolean }) {

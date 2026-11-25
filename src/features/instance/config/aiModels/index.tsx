@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -25,7 +26,7 @@ import { describeError } from '@/react-query/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { ReactNode, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ModelDialog, ModelDialogTarget } from './ModelDialog';
 import { fabricModelKeys, KIND_LABELS, ModelSummary, storedEntry, summarizeModels } from './modelEntries';
@@ -270,10 +271,6 @@ function AiModelsPage() {
 			/>
 		</div>
 	);
-}
-
-function PageNotice({ children }: { children: ReactNode }) {
-	return <p className="rounded-md border p-4 text-sm text-muted-foreground">{children}</p>;
 }
 
 function NameList({ names }: { names: string[] }) {

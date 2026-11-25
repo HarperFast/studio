@@ -3,6 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { APIDirectoryEntry } from '@/integrations/api/instance/applications/getComponents';
 import {
 	DisablePreviewsResponse,
@@ -18,7 +19,6 @@ import { toast } from 'sonner';
 import { DisablePreviewsDialog, DisablePreviewsResult } from './DisablePreviews';
 import { EnablePreviewsForm } from './EnablePreviewsForm';
 import { LivePreviews } from './LivePreviews';
-import { PageNotice } from './PageNotice';
 import { PreviewCredential, usePreviewCredentialState } from './PreviewCredential';
 import { PreviewPolicyStatus } from './PreviewPolicyStatus';
 import { PreviewWarnings } from './PreviewWarnings';

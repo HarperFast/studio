@@ -15,6 +15,7 @@ import {
 	BackupNodeNotice,
 	BackupNodeSection,
 } from '@/features/instance/config/backups/BackupNodeSection';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useInstanceManagePermission, useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
@@ -33,10 +34,6 @@ export function ConfigBackupsIndex() {
 	// The router keeps this page mounted across a switch to another cluster or instance, and a dialog or a
 	// followed job meant for one must never act on, or report about, the next.
 	return <BackupsPage key={entityId} />;
-}
-
-function PageNotice({ children }: { children: ReactNode }) {
-	return <p className="rounded-md border p-4 text-sm text-muted-foreground">{children}</p>;
 }
 
 function BackupsPage() {
