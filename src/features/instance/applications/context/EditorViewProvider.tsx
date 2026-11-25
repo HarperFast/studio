@@ -32,7 +32,7 @@ import {
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
-import { useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
@@ -52,6 +52,11 @@ interface LoadedContents {
 // two files.
 function entryKeyOf(entityId: string, path: string | undefined) {
 	return path === undefined ? undefined : `${entityId}:${path}`;
+}
+
+// Sign-out clears the mutation cache, and nothing from before it may reach the next session.
+function signedOutSince(queryClient: QueryClient, saved: SetComponentFileRequest) {
+	return !queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
 }
 
 interface SaveRefusal {
@@ -227,16 +232,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		if (payload === undefined) {
 			return;
 		}
-		// Sign-out clears the mutation cache, and nothing from before it may reach the next session's caches.
-		const signedOut = () =>
-			!queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
-		if (signedOut()) {
+		if (signedOutSince(queryClient, saved)) {
 			return;
 		}
 		const queryKey = getComponentFileQueryKey({ entityId, instanceClient, project, file });
 		// A read sent before the save landed would otherwise put the old contents back.
 		await queryClient.cancelQueries({ queryKey, exact: true });
-		if (signedOut()) {
+		if (signedOutSince(queryClient, saved)) {
 			return;
 		}
 		// With the file's identity, which a cache entry that was never read lacks. The response reports no
@@ -262,8 +264,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [queryClient]);
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
+		// A save can wait for another tab's rename, and one whose session ended meanwhile is not sent.
 		mutationFn: request =>
-			holdForSave(request.entityId, `${request.project}/${request.file}`, () => setComponentFile(request)),
+			holdForSave(
+				request.entityId,
+				`${request.project}/${request.file}`,
+				async () => signedOutSince(queryClient, request) ? undefined : setComponentFile(request),
+			),
 		onSuccess: settleSave,
 	});
 	const savingEntryKeys = useMutationState({

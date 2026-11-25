@@ -23,7 +23,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
 
-/** What a rename says when `startRename` refuses it. */
 export function refuseRenameDuringSave() {
 	toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
 }
@@ -38,7 +37,6 @@ export function useRenameFiles() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 
-	/** `startedByCaller`: the caller started the rename and ends it, as a folder rename does to cover its drop. */
 	return useCallback(async (changes: { from: string; to: string }[], startedByCaller = false): Promise<boolean> => {
 		let canceled = false;
 		const actualChanges = changes.filter(change => change.from !== change.to);
@@ -46,11 +44,13 @@ export function useRenameFiles() {
 		if (actualChanges.length === 0) {
 			return true;
 		}
+		// Cancel stops a rename still waiting for another tab before it sends anything.
+		const cancellation = new AbortController();
 		const starting = startedByCaller
 			? Promise.resolve(() => undefined)
 			: startRename(queryClient, instanceParams.entityId, {
 				paths: actualChanges.flatMap(change => [change.from, change.to]),
-			});
+			}, cancellation.signal);
 		if (!starting) {
 			refuseRenameDuringSave();
 			return false;
@@ -63,6 +63,7 @@ export function useRenameFiles() {
 				label: 'Cancel',
 				onClick: () => {
 					canceled = true;
+					cancellation.abort();
 				},
 			},
 		};
@@ -87,6 +88,10 @@ export function useRenameFiles() {
 		}
 
 		const endRename = await starting;
+		if (!endRename) {
+			toast.warning('Rename Cancelled', { id: toastConfig.id, description: 'Nothing was renamed.', duration: 10000 });
+			return false;
+		}
 		try {
 			for (const change of actualChanges) {
 				const oldParts = change.from.split('/');

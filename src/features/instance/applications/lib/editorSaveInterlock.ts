@@ -9,30 +9,28 @@ export function editorSavesInFlight(queryClient: QueryClient): SetComponentFileR
 		.map(mutation => mutation.state.variables as SetComponentFileRequest);
 }
 
-// Kept with the tab's query client, beside the saves its mutation cache tracks.
+// By query client, which is one per tab, like the saves its mutation cache tracks.
 const renamesInFlight = new WeakMap<QueryClient, Map<string, number>>();
 
 export function isRenaming(queryClient: QueryClient, entityId: string): boolean {
 	return renamesInFlight.get(queryClient)?.has(entityId) ?? false;
 }
 
-/**
- * What a rename covers in other tabs: the paths it reads, writes and drops, or the whole instance for a
- * folder, whose drop also takes files that were never listed.
- */
+/** The paths a rename reads, writes and drops, or the whole instance for a folder. */
 export type RenameScope = { readonly paths: readonly string[] } | 'instance';
 
 /**
- * Starts a rename, or refuses with `undefined` while this tab has an editor save in flight on the
- * instance. This tab's saves there are refused from the moment it starts. Other tabs' saves of what it
- * covers are waited for, and wait for it in turn: it resolves, with the function that ends it, once
- * they are done.
+ * Refuses with `undefined` while this tab has an editor save in flight on the instance. Otherwise this
+ * tab's saves there are refused from now on, and it resolves with the function that ends the rename once
+ * no other tab is saving what it covers. If `signal` aborts first, it resolves with `undefined`, holding
+ * nothing.
  */
 export function startRename(
 	queryClient: QueryClient,
 	entityId: string,
 	scope: RenameScope,
-): Promise<() => void> | undefined {
+	signal?: AbortSignal,
+): Promise<(() => void) | undefined> | undefined {
 	if (editorSavesInFlight(queryClient).some(saving => saving.entityId === entityId)) {
 		return undefined;
 	}
@@ -47,16 +45,20 @@ export function startRename(
 			renames.delete(entityId);
 		}
 	};
-	return holdAcrossTabs(renameLocks(entityId, scope)).then(release => () => {
-		release();
-		endInThisTab();
+	return holdAcrossTabs(renameLocks(entityId, scope), signal).then(release => {
+		if (signal?.aborted) {
+			release();
+			endInThisTab();
+			return undefined;
+		}
+		return () => {
+			release();
+			endInThisTab();
+		};
 	});
 }
 
-/**
- * Sends a save of `path` once no other tab is renaming it, and keeps other tabs from renaming it until
- * the save settles.
- */
+/** Sends a save of `path` once no other tab is renaming it, and holds off their renames until it settles. */
 export function holdForSave<T>(entityId: string, path: string, save: () => Promise<T>): Promise<T> {
 	return whileHeldAcrossTabs([
 		{ name: instanceLockName(entityId), mode: 'shared' },
@@ -64,11 +66,8 @@ export function holdForSave<T>(entityId: string, path: string, save: () => Promi
 	], save);
 }
 
-/*
- Locks are taken in one order, the instance first and then the paths sorted, and all of them before any
- request is sent: that is what keeps two tabs from each holding what the other waits for. Names carry the
- instance id and the path and nothing more, since any script on the page can list them.
- */
+// Every caller takes the instance first and then its paths sorted, all before sending anything, so two
+// tabs never each hold what the other waits for. Any script on the page can list the names.
 interface LockSpec {
 	name: string;
 	mode: LockMode;
@@ -100,11 +99,15 @@ function lockManager(): LockManager | undefined {
 }
 
 /**
- * Runs `work` holding `locks` in the order given, and lets them go once it settles. Without Web Locks
- * (an older browser, an insecure context), or when they refuse the request, it runs without them, and
- * only this tab's own interlock holds.
+ * Runs `work` holding `locks`, taken in the order given. Without Web Locks, or when they refuse the
+ * request, it runs without them. An abort of `signal` ends a wait the same way, so a caller passing one
+ * checks it once `work` starts.
  */
-async function whileHeldAcrossTabs<T>(locks: readonly LockSpec[], work: () => Promise<T>): Promise<T> {
+async function whileHeldAcrossTabs<T>(
+	locks: readonly LockSpec[],
+	work: () => Promise<T>,
+	signal?: AbortSignal,
+): Promise<T> {
 	let started = false;
 	const run = () => {
 		started = true;
@@ -119,7 +122,7 @@ async function whileHeldAcrossTabs<T>(locks: readonly LockSpec[], work: () => Pr
 			return run();
 		}
 		const { name, mode } = locks[index];
-		return manager.request(name, { mode }, () => take(index + 1));
+		return manager.request(name, { mode, signal }, () => take(index + 1));
 	};
 	try {
 		return await take(0);
@@ -131,8 +134,8 @@ async function whileHeldAcrossTabs<T>(locks: readonly LockSpec[], work: () => Pr
 	}
 }
 
-/** Takes `locks` as `whileHeldAcrossTabs` does, and keeps them until the function it resolves with is called. */
-function holdAcrossTabs(locks: readonly LockSpec[]): Promise<() => void> {
+/** Takes `locks` as `whileHeldAcrossTabs` does, and holds them until the function it resolves with is called. */
+function holdAcrossTabs(locks: readonly LockSpec[], signal?: AbortSignal): Promise<() => void> {
 	let release!: () => void;
 	const released = new Promise<void>(resolve => {
 		release = resolve;
@@ -141,6 +144,6 @@ function holdAcrossTabs(locks: readonly LockSpec[]): Promise<() => void> {
 		void whileHeldAcrossTabs(locks, () => {
 			resolve(release);
 			return released;
-		});
+		}, signal);
 	});
 }

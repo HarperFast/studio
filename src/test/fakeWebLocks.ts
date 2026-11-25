@@ -6,8 +6,9 @@
  * granted when no lock of that name is held (exclusive) or none held is exclusive (shared), and granting
  * stops at the first request that can't be. So a shared request waits behind an exclusive one queued
  * before it. A lock is released when its callback's promise settles, before `request` settles with it.
- * Only `mode` is supported; `ifAvailable`, `steal` and `signal` throw rather than being ignored.
- * `editorSaveInterlock.test.ts` runs the same cases against Node's own Web Locks.
+ * An aborted `signal` takes a request out of its queue and rejects it with the signal's reason; once
+ * granted, the signal no longer matters. `ifAvailable` and `steal` throw rather than being ignored.
+ * `editorSaveInterlock.test.ts` holds it to Node's own Web Locks.
  */
 export class FakeLockManager {
 	readonly #held: HeldLock[] = [];
@@ -23,22 +24,36 @@ export class FakeLockManager {
 		const [options, callback] = typeof optionsOrCallback === 'function'
 			? [{}, optionsOrCallback]
 			: [optionsOrCallback, maybeCallback!];
-		if (options.ifAvailable || options.steal || options.signal) {
-			throw new Error('FakeLockManager supports only `mode`');
+		if (options.ifAvailable || options.steal) {
+			throw new Error('FakeLockManager supports only `mode` and `signal`');
 		}
 		if (name.startsWith('-')) {
 			return Promise.reject(new DOMException('Names starting with "-" are reserved.', 'NotSupportedError'));
 		}
+		const { signal } = options;
+		if (signal?.aborted) {
+			return Promise.reject(signal.reason);
+		}
 		return new Promise((resolve, reject) => {
 			const queue = this.#queues.get(name) ?? [];
 			this.#queues.set(name, queue);
-			queue.push({
+			const request: Request = {
 				name,
 				mode: options.mode ?? 'exclusive',
 				callback: callback as Request['callback'],
 				resolve: resolve as Request['resolve'],
 				reject,
-			});
+			};
+			queue.push(request);
+			signal?.addEventListener('abort', () => {
+				const waiting = this.#queues.get(name);
+				const index = waiting?.indexOf(request) ?? -1;
+				if (index >= 0) {
+					waiting!.splice(index, 1);
+					reject(signal.reason);
+					this.#grant(name);
+				}
+			}, { once: true });
 			this.#grant(name);
 		});
 	}

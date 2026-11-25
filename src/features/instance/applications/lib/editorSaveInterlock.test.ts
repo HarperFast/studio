@@ -78,7 +78,8 @@ describe.each([
 
 	const queued = async () => (await locks.query()).pending?.length ?? 0;
 	const held = async () => ((await locks.query()).held ?? []).map(lock => `${lock.mode} ${lock.name}`).sort();
-	const rename = (tab: Tab, paths: string[]) => tab.interlock.startRename(tab.client, 'ins-1', { paths })!;
+	const rename = async (tab: Tab, paths: string[]) =>
+		(await tab.interlock.startRename(tab.client, 'ins-1', { paths }))!;
 
 	it.each(['app/a.js', 'app/c.js'])(
 		'holds a save of %s while another tab renames app/a.js to app/c.js, then sends it',
@@ -137,7 +138,7 @@ describe.each([
 	});
 
 	it('holds every save on the instance during a folder rename, and none on another instance', async () => {
-		const endRename = await tabB.interlock.startRename(tabB.client, 'ins-1', 'instance')!;
+		const endRename = (await tabB.interlock.startRename(tabB.client, 'ins-1', 'instance'))!;
 		const send = vi.fn(() => Promise.resolve());
 
 		const saving = tabA.interlock.holdForSave('ins-1', 'app/lib/never-listed.js', send);
@@ -183,6 +184,28 @@ describe.each([
 			'shared Studio:EditorFiles:ins-1',
 		]);
 		endRename();
+	});
+
+	it("gives up a rename aborted while it waits for another tab's save, holding nothing", async () => {
+		const landed = deferred();
+		const saving = tabA.interlock.holdForSave('ins-1', 'app/a.js', () => landed.promise);
+		await vi.waitFor(async () => expect(await held()).toHaveLength(2));
+		const cancellation = new AbortController();
+		const starting = tabB.interlock.startRename(
+			tabB.client,
+			'ins-1',
+			{ paths: ['app/a.js', 'app/c.js'] },
+			cancellation.signal,
+		);
+		await vi.waitFor(async () => expect(await queued()).toBe(1));
+
+		cancellation.abort();
+
+		await expect(starting).resolves.toBeUndefined();
+		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(false);
+		landed.resolve();
+		await saving;
+		(await rename(tabA, ['app/a.js', 'app/c.js']))();
 	});
 
 	it("marks a rename in its own tab at once, while it waits for another tab's save", async () => {
@@ -254,6 +277,9 @@ describe('without Web Locks', () => {
 
 		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(true);
 		endRename();
+		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(false);
+		await expect(tabB.interlock.startRename(tabB.client, 'ins-1', 'instance', AbortSignal.abort())).resolves
+			.toBeUndefined();
 		expect(tabB.interlock.isRenaming(tabB.client, 'ins-1')).toBe(false);
 		editorSaveInFlight(tabA, 'ins-1');
 		expect(tabA.interlock.startRename(tabA.client, 'ins-1', 'instance')).toBeUndefined();

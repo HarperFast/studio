@@ -12,7 +12,7 @@
  */
 import { editorFileContentKey } from '@/features/instance/applications/context/editorFileContent';
 import type { EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
-import { holdForSave, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
+import { holdForSave, isRenaming, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { getComponentFileQueryKey } from '@/integrations/api/instance/applications/getComponentFile';
 import { emitToListeners } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
@@ -1090,20 +1090,51 @@ describe('Save pressed twice at once', () => {
 });
 
 describe('another tab on the same instance', () => {
-	// Another tab has a query client of its own, so what it starts is not this tab's.
+	// Its own query client: what it starts is not this tab's.
 	const anotherTab = () => new QueryClient();
 	const waiting = async () => (await locks.query()).pending?.length ?? 0;
+	const lockCount = async () => {
+		const { held = [], pending = [] } = await locks.query();
+		return held.length + pending.length;
+	};
+	const sent = (operation: string) =>
+		harness.post.mock.calls.filter(([, body]) => (body as OperationBody).operation === operation);
 	const copiesSent = () =>
-		harness.post.mock.calls.filter(([, body]) =>
-			(body as OperationBody).operation === 'get_component_file' && (body as OperationBody).encoding === 'base64'
-		).length;
+		sent('get_component_file').filter(([, body]) => (body as OperationBody).encoding === 'base64').length;
+
+	/** That tab's save of `path`, holding its locks until `land` writes `text` there. */
+	async function theirSave(path: string, text = 'saved in the other tab') {
+		let land!: () => void;
+		const saving = holdForSave('ins-1', path, () =>
+			new Promise<void>(resolve => {
+				land = () => {
+					files.set(path, text);
+					resolve();
+				};
+			}));
+		await waitFor(async () => expect((await locks.query()).held).toHaveLength(2));
+		return {
+			land: () =>
+				act(async () => {
+					land();
+					await saving;
+				}),
+		};
+	}
+
+	async function submitRename(name: string) {
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: name } });
+		fireEvent.submit(input.closest('form')!);
+	}
 
 	it("holds a save of a file until that tab's rename of it is done, then sends it", async () => {
 		seed({ 'app/a.js': 'saved a' });
 		renderEditor();
 		await openFile('app/a.js', 'saved a');
 		type('edits to a');
-		const endRename = await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] })!;
+		const endRename = (await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] }))!;
 
 		save();
 		await waitFor(async () => expect(await waiting()).toBe(1));
@@ -1114,7 +1145,23 @@ describe('another tab on the same instance', () => {
 		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
 	});
 
-	// The file renamed moves with what that tab saved; the file it replaces is replaced after that tab's save.
+	it('does not send a save that waited for that tab through a sign-out', async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const endRename = (await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] }))!;
+		save();
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		act(() => queryClient.getMutationCache().clear());
+		act(() => endRename());
+
+		await waitFor(async () => expect(await lockCount()).toBe(0));
+		expect(writesOf('app/a.js')).toEqual([]);
+	});
+
+	// The file renamed moves with what that tab saved; the file it replaces is replaced after that save.
 	it.each([
 		['the file', 'app/a.js', 'saved in the other tab'],
 		['the file it replaces', 'app/c.js', 'saved a'],
@@ -1122,30 +1169,37 @@ describe('another tab on the same instance', () => {
 		seed({ 'app/a.js': 'saved a', 'app/c.js': 'saved c' });
 		renderEditor();
 		await openFile('app/a.js', 'saved a');
-		let land!: () => void;
-		const theirSave = holdForSave('ins-1', saved, () =>
-			new Promise<void>(resolve => {
-				land = () => {
-					files.set(saved, 'saved in the other tab');
-					resolve();
-				};
-			}));
-		await waitFor(async () => expect((await locks.query()).held).toHaveLength(2));
+		const theirs = await theirSave(saved);
 
-		act(() => setWatchedValue('ShowRenameFileModal', true));
-		const input = await screen.findByLabelText('Name');
-		fireEvent.change(input, { target: { value: 'c.js' } });
-		fireEvent.submit(input.closest('form')!);
+		await submitRename('c.js');
 		await waitFor(async () => expect(await waiting()).toBe(1));
 
 		expect(copiesSent()).toBe(0);
-		await act(async () => {
-			land();
-			await theirSave;
-		});
+		await theirs.land();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		expect(files.get('app/c.js')).toBe(renamedTo);
 		expect(files.has('app/a.js')).toBe(false);
+	});
+
+	it('sends nothing for a rename cancelled from its progress toast while it waits for that tab', async () => {
+		const progress = vi.spyOn(toast, 'loading');
+		const cancelled = vi.spyOn(toast, 'warning');
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		const theirs = await theirSave('app/a.js');
+		await submitRename('c.js');
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		const cancel = progress.mock.calls.at(-1)![1]!.action as unknown as { onClick: () => void };
+		act(() => cancel.onClick());
+
+		await waitFor(() => expect(isRenaming(queryClient, 'ins-1')).toBe(false));
+		expect(cancelled).toHaveBeenCalledWith('Rename Cancelled', expect.anything());
+		await theirs.land();
+		await waitFor(async () => expect(await lockCount()).toBe(0));
+		expect(copiesSent()).toBe(0);
+		expect(files.get('app/a.js')).toBe('saved in the other tab');
 	});
 
 	it("holds that tab's save of a file in a renamed folder, even one never listed here, until the old folder is dropped", async () => {
@@ -1153,22 +1207,54 @@ describe('another tab on the same instance', () => {
 		renderEditor();
 		await open('app/lib');
 		const dropped = hold('drop_component', 'app/lib');
-		act(() => setWatchedValue('ShowRenameFileModal', true));
-		const input = await screen.findByLabelText('Name');
-		fireEvent.change(input, { target: { value: 'src' } });
-		fireEvent.submit(input.closest('form')!);
+		await submitRename('src');
 		await waitFor(() => expect(harness.holds.size).toBe(0));
 
-		const theirSave = holdForSave('ins-1', 'app/lib/y.js', async () => {
+		const saving = holdForSave('ins-1', 'app/lib/y.js', async () => {
 			files.set('app/lib/y.js', 'saved in the other tab');
 		});
 		await waitFor(async () => expect(await waiting()).toBe(1));
 
 		await dropped();
-		await act(() => theirSave);
+		await act(() => saving);
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		expect(files.get('app/src/x.js')).toBe('saved x');
 		expect(files.get('app/lib/y.js')).toBe('saved in the other tab');
+	});
+
+	it('moves a file this tab never listed when a folder rename waited for its save in that tab', async () => {
+		seed({ 'app/lib/x.js': 'saved x' });
+		renderEditor();
+		await open('app/lib');
+		files.set('app/lib/y.js', 'made in the other tab');
+		const theirs = await theirSave('app/lib/y.js');
+
+		await submitRename('src');
+		await waitFor(async () => expect(await waiting()).toBe(1));
+		await theirs.land();
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(files.get('app/src/x.js')).toBe('saved x');
+		expect(files.get('app/src/y.js')).toBe('saved in the other tab');
+		expect([...files.keys()].filter(path => path.startsWith('app/lib/'))).toEqual([]);
+	});
+
+	it('cancels a folder rename still waiting for that tab when its dialog is closed', async () => {
+		seed({ 'app/lib/x.js': 'saved x' });
+		renderEditor();
+		await open('app/lib');
+		const theirs = await theirSave('app/lib/x.js');
+		await submitRename('src');
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		await waitFor(() => expect(isRenaming(queryClient, 'ins-1')).toBe(false));
+		await theirs.land();
+		await waitFor(async () => expect(await lockCount()).toBe(0));
+		expect(sent('drop_component')).toEqual([]);
+		expect(files.get('app/lib/x.js')).toBe('saved in the other tab');
+		expect(files.has('app/src/x.js')).toBe(false);
 	});
 });
 

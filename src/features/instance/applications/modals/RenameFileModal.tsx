@@ -14,7 +14,11 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
+import type { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	calculateRootEntries,
+} from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
@@ -24,6 +28,7 @@ import { refuseRenameDuringSave, useRenameFiles } from '@/features/instance/appl
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { getComponents } from '@/integrations/api/instance/applications/getComponents';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
@@ -33,7 +38,7 @@ import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { PencilIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
@@ -44,10 +49,35 @@ function collectFiles(entry: DirectoryEntry | FileEntry): FileEntry[] {
 	return isDirectory(entry) ? entry.entries.flatMap(collectFiles) : [entry];
 }
 
+function entryAt(entries: Array<DirectoryEntry | FileEntry>, path: string): DirectoryEntry | FileEntry | undefined {
+	for (const entry of entries) {
+		if (entry.path === path) {
+			return entry;
+		}
+		if (isDirectory(entry) && path.startsWith(`${entry.path}/`)) {
+			return entryAt(entry.entries, path);
+		}
+	}
+	return undefined;
+}
+
+/** A folder's moves, from the instance as it is now rather than the tree, which another tab can have outdated. */
+async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string) {
+	const { entries } = await getComponents(instanceParams);
+	const folder = entryAt(calculateRootEntries(entries).rootEntries, from);
+	if (!folder || !isDirectory(folder)) {
+		throw new Error(`${from} is no longer on the instance.`);
+	}
+	return collectFiles(folder).map(file => ({ from: file.path, to: to + file.path.slice(from.length) }));
+}
+
 export function RenameFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRenameFileModal', false);
+	const waitingRename = useRef<AbortController>(undefined);
+	useEffect(() => () => waitingRename.current?.abort(), []);
 
 	const closeModal = useCallback(() => {
+		waitingRename.current?.abort();
 		setWatchedValue('ShowRenameFileModal', false);
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
@@ -110,25 +140,38 @@ export function RenameFileModal() {
 			}
 		}
 
-		const changes = isDir
-			? collectFiles(openedEntry).map(file => ({
-				from: file.path,
-				to: to + file.path.slice(openedEntry.path.length),
-			}))
-			: [{ from: openedEntry.path, to }];
-
-		// Dropping the old folder is part of the rename, and takes files under it that no listing named, such
-		// as one another tab just created. So a folder's rename covers the whole instance, from its first move
-		// until that drop.
-		const folderRename = isDir ? startRename(queryClient, instanceParams.entityId, 'instance') : undefined;
+		// Dropping the old folder takes every file under it, so a folder's rename covers the whole instance
+		// from its first move until that drop. Closing the dialog while it waits for another tab cancels it.
+		const cancellation = new AbortController();
+		const folderRename = isDir
+			? startRename(queryClient, instanceParams.entityId, 'instance', cancellation.signal)
+			: undefined;
 		if (isDir && !folderRename) {
 			refuseRenameDuringSave();
 			return;
 		}
 		setIsPending(true);
+		waitingRename.current = cancellation;
 		const endFolderRename = await folderRename;
+		waitingRename.current = undefined;
+		if (isDir && !endFolderRename) {
+			setIsPending(false);
+			return;
+		}
 		let renamed: boolean;
 		try {
+			let changes = [{ from: openedEntry.path, to }];
+			if (isDir) {
+				try {
+					changes = await folderMoves(instanceParams, openedEntry.path, to);
+				} catch (error) {
+					toast.error('Rename Failed', {
+						description: error instanceof Error ? error.message : 'Could not list the folder.',
+					});
+					setIsPending(false);
+					return;
+				}
+			}
 			renamed = await renameFiles(changes, isDir);
 
 			// Moving the files leaves the original (now-empty) directory behind, so once

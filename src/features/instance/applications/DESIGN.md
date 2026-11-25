@@ -84,15 +84,19 @@ and a rename that waits for a save copies what was saved. They wait through Web 
 shares and a closed tab releases. A save holds the instance and its file shared, so saves never wait for each other. A
 rename or move holds the instance shared and each path it reads, writes or drops exclusively, so a save of another file
 goes ahead. A folder rename holds the instance exclusively from its first move until the old folder is dropped, because
-that drop takes files no listing named, such as one another tab just created, and Web Locks have no lock on a prefix.
-Each takes the instance first and then its paths in sorted order, all before sending anything, so two tabs can never
-each hold what the other waits for. A save waits inside its mutation, so it reads as saving meanwhile; a file rename or
-move waits under its progress toast, and a folder rename in its pending dialog. A save that waited out another tab's
-rename of its file still writes the path it was sent for, so the file comes back there with what was saved, beside the
-renamed copy, rather than being lost. Lock names carry the instance id and the
-path and nothing more, since any script on the page can list them. Without Web Locks (an insecure context, an older
-browser) only the tab's own interlock holds. Another browser can still interleave, as can a write that isn't an editor
-save, such as the assistant's `setComponentFile` tool; closing that needs renames the server makes atomic.
+that drop takes every file under it and Web Locks have no lock on a prefix. Once it holds that lock it lists the
+folder's files from the instance, since this tab's tree can lack one another tab made. Each takes the instance first and
+then its paths in sorted order, all before sending anything, so two tabs can never each hold what the other waits for.
+Lock names carry the instance id and the path and nothing more, since any script on the page can list them.
+
+A save waits inside its mutation, so it reads as saving meanwhile, and one whose session ended while it waited is not
+sent. A file rename or move waits under its progress toast, and a folder rename in its pending dialog; the toast's
+Cancel, or closing the dialog, gives up a rename still waiting, so nothing of it is sent and this tab's saves go ahead
+again. A save that waited out another tab's rename of its file still writes the path it was sent for, so the file comes
+back there with what was saved, beside the renamed copy, rather than being lost. Without Web Locks (an insecure context,
+an older browser) only the tab's own interlock holds. Another browser can still interleave, as can a write that isn't an
+editor save: New File, an upload, the assistant's `setComponentFile` tool. Closing that needs renames the server makes
+atomic.
 
 ## When a deploy is done
 
