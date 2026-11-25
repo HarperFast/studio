@@ -109,7 +109,7 @@ describe('authStore.signOutFromPotentiallyAuthenticatedInstances', () => {
 		authStore.flagForFabricConnect('ins-flagged-basic', true);
 		authStore.flagForBasicAuth('ins-flagged-basic', { username: 'u', password: 'p' });
 		signInToInstance('ins-flagged-basic');
-		authStore.flagForBasicAuth('ins-basic', { username: 'u', password: 'p' });
+		authStore.flagForBasicAuth('ins-basic', { username: 'u', password: 'p', url: 'https://ins-basic' });
 		signInToInstance('ins-basic');
 		signInToInstance('ins-cookie');
 		onInstanceLogoutSubmit.mockResolvedValue({ message: 'ok' });
@@ -161,7 +161,7 @@ describe('authStore.signOutFromPotentiallyAuthenticatedInstances', () => {
 	it('carries on past a failed instance logout without reporting it through console.error', async () => {
 		signInToInstance('ins-down');
 		signInToInstance('ins-up');
-		authStore.flagForBasicAuth('ins-down', { username: 'u', password: 'p' });
+		authStore.flagForBasicAuth('ins-down', { username: 'u', password: 'p', url: 'https://ins-down' });
 		const failure = new Error('Request failed with status code 500');
 		onInstanceLogoutSubmit.mockImplementation(({ entityId }: { entityId: string }) =>
 			entityId === 'ins-down' ? Promise.reject(failure) : Promise.resolve({ message: 'ok' })

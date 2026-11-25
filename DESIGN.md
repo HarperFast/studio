@@ -187,7 +187,11 @@ Anything sized or pinned to the viewport bottom subtracts that variable: every f
   another tab's direct sign-in as proxied and would post the same doomed logout. On app sign-out the central-manager
   `/Logout/` ends the only session that path has; on cluster removal there was never one to end. Direct, basic-auth
   and cookie sign-ins still get their `logout` on both paths (`signOutFromPotentiallyAuthenticatedInstances.test.ts`,
-  `signOutEntities.test.ts`).
+  `signOutEntities.test.ts`). A stored Basic Auth credential goes only to the URL it was entered for, which the
+  sign-in stores with it; the logout to any other URL the entity is marked at carries that host's cookies instead
+  (`crossTabMarkers.test.ts`, HarperFast/studio#1971). One stored before its URL was recorded rides on none of those
+  logouts, since its URL can't be recovered: a sign-in that falls back to Fabric Connect moves the marker and leaves
+  the credential.
 - **Signing out in one tab signs out every tab.** `signOutAllLocally` rewrites `Studio:AppSignOut`, and each other tab
   holding the app sign-in runs `clearAuthStateAfterSignOutElsewhere` on that `storage` event (`installCrossTabSignOut`).
   Without it, a tab learns the session ended only from its next central-manager request, whose 403 toasts as a
