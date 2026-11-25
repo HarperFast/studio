@@ -61,15 +61,22 @@ list keeps paging by the table count.
 Past the last record of a full unfiltered page, the row editor's Next doesn't go by that count. It
 probes the next page, and an empty answer proves the page it came from is the last (`knownLastPage`
 in [`DatabaseTableView`](components/DatabaseTableView.tsx)). The proof is about how many records the
-table holds, so it carries the count the step set out with and holds only while the count is the
-same (#1940). A window-focus refetch or an import's refresh reads the count again, and Refresh
-retires the proof outright. Reading a page doesn't, so the read on the way back from the probe keeps
-it, however slow the probe; and a count that moves while the probe is out voids the answer it brings.
-A step that turns the page first drops the table's cached pages that aren't on screen, so it reads
-the next page afresh rather than trust a copy, or join a read, older than the page on screen (the
-probe's empty answer among them). Where `describe_table` only estimates the count, growth that leaves
-the estimate unchanged keeps the proof until Refresh, and a count that first arrives, or shrinks,
-costs one more probe.
+table holds, so it carries a count: the one the step set out with, replaced by each count the proof
+survives. A count that grows from it retires the proof (#1940). A count that first arrives, or
+shrinks, keeps it only when it is exact and leaves no room for a record past the proven page
+([`lastPageProofHolds`](functions/lastPageProof.ts), #1963): an arriving count must equal the records
+through that page, which is what the probe found, and a shrinking one must not exceed them. Keeping
+it on any count that arrives or shrinks would leave Next disabled with records past the page: a count
+that arrives can already include records added after the probe, and one that shrinks from a stale
+count above the page's end can still be above it. Keeping the step's count instead of the latest would let that stale count shrink and then
+grow back to match it. A window-focus refetch or an import's refresh reads the count
+again, and Refresh retires the proof outright. Reading a page doesn't, so the read on the way back
+from the probe keeps it, however slow the probe; and a probe whose count moved while it was out keeps
+its answer only on the same terms. A step that turns the page first drops the table's cached pages
+that aren't on screen, so it reads the next page afresh rather than trust a copy, or join a read,
+older than the page on screen (the probe's empty answer among them). Where `describe_table` only
+estimates the count, growth that leaves the estimate unchanged keeps the proof until Refresh, and an
+estimate that moves at all costs one more probe.
 
 ## Export CSV writes the file itself, from JSON
 
