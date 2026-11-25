@@ -493,8 +493,7 @@ export function DatabaseTableView({
 	// A count is approximate only while we're still showing the estimate and the server flagged it as one.
 	const isEstimatedCount = exactCount === undefined && estimatedRange !== undefined;
 
-	// Re-stamped with each count it survives, so a count that grows is measured from the last one it held
-	// under. Kept unchanged, a stale count could shrink and then grow back to match it.
+	// Kept at the step's count instead, a stale count could shrink and then grow back to match it.
 	if (knownLastPage && knownLastPage.totalRecords !== totalRecords) {
 		setKnownLastPage(
 			lastPageProofHolds(knownLastPage, { totalRecords, isEstimated: isEstimatedCount }, pageSize)

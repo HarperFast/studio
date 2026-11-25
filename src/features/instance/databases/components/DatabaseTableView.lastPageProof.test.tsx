@@ -450,7 +450,6 @@ describe('DatabaseTableView remembering the last page', { timeout: 30_000 }, () 
 	});
 });
 
-// Re-reads the count without the page on screen, which stays full.
 async function rereadTheCount(queryClient: QueryClient) {
 	await act(() => queryClient.invalidateQueries({ queryKey: ['instance-1', 'data', 'pets', 'describe_table'] }));
 }
