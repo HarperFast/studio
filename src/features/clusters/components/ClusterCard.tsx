@@ -109,14 +109,23 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 
 	const onSignOutClick = useCallback(async () => {
 		setSigningOut(true);
-		const fullCluster = await getClusterInfo(cluster.id).catch((err) => {
-			console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
-			return null;
-		});
-		await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
-		// By id, since an instance may be listed without an address.
-		authStore.signOutEntitiesLocally((fullCluster?.instances ?? []).map((instance) => instance.id));
-		authStore.setUserForEntity(cluster, null);
+		try {
+			const fullCluster = await getClusterInfo(cluster.id).catch((err) => {
+				console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
+				return null;
+			});
+			try {
+				await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
+			} catch (err) {
+				// Debug, like authStore's other best-effort logouts: the RUM SDK files a console.error as an error
+				// (#1658), and the whole Axios error carries the request's credentials.
+				console.debug('Cluster logout failed, signing out locally', err instanceof Error ? err.message : err);
+			}
+			// By id, since an instance may be listed without an address.
+			authStore.signOutEntitiesLocally([cluster.id, ...(fullCluster?.instances ?? []).map((instance) => instance.id)]);
+		} finally {
+			setSigningOut(false);
+		}
 	}, [cluster, instanceClient]);
 
 	const onTryAgainClick = useCallback(() => {

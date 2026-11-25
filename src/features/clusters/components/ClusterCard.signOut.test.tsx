@@ -90,13 +90,30 @@ function signedOut(id: string) {
 	};
 }
 
+const cleared = { user: null, marker: undefined, fabricConnect: false, basicAuth: undefined };
+
+function signInToClusterAndInstances() {
+	authStore.flagForBasicAuth('clu-a', { username: 'admin', password: 'pw' });
+	authStore.setUserForEntity(cluster, user);
+	authStore.flagForFabricConnect('ins-a', true);
+	authStore.setUserForEntity(instance('ins-a', 'node-a.example.test'), user);
+	authStore.flagForBasicAuth('ins-b', { username: 'admin', password: 'pw' });
+	authStore.setUserForEntity(instance('ins-b', 'node-b.example.test'), user);
+}
+
+const openMenu = () =>
+	fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+
+async function signOutOfCluster() {
+	render(<ClusterCard item={describeCluster(cluster)} />);
+	openMenu();
+	fireEvent.click(screen.getByRole('menuitem', { name: 'Direct Sign Out' }));
+	await vi.waitFor(() => expect(authStore.getConnectionById('clu-a').user).toBeNull());
+}
+
 describe('ClusterCard Direct Sign Out', () => {
 	it('signs out an instance central manager now lists without an address (#2021)', async () => {
-		authStore.setUserForEntity(cluster, user);
-		authStore.flagForFabricConnect('ins-a', true);
-		authStore.setUserForEntity(instance('ins-a', 'node-a.example.test'), user);
-		authStore.flagForBasicAuth('ins-b', { username: 'admin', password: 'pw' });
-		authStore.setUserForEntity(instance('ins-b', 'node-b.example.test'), user);
+		signInToClusterAndInstances();
 		expect(storedSignInMarkers()).toEqual({
 			'clu-a': 'https://api.example.test:9925/',
 			'ins-a': 'https://node-a.example.test:9925/',
@@ -108,17 +125,45 @@ describe('ClusterCard Direct Sign Out', () => {
 		});
 		clusterClient.post.mockResolvedValue({ data: { message: 'Logout successful' } });
 
-		render(<ClusterCard item={describeCluster(cluster)} />);
-		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
-		fireEvent.click(screen.getByRole('menuitem', { name: 'Direct Sign Out' }));
+		await signOutOfCluster();
 
-		await vi.waitFor(() => expect(authStore.getConnectionById('clu-a').user).toBeNull());
-		const cleared = { user: null, marker: undefined, fabricConnect: false, basicAuth: undefined };
 		expect(signedOut('ins-a')).toEqual(cleared);
 		expect(signedOut('ins-b')).toEqual(cleared);
 		expect(signedOut('clu-a')).toEqual(cleared);
 		expect(clusterClient.post).toHaveBeenCalledExactlyOnceWith('/', { operation: 'logout' });
 		expect(getClusterInfo).toHaveBeenCalledWith('clu-a');
+	});
+
+	it('signs out locally when the cluster logout fails', async () => {
+		signInToClusterAndInstances();
+		getClusterInfo.mockResolvedValue({
+			...cluster,
+			instances: [instance('ins-a', 'node-a.example.test'), instance('ins-b', 'node-b.example.test')],
+		});
+		clusterClient.post.mockRejectedValue(new Error('Network Error'));
+
+		await signOutOfCluster();
+
+		for (const id of ['clu-a', 'ins-a', 'ins-b']) {
+			expect(signedOut(id), id).toEqual(cleared);
+		}
+	});
+
+	it.each([
+		['succeeds', () => clusterClient.post.mockResolvedValue({ data: { message: 'Logout successful' } })],
+		['fails', () => clusterClient.post.mockRejectedValue(new Error('Network Error'))],
+	])('gives the menu back once signed out, when the cluster logout %s', async (_, answer) => {
+		authStore.setUserForEntity(cluster, user);
+		getClusterInfo.mockResolvedValue({ ...cluster, instances: [] });
+		answer();
+
+		await signOutOfCluster();
+		openMenu();
+
+		await vi.waitFor(() =>
+			expect(screen.getByRole('menuitem', { name: 'Direct Sign In' }).getAttribute('aria-disabled')).toBeNull()
+		);
+		expect(screen.getByRole('menuitem', { name: 'Instances' }).getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it('signs out only the cluster when its instances cannot be read', async () => {
@@ -127,11 +172,8 @@ describe('ClusterCard Direct Sign Out', () => {
 		getClusterInfo.mockRejectedValue(new Error('offline'));
 		clusterClient.post.mockResolvedValue({ data: { message: 'Logout successful' } });
 
-		render(<ClusterCard item={describeCluster(cluster)} />);
-		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
-		fireEvent.click(screen.getByRole('menuitem', { name: 'Direct Sign Out' }));
+		await signOutOfCluster();
 
-		await vi.waitFor(() => expect(authStore.getConnectionById('clu-a').user).toBeNull());
 		expect(storedSignInMarkers()).toEqual({ 'ins-b': 'https://node-b.example.test:9925/' });
 	});
 });
