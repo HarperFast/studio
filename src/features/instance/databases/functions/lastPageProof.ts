@@ -1,28 +1,22 @@
 /** A page a record step proved to be the last: it was full, and the page after it came back empty. */
 export interface LastPageProof {
 	pageIndex: number;
-	/** The table's count when the step set out, or undefined if it hadn't loaded yet. */
+	/** The last count the proof held under, or undefined while none has loaded. */
 	totalRecords: number | undefined;
 }
 
-export interface TableCount {
+interface TableCount {
 	totalRecords: number | undefined;
 	isEstimated: boolean;
 }
 
 /**
- * Whether a last-page proof still stands under the table's count now (#1940, #1963).
- *
- * An unchanged count keeps it, and a count that grows retires it. A count that first arrives, or
- * shrinks, keeps it only when it is exact and leaves no room for a record past the proven page:
- * - First arriving, it must equal the records through that page, which is what the probe found (a full
- *   page and nothing after it). Any other count says the table changed since the probe, and may
- *   already count a record past the page.
- * - Shrinking, it must not exceed them. A count that was already above them when the step set out (a
- *   stale one) can shrink and still have records past the page.
- *
- * An estimate that moves proves nothing either way: Harper's own range for it is not a bound on the
- * live count (`getRecordCount` in harper's resources/Table.ts).
+ * Whether a last-page proof still stands under the table's count now. A count that grows retires it.
+ * A count that first arrives must equal the records through the proven page, the number the probe
+ * found; any other says the table changed since and may already count a record past the page. A count
+ * that shrinks must not exceed them, since a stale count above them can shrink and still be above.
+ * An estimate that moves proves nothing: Harper's range for it doesn't bound the live count
+ * (`getRecordCount` in harper's resources/Table.ts).
  */
 export function lastPageProofHolds(proof: LastPageProof, count: TableCount, pageSize: number): boolean {
 	if (count.totalRecords === proof.totalRecords) {

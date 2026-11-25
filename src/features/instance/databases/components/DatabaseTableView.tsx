@@ -452,8 +452,8 @@ export function DatabaseTableView({
 
 	// The page a step has proven to be the last one. A full unfiltered page can't say whether more
 	// records follow, so the step probes; an empty answer is the only proof, and remembering it keeps
-	// the Next button from offering that same dead probe again. It holds only while the record count
-	// can't have let a record in past that page (`lastPageProofHolds`).
+	// the Next button from offering that same dead probe again. It is dropped once the record count
+	// could have let a record in past that page (`lastPageProofHolds`).
 	const [knownLastPage, setKnownLastPage] = useEffectedState<LastPageProof | null>(null, [
 		databaseName,
 		tableName,
@@ -492,6 +492,16 @@ export function DatabaseTableView({
 	const totalPages = totalRecords && hasPrimaryKey ? Math.ceil(totalRecords / pageSize) : 0;
 	// A count is approximate only while we're still showing the estimate and the server flagged it as one.
 	const isEstimatedCount = exactCount === undefined && estimatedRange !== undefined;
+
+	// Re-stamped with each count it survives, so a count that grows is measured from the last one it held
+	// under. Kept unchanged, a stale count could shrink and then grow back to match it.
+	if (knownLastPage && knownLastPage.totalRecords !== totalRecords) {
+		setKnownLastPage(
+			lastPageProofHolds(knownLastPage, { totalRecords, isEstimated: isEstimatedCount }, pageSize)
+				? { ...knownLastPage, totalRecords }
+				: null,
+		);
+	}
 
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
@@ -638,8 +648,7 @@ export function DatabaseTableView({
 	const hasNextPage = uncountedPage
 		? !!uncountedPage.hasNextPage
 		: !!pageRows && pageRows.length === pageSize
-			&& !(knownLastPage?.pageIndex === pageIndex
-				&& lastPageProofHolds(knownLastPage, { totalRecords, isEstimated: isEstimatedCount }, pageSize));
+			&& knownLastPage?.pageIndex !== pageIndex;
 
 	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
 	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
@@ -1007,11 +1016,10 @@ export function DatabaseTableView({
 			// proof available when that page was full. Backwards it means something else entirely
 			// (records disappeared behind us), so it must not mark that page as the last one.
 			const proof = { pageIndex: pendingRecordStep.fromPage, totalRecords: pendingRecordStep.totalRecords };
-			// A count that moved while the probe was out is held to the same terms as one that moves after.
 			if (!lastPageProofHolds(proof, { totalRecords, isEstimated: isEstimatedCount }, pageSize)) {
 				return;
 			}
-			setKnownLastPage(proof);
+			setKnownLastPage({ ...proof, totalRecords });
 			toast.info('This is the last record');
 			return;
 		}

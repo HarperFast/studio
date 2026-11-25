@@ -28,7 +28,6 @@ const instance = vi.hoisted(() => ({
 	failingOffset: undefined as number | undefined,
 	heldOffset: undefined as number | undefined,
 	releaseHeldRead: () => undefined as void,
-	// What describe_table reports in place of the records' own count: a stale count, or an estimate.
 	describedCount: undefined as number | undefined,
 	estimatedRange: undefined as [number, number] | undefined,
 	holdDescribe: false,
@@ -389,6 +388,19 @@ describe('DatabaseTableView remembering the last page', { timeout: 30_000 }, () 
 
 			await expectNextToReachTheNewRecord();
 		});
+
+		it('keeps a proof it kept when the count then shrinks', async () => {
+			const queryClient = await proveTheFirstPageIsTheLast({ beforeTheCount: true });
+			act(() => instance.releaseHeldDescribe());
+			await waitFor(() => expect(editor.navigation?.total).toBe(20));
+
+			seedPets(19);
+			await rereadTheCount(queryClient);
+			await waitFor(() => expect(editor.navigation?.total).toBe(19));
+			await settle(queryClient);
+
+			expect(editor.navigation).toMatchObject({ position: 20, hasNext: false });
+		});
 	});
 
 	// The step returns to the first page at 61s and reads it afresh, so a focus refetch then re-reads only
@@ -419,8 +431,29 @@ describe('DatabaseTableView remembering the last page', { timeout: 30_000 }, () 
 
 			await expectNextToReachTheNewRecord();
 		});
+
+		it('forgets the proof when the count grows back to the stale count the step set out with', async () => {
+			instance.describedCount = 25;
+			const queryClient = await proveTheFirstPageIsTheLast();
+			instance.describedCount = undefined;
+			await rereadTheCount(queryClient);
+			await waitFor(() => expect(editor.navigation?.total).toBe(20));
+			await settle(queryClient);
+			expect(editor.navigation).toMatchObject({ position: 20, hasNext: false });
+
+			seedPets(25);
+			await rereadTheCount(queryClient);
+			await waitFor(() => expect(editor.navigation?.total).toBe(25));
+
+			await expectNextToReachTheNewRecord();
+		});
 	});
 });
+
+// Re-reads the count without the page on screen, which stays full.
+async function rereadTheCount(queryClient: QueryClient) {
+	await act(() => queryClient.invalidateQueries({ queryKey: ['instance-1', 'data', 'pets', 'describe_table'] }));
+}
 
 async function openTheFirstRecordOfTheNextPageAndComeBack() {
 	const queryClient = renderPets(21);

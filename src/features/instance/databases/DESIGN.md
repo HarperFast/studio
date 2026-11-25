@@ -61,13 +61,15 @@ list keeps paging by the table count.
 Past the last record of a full unfiltered page, the row editor's Next doesn't go by that count. It
 probes the next page, and an empty answer proves the page it came from is the last (`knownLastPage`
 in [`DatabaseTableView`](components/DatabaseTableView.tsx)). The proof is about how many records the
-table holds, so it carries the count the step set out with. A count that grows retires it (#1940). A
-count that first arrives, or shrinks, keeps it only when it is exact and leaves no room for a record
-past the proven page ([`lastPageProofHolds`](functions/lastPageProof.ts), #1963): an arriving count
-must equal the records through that page, which is what the probe found, and a shrinking one must not
-exceed them. Anything looser keeps Next disabled with records past the page. A count that arrives
-can already include records added after the probe, and one that shrinks from a stale count above
-the page's end can still be above it. A window-focus refetch or an import's refresh reads the count
+table holds, so it carries a count: the one the step set out with, replaced by each count the proof
+survives. A count that grows from it retires the proof (#1940). A count that first arrives, or
+shrinks, keeps it only when it is exact and leaves no room for a record past the proven page
+([`lastPageProofHolds`](functions/lastPageProof.ts), #1963): an arriving count must equal the records
+through that page, which is what the probe found, and a shrinking one must not exceed them. Anything
+looser keeps Next disabled with records past the page. A count that arrives can already include
+records added after the probe, and one that shrinks from a stale count above the page's end can still
+be above it. Keeping the step's count instead of the latest would let that stale count shrink and then
+grow back to match it. A window-focus refetch or an import's refresh reads the count
 again, and Refresh retires the proof outright. Reading a page doesn't, so the read on the way back
 from the probe keeps it, however slow the probe; and a probe whose count moved while it was out keeps
 its answer only on the same terms. A step that turns the page first drops the table's cached pages
