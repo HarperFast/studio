@@ -1,9 +1,11 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useReleaseTrackingAvailable } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { describeError } from '@/react-query/queryClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import { releaseOffer } from '../functions/releaseOffer';
 import { rolloutOfAnother, StagedReleaseState } from '../functions/stagedRelease';
 import { useRecheckRelease, useReleaseCheck } from '../hooks/useComponentReleases';
@@ -13,6 +15,10 @@ import { ReleaseCheckNote } from './ReleaseCheckNote';
 import { DeploymentLink } from './StagedReleaseNote';
 
 const ago = (ms: number) => translateSecondsToAgo((Date.now() - ms) / 1000, ms);
+
+/** A staged record with no start time has its whole history read, so nothing began before it. */
+const startedBefore = (record: Deployment, staged: Deployment) =>
+	staged.started_at !== undefined && (record.started_at ?? 0) < staged.started_at;
 
 function UncertainRelease(
 	{ release, advise }: { release: Extract<StagedReleaseState, { kind: 'uncertain' }>; advise: boolean },
@@ -46,17 +52,25 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const records = useMemo(() => [deployment], [deployment]);
 	const release = useStagedReleases(records).get(deployment.deployment_id);
 	const instanceParams = useInstanceClientIdParams();
-	// Those records start at this release, so a rollout that began before it was staged is asked for by status.
-	const { data: rollingOut } = useQuery(getDeploymentsQueryOptions({
-		...instanceParams,
-		project: deployment.project,
-		status: 'rolling_out',
-		pollWhileOpen: true,
-	}));
+	const queryClient = useQueryClient();
+	const rolloutsAsked = useReleaseTrackingAvailable();
+	const rolloutsQuery = useMemo(() =>
+		getDeploymentsQueryOptions({
+			...instanceParams,
+			project: deployment.project,
+			status: 'rolling_out',
+			pollWhileOpen: true,
+			enabled: rolloutsAsked,
+		}), [instanceParams, deployment.project, rolloutsAsked]);
+	const { data: rollingOut, error: rollingOutError } = useQuery(rolloutsQuery);
+	// The records above start at this release, so this list adds the rollouts that began before it; once those
+	// records are read, they decide for every rollout from it on, which keeps a stale list from reviving one.
+	const historyRead = release !== undefined && release.kind !== 'unknown';
 	const rollout = rolloutOfAnother(deployment, [
 		...(release?.rollout ? [release.rollout] : []),
-		...(rollingOut?.deployments ?? []),
+		...(rollingOut?.deployments ?? []).filter((record) => !historyRead || startedBefore(record, deployment)),
 	]);
+	const rolloutsUnread = rolloutsAsked && rollingOut === undefined;
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
 	const offered = releaseOffer(check, {
@@ -68,12 +82,18 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
 	const { intent } = offered;
-	// A rollout outranks what the nodes hold; disabling also refuses the retry of an activation that failed here.
 	const offer = offered.offer && !rollout;
-	const disabled = offered.disabled || rollout !== undefined;
+	// Disabling, not only hiding, also refuses the retry of an activation that failed here.
+	const disabled = offered.disabled || rollout !== undefined || rolloutsUnread;
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
 	const adviseActivating = advise && !rollout;
+	// A rollout can start between the last poll and the confirmation, which decides on this answer, not on the props.
+	const revalidate = useCallback(async () => {
+		const nodesAllow = await recheck();
+		const { deployments } = await queryClient.fetchQuery(rolloutsQuery);
+		return nodesAllow && !rolloutOfAnother(deployment, deployments);
+	}, [recheck, queryClient, rolloutsQuery, deployment]);
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
 	const recordsContradicted = check.kind === 'live-everywhere'
 		? release?.kind !== 'live'
@@ -131,11 +151,17 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				</div>
 			)}
 			{/* Outside the records' note, which the nodes' answer can hide. */}
-			{rollout && (
+			{offered.offer && rollout && (
 				<p className="text-sm text-muted-foreground">
 					Until <DeploymentLink deployment={rollout} />{' '}
 					finishes rolling out, activating this release would start a second rolling activation alongside it, so it
 					isn&apos;t offered.
+				</p>
+			)}
+			{offered.offer && !rollout && rolloutsUnread && rollingOutError && (
+				<p className="text-sm text-muted-foreground">
+					Couldn&apos;t ask whether another deploy of {deployment.project} is rolling out:{' '}
+					{describeError(rollingOutError).message} Activation stays disabled until that can be read.
 				</p>
 			)}
 			<ReleaseCheckNote
@@ -151,7 +177,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				intent={intent}
 				offer={offer}
 				disabled={disabled}
-				revalidate={advise ? undefined : recheck}
+				revalidate={advise ? undefined : revalidate}
 				routing={deployment.routing}
 			/>
 		</>

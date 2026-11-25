@@ -29,8 +29,7 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  *   not take ends `partial` (harper `v5.4.0-beta.2:components/deploymentRecorder.ts:630-659`): live where it was taken.
  * - `unknown`: the records after it could not be read.
  *
- * Whatever the kind, `rollout` is the newest of those records that is another deploy still rolling out
- * ({@link rolloutOfAnother}).
+ * `rollout`, on any kind: {@link rolloutOfAnother} over those records.
  */
 export type StagedReleaseState =
 	& (

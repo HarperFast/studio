@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	history: [] as object[] | Error | 'pending',
-	/** What `list_deployments` answers when asked for `rolling_out` records alone, when it differs from `history`. */
-	rolling: undefined as object[] | undefined,
+	/** The answer to `list_deployments` by `status: 'rolling_out'`; `undefined` answers with `history`. */
+	rolling: undefined as object[] | Error | 'pending' | undefined,
 	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
 	mutateAsync: vi.fn(),
@@ -78,8 +78,13 @@ state.post.mockImplementation((_url: string, body: { operation: string; status?:
 	if (body.operation === 'list_releases') {
 		return state.releases instanceof Error ? Promise.reject(state.releases) : Promise.resolve({ data: state.releases });
 	}
-	if (body.status === 'rolling_out' && state.rolling) {
-		return Promise.resolve({ data: { deployments: state.rolling, total: state.rolling.length } });
+	const { rolling } = state;
+	if (body.status === 'rolling_out' && rolling) {
+		return rolling === 'pending'
+			? new Promise(() => {})
+			: rolling instanceof Error
+			? Promise.reject(rolling)
+			: Promise.resolve({ data: { deployments: rolling, total: rolling.length } });
 	}
 	const { history } = state;
 	if (history === 'pending') {
@@ -152,6 +157,7 @@ describe('StagedReleaseDetail', () => {
 				limit: undefined,
 			}),
 		);
+		expect(state.post).not.toHaveBeenCalledWith('/', expect.objectContaining({ status: 'rolling_out' }));
 		expect(activationButton()?.textContent).toContain('Activate');
 	});
 
@@ -257,35 +263,16 @@ describe('StagedReleaseDetail', () => {
 		}
 	});
 
-	it('also waits out a rollout that began before this release was staged', async () => {
-		state.rolling = [{
+	it('says nothing of a rollout when there is nothing to offer anyway', async () => {
+		const older = {
 			...later,
-			deployment_id: 'ab0de000-5555-4000-8000-000000000005',
+			deployment_id: 'ab0de000-8888-4000-8000-000000000008',
 			status: 'rolling_out',
-			started_at: 50,
-		}];
-		renderDetail([staged]);
-		expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(
-			/^Until ab0de000 finishes rolling out/,
-		);
-		expect(screen.getByText(/^Staged: built and installed, but not live\.$/)).toBeTruthy();
-		expect(activationButton()).toBeNull();
-		expect(state.post).toHaveBeenCalledWith(
-			'/',
-			expect.objectContaining({
-				operation: 'list_deployments',
-				project: 'hello',
-				status: 'rolling_out',
-				since: undefined,
-			}),
-		);
-		cleanup();
-
-		// Asked by status on its own poll, which can lag the records that already show the rollout.
-		state.rolling = [];
-		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
-		expect(await screen.findByText(/is taking over/)).toBeTruthy();
-		expect(screen.getByText(/finishes rolling out/)).toBeTruthy();
+			started_at: 150,
+		};
+		renderDetail([older, activation, staged] as Deployment[]);
+		expect(await screen.findByText(/^Live: activated by/)).toBeTruthy();
+		expect(screen.queryByText(/finishes rolling out/)).toBeNull();
 		expect(activationButton()).toBeNull();
 	});
 
@@ -425,13 +412,92 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		expect(activationButton()).toBeNull();
 		cleanup();
 
-		// Live on b contradicts `replaced`, so the records' note goes; the reason nothing is offered stays.
 		state.releases = { nodes: [runsLater('a'), holding('b', STAGED_ID, [])] };
 		renderDetail([rolling, later, activation, staged]);
 		expect(await screen.findByText(/^Live on b\. The other nodes hold it/)).toBeTruthy();
 		expect(screen.queryByText(/then replaced by/)).toBeNull();
 		expect(screen.getByText(/finishes rolling out/).textContent).toMatch(/^Until ab0de000 finishes rolling out/);
 		expect(activationButton()).toBeNull();
+	});
+
+	describe('asking by status for the rollouts that began before it was staged', () => {
+		const holdsIt = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'staged']]);
+		const before: Deployment = {
+			...later,
+			deployment_id: 'ab0de000-5555-4000-8000-000000000005',
+			status: 'rolling_out',
+			started_at: 50,
+		};
+
+		it('waits one out', async () => {
+			state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+			state.rolling = [before];
+			renderDetail([staged]);
+			expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(
+				/^Until ab0de000 finishes rolling out/,
+			);
+			expect(activationButton()).toBeNull();
+			expect(state.post).toHaveBeenCalledWith(
+				'/',
+				expect.objectContaining({
+					operation: 'list_deployments',
+					project: 'hello',
+					status: 'rolling_out',
+					since: undefined,
+				}),
+			);
+		});
+
+		it('enables nothing until that list has answered', async () => {
+			state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+			state.rolling = 'pending';
+			renderDetail([staged]);
+			expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+			expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+			cleanup();
+
+			state.rolling = new Error('list_deployments timed out');
+			renderDetail([staged]);
+			expect(await screen.findByText(/^Couldn't ask whether another deploy of hello is rolling out/)).toBeTruthy();
+			expect((activationButton() as HTMLButtonElement).disabled).toBe(true);
+		});
+
+		it('leaves a rollout from this release on to the records, which a stale answer cannot bring back', async () => {
+			const runsLater = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'kept']]);
+			state.releases = { nodes: [runsLater('a'), runsLater('b')] };
+			state.rolling = [{ ...later, status: 'rolling_out' }];
+			renderDetail([later, activation, staged]);
+			expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+			expect(screen.getByText(/then replaced by/)).toBeTruthy();
+			await vi.waitFor(() => expect((activationButton() as HTMLButtonElement).disabled).toBe(false));
+			expect(activationButton()?.textContent).toContain('Roll back to this release');
+			expect(screen.queryByText(/finishes rolling out/)).toBeNull();
+		});
+
+		it('asks again before confirming, and refuses once a rollout has started', async () => {
+			state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+			state.rolling = [];
+			renderDetail([staged]);
+			expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+			await vi.waitFor(() => expect((activationButton() as HTMLButtonElement).disabled).toBe(false));
+			state.rolling = [before];
+
+			// The props catch up a render after the answer, and would close a confirmation that had opened.
+			let confirmationOpened = false;
+			const observer = new MutationObserver((mutations) => {
+				confirmationOpened ||= mutations.some((mutation) =>
+					[...mutation.addedNodes].some((node) => node.textContent?.includes('Activate this release of hello?'))
+				);
+			});
+			observer.observe(document.body, { childList: true, subtree: true });
+			fireEvent.click(activationButton()!);
+			expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(/^Until ab0de000/);
+			await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Checking/ })).toBeNull());
+			await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+			observer.disconnect();
+			expect(confirmationOpened).toBe(false);
+			expect(state.mutateAsync).not.toHaveBeenCalled();
+		});
 	});
 
 	it('offers no activation while a later deploy rolls out, wherever the nodes say this release is live', async () => {
