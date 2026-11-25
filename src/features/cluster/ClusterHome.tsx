@@ -332,7 +332,6 @@ function SelfHostedClusterHome({ cluster }: { cluster: Cluster }) {
 		} catch {
 			// Ignore: we're clearing local state regardless of the server response.
 		}
-		// By id, since an instance may be listed without an address.
 		authStore.signOutLocally(firstInstance.id);
 		await router.invalidate();
 	}, [firstInstance, router]);
