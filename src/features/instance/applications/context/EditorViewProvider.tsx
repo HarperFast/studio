@@ -12,6 +12,7 @@ import {
 import {
 	editorSaveKey,
 	editorSavesInFlight,
+	holdForSave,
 	isRenaming,
 } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
@@ -24,6 +25,7 @@ import {
 } from '@/integrations/api/instance/applications/getComponentFile';
 import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
+	setComponentFile,
 	SetComponentFileRequest,
 	useSetComponentFile,
 } from '@/integrations/api/instance/applications/setComponentFile';
@@ -260,6 +262,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [queryClient]);
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
+		mutationFn: request =>
+			holdForSave(request.entityId, `${request.project}/${request.file}`, () => setComponentFile(request)),
 		onSuccess: settleSave,
 	});
 	const savingEntryKeys = useMutationState({
@@ -271,7 +275,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const refusalOf = useCallback((data: SetComponentFileRequest): SaveRefusal | undefined => {
 		const savedKey = savedEntryKeyOf(data);
 		const name = data.file.split('/').at(-1);
-		if (isRenaming(data.entityId)) {
+		if (isRenaming(queryClient, data.entityId)) {
 			return {
 				id: `save-during-rename:${savedKey}`,
 				title: `${name} was not saved`,

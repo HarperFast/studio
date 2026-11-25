@@ -12,11 +12,13 @@
  */
 import { editorFileContentKey } from '@/features/instance/applications/context/editorFileContent';
 import type { EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
+import { holdForSave, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { getComponentFileQueryKey } from '@/integrations/api/instance/applications/getComponentFile';
 import { emitToListeners } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { readSessionValue } from '@/lib/storage/sessionStorageStore';
+import { FakeLockManager } from '@/test/fakeWebLocks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
@@ -508,7 +510,11 @@ beforeAll(() => {
 	}
 });
 
+let locks: FakeLockManager;
 beforeEach(() => {
+	// Browsers have Web Locks, which jsdom lacks, and saves and renames take them.
+	locks = new FakeLockManager();
+	Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
 	clearSessionStorage();
 	harness.models.clear();
 	harness.shown.length = 0;
@@ -559,6 +565,7 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	writeAccess.denied = false;
+	Reflect.deleteProperty(navigator, 'locks');
 });
 
 describe('a session that cannot write component files', () => {
@@ -1079,6 +1086,89 @@ describe('Save pressed twice at once', () => {
 
 		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
 		expect(writesOf('app/a.js')).toEqual(['edits to a']);
+	});
+});
+
+describe('another tab on the same instance', () => {
+	// Another tab has a query client of its own, so what it starts is not this tab's.
+	const anotherTab = () => new QueryClient();
+	const waiting = async () => (await locks.query()).pending?.length ?? 0;
+	const copiesSent = () =>
+		harness.post.mock.calls.filter(([, body]) =>
+			(body as OperationBody).operation === 'get_component_file' && (body as OperationBody).encoding === 'base64'
+		).length;
+
+	it("holds a save of a file until that tab's rename of it is done, then sends it", async () => {
+		seed({ 'app/a.js': 'saved a' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		type('edits to a');
+		const endRename = await startRename(anotherTab(), 'ins-1', { paths: ['app/a.js', 'app/c.js'] })!;
+
+		save();
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		expect(view.isSavingFile).toBe(true);
+		expect(writesOf('app/a.js')).toEqual([]);
+		act(() => endRename());
+		await waitFor(() => expect(files.get('app/a.js')).toBe('edits to a'));
+	});
+
+	// The file renamed moves with what that tab saved; the file it replaces is replaced after that tab's save.
+	it.each([
+		['the file', 'app/a.js', 'saved in the other tab'],
+		['the file it replaces', 'app/c.js', 'saved a'],
+	])("holds a rename until that tab's save of %s lands", async (_, saved, renamedTo) => {
+		seed({ 'app/a.js': 'saved a', 'app/c.js': 'saved c' });
+		renderEditor();
+		await openFile('app/a.js', 'saved a');
+		let land!: () => void;
+		const theirSave = holdForSave('ins-1', saved, () =>
+			new Promise<void>(resolve => {
+				land = () => {
+					files.set(saved, 'saved in the other tab');
+					resolve();
+				};
+			}));
+		await waitFor(async () => expect((await locks.query()).held).toHaveLength(2));
+
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: 'c.js' } });
+		fireEvent.submit(input.closest('form')!);
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		expect(copiesSent()).toBe(0);
+		await act(async () => {
+			land();
+			await theirSave;
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(files.get('app/c.js')).toBe(renamedTo);
+		expect(files.has('app/a.js')).toBe(false);
+	});
+
+	it("holds that tab's save of a file in a renamed folder, even one never listed here, until the old folder is dropped", async () => {
+		seed({ 'app/lib/x.js': 'saved x' });
+		renderEditor();
+		await open('app/lib');
+		const dropped = hold('drop_component', 'app/lib');
+		act(() => setWatchedValue('ShowRenameFileModal', true));
+		const input = await screen.findByLabelText('Name');
+		fireEvent.change(input, { target: { value: 'src' } });
+		fireEvent.submit(input.closest('form')!);
+		await waitFor(() => expect(harness.holds.size).toBe(0));
+
+		const theirSave = holdForSave('ins-1', 'app/lib/y.js', async () => {
+			files.set('app/lib/y.js', 'saved in the other tab');
+		});
+		await waitFor(async () => expect(await waiting()).toBe(1));
+
+		await dropped();
+		await act(() => theirSave);
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(files.get('app/src/x.js')).toBe('saved x');
+		expect(files.get('app/lib/y.js')).toBe('saved in the other tab');
 	});
 });
 

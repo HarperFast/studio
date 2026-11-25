@@ -12,7 +12,7 @@ import {
 	forgetReplacedPath,
 	moveEditedPath,
 } from '@/features/instance/applications/lib/editorPathState';
-import { editorSavesInFlight, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
+import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
@@ -22,6 +22,11 @@ import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
+
+/** What a rename says when `startRename` refuses it. */
+export function refuseRenameDuringSave() {
+	toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+}
 
 export function useRenameFiles() {
 	const {
@@ -33,15 +38,21 @@ export function useRenameFiles() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 
-	return useCallback(async (changes: { from: string; to: string }[]): Promise<boolean> => {
+	/** `startedByCaller`: the caller started the rename and ends it, as a folder rename does to cover its drop. */
+	return useCallback(async (changes: { from: string; to: string }[], startedByCaller = false): Promise<boolean> => {
 		let canceled = false;
 		const actualChanges = changes.filter(change => change.from !== change.to);
 
 		if (actualChanges.length === 0) {
 			return true;
 		}
-		if (editorSavesInFlight(queryClient).some(saving => saving.entityId === instanceParams.entityId)) {
-			toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+		const starting = startedByCaller
+			? Promise.resolve(() => undefined)
+			: startRename(queryClient, instanceParams.entityId, {
+				paths: actualChanges.flatMap(change => [change.from, change.to]),
+			});
+		if (!starting) {
+			refuseRenameDuringSave();
 			return false;
 		}
 
@@ -75,7 +86,7 @@ export function useRenameFiles() {
 			});
 		}
 
-		const endRename = startRename(instanceParams.entityId);
+		const endRename = await starting;
 		try {
 			for (const change of actualChanges) {
 				const oldParts = change.from.split('/');

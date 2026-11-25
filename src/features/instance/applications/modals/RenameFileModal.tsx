@@ -20,7 +20,7 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
-import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { refuseRenameDuringSave, useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
@@ -117,39 +117,49 @@ export function RenameFileModal() {
 			}))
 			: [{ from: openedEntry.path, to }];
 
+		// Dropping the old folder is part of the rename, and takes files under it that no listing named, such
+		// as one another tab just created. So a folder's rename covers the whole instance, from its first move
+		// until that drop.
+		const folderRename = isDir ? startRename(queryClient, instanceParams.entityId, 'instance') : undefined;
+		if (isDir && !folderRename) {
+			refuseRenameDuringSave();
+			return;
+		}
 		setIsPending(true);
-		const renamed = await renameFiles(changes);
+		const endFolderRename = await folderRename;
+		let renamed: boolean;
+		try {
+			renamed = await renameFiles(changes, isDir);
 
-		// Moving the files leaves the original (now-empty) directory behind, so once
-		// the move fully succeeds recreate the renamed shell (for empty folders) and
-		// drop the old one. `relative` strips the leading project segment.
-		if (renamed && isDir) {
-			const relative = (path: string) => path.split('/').slice(1).join('/');
-			// Saves still wait while the old folder is dropped: that drop is part of the rename.
-			const endRename = startRename(instanceParams.entityId);
-			try {
-				if (changes.length === 0) {
-					await setComponentFile({
-						...instanceParams,
-						project: openedEntry.project,
-						file: relative(to),
-						payload: undefined,
-					});
+			// Moving the files leaves the original (now-empty) directory behind, so once
+			// the move fully succeeds recreate the renamed shell (for empty folders) and
+			// drop the old one. `relative` strips the leading project segment.
+			if (renamed && isDir) {
+				const relative = (path: string) => path.split('/').slice(1).join('/');
+				try {
+					if (changes.length === 0) {
+						await setComponentFile({
+							...instanceParams,
+							project: openedEntry.project,
+							file: relative(to),
+							payload: undefined,
+						});
+					}
+					await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
+					forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
+					await reloadRootEntries();
+				} catch (error) {
+					const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+						title: 'Rename Failed',
+						description: error instanceof Error ? error.message : 'Could not remove the original directory.',
+					};
+					toast.error(title, { description });
+					setIsPending(false);
+					return;
 				}
-				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
-				forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
-				await reloadRootEntries();
-			} catch (error) {
-				const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
-					title: 'Rename Failed',
-					description: error instanceof Error ? error.message : 'Could not remove the original directory.',
-				};
-				toast.error(title, { description });
-				setIsPending(false);
-				return;
-			} finally {
-				endRename();
 			}
+		} finally {
+			endFolderRename?.();
 		}
 
 		setIsPending(false);

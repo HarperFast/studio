@@ -343,7 +343,9 @@ describe('EditorViewProvider openedEntryContents', () => {
 	])('refuses a write %s, and says why', async (when, reason) => {
 		renderProvider();
 		await openEntry(script, SCRIPT);
-		const endRename = when.includes('rename') ? startRename(server.current.params.entityId) : undefined;
+		const endRename = when.includes('rename')
+			? await startRename(queryClient, server.current.params.entityId, 'instance')
+			: undefined;
 		if (!endRename) {
 			startSave(SAVED_SCRIPT);
 			await waitFor(() => expect(editorView.isSavingFile).toBe(true));
