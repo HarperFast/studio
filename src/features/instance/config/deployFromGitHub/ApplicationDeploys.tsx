@@ -2,7 +2,7 @@ import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useActionsAudience } from '@/features/instance/config/githubActions/useActionsAudience';
-import { PageNotice } from '@/features/instance/config/previews/PageNotice';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
 import { getListUsersQueryOptions } from '@/integrations/api/instance/auth/getListUsers';
 import {

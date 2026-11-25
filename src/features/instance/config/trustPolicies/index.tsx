@@ -3,6 +3,7 @@ import { Loading } from '@/components/Loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import {
@@ -16,7 +17,7 @@ import {
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCwIcon } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 const DOCS_URL = 'https://docs.harper.fast/reference/v5/operations-api/operations#add_oidc_trust';
@@ -141,10 +142,6 @@ export function ConfigTrustPoliciesIndex() {
 			/>
 		</div>
 	);
-}
-
-function PageNotice({ children }: { children: ReactNode }) {
-	return <p className="rounded-md border p-4 text-sm text-muted-foreground">{children}</p>;
 }
 
 /** Server data rendered as text, whatever shape it arrived in. */

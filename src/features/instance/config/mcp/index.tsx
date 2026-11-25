@@ -15,7 +15,7 @@ import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { PageNotice } from '@/features/instance/config/previews/PageNotice';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';

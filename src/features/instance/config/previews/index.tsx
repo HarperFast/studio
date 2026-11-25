@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { PageNotice } from '@/features/instance/config/PageNotice';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
@@ -16,7 +17,6 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { RefreshCwIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { ApplicationPreviews } from './ApplicationPreviews';
-import { PageNotice } from './PageNotice';
 import { PreviewsSearch } from './previewsSearch';
 
 export function ConfigPreviewsIndex() {
