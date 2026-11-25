@@ -15,7 +15,6 @@ function beforeLoadOf(path: string): BeforeLoad {
 	return route.options.beforeLoad as BeforeLoad;
 }
 
-/** Where a guard sent a signed-in visitor, or undefined when it let the page render. */
 function landing(path: string, user: User, redirect: string): { href?: string; to?: string } | undefined {
 	const context = { authentication: { [OverallAppSignIn]: { isLoading: false, user } } };
 	try {

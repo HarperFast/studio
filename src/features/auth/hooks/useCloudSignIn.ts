@@ -82,11 +82,17 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 				signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
 				signInRevision: authStore.getSignInRevision(OverallAppSignIn),
 			};
+			if (!stillCurrent()) {
+				// Taken here so the restore above still puts back what the previous account's wipe took.
+				taken = before;
+				return false;
+			}
 			// Settled before the account is taken in: taking it in re-runs this page's guard, which would follow a
 			// `?redirect=` it can't yet rule out.
 			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
 			if (
-				authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
+				settled === undefined
+				|| authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
 				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
 				|| !stillCurrent()
 			) {
@@ -197,12 +203,12 @@ export function useCloudSignIn() {
 /**
  * The record to take in, and the first target it can open. When `/User/current` had to settle a target, its record is
  * the one taken in, so guards that run afterwards decide from the staff fields `/Login/` leaves out. A failed read
- * follows the target, as sign-in did before it checked.
+ * follows the target, as sign-in did before it checked. Undefined when the session has passed to another account.
  */
 async function settleSignIn(
 	user: User,
 	targets: Array<PostSignInRedirect | undefined>,
-): Promise<{ user: User; target: PostSignInRedirect | undefined }> {
+): Promise<{ user: User; target: PostSignInRedirect | undefined } | undefined> {
 	let current: User | null | undefined;
 	for (const target of targets) {
 		if (target === undefined) {
@@ -215,8 +221,10 @@ async function settleSignIn(
 					console.debug('Could not read the signed-in account to check its sign-in target:', error);
 					return null;
 				});
-				// Another account's answer settles nothing about this one.
-				current = read?.id === user.id ? read : null;
+				if (read && read.id !== user.id) {
+					return undefined;
+				}
+				current = read ?? null;
 			}
 			access = current ? redirectAccess(current, target) : 'open';
 		}

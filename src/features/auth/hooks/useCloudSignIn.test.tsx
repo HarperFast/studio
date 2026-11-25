@@ -495,17 +495,28 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
 	});
 
-	it('ignores a /User/current answer for another account, and follows as before', async () => {
+	it('ends the completion when /User/current answers for another account', async () => {
 		hashSearch.current = { redirect: previousAccountsPage };
 		get.mockResolvedValue({
 			data: { id: 'usr-someone-else', roles: {}, fabricRole: 'least_privileged', staffPermissions: [] },
 		});
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 
-		await act(() => result.current(NEWCOMER));
+		// The session belongs to someone else now: taking this account in would put its name over theirs.
+		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(false);
 
-		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(NEWCOMER);
-		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('asks nothing for a completion whose page has already moved on', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(NEWCOMER, { stillCurrent: () => false }))).resolves.toBe(false);
+
+		expect(get).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
 	});
 
 	it('asks /User/current once for two targets it can’t open, then goes to the default route', async () => {
