@@ -168,7 +168,7 @@ describe(ClusterInstanceSignIn, () => {
 	});
 });
 
-describe('the sign-in health probe (#2022)', () => {
+describe('the sign-in health probe', () => {
 	it('waits for the cluster before probing anything', async () => {
 		page.clusterLoading = true;
 		await renderSignIn(clusterWith({}));

@@ -104,7 +104,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	// app-level connection in the context at all, don't redirect from here — another guard owns that
 	// decision, and stacking redirects within one navigation can corrupt router state. Returning also
 	// avoids dereferencing `overallAuth.user` below (which threw "Cannot read properties of undefined").
-	// An instance that can't be resumed has nothing to wait for, and waiting would let this route load it.
+	// Waiting would let this route load an instance it won't resume.
 	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined;
 	if (!overallAuth || (overallAuth.isLoading && resumable)) {
 		return;
@@ -164,7 +164,6 @@ async function tryEstablishFabricConnect(
 	}
 }
 
-/** Whether the cluster lists this instance with no address, as the Instances list shows it (`—`). */
 function listsWithoutAddress(cluster: Cluster | undefined, instanceId: string | undefined): boolean {
 	const instance = instanceId ? cluster?.instances?.find((candidate) => candidate.id === instanceId) : undefined;
 	return !!instance && !getOperationsUrlForInstance(instance);

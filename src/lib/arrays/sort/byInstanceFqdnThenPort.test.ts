@@ -54,7 +54,7 @@ describe('byInstanceFqdnThenPort', () => {
 	});
 
 	it.each(['   ', 'https://'])(
-		'sorts an FQDN of %j with the missing ones, after every address (#2022)',
+		'sorts an FQDN of %j with the missing ones, after every address',
 		(instanceFqdn) => {
 			const items: Item[] = [
 				{ instanceFqdn, operationsApiPort: 9925 },

@@ -119,7 +119,6 @@ describe('the self-hosted overview', () => {
 		fireEvent.click(await screen.findByRole('button', { name: 'Direct sign out' }));
 
 		expect(await screen.findByRole('button', { name: 'Direct sign-in' })).toBeTruthy();
-		// With no address listed, the logout goes to the URL the sign-in was made at (#2022).
 		expect(onInstanceLogoutSubmit).toHaveBeenCalledWith(expect.objectContaining({ entityId: 'ins-1' }));
 		expect(onInstanceLogoutSubmit.mock.calls[0][0].instanceClient.defaults.baseURL)
 			.toBe('https://node-1.example.com:9925/');

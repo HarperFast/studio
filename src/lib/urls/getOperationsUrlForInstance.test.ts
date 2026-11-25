@@ -53,7 +53,7 @@ describe('getOperationsUrlForInstance', () => {
 
 describe('getInstanceAddress', () => {
 	it.each([undefined, '', '   ', 'https://', ' node.example.com'])(
-		'has no address for an FQDN of %j, which has no operations URL either (#2022)',
+		'has no address for an FQDN of %j, which has no operations URL either',
 		(instanceFqdn) => {
 			expect(getInstanceAddress({ instanceFqdn })).toBeNull();
 			expect(getOperationsUrlForInstance({ instanceFqdn, operationsApiPort: 9925, operationsApiSecure: true }))

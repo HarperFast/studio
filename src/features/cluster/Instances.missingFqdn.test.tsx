@@ -103,7 +103,6 @@ function rowContaining(text: string) {
 	return screen.getByText(text).closest('tr')!;
 }
 
-// A blank or scheme-only FQDN is no address either (#2022), and sorts with the missing ones.
 describe.each([undefined, '   ', 'https://'])('Instances with an instance whose FQDN is %j', (instanceFqdn) => {
 	const addressless = { ...addresslessBase, instanceFqdn };
 

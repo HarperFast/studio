@@ -160,7 +160,7 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 		expect(establishSpy).not.toHaveBeenCalled();
 	});
 
-	describe('with a sign-in remembered from before central manager stopped listing the address (#2022)', () => {
+	describe('with a sign-in remembered from before central manager stopped listing the address', () => {
 		const addressless = { id: CLUSTER_ID, organizationId: 'org-1', instances: [{ id: 'ins-1', status: 'RUNNING' }] };
 		const reachable = {
 			...addressless,
