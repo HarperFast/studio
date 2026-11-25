@@ -152,7 +152,14 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 		if (!field.name.trim()) {
 			continue;
 		}
-		for (const comment of field.leadingComments) {
+		const hasDirectives = field.directives.length > 0;
+		const continuationComments = hasDirectives ? (field.continuationComments ?? []) : [];
+		// With no directive left to sit above, the comments from between the type and its directives go
+		// above the field: below it, they would read back as the next field's.
+		const leadingComments = hasDirectives
+			? field.leadingComments
+			: [...field.leadingComments, ...(field.continuationComments ?? [])];
+		for (const comment of leadingComments) {
 			appendCommentLines(lines, comment, indent);
 		}
 		const inline = field.directives.filter(directive => !BLOCK_DIRECTIVES.has(directive.name));
@@ -162,16 +169,29 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 			FIELD_DIRECTIVE_ORDER,
 		).flatMap(directive => serializeBlockDirective(directive, indent));
 		const fieldDirectives = serializeDirectives(inline, FIELD_DIRECTIVE_ORDER);
-		// A line comment goes last: after the block's closing line when there is one, since a comment
-		// on the field's own line would end the field before the directives below it are read.
-		const suffix = [fieldDirectives, block.length === 0 && field.lineComment].filter(Boolean).join(' ');
-		lines.push(`${indent}${field.name}: ${formatTypeRef(field.type)}${suffix ? ` ${suffix}` : ''}`);
-		if (block.length > 0) {
-			if (field.lineComment) {
-				block[block.length - 1] += ` ${field.lineComment}`;
+		let fieldLine = `${indent}${field.name}: ${formatTypeRef(field.type)}`;
+		const below: string[] = [];
+		if (continuationComments.length > 0) {
+			// The comments keep their place between the type and the directives, so every directive goes
+			// below them: one left on the field's line would put the comments after a directive, where the
+			// parser ends the field and keeps the table as text.
+			below.push(...continuationComments.map(comment => `${indent}${indent}${comment}`));
+			if (fieldDirectives) {
+				below.push(`${indent}${indent}${fieldDirectives}`);
 			}
-			lines.push(...block);
+		} else if (fieldDirectives) {
+			fieldLine += ` ${fieldDirectives}`;
 		}
+		below.push(...block);
+		// A line comment goes last: after the last directive line below the field when there is one,
+		// since a comment on the field's own line would end the field before the directives below it
+		// are read.
+		if (field.lineComment && below.length > 0) {
+			below[below.length - 1] += ` ${field.lineComment}`;
+		} else if (field.lineComment) {
+			fieldLine += ` ${field.lineComment}`;
+		}
+		lines.push(fieldLine, ...below);
 	}
 
 	// Comments that trailed the last field, before `}` — preserved so an edit
