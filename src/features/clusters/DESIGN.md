@@ -44,3 +44,9 @@ update fail (#1311). It mirrors only the case the server is certain to refuse, s
 server would accept. The server also counts shrinking a kept region as leaving it (a smaller tier of a catalog region,
 or fewer units of a custom one); a selection that shrinks every current region while adding one is not mirrored and
 still gets the server's error.
+
+An inactive custom region stays on the clusters that use it but isn't offered for new deployments, as the region editor
+tells staff. The picker applies that only to new choices, so the refinement in `ClusterForm.tsx` applies it to restored
+values too: a saved draft, or Try Again on a failed cluster, that carries an inactive custom region is refused on its
+row unless the cluster already deploys that region, the same exemption the staff-placement rule uses (#2057). Unlike the
+region-swap check, this enforces Studio's own policy rather than mirroring a refusal the server is known to make.

@@ -207,6 +207,17 @@ export function ClusterForm({
 					if (firstOrganizationRegionIndex < 0) {
 						firstOrganizationRegionIndex = i;
 					}
+					const alreadyDeployed = preexistingOrganizationRegionIds.has(region.id);
+					// The picker never offers an inactive region as a new choice, but a restored draft or a retried failed
+					// cluster can carry one. One the cluster already deploys may stay, as under the staff rule below, so
+					// deactivating a region never locks its clusters out of an edit.
+					if (!region.active && !alreadyDeployed) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: 'This custom region is inactive. Choose another region.',
+						});
+					}
 					if (region.instanceCount === 0) {
 						ctx.addIssue({
 							code: 'custom',
@@ -214,7 +225,7 @@ export function ClusterForm({
 							message: "This custom region has no datacenters on the organization's cloud provider.",
 						});
 					}
-					if (!canUseCustomRegions && !preexistingOrganizationRegionIds.has(region.id)) {
+					if (!canUseCustomRegions && !alreadyDeployed) {
 						ctx.addIssue({
 							code: 'custom',
 							path: [`regionPlans.${i}.regionId`],
