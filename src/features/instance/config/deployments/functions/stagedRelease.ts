@@ -18,8 +18,8 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  * - `being-replaced`: nothing after its activation succeeded, but a later deploy that is not an activation of it reads
  *   `rolling_out` (5.4+). That deploy went live on the node that received it, and its activation job is taking it to
  *   the others one at a time (harper `v5.4.1:components/operations.ts:1111-1130`, `:1257`), which ends it `success`
- *   (`replaced`) or `partial` (`uncertain`). It outranks `uncertain`, whichever failure came first, since that would
- *   offer to activate this release: meanwhile that starts a second rolling activation, of a different release.
+ *   (`replaced`) or `partial` (`uncertain`). It outranks `uncertain`, whichever failure came first, so the release is
+ *   described by the rollout in progress.
  * - `replaced`: a later deploy succeeded. Each node keeps the release it displaced, so activating this one again is a
  *   rollback, for as long as retention keeps it.
  * - `uncertain`: a deploy that touched it failed somewhere: its activation (`activation` absent, or `failed` is the
@@ -28,23 +28,53 @@ import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/insta
  *   `components/operations.js:1021-1034`), so some nodes may run something else. A rolling deploy that some node did
  *   not take ends `partial` (harper `v5.4.0-beta.2:components/deploymentRecorder.ts:630-659`): live where it was taken.
  * - `unknown`: the records after it could not be read.
+ *
+ * Whatever the kind, `rollout` is the newest of those records that is another deploy still rolling out
+ * ({@link rolloutOfAnother}).
  */
 export type StagedReleaseState =
-	| { kind: 'waiting' }
-	| { kind: 'activating'; activation: Deployment }
-	| { kind: 'live'; activation: Deployment }
-	| { kind: 'being-replaced'; activation: Deployment; replacedBy: Deployment }
-	| { kind: 'replaced'; activation: Deployment; replacedBy: Deployment }
-	| { kind: 'uncertain'; activation?: Deployment; failed: Deployment }
-	| { kind: 'unknown' };
+	& (
+		| { kind: 'waiting' }
+		| { kind: 'activating'; activation: Deployment }
+		| { kind: 'live'; activation: Deployment }
+		| { kind: 'being-replaced'; activation: Deployment; replacedBy: Deployment }
+		| { kind: 'replaced'; activation: Deployment; replacedBy: Deployment }
+		| { kind: 'uncertain'; activation?: Deployment; failed: Deployment }
+		| { kind: 'unknown' }
+	)
+	& { rollout?: Deployment };
 
 const startedAt = (record: Deployment | undefined) => record?.started_at ?? 0;
+
+/**
+ * The newest of `records` that is a deploy of `staged`'s component, other than an activation of it, still reading
+ * `rolling_out` (5.4+): its activation job is taking its release to each node, so activating `staged` now would start
+ * a second rolling activation of a different release alongside it (harper `v5.4.1:components/operations.ts:1116-1126`).
+ */
+export function rolloutOfAnother(staged: Deployment, records: readonly Deployment[]): Deployment | undefined {
+	let newest: Deployment | undefined;
+	for (const record of records) {
+		if (
+			record.project === staged.project && record.status === 'rolling_out'
+			&& record.activated_from !== staged.deployment_id && (!newest || startedAt(record) > startedAt(newest))
+		) {
+			newest = record;
+		}
+	}
+	return newest;
+}
 
 /** `records`: the component's records from `staged` on, in any order. Records of other components are ignored. */
 export function stagedReleaseState(staged: Deployment, records: readonly Deployment[]): StagedReleaseState {
 	const newestFirst = records
 		.filter((record) => record.project === staged.project && record.deployment_id !== staged.deployment_id)
 		.sort((a, b) => startedAt(b) - startedAt(a));
+	const state = classify(staged, newestFirst);
+	const rollout = rolloutOfAnother(staged, newestFirst);
+	return rollout ? { ...state, rollout } : state;
+}
+
+function classify(staged: Deployment, newestFirst: readonly Deployment[]): StagedReleaseState {
 	const released = newestFirst.filter((record) => record.status === 'success' || record.status === 'partial');
 	const failedSomewhere = (record: Deployment) => record.status === 'failed' || record.status === 'partial';
 	const failedAfter = (after: Deployment | undefined, which: (record: Deployment) => boolean = () => true) =>
@@ -70,9 +100,7 @@ export function stagedReleaseState(staged: Deployment, records: readonly Deploym
 	if (replacedBy) {
 		return { kind: 'replaced', activation, replacedBy };
 	}
-	const rollingOut = later.find((record) =>
-		record.status === 'rolling_out' && record.activated_from !== staged.deployment_id
-	);
+	const rollingOut = rolloutOfAnother(staged, later);
 	if (rollingOut) {
 		return { kind: 'being-replaced', activation, replacedBy: rollingOut };
 	}

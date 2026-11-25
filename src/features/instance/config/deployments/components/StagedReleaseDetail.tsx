@@ -1,8 +1,11 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { releaseOffer } from '../functions/releaseOffer';
-import { StagedReleaseState } from '../functions/stagedRelease';
+import { rolloutOfAnother, StagedReleaseState } from '../functions/stagedRelease';
 import { useRecheckRelease, useReleaseCheck } from '../hooks/useComponentReleases';
 import { useStagedReleases } from '../hooks/useStagedReleases';
 import { ActivateRelease } from './ActivateRelease';
@@ -42,6 +45,18 @@ function UncertainRelease(
 export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) {
 	const records = useMemo(() => [deployment], [deployment]);
 	const release = useStagedReleases(records).get(deployment.deployment_id);
+	const instanceParams = useInstanceClientIdParams();
+	// Those records start at this release, so a rollout that began before it was staged is asked for by status.
+	const { data: rollingOut } = useQuery(getDeploymentsQueryOptions({
+		...instanceParams,
+		project: deployment.project,
+		status: 'rolling_out',
+		pollWhileOpen: true,
+	}));
+	const rollout = rolloutOfAnother(deployment, [
+		...(release?.rollout ? [release.rollout] : []),
+		...(rollingOut?.deployments ?? []),
+	]);
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
 	const offered = releaseOffer(check, {
@@ -52,13 +67,13 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			: 'activate',
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
-	const { intent, disabled } = offered;
-	// Whatever the nodes hold, since `being-replaced` means another deploy is rolling out: activating this release now
-	// would start a second rolling activation alongside it, of a different release.
-	const vetoed = release?.kind === 'being-replaced';
-	const offer = offered.offer && !vetoed;
+	const { intent } = offered;
+	// A rollout outranks what the nodes hold; disabling also refuses the retry of an activation that failed here.
+	const offer = offered.offer && !rollout;
+	const disabled = offered.disabled || rollout !== undefined;
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
+	const adviseActivating = advise && !rollout;
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
 	const recordsContradicted = check.kind === 'live-everywhere'
 		? release?.kind !== 'live'
@@ -74,12 +89,12 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 					{release?.kind === 'waiting' && (
 						<>
 							Staged: built and installed, but not live.
-							{advise && ' Activating it just switches each node to it.'}
+							{adviseActivating && ' Activating it just switches each node to it.'}
 						</>
 					)}
 					{release?.kind === 'unknown' && (
 						<>
-							Staged. Couldn&apos;t read the deployments since{advise
+							Staged. Couldn&apos;t read the deployments since{adviseActivating
 								? ', so it may already be live: activating a live release restarts every node without changing anything.'
 								: '.'}
 						</>
@@ -89,7 +104,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 							Being activated by <DeploymentLink deployment={release.activation} />, which{' '}
 							{release.activation.started_at ? `started ${ago(release.activation.started_at)} and ` : ''}has not
 							finished. While it runs, activating it again starts a second rolling restart.
-							{advise && ' If it stopped without finishing, activate it again.'}
+							{adviseActivating && ' If it stopped without finishing, activate it again.'}
 						</>
 					)}
 					{release?.kind === 'live' && (
@@ -102,25 +117,32 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 						<>
 							Activated by <DeploymentLink deployment={release.activation} />, but a later deploy,{' '}
 							<DeploymentLink deployment={release.replacedBy} />, is taking over: it went live on the node that received
-							it and is reaching the other nodes one at a time. Until it finishes, activating this release would start a
-							second rolling restart, so it is not offered.
+							it and is reaching the other nodes one at a time.
 						</>
 					)}
 					{release?.kind === 'replaced' && (
 						<>
 							Activated by <DeploymentLink deployment={release.activation} />, then replaced by{' '}
 							<DeploymentLink deployment={release.replacedBy} />.
-							{advise && ` Activating it again rolls ${deployment.project} back to this release.`}
+							{adviseActivating && ` Activating it again rolls ${deployment.project} back to this release.`}
 						</>
 					)}
-					{release?.kind === 'uncertain' && <UncertainRelease release={release} advise={advise} />}
+					{release?.kind === 'uncertain' && <UncertainRelease release={release} advise={adviseActivating} />}
 				</div>
+			)}
+			{/* Outside the records' note, which the nodes' answer can hide. */}
+			{rollout && (
+				<p className="text-sm text-muted-foreground">
+					Until <DeploymentLink deployment={rollout} />{' '}
+					finishes rolling out, activating this release would start a second rolling activation alongside it, so it
+					isn&apos;t offered.
+				</p>
 			)}
 			<ReleaseCheckNote
 				check={check}
 				record={deployment}
 				showLive={release?.kind !== 'live'}
-				adviseActivating={!vetoed}
+				adviseActivating={!rollout}
 			/>
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
 			<ActivateRelease

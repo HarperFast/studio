@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
 	history: [] as object[] | Error | 'pending',
+	/** What `list_deployments` answers when asked for `rolling_out` records alone, when it differs from `history`. */
+	rolling: undefined as object[] | undefined,
 	releases: undefined as object | Error | undefined,
 	post: vi.fn(),
 	mutateAsync: vi.fn(),
@@ -72,9 +74,12 @@ const later: Deployment = {
 	started_at: 300,
 };
 
-state.post.mockImplementation((_url: string, body: { operation: string }) => {
+state.post.mockImplementation((_url: string, body: { operation: string; status?: string }) => {
 	if (body.operation === 'list_releases') {
 		return state.releases instanceof Error ? Promise.reject(state.releases) : Promise.resolve({ data: state.releases });
+	}
+	if (body.status === 'rolling_out' && state.rolling) {
+		return Promise.resolve({ data: { deployments: state.rolling, total: state.rolling.length } });
 	}
 	const { history } = state;
 	if (history === 'pending') {
@@ -88,6 +93,7 @@ state.post.mockImplementation((_url: string, body: { operation: string }) => {
 afterEach(() => {
 	cleanup();
 	state.history = [];
+	state.rolling = undefined;
 	state.releases = undefined;
 	state.canListReleases = true;
 	state.post.mockClear();
@@ -197,12 +203,89 @@ describe('StagedReleaseDetail', () => {
 		const note = await screen.findByText(/is taking over/);
 		expect(note.textContent).toBe(
 			'Activated by 5c12b89e, but a later deploy, 9f00aa11, is taking over: it went live on the node that received it'
-				+ ' and is reaching the other nodes one at a time. Until it finishes, activating this release would start a'
-				+ ' second rolling restart, so it is not offered.',
+				+ ' and is reaching the other nodes one at a time.',
 		);
-		expect(screen.getByRole('link', { name: '9f00aa11' }).getAttribute('href'))
-			.toBe(`/org-a/clu-a/config/deployments/${later.deployment_id}`);
+		expect(screen.getByText(/finishes rolling out/).textContent).toBe(
+			'Until 9f00aa11 finishes rolling out, activating this release would start a second rolling activation'
+				+ " alongside it, so it isn't offered.",
+		);
+		for (const link of screen.getAllByRole('link', { name: '9f00aa11' })) {
+			expect(link.getAttribute('href')).toBe(`/org-a/clu-a/config/deployments/${later.deployment_id}`);
+		}
 		expect(screen.queryByText(/Live: activated by/)).toBeNull();
+		expect(activationButton()).toBeNull();
+	});
+
+	it('offers no activation in any state while another deploy rolls out, and says why instead', async () => {
+		const rolling: Deployment = { ...later, deployment_id: 'ab0de000-3333-4000-8000-000000000003', started_at: 400 };
+		const rollingOut = { ...rolling, status: 'rolling_out' } as Deployment;
+		const states: Array<[string, Deployment[], RegExp, RegExp]> = [
+			['waiting', [rollingOut, staged], /^Staged: built and installed, but not live\.$/, /switches each node/],
+			['replaced', [rollingOut, later, activation, staged], /then replaced by/, /rolls hello back/],
+			[
+				'activating',
+				[
+					rollingOut,
+					{
+						...activation,
+						deployment_id: 'c0c0c0c0-4444-4000-8000-000000000004',
+						status: 'restarting',
+						started_at: 250,
+					},
+					activation,
+					staged,
+				],
+				/Being activated by/,
+				/If it stopped without finishing/,
+			],
+			[
+				'uncertain',
+				[rollingOut, { ...activation, status: 'failed' }, staged],
+				/^Its activation,.*failed\. Depending on where it failed/,
+				/retries it/,
+			],
+		];
+		for (const [kind, history, says, advice] of states) {
+			renderDetail(history);
+			expect(await screen.findByText(says), kind).toBeTruthy();
+			expect(screen.queryByText(advice), kind).toBeNull();
+			expect(screen.getByText(/finishes rolling out/).textContent, kind).toMatch(
+				/^Until ab0de000 finishes rolling out/,
+			);
+			expect(activationButton(), kind).toBeNull();
+			cleanup();
+		}
+	});
+
+	it('also waits out a rollout that began before this release was staged', async () => {
+		state.rolling = [{
+			...later,
+			deployment_id: 'ab0de000-5555-4000-8000-000000000005',
+			status: 'rolling_out',
+			started_at: 50,
+		}];
+		renderDetail([staged]);
+		expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(
+			/^Until ab0de000 finishes rolling out/,
+		);
+		expect(screen.getByText(/^Staged: built and installed, but not live\.$/)).toBeTruthy();
+		expect(activationButton()).toBeNull();
+		expect(state.post).toHaveBeenCalledWith(
+			'/',
+			expect.objectContaining({
+				operation: 'list_deployments',
+				project: 'hello',
+				status: 'rolling_out',
+				since: undefined,
+			}),
+		);
+		cleanup();
+
+		// Asked by status on its own poll, which can lag the records that already show the rollout.
+		state.rolling = [];
+		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
+		expect(await screen.findByText(/is taking over/)).toBeTruthy();
+		expect(screen.getByText(/finishes rolling out/)).toBeTruthy();
 		expect(activationButton()).toBeNull();
 	});
 
@@ -264,6 +347,18 @@ describe('StagedReleaseDetail', () => {
 		expect(await screen.findByText(/Live: activated by/)).toBeTruthy();
 		expect(activationButton()?.textContent).toContain('Activate again');
 	});
+
+	it('refuses a retry of an activation that failed here while another deploy rolls out', async () => {
+		renderDetail([staged]);
+		const rolling = { ...later, deployment_id: 'ab0de000-6666-4000-8000-000000000006', status: 'rolling_out' };
+		await activateHere({ reject: new Error('node b did not restart') }, [rolling, staged]);
+		expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(
+			/^Until ab0de000 finishes rolling out/,
+		);
+		const button = activationButton() as HTMLButtonElement;
+		expect(button.textContent).toContain('Activate again');
+		expect(button.disabled).toBe(true);
+	});
 });
 
 describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds', () => {
@@ -312,6 +407,31 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 		const button = activationButton() as HTMLButtonElement;
 		expect(button.textContent).toContain('Activate again');
 		expect(button.disabled).toBe(false);
+	});
+
+	it('offers no rollback of a replaced release while another deploy rolls out, though every node holds it', async () => {
+		const runsLater = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'kept']]);
+		state.releases = { nodes: [runsLater('a'), runsLater('b')] };
+		const rolling = {
+			...later,
+			deployment_id: 'ab0de000-7777-4000-8000-000000000007',
+			status: 'rolling_out',
+			started_at: 400,
+		};
+		renderDetail([rolling, later, activation, staged]);
+		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		expect(screen.getByText(/then replaced by/)).toBeTruthy();
+		expect(screen.getByText(/finishes rolling out/).textContent).toMatch(/^Until ab0de000 finishes rolling out/);
+		expect(activationButton()).toBeNull();
+		cleanup();
+
+		// Live on b contradicts `replaced`, so the records' note goes; the reason nothing is offered stays.
+		state.releases = { nodes: [runsLater('a'), holding('b', STAGED_ID, [])] };
+		renderDetail([rolling, later, activation, staged]);
+		expect(await screen.findByText(/^Live on b\. The other nodes hold it/)).toBeTruthy();
+		expect(screen.queryByText(/then replaced by/)).toBeNull();
+		expect(screen.getByText(/finishes rolling out/).textContent).toMatch(/^Until ab0de000 finishes rolling out/);
+		expect(activationButton()).toBeNull();
 	});
 
 	it('offers no activation while a later deploy rolls out, wherever the nodes say this release is live', async () => {
