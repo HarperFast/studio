@@ -1,5 +1,6 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import {
 	copyEditorFileContent,
 	discardEditorFileContent,
@@ -12,7 +13,7 @@ import {
 	forgetReplacedPath,
 	moveEditedPath,
 } from '@/features/instance/applications/lib/editorPathState';
-import { editorSavesInFlight, startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
+import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
@@ -22,6 +23,15 @@ import { describeError } from '@/react-query/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';
+
+export function refuseRenameDuringSave() {
+	toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+}
+
+interface RenameOptions {
+	startedByCaller?: boolean;
+	signal?: AbortSignal;
+}
 
 export function useRenameFiles() {
 	const {
@@ -33,15 +43,29 @@ export function useRenameFiles() {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 
-	return useCallback(async (changes: { from: string; to: string }[]): Promise<boolean> => {
+	return useCallback(async (
+		changes: { from: string; to: string }[],
+		{ startedByCaller = false, signal }: RenameOptions = {},
+	): Promise<boolean> => {
 		let canceled = false;
 		const actualChanges = changes.filter(change => change.from !== change.to);
 
 		if (actualChanges.length === 0) {
 			return true;
 		}
-		if (editorSavesInFlight(queryClient).some(saving => saving.entityId === instanceParams.entityId)) {
-			toast.info('Nothing was renamed', { description: 'A save is in progress. Rename again once it finishes.' });
+		const cancellation = new AbortController();
+		signal?.addEventListener('abort', () => cancellation.abort(), { once: true });
+		if (signal?.aborted) {
+			cancellation.abort();
+		}
+		const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
+		const starting = startedByCaller
+			? Promise.resolve(() => undefined)
+			: startRename(queryClient, instanceParams.entityId, {
+				paths: actualChanges.flatMap(change => [change.from, change.to]),
+			}, cancellation.signal);
+		if (!starting) {
+			refuseRenameDuringSave();
 			return false;
 		}
 
@@ -52,6 +76,7 @@ export function useRenameFiles() {
 				label: 'Cancel',
 				onClick: () => {
 					canceled = true;
+					cancellation.abort();
 				},
 			},
 		};
@@ -75,7 +100,15 @@ export function useRenameFiles() {
 			});
 		}
 
-		const endRename = startRename(instanceParams.entityId);
+		const endRename = await starting;
+		if (
+			!endRename || cancellation.signal.aborted
+			|| authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration
+		) {
+			endRename?.();
+			toast.warning('Rename Cancelled', { id: toastConfig.id, description: 'Nothing was renamed.', duration: 10000 });
+			return false;
+		}
 		try {
 			for (const change of actualChanges) {
 				const oldParts = change.from.split('/');

@@ -12,6 +12,7 @@ import {
 import {
 	editorSaveKey,
 	editorSavesInFlight,
+	holdForSave,
 	isRenaming,
 } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
@@ -24,13 +25,14 @@ import {
 } from '@/integrations/api/instance/applications/getComponentFile';
 import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
+	setComponentFile,
 	SetComponentFileRequest,
 	useSetComponentFile,
 } from '@/integrations/api/instance/applications/setComponentFile';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
-import { useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
@@ -51,6 +53,14 @@ interface LoadedContents {
 function entryKeyOf(entityId: string, path: string | undefined) {
 	return path === undefined ? undefined : `${entityId}:${path}`;
 }
+
+// Sign-out clears the mutation cache, and nothing from before it may reach the next session.
+function signedOutSince(queryClient: QueryClient, saved: SetComponentFileRequest) {
+	return !queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
+}
+
+/** A save that waited for another tab past the end of its session: nothing was sent, so nothing settles. */
+const notSent = Symbol('not sent');
 
 interface SaveRefusal {
 	id: string;
@@ -220,21 +230,18 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Save changes.
 	 */
-	const settleSave = useCallback(async (_response: unknown, saved: SetComponentFileRequest) => {
+	const settleSave = useCallback(async (response: unknown, saved: SetComponentFileRequest) => {
 		const { entityId, instanceClient, project, file, payload } = saved;
-		if (payload === undefined) {
+		if (response === notSent || payload === undefined) {
 			return;
 		}
-		// Sign-out clears the mutation cache, and nothing from before it may reach the next session's caches.
-		const signedOut = () =>
-			!queryClient.getMutationCache().getAll().some(mutation => mutation.state.variables === saved);
-		if (signedOut()) {
+		if (signedOutSince(queryClient, saved)) {
 			return;
 		}
 		const queryKey = getComponentFileQueryKey({ entityId, instanceClient, project, file });
 		// A read sent before the save landed would otherwise put the old contents back.
 		await queryClient.cancelQueries({ queryKey, exact: true });
-		if (signedOut()) {
+		if (signedOutSince(queryClient, saved)) {
 			return;
 		}
 		// With the file's identity, which a cache entry that was never read lacks. The response reports no
@@ -260,6 +267,17 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [queryClient]);
 	const { mutate: saveComponentFile, mutateAsync: writeComponentFile } = useSetComponentFile({
 		mutationKey: editorSaveKey,
+		mutationFn: request => {
+			const signOutGeneration = authStore.getSignOutGeneration(request.entityId);
+			const sessionEnded = () =>
+				signedOutSince(queryClient, request)
+				|| authStore.getSignOutGeneration(request.entityId) !== signOutGeneration;
+			return holdForSave(
+				request.entityId,
+				`${request.project}/${request.file}`,
+				async () => sessionEnded() ? notSent : setComponentFile(request),
+			);
+		},
 		onSuccess: settleSave,
 	});
 	const savingEntryKeys = useMutationState({
@@ -271,7 +289,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const refusalOf = useCallback((data: SetComponentFileRequest): SaveRefusal | undefined => {
 		const savedKey = savedEntryKeyOf(data);
 		const name = data.file.split('/').at(-1);
-		if (isRenaming(data.entityId)) {
+		if (isRenaming(queryClient, data.entityId)) {
 			return {
 				id: `save-during-rename:${savedKey}`,
 				title: `${name} was not saved`,
@@ -308,7 +326,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			if (refusal) {
 				throw new Error(`${refusal.title}. ${refusal.description}`);
 			}
-			await writeComponentFile(data);
+			if (await writeComponentFile(data) === notSent) {
+				throw new Error(`${data.file.split('/').at(-1)} was not saved. The session ended before it was sent.`);
+			}
 		},
 		[refusalOf, writeComponentFile],
 	);

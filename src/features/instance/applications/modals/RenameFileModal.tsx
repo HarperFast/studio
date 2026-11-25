@@ -14,16 +14,22 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { LengthLimitedInput } from '@/components/ui/form/LengthLimitedInput';
 import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
+import type { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
+import {
+	calculateRootEntries,
+} from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
-import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { refuseRenameDuringSave, useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { forgetDeletedPath } from '@/features/instance/applications/lib/editorPathState';
 import { startRename } from '@/features/instance/applications/lib/editorSaveInterlock';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { getComponents } from '@/integrations/api/instance/applications/getComponents';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
@@ -33,7 +39,7 @@ import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { PencilIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
@@ -44,10 +50,42 @@ function collectFiles(entry: DirectoryEntry | FileEntry): FileEntry[] {
 	return isDirectory(entry) ? entry.entries.flatMap(collectFiles) : [entry];
 }
 
+function entryAt(entries: Array<DirectoryEntry | FileEntry>, path: string): DirectoryEntry | FileEntry | undefined {
+	for (const entry of entries) {
+		if (entry.path === path) {
+			return entry;
+		}
+		if (isDirectory(entry) && path.startsWith(`${entry.path}/`)) {
+			return entryAt(entry.entries, path);
+		}
+	}
+	return undefined;
+}
+
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const abort = () => reject(signal.reason);
+		signal.addEventListener('abort', abort, { once: true });
+		void promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+	});
+}
+
+async function folderMoves(instanceParams: InstanceClientIdConfig, from: string, to: string, signal: AbortSignal) {
+	const { entries } = await untilAborted(getComponents(instanceParams), signal);
+	const folder = entryAt(calculateRootEntries(entries).rootEntries, from);
+	if (!folder || !isDirectory(folder)) {
+		throw new Error(`${from} is no longer on the instance.`);
+	}
+	return collectFiles(folder).map(file => ({ from: file.path, to: to + file.path.slice(from.length) }));
+}
+
 export function RenameFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRenameFileModal', false);
+	const cancelOnClose = useRef<AbortController>(undefined);
+	useEffect(() => () => cancelOnClose.current?.abort(), []);
 
 	const closeModal = useCallback(() => {
+		cancelOnClose.current?.abort();
 		setWatchedValue('ShowRenameFileModal', false);
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
@@ -110,46 +148,73 @@ export function RenameFileModal() {
 			}
 		}
 
-		const changes = isDir
-			? collectFiles(openedEntry).map(file => ({
-				from: file.path,
-				to: to + file.path.slice(openedEntry.path.length),
-			}))
-			: [{ from: openedEntry.path, to }];
-
+		const cancellation = new AbortController();
+		const folderRename = isDir
+			? startRename(queryClient, instanceParams.entityId, 'instance', cancellation.signal)
+			: undefined;
+		if (isDir && !folderRename) {
+			refuseRenameDuringSave();
+			return;
+		}
+		const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
+		const givenUp = () =>
+			cancellation.signal.aborted || authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration;
 		setIsPending(true);
-		const renamed = await renameFiles(changes);
-
-		// Moving the files leaves the original (now-empty) directory behind, so once
-		// the move fully succeeds recreate the renamed shell (for empty folders) and
-		// drop the old one. `relative` strips the leading project segment.
-		if (renamed && isDir) {
-			const relative = (path: string) => path.split('/').slice(1).join('/');
-			// Saves still wait while the old folder is dropped: that drop is part of the rename.
-			const endRename = startRename(instanceParams.entityId);
-			try {
-				if (changes.length === 0) {
-					await setComponentFile({
-						...instanceParams,
-						project: openedEntry.project,
-						file: relative(to),
-						payload: undefined,
-					});
+		cancelOnClose.current = cancellation;
+		const endFolderRename = await folderRename;
+		let renamed: boolean;
+		try {
+			let changes = [{ from: openedEntry.path, to }];
+			if (endFolderRename && !givenUp()) {
+				try {
+					changes = await folderMoves(instanceParams, openedEntry.path, to, cancellation.signal);
+				} catch (error) {
+					if (!givenUp()) {
+						toast.error('Rename Failed', {
+							description: error instanceof Error ? error.message : 'Could not list the folder.',
+						});
+						setIsPending(false);
+						return;
+					}
 				}
-				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
-				forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
-				await reloadRootEntries();
-			} catch (error) {
-				const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
-					title: 'Rename Failed',
-					description: error instanceof Error ? error.message : 'Could not remove the original directory.',
-				};
-				toast.error(title, { description });
+			}
+			if (givenUp()) {
+				toast.warning('Rename Cancelled', { description: 'Nothing was renamed.', duration: 10000 });
 				setIsPending(false);
 				return;
-			} finally {
-				endRename();
 			}
+			renamed = await renameFiles(changes, { startedByCaller: isDir, signal: cancellation.signal });
+
+			// Moving the files leaves the original (now-empty) directory behind, so once
+			// the move fully succeeds recreate the renamed shell (for empty folders) and
+			// drop the old one. `relative` strips the leading project segment.
+			if (renamed && isDir) {
+				const relative = (path: string) => path.split('/').slice(1).join('/');
+				try {
+					if (changes.length === 0) {
+						await setComponentFile({
+							...instanceParams,
+							project: openedEntry.project,
+							file: relative(to),
+							payload: undefined,
+						});
+					}
+					await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
+					forgetDeletedPath(queryClient, instanceParams.entityId, openedEntry.path);
+					await reloadRootEntries();
+				} catch (error) {
+					const { title, description } = isUnansweredWrite(error) ? describeError(error) : {
+						title: 'Rename Failed',
+						description: error instanceof Error ? error.message : 'Could not remove the original directory.',
+					};
+					toast.error(title, { description });
+					setIsPending(false);
+					return;
+				}
+			}
+		} finally {
+			cancelOnClose.current = undefined;
+			endFolderRename?.();
 		}
 
 		setIsPending(false);

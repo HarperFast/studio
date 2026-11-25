@@ -76,8 +76,29 @@ written something newer.
 A rename or move reads a file, copies it and its buffer, then drops it, so a save that lands in between writes to the
 file being dropped and clears the buffer the copy needs. Within a tab the two never overlap on an instance
 ([`editorSaveInterlock`](lib/editorSaveInterlock.ts)): `useRenameFiles` refuses while an editor save is in flight, and
-the save refuses while a rename is, each saying why. Another tab's saves and renames are not seen (#1964). The Rename
-dialog and the toolbar's Rename and Restart are disabled while a save is in flight.
+the save refuses while a rename is, each saying why. The Rename dialog and the toolbar's Rename and Restart are disabled
+while a save is in flight.
+
+Across the tabs of one browser they wait for each other instead (#1964): neither tab can show what the other is doing,
+and a rename that waits for a save copies what was saved. They wait through Web Locks, which every tab of the origin
+shares and a closed tab releases. A save holds the instance and its file shared, so saves never wait for each other. A
+rename or move holds the instance shared and each path it reads, writes or drops exclusively, so a save of another file
+goes ahead. A folder rename holds the instance exclusively from its first move until the old folder is dropped, because
+that drop takes every file under it and Web Locks have no lock on a prefix. Once it holds that lock it lists the
+folder's files from the instance, since this tab's tree can lack one another tab made. Each takes the instance first and
+then its paths in sorted order, all before sending anything, so two tabs can never each hold what the other waits for.
+Lock names carry the instance id and the path and nothing more, since any script on the page can list them.
+
+A save waits inside its mutation, so it reads as saving meanwhile. A file rename or move waits under its progress toast,
+and a folder rename in its pending dialog. While a rename waits for another tab, or a folder rename lists its files, the
+toast's Cancel or closing the dialog gives it up before it writes anything, and this tab's saves go ahead again. Once it
+is moving files, only the toast's Cancel stops it, between files, as before. A save or rename whose instance was signed
+out of while it waited sends nothing, since the next session's credentials would carry it. A save that waited out
+another tab's rename of its file still writes the path it was sent for, so the file comes back there with what was
+saved, beside the renamed copy, rather than being lost. Without Web Locks (an insecure context, an older browser), or
+when they refuse a request (logged with `console.debug`, which RUM doesn't collect), only the tab's own interlock holds.
+Another browser can still interleave, as can a write that isn't an editor save: New File, an upload, the assistant's
+`setComponentFile` tool. Closing that needs renames the server makes atomic.
 
 ## When a deploy is done
 

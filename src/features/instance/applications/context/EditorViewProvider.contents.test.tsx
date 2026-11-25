@@ -22,7 +22,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => {
 	const reads = { pending: undefined as Promise<void> | undefined, sent: 0 };
-	const writes = { pending: undefined as Promise<void> | undefined };
+	const writes = { pending: undefined as Promise<void> | undefined, sent: 0 };
 	function instance(entityId: string) {
 		const files: Record<string, string> = {};
 		const instanceClient = {
@@ -35,6 +35,7 @@ const server = vi.hoisted(() => {
 					return { data: { message, size: message.length, mtime: 'when it was read' } };
 				}
 				if (body.operation === 'set_component_file') {
+					writes.sent++;
 					await writes.pending;
 					files[body.file!] = body.payload ?? '';
 					return { data: { message: 'Successfully set component' } };
@@ -184,6 +185,7 @@ afterEach(() => {
 	clearSessionStorage();
 	server.reads.pending = undefined;
 	server.writes.pending = undefined;
+	server.writes.sent = 0;
 });
 
 describe('EditorViewProvider openedEntryContents', () => {
@@ -343,7 +345,9 @@ describe('EditorViewProvider openedEntryContents', () => {
 	])('refuses a write %s, and says why', async (when, reason) => {
 		renderProvider();
 		await openEntry(script, SCRIPT);
-		const endRename = when.includes('rename') ? startRename(server.current.params.entityId) : undefined;
+		const endRename = when.includes('rename')
+			? await startRename(queryClient, server.current.params.entityId, 'instance')
+			: undefined;
 		if (!endRename) {
 			startSave(SAVED_SCRIPT);
 			await waitFor(() => expect(editorView.isSavingFile).toBe(true));
@@ -378,6 +382,7 @@ describe('EditorViewProvider openedEntryContents', () => {
 		renderProvider();
 		await openEntry(script, SCRIPT);
 		const finishSave = startSave(SAVED_SCRIPT);
+		await waitFor(() => expect(server.writes.sent).toBe(1));
 
 		cleanup();
 		act(() => {
@@ -393,6 +398,7 @@ describe('EditorViewProvider openedEntryContents', () => {
 		renderProvider();
 		await openEntry(script, SCRIPT);
 		const finishSave = startSave(SAVED_SCRIPT);
+		await waitFor(() => expect(server.writes.sent).toBe(1));
 		cleanup();
 		act(() => {
 			queryClient.getMutationCache().clear();
