@@ -24,7 +24,8 @@ export function getInstanceAddress({ instanceFqdn }: Pick<Instance, 'instanceFqd
 	return instanceFqdn && parseInstanceFqdn(instanceFqdn) ? instanceFqdn.trim() : null;
 }
 
-function parseInstanceFqdn(fqdn: string | undefined): URL | null {
+function parseInstanceFqdn(rawFqdn: string | undefined): URL | null {
+	const fqdn = rawFqdn?.trim();
 	if (!fqdn) {
 		return null;
 	}

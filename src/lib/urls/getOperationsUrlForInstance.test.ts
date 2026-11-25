@@ -52,7 +52,7 @@ describe('getOperationsUrlForInstance', () => {
 });
 
 describe('getInstanceAddress', () => {
-	it.each([undefined, '', '   ', 'https://', ' node.example.com'])(
+	it.each([undefined, '', '   ', 'https://'])(
 		'has no address for an FQDN of %j, which has no operations URL either',
 		(instanceFqdn) => {
 			expect(getInstanceAddress({ instanceFqdn })).toBeNull();
@@ -61,8 +61,16 @@ describe('getInstanceAddress', () => {
 		},
 	);
 
-	it('gives the FQDN back without padding a URL ignores', () => {
-		expect(getInstanceAddress({ instanceFqdn: 'node.example.com ' })).toBe('node.example.com');
+	it.each([' node.example.com', 'node.example.com ', '\tnode.example.com\n'])(
+		'reads %j as node.example.com, on either side of the padding',
+		(instanceFqdn) => {
+			expect(getInstanceAddress({ instanceFqdn })).toBe('node.example.com');
+			expect(getOperationsUrlForInstance({ instanceFqdn, operationsApiPort: 9925, operationsApiSecure: true }))
+				.toBe('https://node.example.com:9925/');
+		},
+	);
+
+	it('gives an IP address back as it is', () => {
 		expect(getInstanceAddress({ instanceFqdn: '10.0.0.4' })).toBe('10.0.0.4');
 	});
 });
