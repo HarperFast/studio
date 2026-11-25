@@ -30,9 +30,8 @@ export function getChatUsageQueryOptions(orgId: string) {
 }
 
 /**
- * After a chat turn, re-read usage so the bar shows what the turn spent. Not while the cached answer is a
- * 403: the refusal won't change per turn. Remount and window refocus still re-ask, so a member granted
- * access later sees the bar without a reload.
+ * Skips a cached 403, which won't change from one chat turn to the next. Remount and window refocus still
+ * re-ask, so a member granted access later sees the bar without a reload.
  */
 export function invalidateChatUsageUnlessRefused(queryClient: QueryClient, orgId: string) {
 	const { queryKey } = getChatUsageQueryOptions(orgId);
