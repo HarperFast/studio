@@ -122,7 +122,9 @@ Changing the format:
 ## No address or credential in the URL
 
 AGENTS.md's "Never put an address or a credential in a URL" applies here: Datadog RUM and every third-party pixel read
-the page URL, and `redactSensitiveParams` leaves `log` alone. The contract complies. It holds no e-mail address, no
+the page URL. `redactSensitiveParams` doesn't redact `log` by name. It rewrites only address-shaped text anywhere in
+the URL (`name@host.tld`), so RUM's copy of a link matches the link unless a value holds one, and the pixels get the
+URL unredacted. The contract complies. It holds no e-mail address, no
 credential, no message text and no search text: `buildLogLink` deletes `filter`, and `logView.test.ts` asserts that
 neither reaches the link. What it does hand those parties:
 

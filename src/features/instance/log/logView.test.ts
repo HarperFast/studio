@@ -89,8 +89,17 @@ describe('logs view contracts', () => {
 	it('accepts only the bookmark fields, sizes, files and time range DESIGN.md documents', () => {
 		const valid = { timestamp: '2026-11-19T21:45:00.123Z', node: '', thread: '', fingerprint: 'a', source: 'hdb.log' };
 		expect(parseLogTarget({ ...valid, message: 'secret token: abc', filter: 'private' })).toStrictEqual(valid);
+		expect(validateLogSearch({ log: valid, filter: 'private', from: valid.timestamp })).toStrictEqual({ log: valid });
+		// Whitespace inside the JSON keeps it valid, so only the length decides these two.
+		const padded = (length: number) => JSON.stringify(valid).slice(0, -1).padEnd(length - 1) + '}';
+		expect(parseLogTarget(padded(2048))).toStrictEqual(valid);
+		expect(parseLogTarget(padded(2049))).toBeUndefined();
+		// Extra fractional digits still parse, so only the 64-character cap decides these two.
+		const longTimestamp = (length: number) => '2026-11-19T21:45:00.123'.padEnd(length - 1, '0') + 'Z';
+		expect(Date.parse(longTimestamp(65))).toBe(Date.parse(valid.timestamp));
 		for (
 			const accepted of [
+				{ ...valid, timestamp: longTimestamp(64) },
 				{ ...valid, timestamp: '1970-01-01T00:00:30.000Z' },
 				{ ...valid, timestamp: '9998-12-30T23:59:59.999Z' },
 				{ ...valid, node: 'n'.repeat(512), thread: 't'.repeat(256), fingerprint: 'f'.repeat(32), source: 'system.log' },
@@ -105,10 +114,14 @@ describe('logs view contracts', () => {
 				{ ...valid, timestamp: '1970-01-01T00:00:29.999Z' },
 				{ ...valid, timestamp: '9998-12-31T00:00:00.000Z' },
 				{ ...valid, timestamp: '1763588700123' },
+				{ ...valid, timestamp: longTimestamp(65) },
+				...(['timestamp', 'node', 'thread', 'fingerprint', 'source'] as const).map(key => ({
+					...valid,
+					[key]: undefined,
+				})),
 				{ ...valid, node: 'n'.repeat(513) },
 				{ ...valid, thread: 't'.repeat(257) },
 				{ ...valid, fingerprint: 'f'.repeat(33) },
-				{ ...valid, node: undefined },
 				{ ...valid, node: 1 },
 				[valid],
 				42,
