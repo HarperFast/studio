@@ -6,10 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { alterUser, auth, instanceParams, probe, roles } = vi.hoisted(() => ({
+const { alterUser, auth, instanceParams, listRoles, probe, roles } = vi.hoisted(() => ({
 	alterUser: vi.fn(),
 	auth: { value: { user: null as LocalUser | null } },
 	instanceParams: { instanceClient: {}, entityType: 'cluster' },
+	listRoles: vi.fn(),
 	probe: { fetch: async (): Promise<{ version: string }> => ({ version: '5.4.1' }) },
 	roles: { value: [] as LocalRole[] },
 }));
@@ -28,7 +29,7 @@ vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClientParams: () => instanceParams,
 }));
 vi.mock('@/integrations/api/instance/auth/getListRoles', () => ({
-	getListRolesQueryOptions: () => ({ queryKey: ['roles'], queryFn: async () => roles.value }),
+	getListRolesQueryOptions: () => ({ queryKey: ['roles'], queryFn: listRoles }),
 }));
 vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 	getHarperVersionProbeOptions: () => ({ queryKey: ['registration_info'], queryFn: () => probe.fetch(), retry: false }),
@@ -83,6 +84,8 @@ beforeEach(() => {
 	alterUser.mockReset();
 	auth.value = { user: viewer };
 	roles.value = [superRole, plainRole];
+	listRoles.mockReset();
+	listRoles.mockImplementation(async () => roles.value);
 	probe.fetch = async () => ({ version: '5.4.1' });
 	client = new QueryClient();
 });
@@ -113,6 +116,15 @@ function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
 
 function activeSwitch() {
 	return screen.queryByRole('switch', { name: 'Active' }) as HTMLButtonElement | null;
+}
+
+function roleSelect() {
+	return screen.queryByRole('combobox') as HTMLButtonElement | null;
+}
+
+function setPassword(password: string) {
+	fireEvent.change(screen.getByLabelText('Change Password'), { target: { value: password } });
+	fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: password } });
 }
 
 async function save() {
@@ -150,7 +162,9 @@ describe('EditUserModal active toggle', () => {
 	it('leaves active out of the request when the switch was not changed', async () => {
 		renderModal(alice);
 
-		expect(await save()).not.toHaveProperty('active');
+		const sent = await save();
+		expect(sent).not.toHaveProperty('active');
+		expect(sent).toHaveProperty('role', 'plain');
 	});
 
 	it.each([
@@ -170,13 +184,13 @@ describe('EditUserModal active toggle', () => {
 		['a role without super_user', { super_user: false }],
 		['a structure user without an allowlist', { super_user: false, structure_user: true }],
 		['an allowlist that does not grant alter_user', { operations: ['list_users', 'list_roles'] }],
-		['an allowlist without list_roles, which the modal needs to render', { operations: ['list_users', 'alter_user'] }],
 	])('hides the switch from %s', async (_, permission) => {
 		auth.value = { user: user('limited', true, role('limited', permission as LocalRolePermission)) };
 		renderModal(alice);
 		await versionSettled();
 
 		expect(activeSwitch()).toBeNull();
+		setPassword('new-password');
 		expect(await save()).not.toHaveProperty('active');
 	});
 
@@ -186,7 +200,7 @@ describe('EditUserModal active toggle', () => {
 		auth.value = { user: user('delegate', true, delegateRole()) };
 		const dormant = user('dormant', false, plainRole);
 		renderModal(dormant);
-		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
+		await waitFor(() => expect(screen.getByLabelText('Change Password')).toBeTruthy());
 
 		expect(activeSwitch()).toBeNull();
 
@@ -285,6 +299,82 @@ describe('EditUserModal active toggle', () => {
 		renderModal(admin, [viewer, admin]);
 
 		expect(activeSwitch()?.disabled).toBe(false);
+	});
+});
+
+describe('EditUserModal for a role that cannot list roles', () => {
+	const delegate = () => user('delegate', true, delegateRole(['list_users', 'alter_user']));
+
+	beforeEach(() => {
+		auth.value = { user: delegate() };
+	});
+
+	it("opens without reading the roles, and shows the user's role read-only", async () => {
+		renderModal(alice);
+		await waitFor(() => expect(roleSelect()).not.toBeNull());
+
+		expect(roleSelect()?.disabled).toBe(true);
+		expect(roleSelect()?.textContent).toContain('plain');
+		expect(screen.getByText(/Changing the role needs list_roles/)).toBeTruthy();
+		expect(listRoles).not.toHaveBeenCalled();
+	});
+
+	it('offers the Active switch, and sends an Active change without a role', async () => {
+		renderModal(alice);
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+
+		const sent = await save();
+		expect(sent).toMatchObject({ username: 'alice', active: false });
+		expect(sent).not.toHaveProperty('role');
+	});
+
+	it('sends a password change without a role', async () => {
+		renderModal(alice);
+		await waitFor(() => expect(roleSelect()).not.toBeNull());
+		setPassword('new-password');
+
+		const sent = await save();
+		expect(sent).toMatchObject({ username: 'alice', password: 'new-password' });
+		expect(sent).not.toHaveProperty('role');
+	});
+
+	it('keeps Save off until there is a password or Active change to send', async () => {
+		renderModal(alice);
+		await waitFor(() => expect(activeSwitch()).not.toBeNull());
+		const saveButton = screen.getByRole('button', { name: /Save Changes/ }) as HTMLButtonElement;
+
+		expect(saveButton.disabled).toBe(true);
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+		expect(saveButton.disabled).toBe(false);
+		await act(async () => {
+			fireEvent.click(activeSwitch()!);
+		});
+		expect(saveButton.disabled).toBe(true);
+	});
+
+	it.each([
+		['one that can list roles', ['list_users', 'list_roles', 'alter_user'], false],
+		['one that cannot', ['list_users', 'alter_user'], true],
+	])('shows no role field until the version settles, then the final one, for %s', async (_, operations, readOnly) => {
+		let answerVersion: (response: { version: string }) => void = () => {};
+		probe.fetch = () => new Promise((resolve) => (answerVersion = resolve));
+		auth.value = { user: user('delegate', true, delegateRole(operations)) };
+		renderModal(alice);
+		await waitFor(() => expect(screen.getByLabelText('Change Password')).toBeTruthy());
+
+		expect(roleSelect()).toBeNull();
+		expect(screen.queryByText(/Changing the role needs list_roles/)).toBeNull();
+
+		await act(async () => answerVersion({ version: '5.4.1' }));
+
+		await waitFor(() => expect(roleSelect()).not.toBeNull());
+		expect(roleSelect()?.disabled).toBe(readOnly);
+		expect(roleSelect()?.textContent).toContain('plain');
 	});
 });
 
