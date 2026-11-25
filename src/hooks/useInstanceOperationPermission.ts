@@ -1,14 +1,14 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { checkInstanceOperationAllowed } from '@/hooks/checkOperationPermission';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useQuery } from '@tanstack/react-query';
 
 /** `undefined` while the answer is loading, for a caller that must wait rather than deny. */
 export function useInstanceOperationAccess(operation: string): boolean | undefined {
 	const instanceParams = useInstanceClientIdParams();
 	const { user } = useInstanceAuth(instanceParams.entityId);
-	const registrationInfo = useQuery(getHarperVersionProbeOptions(instanceParams));
+	const registrationInfo = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	const version = registrationInfo.data
 		? registrationInfo.data.version || null
 		: registrationInfo.isError

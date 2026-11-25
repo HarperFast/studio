@@ -23,7 +23,7 @@ import { useInstanceOperationPermission } from '@/hooks/useInstanceOperationPerm
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { instanceModelNames, supportsModels } from '@/integrations/api/instance/models/models';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
-import { getHarperVersionProbeOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
@@ -69,7 +69,7 @@ function LoadedSchemaEditorView({
 	const { openedEntry, isSavingFile, saveFile } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceOperationPermission('set_component_file');
-	const { data: registrationInfo } = useQuery(getHarperVersionProbeOptions(instanceParams));
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	// Only a super user can read the settings that hold the model names; otherwise they are typed.
 	const isSuperUser = useInstanceManagePermission();
 	const { data: configuration } = useQuery({
