@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authStore, OverallAppSignIn } from './authStore';
-import { legacySignInMarkersKey, signInMarkerKey } from './signInMarkers';
+import { signInMarkerKey } from './signInMarkers';
 import { seedSignInMarkers, storedSignInMarkers } from './signInMarkersTestHelpers';
 
 const { fetchCurrentUser, getInstanceUserInfo, onInstanceLogoutSubmit } = vi.hoisted(() => ({
@@ -95,13 +95,13 @@ describe('sign-in markers another tab added', () => {
 });
 
 describe("a sign-in's marker", () => {
-	it('is the only one its sign-in writes, beside the legacy record', () => {
+	it('is the only one its sign-in writes', () => {
 		signInInAnotherTab('ins-other-tab');
 		const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
 		signInHere('ins-here');
 
-		expect(setItem.mock.calls.map(([key]) => key)).toEqual([signInMarkerKey('ins-here'), legacySignInMarkersKey]);
+		expect(setItem.mock.calls.map(([key]) => key)).toEqual([signInMarkerKey('ins-here')]);
 	});
 
 	it('is the only one its sign-out removes', () => {
