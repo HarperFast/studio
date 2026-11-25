@@ -86,6 +86,38 @@ describe('logs view contracts', () => {
 			expect(validateLogSearch({ log: value })).toEqual({});
 		}
 	});
+	it('accepts only the bookmark fields, sizes, files and time range DESIGN.md documents', () => {
+		const valid = { timestamp: '2026-11-19T21:45:00.123Z', node: '', thread: '', fingerprint: 'a', source: 'hdb.log' };
+		expect(parseLogTarget({ ...valid, message: 'secret token: abc', filter: 'private' })).toStrictEqual(valid);
+		for (
+			const accepted of [
+				{ ...valid, timestamp: '1970-01-01T00:00:30.000Z' },
+				{ ...valid, timestamp: '9998-12-30T23:59:59.999Z' },
+				{ ...valid, node: 'n'.repeat(512), thread: 't'.repeat(256), fingerprint: 'f'.repeat(32), source: 'system.log' },
+			]
+		) {
+			expect(validateLogSearch({ log: JSON.stringify(accepted) })).toStrictEqual({ log: accepted });
+		}
+		for (
+			const value of [
+				{ ...valid, source: 'audit.log' },
+				{ ...valid, source: '../hdb.log' },
+				{ ...valid, timestamp: '1970-01-01T00:00:29.999Z' },
+				{ ...valid, timestamp: '9998-12-31T00:00:00.000Z' },
+				{ ...valid, timestamp: '1763588700123' },
+				{ ...valid, node: 'n'.repeat(513) },
+				{ ...valid, thread: 't'.repeat(257) },
+				{ ...valid, fingerprint: 'f'.repeat(33) },
+				{ ...valid, node: undefined },
+				{ ...valid, node: 1 },
+				[valid],
+				42,
+			]
+		) {
+			expect(parseLogTarget(value)).toBeUndefined();
+			expect(validateLogSearch({ log: value })).toEqual({});
+		}
+	});
 	it('uses unambiguous shared row identity and the same duplicate rule before and after streaming', () => {
 		const a = { ...log, node: 'a|b', thread: 'c' };
 		const b = { ...log, node: 'a', thread: 'b|c' };

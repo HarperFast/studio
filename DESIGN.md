@@ -5,6 +5,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 ## Active design documents
 
 - [`src/features/instance/log/MAP.md`](src/features/instance/log/MAP.md) — navigation index for log inspection, transport, and context behavior.
+- [`src/features/instance/log/DESIGN.md`](src/features/instance/log/DESIGN.md) — the inbound bookmark URL (`?log=`) that opens Logs on one entry: what it accepts and drops, the bounded and cancellable read it starts, what a stale link shows, why it carries no address or credential, and that nothing builds one yet.
 
 - [`src/features/organizations/DESIGN.md`](src/features/organizations/DESIGN.md) — shared organization target policy, switch destinations, and account-menu behavior.
 
