@@ -8,22 +8,18 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { ClusterSearch } from '@/features/admin/components/ClusterSearch';
 import {
-	clusterPolicySearchQueryOptions,
 	MonitoringPolicy,
 	MonitoringPolicyApply,
 	MonitoringPolicyChange,
 	SetMonitoringPolicyResult,
 	useSetMonitoringPolicyMutation,
 } from '@/features/admin/monitoring/monitoringPolicyApi';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useContainerOpsPermission } from '@/hooks/usePermissions';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 // Central manager's limit on `reason`.
@@ -71,62 +67,9 @@ export function SetPolicyDialog({ initial, onClose }: { initial: PolicyTarget | 
 							onCancel={onClose}
 						/>
 					)
-					: <ClusterSearch onPick={setTarget} />}
+					: <ClusterSearch onPick={setTarget} trailing={(match) => <PolicyBadge policy={match.monitoringPolicy} />} />}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function ClusterSearch({ onPick }: { onPick: (target: PolicyTarget) => void }) {
-	const [term, setTerm] = useState('');
-	const debounced = useDebounce(term.trim(), 300);
-	const { data, isFetching, isError } = useQuery(clusterPolicySearchQueryOptions(debounced));
-
-	return (
-		<div className="space-y-3">
-			<div className="space-y-2">
-				<Label htmlFor="monitoring-cluster-search">Cluster</Label>
-				<Input
-					id="monitoring-cluster-search"
-					autoFocus
-					placeholder="perf-cluster or clu-…"
-					value={term}
-					onChange={(event) => setTerm(event.target.value)}
-				/>
-			</div>
-			{debounced && (
-				<div className="max-h-72 overflow-y-auto rounded-md border">
-					{isFetching && !data
-						? <Skeleton className="h-16 w-full" />
-						: isError
-						? <p className="p-3 text-sm text-muted-foreground">Search failed.</p>
-						: data?.length
-						? (
-							<ul>
-								{data.map((match) => (
-									<li key={match.clusterId}>
-										<button
-											type="button"
-											className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/30"
-											onClick={() => onPick(match)}
-										>
-											<span className="min-w-0">
-												<span className="block truncate">{match.clusterName}</span>
-												<span className="block truncate text-xs text-muted-foreground">
-													{match.organizationName} · {match.clusterId}
-													{match.clusterStatus ? ` · ${match.clusterStatus}` : ''}
-												</span>
-											</span>
-											<PolicyBadge policy={match.monitoringPolicy} />
-										</button>
-									</li>
-								))}
-							</ul>
-						)
-						: <p className="p-3 text-sm text-muted-foreground">No live cluster matches “{debounced}”.</p>}
-				</div>
-			)}
-		</div>
 	);
 }
 
