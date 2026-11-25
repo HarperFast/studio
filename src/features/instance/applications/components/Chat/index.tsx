@@ -5,6 +5,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { getChatMessages } from '@/integrations/api/chat/getChatMessages';
 import { getChatTransport } from '@/integrations/api/chat/getChatTransport';
+import { invalidateChatUsageUnlessRefused } from '@/integrations/api/chat/getChatUsage';
 import { unique } from '@/lib/arrays/unique';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useChat } from '@ai-sdk/react';
@@ -42,7 +43,7 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 		generateId: createIdGenerator(),
 		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
 		onFinish() {
-			void queryClient.invalidateQueries({ queryKey: ['getMyUsage'] });
+			invalidateChatUsageUnlessRefused(queryClient, organizationId);
 		},
 		async onToolCall({ toolCall }) {
 			// Check if it's a dynamic tool first for proper type narrowing
