@@ -78,16 +78,25 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 			if (replacesAccount && !(await clearPreviousAccount())) {
 				return false;
 			}
-			if (!stillCurrent()) {
-				// Taken here so the restore above still puts back what the previous account's wipe took.
-				taken = {
-					signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
-					signInRevision: authStore.getSignInRevision(OverallAppSignIn),
-				};
+			const before = {
+				signOutGeneration: authStore.getSignOutGeneration(OverallAppSignIn),
+				signInRevision: authStore.getSignInRevision(OverallAppSignIn),
+			};
+			// Settled before the account is taken in: taking it in re-runs this page's guard, which would follow a
+			// `?redirect=` it can't yet rule out.
+			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
+			if (
+				authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
+				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
+				|| !stillCurrent()
+			) {
+				// Taken here so the restore above still puts back what the previous account's wipe took, unless a sign-out
+				// or another sign-in landed meanwhile.
+				taken = before;
 				return false;
 			}
 			try {
-				authStore.setUserForEntity(OverallAppSignIn, user);
+				authStore.setUserForEntity(OverallAppSignIn, settled.user);
 			} finally {
 				// After taking the user in moves the sign-in revision, even when that throws partway, so the restore above
 				// still puts back what the previous account's wipe took.
@@ -96,7 +105,7 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 					signInRevision: authStore.getSignInRevision(OverallAppSignIn),
 				};
 			}
-			const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+			const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(settled.user);
 			// A throttled `replaceState` or a broken analytics script must not strand a signed-in user on this page.
 			try {
 				clearUtmParamsFromUrl();
@@ -111,10 +120,10 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 				console.debug('Sign-in bookkeeping failed, carrying on:', error);
 			}
 			await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-			const target = await firstOpenTarget(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
 			if (!stillTaken() || !stillCurrent()) {
 				return false;
 			}
+			const { target } = settled;
 			if (target?.kind === 'server') {
 				followServerRedirect(target.href);
 			} else {
@@ -186,13 +195,14 @@ export function useCloudSignIn() {
 }
 
 /**
- * The first target this account can open (`redirectAccess.ts`). Asks `/User/current` only when a target needs staff
- * access to decide and the `/Login/` record can't say; when that fails, the target is followed as it always was.
+ * The record to take in, and the first target it can open. When `/User/current` had to settle a target, its record is
+ * the one taken in, so guards that run afterwards decide from the staff fields `/Login/` leaves out. A failed read
+ * follows the target, as sign-in did before it checked.
  */
-async function firstOpenTarget(
+async function settleSignIn(
 	user: User,
 	targets: Array<PostSignInRedirect | undefined>,
-): Promise<PostSignInRedirect | undefined> {
+): Promise<{ user: User; target: PostSignInRedirect | undefined }> {
 	let current: User | null | undefined;
 	for (const target of targets) {
 		if (target === undefined) {
@@ -201,19 +211,21 @@ async function firstOpenTarget(
 		let access = redirectAccess(user, target);
 		if (access === 'unknown') {
 			if (current === undefined) {
-				current = await fetchCurrentUser().catch((error: unknown) => {
+				const read = await fetchCurrentUser().catch((error: unknown) => {
 					console.debug('Could not read the signed-in account to check its sign-in target:', error);
 					return null;
 				});
+				// Another account's answer settles nothing about this one.
+				current = read?.id === user.id ? read : null;
 			}
 			access = current ? redirectAccess(current, target) : 'open';
 		}
 		if (access !== 'closed') {
-			return target;
+			return { user: current ?? user, target };
 		}
 		console.debug('Not following a sign-in target into an organization this account cannot open.');
 	}
-	return undefined;
+	return { user: current ?? user, target: undefined };
 }
 
 export function useLoginMutation() {

@@ -477,6 +477,37 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: '/profile' });
 	});
 
+	it('settles the target before taking the account in, then takes in the record it read', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		const full = { ...NEWCOMER, fabricRole: 'least_privileged', staffPermissions: [] };
+		let takenInWhileAsking: unknown = 'not asked';
+		get.mockImplementation(async () => {
+			// Taking it in re-runs the page's guard, which would follow the redirect for a /Login/ record.
+			takenInWhileAsking = authStore.getConnectionById(OverallAppSignIn).user;
+			return { data: full };
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(takenInWhileAsking).toBeNull();
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toEqual(full);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('ignores a /User/current answer for another account, and follows as before', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({
+			data: { id: 'usr-someone-else', roles: {}, fabricRole: 'least_privileged', staffPermissions: [] },
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(NEWCOMER));
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(NEWCOMER);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+	});
+
 	it('asks /User/current once for two targets it can’t open, then goes to the default route', async () => {
 		const flow = keepSignInRedirect('/org-2/clu-1/usage');
 		hashSearch.current = { redirect: previousAccountsPage };

@@ -32,7 +32,8 @@ function continueSignedIn(
 	{ orDefaultRoute }: { orDefaultRoute: boolean },
 ): void {
 	const named = postSignInRedirect(search?.redirect);
-	// Not into an organization this account can't open. `'unknown'` follows: a guard can't wait on `/User/current`.
+	// `'unknown'` follows, as sign-in does when it can't read `/User/current`: sign-in takes in that record whenever it
+	// had to ask, so only a failed read leaves the store without the staff fields.
 	const target = named && redirectAccess(user, named) !== 'closed' ? named : undefined;
 	if (target?.kind === 'server') {
 		// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land on a
