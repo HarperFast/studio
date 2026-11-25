@@ -89,9 +89,8 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-/** Until the version probe settles, an allowlisted role's switch is hidden no matter what it grants. */
 async function versionSettled() {
-	await waitFor(() => expect(client.getQueryState(['registration_info'])?.status).not.toBe('pending'));
+	await waitFor(() => expect(['success', 'error']).toContain(client.getQueryState(['registration_info'])?.status));
 }
 
 function renderModal(target: LocalUser, users: LocalUser[] = [viewer, target]) {
