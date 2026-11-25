@@ -10,7 +10,7 @@ import {
 	restoreSignInRedirect,
 	useEmailedFlow,
 } from '@/features/auth/pendingSignInRedirect';
-import { currentUserQueryKey, fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { currentUserQueryKey, fetchCurrentUser, getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { redirectAccess } from '@/features/auth/redirectAccess';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { User } from '@/integrations/api/api.patch';
@@ -90,9 +90,15 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 			// Settled before the account is taken in: taking it in re-runs this page's guard, which would follow a
 			// `?redirect=` it can't yet rule out.
 			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
+			if (settled === undefined) {
+				// The session is another account's now. Nothing is put back for this flow, and the tab follows the session.
+				void getCurrentUser().catch((error: unknown) => {
+					console.debug('Could not read the account that took the session:', error);
+				});
+				return false;
+			}
 			if (
-				settled === undefined
-				|| authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
+				authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
 				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
 				|| !stillCurrent()
 			) {

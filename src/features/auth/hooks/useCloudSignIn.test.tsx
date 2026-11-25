@@ -411,6 +411,7 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		authStore.signOutAllLocally();
 		appQueryClient.clear();
 		localStorage.clear();
+		get.mockReset();
 	});
 
 	it('goes to the account’s own default route instead, once /User/current says it isn’t staff', async () => {
@@ -505,8 +506,11 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		// The session belongs to someone else now: taking this account in would put its name over theirs.
 		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(false);
 
-		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
 		expect(navigate).not.toHaveBeenCalled();
+		// The tab follows the account that holds the session.
+		await waitFor(() =>
+			expect((authStore.getConnectionById(OverallAppSignIn).user as User | null)?.id).toBe('usr-someone-else')
+		);
 	});
 
 	it('asks nothing for a completion whose page has already moved on', async () => {
@@ -712,6 +716,20 @@ describe('useCompleteCloudSignIn — a target kept across an emailed link', () =
 		expect(navigate).not.toHaveBeenCalled();
 		expect(replace).not.toHaveBeenCalled();
 		expect(readSignInRedirect(flow)?.redirect).toBe(mcpAuthorize);
+	});
+
+	it('doesn’t put back what the previous account’s wipe took when another account takes the session', async () => {
+		const flow = keepSignInRedirect('/org-2/clu-1/usage');
+		get.mockResolvedValue({
+			data: { ...GRACE, id: 'usr-other', fabricRole: 'least_privileged', staffPermissions: [] },
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+		authStore.setUserForEntity(OverallAppSignIn, GRACE);
+
+		await expect(act(() => result.current(ADA))).resolves.toBe(false);
+
+		expect(readSignInRedirect(flow)).toBeUndefined();
+		get.mockReset();
 	});
 
 	it('puts back what the previous account’s wipe took when its page has moved on', async () => {
