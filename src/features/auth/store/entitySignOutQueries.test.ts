@@ -16,9 +16,6 @@ afterEach(() => {
 	queryClient.clear();
 });
 
-// Every local end of an entity's sign-in drops its cached reads: the per-entity sign-outs (instance sign-out, a
-// terminated or removed cluster, cluster setup) through `signOutLocally`, and Disconnect, the clusters list's sign-out,
-// a switch to Direct Sign In and entering a sign-in form through a null user.
 describe.each([
 	['signOutEntitiesLocally', (id: string) => authStore.signOutEntitiesLocally([id])],
 	['a null user', (id: string) => authStore.setUserForIdAndKey(id, `https://${id}.example.com:9925/`, null)],

@@ -10,6 +10,7 @@ vi.mock('@/integrations/api/instance/status/getRegistrationInfo', () => ({
 
 import { authStore } from '@/features/auth/store/authStore';
 import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
+import { removeEntityQueries } from '@/react-query/removeEntityQueries';
 import { isClaimedByRoute } from '@/react-query/routeQueryClaims';
 import { isCancelledError, QueryCache, QueryClient } from '@tanstack/react-query';
 import {
@@ -67,6 +68,31 @@ describe('ensureRouteQueryData', () => {
 		queryClient.getQueryCache().clear();
 
 		await expect(outcome(load)).resolves.toBe('pending');
+	});
+
+	it("leaves a load whose read an entity's sign-out dropped for the router to abandon (#1993)", async () => {
+		const load = ensureRouteQueryData(routeLoad(), {
+			queryKey: ['registration_info', 'clu-gone'],
+			queryFn: () => new Promise(() => undefined),
+		});
+
+		authStore.signOutLocally('clu-gone');
+		// The store sweeps the app's client; this test's client stands in for it.
+		removeEntityQueries(queryClient, 'clu-gone');
+
+		await expect(outcome(load)).resolves.toBe('pending');
+	});
+
+	it("rethrows a cancellation when only an entity its key doesn't name signed out", async () => {
+		const load = ensureRouteQueryData(routeLoad(), {
+			queryKey: ['registration_info', 'clu-here'],
+			queryFn: () => new Promise(() => undefined),
+		});
+
+		authStore.signOutLocally('clu-elsewhere');
+		queryClient.getQueryCache().clear();
+
+		expect(isCancelledError(await outcome(load))).toBe(true);
 	});
 
 	it('rethrows a cancellation no sign-out caused', async () => {

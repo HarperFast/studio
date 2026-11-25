@@ -45,7 +45,6 @@ describe('signOutOfInstance', () => {
 		for (const queryKey of [...dropped, ...kept]) {
 			queryClient.setQueryData(queryKey, { read: 'before the sign-out' });
 		}
-		// Central manager's records of the cluster and the instance, which the cluster page goes on showing.
 		const records = [
 			getClusterInfoQueryOptions('clu-1'),
 			getInstanceInfoQueryOptions({ clusterId: 'clu-1', instanceId: 'ins-a' }),
@@ -65,7 +64,6 @@ describe('signOutOfInstance', () => {
 		const queryKey = ['ins-a', 'get_components'];
 		queryClient.setQueryData(queryKey, { entries: ['from the previous session'] });
 		let answer!: (tree: { entries: string[] }) => void;
-		// The component-tree reload a CLI import waits on (`reloadRootEntries`).
 		const reload = queryClient.fetchQuery({
 			queryKey,
 			queryFn: () => new Promise<{ entries: string[] }>((resolve) => answer = resolve),

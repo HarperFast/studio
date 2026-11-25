@@ -67,7 +67,7 @@ describe('removeEntityQueries', () => {
 			heldClusterWorkflowQueryOptions('clu-1', 'wf-1'),
 		];
 		for (const options of records) {
-			// Through the real options, so the query carries their `meta`; only the network call is replaced.
+			// The real options, so the query carries their `meta`.
 			await queryClient.fetchQuery({ ...options, queryFn: () => ({}) } as never);
 		}
 
