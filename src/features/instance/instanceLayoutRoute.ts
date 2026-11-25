@@ -65,8 +65,7 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	if (context.cluster?.resetPassword) {
 		throw redirect({ to: `/${params.organizationId}/${params.clusterId}` });
 	}
-	// An instance listed without an address isn't opened, whatever sign-in is remembered for it: it goes to the
-	// Instances list, where its row offers no way in. Not to sign-in, whose guard sends a live direct session back here.
+	// Not to sign-in, whose guard sends a live direct session straight back here.
 	if (listsWithoutAddress(context.cluster, params.instanceId)) {
 		const { organizationId, clusterId } = params;
 		throw redirect({ to: buildAbsoluteLinkToPage({ organizationId, clusterId }, 'instances') });

@@ -172,7 +172,6 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 				params: { ...PARAMS, instanceId: 'ins-1' },
 			});
 
-		// Not to sign-in, whose guard (`redirectAwayFromInstanceSignInIfConnected`) sends a live direct user back.
 		it.each([
 			['signed in', { isLoading: false, user: { username: 'admin' } }],
 			['still being checked', { isLoading: true, user: null }],
