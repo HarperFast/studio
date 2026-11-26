@@ -8,8 +8,7 @@ import {
 	shouldFanOutSetConfiguration,
 } from './setConfiguration';
 
-// Each is what harper-pro's `replicateOperation` records as `reason` for a peer whose `set_configuration` threw that
-// error: `new Error(errorToString(error)).toString()`, rendered from the built harper-pro error classes.
+// In the format harper-pro's built error classes give through `new Error(errorToString(error)).toString()`.
 const REFUSED = {
 	validation: 'Error: HdbError: Harper config file validation error: "logging.level" must be one of [trace, debug]',
 	unrecognized: 'Error: HdbError: Unable to update config, unrecognized config parameter: logging_levle',
@@ -20,7 +19,6 @@ const REFUSED = {
 	pinnedModels: 'Error: ClientError: Cannot set models: HARPER_CONFIG defines models. Change that variable first.',
 };
 
-// What the same field holds for a peer that never answered, and for answers that are not a refusal of the setting.
 const NOT_REFUSED = {
 	refusedConnection: 'Error: connect ECONNREFUSED 10.0.3.7:9933',
 	closedFirst:

@@ -244,7 +244,6 @@ describe('useRollingConfigUpdate on a cluster that replicates set_configuration 
 		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
 			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
 			if (changes.replicated) {
-				// The fan-out call itself never answered, so no peer's result is known.
 				throw new AxiosError('Network Error', AxiosError.ERR_NETWORK);
 			}
 			return { message: 'ok' };
@@ -377,7 +376,6 @@ describe('useRollingConfigUpdate on a cluster that replicates set_configuration 
 });
 
 describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that refused it', () => {
-	// harper-pro's `replicateOperation` records each failed peer as `{ status: 'failed', reason, node }`.
 	const PINNED = 'Cannot set logging_level: HARPER_SET_CONFIG defines it. Change that variable first.';
 	const refused = (node: string, statusCode?: number) => ({
 		node,
@@ -392,7 +390,6 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 			`Error: The connection to wss://${node}:9933 closed (1006) before set_configuration was answered; its outcome there is unknown`,
 	});
 
-	/** The fan-out reaches ins-a, plus whatever each other peer answered. */
 	function fanOutAnswers(...failures: Array<ReturnType<typeof refused> | ReturnType<typeof unreachable>>) {
 		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
 			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
@@ -427,7 +424,6 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 
 		await save({ onRefused });
 
-		// Every restart target completed: only the peer's refusal keeps this from being a success.
 		expect(events).toEqual([
 			'check ins-b',
 			'write ins-b',
@@ -518,6 +514,21 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`outside-peer.example.com: ${PINNED}`);
 		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
 		expect(options?.description).not.toContain('far-peer');
+	});
+
+	it('names every peer that refused it', async () => {
+		fanOutAnswers(
+			refused('outside-peer.example.com'),
+			unreachable('far-peer.example.com'),
+			refused('other-peer.example.com', 400),
+		);
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(
+			`outside-peer.example.com: ${PINNED}\nother-peer.example.com: ${PINNED}`,
+		);
 	});
 
 	it('names no refusal when every peer applied it', async () => {

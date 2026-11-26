@@ -305,7 +305,10 @@ export function useRollingConfigUpdate(
 				}
 			}
 
-			refusal ??= [...peerRefusals].find(([node]) => !writtenNodes.has(node))?.[1];
+			refusal ??= [...peerRefusals]
+				.filter(([node]) => !writtenNodes.has(node))
+				.map(([, peerRefusal]) => peerRefusal)
+				.join('\n') || undefined;
 			if (refusal) {
 				onRefused?.(refusal);
 			}
