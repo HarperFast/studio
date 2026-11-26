@@ -17,15 +17,20 @@ const list = (nodes: readonly string[]) => nodes.join(', ');
 /**
  * `record`: the deployment that built the release, the only thing that can say why a node has none. Offers to ask the
  * nodes again wherever their answer blocks the activation: it is not asked again on its own.
+ *
+ * `adviseActivating`: false where the caller withholds the activation for a reason the nodes can't see, so the note
+ * says what they hold without telling the user to activate it.
  */
 export function ReleaseCheckNote({
 	check,
 	record,
 	showLive = true,
+	adviseActivating = true,
 }: {
 	check: ReleaseCheck;
 	record?: Deployment;
 	showLive?: boolean;
+	adviseActivating?: boolean;
 }) {
 	const retryReleases = useRetryReleases();
 	const retry = () => void retryReleases().catch(() => undefined);
@@ -62,8 +67,12 @@ export function ReleaseCheckNote({
 			return (
 				<p className="text-sm text-muted-foreground">
 					{check.liveOn.length > 0
-						? `Live on ${list(check.liveOn)}. The other nodes hold it, so activating it again makes it live there too.`
-						: 'Every node holds this release, so activating it just switches each one to it.'}
+						? `Live on ${list(check.liveOn)}. The other nodes hold it${
+							adviseActivating ? ', so activating it again makes it live there too' : ''
+						}.`
+						: `Every node holds this release${
+							adviseActivating ? ', so activating it just switches each one to it' : ''
+						}.`}
 				</p>
 			);
 		case 'missing': {

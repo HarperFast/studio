@@ -253,6 +253,23 @@ describe('ConfigDeploymentsIndex filters and paging', () => {
 			.toContain('config/deployments/5c12b89e-0000-4000-8000-000000000002');
 	});
 
+	it('shows an activated staged release as being replaced while a later deploy rolls out', () => {
+		state.search = { status: 'staged' };
+		const staged = row('4ac92da3-d8a0-423e-b145-5df107957dd4', { status: 'staged', started_at: 100 });
+		state.listData = { deployments: [staged], total: 1 };
+		state.historyData = {
+			deployments: [
+				row('ab0de000-0000-4000-8000-000000000003', { started_at: 300, status: 'rolling_out' }),
+				row('5c12b89e-0000-4000-8000-000000000002', { started_at: 200, activated_from: staged.deployment_id }),
+				staged,
+			],
+			total: 3,
+		};
+		renderPage('5.3.0');
+		expect(screen.queryByText(/live, activated by/)).toBeNull();
+		expect(screen.getByText(/being replaced by/).textContent).toBe('activated by 5c12b89e, being replaced by ab0de000');
+	});
+
 	it('asks no history when the page holds no staged record', () => {
 		state.listData = { deployments: [row('e5f6a7b8-0000-4000-8000-000000000002')], total: 1 };
 		renderPage('5.3.0');

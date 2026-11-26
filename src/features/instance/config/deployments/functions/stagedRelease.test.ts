@@ -139,6 +139,69 @@ describe('stagedReleaseState', () => {
 		});
 	});
 
+	// From 5.4 a certified rolling deploy reads `rolling_out` once it is live on the node that received it.
+	it('is being replaced, not live, while a later deploy rolls out', () => {
+		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
+		expect(stagedReleaseState(staged, [staged, activation, rolling])).toEqual({
+			kind: 'being-replaced',
+			activation,
+			replacedBy: rolling,
+		});
+		const other = { ...rolling, activated_from: '57a6ed00-0000-4000-8000-000000000005' };
+		expect(stagedReleaseState(staged, [staged, activation, other])).toEqual({
+			kind: 'being-replaced',
+			activation,
+			replacedBy: other,
+		});
+	});
+
+	// Harper counts a record as live on the node that received it only from `rolling_out`, `success` or `partial`.
+	it('stays live while a later deploy is still running, short of rolling out', () => {
+		for (const status of ['pending', 'extracting', 'installing', 'loading', 'replicating', 'restarting'] as const) {
+			const running = record('ab0de000-0000-4000-8000-000000000009', 300, { status });
+			expect(stagedReleaseState(staged, [staged, activation, running])).toEqual({ kind: 'live', activation });
+		}
+	});
+
+	it('is replaced once a deploy after it succeeded, whether that came before or after a rollout', () => {
+		const success = record('9f00aa11-0000-4000-8000-000000000002', 400);
+		for (const rollingAt of [300, 500]) {
+			const rolling = record('ab0de000-0000-4000-8000-000000000009', rollingAt, { status: 'rolling_out' });
+			expect(stagedReleaseState(staged, [staged, activation, rolling, success])).toEqual({
+				kind: 'replaced',
+				activation,
+				replacedBy: success,
+			});
+		}
+	});
+
+	it('is being replaced rather than uncertain while a deploy rolls out, whichever failure came first', () => {
+		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
+		const beingReplaced = (on: Deployment) => ({ kind: 'being-replaced', activation: on, replacedBy: rolling });
+		const partialActivation = { ...activation, status: 'partial' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, partialActivation, rolling])).toEqual(beingReplaced(partialActivation));
+		for (const failedAt of [250, 400]) {
+			const failed = record('fa11ed00-0000-4000-8000-000000000004', failedAt, { status: 'failed' });
+			expect(stagedReleaseState(staged, [staged, activation, rolling, failed])).toEqual(beingReplaced(activation));
+		}
+	});
+
+	it('ignores a rollout that started before its activation', () => {
+		const rolling = record('ab0de000-0000-4000-8000-000000000009', 150, { status: 'rolling_out' });
+		expect(stagedReleaseState(staged, [staged, rolling, activation])).toEqual({ kind: 'live', activation });
+	});
+
+	// An unfinished activation of it that a later deploy came after is no longer `activating`.
+	it('does not read its own re-activation, still rolling out, as another deploy taking over', () => {
+		const again = record('ab0de000-0000-4000-8000-000000000009', 300, {
+			status: 'rolling_out',
+			activated_from: STAGED_ID,
+		});
+		const partial = record('fa11ed00-0000-4000-8000-000000000004', 400, { status: 'partial' });
+		expect(stagedReleaseState(staged, [staged, activation, again, partial]))
+			.toEqual({ kind: 'uncertain', activation, failed: partial });
+	});
+
 	it('ignores a failure from before its activation, a later stage, and other components', () => {
 		const records = [
 			staged,
@@ -147,6 +210,7 @@ describe('stagedReleaseState', () => {
 			record('57a6ed00-0000-4000-8000-000000000005', 300, { status: 'staged' }),
 			record('0e0e0e0e-0000-4000-8000-000000000006', 400, { project: 'other' }),
 			record('0f0f0f0f-0000-4000-8000-000000000007', 500, { project: 'other', status: 'failed' }),
+			record('0d0d0d0d-0000-4000-8000-000000000010', 600, { project: 'other', status: 'rolling_out' }),
 		];
 		expect(stagedReleaseState(staged, records)).toEqual({ kind: 'live', activation });
 	});

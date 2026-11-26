@@ -44,7 +44,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const release = useStagedReleases(records).get(deployment.deployment_id);
 	const check = useReleaseCheck(deployment.project, deployment.deployment_id);
 	const recheck = useRecheckRelease(deployment.project, deployment.deployment_id);
-	const { intent, offer, disabled } = releaseOffer(check, {
+	const offered = releaseOffer(check, {
 		intent: release?.kind === 'replaced'
 			? 'rollback'
 			: release?.kind === 'uncertain' || release?.kind === 'activating'
@@ -52,6 +52,11 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 			: 'activate',
 		offer: release !== undefined && release.kind !== 'live',
 	}, true);
+	const { intent, disabled } = offered;
+	// Whatever the nodes hold, since `being-replaced` means another deploy is rolling out: activating this release now
+	// would start a second rolling activation alongside it, of a different release.
+	const vetoed = release?.kind === 'being-replaced';
+	const offer = offered.offer && !vetoed;
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
@@ -93,6 +98,14 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 							{deployment.project} has finished since{advise ? ', so there is nothing to activate.' : '.'}
 						</>
 					)}
+					{release?.kind === 'being-replaced' && (
+						<>
+							Activated by <DeploymentLink deployment={release.activation} />, but a later deploy,{' '}
+							<DeploymentLink deployment={release.replacedBy} />, is taking over: it went live on the node that received
+							it and is reaching the other nodes one at a time. Until it finishes, activating this release would start a
+							second rolling restart, so it is not offered.
+						</>
+					)}
 					{release?.kind === 'replaced' && (
 						<>
 							Activated by <DeploymentLink deployment={release.activation} />, then replaced by{' '}
@@ -107,6 +120,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				check={check}
 				record={deployment}
 				showLive={release?.kind !== 'live'}
+				adviseActivating={!vetoed}
 			/>
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
 			<ActivateRelease
