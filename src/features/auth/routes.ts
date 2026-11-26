@@ -1,8 +1,11 @@
 import { defaultInstanceRoute } from '@/config/constants';
+import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { redirectAccess } from '@/features/auth/redirectAccess';
 import type { AuthenticatedConnection } from '@/features/auth/store/authStore';
+import { isLocalUser } from '@/lib/types/isLocalUser';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
+import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import { guardedAppSignIn } from '@/router/guardedAppSignIn';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
@@ -22,19 +25,47 @@ const authLayout = createRoute({
 	component: AuthLayout,
 });
 
+type SignedInUser = NonNullable<AuthenticatedConnection['user']>;
+
+/**
+ * Whether a signed-in visitor can open `target`. The store can hold the `/Login/` record, which lacks the staff fields:
+ * sign-in takes in `/User/current` only when it had to ask, so a sign-in with no target, or a member's, keeps the slim
+ * one. Where that record can't say, `/User/current` decides, as at sign-in, and a failed read follows the target, as
+ * sign-in does. An answer for another account, which now holds the session, opens nothing.
+ */
+async function signedInAccess(user: SignedInUser, target: PostSignInRedirect): Promise<'open' | 'closed'> {
+	const access = redirectAccess(user, target);
+	if (access !== 'unknown') {
+		return access;
+	}
+	// `redirectAccess` opens every target to a local user, so only a central manager account gets here.
+	if (isLocalUser(user)) {
+		return 'open';
+	}
+	let current: Awaited<ReturnType<typeof fetchCurrentUser>>;
+	try {
+		current = await fetchCurrentUser();
+	} catch (error) {
+		console.debug('Could not read the signed-in account to check its redirect:', error);
+		return 'open';
+	}
+	if (current.id !== user.id) {
+		return 'closed';
+	}
+	return redirectAccess(current, target) === 'closed' ? 'closed' : 'open';
+}
+
 /**
  * Sends a signed-in visitor on to the target their `?redirect=` names. Without one, `/sign-in` sends them to their
  * default route and `/sign-up` shows its form, as it always has.
  */
-function continueSignedIn(
-	user: NonNullable<AuthenticatedConnection['user']>,
+async function continueSignedIn(
+	user: SignedInUser,
 	search: Record<string, unknown> | undefined,
 	{ orDefaultRoute }: { orDefaultRoute: boolean },
-): void {
+): Promise<void> {
 	const named = postSignInRedirect(search?.redirect);
-	// `'unknown'` follows, as sign-in does when it can't read `/User/current`: sign-in takes in that record whenever it
-	// had to ask, so only a failed read leaves the store without the staff fields.
-	const target = named && redirectAccess(user, named) !== 'closed' ? named : undefined;
+	const target = named && (await signedInAccess(user, named)) === 'open' ? named : undefined;
 	if (target?.kind === 'server') {
 		// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land on a
 		// sign-in page that sends the user straight on again.
@@ -53,10 +84,10 @@ const signInRoute = createRoute({
 	path: 'sign-in',
 	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: SignIn,
-	beforeLoad: ({ context, location }) => {
+	beforeLoad: async ({ context, location }) => {
 		const user = guardedAppSignIn(context)?.user;
 		if (user) {
-			continueSignedIn(user, location?.search, { orDefaultRoute: true });
+			await continueSignedIn(user, location?.search, { orDefaultRoute: true });
 		}
 	},
 });
@@ -83,10 +114,10 @@ const signUpRoute = createRoute({
 	path: 'sign-up',
 	head: () => ({ meta: [{ title: 'Sign Up — Harper Fabric' }] }),
 	component: SignUp,
-	beforeLoad: ({ context, location }) => {
+	beforeLoad: async ({ context, location }) => {
 		const user = guardedAppSignIn(context)?.user;
 		if (user) {
-			continueSignedIn(user, location?.search, { orDefaultRoute: false });
+			await continueSignedIn(user, location?.search, { orDefaultRoute: false });
 		}
 	},
 });
