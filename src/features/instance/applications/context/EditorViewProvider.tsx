@@ -107,13 +107,21 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		return calculateRootEntries(apiComponents.entries);
 	}, [apiComponents]);
 
-	// Callers can outlive the editor; a reload from before a sign-out refuses to fill the next session's cache.
+	// Callers can outlive the editor; a reload from before a sign-out refuses to fill the next session's cache. One that a
+	// sign-out overtakes refuses its answer too: the sign-out's sweep leaves the tree an open editor reads, so its read
+	// still lands, and a caller waiting on it must not act on the previous session's tree.
 	const signOutGeneration = authStore.getSignOutGeneration(instanceParams.entityId);
 	const reloadRootEntries = useCallback(async () => {
-		if (authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration) {
-			throw new Error(`Signed out before the component tree of ${instanceParams.entityId} reloaded.`);
+		const signedOut = () => authStore.getSignOutGeneration(instanceParams.entityId) !== signOutGeneration;
+		const refusal = () => new Error(`Signed out before the component tree of ${instanceParams.entityId} reloaded.`);
+		if (signedOut()) {
+			throw refusal();
 		}
-		return queryClient.fetchQuery({ ...getComponentsQueryOptions(instanceParams), networkMode: 'online' });
+		const tree = await queryClient.fetchQuery({ ...getComponentsQueryOptions(instanceParams), networkMode: 'online' });
+		if (signedOut()) {
+			throw refusal();
+		}
+		return tree;
 	}, [queryClient, instanceParams, signOutGeneration]);
 
 	useListener('ReloadApplicationRootEntries', reloadRootEntries, [reloadRootEntries]);

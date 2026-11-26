@@ -48,6 +48,10 @@ export function useCheckCLI(
 				duration: 10_000,
 			});
 			setIsReloading(false);
+		}, () => {
+			// A sign-out refuses the reload, and a failed read is reported where it failed; either way the search is over.
+			toast.dismiss(toastId);
+			setIsReloading(false);
 		});
 	}, [instanceParams, setIsReloading, reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems]);
 
