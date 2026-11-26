@@ -405,7 +405,8 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 			started_at: 400,
 		};
 		renderDetail([rolling, later, activation, staged]);
-		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		// The nodes' note says what they hold, without advising the activation the rollout withholds.
+		expect(await screen.findByText(/^Every node holds this release\.$/)).toBeTruthy();
 		expect(screen.getByText(/then replaced by/)).toBeTruthy();
 		expect(screen.getByText(/finishes rolling out/).textContent).toMatch(/^Until ab0de000 finishes rolling out/);
 		expect(activationButton()).toBeNull();
@@ -413,7 +414,7 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 
 		state.releases = { nodes: [runsLater('a'), holding('b', STAGED_ID, [])] };
 		renderDetail([rolling, later, activation, staged]);
-		expect(await screen.findByText(/^Live on b\. The other nodes hold it/)).toBeTruthy();
+		expect(await screen.findByText(/^Live on b\. The other nodes hold it\.$/)).toBeTruthy();
 		expect(screen.queryByText(/then replaced by/)).toBeNull();
 		expect(screen.getByText(/finishes rolling out/).textContent).toMatch(/^Until ab0de000 finishes rolling out/);
 		expect(activationButton()).toBeNull();
@@ -435,6 +436,7 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 			expect((await screen.findByText(/finishes rolling out/)).textContent).toMatch(
 				/^Until ab0de000 finishes rolling out/,
 			);
+			expect(await screen.findByText(/^Every node holds this release\.$/)).toBeTruthy();
 			expect(activationButton()).toBeNull();
 			expect(state.post).toHaveBeenCalledWith(
 				'/',
