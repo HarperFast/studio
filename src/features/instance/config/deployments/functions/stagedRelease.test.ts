@@ -1,6 +1,6 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { describe, expect, it } from 'vitest';
-import { stagedReleaseHistoryStarts, stagedReleaseState } from './stagedRelease';
+import { rolloutOfAnother, stagedReleaseHistoryStarts, stagedReleaseState } from './stagedRelease';
 
 const STAGED_ID = '4ac92da3-d8a0-423e-b145-5df107957dd4';
 
@@ -146,12 +146,14 @@ describe('stagedReleaseState', () => {
 			kind: 'being-replaced',
 			activation,
 			replacedBy: rolling,
+			rollout: rolling,
 		});
 		const other = { ...rolling, activated_from: '57a6ed00-0000-4000-8000-000000000005' };
 		expect(stagedReleaseState(staged, [staged, activation, other])).toEqual({
 			kind: 'being-replaced',
 			activation,
 			replacedBy: other,
+			rollout: other,
 		});
 	});
 
@@ -163,7 +165,7 @@ describe('stagedReleaseState', () => {
 		}
 	});
 
-	it('is replaced once a deploy after it succeeded, whether that came before or after a rollout', () => {
+	it('is replaced once a deploy after it succeeded, and names a rollout still running before or after it', () => {
 		const success = record('9f00aa11-0000-4000-8000-000000000002', 400);
 		for (const rollingAt of [300, 500]) {
 			const rolling = record('ab0de000-0000-4000-8000-000000000009', rollingAt, { status: 'rolling_out' });
@@ -171,13 +173,47 @@ describe('stagedReleaseState', () => {
 				kind: 'replaced',
 				activation,
 				replacedBy: success,
+				rollout: rolling,
 			});
 		}
 	});
 
+	it('names another deploy rolling out whatever else became of it', () => {
+		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
+		expect(stagedReleaseState(staged, [staged, rolling])).toEqual({ kind: 'waiting', rollout: rolling });
+
+		const stalled = { ...activation, deployment_id: 'c0c0c0c0-0000-4000-8000-000000000008', status: 'restarting' };
+		expect(stagedReleaseState(staged, [staged, activation, { ...stalled, started_at: 250 } as Deployment, rolling]))
+			.toEqual({ kind: 'activating', activation: { ...stalled, started_at: 250 }, rollout: rolling });
+
+		const failed = { ...activation, status: 'failed' } as Deployment;
+		expect(stagedReleaseState(staged, [staged, failed, rolling])).toEqual({
+			kind: 'uncertain',
+			failed,
+			rollout: rolling,
+		});
+	});
+
+	it('names the newest of several rollouts, and never its own activation rolling out', () => {
+		const older = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
+		const newer = record('ab0de000-0000-4000-8000-000000000010', 350, { status: 'rolling_out' });
+		const own = record('ab0de000-0000-4000-8000-000000000011', 400, {
+			status: 'rolling_out',
+			activated_from: STAGED_ID,
+		});
+		expect(rolloutOfAnother(staged, [older, own, newer])).toBe(newer);
+		expect(rolloutOfAnother(staged, [older, { ...newer, project: 'other' }, own])).toBe(older);
+		expect(rolloutOfAnother(staged, [own, { ...older, status: 'success' }])).toBeUndefined();
+	});
+
 	it('is being replaced rather than uncertain while a deploy rolls out, whichever failure came first', () => {
 		const rolling = record('ab0de000-0000-4000-8000-000000000009', 300, { status: 'rolling_out' });
-		const beingReplaced = (on: Deployment) => ({ kind: 'being-replaced', activation: on, replacedBy: rolling });
+		const beingReplaced = (on: Deployment) => ({
+			kind: 'being-replaced',
+			activation: on,
+			replacedBy: rolling,
+			rollout: rolling,
+		});
 		const partialActivation = { ...activation, status: 'partial' } as Deployment;
 		expect(stagedReleaseState(staged, [staged, partialActivation, rolling])).toEqual(beingReplaced(partialActivation));
 		for (const failedAt of [250, 400]) {
@@ -186,9 +222,13 @@ describe('stagedReleaseState', () => {
 		}
 	});
 
-	it('ignores a rollout that started before its activation', () => {
+	it('stays live past a rollout that started before its activation, though it still names it', () => {
 		const rolling = record('ab0de000-0000-4000-8000-000000000009', 150, { status: 'rolling_out' });
-		expect(stagedReleaseState(staged, [staged, rolling, activation])).toEqual({ kind: 'live', activation });
+		expect(stagedReleaseState(staged, [staged, rolling, activation])).toEqual({
+			kind: 'live',
+			activation,
+			rollout: rolling,
+		});
 	});
 
 	// An unfinished activation of it that a later deploy came after is no longer `activating`.

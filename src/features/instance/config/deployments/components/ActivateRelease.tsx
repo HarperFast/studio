@@ -39,7 +39,7 @@ import { isUnansweredWrite, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RocketIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { releasePrivateCopy } from '../functions/releasePrivateCopy';
 
@@ -64,6 +64,18 @@ const BUTTON_LABEL: Record<ActivationIntent, string> = {
 	again: 'Activate again',
 };
 
+/**
+ * An activation the caller withholds for a reason a person may know to be stale, offered behind its own button and a
+ * confirmation that leads with `warning`.
+ */
+export interface ActivateAnyway {
+	warning: ReactNode;
+	/** Refused for a reason no one can override, as `disabled` is. */
+	disabled: boolean;
+	/** As `revalidate`, for this confirmation. */
+	revalidate?: () => Promise<boolean>;
+}
+
 /** A staged release and a kept one are activated alike: `deploy_component { deployment_id }`, certified and followed. */
 export function ActivateRelease({
 	project,
@@ -72,6 +84,7 @@ export function ActivateRelease({
 	offer = true,
 	disabled = false,
 	revalidate,
+	anyway,
 	routing,
 }: {
 	project: string;
@@ -88,6 +101,8 @@ export function ActivateRelease({
 	 * answer alone, since `disabled` reflects it only a render later.
 	 */
 	revalidate?: () => Promise<boolean>;
+	/** Shown only while the activation itself isn't offered. */
+	anyway?: ActivateAnyway;
 	routing?: Deployment['routing'];
 }) {
 	const instanceParams = useInstanceClientIdParams();
@@ -111,22 +126,27 @@ export function ActivateRelease({
 	const [confirming, setConfirming] = useState(false);
 	const [started, setStarted] = useState(false);
 	const [revalidating, setRevalidating] = useState(false);
-	const askToConfirm = useCallback(async () => {
-		if (!revalidate) {
+	// Which button asked, so the confirmation knows whether it overrides what the caller withheld.
+	const [asked, setAsked] = useState<'offered' | 'anyway'>('offered');
+	const revalidateAnyway = anyway?.revalidate;
+	const askToConfirm = useCallback(async (which: 'offered' | 'anyway') => {
+		setAsked(which);
+		const check = which === 'anyway' ? revalidateAnyway : revalidate;
+		if (!check) {
 			setConfirming(true);
 			return;
 		}
 		setRevalidating(true);
 		let allowed = false;
 		try {
-			allowed = await revalidate();
+			allowed = await check();
 		} catch {
 			// The check it failed on says why.
 		} finally {
 			setRevalidating(false);
 		}
 		setConfirming(allowed);
-	}, [revalidate]);
+	}, [revalidate, revalidateAnyway]);
 
 	const activate = useCallback(async () => {
 		setConfirming(false);
@@ -189,9 +209,11 @@ export function ActivateRelease({
 	// reads `success` before the rolling restart reaches the other nodes, and after it fails there.
 	const lifecycle = started ? stream.state.lifecycle : 'idle';
 	const retry = lifecycle === 'error' || lifecycle === 'inconclusive';
-	const showButton = revalidating || isPending || retry || (offer && lifecycle !== 'success');
+	const overriding = asked === 'anyway';
+	const showButton = (revalidating && !overriding) || isPending || retry || (offer && lifecycle !== 'success');
+	const showAnyway = anyway !== undefined && !showButton && lifecycle !== 'success';
 	const shownIntent = retry && !offer ? 'again' : intent;
-	const confirmable = showButton && !disabled && !isPending;
+	const confirmable = !isPending && (overriding ? showAnyway && !anyway.disabled : showButton && !disabled);
 	useEffect(() => {
 		// Only a change closes it: a confirmation `revalidate` allowed opens while `disabled` still shows the ask.
 		if (!confirmable) {
@@ -209,10 +231,20 @@ export function ActivateRelease({
 				<Button
 					variant="positiveOutline"
 					className="self-start"
-					onClick={() => void askToConfirm()}
+					onClick={() => void askToConfirm('offered')}
 					disabled={isPending || disabled || revalidating}
 				>
 					<RocketIcon /> {isPending ? 'Activating…' : revalidating ? 'Checking…' : BUTTON_LABEL[shownIntent]}
+				</Button>
+			)}
+			{showAnyway && (
+				<Button
+					variant="outline"
+					className="self-start"
+					onClick={() => void askToConfirm('anyway')}
+					disabled={anyway.disabled || revalidating}
+				>
+					<RocketIcon /> {revalidating ? 'Checking…' : `${BUTTON_LABEL[shownIntent]} anyway`}
 				</Button>
 			)}
 			{started && (
@@ -229,6 +261,7 @@ export function ActivateRelease({
 								? `Roll ${project} back to this release?`
 								: `Activate this release of ${project}${shownIntent === 'again' ? ' again' : ''}?`}
 						</AlertDialogTitle>
+						{overriding && anyway && <AlertDialogDescription>{anyway.warning}</AlertDialogDescription>}
 						<AlertDialogDescription>
 							{shownIntent === 'rollback'
 								? (
@@ -271,7 +304,10 @@ export function ActivateRelease({
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void activate()}>{BUTTON_LABEL[shownIntent]}</AlertDialogAction>
+						<AlertDialogAction onClick={() => void activate()}>
+							{BUTTON_LABEL[shownIntent]}
+							{overriding && ' anyway'}
+						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
