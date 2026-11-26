@@ -13,7 +13,12 @@ import {
 	describeUncertainRollingOutcome,
 	RestartUnconfirmedError,
 } from '@/integrations/api/instance/status/restartUnconfirmed';
-import { setConfiguration, shouldFanOutSetConfiguration } from '@/integrations/api/instance/status/setConfiguration';
+import {
+	isConfigurationRefusalStatus,
+	refusingReplicationPeers,
+	setConfiguration,
+	shouldFanOutSetConfiguration,
+} from '@/integrations/api/instance/status/setConfiguration';
 import { acknowledgedReplicationNodes } from '@/integrations/api/replication';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -47,7 +52,7 @@ const MAY_BE_PENDING =
 // harper `config/configUtils.ts`).
 function describeRefusal(error: unknown): string | undefined {
 	const status = isAxiosError(error) ? error.response?.status : undefined;
-	return status === 400 || status === 409 ? describeError(error).message : undefined;
+	return isConfigurationRefusalStatus(status) ? describeError(error).message : undefined;
 }
 
 interface RestartTarget {
@@ -151,6 +156,9 @@ export function useRollingConfigUpdate(
 			}
 			let fanOutAttempted = false;
 			let acknowledged = new Set<string>();
+			let peerRefusals = new Map<string, string>();
+			// Nodes Studio wrote itself: a refusal the fan-out reported for one of them doesn't stand.
+			const writtenNodes = new Set<string>();
 			let instancesRestarted = 0;
 			let instancesUnanswered = 0;
 			let instancesFailed = 0;
@@ -196,6 +204,9 @@ export function useRollingConfigUpdate(
 							instanceClient,
 						});
 						writing = false;
+						if (replicationFqdn) {
+							writtenNodes.add(replicationFqdn.toLowerCase());
+						}
 						if (canceled) {
 							writtenBeforeCancel = true;
 							break;
@@ -278,17 +289,23 @@ export function useRollingConfigUpdate(
 							/>
 						),
 					});
+					// Kept failures, so the peers that applied it still skip their write and a peer's refusal can be told
+					// from one that was only unreachable.
 					acknowledged = await setConfiguration({
 						...params,
 						replicated: true,
 						instanceClient,
-					}).then(acknowledgedReplicationNodes, error => {
+					}, { keepReplicationFailures: true }).then(response => {
+						peerRefusals = refusingReplicationPeers(response);
+						return acknowledgedReplicationNodes(response);
+					}, error => {
 						refusal ??= describeRefusal(error);
 						return new Set<string>();
 					});
 				}
 			}
 
+			refusal ??= [...peerRefusals].find(([node]) => !writtenNodes.has(node))?.[1];
 			if (refusal) {
 				onRefused?.(refusal);
 			}
