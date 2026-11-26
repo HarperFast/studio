@@ -150,7 +150,9 @@ describe('useRollingConfigUpdate on a cluster that replicates set_configuration 
 			'check ins-a',
 			'restart ins-a',
 		]);
-		expect(setConfiguration).toHaveBeenCalledWith(expect.objectContaining({ ...CHANGES, replicated: true }));
+		expect(setConfiguration).toHaveBeenCalledWith(expect.objectContaining({ ...CHANGES, replicated: true }), {
+			keepReplicationFailures: true,
+		});
 		expect(toast.success).toHaveBeenCalled();
 	});
 
@@ -242,8 +244,7 @@ describe('useRollingConfigUpdate on a cluster that replicates set_configuration 
 		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
 			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
 			if (changes.replicated) {
-				// What `rejectReplicationFailures` turns a partial fan-out into.
-				throw 'The operation partially succeeded, but 1 node failed:\nins-a-repl.example.com: timeout';
+				throw new AxiosError('Network Error', AxiosError.ERR_NETWORK);
 			}
 			return { message: 'ok' };
 		});
@@ -370,6 +371,280 @@ describe('useRollingConfigUpdate on a cluster that replicates set_configuration 
 		expect(toast.error).toHaveBeenCalledWith(
 			'Cancelled',
 			expect.objectContaining({ description: 'The config update was partially cancelled.' }),
+		);
+	});
+});
+
+describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that refused it', () => {
+	const PINNED = 'Cannot set logging_level: HARPER_SET_CONFIG defines it. Change that variable first.';
+	const refused = (node: string, statusCode?: number) => ({
+		node,
+		status: 'failed' as const,
+		reason: `Error: ClientError: ${PINNED}`,
+		...(statusCode === undefined ? {} : { statusCode }),
+	});
+	const unreachable = (
+		node: string,
+		reason =
+			`Error: The connection to wss://${node}:9933 closed (1006) before set_configuration was answered; its outcome there is unknown`,
+	) => ({ node, status: 'failed' as const, reason });
+
+	function fanOutAnswers(...failures: Array<ReturnType<typeof refused> | ReturnType<typeof unreachable>>) {
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (!changes.replicated) {
+				return { message: 'ok' };
+			}
+			const { message, replicated } = acknowledging('ins-a-repl.example.com');
+			return { message, replicated: [...replicated, ...failures] };
+		});
+	}
+
+	beforeEach(() => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0')]);
+	});
+
+	it("asks for every peer's result from the fan-out, and only from the fan-out", async () => {
+		fanOutAnswers();
+
+		await save();
+
+		expect(setConfiguration).toHaveBeenCalledWith(expect.objectContaining({ replicated: true }), {
+			keepReplicationFailures: true,
+		});
+		for (const [body, options] of vi.mocked(setConfiguration).mock.calls) {
+			expect(options).toEqual(body.replicated ? { keepReplicationFailures: true } : undefined);
+		}
+	});
+
+	it("names a peer that refused the change, with its node and Harper's reason, instead of reporting success", async () => {
+		fanOutAnswers(refused('outside-peer.example.com'));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toEqual([
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'replicate ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`outside-peer.example.com: ${PINNED}`);
+		expect(toast.success).not.toHaveBeenCalled();
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).toContain(`Harper refused the change: outside-peer.example.com: ${PINNED}`);
+	});
+
+	it("reads a refusal from the peer's statusCode when harper-pro reports one", async () => {
+		fanOutAnswers(refused('outside-peer.example.com', 409));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`outside-peer.example.com: ${PINNED}`);
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it('names no refusal for a peer whose statusCode is a server error, whatever its reason says', async () => {
+		fanOutAnswers(refused('outside-peer.example.com', 500));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).not.toHaveBeenCalled();
+		expect(toast.success).toHaveBeenCalled();
+	});
+
+	it.each([
+		['a connection that closed first', undefined],
+		['a refused WebSocket handshake', 'Error: Unexpected server response: 403'],
+	])("keeps today's outcome for a peer it could not reach (%s): no refusal, and a success", async (_label, reason) => {
+		fanOutAnswers(unreachable('outside-peer.example.com', reason));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toEqual([
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'replicate ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(onRefused).not.toHaveBeenCalled();
+		expect(toast.success).toHaveBeenCalled();
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('writes a restart target the fan-out could not reach itself', async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		fanOutAnswers(unreachable('ins-b-repl.example.com'));
+
+		await save();
+
+		expect(events).toEqual([
+			'check ins-c',
+			'write ins-c',
+			'restart ins-c',
+			'replicate ins-c',
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(toast.success).toHaveBeenCalled();
+	});
+
+	it('names only the refusing peer when others were unreachable or applied it', async () => {
+		fanOutAnswers(unreachable('far-peer.example.com'), refused('outside-peer.example.com'));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toEqual([
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'replicate ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`outside-peer.example.com: ${PINNED}`);
+		const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!;
+		expect(options?.description).not.toContain('far-peer');
+	});
+
+	it('names every peer that refused it', async () => {
+		fanOutAnswers(
+			refused('outside-peer.example.com'),
+			unreachable('far-peer.example.com'),
+			refused('other-peer.example.com', 400),
+		);
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(
+			`outside-peer.example.com: ${PINNED}\nother-peer.example.com: ${PINNED}`,
+		);
+	});
+
+	it('names no refusal when every peer applied it', async () => {
+		fanOutAnswers();
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).not.toHaveBeenCalled();
+		expect(toast.success).toHaveBeenCalled();
+	});
+
+	it("withdraws a peer's refusal once Studio's own write to that node lands", async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		fanOutAnswers(refused('INS-B-REPL.example.com'));
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toEqual([
+			'check ins-c',
+			'write ins-c',
+			'restart ins-c',
+			'replicate ins-c',
+			'check ins-b',
+			'write ins-b',
+			'restart ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(onRefused).not.toHaveBeenCalled();
+		expect(toast.success).toHaveBeenCalled();
+	});
+
+	it("reports Studio's own refusal once when a refusing peer refuses its own write too", async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (changes.replicated) {
+				const { message, replicated } = acknowledging('ins-a-repl.example.com');
+				return { message, replicated: [refused('ins-b-repl.example.com'), ...replicated] };
+			}
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('Request failed with status code 409', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+					status: 409,
+					data: { error: PINNED },
+				} as never);
+			}
+			return { message: 'ok' };
+		});
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(events).toEqual([
+			'check ins-c',
+			'write ins-c',
+			'restart ins-c',
+			'replicate ins-c',
+			'check ins-b',
+			'write ins-b',
+			'check ins-a',
+			'restart ins-a',
+		]);
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(PINNED);
+		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it("names the other refusing peers beside Studio's own refusal", async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		const ownRefusal = "Unable to update config, unrecognized config parameter: 'logging_level'";
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (changes.replicated) {
+				const { message, replicated } = acknowledging('ins-a-repl.example.com');
+				return {
+					message,
+					replicated: [refused('ins-b-repl.example.com'), refused('outside-peer.example.com'), ...replicated],
+				};
+			}
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+					status: 400,
+					data: { error: ownRefusal },
+				} as never);
+			}
+			return { message: 'ok' };
+		});
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`${ownRefusal}\noutside-peer.example.com: ${PINNED}`);
+	});
+
+	it('still names a refusing peer when Cancel lands while the fan-out is answering', async () => {
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (!changes.replicated) {
+				return { message: 'ok' };
+			}
+			cancel();
+			const { message, replicated } = acknowledging('ins-a-repl.example.com');
+			return { message, replicated: [...replicated, refused('outside-peer.example.com')] };
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b', 'replicate ins-b']);
+		expect(toast.error).toHaveBeenCalledWith(
+			'Cancelled',
+			expect.objectContaining({
+				description: expect.stringContaining(`Harper refused the change: outside-peer.example.com: ${PINNED}`),
+			}),
 		);
 	});
 });

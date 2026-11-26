@@ -3,7 +3,7 @@ import type { AxiosResponse } from 'axios';
 
 declare module 'axios' {
 	interface AxiosRequestConfig {
-		/** Resolve with `replicated` even when a peer failed: the caller shows each node's result itself. */
+		/** Resolve with `replicated` even when a peer failed: the caller reads each node's result itself. */
 		keepReplicationFailures?: boolean;
 	}
 }
@@ -27,6 +27,8 @@ export interface ReplicatedResponseFailure {
 	node: string;
 	reason: string;
 	status: 'failed';
+	/** The status of the peer's own error answer (harper-pro 5.5+); absent for a connection failure or an older origin. */
+	statusCode?: number;
 }
 
 export function replicationFailed(response: ReplicatedResponse): response is ReplicatedResponseNarrowed {
