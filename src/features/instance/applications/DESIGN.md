@@ -136,7 +136,11 @@ before 5.3.0 is never kept, and `origin_node` is the receiving node's host name 
 one that could not answer, disables it and is named with the reason the record can give. One thing outranks the
 nodes: while another deploy of the component reads `rolling_out`, a staged release offers no activation, since a
 second rolling activation of a different release would run alongside it (`rolloutOfAnother`). Until those records can
-be read, nothing is enabled, and the confirmation asks for them again.
+be read, nothing is enabled, and the confirmation asks for them again. Harper ends a rollout's record when its job
+fails or when the node that received it next boots, so one whose node never returns reads `rolling_out` for good, and
+nothing Studio can read tells it from one still running. So the detail also offers "Activate anyway", which overrides
+only the rollout: its confirmation leads with a warning naming the rollout and when it started, and a node with no copy
+still disables it.
 
 Before 5.4 a staged release keeps the records-based offer, because staging succeeds only once every node confirmed it,
 and going back to any other release is not offered: nothing says a node still holds a release it once ran. From 5.4,

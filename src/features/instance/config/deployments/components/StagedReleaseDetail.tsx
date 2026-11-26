@@ -6,11 +6,12 @@ import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { describeError } from '@/react-query/queryClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
+import { shortDeploymentId } from '../functions/deploymentSource';
 import { releaseOffer } from '../functions/releaseOffer';
 import { rolloutOfAnother, StagedReleaseState } from '../functions/stagedRelease';
 import { useRecheckRelease, useReleaseCheck } from '../hooks/useComponentReleases';
 import { useStagedReleases } from '../hooks/useStagedReleases';
-import { ActivateRelease } from './ActivateRelease';
+import { type ActivateAnyway, ActivateRelease } from './ActivateRelease';
 import { ReleaseCheckNote } from './ReleaseCheckNote';
 import { DeploymentLink } from './StagedReleaseNote';
 
@@ -91,6 +92,24 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
 	const adviseActivating = advise && !rollout;
+	// Harper ends a rollout's record when its job fails or when the node that received it next boots, so one whose node
+	// never returns reads `rolling_out` for good, and nothing here tells it from one still running. A person may know:
+	// they can activate past it, warned, but only past the rollout; a node that holds no copy still refuses.
+	const anyway: ActivateAnyway | undefined = offered.offer && rollout
+		? {
+			warning: (
+				<>
+					Deployment <span className="font-mono">{shortDeploymentId(rollout.deployment_id)}</span>{' '}
+					{rollout.started_at ? `started rolling out ${ago(rollout.started_at)} and` : ''}{' '}
+					still reads as rolling out. If it is still running, this starts a second rolling activation alongside it, and
+					nodes can end on different releases. Go ahead only if you know it stopped: Harper leaves the record rolling
+					out for good when the node that received it never comes back.
+				</>
+			),
+			disabled: offered.disabled,
+			revalidate: advise ? undefined : recheck,
+		}
+		: undefined;
 	// A rollout can start between the last poll and the confirmation, which decides on this answer, not on the props.
 	const revalidate = useCallback(async () => {
 		const nodesAllow = await recheck();
@@ -158,7 +177,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				<p className="text-sm text-muted-foreground">
 					Until <DeploymentLink deployment={rollout} />{' '}
 					finishes rolling out, activating this release would start a second rolling activation alongside it, so it
-					isn&apos;t offered.
+					isn&apos;t offered.{rollout.started_at ? ` It started ${ago(rollout.started_at)}.` : ''}
 				</p>
 			)}
 			{offered.offer && !rollout && rolloutsAsked && rollingOutError && (
@@ -181,6 +200,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				offer={offer}
 				disabled={disabled}
 				revalidate={advise ? undefined : revalidate}
+				anyway={anyway}
 				routing={deployment.routing}
 			/>
 		</>

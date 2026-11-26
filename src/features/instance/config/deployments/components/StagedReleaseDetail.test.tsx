@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { Deployment } from '@/integrations/api/instance/deployments/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -131,7 +131,13 @@ async function activateHere(outcome: { resolve: object } | { reject: Error }, hi
 	await act(async () => ('resolve' in outcome ? settle(outcome.resolve) : fail(outcome.reject)));
 }
 
-const activationButton = () => screen.queryByRole('button', { name: /Activate|Roll back/ });
+/** The activation on offer, not the override past a rollout (`anywayButton`). */
+const activationButton = () =>
+	screen.queryAllByRole('button', { name: /Activate|Roll back/ }).find((button) =>
+		!(button.textContent ?? '').endsWith('anyway')
+	)
+		?? null;
+const anywayButton = () => screen.queryByRole('button', { name: /anyway$/ });
 
 describe('StagedReleaseDetail', () => {
 	it('tells the activation what its record says the release puts back (harper#4077)', async () => {
@@ -210,15 +216,17 @@ describe('StagedReleaseDetail', () => {
 			'Activated by 5c12b89e, but a later deploy, 9f00aa11, is taking over: it went live on the node that received it'
 				+ ' and is reaching the other nodes one at a time.',
 		);
-		expect(screen.getByText(/finishes rolling out/).textContent).toBe(
+		const rolloutNote = screen.getByText(/finishes rolling out/).textContent ?? '';
+		expect(rolloutNote.startsWith(
 			'Until 9f00aa11 finishes rolling out, activating this release would start a second rolling activation'
-				+ " alongside it, so it isn't offered.",
-		);
+				+ " alongside it, so it isn't offered. It started ",
+		)).toBe(true);
 		for (const link of screen.getAllByRole('link', { name: '9f00aa11' })) {
 			expect(link.getAttribute('href')).toBe(`/org-a/clu-a/config/deployments/${later.deployment_id}`);
 		}
 		expect(screen.queryByText(/Live: activated by/)).toBeNull();
 		expect(activationButton()).toBeNull();
+		expect(anywayButton()).toBeTruthy();
 	});
 
 	it('offers no activation in any state while another deploy rolls out, and says why instead', async () => {
@@ -447,6 +455,39 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 					since: undefined,
 				}),
 			);
+		});
+
+		// Harper leaves a rollout `rolling_out` for good when the node that received it never returns: a person who knows
+		// it stopped is not stranded.
+		it('lets a person activate past it, warned, where every node holds the release', async () => {
+			state.releases = { nodes: [holdsIt('a'), holdsIt('b')] };
+			state.rolling = [before];
+			state.mutateAsync.mockResolvedValue({});
+			renderDetail([staged]);
+			await screen.findByText(/finishes rolling out/);
+			const anyway = await vi.waitFor(() => {
+				const button = anywayButton() as HTMLButtonElement;
+				expect(button.disabled).toBe(false);
+				return button;
+			});
+			expect(activationButton()).toBeNull();
+
+			fireEvent.click(anyway);
+			const dialog = await screen.findByRole('alertdialog');
+			expect(dialog.textContent).toMatch(/ab0de000 started rolling out .* and still reads as rolling out/);
+			expect(dialog.textContent).toMatch(/Go ahead only if you know it stopped/);
+			expect(state.mutateAsync).not.toHaveBeenCalled();
+			fireEvent.click(within(dialog).getByRole('button', { name: 'Activate anyway' }));
+			await vi.waitFor(() => expect(state.mutateAsync).toHaveBeenCalledTimes(1));
+		});
+
+		it('refuses that too where a node holds no copy', async () => {
+			state.releases = { nodes: [holdsIt('a'), holding('b', later.deployment_id, [])] };
+			state.rolling = [before];
+			renderDetail([staged]);
+			await screen.findByText(/finishes rolling out/);
+			expect(await screen.findByText(/This needs every node to hold the release/)).toBeTruthy();
+			expect((anywayButton() as HTMLButtonElement).disabled).toBe(true);
 		});
 
 		it('enables nothing until that list has answered', async () => {
