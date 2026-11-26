@@ -157,8 +157,9 @@ export function useRollingConfigUpdate(
 			let fanOutAttempted = false;
 			let acknowledged = new Set<string>();
 			let peerRefusals = new Map<string, string>();
-			// Nodes Studio wrote itself: a refusal the fan-out reported for one of them doesn't stand.
-			const writtenNodes = new Set<string>();
+			// Nodes Studio's own write answered for: a refusal the fan-out reported for one no longer stands once that
+			// write landed, and is already said once it refused too.
+			const answeredNodes = new Set<string>();
 			let instancesRestarted = 0;
 			let instancesUnanswered = 0;
 			let instancesFailed = 0;
@@ -205,7 +206,7 @@ export function useRollingConfigUpdate(
 						});
 						writing = false;
 						if (replicationFqdn) {
-							writtenNodes.add(replicationFqdn.toLowerCase());
+							answeredNodes.add(replicationFqdn.toLowerCase());
 						}
 						if (canceled) {
 							writtenBeforeCancel = true;
@@ -247,7 +248,12 @@ export function useRollingConfigUpdate(
 					instancesUnanswered += unanswered ? 1 : 0;
 					instancesFailed += unanswered ? 0 : 1;
 					if (writing) {
-						refusal ??= describeRefusal(error);
+						const ownRefusal = describeRefusal(error);
+						// Only the first refusal of Studio's own is reported, so only its node is covered by it.
+						if (ownRefusal && !refusal && replicationFqdn) {
+							answeredNodes.add(replicationFqdn.toLowerCase());
+						}
+						refusal ??= ownRefusal;
 					}
 					if (unanswered && restartSent) {
 						// The restart may have run onto a configuration that broke it: wait, and stop if it never answers.
@@ -305,9 +311,8 @@ export function useRollingConfigUpdate(
 				}
 			}
 
-			refusal ??= [...peerRefusals]
-				.filter(([node]) => !writtenNodes.has(node))
-				.map(([, peerRefusal]) => peerRefusal)
+			refusal = [refusal, ...[...peerRefusals].filter(([node]) => !answeredNodes.has(node)).map(([, line]) => line)]
+				.filter(excludeFalsy)
 				.join('\n') || undefined;
 			if (refusal) {
 				onRefused?.(refusal);
@@ -329,7 +334,7 @@ export function useRollingConfigUpdate(
 					id: toastId,
 					description: `The config update was partially cancelled.${
 						fanOutAttempted || writtenBeforeCancel ? ` ${MAY_BE_PENDING}` : ''
-					}`,
+					}${refusal ? `\nHarper refused the change: ${refusal}` : ''}`,
 					duration: 10_000,
 					action: {
 						label: 'Dismiss',

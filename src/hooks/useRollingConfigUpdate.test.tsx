@@ -383,12 +383,11 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 		reason: `Error: ClientError: ${PINNED}`,
 		...(statusCode === undefined ? {} : { statusCode }),
 	});
-	const unreachable = (node: string) => ({
-		node,
-		status: 'failed' as const,
-		reason:
+	const unreachable = (
+		node: string,
+		reason =
 			`Error: The connection to wss://${node}:9933 closed (1006) before set_configuration was answered; its outcome there is unknown`,
-	});
+	) => ({ node, status: 'failed' as const, reason });
 
 	function fanOutAnswers(...failures: Array<ReturnType<typeof refused> | ReturnType<typeof unreachable>>) {
 		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
@@ -448,8 +447,8 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 		expect(toast.success).not.toHaveBeenCalled();
 	});
 
-	it('names no refusal for a peer whose statusCode is not one, whatever its reason says', async () => {
-		fanOutAnswers(refused('outside-peer.example.com', 403));
+	it('names no refusal for a peer whose statusCode is a server error, whatever its reason says', async () => {
+		fanOutAnswers(refused('outside-peer.example.com', 500));
 		const onRefused = vi.fn();
 
 		await save({ onRefused });
@@ -458,8 +457,11 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 		expect(toast.success).toHaveBeenCalled();
 	});
 
-	it("keeps today's outcome for a peer it could not reach: no refusal, and a success once every target restarted", async () => {
-		fanOutAnswers(unreachable('outside-peer.example.com'));
+	it.each([
+		['a connection that closed first', undefined],
+		['a refused WebSocket handshake', 'Error: Unexpected server response: 403'],
+	])("keeps today's outcome for a peer it could not reach (%s): no refusal, and a success", async (_label, reason) => {
+		fanOutAnswers(unreachable('outside-peer.example.com', reason));
 		const onRefused = vi.fn();
 
 		await save({ onRefused });
@@ -595,6 +597,55 @@ describe('useRollingConfigUpdate, for a peer the fan-out did not reach or that r
 		]);
 		expect(onRefused).toHaveBeenCalledExactlyOnceWith(PINNED);
 		expect(toast.success).not.toHaveBeenCalled();
+	});
+
+	it("names the other refusing peers beside Studio's own refusal", async () => {
+		useCluster([instance('ins-a', '5.2.0'), instance('ins-b', '5.2.0'), instance('ins-c', '5.2.0')]);
+		const ownRefusal = "Unable to update config, unrecognized config parameter: 'logging_level'";
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (changes.replicated) {
+				const { message, replicated } = acknowledging('ins-a-repl.example.com');
+				return {
+					message,
+					replicated: [refused('ins-b-repl.example.com'), refused('outside-peer.example.com'), ...replicated],
+				};
+			}
+			if (targetOf(instanceClient) === 'ins-b') {
+				throw new AxiosError('Request failed with status code 400', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
+					status: 400,
+					data: { error: ownRefusal },
+				} as never);
+			}
+			return { message: 'ok' };
+		});
+		const onRefused = vi.fn();
+
+		await save({ onRefused });
+
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(`${ownRefusal}\noutside-peer.example.com: ${PINNED}`);
+	});
+
+	it('still names a refusing peer when Cancel lands while the fan-out is answering', async () => {
+		vi.mocked(setConfiguration).mockImplementation(async ({ instanceClient, ...changes }) => {
+			events.push(`${changes.replicated ? 'replicate' : 'write'} ${targetOf(instanceClient)}`);
+			if (!changes.replicated) {
+				return { message: 'ok' };
+			}
+			cancel();
+			const { message, replicated } = acknowledging('ins-a-repl.example.com');
+			return { message, replicated: [...replicated, refused('outside-peer.example.com')] };
+		});
+
+		await save();
+
+		expect(events).toEqual(['check ins-b', 'write ins-b', 'restart ins-b', 'replicate ins-b']);
+		expect(toast.error).toHaveBeenCalledWith(
+			'Cancelled',
+			expect.objectContaining({
+				description: expect.stringContaining(`Harper refused the change: outside-peer.example.com: ${PINNED}`),
+			}),
+		);
 	});
 });
 

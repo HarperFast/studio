@@ -53,35 +53,47 @@ export function isConfigurationRefusalStatus(status: unknown): boolean {
 	return status === 400 || status === 409;
 }
 
-// What harper-pro puts before a peer's own error message: `Error: ` and the error's class, which is
-// `HdbError` or `ClientError` for a refused `set_configuration`.
-const PEER_ERROR_PREFIX = /^Error: (?:(?:[A-Za-z_$][\w$]*)?Error: )?/;
+/**
+ * Whether a peer's own answer turned the change down: any 4xx. harper-pro sets a failed peer's `statusCode` only from
+ * that peer's answer, never for a connection failure, and a peer runs an operation forwarded by an authenticated node
+ * without checking its permissions (`replication/replicationConnection.ts`, `OPERATION_REQUEST`), so a 4xx there is
+ * about the request. Studio's own write is held to 400 and 409, because its 403 is the signed-in user's permission.
+ */
+function isPeerRefusalStatus(statusCode: number): boolean {
+	return statusCode >= 400 && statusCode < 500;
+}
+
+// What may come before a peer's own error message: the `Error: ` harper-pro's origin wraps it in, then its class.
+const PEER_ERROR_PREFIX = /^(?:Error: )?(?:(?:[A-Za-z_$][\w$]*)?Error: )?/;
 
 /**
  * A peer's refusal as harper-pro reports it without a `statusCode`. A failed peer's `reason` is
  * `error.toString()` (`replication/replicator.ts`, `replicateOperation`). When the peer answered with an error,
  * that error is `new Error(errorToString(peerError))` (`replication/replicationConnection.ts`,
- * `OPERATION_RESPONSE`), and harper's `errorToString` renders `<class>: <message>`
- * (`utility/logging/harper_logger.ts`), so the reason reads `Error: <class>: <message>`. A peer that could not
- * be reached reads `Error: <the connection's own message>` instead. Only `set_configuration`'s own 400 and 409
- * messages are listed (harper `config/configUtils.ts`): an `HdbError` can also be a 500, such as
- * `Error parsing harperdb-config.yaml`.
+ * `OPERATION_RESPONSE`), and harper's `errorToString` renders `<constructor name>: <message>` and drops the status
+ * (`utility/logging/harper_logger.ts`), so the reason reads `Error: HdbError: <message>`. The leading `Error: ` is
+ * optional here, for an origin that passes the peer's text on as it came. A peer that could not be reached reads
+ * `Error: <the connection's own message>`, including `ws`'s `Unexpected server response: 403` for a refused
+ * handshake. A class alone is not a refusal: `HdbError` is also a 500 (`Error parsing harperdb-config.yaml`) and
+ * `ClientError` a 501 or 503 elsewhere in Harper, so only `set_configuration`'s own 400 and 409 messages are listed
+ * (harper `config/configUtils.ts`).
  */
 const UNCODED_PEER_REFUSALS = [
 	// 400 from `validateConfig` and the heap-memory check (`HDB_ERROR_MSGS.CONFIG_VALIDATION`, `commonErrors.ts`).
-	/^Error: HdbError: (Harper config file validation error: [\s\S]+)/,
+	/^(?:Error: )?HdbError: (Harper config file validation error: [\s\S]+)/,
 	// 400: an unrecognized parameter, or a component named after one of Harper's own sections.
-	/^Error: HdbError: (Unable to update config, [\s\S]+)/,
+	/^(?:Error: )?HdbError: (Unable to update config, [\s\S]+)/,
 	// 400: a Studio navigation or landing setting Harper rejects.
-	/^Error: ClientError: (Unable to update config: [\s\S]+)/,
+	/^(?:Error: )?ClientError: (Unable to update config: [\s\S]+)/,
 	// 409: an environment variable defines the setting (`Cannot set … defines it`, `Cannot set models: … defines models`).
-	/^Error: ClientError: (Cannot set [\s\S]+)/,
+	/^(?:Error: )?ClientError: (Cannot set [\s\S]+)/,
 ];
 
 /**
  * Harper's own reason when a peer refused a fanned-out `set_configuration`, or undefined when the entry does not
  * show one: a peer that was unreachable, timed out, or failed some other way, or a reason Studio does not know.
- * A `statusCode` decides it when the peer reported one; the reason's text is read only when it is absent.
+ * A `statusCode` decides it when the peer reported one. Without one the outcome is unknown, so only the reason's
+ * text is read.
  */
 export function describePeerRefusal(entry: unknown): string | undefined {
 	const { status, reason, statusCode } = (entry ?? {}) as Partial<ReplicatedResponseFailure>;
@@ -89,7 +101,7 @@ export function describePeerRefusal(entry: unknown): string | undefined {
 		return undefined;
 	}
 	if (typeof statusCode === 'number') {
-		return isConfigurationRefusalStatus(statusCode)
+		return isPeerRefusalStatus(statusCode)
 			? reason.replace(PEER_ERROR_PREFIX, '').trim() || `status ${statusCode}`
 			: undefined;
 	}

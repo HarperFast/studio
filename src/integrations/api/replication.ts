@@ -27,7 +27,7 @@ export interface ReplicatedResponseFailure {
 	node: string;
 	reason: string;
 	status: 'failed';
-	/** The HTTP status the peer's own error carried, from harper-pro releases that report one. */
+	/** The status of the peer's own error answer (harper-pro 5.5+); absent for a connection failure or an older origin. */
 	statusCode?: number;
 }
 

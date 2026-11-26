@@ -27,7 +27,13 @@ const NOT_REFUSED = {
 		'Error: set_configuration to wss://ins-b.example.com:9933 did not answer within 30000ms; its outcome there is unknown',
 	closed: 'Error: Connection closed  1006',
 	badUrl: 'TypeError: Invalid URL: Expected a string URL for node "ins-b" but received undefined',
+	refusedHandshake401: 'Error: Unexpected server response: 401',
+	refusedHandshake403: 'Error: Unexpected server response: 403',
+	refusedHandshakeUnwrapped: 'Unexpected server response: 403',
 	unparsableConfig: 'Error: HdbError: Error parsing harperdb-config.yaml YAMLParseError',
+	unparsableConfigUnwrapped: 'HdbError: Error parsing harperdb-config.yaml YAMLParseError',
+	clientErrorServerSide: 'Error: ClientError: secrets custody is not initialized on this node',
+	clientErrorServerSideUnwrapped: 'ClientError: Record locks are not supported on LMDB',
 	fileSystem: "Error: Error: EACCES: permission denied, open '/home/harperdb/harper/harperdb-config.yaml'",
 	forbidden: 'Error: AccessViolation: Unauthorized access to resource',
 	thrownString: 'Error: HdbError: something else went wrong',
@@ -85,20 +91,25 @@ describe('describePeerRefusal', () => {
 		it.each([
 			[400, REFUSED.unrecognized, 'Unable to update config, unrecognized config parameter: logging_levle'],
 			[409, REFUSED.pinned, 'Cannot set studio_landing: HARPER_SET_CONFIG defines it. Change that variable first.'],
-			[400, 'Error: Error: a message of a kind Studio has not seen', 'a message of a kind Studio has not seen'],
-			[400, 'a reason with no prefix', 'a reason with no prefix'],
-			[400, '', 'status 400'],
+			[
+				400,
+				'HdbError: Unable to update config, unrecognized config parameter: x',
+				'Unable to update config, unrecognized config parameter: x',
+			],
+			[404, 'Error: Error: a message of a kind Studio has not seen', 'a message of a kind Studio has not seen'],
+			[422, 'a reason with no prefix', 'a reason with no prefix'],
+			[499, '', 'status 499'],
 		])('reads %s as a refusal, whatever the reason says', (statusCode, reason, expected) => {
 			expect(describePeerRefusal(failed(reason, statusCode))).toBe(expected);
 		});
 
-		it.each([401, 403, 404, 500, 503])('reads %s as no refusal, even beside a refusal message', statusCode => {
+		it.each([500, 502, 503, 599])('reads %s as no refusal, even beside a refusal message', statusCode => {
 			expect(describePeerRefusal(failed(REFUSED.unrecognized, statusCode))).toBeUndefined();
 			expect(describePeerRefusal(failed(REFUSED.pinned, statusCode))).toBeUndefined();
 		});
 	});
 
-	describe('without a statusCode (harper-pro before it reported one)', () => {
+	describe('without a statusCode (an origin before harper-pro 5.5, or an answer that carried none)', () => {
 		it.each([
 			[
 				'a config validation error',
@@ -132,6 +143,7 @@ describe('describePeerRefusal', () => {
 			],
 		])('reads %s as a refusal', (_label, reason, expected) => {
 			expect(describePeerRefusal(failed(reason))).toBe(expected);
+			expect(describePeerRefusal(failed(reason.replace(/^Error: /, '')))).toBe(expected);
 		});
 
 		it('keeps a message that spans lines, carriage returns included', () => {
