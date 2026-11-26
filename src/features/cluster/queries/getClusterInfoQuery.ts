@@ -55,6 +55,7 @@ export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?:
 		retry: false,
 		staleTime: 1_900,
 		enabled: !!clusterId,
+		meta: { keptOnEntitySignOut: true },
 		// A cluster the user can't read answers 403 on every poll — stop the timer
 		// rather than retrying it every 10s for the life of the page.
 		refetchInterval: pollUnlessForbidden(

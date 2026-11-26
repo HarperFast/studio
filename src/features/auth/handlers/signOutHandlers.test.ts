@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { seedSignInMarkers, storedSignInMarkers } from '@/features/auth/store/signInMarkersTestHelpers';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { queryClient } from '@/react-query/queryClient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthStateAfterSignOutElsewhere, clearAuthStateLocally } from './clearAuthStateLocally';
@@ -14,6 +15,8 @@ function seedSignedInTab() {
 	authStore.flagForBasicAuth('ins-a', { username: 'u', password: 'p' });
 	sessionStorage.setItem('ApiExplorerSettings', JSON.stringify({ 'ins-a': { auth: { type: 'bearer', token: 't' } } }));
 	queryClient.setQueryData(['previous-user-data'], { secret: true });
+	// An entity's sign-out keeps central manager's record of its cluster; the app's must not.
+	queryClient.getQueryCache().build(queryClient, getClusterInfoQueryOptions('clu-a') as never);
 	queryClient.getMutationCache().build(queryClient, { mutationKey: ['previous-user-mutation'] });
 }
 

@@ -112,6 +112,7 @@ export function getClusterUsageQueryOptions(clusterId?: string) {
 		enabled: !!clusterId,
 		// Usage lags to the instance-reporting cadence, so it doesn't need to be fresh-to-the-second.
 		staleTime: 60_000,
+		meta: { keptOnEntitySignOut: true },
 	});
 }
 

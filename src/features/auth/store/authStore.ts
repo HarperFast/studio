@@ -27,6 +27,8 @@ import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
+import { queryClient } from '@/react-query/queryClient';
+import { removeEntityQueries } from '@/react-query/removeEntityQueries';
 import {
 	legacyMigratedKey,
 	markLegacySignInMarkersMigrated,
@@ -376,6 +378,10 @@ class AuthStore {
 		user: AuthenticatedConnection['user'],
 	): void {
 		if (user) {
+			if (!this.allConnections[id]?.user) {
+				// A page mounted at the sign-out kept its reads past that sweep; they are inactive by now.
+				removeEntityQueries(queryClient, id);
+			}
 			this.signInRevisions.set(id, (this.signInRevisions.get(id) ?? 0) + 1);
 			this.flagKeyAsSignedIn(id, key);
 			this.updateConnectionIfChanged(id, false, user);
@@ -790,8 +796,9 @@ class AuthStore {
 
 	/**
 	 * Clears every locally-held credential and flag for an entity — the potentially-authenticated
-	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token, and the
-	 * API explorer's persisted server/credentials — without posting a logout to it. For when a
+	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token, the
+	 * API explorer's persisted server/credentials, and the sign-in's cached reads — without posting a
+	 * logout to it. For when a
 	 * server-side logout elsewhere already invalidated the entity's session, e.g. signing out of an
 	 * instance also signs Studio out of its cluster.
 	 */
@@ -880,6 +887,8 @@ class AuthStore {
 		this.updateConnectionIfChanged(id, false, null);
 		this.flagKeyAsSignedOut(id);
 		forgetEntitySettings(id);
+		// What the session read, too, or the next sign-in to this entity would start from it.
+		removeEntityQueries(queryClient, id);
 		this.bumpExplorerAuthEpoch(id);
 	}
 

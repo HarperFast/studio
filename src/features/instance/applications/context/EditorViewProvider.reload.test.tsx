@@ -26,7 +26,7 @@ import { EditorViewProvider } from './EditorViewProvider';
 
 const key = ['instance-1', 'get_components'];
 
-async function captureReloadThenUnmount() {
+async function renderEditor() {
 	const queryClient = new QueryClient();
 	function wrapper({ children }: PropsWithChildren) {
 		return (
@@ -37,9 +37,14 @@ async function captureReloadThenUnmount() {
 	}
 	const { result, unmount } = renderHook(() => useEditorView(), { wrapper });
 	await waitFor(() => expect(queryClient.getQueryData(key)).toEqual(tree));
+	post.mockClear();
+	return { queryClient, result, unmount };
+}
+
+async function captureReloadThenUnmount() {
+	const { queryClient, result, unmount } = await renderEditor();
 	const { reloadRootEntries } = result.current;
 	unmount();
-	post.mockClear();
 	return { queryClient, reloadRootEntries };
 }
 
@@ -68,5 +73,20 @@ describe('EditorViewProvider reloadRootEntries', () => {
 		await expect(reloadRootEntries()).rejects.toThrow('Signed out');
 		expect(post).not.toHaveBeenCalled();
 		expect(queryClient.getQueryData(key)).toBeUndefined();
+	});
+
+	// The sign-out's sweep skips the tree the open editor reads, so this read is not cancelled and lands: the issue's
+	// CLI import waits on exactly this (#1993).
+	it('refuses a tree whose read the instance sign-out overtook while the editor still shows it', async () => {
+		const { result } = await renderEditor();
+		let answer: (value: { data: typeof tree }) => void = () => {};
+		post.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+		const reload = result.current.reloadRootEntries();
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+
+		authStore.signOutLocally('instance-1');
+		answer({ data: tree });
+
+		await expect(reload).rejects.toThrow('Signed out');
 	});
 });

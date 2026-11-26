@@ -30,5 +30,6 @@ export function getInstanceInfoQueryOptions(params: GetInstanceInfoParams) {
 		queryKey: [params.clusterId, params.instanceId] as const,
 		queryFn: () => getInstanceInfo(params),
 		retry: false,
+		meta: { keptOnEntitySignOut: true },
 	});
 }

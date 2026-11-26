@@ -16,10 +16,11 @@ export interface RouteLoad {
  * preload renders nothing and keeps the global handling. A caller that catches the rejection takes on
  * reporting it.
  *
- * A sign-out clears the query cache, which rejects every fetch still in flight with `CancelledError`
- * before the signed-out state reaches the router's guards; thrown from a route, that renders as the
- * route's error. A cancellation a sign-out caused therefore never settles: the router races every
- * `beforeLoad` and `loader` against its own abort signal, and the guards' redirect aborts this load.
+ * A sign-out clears the query cache, and an entity's sign-out drops the reads whose key names it
+ * (`removeEntityQueries`); either rejects a fetch still in flight with `CancelledError` before the
+ * signed-out state reaches the router's guards. Thrown from a route, that renders as the route's error.
+ * A cancellation a sign-out caused therefore never settles: the router races every `beforeLoad` and
+ * `loader` against its own abort signal, and the guards' redirect aborts this load.
  */
 export async function ensureRouteQueryData<
 	TQueryFnData,
@@ -31,7 +32,7 @@ export async function ensureRouteQueryData<
 	options: EnsureQueryDataOptions<TQueryFnData, TError, TData, TQueryKey>,
 ): Promise<TData> {
 	const { queryClient } = route.context;
-	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+	const signedOutSince = signOutWatch(options.queryKey);
 	let release: (() => void) | undefined;
 	if (!route.preload) {
 		const query = queryClient.getQueryCache().build(queryClient, queryClient.defaultQueryOptions(options));
@@ -42,11 +43,18 @@ export async function ensureRouteQueryData<
 	try {
 		return await queryClient.ensureQueryData(options);
 	} catch (error) {
-		if (isCancelledError(error) && authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration) {
+		if (isCancelledError(error) && signedOutSince()) {
 			return new Promise<never>(() => undefined);
 		}
 		throw error;
 	} finally {
 		release?.();
 	}
+}
+
+/** Whether the app, or an entity the key names, has signed out since this was called. */
+function signOutWatch(queryKey: QueryKey): () => boolean {
+	const ids = [OverallAppSignIn, ...queryKey.filter((part) => typeof part === 'string')];
+	const generations = ids.map((id) => authStore.getSignOutGeneration(id));
+	return () => ids.some((id, index) => authStore.getSignOutGeneration(id) !== generations[index]);
 }

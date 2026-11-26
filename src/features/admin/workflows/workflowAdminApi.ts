@@ -246,7 +246,7 @@ export function heldClusterWorkflowQueryOptions(clusterId: string | undefined, w
 		},
 		enabled: !!clusterId && !!workflowId,
 		retry: false,
-		meta: { quietErrors: true },
+		meta: { quietErrors: true, keptOnEntitySignOut: true },
 		refetchInterval: pollUnlessGone(LIST_POLL_MS),
 	});
 }

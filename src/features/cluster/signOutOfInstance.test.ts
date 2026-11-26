@@ -1,13 +1,19 @@
 /** @vitest-environment jsdom */
 import type { Instance, LocalUser } from '@/integrations/api/api.patch';
+import { isCancelledError, type QueryKey } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Imported after jsdom localStorage exists — the store snapshots it in its constructor.
 const { authStore } = await import('@/features/auth/store/authStore');
 const { signOutOfInstance } = await import('@/features/cluster/signOutOfInstance');
+const { queryClient } = await import('@/react-query/queryClient');
+const { getClusterInfoQueryOptions } = await import('@/features/cluster/queries/getClusterInfoQuery');
+const { getInstanceInfoQueryOptions } = await import('@/features/cluster/queries/getInstanceInfoQuery');
 
 const user = { username: 'admin' } as LocalUser;
+
+const cached = (queryKey: QueryKey) => queryClient.getQueryCache().find({ queryKey, exact: true }) !== undefined;
 
 function makeInstance(id: string, fqdn: string): Instance {
 	return {
@@ -30,6 +36,45 @@ describe('signOutOfInstance', () => {
 			authStore.signOutLocally(id);
 		}
 		localStorage.clear();
+		queryClient.clear();
+	});
+
+	it("drops what was read through the instance's and the cluster's sign-in, and nothing else (#1993)", async () => {
+		const dropped: QueryKey[] = [['ins-a', 'get_components'], ['get_status', 'ins-a'], ['clu-1', 'describe_all']];
+		const kept: QueryKey[] = [['ins-b', 'get_components'], ['get_status', 'ins-b']];
+		for (const queryKey of [...dropped, ...kept]) {
+			queryClient.setQueryData(queryKey, { read: 'before the sign-out' });
+		}
+		const records = [
+			getClusterInfoQueryOptions('clu-1'),
+			getInstanceInfoQueryOptions({ clusterId: 'clu-1', instanceId: 'ins-a' }),
+		];
+		for (const options of records) {
+			await queryClient.fetchQuery({ ...options, queryFn: () => ({}) } as never);
+		}
+		kept.push(...records.map(({ queryKey }) => queryKey));
+
+		await signOutOfInstance({ instance: makeInstance('ins-a', 'node-a.example.com'), instanceClient: makeClient() });
+
+		expect(dropped.filter(cached)).toEqual([]);
+		expect(kept.filter(cached)).toEqual(kept);
+	});
+
+	it('rejects a read still out at the sign-out, so its answer neither lands nor reaches its caller (#1993)', async () => {
+		const queryKey = ['ins-a', 'get_components'];
+		queryClient.setQueryData(queryKey, { entries: ['from the previous session'] });
+		let answer!: (tree: { entries: string[] }) => void;
+		const reload = queryClient.fetchQuery({
+			queryKey,
+			queryFn: () => new Promise<{ entries: string[] }>((resolve) => answer = resolve),
+			staleTime: 0,
+		});
+
+		await signOutOfInstance({ instance: makeInstance('ins-a', 'node-a.example.com'), instanceClient: makeClient() });
+		answer({ entries: ['read before the sign-out, answered after it'] });
+
+		await expect(reload).rejects.toSatisfy(isCancelledError);
+		expect(queryClient.getQueryData(queryKey)).toBeUndefined();
 	});
 
 	it('signs out the instance AND its cluster, but not sibling instances (#1320)', async () => {

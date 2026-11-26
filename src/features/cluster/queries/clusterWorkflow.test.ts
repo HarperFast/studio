@@ -63,7 +63,10 @@ describe(latestClusterWorkflowQueryOptions, () => {
 	it('lets any other failure through, quiet to the query client since each notice says what it can, and stops on a 403', async () => {
 		apiGet.mockRejectedValue(axiosErrorWithStatus(500));
 		await expect(read()).rejects.toThrow('500');
-		expect(latestClusterWorkflowQueryOptions('clu-1', null).meta).toEqual({ quietErrors: true });
+		expect(latestClusterWorkflowQueryOptions('clu-1', null).meta).toEqual({
+			quietErrors: true,
+			keptOnEntitySignOut: true,
+		});
 		expect(interval(undefined, axiosErrorWithStatus(403))).toBe(false);
 	});
 
