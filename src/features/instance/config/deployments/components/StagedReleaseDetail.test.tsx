@@ -319,16 +319,19 @@ describe('StagedReleaseDetail on Harper 5.4, where each node says what it holds'
 			nodes: [holding('a', later.deployment_id, [[STAGED_ID, 'kept']]), holding('b', STAGED_ID, [])],
 		};
 		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
-		expect(await screen.findByText(/^Live on b\. The other nodes hold it/)).toBeTruthy();
+		// The nodes' note says what they hold, without advising the activation the detail withholds.
+		expect(await screen.findByText(/^Live on b\. The other nodes hold it\.$/)).toBeTruthy();
 		expect(screen.getByText(/is taking over: it went live on the node that received it/)).toBeTruthy();
+		expect(screen.queryByText(/activating it again makes it live/)).toBeNull();
 		expect(activationButton()).toBeNull();
 		cleanup();
 
 		const runsLater = (node: string) => holding(node, later.deployment_id, [[STAGED_ID, 'kept']]);
 		state.releases = { nodes: [runsLater('a'), runsLater('b')] };
 		renderDetail([{ ...later, status: 'rolling_out' }, activation, staged]);
-		expect(await screen.findByText(/^Every node holds this release/)).toBeTruthy();
+		expect(await screen.findByText(/^Every node holds this release\.$/)).toBeTruthy();
 		expect(screen.getByText(/is taking over/)).toBeTruthy();
+		expect(screen.queryByText(/switches each one to it/)).toBeNull();
 		expect(activationButton()).toBeNull();
 	});
 

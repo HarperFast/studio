@@ -55,7 +55,8 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 	const { intent, disabled } = offered;
 	// Whatever the nodes hold, since `being-replaced` means another deploy is rolling out: activating this release now
 	// would start a second rolling activation alongside it, of a different release.
-	const offer = offered.offer && release?.kind !== 'being-replaced';
+	const vetoed = release?.kind === 'being-replaced';
+	const offer = offered.offer && !vetoed;
 	// Once the nodes can be asked, their note alone says what to do; the records only tell what happened.
 	const advise = check.kind === 'unsupported';
 	// Where the records and the nodes disagree about where it is live, the nodes are right and the note says so alone.
@@ -119,6 +120,7 @@ export function StagedReleaseDetail({ deployment }: { deployment: Deployment }) 
 				check={check}
 				record={deployment}
 				showLive={release?.kind !== 'live'}
+				adviseActivating={!vetoed}
 			/>
 			{/* Mounted in every state, so the progress of an activation started here outlives the button it hides. */}
 			<ActivateRelease
