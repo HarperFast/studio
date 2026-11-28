@@ -14,13 +14,25 @@ import { ClusterSecretsKeyGap, useCreateClusterSecretsKey } from '@/integrations
 import { KeyRoundIcon, LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 
-export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
+export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate, onDelivering }: {
 	gap: ClusterSecretsKeyGap;
 	clusterId: string;
 	canUpdate: boolean;
+	/** Central manager accepted the key and started giving it to the instances. */
+	onDelivering?: () => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
 	const { mutate, isPending } = useCreateClusterSecretsKey();
+	// Radix does not report a dialog closed by its `open` prop, so permission coming back would reopen it unasked.
+	if (confirming && !canUpdate) {
+		setConfirming(false);
+	}
+	const create = () => {
+		if (!canUpdate) {
+			return;
+		}
+		mutate(clusterId, { onSuccess: (result) => result.status === 'DELIVERING' && onDelivering?.() });
+	};
 
 	if (gap === 'delivering') {
 		return (
@@ -35,7 +47,7 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
 					{canUpdate && (
 						<p>
 							If the restarts stopped part way,{' '}
-							<button type="button" className="underline" disabled={isPending} onClick={() => mutate(clusterId)}>
+							<button type="button" className="underline" disabled={isPending} onClick={create}>
 								try again
 							</button>
 							: instances that already have the key are not restarted.
@@ -71,7 +83,7 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
 						: <p>Someone with permission to update this cluster can create it here.</p>}
 				</AlertDescription>
 			</Alert>
-			<AlertDialog open={confirming && canUpdate} onOpenChange={setConfirming}>
+			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Create this cluster's secrets key?</AlertDialogTitle>
@@ -82,7 +94,7 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction disabled={isPending} onClick={() => mutate(clusterId)}>Create key</AlertDialogAction>
+						<AlertDialogAction disabled={isPending || !canUpdate} onClick={create}>Create key</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>

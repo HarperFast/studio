@@ -149,9 +149,9 @@ export function useCreateClusterSecretsKey() {
 export interface SecretsPublicKeySource extends InstanceClientIdConfig {
 	/**
 	 * For Fabric-managed clusters, the clusterId to fetch the key from central-manager
-	 * (central-manager#409): CM is the custodian there — it holds the keypair and delivers the
-	 * private key to hosts, so the key exists (and is authoritative) even before any
-	 * node has custody registered. Omit for self-hosted/local, where the node mints its own
+	 * (central-manager#409): CM is the custodian there and delivers the private key to hosts. It
+	 * may answer that the cluster has no key yet or that one is still being delivered
+	 * (`clusterSecretsKeyGap`). Omit for self-hosted/local, where the node mints its own
 	 * file-tier key and serves it via the `get_secrets_public_key` operation.
 	 */
 	managedClusterId?: string;
@@ -168,7 +168,6 @@ export function secretsPublicKeyQueryOptions(params: SecretsPublicKeySource) {
 		// Failure is a state, not a blip: without custody the node simply has no key.
 		staleTime: 5 * 60_000,
 		retry: false,
-		// central-manager's "no key" and "key still being delivered" are states the pages show.
 		meta: params.managedClusterId ? { answerStatuses: [404, 409] } : undefined,
 	});
 }

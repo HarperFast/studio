@@ -44,24 +44,25 @@ export function ConfigSecretsIndex() {
 	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
 	const { keySource, known: clusterTierKnown, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
-	// Without a secrets key nothing can be encrypted, so the store stays browsable read-only. A managed cluster may
-	// have none yet, or one still on its way to the instances (`clusterSecretsKeyGap`).
-	const [deliverySeen, setDeliverySeen] = useState(false);
+	// The cluster a key delivery was last seen on. While it is this one, any failed read keeps the poll going: one
+	// failed read must not strand the page. Scoped to the cluster, since the route stays mounted across clusters.
+	const [deliveringClusterId, setDeliveringClusterId] = useState<string>();
+	const managedClusterId = keySource.managedClusterId;
+	const deliverySeen = !!managedClusterId && deliveringClusterId === managedClusterId;
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: clusterTierKnown,
-		// Once a delivery was seen, any failure keeps the poll going: one failed read must not strand the page.
 		refetchInterval: (query) =>
-			keySource.managedClusterId && query.state.status === 'error'
+			managedClusterId && query.state.status === 'error'
 				&& (deliverySeen || clusterSecretsKeyGap(query.state.error) === 'delivering')
 				? KEY_DELIVERY_POLL_MS
 				: false,
 	});
-	const reportedGap = keySource.managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
+	const reportedGap = managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
 	if (reportedGap === 'delivering' && !deliverySeen) {
-		setDeliverySeen(true);
-	} else if (deliverySeen && (publicKeyQuery.isSuccess || reportedGap === 'missing' || !keySource.managedClusterId)) {
-		setDeliverySeen(false);
+		setDeliveringClusterId(managedClusterId);
+	} else if (deliverySeen && (publicKeyQuery.isSuccess || reportedGap === 'missing')) {
+		setDeliveringClusterId(undefined);
 	}
 	const keyGap = reportedGap ?? (deliverySeen && publicKeyQuery.isError ? 'delivering' : undefined);
 	const { update: canUpdateCluster } = useOrganizationClusterPermissions(organizationId, clusterId);
@@ -119,13 +120,14 @@ export function ConfigSecretsIndex() {
 						</span>
 					</p>
 				)
-				: keyGap && keySource.managedClusterId
+				: keyGap && managedClusterId
 				? (
 					<ClusterSecretsKeySetup
-						key={keySource.managedClusterId}
+						key={managedClusterId}
 						gap={keyGap}
-						clusterId={keySource.managedClusterId}
+						clusterId={managedClusterId}
 						canUpdate={canUpdateCluster}
+						onDelivering={() => setDeliveringClusterId(managedClusterId)}
 					/>
 				)
 				: publicKeyQuery.isError && (

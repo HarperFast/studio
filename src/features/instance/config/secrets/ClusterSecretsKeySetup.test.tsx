@@ -22,7 +22,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-function renderSetup(props: { gap: 'missing' | 'delivering'; canUpdate: boolean }) {
+function renderSetup(props: { gap: 'missing' | 'delivering'; canUpdate: boolean; onDelivering?: () => void }) {
 	const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
 	render(
 		<QueryClientProvider client={queryClient}>
@@ -36,7 +36,8 @@ const created = () => cmPost.mock.calls.filter(([, body]) => body.operation === 
 describe('ClusterSecretsKeySetup', () => {
 	it('creates the key only after the restart is confirmed', async () => {
 		cmPost.mockResolvedValue({ data: { status: 'DELIVERING', workflowId: 'wf-1' } });
-		renderSetup({ gap: 'missing', canUpdate: true });
+		const onDelivering = vi.fn();
+		renderSetup({ gap: 'missing', canUpdate: true, onDelivering });
 
 		fireEvent.click(screen.getByRole('button', { name: 'Create secrets key' }));
 		expect((await screen.findByRole('alertdialog')).textContent).toContain('restarts to take the key, one at a time');
@@ -45,6 +46,7 @@ describe('ClusterSecretsKeySetup', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Create key' }));
 		await waitFor(() => expect(created()).toHaveLength(1));
 		expect(cmPost).toHaveBeenCalledWith('/ClusterSecrets', { operation: 'create_secrets_key', clusterId: 'clu-1' });
+		await waitFor(() => expect(onDelivering).toHaveBeenCalledOnce());
 	});
 
 	it('sends nothing when the confirmation is cancelled', async () => {
