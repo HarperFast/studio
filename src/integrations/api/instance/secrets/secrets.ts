@@ -11,8 +11,9 @@
  *
  * The public key has two sources depending on who holds custody (normalized here to one shape):
  * Fabric-managed clusters fetch it from central-manager (`POST /ClusterSecrets`,
- * central-manager#409 — CM mints the per-cluster keypair on first use and delivers the private
- * key to hosts), while self-hosted/local nodes serve their own file-tier key via the
+ * central-manager#409 — CM holds the per-cluster keypair and delivers the private key to hosts;
+ * a cluster with none gets one from `create_secrets_key`), while self-hosted/local nodes serve
+ * their own file-tier key via the
  * `get_secrets_public_key` operation. Without custody the node has no key — the fetch fails with
  * a clean error and nothing can be encrypted; `list_secrets` still works, so the store is
  * browsable read-only in that state.
@@ -21,7 +22,7 @@ import { apiClient } from '@/config/apiClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { encryptEnvelope } from '@/lib/crypto/envSecret';
-import { QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { type Query, QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 
 /** The cluster key clients encrypt against, normalized across the two sources (see below). */
@@ -110,12 +111,58 @@ async function getSecretsPublicKeyFromClusterManager(clusterId: string): Promise
 	return { publicKey: data.publicKey, fingerprint: data.fingerprint };
 }
 
+/**
+ * Why central-manager refused a managed cluster's key read: it answers 404 for a cluster with no
+ * key, and 409 while a new key has not reached every instance.
+ */
+export type ClusterSecretsKeyGap = 'missing' | 'delivering';
+
+export function clusterSecretsKeyGap(error: unknown): ClusterSecretsKeyGap | undefined {
+	const status = (error as { response?: { status?: unknown } } | null)?.response?.status;
+	return status === 404 ? 'missing' : status === 409 ? 'delivering' : undefined;
+}
+
+export interface CreateClusterSecretsKeyResult {
+	status: 'READY' | 'DELIVERING';
+	workflowId?: string;
+}
+
+async function createClusterSecretsKey(clusterId: string): Promise<CreateClusterSecretsKeyResult> {
+	const { data } = await cm.post<CreateClusterSecretsKeyResult>('/ClusterSecrets', {
+		operation: 'create_secrets_key',
+		clusterId,
+	});
+	return data;
+}
+
+/**
+ * `onDelivering` runs when central-manager starts giving a new key to the instances. It is a hook
+ * option, not a `mutate` callback, because those are dropped once the calling component unmounts.
+ */
+export function useCreateClusterSecretsKey(onDelivering?: (clusterId: string) => void) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createClusterSecretsKey,
+		onSuccess: async (result, clusterId) => {
+			const keyReads = {
+				predicate: ({ queryKey }: Query) => queryKey[1] === 'get_secrets_public_key' && queryKey[2] === clusterId,
+			};
+			// A read sent before the create would answer with the old "no key", and invalidating joins it.
+			await queryClient.cancelQueries(keyReads);
+			if (result.status === 'DELIVERING') {
+				onDelivering?.(clusterId);
+			}
+			return queryClient.invalidateQueries(keyReads);
+		},
+	});
+}
+
 export interface SecretsPublicKeySource extends InstanceClientIdConfig {
 	/**
 	 * For Fabric-managed clusters, the clusterId to fetch the key from central-manager
-	 * (central-manager#409): CM is the custodian there — it mints the keypair on first use and
-	 * delivers the private key to hosts, so the key exists (and is authoritative) even before any
-	 * node has custody registered. Omit for self-hosted/local, where the node mints its own
+	 * (central-manager#409): CM is the custodian there and delivers the private key to hosts. It
+	 * may answer that the cluster has no key yet or that one is still being delivered
+	 * (`clusterSecretsKeyGap`). Omit for self-hosted/local, where the node mints its own
 	 * file-tier key and serves it via the `get_secrets_public_key` operation.
 	 */
 	managedClusterId?: string;
@@ -132,6 +179,7 @@ export function secretsPublicKeyQueryOptions(params: SecretsPublicKeySource) {
 		// Failure is a state, not a blip: without custody the node simply has no key.
 		staleTime: 5 * 60_000,
 		retry: false,
+		meta: params.managedClusterId ? { answerStatuses: [404, 409] } : undefined,
 	});
 }
 

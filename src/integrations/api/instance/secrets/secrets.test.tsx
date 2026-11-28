@@ -3,15 +3,17 @@
  */
 import { EntityIds } from '@/features/auth/store/authStore';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { webcrypto } from 'node:crypto';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+	clusterSecretsKeyGap,
 	SecretsOperationError,
 	secretsPublicKeyQueryOptions,
+	useCreateClusterSecretsKey,
 	useDeleteSecret,
 	useGrantSecret,
 	useRevokeSecret,
@@ -329,5 +331,79 @@ describe('a secrets write that got no verdict', () => {
 
 		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
 		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(gateway);
+	});
+});
+
+describe("a managed cluster's missing key", () => {
+	const refusal = (status: number) => Object.assign(new Error('refused'), { response: { status } });
+
+	it("reads central-manager's 404 as no key and its 409 as a key still being delivered", () => {
+		expect(clusterSecretsKeyGap(refusal(404))).toBe('missing');
+		expect(clusterSecretsKeyGap(refusal(409))).toBe('delivering');
+		expect(clusterSecretsKeyGap(refusal(500))).toBeUndefined();
+		expect(clusterSecretsKeyGap(networkError())).toBeUndefined();
+		expect(clusterSecretsKeyGap(null)).toBeUndefined();
+	});
+
+	it("marks central-manager's two answers on a managed read only, so a node's failure is still reported", () => {
+		const { params } = harness();
+		expect(secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' }).meta).toEqual({
+			answerStatuses: [404, 409],
+		});
+		expect(secretsPublicKeyQueryOptions(params).meta).toBeUndefined();
+	});
+
+	it("creates the key through central-manager and re-reads that cluster's key only", async () => {
+		const { queryClient, wrapper, params } = harness();
+		cmPost.mockImplementation((_url: string, body: { operation: string }) =>
+			Promise.resolve({
+				data: body.operation === 'create_secrets_key'
+					? { status: 'DELIVERING', workflowId: 'wf-1' }
+					: { publicKey: 'pem', fingerprint: 'fp' },
+			})
+		);
+		const managed = secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' });
+		const other = secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-2' });
+		await queryClient.fetchQuery(managed);
+		await queryClient.fetchQuery(other);
+		const readsBefore = cmPost.mock.calls.length;
+
+		const onDelivering = vi.fn();
+		const { result, unmount } = renderHook(() => useCreateClusterSecretsKey(onDelivering), { wrapper });
+		const pending = result.current.mutateAsync('clu-1');
+		// The Secrets page can unmount the panel that sent the create before the answer arrives.
+		unmount();
+		const response = await pending;
+
+		expect(onDelivering).toHaveBeenCalledExactlyOnceWith('clu-1');
+
+		expect(response).toEqual({ status: 'DELIVERING', workflowId: 'wf-1' });
+		expect(cmPost).toHaveBeenCalledWith('/ClusterSecrets', { operation: 'create_secrets_key', clusterId: 'clu-1' });
+		expect(queryClient.getQueryState(managed.queryKey)?.isInvalidated).toBe(true);
+		expect(queryClient.getQueryState(other.queryKey)?.isInvalidated).toBe(false);
+		expect(cmPost.mock.calls.length).toBe(readsBefore + 1);
+	});
+
+	it('reads the key again after the create when an older read is still out', async () => {
+		const { wrapper, params } = harness();
+		const answers: Array<(refused: Error) => void> = [];
+		cmPost.mockImplementation((_url: string, body: { operation: string }) =>
+			body.operation === 'create_secrets_key'
+				? Promise.resolve({ data: { status: 'DELIVERING', workflowId: 'wf-1' } })
+				: new Promise((_resolve, reject) => answers.push(reject))
+		);
+		const read = renderHook(
+			() => useQuery(secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' })),
+			{ wrapper },
+		);
+		await waitFor(() => expect(answers).toHaveLength(1));
+
+		const { result } = renderHook(() => useCreateClusterSecretsKey(), { wrapper });
+		result.current.mutate('clu-1');
+		await waitFor(() => expect(answers).toHaveLength(2));
+
+		answers[0](refusal(404));
+		answers[1](refusal(409));
+		await waitFor(() => expect(clusterSecretsKeyGap(read.result.current.error)).toBe('delivering'));
 	});
 });

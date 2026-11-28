@@ -8,7 +8,7 @@ import {
 import { OUTCOME_UNKNOWN_TITLE, UNANSWERED_WRITE_MESSAGE } from '@/integrations/api/unansweredWrite';
 import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
 import { MutationObserver, QueryObserver } from '@tanstack/react-query';
-import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { describeError, errorHandler, queryClient, queryErrorHandler, shouldToastOwnFailure } from './queryClient';
@@ -330,6 +330,24 @@ describe('queryErrorHandler', () => {
 		queryErrorHandler(forbidden, refusalAware);
 		expect(toast.error).not.toHaveBeenCalled();
 		queryErrorHandler(networkError, refusalAware);
+		expect(toast.error).toHaveBeenCalledOnce();
+	});
+
+	it('leaves the statuses a query reads as answers alone, and still toasts any other', () => {
+		const answered = {
+			queryKey: ['ins-1', 'get_secrets_public_key', 'clu-1'],
+			meta: { answerStatuses: [404, 409] },
+		} as unknown as Parameters<
+			typeof queryErrorHandler
+		>[1];
+		const refused = (status: number) =>
+			new AxiosError('refused', 'ERR_BAD_REQUEST', undefined, undefined, { status } as AxiosResponse);
+
+		queryErrorHandler(refused(404), answered);
+		queryErrorHandler(refused(409), answered);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(console.error).not.toHaveBeenCalled();
+		queryErrorHandler(refused(500), answered);
 		expect(toast.error).toHaveBeenCalledOnce();
 	});
 

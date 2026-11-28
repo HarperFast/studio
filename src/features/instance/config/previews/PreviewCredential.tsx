@@ -5,6 +5,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useSecretsKeySource } from '@/features/instance/secrets/useSecretsKeySource';
 import { previewComponentPattern, previewCredentialSecretName } from '@/integrations/api/instance/previews/previews';
 import {
+	clusterSecretsKeyGap,
 	listSecretsQueryOptions,
 	ListSecretsResponse,
 	SecretMetadata,
@@ -52,10 +53,11 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 	const { data: lookup } = useQuery(gitHubRepositoryQueryOptions(repository));
 	// Only when a token is wanted: a cluster with no secrets key fails this read, and a public repository never needs it.
 	const needsToken = !!lookup && !(lookup.status === 'found' && !lookup.repository.private);
-	const { isError: noSecretsKey } = useQuery({
+	const { isError: noSecretsKey, isSuccess: hasSecretsKey, error: keyError } = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: known && needsToken,
 	});
+	const keyGap = keySource.managedClusterId ? clusterSecretsKeyGap(keyError) : undefined;
 	const { refetch } = useQuery(listSecretsQueryOptions(instanceParams));
 	const credential = usePreviewCredentialState(app, true);
 	const queryClient = useQueryClient();
@@ -122,8 +124,10 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				: noSecretsKey
 				? (
 					<p className="text-muted-foreground">
-						This cluster has no secrets key, so it can't hold a token. Private repositories can't be previewed until it
-						has one.
+						{keyGap === 'delivering'
+							? "This cluster's secrets key is still being set up, so it can't hold a token yet. Try again once its instances have restarted."
+							: "This cluster has no secrets key, so it can't hold a token. Private repositories can't be previewed until it has one."}
+						{keyGap === 'missing' && " The cluster's Secrets page can create it."}
 					</p>
 				)
 				: (
@@ -146,7 +150,11 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 							again after adding it, since it passes <code className="font-mono">credential: true</code>.
 						</p>
 						<div>
-							<Button type="submit" size="sm" disabled={!token.trim() || !known || isSetting || isGranting}>
+							<Button
+								type="submit"
+								size="sm"
+								disabled={!token.trim() || !known || !hasSecretsKey || isSetting || isGranting}
+							>
 								Seal token
 							</Button>
 						</div>

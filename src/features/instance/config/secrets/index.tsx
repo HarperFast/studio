@@ -1,21 +1,26 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { ClusterSecretsKeySetup } from '@/features/instance/config/secrets/ClusterSecretsKeySetup';
 import { grantableComponentNames } from '@/features/instance/config/secrets/grantableComponents';
 import { SecretGrantsEditor } from '@/features/instance/config/secrets/SecretGrantsEditor';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
 import { useSecretsKeySource } from '@/features/instance/secrets/useSecretsKeySource';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceManagePermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
+	clusterSecretsKeyGap,
 	listSecretsQueryOptions,
 	SecretMetadata,
 	secretsPublicKeyQueryOptions,
 	useDeleteSecret,
 	useSetSecret,
 } from '@/integrations/api/instance/secrets/secrets';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { TriangleAlertIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
+const KEY_DELIVERY_POLL_MS = 10_000;
 
 /**
  * Cluster secrets (the replicated `system.hdb_secret` store, harper#1554 / harper-pro#166):
@@ -24,7 +29,11 @@ import { useCallback, useMemo } from 'react';
  */
 export function ConfigSecretsIndex() {
 	const navigate = useNavigate();
-	const { secretName }: { secretName?: string } = useParams({ strict: false });
+	const { secretName, organizationId, clusterId }: {
+		secretName?: string;
+		organizationId?: string;
+		clusterId?: string;
+	} = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const { data, refetch, isFetching } = useQuery(listSecretsQueryOptions(instanceParams));
 
@@ -36,12 +45,37 @@ export function ConfigSecretsIndex() {
 	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
 	const { keySource, known: clusterTierKnown, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
-	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted, so
-	// the store stays browsable read-only.
+	// The clusters a key delivery was seen on. While this one is among them, any failed read keeps the poll going: one
+	// failed read must not strand the page. Kept per cluster: the route stays mounted across clusters, and a create
+	// sent for one can answer after the user has moved to another.
+	const [deliveringClusterIds, setDeliveringClusterIds] = useState<ReadonlySet<string>>(new Set());
+	const markDelivering = useCallback(
+		(id: string) => setDeliveringClusterIds((ids) => ids.has(id) ? ids : new Set(ids).add(id)),
+		[],
+	);
+	const managedClusterId = keySource.managedClusterId;
+	const deliverySeen = !!managedClusterId && deliveringClusterIds.has(managedClusterId);
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: clusterTierKnown,
+		refetchInterval: (query) =>
+			pollUnlessForbidden(
+				managedClusterId && query.state.status === 'error'
+					&& (deliverySeen || clusterSecretsKeyGap(query.state.error) === 'delivering')
+					? KEY_DELIVERY_POLL_MS
+					: false,
+			)(query),
 	});
+	const reportedGap = managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
+	// A 404 only ends the delivery once no read is running or waiting: one still out may predate the create.
+	const settledWithoutKey = reportedGap === 'missing' && publicKeyQuery.fetchStatus === 'idle';
+	if (managedClusterId && reportedGap === 'delivering' && !deliverySeen) {
+		markDelivering(managedClusterId);
+	} else if (managedClusterId && deliverySeen && (publicKeyQuery.isSuccess || settledWithoutKey)) {
+		setDeliveringClusterIds((ids) => new Set([...ids].filter((id) => id !== managedClusterId)));
+	}
+	const keyGap = reportedGap ?? (deliverySeen && publicKeyQuery.isError ? 'delivering' : undefined);
+	const { update: canUpdateCluster } = useOrganizationClusterPermissions(organizationId, clusterId);
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
@@ -95,6 +129,16 @@ export function ConfigSecretsIndex() {
 							Refresh once cluster info is available.
 						</span>
 					</p>
+				)
+				: keyGap && managedClusterId
+				? (
+					<ClusterSecretsKeySetup
+						key={managedClusterId}
+						gap={keyGap}
+						clusterId={managedClusterId}
+						canUpdate={canUpdateCluster}
+						onDelivering={markDelivering}
+					/>
 				)
 				: publicKeyQuery.isError && (
 					<p className="flex items-start gap-2 text-sm text-muted-foreground border border-amber-500/50 rounded-md p-3 mb-4">
