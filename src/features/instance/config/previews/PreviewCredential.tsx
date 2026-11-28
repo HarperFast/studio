@@ -123,7 +123,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 				? (
 					<p className="text-muted-foreground">
 						This cluster has no secrets key, so it can't hold a token. Private repositories can't be previewed until it
-						has one.
+						has one, which the cluster's Secrets page can create.
 					</p>
 				)
 				: (

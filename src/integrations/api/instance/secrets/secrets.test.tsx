@@ -10,8 +10,10 @@ import { webcrypto } from 'node:crypto';
 import { PropsWithChildren } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+	clusterSecretsKeyGap,
 	SecretsOperationError,
 	secretsPublicKeyQueryOptions,
+	useCreateClusterSecretsKey,
 	useDeleteSecret,
 	useGrantSecret,
 	useRevokeSecret,
@@ -329,5 +331,42 @@ describe('a secrets write that got no verdict', () => {
 
 		const { result } = renderHook(() => useDeleteSecret(), { wrapper });
 		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY' })).rejects.toBe(gateway);
+	});
+});
+
+describe("a managed cluster's missing key", () => {
+	const refusal = (status: number) => Object.assign(new Error('refused'), { response: { status } });
+
+	it("reads central-manager's 404 as no key and its 409 as a key still being delivered", () => {
+		expect(clusterSecretsKeyGap(refusal(404))).toBe('missing');
+		expect(clusterSecretsKeyGap(refusal(409))).toBe('delivering');
+		expect(clusterSecretsKeyGap(refusal(500))).toBeUndefined();
+		expect(clusterSecretsKeyGap(networkError())).toBeUndefined();
+		expect(clusterSecretsKeyGap(null)).toBeUndefined();
+	});
+
+	it("creates the key through central-manager and re-reads that cluster's key only", async () => {
+		const { queryClient, wrapper, params } = harness();
+		cmPost.mockImplementation((_url: string, body: { operation: string }) =>
+			Promise.resolve({
+				data: body.operation === 'create_secrets_key'
+					? { status: 'DELIVERING', workflowId: 'wf-1' }
+					: { publicKey: 'pem', fingerprint: 'fp' },
+			})
+		);
+		const managed = secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' });
+		const other = secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-2' });
+		await queryClient.fetchQuery(managed);
+		await queryClient.fetchQuery(other);
+		const readsBefore = cmPost.mock.calls.length;
+
+		const { result } = renderHook(() => useCreateClusterSecretsKey(), { wrapper });
+		const response = await result.current.mutateAsync('clu-1');
+
+		expect(response).toEqual({ status: 'DELIVERING', workflowId: 'wf-1' });
+		expect(cmPost).toHaveBeenCalledWith('/ClusterSecrets', { operation: 'create_secrets_key', clusterId: 'clu-1' });
+		expect(queryClient.getQueryState(managed.queryKey)?.isInvalidated).toBe(true);
+		expect(queryClient.getQueryState(other.queryKey)?.isInvalidated).toBe(false);
+		expect(cmPost.mock.calls.length).toBe(readsBefore + 1);
 	});
 });
