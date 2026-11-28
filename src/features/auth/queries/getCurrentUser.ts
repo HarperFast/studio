@@ -17,6 +17,11 @@ export async function fetchCurrentUser({ timeout }: { timeout?: number } = {}): 
 }
 
 export async function getCurrentUser(options: { timeout?: number } = {}): Promise<User> {
+	return (await syncCurrentUser(options)).user;
+}
+
+/** As `getCurrentUser`, and whether the store took the answer in: it refuses one a sign-out or sign-in overtook. */
+export async function syncCurrentUser(options: { timeout?: number } = {}): Promise<{ user: User; applied: boolean }> {
 	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 	const user = await fetchCurrentUser(options);
@@ -37,8 +42,9 @@ export async function getCurrentUser(options: { timeout?: number } = {}): Promis
 			void clearPreviousAccount();
 		}
 		authStore.syncAppUser(user);
+		return { user, applied: true };
 	}
-	return user;
+	return { user, applied: false };
 }
 
 export const currentUserQueryKey = ['current-user'];

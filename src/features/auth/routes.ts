@@ -1,5 +1,5 @@
 import { defaultInstanceRoute } from '@/config/constants';
-import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { syncCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { ACCESS_LOOKUP_TIMEOUT_MS, redirectAccess } from '@/features/auth/redirectAccess';
 import { type AuthenticatedConnection, authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { errorStatus } from '@/lib/errorStatus';
@@ -44,22 +44,18 @@ async function signedInTarget(
 	}
 	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
-	// A sign-out or sign-in that overtook the read sends the page nowhere: it re-runs for what landed. Taking another
-	// tab's account in moves the counters as well, so the store holding the answer is what clears it.
-	const overtaken = (answer?: SignedInUser) => {
-		const held = authStore.getConnectionById(OverallAppSignIn).user;
-		const moved = authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
-			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision;
-		return moved && !(answer && held && 'id' in held && 'id' in answer && held.id === answer.id);
-	};
 	try {
-		const current = await getCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS });
-		if (overtaken(current)) {
+		// An answer the store refused, because a sign-out or sign-in overtook it, sends the page nowhere: it re-runs for
+		// what landed. Taking another tab's account in moves the counters too, so only the store's verdict settles it.
+		const { user: current, applied } = await syncCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS });
+		if (!applied) {
 			return 'no-session';
 		}
 		return { target: redirectAccess(current, target) === 'closed' ? undefined : target, user: current };
 	} catch (error) {
-		if (errorStatus(error) === 401 || overtaken()) {
+		const overtaken = authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision;
+		if (errorStatus(error) === 401 || overtaken) {
 			return 'no-session';
 		}
 		console.debug('Could not read the signed-in account to check its redirect:', error);
