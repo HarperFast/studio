@@ -19,10 +19,10 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate, onDelivering
 	clusterId: string;
 	canUpdate: boolean;
 	/** Central manager accepted the key and started giving it to the instances. */
-	onDelivering?: () => void;
+	onDelivering?: (clusterId: string) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
-	const { mutate, isPending } = useCreateClusterSecretsKey();
+	const { mutate, isPending } = useCreateClusterSecretsKey(onDelivering);
 	// Radix does not report a dialog closed by its `open` prop, so permission coming back would reopen it unasked.
 	if (confirming && !canUpdate) {
 		setConfirming(false);
@@ -31,7 +31,7 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate, onDelivering
 		if (!canUpdate) {
 			return;
 		}
-		mutate(clusterId, { onSuccess: (result) => result.status === 'DELIVERING' && onDelivering?.() });
+		mutate(clusterId);
 	};
 
 	if (gap === 'delivering') {

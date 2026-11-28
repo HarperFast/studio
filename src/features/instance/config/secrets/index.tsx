@@ -61,7 +61,7 @@ export function ConfigSecretsIndex() {
 	const reportedGap = managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
 	if (reportedGap === 'delivering' && !deliverySeen) {
 		setDeliveringClusterId(managedClusterId);
-	} else if (deliverySeen && (publicKeyQuery.isSuccess || reportedGap === 'missing')) {
+	} else if (deliverySeen && (publicKeyQuery.isSuccess || (reportedGap === 'missing' && !publicKeyQuery.isFetching))) {
 		setDeliveringClusterId(undefined);
 	}
 	const keyGap = reportedGap ?? (deliverySeen && publicKeyQuery.isError ? 'delivering' : undefined);
@@ -127,7 +127,7 @@ export function ConfigSecretsIndex() {
 						gap={keyGap}
 						clusterId={managedClusterId}
 						canUpdate={canUpdateCluster}
-						onDelivering={() => setDeliveringClusterId(managedClusterId)}
+						onDelivering={setDeliveringClusterId}
 					/>
 				)
 				: publicKeyQuery.isError && (

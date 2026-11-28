@@ -368,8 +368,14 @@ describe("a managed cluster's missing key", () => {
 		await queryClient.fetchQuery(other);
 		const readsBefore = cmPost.mock.calls.length;
 
-		const { result } = renderHook(() => useCreateClusterSecretsKey(), { wrapper });
-		const response = await result.current.mutateAsync('clu-1');
+		const onDelivering = vi.fn();
+		const { result, unmount } = renderHook(() => useCreateClusterSecretsKey(onDelivering), { wrapper });
+		const pending = result.current.mutateAsync('clu-1');
+		// The Secrets page can unmount the panel that sent the create before the answer arrives.
+		unmount();
+		const response = await pending;
+
+		expect(onDelivering).toHaveBeenCalledExactlyOnceWith('clu-1');
 
 		expect(response).toEqual({ status: 'DELIVERING', workflowId: 'wf-1' });
 		expect(cmPost).toHaveBeenCalledWith('/ClusterSecrets', { operation: 'create_secrets_key', clusterId: 'clu-1' });

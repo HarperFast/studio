@@ -53,7 +53,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 	const { data: lookup } = useQuery(gitHubRepositoryQueryOptions(repository));
 	// Only when a token is wanted: a cluster with no secrets key fails this read, and a public repository never needs it.
 	const needsToken = !!lookup && !(lookup.status === 'found' && !lookup.repository.private);
-	const { isError: noSecretsKey, error: keyError } = useQuery({
+	const { isError: noSecretsKey, isSuccess: hasSecretsKey, error: keyError } = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: known && needsToken,
 	});
@@ -150,7 +150,7 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 							again after adding it, since it passes <code className="font-mono">credential: true</code>.
 						</p>
 						<div>
-							<Button type="submit" size="sm" disabled={!token.trim() || !known || isSetting || isGranting}>
+							<Button type="submit" size="sm" disabled={!token.trim() || !hasSecretsKey || isSetting || isGranting}>
 								Seal token
 							</Button>
 						</div>

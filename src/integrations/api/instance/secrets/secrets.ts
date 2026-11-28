@@ -135,14 +135,22 @@ async function createClusterSecretsKey(clusterId: string): Promise<CreateCluster
 	return data;
 }
 
-export function useCreateClusterSecretsKey() {
+/**
+ * `onDelivering` runs when central-manager starts giving a new key to the instances. It is a hook
+ * option, not a `mutate` callback, because those are dropped once the calling component unmounts.
+ */
+export function useCreateClusterSecretsKey(onDelivering?: (clusterId: string) => void) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createClusterSecretsKey,
-		onSuccess: (_result, clusterId) =>
-			queryClient.invalidateQueries({
+		onSuccess: (result, clusterId) => {
+			if (result.status === 'DELIVERING') {
+				onDelivering?.(clusterId);
+			}
+			return queryClient.invalidateQueries({
 				predicate: ({ queryKey }) => queryKey[1] === 'get_secrets_public_key' && queryKey[2] === clusterId,
-			}),
+			});
+		},
 	});
 }
 
