@@ -102,6 +102,14 @@ describe('a signed-in visitor’s ?redirect= on the auth pages', () => {
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toBeUndefined();
 		});
 
+		it('sends the page nowhere when another sign-in lands while a failing read is out', async () => {
+			getCurrentUser.mockImplementation(async () => {
+				authStore.setUserForEntity(OverallAppSignIn, { ...customer, id: 'usr-later-still' } as User);
+				throw new Error('timeout of 5000ms exceeded');
+			});
+			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toBeUndefined();
+		});
+
 		it('sends the page nowhere when the session is gone', async () => {
 			getCurrentUser.mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toBeUndefined();

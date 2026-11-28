@@ -179,10 +179,10 @@ export function useCloudSignIn() {
 		if (completing.current) {
 			return;
 		}
+		completing.current = true;
 		setSubmitError(undefined);
 		submitLoginData(formData, {
 			onSuccess: (user) => {
-				completing.current = true;
 				setIsCompleting(true);
 				void completeSignIn(user).finally(() => {
 					completing.current = false;
@@ -194,6 +194,7 @@ export function useCloudSignIn() {
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
 			// can special-case the unverified-email rejection instead of dead-ending on a red toast.
 			onError: (error) => {
+				completing.current = false;
 				if (isEmailNotVerifiedError(error)) {
 					// This rejection only happens after central-manager accepts the password, so the
 					// credentials are valid — resending a fresh link here can't be abused for spam. Only

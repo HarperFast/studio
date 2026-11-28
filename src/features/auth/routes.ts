@@ -44,18 +44,22 @@ async function signedInTarget(
 	}
 	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
 	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
+	// A sign-out or sign-in that overtook the read sends the page nowhere: it re-runs for what landed. Taking another
+	// tab's account in moves the counters as well, so the store holding the answer is what clears it.
+	const overtaken = (answer?: SignedInUser) => {
+		const held = authStore.getConnectionById(OverallAppSignIn).user;
+		const moved = authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision;
+		return moved && !(answer && held && 'id' in held && 'id' in answer && held.id === answer.id);
+	};
 	try {
 		const current = await getCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS });
-		// The store refuses an answer a sign-out or sign-in overtook, and so does the page: it re-runs for what landed.
-		if (
-			authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
-			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
-		) {
+		if (overtaken(current)) {
 			return 'no-session';
 		}
 		return { target: redirectAccess(current, target) === 'closed' ? undefined : target, user: current };
 	} catch (error) {
-		if (errorStatus(error) === 401) {
+		if (errorStatus(error) === 401 || overtaken()) {
 			return 'no-session';
 		}
 		console.debug('Could not read the signed-in account to check its redirect:', error);

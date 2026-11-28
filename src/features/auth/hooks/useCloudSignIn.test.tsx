@@ -191,6 +191,23 @@ describe('useCloudSignIn — while the completion decides where to land', () => 
 		await waitFor(() => expect(result.current.isPending).toBe(false));
 	});
 
+	it('sends one login for two quick submits', async () => {
+		post.mockReturnValue(new Promise(() => undefined));
+		const { result } = renderHook(() => useCloudSignIn(), {
+			wrapper: ({ children }: PropsWithChildren) => (
+				<QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>
+			),
+		});
+
+		act(() => {
+			result.current.submitForm({ email: EMAIL, password: 'correct-horse' });
+			result.current.submitForm({ email: EMAIL, password: 'correct-horse' });
+		});
+
+		await waitFor(() => expect(post).toHaveBeenCalled());
+		expect(post).toHaveBeenCalledTimes(1);
+	});
+
 	it('stays busy, and takes no second sign-in, until the target is settled', async () => {
 		hashSearch.current = { redirect: '/org-1/users' };
 		const fromLogin = { id: 'usr-new', email: EMAIL, roles: {} } as unknown as User;
