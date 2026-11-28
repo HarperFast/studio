@@ -7,8 +7,9 @@ import { useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 /**
- * Where this entity's secrets key comes from. Fabric-managed clusters get it from central-manager (the custodian — it
- * mints the keypair on first use, central-manager#409); self-hosted/local nodes serve their own.
+ * Where this entity's secrets key comes from. Fabric-managed clusters get it from central-manager (the custodian,
+ * central-manager#409), which may answer that the cluster has none yet or that one is still being delivered
+ * (`clusterSecretsKeyGap`); self-hosted/local nodes serve their own.
  *
  * The source depends on the cluster tier, so it isn't known until the cluster lookup SUCCEEDS. `cluster === undefined`
  * covers both the load window and a failed fetch (getClusterInfoQuery has retry:false, so `data` stays undefined on

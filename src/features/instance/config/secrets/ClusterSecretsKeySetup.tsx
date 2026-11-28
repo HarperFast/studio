@@ -14,10 +14,6 @@ import { ClusterSecretsKeyGap, useCreateClusterSecretsKey } from '@/integrations
 import { KeyRoundIcon, LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 
-/**
- * Shown in place of the Secrets page's read-only banner when a Fabric-managed cluster's key is
- * missing or still on its way to the instances.
- */
 export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
 	gap: ClusterSecretsKeyGap;
 	clusterId: string;
@@ -75,7 +71,7 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate }: {
 						: <p>Someone with permission to update this cluster can create it here.</p>}
 				</AlertDescription>
 			</Alert>
-			<AlertDialog open={confirming} onOpenChange={setConfirming}>
+			<AlertDialog open={confirming && canUpdate} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Create this cluster's secrets key?</AlertDialogTitle>

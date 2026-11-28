@@ -345,6 +345,14 @@ describe("a managed cluster's missing key", () => {
 		expect(clusterSecretsKeyGap(null)).toBeUndefined();
 	});
 
+	it("marks central-manager's two answers on a managed read only, so a node's failure is still reported", () => {
+		const { params } = harness();
+		expect(secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' }).meta).toEqual({
+			answerStatuses: [404, 409],
+		});
+		expect(secretsPublicKeyQueryOptions(params).meta).toBeUndefined();
+	});
+
 	it("creates the key through central-manager and re-reads that cluster's key only", async () => {
 		const { queryClient, wrapper, params } = harness();
 		cmPost.mockImplementation((_url: string, body: { operation: string }) =>

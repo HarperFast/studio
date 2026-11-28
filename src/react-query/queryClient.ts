@@ -199,6 +199,7 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
  *
  * A query with `meta: { refusalIsAnAnswer: true }` handles a 403 itself, by showing it or by hiding what it would have shown, so it isn't toasted.
  * One with `meta: { reportsOwnFailure: true }` shows every failure itself, so RUM gets it and no toast repeats it.
+ * One with `meta: { answerStatuses: [404, 409] }` reads those statuses as states its page shows, so they aren't toasted or reported.
  */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
 	if (isRestartNoise(error, query.queryKey)) {
@@ -206,6 +207,12 @@ export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (
 		return;
 	}
 	if (query.meta?.refusalIsAnAnswer && error instanceof AxiosError && error.response?.status === 403) {
+		return;
+	}
+	if (
+		Array.isArray(query.meta?.answerStatuses) && error instanceof AxiosError
+		&& query.meta.answerStatuses.includes(error.response?.status)
+	) {
 		return;
 	}
 	if (query.meta?.reportsOwnFailure) {

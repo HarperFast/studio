@@ -123,7 +123,6 @@ export function clusterSecretsKeyGap(error: unknown): ClusterSecretsKeyGap | und
 }
 
 export interface CreateClusterSecretsKeyResult {
-	/** DELIVERING: the instances restart one at a time to take the key. READY: every instance holds it. */
 	status: 'READY' | 'DELIVERING';
 	workflowId?: string;
 }
@@ -169,6 +168,8 @@ export function secretsPublicKeyQueryOptions(params: SecretsPublicKeySource) {
 		// Failure is a state, not a blip: without custody the node simply has no key.
 		staleTime: 5 * 60_000,
 		retry: false,
+		// central-manager's "no key" and "key still being delivered" are states the pages show.
+		meta: params.managedClusterId ? { answerStatuses: [404, 409] } : undefined,
 	});
 }
 

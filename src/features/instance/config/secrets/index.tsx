@@ -17,7 +17,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { TriangleAlertIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const KEY_DELIVERY_POLL_MS = 10_000;
 
@@ -44,17 +44,26 @@ export function ConfigSecretsIndex() {
 	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
 	const { keySource, known: clusterTierKnown, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
-	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted, so
-	// the store stays browsable read-only.
+	// Without a secrets key nothing can be encrypted, so the store stays browsable read-only. A managed cluster may
+	// have none yet, or one still on its way to the instances (`clusterSecretsKeyGap`).
+	const [deliverySeen, setDeliverySeen] = useState(false);
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: clusterTierKnown,
+		// Once a delivery was seen, any failure keeps the poll going: one failed read must not strand the page.
 		refetchInterval: (query) =>
-			keySource.managedClusterId && clusterSecretsKeyGap(query.state.error) === 'delivering'
+			keySource.managedClusterId && query.state.status === 'error'
+				&& (deliverySeen || clusterSecretsKeyGap(query.state.error) === 'delivering')
 				? KEY_DELIVERY_POLL_MS
 				: false,
 	});
-	const keyGap = keySource.managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
+	const reportedGap = keySource.managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
+	if (reportedGap === 'delivering' && !deliverySeen) {
+		setDeliverySeen(true);
+	} else if (deliverySeen && (publicKeyQuery.isSuccess || reportedGap === 'missing' || !keySource.managedClusterId)) {
+		setDeliverySeen(false);
+	}
+	const keyGap = reportedGap ?? (deliverySeen && publicKeyQuery.isError ? 'delivering' : undefined);
 	const { update: canUpdateCluster } = useOrganizationClusterPermissions(organizationId, clusterId);
 
 	const secrets = data?.secrets;
@@ -111,7 +120,14 @@ export function ConfigSecretsIndex() {
 					</p>
 				)
 				: keyGap && keySource.managedClusterId
-				? <ClusterSecretsKeySetup gap={keyGap} clusterId={keySource.managedClusterId} canUpdate={canUpdateCluster} />
+				? (
+					<ClusterSecretsKeySetup
+						key={keySource.managedClusterId}
+						gap={keyGap}
+						clusterId={keySource.managedClusterId}
+						canUpdate={canUpdateCluster}
+					/>
+				)
 				: publicKeyQuery.isError && (
 					<p className="flex items-start gap-2 text-sm text-muted-foreground border border-amber-500/50 rounded-md p-3 mb-4">
 						<TriangleAlertIcon className="size-4 text-amber-500 shrink-0 mt-0.5" />
