@@ -1,9 +1,8 @@
 import { defaultInstanceRoute } from '@/config/constants';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { ACCESS_LOOKUP_TIMEOUT_MS, redirectAccess } from '@/features/auth/redirectAccess';
-import type { AuthenticatedConnection } from '@/features/auth/store/authStore';
+import { type AuthenticatedConnection, authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { errorStatus } from '@/lib/errorStatus';
-import { isLocalUser } from '@/lib/types/isLocalUser';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
@@ -40,12 +39,20 @@ async function signedInTarget(
 	target: PostSignInRedirect,
 ): Promise<{ target: PostSignInRedirect | undefined; user: SignedInUser } | 'no-session'> {
 	const access = redirectAccess(user, target);
-	// `redirectAccess` opens every target to a local user, so only a central manager account asks.
-	if (access !== 'unknown' || isLocalUser(user)) {
+	if (access !== 'unknown') {
 		return { target: access === 'closed' ? undefined : target, user };
 	}
+	const signOutGeneration = authStore.getSignOutGeneration(OverallAppSignIn);
+	const signInRevision = authStore.getSignInRevision(OverallAppSignIn);
 	try {
 		const current = await getCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS });
+		// The store refuses an answer a sign-out or sign-in overtook, and so does the page: it re-runs for what landed.
+		if (
+			authStore.getSignOutGeneration(OverallAppSignIn) !== signOutGeneration
+			|| authStore.getSignInRevision(OverallAppSignIn) !== signInRevision
+		) {
+			return 'no-session';
+		}
 		return { target: redirectAccess(current, target) === 'closed' ? undefined : target, user: current };
 	} catch (error) {
 		if (errorStatus(error) === 401) {

@@ -4,6 +4,9 @@ import { detectEntityId } from '@/lib/string/entityId';
 import { isLocalUser } from '@/lib/types/isLocalUser';
 import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
 
+/** How long sign-in, and a signed-in visitor's auth page, wait on `/User/current` before following the target. */
+export const ACCESS_LOOKUP_TIMEOUT_MS = 5_000;
+
 /**
  * Whether the account signing in can open the organization a sign-in target leads into. Central manager refuses a
  * non-member's organization with a 403, before it looks the id up.
@@ -12,8 +15,6 @@ import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
  * `staffPermissions`, which `/User/current` always does, and lists every membership without the single sign-on check
  * `/User/current` applies, so a password session's membership of an organization that requires SSO looks unlocked.
  */
-export const ACCESS_LOOKUP_TIMEOUT_MS = 5_000;
-
 export function redirectAccess(user: User | LocalUser, target: PostSignInRedirect): 'open' | 'closed' | 'unknown' {
 	if (target.kind === 'server' || isLocalUser(user)) {
 		return 'open';

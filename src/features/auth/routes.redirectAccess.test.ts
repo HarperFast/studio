@@ -1,5 +1,5 @@
 import { authRouteTree } from '@/features/auth/routes';
-import { OverallAppSignIn } from '@/features/auth/store/authStore';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import type { User } from '@/integrations/api/api.patch';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -92,6 +92,14 @@ describe('a signed-in visitor’s ?redirect= on the auth pages', () => {
 		it('is followed when /User/current can’t be read, as sign-in is', async () => {
 			getCurrentUser.mockRejectedValue(new Error('timeout of 5000ms exceeded'));
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toEqual({ href: '/org-1/users', to: undefined });
+		});
+
+		it('sends the page nowhere when another sign-in lands during the read', async () => {
+			getCurrentUser.mockImplementation(async () => {
+				authStore.setUserForEntity(OverallAppSignIn, { ...customer, id: 'usr-later' } as User);
+				return customer;
+			});
+			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toBeUndefined();
 		});
 
 		it('sends the page nowhere when the session is gone', async () => {

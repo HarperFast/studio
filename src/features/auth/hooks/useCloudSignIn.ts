@@ -35,6 +35,9 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
 
+/** Counts completions in this tab that went on to settle, so one a newer one replaced leaves the session to it. */
+let latestCompletion = 0;
+
 /**
  * Resolves false when a sign-out or another sign-in landed before it could navigate. `redirect` defaults to the page's
  * search; a page whose search the router cannot read cleanly passes its own. `flow` is the emailed flow this completion
@@ -42,9 +45,6 @@ import { useResendEmailVerification } from './useResendEmailVerification';
  * can move on while this runs passes `stillCurrent`, and the completion gives up before taking the user in or
  * navigating once it is false.
  */
-/** Counts completions started in this tab, so one a newer completion replaced leaves the session to it. */
-let latestCompletion = 0;
-
 export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: string } = {}) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -57,7 +57,6 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 		user: User,
 		{ stillCurrent = () => true }: { stillCurrent?: () => boolean } = {},
 	): Promise<boolean> => {
-		const completion = ++latestCompletion;
 		// Read first: clearing a previous account below wipes localStorage, the kept target with it.
 		const kept = readSignInRedirect(flow);
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
@@ -94,14 +93,15 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 			}
 			// Settled before the account is taken in: taking it in re-runs this page's guard, which would follow a
 			// `?redirect=` it can't yet rule out.
+			const completion = ++latestCompletion;
 			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
 			const replacedHere = completion !== latestCompletion
 				|| authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
 				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
 				|| !stillCurrent();
 			if (settled.kind !== 'take') {
-				// The session is no longer this account's: nothing is put back for this flow. When another tab's account
-				// holds it, this tab follows that account, unless something newer here has already taken over.
+				// Nothing is put back for this flow, and only a completion nothing newer here has replaced brings the tab
+				// in line with another tab's account.
 				if (settled.kind === 'other-account' && !replacedHere) {
 					void getCurrentUser().catch((error: unknown) => {
 						console.debug('Could not read the account that took the session:', error);
@@ -187,6 +187,8 @@ export function useCloudSignIn() {
 				void completeSignIn(user).finally(() => {
 					completing.current = false;
 					setIsCompleting(false);
+				}).catch((error: unknown) => {
+					console.debug('Sign-in could not finish taking the account in:', error);
 				});
 			},
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we

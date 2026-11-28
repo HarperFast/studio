@@ -169,6 +169,28 @@ describe('useCloudSignIn — while the completion decides where to land', () => 
 		post.mockReset();
 	});
 
+	it('frees the form when the completion fails, without an unhandled rejection', async () => {
+		const member = {
+			id: 'usr-new',
+			email: EMAIL,
+			roles: {},
+			fabricRole: 'least_privileged',
+			staffPermissions: [],
+		} as unknown as User;
+		post.mockResolvedValue({ data: member });
+		navigate.mockRejectedValueOnce(new Error('navigation aborted'));
+		const { result } = renderHook(() => useCloudSignIn(), {
+			wrapper: ({ children }: PropsWithChildren) => (
+				<QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>
+			),
+		});
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalled());
+		await waitFor(() => expect(result.current.isPending).toBe(false));
+	});
+
 	it('stays busy, and takes no second sign-in, until the target is settled', async () => {
 		hashSearch.current = { redirect: '/org-1/users' };
 		const fromLogin = { id: 'usr-new', email: EMAIL, roles: {} } as unknown as User;
@@ -514,7 +536,6 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
 		expect(navigate).not.toHaveBeenCalled();
-		// Nothing to follow: no second read to bring the tab in line.
 		expect(get).toHaveBeenCalledTimes(1);
 	});
 
@@ -529,6 +550,24 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		await act(() => result.current(fromLogin));
 
 		expect(get).toHaveBeenCalledTimes(1);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('isn’t replaced by a newer completion that gives up before settling', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		let answer: (value: unknown) => void = () => undefined;
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		let first: Promise<boolean> | undefined;
+		act(() => {
+			first = result.current(NEWCOMER);
+		});
+		await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+		await expect(act(() => result.current(MEMBER, { stillCurrent: () => false }))).resolves.toBe(false);
+		await act(async () => answer({ data: customerRecord(NEWCOMER) }));
+
+		await expect(first).resolves.toBe(true);
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
 	});
 
@@ -577,7 +616,6 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		await act(async () => answer({ data: customerRecord({ ...NEWCOMER, id: 'usr-other' } as User) }));
 
 		await expect(first).resolves.toBe(false);
-		// The newer completion took the session in; the older one doesn't read it again over the top.
 		expect(get).toHaveBeenCalledTimes(1);
 		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(MEMBER);
 	});
