@@ -14,6 +14,7 @@ import {
 	useDeleteSecret,
 	useSetSecret,
 } from '@/integrations/api/instance/secrets/secrets';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -44,25 +45,34 @@ export function ConfigSecretsIndex() {
 	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
 	const { keySource, known: clusterTierKnown, clusterInfoUnavailable } = useSecretsKeySource(instanceParams);
-	// The cluster a key delivery was last seen on. While it is this one, any failed read keeps the poll going: one
-	// failed read must not strand the page. Scoped to the cluster, since the route stays mounted across clusters.
-	const [deliveringClusterId, setDeliveringClusterId] = useState<string>();
+	// The clusters a key delivery was seen on. While this one is among them, any failed read keeps the poll going: one
+	// failed read must not strand the page. Kept per cluster: the route stays mounted across clusters, and a create
+	// sent for one can answer after the user has moved to another.
+	const [deliveringClusterIds, setDeliveringClusterIds] = useState<ReadonlySet<string>>(new Set());
+	const markDelivering = useCallback(
+		(id: string) => setDeliveringClusterIds((ids) => ids.has(id) ? ids : new Set(ids).add(id)),
+		[],
+	);
 	const managedClusterId = keySource.managedClusterId;
-	const deliverySeen = !!managedClusterId && deliveringClusterId === managedClusterId;
+	const deliverySeen = !!managedClusterId && deliveringClusterIds.has(managedClusterId);
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
 		enabled: clusterTierKnown,
 		refetchInterval: (query) =>
-			managedClusterId && query.state.status === 'error'
-				&& (deliverySeen || clusterSecretsKeyGap(query.state.error) === 'delivering')
-				? KEY_DELIVERY_POLL_MS
-				: false,
+			pollUnlessForbidden(
+				managedClusterId && query.state.status === 'error'
+					&& (deliverySeen || clusterSecretsKeyGap(query.state.error) === 'delivering')
+					? KEY_DELIVERY_POLL_MS
+					: false,
+			)(query),
 	});
 	const reportedGap = managedClusterId ? clusterSecretsKeyGap(publicKeyQuery.error) : undefined;
-	if (reportedGap === 'delivering' && !deliverySeen) {
-		setDeliveringClusterId(managedClusterId);
-	} else if (deliverySeen && (publicKeyQuery.isSuccess || (reportedGap === 'missing' && !publicKeyQuery.isFetching))) {
-		setDeliveringClusterId(undefined);
+	// A 404 only ends the delivery once no read is running or waiting: one still out may predate the create.
+	const settledWithoutKey = reportedGap === 'missing' && publicKeyQuery.fetchStatus === 'idle';
+	if (managedClusterId && reportedGap === 'delivering' && !deliverySeen) {
+		markDelivering(managedClusterId);
+	} else if (managedClusterId && deliverySeen && (publicKeyQuery.isSuccess || settledWithoutKey)) {
+		setDeliveringClusterIds((ids) => new Set([...ids].filter((id) => id !== managedClusterId)));
 	}
 	const keyGap = reportedGap ?? (deliverySeen && publicKeyQuery.isError ? 'delivering' : undefined);
 	const { update: canUpdateCluster } = useOrganizationClusterPermissions(organizationId, clusterId);
@@ -127,7 +137,7 @@ export function ConfigSecretsIndex() {
 						gap={keyGap}
 						clusterId={managedClusterId}
 						canUpdate={canUpdateCluster}
-						onDelivering={setDeliveringClusterId}
+						onDelivering={markDelivering}
 					/>
 				)
 				: publicKeyQuery.isError && (

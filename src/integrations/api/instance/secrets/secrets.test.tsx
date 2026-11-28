@@ -3,7 +3,7 @@
  */
 import { EntityIds } from '@/features/auth/store/authStore';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { webcrypto } from 'node:crypto';
@@ -382,5 +382,28 @@ describe("a managed cluster's missing key", () => {
 		expect(queryClient.getQueryState(managed.queryKey)?.isInvalidated).toBe(true);
 		expect(queryClient.getQueryState(other.queryKey)?.isInvalidated).toBe(false);
 		expect(cmPost.mock.calls.length).toBe(readsBefore + 1);
+	});
+
+	it('reads the key again after the create when an older read is still out', async () => {
+		const { wrapper, params } = harness();
+		const answers: Array<(refused: Error) => void> = [];
+		cmPost.mockImplementation((_url: string, body: { operation: string }) =>
+			body.operation === 'create_secrets_key'
+				? Promise.resolve({ data: { status: 'DELIVERING', workflowId: 'wf-1' } })
+				: new Promise((_resolve, reject) => answers.push(reject))
+		);
+		const read = renderHook(
+			() => useQuery(secretsPublicKeyQueryOptions({ ...params, managedClusterId: 'clu-1' })),
+			{ wrapper },
+		);
+		await waitFor(() => expect(answers).toHaveLength(1));
+
+		const { result } = renderHook(() => useCreateClusterSecretsKey(), { wrapper });
+		result.current.mutate('clu-1');
+		await waitFor(() => expect(answers).toHaveLength(2));
+
+		answers[0](refusal(404));
+		answers[1](refusal(409));
+		await waitFor(() => expect(clusterSecretsKeyGap(read.result.current.error)).toBe('delivering'));
 	});
 });

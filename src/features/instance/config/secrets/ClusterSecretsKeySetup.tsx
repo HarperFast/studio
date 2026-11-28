@@ -18,7 +18,6 @@ export function ClusterSecretsKeySetup({ gap, clusterId, canUpdate, onDelivering
 	gap: ClusterSecretsKeyGap;
 	clusterId: string;
 	canUpdate: boolean;
-	/** Central manager accepted the key and started giving it to the instances. */
 	onDelivering?: (clusterId: string) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);

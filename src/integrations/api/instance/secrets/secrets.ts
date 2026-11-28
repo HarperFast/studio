@@ -22,7 +22,7 @@ import { apiClient } from '@/config/apiClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { isUnansweredWrite } from '@/integrations/api/unansweredWrite';
 import { encryptEnvelope } from '@/lib/crypto/envSecret';
-import { QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { type Query, QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 
 /** The cluster key clients encrypt against, normalized across the two sources (see below). */
@@ -143,13 +143,16 @@ export function useCreateClusterSecretsKey(onDelivering?: (clusterId: string) =>
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createClusterSecretsKey,
-		onSuccess: (result, clusterId) => {
+		onSuccess: async (result, clusterId) => {
+			const keyReads = {
+				predicate: ({ queryKey }: Query) => queryKey[1] === 'get_secrets_public_key' && queryKey[2] === clusterId,
+			};
+			// A read sent before the create would answer with the old "no key", and invalidating joins it.
+			await queryClient.cancelQueries(keyReads);
 			if (result.status === 'DELIVERING') {
 				onDelivering?.(clusterId);
 			}
-			return queryClient.invalidateQueries({
-				predicate: ({ queryKey }) => queryKey[1] === 'get_secrets_public_key' && queryKey[2] === clusterId,
-			});
+			return queryClient.invalidateQueries(keyReads);
 		},
 	});
 }

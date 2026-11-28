@@ -150,7 +150,11 @@ export function PreviewCredential({ app, repository }: { app: string; repository
 							again after adding it, since it passes <code className="font-mono">credential: true</code>.
 						</p>
 						<div>
-							<Button type="submit" size="sm" disabled={!token.trim() || !hasSecretsKey || isSetting || isGranting}>
+							<Button
+								type="submit"
+								size="sm"
+								disabled={!token.trim() || !known || !hasSecretsKey || isSetting || isGranting}
+							>
 								Seal token
 							</Button>
 						</div>
