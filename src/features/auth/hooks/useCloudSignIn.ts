@@ -11,12 +11,13 @@ import {
 	useEmailedFlow,
 } from '@/features/auth/pendingSignInRedirect';
 import { currentUserQueryKey, fetchCurrentUser, getCurrentUser } from '@/features/auth/queries/getCurrentUser';
-import { redirectAccess } from '@/features/auth/redirectAccess';
+import { ACCESS_LOOKUP_TIMEOUT_MS, redirectAccess } from '@/features/auth/redirectAccess';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { User } from '@/integrations/api/api.patch';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { reoClient } from '@/integrations/reo/reo';
+import { errorStatus } from '@/lib/errorStatus';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
@@ -29,7 +30,7 @@ import {
 import type { PostSignInRedirect } from '@/lib/urls/postSignInRedirect';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
@@ -41,6 +42,9 @@ import { useResendEmailVerification } from './useResendEmailVerification';
  * can move on while this runs passes `stillCurrent`, and the completion gives up before taking the user in or
  * navigating once it is false.
  */
+/** Counts completions started in this tab, so one a newer completion replaced leaves the session to it. */
+let latestCompletion = 0;
+
 export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: string } = {}) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -53,6 +57,7 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 		user: User,
 		{ stillCurrent = () => true }: { stillCurrent?: () => boolean } = {},
 	): Promise<boolean> => {
+		const completion = ++latestCompletion;
 		// Read first: clearing a previous account below wipes localStorage, the kept target with it.
 		const kept = readSignInRedirect(flow);
 		// The verify page lets a signed-in visitor in, and the new session has already replaced theirs.
@@ -90,18 +95,21 @@ export function useCompleteCloudSignIn(options: { redirect?: unknown; flow?: str
 			// Settled before the account is taken in: taking it in re-runs this page's guard, which would follow a
 			// `?redirect=` it can't yet rule out.
 			const settled = await settleSignIn(user, [postSignInRedirect(redirect), postSignInRedirect(kept?.redirect)]);
-			if (settled === undefined) {
-				// Another account holds the session now: put nothing back for this flow, and let the tab follow that account.
-				void getCurrentUser().catch((error: unknown) => {
-					console.debug('Could not read the account that took the session:', error);
-				});
+			const replacedHere = completion !== latestCompletion
+				|| authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
+				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
+				|| !stillCurrent();
+			if (settled.kind !== 'take') {
+				// The session is no longer this account's: nothing is put back for this flow. When another tab's account
+				// holds it, this tab follows that account, unless something newer here has already taken over.
+				if (settled.kind === 'other-account' && !replacedHere) {
+					void getCurrentUser().catch((error: unknown) => {
+						console.debug('Could not read the account that took the session:', error);
+					});
+				}
 				return false;
 			}
-			if (
-				authStore.getSignOutGeneration(OverallAppSignIn) !== before.signOutGeneration
-				|| authStore.getSignInRevision(OverallAppSignIn) !== before.signInRevision
-				|| !stillCurrent()
-			) {
+			if (replacedHere) {
 				// Taken here so the restore above still puts back what the previous account's wipe took, unless a sign-out
 				// or another sign-in landed meanwhile.
 				taken = before;
@@ -160,14 +168,27 @@ export function useCloudSignIn() {
 	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
+	// Settling the target can wait on `/User/current`: a second submit meanwhile would race this completion's session.
+	const [isCompleting, setIsCompleting] = useState(false);
+	const completing = useRef(false);
 	const { mutateAsync: resendEmailVerification } = useResendEmailVerification();
 
 	const clearSubmitError = useCallback(() => setSubmitError(undefined), []);
 
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
+		if (completing.current) {
+			return;
+		}
 		setSubmitError(undefined);
 		submitLoginData(formData, {
-			onSuccess: (user) => completeSignIn(user),
+			onSuccess: (user) => {
+				completing.current = true;
+				setIsCompleting(true);
+				void completeSignIn(user).finally(() => {
+					completing.current = false;
+					setIsCompleting(false);
+				});
+			},
 			// The login mutation opts out of the global error toast (meta.skipGlobalErrorToast) so we
 			// can special-case the unverified-email rejection instead of dead-ending on a red toast.
 			onError: (error) => {
@@ -200,46 +221,51 @@ export function useCloudSignIn() {
 
 	return {
 		clearSubmitError,
-		isPending,
+		isPending: isPending || isCompleting,
 		submitError,
 		submitForm,
 	};
 }
 
+type SettledSignIn =
+	| { kind: 'take'; user: User; target: PostSignInRedirect | undefined }
+	| { kind: 'other-account' }
+	| { kind: 'no-session' };
+
 /**
  * The record to take in, and the first target it can open. When `/User/current` had to settle a target, its record is
- * the one taken in, so guards that run afterwards decide from the staff fields `/Login/` leaves out. A failed read
- * follows the target, as sign-in did before it checked. Undefined when the session has passed to another account.
+ * the one taken in, and decides the targets after it, so guards that run afterwards decide from the staff fields and
+ * single sign-on locks `/Login/` leaves out. A failed or slow read follows the target, as sign-in did before it checked.
  */
-async function settleSignIn(
-	user: User,
-	targets: Array<PostSignInRedirect | undefined>,
-): Promise<{ user: User; target: PostSignInRedirect | undefined } | undefined> {
+async function settleSignIn(user: User, targets: Array<PostSignInRedirect | undefined>): Promise<SettledSignIn> {
 	let current: User | null | undefined;
 	for (const target of targets) {
 		if (target === undefined) {
 			continue;
 		}
-		let access = redirectAccess(user, target);
-		if (access === 'unknown') {
-			if (current === undefined) {
-				const read = await fetchCurrentUser().catch((error: unknown) => {
-					console.debug('Could not read the signed-in account to check its sign-in target:', error);
-					return null;
-				});
-				if (read && read.id !== user.id) {
-					return undefined;
+		let access = redirectAccess(current ?? user, target);
+		if (access === 'unknown' && current === undefined) {
+			try {
+				current = (await fetchCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS })) ?? null;
+			} catch (error) {
+				// No session behind this sign-in any more: there is nothing to take in.
+				if (errorStatus(error) === 401) {
+					return { kind: 'no-session' };
 				}
-				current = read ?? null;
+				console.debug('Could not read the signed-in account to check its sign-in target:', error);
+				current = null;
 			}
-			access = current ? redirectAccess(current, target) : 'open';
+			if (current && current.id !== user.id) {
+				return { kind: 'other-account' };
+			}
+			access = redirectAccess(current ?? user, target);
 		}
 		if (access !== 'closed') {
-			return { user: current ?? user, target };
+			return { kind: 'take', user: current ?? user, target };
 		}
 		console.debug('Not following a sign-in target into an organization this account cannot open.');
 	}
-	return { user: current ?? user, target: undefined };
+	return { kind: 'take', user: current ?? user, target: undefined };
 }
 
 export function useLoginMutation() {

@@ -53,9 +53,11 @@ describe('redirectAccess', () => {
 		expect(redirectAccess(admin, app('/org-theirs/users'))).toBe('open');
 	});
 
-	it('cannot tell from a /Login/ record whether staff access would open it', () => {
+	it('cannot tell from a /Login/ record whether staff access or a single sign-on lock decides', () => {
 		expect(redirectAccess(signedIn, app('/org-theirs/users'))).toBe('unknown');
-		expect(redirectAccess(signedIn, app('/org-mine/users'))).toBe('open');
+		// /Login/ lists an SSO-required membership as if a password session could open it.
+		expect(redirectAccess(signedIn, app('/org-mine/users'))).toBe('unknown');
+		expect(redirectAccess(signedIn, app('/profile'))).toBe('open');
 	});
 
 	it('follows anything for a local instance’s user', () => {

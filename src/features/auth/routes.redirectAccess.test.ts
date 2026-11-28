@@ -3,10 +3,10 @@ import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import type { User } from '@/integrations/api/api.patch';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const fetchCurrentUser = vi.hoisted(() => vi.fn<() => Promise<User>>());
+const getCurrentUser = vi.hoisted(() => vi.fn<(options?: { timeout?: number }) => Promise<User>>());
 vi.mock('@/features/auth/queries/getCurrentUser', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/features/auth/queries/getCurrentUser')>()),
-	fetchCurrentUser,
+	getCurrentUser,
 }));
 
 type BeforeLoad = (load: { context: unknown; location: { search: Record<string, unknown> } }) => unknown;
@@ -48,43 +48,61 @@ const member = { ...customer, roles: { 'org-1': {} } } as unknown as User;
 const freshFromLogin = { id: 'usr-new', roles: {} } as unknown as User;
 
 beforeEach(() => {
-	fetchCurrentUser.mockReset();
+	getCurrentUser.mockReset();
 });
 
 describe('a signed-in visitor’s ?redirect= on the auth pages', () => {
 	it('is not followed into an organization the account can’t open', async () => {
 		expect(await landing('sign-in', customer, '/org-1/users')).toEqual({ href: undefined, to: '/' });
 		expect(await landing('sign-up', customer, '/org-1/users')).toBeUndefined();
-		expect(fetchCurrentUser).not.toHaveBeenCalled();
+		expect(getCurrentUser).not.toHaveBeenCalled();
 	});
 
 	it('is followed into a member organization', async () => {
 		expect(await landing('sign-in', member, '/org-1/users')).toEqual({ href: '/org-1/users', to: undefined });
 		expect(await landing('sign-up', member, '/org-1/users')).toEqual({ href: '/org-1/users', to: undefined });
-		expect(fetchCurrentUser).not.toHaveBeenCalled();
+		expect(getCurrentUser).not.toHaveBeenCalled();
 	});
 
-	describe('when the stored record can’t say whether staff access would open it', () => {
-		it('asks /User/current, and is not followed for a customer', async () => {
-			fetchCurrentUser.mockResolvedValue(customer);
+	describe('when the stored record can’t decide', () => {
+		it('asks /User/current, within a short bound, and is not followed for a customer', async () => {
+			getCurrentUser.mockResolvedValue(customer);
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toEqual({ href: undefined, to: '/' });
 			expect(await landing('sign-up', freshFromLogin, '/org-1/users')).toBeUndefined();
-			expect(fetchCurrentUser).toHaveBeenCalledTimes(2);
+			expect(getCurrentUser).toHaveBeenCalledTimes(2);
+			expect(getCurrentUser).toHaveBeenCalledWith({ timeout: 5_000 });
+		});
+
+		it('is not followed into an organization that requires single sign-on, which /Login/ can’t show', async () => {
+			const memberFromLogin = { id: 'usr-new', roles: { 'org-1': {} } } as unknown as User;
+			getCurrentUser.mockResolvedValue(
+				{
+					...customer,
+					roles: { 'org-1': { oauthProviders: [{ name: 'Okta', oauthConfigId: 'oac-1' }] } },
+				} as unknown as User,
+			);
+			expect(await landing('sign-in', memberFromLogin, '/org-1/users')).toEqual({ href: undefined, to: '/' });
 		});
 
 		it('is followed for staff who can read any organization', async () => {
-			fetchCurrentUser.mockResolvedValue(staff);
+			getCurrentUser.mockResolvedValue(staff);
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toEqual({ href: '/org-1/users', to: undefined });
 		});
 
 		it('is followed when /User/current can’t be read, as sign-in is', async () => {
-			fetchCurrentUser.mockRejectedValue(new Error('offline'));
+			getCurrentUser.mockRejectedValue(new Error('timeout of 5000ms exceeded'));
 			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toEqual({ href: '/org-1/users', to: undefined });
 		});
 
-		it('is not followed once another account holds the session', async () => {
-			fetchCurrentUser.mockResolvedValue({ ...staff, id: 'usr-other' } as unknown as User);
-			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toEqual({ href: undefined, to: '/' });
+		it('sends the page nowhere when the session is gone', async () => {
+			getCurrentUser.mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
+			expect(await landing('sign-in', freshFromLogin, '/org-1/users')).toBeUndefined();
+		});
+
+		it('decides for the account that holds the session, falling back to that account’s own route', async () => {
+			const oldAccount = { id: 'usr-old', roles: { 'org-old': {} } } as unknown as User;
+			getCurrentUser.mockResolvedValue({ ...customer, id: 'usr-other', roles: { 'org-new': {} } } as unknown as User);
+			expect(await landing('sign-in', oldAccount, '/org-1/users')).toEqual({ href: undefined, to: '/org-new' });
 		});
 	});
 });

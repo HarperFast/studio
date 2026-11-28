@@ -160,6 +160,39 @@ describe('useCloudSignIn — unverified email', () => {
 	});
 });
 
+describe('useCloudSignIn — while the completion decides where to land', () => {
+	afterEach(() => {
+		hashSearch.current = {};
+		authStore.signOutAllLocally();
+		appQueryClient.clear();
+		get.mockReset();
+		post.mockReset();
+	});
+
+	it('stays busy, and takes no second sign-in, until the target is settled', async () => {
+		hashSearch.current = { redirect: '/org-1/users' };
+		const fromLogin = { id: 'usr-new', email: EMAIL, roles: {} } as unknown as User;
+		post.mockResolvedValue({ data: fromLogin });
+		let answer: (value: unknown) => void = () => undefined;
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		const { result } = renderHook(() => useCloudSignIn(), {
+			wrapper: ({ children }: PropsWithChildren) => (
+				<QueryClientProvider client={appQueryClient}>{children}</QueryClientProvider>
+			),
+		});
+
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+		await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+		expect(result.current.isPending).toBe(true);
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+		expect(post).toHaveBeenCalledTimes(1);
+
+		await act(async () => answer({ data: { ...fromLogin, fabricRole: 'least_privileged', staffPermissions: [] } }));
+		await waitFor(() => expect(result.current.isPending).toBe(false));
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+});
+
 describe('useCloudSignIn — retryable failures', () => {
 	it('tells the user a bodyless 503 is worth reattempting, and still reports it', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -394,7 +427,20 @@ describe('useCompleteCloudSignIn — redirect', () => {
 describe('useCompleteCloudSignIn — a target into an organization the account can’t open', () => {
 	// As /Login/ answers: roles, no staff fields.
 	const NEWCOMER = { id: 'usr-new', email: 'new@example.com', roles: {} } as unknown as User;
-	const MEMBER = { id: 'usr-member', email: 'member@example.com', roles: { 'org-1': {} } } as unknown as User;
+	// As /User/current answers, so nothing about it is left to ask.
+	const MEMBER = {
+		id: 'usr-member',
+		email: 'member@example.com',
+		roles: { 'org-1': {} },
+		fabricRole: 'least_privileged',
+		staffPermissions: [],
+	} as unknown as User;
+	const customerRecord = (user: User, roles: Record<string, unknown> = {}) => ({
+		...user,
+		roles,
+		fabricRole: 'least_privileged',
+		staffPermissions: [],
+	});
 	const previousAccountsPage = '/org-1/users';
 
 	function appWrapper({ children }: PropsWithChildren) {
@@ -421,7 +467,7 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 
 		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(true);
 
-		expect(get).toHaveBeenCalledExactlyOnceWith('/User/current');
+		expect(get).toHaveBeenCalledExactlyOnceWith('/User/current', { timeout: 5_000 });
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
 	});
 
@@ -435,7 +481,7 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
 	});
 
-	it('follows a member’s target without asking /User/current', async () => {
+	it('follows a member’s target without asking when the record is /User/current’s', async () => {
 		hashSearch.current = { redirect: previousAccountsPage };
 		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
 
@@ -443,6 +489,97 @@ describe('useCompleteCloudSignIn — a target into an organization the account c
 
 		expect(get).not.toHaveBeenCalled();
 		expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: previousAccountsPage });
+	});
+
+	it('asks about a /Login/ membership, which can’t show an organization’s single sign-on lock', async () => {
+		const fromLogin = { id: 'usr-member', email: 'member@example.com', roles: { 'org-1': {} } } as unknown as User;
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockResolvedValue({
+			data: customerRecord(fromLogin, { 'org-1': { oauthProviders: [{ name: 'Okta', oauthConfigId: 'oac-1' }] } }),
+		});
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await act(() => result.current(fromLogin));
+
+		expect(get).toHaveBeenCalledTimes(1);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('ends without taking the account in when /User/current says the session is gone', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		get.mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		await expect(act(() => result.current(NEWCOMER))).resolves.toBe(false);
+
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBeNull();
+		expect(navigate).not.toHaveBeenCalled();
+		// Nothing to follow: no second read to bring the tab in line.
+		expect(get).toHaveBeenCalledTimes(1);
+	});
+
+	it('decides a kept target from the fresh record once it has one', async () => {
+		// /Login/ still lists org-1, which /User/current no longer does.
+		const fromLogin = { id: 'usr-new', email: 'new@example.com', roles: { 'org-1': {} } } as unknown as User;
+		const flow = keepSignInRedirect('/org-1/clu-1/usage');
+		hashSearch.current = { redirect: '/org-9/users' };
+		get.mockResolvedValue({ data: customerRecord(fromLogin) });
+		const { result } = renderHook(() => useCompleteCloudSignIn({ flow }), { wrapper: appWrapper });
+
+		await act(() => result.current(fromLogin));
+
+		expect(get).toHaveBeenCalledTimes(1);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('leaves the session to a newer completion in this tab that is still settling', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		const newer = { id: 'usr-newer', email: 'newer@example.com', roles: {} } as unknown as User;
+		let answerFirst: (value: unknown) => void = () => undefined;
+		let answerNewer: (value: unknown) => void = () => undefined;
+		get
+			.mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)))
+			.mockReturnValueOnce(new Promise((resolve) => (answerNewer = resolve)))
+			.mockResolvedValue({ data: customerRecord(newer) });
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		let first: Promise<boolean> | undefined;
+		let second: Promise<boolean> | undefined;
+		act(() => {
+			first = result.current(NEWCOMER);
+		});
+		await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+		act(() => {
+			second = result.current(newer);
+		});
+		await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+		// The session is the newer sign-in's: the older completion's answer is for that account.
+		await act(async () => answerFirst({ data: customerRecord(newer) }));
+		await expect(first).resolves.toBe(false);
+		await act(async () => answerNewer({ data: customerRecord(newer) }));
+
+		await expect(second).resolves.toBe(true);
+		expect(get).toHaveBeenCalledTimes(2);
+		expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: '/' });
+	});
+
+	it('leaves the session to a newer completion in this tab when its own answer was for another account', async () => {
+		hashSearch.current = { redirect: previousAccountsPage };
+		let answer: (value: unknown) => void = () => undefined;
+		get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+		const { result } = renderHook(() => useCompleteCloudSignIn(), { wrapper: appWrapper });
+
+		let first: Promise<boolean> | undefined;
+		act(() => {
+			first = result.current(NEWCOMER);
+		});
+		await act(() => result.current(MEMBER));
+		await act(async () => answer({ data: customerRecord({ ...NEWCOMER, id: 'usr-other' } as User) }));
+
+		await expect(first).resolves.toBe(false);
+		// The newer completion took the session in; the older one doesn't read it again over the top.
+		expect(get).toHaveBeenCalledTimes(1);
+		expect(authStore.getConnectionById(OverallAppSignIn).user).toBe(MEMBER);
 	});
 
 	it('decides from a full account record without asking, as the OAuth and emailed flows hand it one', async () => {

@@ -1,7 +1,8 @@
 import { defaultInstanceRoute } from '@/config/constants';
-import { fetchCurrentUser } from '@/features/auth/queries/getCurrentUser';
-import { redirectAccess } from '@/features/auth/redirectAccess';
+import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { ACCESS_LOOKUP_TIMEOUT_MS, redirectAccess } from '@/features/auth/redirectAccess';
 import type { AuthenticatedConnection } from '@/features/auth/store/authStore';
+import { errorStatus } from '@/lib/errorStatus';
 import { isLocalUser } from '@/lib/types/isLocalUser';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { appRedirectTarget, postSignInRedirect } from '@/lib/urls/postSignInRedirect';
@@ -28,31 +29,31 @@ const authLayout = createRoute({
 type SignedInUser = NonNullable<AuthenticatedConnection['user']>;
 
 /**
- * Whether a signed-in visitor can open `target`. The store can hold the `/Login/` record, which lacks the staff fields:
- * sign-in takes in `/User/current` only when it had to ask, so a sign-in with no target, or a member's, keeps the slim
- * one. Where that record can't say, `/User/current` decides, as at sign-in, and a failed read follows the target, as
- * sign-in does. An answer for another account, which now holds the session, opens nothing.
+ * Where a signed-in visitor's target leaves them, and the account it was decided for. The store can hold the `/Login/`
+ * record, which can't decide (`redirectAccess.ts`). Then `/User/current` decides, as at sign-in, and is synced into
+ * the store, so the next visit doesn't ask; when another account holds the session, that is the account decided for.
+ * A failed or slow read follows the target, as sign-in does. `'no-session'` when the session is gone: the 401 handler
+ * signs the tab out, and the page should not send it anywhere first.
  */
-async function signedInAccess(user: SignedInUser, target: PostSignInRedirect): Promise<'open' | 'closed'> {
+async function signedInTarget(
+	user: SignedInUser,
+	target: PostSignInRedirect,
+): Promise<{ target: PostSignInRedirect | undefined; user: SignedInUser } | 'no-session'> {
 	const access = redirectAccess(user, target);
-	if (access !== 'unknown') {
-		return access;
+	// `redirectAccess` opens every target to a local user, so only a central manager account asks.
+	if (access !== 'unknown' || isLocalUser(user)) {
+		return { target: access === 'closed' ? undefined : target, user };
 	}
-	// `redirectAccess` opens every target to a local user, so only a central manager account gets here.
-	if (isLocalUser(user)) {
-		return 'open';
-	}
-	let current: Awaited<ReturnType<typeof fetchCurrentUser>>;
 	try {
-		current = await fetchCurrentUser();
+		const current = await getCurrentUser({ timeout: ACCESS_LOOKUP_TIMEOUT_MS });
+		return { target: redirectAccess(current, target) === 'closed' ? undefined : target, user: current };
 	} catch (error) {
+		if (errorStatus(error) === 401) {
+			return 'no-session';
+		}
 		console.debug('Could not read the signed-in account to check its redirect:', error);
-		return 'open';
+		return { target, user };
 	}
-	if (current.id !== user.id) {
-		return 'closed';
-	}
-	return redirectAccess(current, target) === 'closed' ? 'closed' : 'open';
 }
 
 /**
@@ -65,7 +66,11 @@ async function continueSignedIn(
 	{ orDefaultRoute }: { orDefaultRoute: boolean },
 ): Promise<void> {
 	const named = postSignInRedirect(search?.redirect);
-	const target = named && (await signedInAccess(user, named)) === 'open' ? named : undefined;
+	const decided = named ? await signedInTarget(user, named) : { target: undefined, user };
+	if (decided === 'no-session') {
+		return;
+	}
+	const { target } = decided;
 	if (target?.kind === 'server') {
 		// A full-page load. The router follows a thrown redirect by replacing this entry, so Back does not land on a
 		// sign-in page that sends the user straight on again.
@@ -75,7 +80,8 @@ async function continueSignedIn(
 		throw redirect({ href: target.to });
 	}
 	if (orDefaultRoute) {
-		throw redirect({ to: getDefaultSignedInCloudRouteForUser(user) });
+		// The account decided for: after a mismatch, the old account's default route is one the session can't open.
+		throw redirect({ to: getDefaultSignedInCloudRouteForUser(decided.user) });
 	}
 }
 
